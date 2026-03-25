@@ -816,7 +816,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      increment_views: {
+        Args: {
+          prop_id: string;
+        };
+        Returns: undefined;
+      };
+      update_property_rating: {
+        Args: {
+          prop_id: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       user_role:

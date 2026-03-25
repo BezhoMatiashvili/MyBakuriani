@@ -1,11 +1,11 @@
-import { HeroSection } from "@/components/home/HeroSection";
-import { ServicesSection } from "@/components/home/ServicesSection";
+import LandingPage from "@/app/_landing/LandingPage";
+
+export const metadata = {
+  title: "MyBakuriani — ყველაზე სანდო გზამკვლევი ბაკურიანში",
+  description:
+    "პრემიუმ უძრავი ქონების და გაქირავების პლატფორმა ბაკურიანში. მხოლოდ ვერიფიცირებული და სანდო მესაკუთრეები.",
+};
 
 export default function Home() {
-  return (
-    <div className="flex flex-col">
-      <HeroSection />
-      <ServicesSection />
-    </div>
-  );
+  return <LandingPage />;
 }
