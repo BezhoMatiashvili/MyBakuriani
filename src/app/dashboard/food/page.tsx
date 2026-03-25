@@ -120,7 +120,7 @@ export default function FoodDashboardPage() {
   }, [user, supabase, fetchData]);
 
   const menuItems: MenuItem[] = foodService?.menu
-    ? (foodService.menu as MenuItem[])
+    ? (foodService.menu as unknown as MenuItem[])
     : [];
 
   async function toggleDelivery() {
