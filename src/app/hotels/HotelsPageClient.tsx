@@ -44,6 +44,16 @@ export default function HotelsPageClient({ properties }: Props) {
         return false;
       if (filters.areaMax !== "" && (p.area_sqm ?? 0) > filters.areaMax)
         return false;
+      if (filters.types.length > 0 && !filters.types.includes(p.type))
+        return false;
+      // Amenities filter
+      if (filters.amenities.length > 0) {
+        const propertyAmenities = Array.isArray(p.amenities)
+          ? (p.amenities as string[])
+          : [];
+        if (!filters.amenities.every((a) => propertyAmenities.includes(a)))
+          return false;
+      }
       return true;
     });
   }, [properties, filters]);

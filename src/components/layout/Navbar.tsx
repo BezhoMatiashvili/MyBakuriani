@@ -9,7 +9,7 @@ import { slideFromRight } from "@/lib/utils/animations";
 
 const navItems = [
   { label: "ყველა განცხადება", href: "/apartments" },
-  { label: "სერვისები", href: "/services" },
+  { label: "როგორ მუშაობს", href: "#how-it-works" },
   { label: "ვერიფიკაცია", href: "#verification" },
   { label: "ფასები", href: "#pricing" },
 ];

@@ -6,7 +6,19 @@ export const metadata = {
   description: "მოძებნეთ აპარტამენტები, სასტუმროები და სერვისები ბაკურიანში.",
 };
 
-export default async function SearchPage() {
+interface SearchPageProps {
+  searchParams: Promise<{
+    location?: string;
+    check_in?: string;
+    check_out?: string;
+    guests?: string;
+    cadastral?: string;
+    mode?: string;
+  }>;
+}
+
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const { data: properties } = await supabase
@@ -18,5 +30,15 @@ export default async function SearchPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  return <SearchPageClient initialProperties={properties ?? []} />;
+  return (
+    <SearchPageClient
+      initialProperties={properties ?? []}
+      initialLocation={params.location ?? ""}
+      initialCheckIn={params.check_in ?? ""}
+      initialCheckOut={params.check_out ?? ""}
+      initialGuests={params.guests ? Number(params.guests) : ""}
+      initialCadastral={params.cadastral ?? ""}
+      initialMode={(params.mode as "rent" | "sale") ?? "rent"}
+    />
+  );
 }

@@ -28,6 +28,10 @@ serve(async (req) => {
       capacity,
       property_type,
       cadastral_code,
+      is_for_sale,
+      amenities,
+      area_min,
+      area_max,
       lat,
       lng,
       page = 1,
@@ -41,18 +45,39 @@ serve(async (req) => {
       })
       .eq("status", "active");
 
-    // Location trigram search
+    // Location trigram search (also search title)
     if (query) {
-      dbQuery = dbQuery.ilike("location", `%${query}%`);
+      dbQuery = dbQuery.or(`location.ilike.%${query}%,title.ilike.%${query}%`);
     }
 
-    // Filters
-    if (price_min) dbQuery = dbQuery.gte("price_per_night", price_min);
-    if (price_max) dbQuery = dbQuery.lte("price_per_night", price_max);
+    // Rent vs Sale filter
+    if (is_for_sale !== undefined && is_for_sale !== null) {
+      dbQuery = dbQuery.eq("is_for_sale", is_for_sale);
+    }
+
+    // Price filters — use sale_price for sale, price_per_night for rent
+    if (is_for_sale) {
+      if (price_min) dbQuery = dbQuery.gte("sale_price", price_min);
+      if (price_max) dbQuery = dbQuery.lte("sale_price", price_max);
+    } else {
+      if (price_min) dbQuery = dbQuery.gte("price_per_night", price_min);
+      if (price_max) dbQuery = dbQuery.lte("price_per_night", price_max);
+    }
+
+    // Other filters
     if (rooms) dbQuery = dbQuery.gte("rooms", rooms);
     if (capacity) dbQuery = dbQuery.gte("capacity", capacity);
     if (property_type) dbQuery = dbQuery.eq("type", property_type);
     if (cadastral_code) dbQuery = dbQuery.eq("cadastral_code", cadastral_code);
+    if (area_min) dbQuery = dbQuery.gte("area_sqm", area_min);
+    if (area_max) dbQuery = dbQuery.lte("area_sqm", area_max);
+
+    // Amenities filter — check JSONB contains each amenity
+    if (amenities && Array.isArray(amenities) && amenities.length > 0) {
+      for (const amenity of amenities) {
+        dbQuery = dbQuery.contains("amenities", [amenity]);
+      }
+    }
 
     // Pagination
     const offset = (page - 1) * per_page;

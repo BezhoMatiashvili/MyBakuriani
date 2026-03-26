@@ -19,12 +19,13 @@ interface ServiceCardProps {
 }
 
 const categoryRouteMap: Record<string, string> = {
-  cleaner: "/services/cleaning",
-  food: "/services/food",
-  entertainment: "/services/entertainment",
-  transport: "/services/transport",
-  handyman: "/services/handyman",
-  employment: "/services/employment",
+  cleaner: "/services",
+  cleaning: "/services",
+  food: "/food",
+  entertainment: "/entertainment",
+  transport: "/transport",
+  handyman: "/services",
+  employment: "/employment",
 };
 
 export default function ServiceCard({

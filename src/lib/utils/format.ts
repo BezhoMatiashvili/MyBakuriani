@@ -6,14 +6,23 @@ import { ka } from "date-fns/locale";
  * Returns "X ₾" with a space before the symbol.
  */
 export function formatPrice(amount: number): string {
-  return `${amount.toLocaleString("ka-GE")} ₾`;
+  return `${formatNumber(amount)} ₾`;
 }
 
 /**
  * Format a per-night price: "X ₾ / ღამე"
  */
 export function formatPricePerNight(amount: number): string {
-  return `${amount.toLocaleString("ka-GE")} ₾ / ღამე`;
+  return `${formatNumber(amount)} ₾ / ღამე`;
+}
+
+/**
+ * Locale-safe number formatting with space as thousand separator.
+ * Avoids toLocaleString() which can differ between server and client,
+ * causing React hydration mismatches.
+ */
+function formatNumber(n: number): string {
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 /**

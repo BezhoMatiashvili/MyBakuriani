@@ -1,18 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import type { Tables } from "@/lib/types/database";
-
-interface SearchFilters {
-  location: string;
-  date: string;
-  guests: number | "";
-  cadastralCode: string;
-}
 import PropertyCard from "@/components/cards/PropertyCard";
 import { FilterPanel, type Filters } from "@/components/search/FilterPanel";
-import { SearchBox } from "@/components/search/SearchBox";
+import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
+import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import BottomSheet from "@/components/shared/BottomSheet";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { Button } from "@/components/ui/button";
@@ -31,66 +25,246 @@ const ITEMS_PER_PAGE = 12;
 
 interface Props {
   initialProperties: Tables<"properties">[];
+  initialLocation?: string;
+  initialCheckIn?: string;
+  initialCheckOut?: string;
+  initialGuests?: number | "";
+  initialCadastral?: string;
+  initialMode?: "rent" | "sale";
 }
 
-export default function SearchPageClient({ initialProperties }: Props) {
+interface SearchState {
+  location: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number | "";
+  cadastralCode: string;
+}
+
+export default function SearchPageClient({
+  initialProperties,
+  initialLocation = "",
+  initialCheckIn = "",
+  initialCheckOut = "",
+  initialGuests = "",
+  initialCadastral = "",
+  initialMode = "rent",
+}: Props) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [guestFilter, setGuestFilter] = useState<number | "">();
+  const [searchState, setSearchState] = useState<SearchState>({
+    location: initialLocation,
+    checkIn: initialCheckIn,
+    checkOut: initialCheckOut,
+    guests: initialGuests,
+    cadastralCode: initialCadastral,
+  });
+  const [mode, setMode] = useState<"rent" | "sale">(initialMode);
   const [page, setPage] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [properties, setProperties] =
+    useState<Tables<"properties">[]>(initialProperties);
+  const [totalCount, setTotalCount] = useState(initialProperties.length);
+  const [loading, setLoading] = useState(false);
+
+  const fetchProperties = useCallback(
+    async (
+      search: SearchState,
+      currentFilters: Filters,
+      currentMode: "rent" | "sale",
+      currentPage: number,
+    ) => {
+      setLoading(true);
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+        const body: Record<string, unknown> = {
+          page: currentPage,
+          per_page: ITEMS_PER_PAGE,
+        };
+
+        // Search query (location or cadastral)
+        if (search.location) body.query = search.location;
+        if (search.cadastralCode) body.cadastral_code = search.cadastralCode;
+        if (search.checkIn) body.check_in = search.checkIn;
+        if (search.checkOut) body.check_out = search.checkOut;
+        if (search.guests) body.capacity = search.guests;
+
+        // Rent/Sale mode
+        body.is_for_sale = currentMode === "sale";
+
+        // Filters
+        if (currentFilters.priceMin !== "")
+          body.price_min = currentFilters.priceMin;
+        if (currentFilters.priceMax !== "")
+          body.price_max = currentFilters.priceMax;
+        if (currentFilters.rooms !== null) body.rooms = currentFilters.rooms;
+        if (currentFilters.types.length === 1)
+          body.property_type = currentFilters.types[0];
+        if (currentFilters.areaMin !== "")
+          body.area_min = currentFilters.areaMin;
+        if (currentFilters.areaMax !== "")
+          body.area_max = currentFilters.areaMax;
+        if (currentFilters.amenities.length > 0)
+          body.amenities = currentFilters.amenities;
+
+        const response = await fetch(`${supabaseUrl}/functions/v1/search`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${anonKey}`,
+            apikey: anonKey,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          throw new Error("Search request failed");
+        }
+
+        const result = await response.json();
+        let data: Tables<"properties">[] = result.data || [];
+
+        // Client-side: multiple property types (edge function only supports single type)
+        if (currentFilters.types.length > 1) {
+          data = data.filter((p) => currentFilters.types.includes(p.type));
+        }
+
+        setProperties(data);
+        setTotalCount(data.length);
+      } catch {
+        // Fallback to client-side filtering of initial data
+        let filtered = initialProperties;
+
+        // Text search
+        if (search.location) {
+          const q = search.location.toLowerCase();
+          filtered = filtered.filter(
+            (p) =>
+              p.title.toLowerCase().includes(q) ||
+              p.location?.toLowerCase().includes(q),
+          );
+        }
+        if (search.cadastralCode) {
+          filtered = filtered.filter((p) =>
+            p.cadastral_code
+              ?.toLowerCase()
+              .includes(search.cadastralCode.toLowerCase()),
+          );
+        }
+
+        // Rent/Sale mode
+        filtered = filtered.filter((p) =>
+          currentMode === "sale" ? p.is_for_sale : !p.is_for_sale,
+        );
+
+        // Price
+        const priceField =
+          currentMode === "sale" ? "sale_price" : "price_per_night";
+        if (currentFilters.priceMin !== "") {
+          filtered = filtered.filter(
+            (p) =>
+              Number(p[priceField] ?? 0) >= Number(currentFilters.priceMin),
+          );
+        }
+        if (currentFilters.priceMax !== "") {
+          filtered = filtered.filter(
+            (p) =>
+              Number(p[priceField] ?? 0) <= Number(currentFilters.priceMax),
+          );
+        }
+
+        // Rooms
+        if (currentFilters.rooms !== null) {
+          filtered = filtered.filter(
+            (p) => p.rooms !== null && p.rooms >= currentFilters.rooms!,
+          );
+        }
+
+        // Area
+        if (currentFilters.areaMin !== "") {
+          filtered = filtered.filter(
+            (p) => (p.area_sqm ?? 0) >= Number(currentFilters.areaMin),
+          );
+        }
+        if (currentFilters.areaMax !== "") {
+          filtered = filtered.filter(
+            (p) => (p.area_sqm ?? 0) <= Number(currentFilters.areaMax),
+          );
+        }
+
+        // Property types
+        if (currentFilters.types.length > 0) {
+          filtered = filtered.filter((p) =>
+            currentFilters.types.includes(p.type),
+          );
+        }
+
+        // Amenities
+        if (currentFilters.amenities.length > 0) {
+          filtered = filtered.filter((p) => {
+            const propertyAmenities = Array.isArray(p.amenities)
+              ? p.amenities
+              : [];
+            return currentFilters.amenities.every((a) =>
+              propertyAmenities.includes(a),
+            );
+          });
+        }
+
+        // Guests
+        if (search.guests) {
+          filtered = filtered.filter(
+            (p) => p.capacity && p.capacity >= Number(search.guests),
+          );
+        }
+
+        setProperties(filtered);
+        setTotalCount(filtered.length);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [initialProperties],
+  );
+
+  // Re-fetch when filters change
+  useEffect(() => {
+    fetchProperties(searchState, filters, mode, page);
+  }, [filters, mode, page, fetchProperties, searchState]);
 
   const handleSearch = useCallback((sf: SearchFilters) => {
-    const q = [sf.location, sf.cadastralCode].filter(Boolean).join(" ");
-    setSearchQuery(q);
-    if (sf.guests !== "") setGuestFilter(sf.guests);
+    setSearchState({
+      location: sf.location,
+      checkIn: sf.checkIn,
+      checkOut: sf.checkOut,
+      guests: sf.guests,
+      cadastralCode: sf.cadastralCode,
+    });
     setPage(1);
   }, []);
 
-  const filtered = useMemo(() => {
-    return initialProperties.filter((p) => {
-      // Text search
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = p.title.toLowerCase().includes(q);
-        const matchesLocation = p.location?.toLowerCase().includes(q);
-        const matchesCadastral = p.cadastral_code?.toLowerCase().includes(q);
-        if (!matchesTitle && !matchesLocation && !matchesCadastral)
-          return false;
-      }
-      // Price filter
-      const price = p.is_for_sale ? p.sale_price : p.price_per_night;
-      if (filters.priceMin !== "" && (price ?? 0) < Number(filters.priceMin))
-        return false;
-      if (filters.priceMax !== "" && (price ?? 0) > Number(filters.priceMax))
-        return false;
-      // Rooms
-      if (filters.rooms !== null && p.rooms !== filters.rooms) return false;
-      // Area
-      if (filters.areaMin !== "" && (p.area_sqm ?? 0) < Number(filters.areaMin))
-        return false;
-      if (filters.areaMax !== "" && (p.area_sqm ?? 0) > Number(filters.areaMax))
-        return false;
-      // Property type
-      if (filters.types.length > 0 && !filters.types.includes(p.type))
-        return false;
-      // Guests
-      if (guestFilter && p.capacity && p.capacity < guestFilter) return false;
-      return true;
-    });
-  }, [initialProperties, filters, searchQuery, guestFilter]);
+  const handleModeChange = useCallback((newMode: "rent" | "sale") => {
+    setMode(newMode);
+    setPage(1);
+  }, []);
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const paginatedResults = filtered.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE,
-  );
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Search bar */}
+      {/* Search bar + RentBuyToggle */}
       <ScrollReveal>
-        <SearchBox onSearch={handleSearch} className="mb-8" />
+        <div className="mb-4 flex justify-center">
+          <RentBuyToggle value={mode} onChange={handleModeChange} />
+        </div>
+        <SearchBox
+          onSearch={handleSearch}
+          className="mb-8"
+          defaultLocation={initialLocation}
+          defaultGuests={initialGuests}
+          defaultCadastralCode={initialCadastral}
+        />
       </ScrollReveal>
 
       <div className="flex gap-8">
@@ -107,7 +281,7 @@ export default function SearchPageClient({ initialProperties }: Props) {
           {/* Mobile filter button */}
           <div className="mb-4 flex items-center justify-between lg:hidden">
             <span className="text-sm text-muted-foreground">
-              {filtered.length} შედეგი
+              {totalCount} შედეგი
             </span>
             <Button
               variant="outline"
@@ -122,14 +296,23 @@ export default function SearchPageClient({ initialProperties }: Props) {
 
           {/* Results count — desktop */}
           <div className="mb-6 hidden items-center justify-between lg:flex">
-            <h1 className="text-xl font-bold">ძებნის შედეგები</h1>
+            <h1 className="text-xl font-bold">
+              {mode === "sale" ? "გასაყიდი ობიექტები" : "ძებნის შედეგები"}
+            </h1>
             <span className="text-sm text-muted-foreground">
-              {filtered.length} შედეგი
+              {totalCount} შედეგი
             </span>
           </div>
 
+          {/* Loading state */}
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+            </div>
+          )}
+
           {/* Empty state */}
-          {paginatedResults.length === 0 && (
+          {!loading && properties.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <p className="text-lg font-semibold text-foreground">
                 შედეგი ვერ მოიძებნა
@@ -141,29 +324,31 @@ export default function SearchPageClient({ initialProperties }: Props) {
           )}
 
           {/* Property grid */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {paginatedResults.map((p, i) => (
-              <ScrollReveal key={p.id} delay={i * 0.05}>
-                <PropertyCard
-                  id={p.id}
-                  title={p.title}
-                  location={p.location}
-                  photos={p.photos ?? []}
-                  pricePerNight={
-                    p.price_per_night ? Number(p.price_per_night) : null
-                  }
-                  salePrice={p.sale_price ? Number(p.sale_price) : null}
-                  rating={null}
-                  capacity={p.capacity}
-                  rooms={p.rooms}
-                  isVip={p.is_vip ?? false}
-                  isSuperVip={p.is_super_vip ?? false}
-                  discountPercent={p.discount_percent ?? 0}
-                  isForSale={p.is_for_sale ?? false}
-                />
-              </ScrollReveal>
-            ))}
-          </div>
+          {!loading && (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {properties.map((p, i) => (
+                <ScrollReveal key={p.id} delay={i * 0.05}>
+                  <PropertyCard
+                    id={p.id}
+                    title={p.title}
+                    location={p.location}
+                    photos={p.photos ?? []}
+                    pricePerNight={
+                      p.price_per_night ? Number(p.price_per_night) : null
+                    }
+                    salePrice={p.sale_price ? Number(p.sale_price) : null}
+                    rating={null}
+                    capacity={p.capacity}
+                    rooms={p.rooms}
+                    isVip={p.is_vip ?? false}
+                    isSuperVip={p.is_super_vip ?? false}
+                    discountPercent={p.discount_percent ?? 0}
+                    isForSale={p.is_for_sale ?? false}
+                  />
+                </ScrollReveal>
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (

@@ -42,7 +42,7 @@ export function Footer() {
             </h3>
             <ul className="space-y-2">
               {platformLinks.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link
                     href={link.href}
                     className="text-sm text-white/70 transition-colors hover:text-white"
@@ -61,7 +61,7 @@ export function Footer() {
             </h3>
             <ul className="space-y-2">
               {serviceLinks.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link
                     href={link.href}
                     className="text-sm text-white/70 transition-colors hover:text-white"
@@ -80,7 +80,7 @@ export function Footer() {
             </h3>
             <ul className="space-y-2">
               {helpLinks.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link
                     href={link.href}
                     className="text-sm text-white/70 transition-colors hover:text-white"
@@ -95,7 +95,8 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-12 border-t border-white/10 pt-6 text-center text-sm text-white/50">
-          &copy; 2024 MyBakuriani. ჩვენ ვზრუნავთ თქვენს დაცულ დასვენებაზე
+          &copy; {new Date().getFullYear()} MyBakuriani. ჩვენ ვზრუნავთ თქვენს
+          დაცულ დასვენებაზე
         </div>
       </div>
     </footer>
