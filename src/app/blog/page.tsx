@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import BlogPageClient from "./BlogPageClient";
 
 export const metadata = {
@@ -6,6 +7,14 @@ export const metadata = {
     "ბაკურიანის უახლესი სიახლეები, რჩევები და სტატიები. გაიგეთ ყველაფერი კურორტის შესახებ.",
 };
 
-export default function BlogPage() {
-  return <BlogPageClient />;
+export default async function BlogPage() {
+  const supabase = await createClient();
+
+  const { data: posts } = await supabase
+    .from("blog_posts")
+    .select("*")
+    .eq("published", true)
+    .order("published_at", { ascending: false });
+
+  return <BlogPageClient posts={posts ?? []} />;
 }

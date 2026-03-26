@@ -1,7 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { SlidersHorizontal } from "lucide-react";
+import type { Tables } from "@/lib/types/database";
+
+interface SearchFilters {
+  location: string;
+  date: string;
+  guests: number | "";
+  cadastralCode: string;
+}
 import PropertyCard from "@/components/cards/PropertyCard";
 import { FilterPanel, type Filters } from "@/components/search/FilterPanel";
 import { SearchBox } from "@/components/search/SearchBox";
@@ -19,31 +27,61 @@ const DEFAULT_FILTERS: Filters = {
   amenities: [],
 };
 
-const MOCK_RESULTS = Array.from({ length: 12 }, (_, i) => ({
-  id: `search-${i + 1}`,
-  title: `აპარტამენტი #${i + 1} — ბაკურიანი`,
-  location: "ბაკურიანი, დიდველი",
-  photos: ["/placeholder-property.jpg"],
-  pricePerNight: 100 + i * 20,
-  salePrice: null,
-  rating: 4.2 + (i % 8) * 0.1,
-  capacity: 2 + (i % 6),
-  rooms: 1 + (i % 4),
-  isVip: i < 2,
-  isSuperVip: i === 0,
-  discountPercent: i === 2 ? 20 : i === 5 ? 10 : 0,
-  isForSale: false,
-}));
+const ITEMS_PER_PAGE = 12;
 
-const ITEMS_PER_PAGE = 8;
+interface Props {
+  initialProperties: Tables<"properties">[];
+}
 
-export default function SearchPageClient() {
+export default function SearchPageClient({ initialProperties }: Props) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [guestFilter, setGuestFilter] = useState<number | "">();
   const [page, setPage] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const totalPages = Math.ceil(MOCK_RESULTS.length / ITEMS_PER_PAGE);
-  const paginatedResults = MOCK_RESULTS.slice(
+  const handleSearch = useCallback((sf: SearchFilters) => {
+    const q = [sf.location, sf.cadastralCode].filter(Boolean).join(" ");
+    setSearchQuery(q);
+    if (sf.guests !== "") setGuestFilter(sf.guests);
+    setPage(1);
+  }, []);
+
+  const filtered = useMemo(() => {
+    return initialProperties.filter((p) => {
+      // Text search
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = p.title.toLowerCase().includes(q);
+        const matchesLocation = p.location?.toLowerCase().includes(q);
+        const matchesCadastral = p.cadastral_code?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesLocation && !matchesCadastral)
+          return false;
+      }
+      // Price filter
+      const price = p.is_for_sale ? p.sale_price : p.price_per_night;
+      if (filters.priceMin !== "" && (price ?? 0) < Number(filters.priceMin))
+        return false;
+      if (filters.priceMax !== "" && (price ?? 0) > Number(filters.priceMax))
+        return false;
+      // Rooms
+      if (filters.rooms !== null && p.rooms !== filters.rooms) return false;
+      // Area
+      if (filters.areaMin !== "" && (p.area_sqm ?? 0) < Number(filters.areaMin))
+        return false;
+      if (filters.areaMax !== "" && (p.area_sqm ?? 0) > Number(filters.areaMax))
+        return false;
+      // Property type
+      if (filters.types.length > 0 && !filters.types.includes(p.type))
+        return false;
+      // Guests
+      if (guestFilter && p.capacity && p.capacity < guestFilter) return false;
+      return true;
+    });
+  }, [initialProperties, filters, searchQuery, guestFilter]);
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedResults = filtered.slice(
     (page - 1) * ITEMS_PER_PAGE,
     page * ITEMS_PER_PAGE,
   );
@@ -52,7 +90,7 @@ export default function SearchPageClient() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       {/* Search bar */}
       <ScrollReveal>
-        <SearchBox onSearch={() => setPage(1)} className="mb-8" />
+        <SearchBox onSearch={handleSearch} className="mb-8" />
       </ScrollReveal>
 
       <div className="flex gap-8">
@@ -69,7 +107,7 @@ export default function SearchPageClient() {
           {/* Mobile filter button */}
           <div className="mb-4 flex items-center justify-between lg:hidden">
             <span className="text-sm text-muted-foreground">
-              {MOCK_RESULTS.length} შედეგი
+              {filtered.length} შედეგი
             </span>
             <Button
               variant="outline"
@@ -86,15 +124,43 @@ export default function SearchPageClient() {
           <div className="mb-6 hidden items-center justify-between lg:flex">
             <h1 className="text-xl font-bold">ძებნის შედეგები</h1>
             <span className="text-sm text-muted-foreground">
-              {MOCK_RESULTS.length} შედეგი
+              {filtered.length} შედეგი
             </span>
           </div>
+
+          {/* Empty state */}
+          {paginatedResults.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <p className="text-lg font-semibold text-foreground">
+                შედეგი ვერ მოიძებნა
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                სცადეთ სხვა საძიებო სიტყვა ან შეცვალეთ ფილტრები
+              </p>
+            </div>
+          )}
 
           {/* Property grid */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {paginatedResults.map((p, i) => (
               <ScrollReveal key={p.id} delay={i * 0.05}>
-                <PropertyCard {...p} />
+                <PropertyCard
+                  id={p.id}
+                  title={p.title}
+                  location={p.location}
+                  photos={p.photos ?? []}
+                  pricePerNight={
+                    p.price_per_night ? Number(p.price_per_night) : null
+                  }
+                  salePrice={p.sale_price ? Number(p.sale_price) : null}
+                  rating={null}
+                  capacity={p.capacity}
+                  rooms={p.rooms}
+                  isVip={p.is_vip ?? false}
+                  isSuperVip={p.is_super_vip ?? false}
+                  discountPercent={p.discount_percent ?? 0}
+                  isForSale={p.is_for_sale ?? false}
+                />
               </ScrollReveal>
             ))}
           </div>
@@ -110,7 +176,7 @@ export default function SearchPageClient() {
               >
                 წინა
               </Button>
-              {Array.from({ length: totalPages }, (_, i) => (
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => (
                 <Button
                   key={i + 1}
                   variant={page === i + 1 ? "default" : "outline"}

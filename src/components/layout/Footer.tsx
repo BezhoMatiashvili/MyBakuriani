@@ -2,17 +2,17 @@ import Link from "next/link";
 
 const platformLinks = [
   { label: "ყველა განცხადება", href: "/apartments" },
-  { label: "სასტუმროები", href: "/apartments?type=hotel" },
-  { label: "აპარტამენტები და კოტეჯები", href: "/apartments?type=apartment" },
-  { label: "ყიდვა-გაყიდვა", href: "/apartments?type=sale" },
+  { label: "სასტუმროები", href: "/hotels" },
+  { label: "აპარტამენტები და კოტეჯები", href: "/apartments" },
+  { label: "ყიდვა-გაყიდვა", href: "/sales" },
 ];
 
 const serviceLinks = [
-  { label: "ტრანსპორტი და ტრანსფერები", href: "/services/transport" },
-  { label: "სერვისები და ხელოსნები", href: "/services/handyman" },
-  { label: "გართობა და აქტივობები", href: "/services/entertainment" },
-  { label: "კვება & რესტორნები", href: "/services/food" },
-  { label: "დასაქმება ბაკურიანში", href: "/services/employment" },
+  { label: "ტრანსპორტი და ტრანსფერები", href: "/transport" },
+  { label: "სერვისები და ხელოსნები", href: "/services" },
+  { label: "გართობა და აქტივობები", href: "/entertainment" },
+  { label: "კვება & რესტორნები", href: "/food" },
+  { label: "დასაქმება ბაკურიანში", href: "/employment" },
 ];
 
 const helpLinks = [

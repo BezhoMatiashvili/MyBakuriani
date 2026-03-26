@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import ScrollReveal from "@/components/shared/ScrollReveal";
+import type { Tables } from "@/lib/types/database";
 
 const BLOG_POSTS = [
   {
@@ -61,7 +62,22 @@ const BLOG_POSTS = [
   },
 ];
 
-export default function BlogPageClient() {
+interface Props {
+  posts?: Tables<"blog_posts">[];
+}
+
+export default function BlogPageClient({ posts: serverPosts }: Props) {
+  const displayPosts =
+    serverPosts && serverPosts.length > 0
+      ? serverPosts.map((bp) => ({
+          id: bp.id,
+          title: bp.title,
+          excerpt: bp.excerpt ?? "",
+          image: bp.image_url ?? "/placeholder-property.jpg",
+          date: bp.published_at ?? bp.created_at,
+          category: "სიახლეები",
+        }))
+      : BLOG_POSTS;
   return (
     <div className="mx-auto max-w-7xl px-4 py-12">
       <ScrollReveal>
@@ -72,7 +88,7 @@ export default function BlogPageClient() {
       </ScrollReveal>
 
       <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {BLOG_POSTS.map((post, i) => (
+        {displayPosts.map((post, i) => (
           <ScrollReveal key={post.id} delay={i * 0.08}>
             <Link
               href={`/blog/${post.id}`}

@@ -1,22 +1,134 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Building, CalendarDays, Wallet, User } from "lucide-react";
+import {
+  Home,
+  Building,
+  CalendarDays,
+  Wallet,
+  User,
+  ClipboardList,
+  Star,
+  Sparkles,
+  ShoppingBag,
+  Briefcase,
+  Clock,
+  ShieldCheck,
+  BarChart3,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileBottomNavProps {
   currentPath: string;
+  userRole?: string;
 }
 
-const tabs = [
-  { label: "მთავარი", href: "/dashboard", icon: Home },
-  { label: "ობიექტები", href: "/dashboard/listings", icon: Building },
-  { label: "კალენდარი", href: "/dashboard/calendar", icon: CalendarDays },
-  { label: "ბალანსი", href: "/dashboard/balance", icon: Wallet },
-  { label: "პროფილი", href: "/dashboard/profile", icon: User },
-];
+interface TabItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}
 
-export function MobileBottomNav({ currentPath }: MobileBottomNavProps) {
+function getTabs(role: string): TabItem[] {
+  switch (role) {
+    case "admin":
+      return [
+        { label: "მთავარი", href: "/dashboard/admin", icon: Home },
+        {
+          label: "ვერიფიკაცია",
+          href: "/dashboard/admin/verifications",
+          icon: ShieldCheck,
+        },
+        { label: "კლიენტები", href: "/dashboard/admin/clients", icon: User },
+        {
+          label: "ანალიტიკა",
+          href: "/dashboard/admin/analytics",
+          icon: BarChart3,
+        },
+      ];
+    case "renter":
+      return [
+        { label: "მთავარი", href: "/dashboard/renter", icon: Home },
+        {
+          label: "ობიექტები",
+          href: "/dashboard/renter/listings",
+          icon: Building,
+        },
+        {
+          label: "კალენდარი",
+          href: "/dashboard/renter/calendar",
+          icon: CalendarDays,
+        },
+        { label: "ბალანსი", href: "/dashboard/renter/balance", icon: Wallet },
+        {
+          label: "Smart",
+          href: "/dashboard/renter/smart-match",
+          icon: Sparkles,
+        },
+      ];
+    case "seller":
+      return [
+        { label: "მთავარი", href: "/dashboard/seller", icon: Home },
+        {
+          label: "განცხადებები",
+          href: "/dashboard/seller/listings",
+          icon: Building,
+        },
+        { label: "პროფილი", href: "/dashboard/renter/profile", icon: User },
+      ];
+    case "cleaner":
+      return [
+        { label: "მთავარი", href: "/dashboard/cleaner", icon: Home },
+        { label: "განრიგი", href: "/dashboard/cleaner/schedule", icon: Clock },
+        {
+          label: "შემოსავალი",
+          href: "/dashboard/cleaner/earnings",
+          icon: Wallet,
+        },
+      ];
+    case "food":
+      return [
+        { label: "მთავარი", href: "/dashboard/food", icon: Home },
+        {
+          label: "შეკვეთები",
+          href: "/dashboard/food/orders",
+          icon: ShoppingBag,
+        },
+      ];
+    case "entertainment":
+    case "transport":
+    case "employment":
+    case "handyman":
+      return [
+        { label: "მთავარი", href: "/dashboard/service", icon: Home },
+        {
+          label: "შეკვეთები",
+          href: "/dashboard/service/orders",
+          icon: Briefcase,
+        },
+      ];
+    case "guest":
+    default:
+      return [
+        { label: "მთავარი", href: "/dashboard/guest", icon: Home },
+        {
+          label: "ჯავშნები",
+          href: "/dashboard/guest/bookings",
+          icon: ClipboardList,
+        },
+        { label: "შეფასებები", href: "/dashboard/guest/reviews", icon: Star },
+        { label: "პროფილი", href: "/dashboard/guest/profile", icon: User },
+      ];
+  }
+}
+
+export function MobileBottomNav({
+  currentPath,
+  userRole = "guest",
+}: MobileBottomNavProps) {
+  const tabs = getTabs(userRole);
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-surface-border bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
       <ul className="flex items-center justify-around">

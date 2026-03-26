@@ -44,6 +44,7 @@ export function useSmartMatch() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function create(preferences: Omit<SmartMatchInsert, "guest_id">) {

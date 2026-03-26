@@ -40,6 +40,7 @@ export function useBookings() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function create(booking: BookingInsert) {

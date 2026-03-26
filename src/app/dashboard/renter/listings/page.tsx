@@ -1,0 +1,252 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Plus, Eye, Edit, Building, Search } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Tables } from "@/lib/types/database";
+
+const statusLabels: Record<string, string> = {
+  active: "აქტიური",
+  blocked: "დაბლოკილი",
+  pending: "მოლოდინში",
+  draft: "დრაფტი",
+};
+
+const statusColors: Record<string, string> = {
+  active: "bg-green-100 text-green-700",
+  blocked: "bg-red-100 text-red-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  draft: "bg-gray-100 text-gray-700",
+};
+
+const filterTabs = [
+  { key: "all", label: "ყველა" },
+  { key: "active", label: "აქტიური" },
+  { key: "pending", label: "მოლოდინში" },
+  { key: "blocked", label: "დაბლოკილი" },
+];
+
+export default function RenterListingsPage() {
+  const { user } = useAuth();
+  const supabase = createClient();
+
+  const [properties, setProperties] = useState<Tables<"properties">[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+
+    async function fetchProperties() {
+      const { data } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("owner_id", user!.id)
+        .order("created_at", { ascending: false });
+
+      if (data) setProperties(data);
+      setLoading(false);
+    }
+
+    fetchProperties();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const filteredProperties = properties
+    .filter((p) => activeFilter === "all" || p.status === activeFilter)
+    .filter(
+      (p) =>
+        !searchQuery ||
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.location.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+
+  const counts = {
+    all: properties.length,
+    active: properties.filter((p) => p.status === "active").length,
+    pending: properties.filter((p) => p.status === "pending").length,
+    blocked: properties.filter((p) => p.status === "blocked").length,
+  };
+
+  return (
+    <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">ჩემი ობიექტები</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            მართეთ თქვენი გაქირავების ობიექტები
+          </p>
+        </div>
+        <Link href="/create/rental">
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            ახალი ობიექტი
+          </Button>
+        </Link>
+      </motion.div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="ობიექტის ძებნა..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
+        />
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex flex-wrap gap-2">
+        {filterTabs.map((tab) => (
+          <Button
+            key={tab.key}
+            variant={activeFilter === tab.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveFilter(tab.key)}
+          >
+            {tab.label}
+            <span className="ml-1.5 rounded-full bg-white/20 px-1.5 text-[10px]">
+              {counts[tab.key as keyof typeof counts]}
+            </span>
+          </Button>
+        ))}
+      </div>
+
+      {/* Listings table/cards */}
+      <div className="space-y-3">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+            >
+              <div className="flex gap-4">
+                <Skeleton className="h-20 w-20 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredProperties.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+          >
+            <Building className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              ობიექტები ვერ მოიძებნა
+            </p>
+            <Link href="/create/rental" className="mt-4">
+              <Button size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                დაამატეთ ობიექტი
+              </Button>
+            </Link>
+          </motion.div>
+        ) : (
+          filteredProperties.map((property, index) => (
+            <motion.div
+              key={property.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                {/* Image */}
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  {property.photos[0] && (
+                    <Image
+                      src={property.photos[0]}
+                      alt={property.title}
+                      fill
+                      className="object-cover"
+                    />
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="truncate text-sm font-semibold text-foreground">
+                        {property.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {property.location}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status] ?? ""}`}
+                    >
+                      {statusLabels[property.status] ?? property.status}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-3.5 w-3.5" />
+                      {property.views_count} ნახვა
+                    </span>
+                    <span>
+                      {property.rooms} ოთახი | {property.capacity} სტუმარი
+                    </span>
+                    <span className="font-bold text-brand-accent">
+                      {property.price_per_night} ₾/ღამე
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-2">
+                    {property.is_vip && (
+                      <Badge className="bg-amber-500 text-white">VIP</Badge>
+                    )}
+                    {property.is_super_vip && (
+                      <Badge className="bg-purple-500 text-white">
+                        Super VIP
+                      </Badge>
+                    )}
+                    {property.discount_percent > 0 && (
+                      <Badge variant="secondary">
+                        -{property.discount_percent}%
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex shrink-0 gap-2">
+                  <Link href={`/properties/${property.id}`}>
+                    <Button variant="outline" size="icon-sm">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="icon-sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

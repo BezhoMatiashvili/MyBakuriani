@@ -52,6 +52,7 @@ export function useProfile(userId?: string) {
     }
 
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   async function updateProfile(updates: ProfileUpdate) {

@@ -81,6 +81,7 @@ export function useNotifications() {
         supabase.removeChannel(channel);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function markAsRead(id: string) {

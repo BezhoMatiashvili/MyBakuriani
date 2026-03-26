@@ -20,6 +20,15 @@ import PropertyCard from "@/components/cards/PropertyCard";
 import ServiceCard from "@/components/cards/ServiceCard";
 import SmartMatchCard from "@/components/cards/SmartMatchCard";
 import { Button } from "@/components/ui/button";
+import type { Tables } from "@/lib/types/database";
+
+interface LandingPageProps {
+  hotOffers?: Tables<"properties">[];
+  hotels?: Tables<"properties">[];
+  saleProperties?: Tables<"properties">[];
+  services?: Tables<"services">[];
+  blogPosts?: Tables<"blog_posts">[];
+}
 
 // ─── Mock Data ───────────────────────────────────────────────────────────
 
@@ -147,9 +156,106 @@ const STATS = [
 
 // ─── Component ───────────────────────────────────────────────────────────
 
-export default function LandingPage() {
+export default function LandingPage({
+  hotOffers: serverHotOffers,
+  hotels: serverHotels,
+  saleProperties: serverSaleProperties,
+  services: serverServices,
+  blogPosts: serverBlogPosts,
+}: LandingPageProps = {}) {
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const carouselRef = useRef<HTMLDivElement>(null);
+
+  // Use server data if available, otherwise fall back to mock
+  const hasServerData = serverHotOffers && serverHotOffers.length > 0;
+
+  const hotOfferCards = hasServerData
+    ? serverHotOffers.map((p) => ({
+        id: p.id,
+        title: p.title,
+        location: p.location,
+        photos: p.photos ?? [],
+        pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
+        salePrice: p.sale_price ? Number(p.sale_price) : null,
+        rating: null as number | null,
+        capacity: p.capacity,
+        rooms: p.rooms,
+        isVip: p.is_vip ?? false,
+        isSuperVip: p.is_super_vip ?? false,
+        discountPercent: p.discount_percent ?? 0,
+        isForSale: p.is_for_sale ?? false,
+      }))
+    : MOCK_PROPERTIES;
+
+  const hotelCards =
+    serverHotels && serverHotels.length > 0
+      ? serverHotels.map((p) => ({
+          id: p.id,
+          title: p.title,
+          location: p.location,
+          photos: p.photos ?? [],
+          pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
+          salePrice: null as number | null,
+          rating: null as number | null,
+          capacity: p.capacity,
+          rooms: p.rooms,
+          isVip: p.is_vip ?? false,
+          isSuperVip: p.is_super_vip ?? false,
+          discountPercent: p.discount_percent ?? 0,
+          isForSale: false,
+        }))
+      : MOCK_HOTELS;
+
+  const saleCards =
+    serverSaleProperties && serverSaleProperties.length > 0
+      ? serverSaleProperties.map((p) => ({
+          id: p.id,
+          title: p.title,
+          location: p.location,
+          photos: p.photos ?? [],
+          pricePerNight: null as number | null,
+          salePrice: p.sale_price ? Number(p.sale_price) : null,
+          rating: null as number | null,
+          capacity: p.capacity,
+          rooms: p.rooms,
+          isVip: p.is_vip ?? false,
+          isSuperVip: p.is_super_vip ?? false,
+          discountPercent: p.discount_percent ?? 0,
+          isForSale: true,
+        }))
+      : MOCK_SALE_APARTMENTS;
+
+  // Group server services by category
+  const servicesByCategory = (category: string) => {
+    if (serverServices && serverServices.length > 0) {
+      return serverServices
+        .filter((s) => s.category === category)
+        .slice(0, 4)
+        .map((s) => ({
+          id: s.id,
+          title: s.title,
+          category: s.category,
+          location: s.location,
+          photos: s.photos ?? [],
+          price: s.price ? Number(s.price) : null,
+          priceUnit: s.price_unit,
+          discountPercent: s.discount_percent ?? 0,
+          isVip: s.is_vip ?? false,
+        }));
+    }
+    return makeServiceCards(category, 4);
+  };
+
+  const blogItems =
+    serverBlogPosts && serverBlogPosts.length > 0
+      ? serverBlogPosts.map((bp) => ({
+          id: bp.id,
+          title: bp.title,
+          excerpt: bp.excerpt ?? "",
+          image: bp.image_url ?? "/placeholder-property.jpg",
+          date: bp.published_at ?? bp.created_at,
+        }))
+      : MOCK_BLOG_POSTS;
 
   const scrollCarousel = (dir: "left" | "right") => {
     if (!carouselRef.current) return;
@@ -233,7 +339,7 @@ export default function LandingPage() {
           ref={carouselRef}
           className="scrollbar-hide flex gap-4 overflow-x-auto scroll-smooth pb-4"
         >
-          {MOCK_PROPERTIES.map((p) => (
+          {hotOfferCards.map((p) => (
             <div key={p.id} className="w-[280px] shrink-0">
               <PropertyCard {...p} />
             </div>
@@ -289,14 +395,14 @@ export default function LandingPage() {
       {/* ═══ 6. Transport Section ═══ */}
       <ServiceSection
         title="ტრანსპორტი და ტრანსფერები"
-        cards={makeServiceCards("transport", 4)}
+        cards={servicesByCategory("transport")}
         href="/transport"
       />
 
       {/* ═══ 7. Services Section ═══ */}
       <ServiceSection
         title="სერვისები და ხელოსნები"
-        cards={makeServiceCards("handyman", 4)}
+        cards={servicesByCategory("handyman")}
         href="/services"
         muted
       />
@@ -304,14 +410,14 @@ export default function LandingPage() {
       {/* ═══ 8. Entertainment Section ═══ */}
       <ServiceSection
         title="გართობა და აქტივობები"
-        cards={makeServiceCards("entertainment", 4)}
+        cards={servicesByCategory("entertainment")}
         href="/entertainment"
       />
 
       {/* ═══ 9. Food Section ═══ */}
       <ServiceSection
         title="კვება & რესტორნები"
-        cards={makeServiceCards("food", 4)}
+        cards={servicesByCategory("food")}
         href="/food"
         muted
       />
@@ -319,14 +425,14 @@ export default function LandingPage() {
       {/* ═══ 10. Employment Section ═══ */}
       <ServiceSection
         title="დასაქმება ბაკურიანში"
-        cards={makeServiceCards("employment", 4)}
+        cards={servicesByCategory("employment")}
         href="/employment"
       />
 
       {/* ═══ 11. Hotels Section ═══ */}
       <PropertySection
         title="სასტუმროები"
-        properties={MOCK_HOTELS}
+        properties={hotelCards}
         href="/hotels"
         muted
       />
@@ -334,7 +440,7 @@ export default function LandingPage() {
       {/* ═══ 12. Apartments Section ═══ */}
       <PropertySection
         title="აპარტამენტები და კოტეჯები"
-        properties={MOCK_SALE_APARTMENTS}
+        properties={saleCards}
         href="/apartments"
       />
 
@@ -353,7 +459,7 @@ export default function LandingPage() {
             </div>
           </ScrollReveal>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {MOCK_BLOG_POSTS.map((post, i) => (
+            {blogItems.map((post, i) => (
               <ScrollReveal key={post.id} delay={i * 0.1}>
                 <Link
                   href={`/blog/${post.id}`}
