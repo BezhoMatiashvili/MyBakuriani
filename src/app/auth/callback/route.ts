@@ -29,8 +29,18 @@ export async function GET(request: Request) {
         }
 
         // Existing user — redirect based on role
-        const dashboardPath =
-          profile.role === "admin" ? "/dashboard/admin" : "/dashboard";
+        const rolePaths: Record<string, string> = {
+          admin: "/dashboard/admin",
+          renter: "/dashboard/renter",
+          seller: "/dashboard/seller",
+          cleaner: "/dashboard/cleaner",
+          food: "/dashboard/food",
+          entertainment: "/dashboard/service",
+          transport: "/dashboard/service",
+          employment: "/dashboard/service",
+          handyman: "/dashboard/service",
+        };
+        const dashboardPath = rolePaths[profile.role] ?? "/dashboard/guest";
         return NextResponse.redirect(
           `${origin}${next === "/dashboard" ? dashboardPath : next}`,
         );

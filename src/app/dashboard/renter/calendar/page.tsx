@@ -1,253 +1,331 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Info } from "lucide-react";
-import {
-  CalendarGrid,
-  type CalendarDate,
-  type DateStatus,
-} from "@/components/booking/CalendarGrid";
-import { useProperties } from "@/lib/hooks/useProperties";
+import { ChevronLeft, ChevronRight, Building } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { ka } from "date-fns/locale";
-import type { Database } from "@/lib/types/database";
+import type { Tables } from "@/lib/types/database";
 
-type Booking = Database["public"]["Tables"]["bookings"]["Row"];
+type CalendarBlock = Tables<"calendar_blocks">;
+type Property = Tables<"properties">;
+
+const dayNames = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
+
+const statusConfig: Record<string, { label: string; color: string }> = {
+  available: { label: "თავისუფალი", color: "bg-green-100 text-green-700" },
+  booked: { label: "დაკავებული", color: "bg-red-100 text-red-700" },
+  blocked: { label: "არჩეული", color: "bg-gray-200 text-gray-700" },
+};
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  const day = new Date(year, month, 1).getDay();
+  // Convert from Sunday=0 to Monday=0
+  return day === 0 ? 6 : day - 1;
+}
+
+const monthNames = [
+  "იანვარი",
+  "თებერვალი",
+  "მარტი",
+  "აპრილი",
+  "მაისი",
+  "ივნისი",
+  "ივლისი",
+  "აგვისტო",
+  "სექტემბერი",
+  "ოქტომბერი",
+  "ნოემბერი",
+  "დეკემბერი",
+];
 
 export default function RenterCalendarPage() {
+  const { user } = useAuth();
   const supabase = createClient();
-  const {
-    properties,
-    loading: propsLoading,
-    list: listProperties,
-  } = useProperties();
+
+  const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
     null,
   );
-  const [calendarDates, setCalendarDates] = useState<CalendarDate[]>([]);
-  const [loadingDates, setLoadingDates] = useState(false);
+  const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
 
   useEffect(() => {
-    listProperties();
-  }, [listProperties]);
+    if (!user) return;
 
-  // Auto-select first property
-  useEffect(() => {
-    if (properties.length > 0 && !selectedPropertyId) {
-      setSelectedPropertyId(properties[0].id);
+    async function fetchProperties() {
+      const { data } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("owner_id", user!.id)
+        .eq("is_for_sale", false)
+        .order("created_at", { ascending: false });
+
+      if (data && data.length > 0) {
+        setProperties(data);
+        setSelectedPropertyId(data[0].id);
+      }
+      setLoading(false);
     }
-  }, [properties, selectedPropertyId]);
 
-  const fetchCalendarData = useCallback(async () => {
+    fetchProperties();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useEffect(() => {
     if (!selectedPropertyId) return;
 
-    setLoadingDates(true);
-    try {
-      const { data: blocks } = await supabase
+    async function fetchBlocks() {
+      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${getDaysInMonth(year, month)}`;
+
+      const { data } = await supabase
         .from("calendar_blocks")
         .select("*")
-        .eq("property_id", selectedPropertyId);
+        .eq("property_id", selectedPropertyId!)
+        .gte("date", startDate)
+        .lte("date", endDate);
 
-      if (blocks) {
-        const dates: CalendarDate[] = blocks.map((block) => ({
-          date: new Date(block.date),
-          status: block.status as DateStatus,
-        }));
-        setCalendarDates(dates);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoadingDates(false);
+      if (data) setCalendarBlocks(data);
     }
-  }, [selectedPropertyId, supabase]);
 
-  useEffect(() => {
-    fetchCalendarData();
-  }, [fetchCalendarData]);
+    fetchBlocks();
 
-  const handleDateClick = async (date: Date) => {
-    if (!selectedPropertyId) return;
+    // Realtime updates
+    const channel = supabase
+      .channel("calendar-blocks")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "calendar_blocks",
+          filter: `property_id=eq.${selectedPropertyId}`,
+        },
+        () => {
+          fetchBlocks();
+        },
+      )
+      .subscribe();
 
-    const dateStr = format(date, "yyyy-MM-dd");
-    const existing = calendarDates.find(
-      (d) => format(d.date, "yyyy-MM-dd") === dateStr,
-    );
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, year, month]);
 
-    if (!existing || existing.status === "available") {
-      // Block the date
-      try {
-        await supabase.from("calendar_blocks").upsert({
-          property_id: selectedPropertyId,
-          date: dateStr,
-          status: "blocked" as const,
-        });
-        setCalendarDates((prev) => [
-          ...prev.filter((d) => format(d.date, "yyyy-MM-dd") !== dateStr),
-          { date, status: "blocked" as DateStatus },
-        ]);
-      } catch {
-        // silently fail
+  const blocksByDate = useMemo(() => {
+    const map = new Map<string, CalendarBlock>();
+    calendarBlocks.forEach((block) => map.set(block.date, block));
+    return map;
+  }, [calendarBlocks]);
+
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+    setSelectedDates(new Set());
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+    setSelectedDates(new Set());
+  };
+
+  const handleDateClick = (dateStr: string) => {
+    setSelectedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) {
+        next.delete(dateStr);
+      } else {
+        next.add(dateStr);
       }
-    } else if (existing.status === "blocked") {
-      // Unblock the date
-      try {
-        await supabase
-          .from("calendar_blocks")
-          .delete()
-          .eq("property_id", selectedPropertyId)
-          .eq("date", dateStr);
-        setCalendarDates((prev) =>
-          prev.filter((d) => format(d.date, "yyyy-MM-dd") !== dateStr),
-        );
-      } catch {
-        // silently fail
-      }
-    }
+      return next;
+    });
   };
 
-  const prevMonth = () => {
-    setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() - 1));
+  const handleBlockDates = async (status: "available" | "blocked") => {
+    if (!selectedPropertyId || selectedDates.size === 0) return;
+
+    const upserts = Array.from(selectedDates).map((date) => ({
+      property_id: selectedPropertyId,
+      date,
+      status,
+    }));
+
+    await supabase.from("calendar_blocks").upsert(upserts, {
+      onConflict: "property_id,date",
+    });
+
+    setSelectedDates(new Set());
   };
 
-  const nextMonth = () => {
-    setCurrentDate((d) => new Date(d.getFullYear(), d.getMonth() + 1));
-  };
-
-  const secondMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-  );
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfMonth(year, month);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
         <h1 className="text-2xl font-bold text-foreground">კალენდარი</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          მართეთ თქვენი ქონების ხელმისაწვდომობა
+          მართეთ ობიექტების ხელმისაწვდომობა
         </p>
-      </div>
+      </motion.div>
 
       {/* Property selector */}
-      {propsLoading ? (
-        <Skeleton className="h-10 w-64 rounded-lg" />
+      {loading ? (
+        <Skeleton className="h-10 w-full" />
       ) : (
         <div className="flex flex-wrap gap-2">
-          {properties.map((prop) => (
-            <button
-              key={prop.id}
-              onClick={() => setSelectedPropertyId(prop.id)}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                selectedPropertyId === prop.id
-                  ? "bg-brand-accent text-white"
-                  : "bg-brand-surface text-foreground shadow-[var(--shadow-card)] hover:bg-muted",
-              )}
+          {properties.map((property) => (
+            <Button
+              key={property.id}
+              variant={
+                selectedPropertyId === property.id ? "default" : "outline"
+              }
+              size="sm"
+              onClick={() => {
+                setSelectedPropertyId(property.id);
+                setSelectedDates(new Set());
+              }}
+              className="gap-2"
             >
-              {prop.title}
-            </button>
+              <Building className="h-3.5 w-3.5" />
+              {property.title}
+            </Button>
           ))}
         </div>
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs">
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-green-100" />
-          თავისუფალი
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-red-100" />
-          დაკავებული
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-gray-200" />
-          დაბლოკილი
-        </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <Info className="h-3.5 w-3.5" />
-          დააწკაპუნეთ თარიღზე დაბლოკვა/განბლოკვისთვის
-        </span>
-      </div>
-
-      {/* Calendar navigation */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={prevMonth}
-          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <span className="text-sm font-semibold capitalize text-foreground">
-          {format(currentDate, "LLLL yyyy", { locale: ka })}
-          {" – "}
-          {format(secondMonth, "LLLL yyyy", { locale: ka })}
-        </span>
-        <button
-          onClick={nextMonth}
-          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Calendar grids */}
-      {loadingDates ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          <Skeleton className="h-72 rounded-[var(--radius-card)]" />
-          <Skeleton className="h-72 rounded-[var(--radius-card)]" />
+      <div className="flex flex-wrap gap-4">
+        {Object.entries(statusConfig).map(([key, config]) => (
+          <div key={key} className="flex items-center gap-2 text-xs">
+            <span
+              className={`h-3 w-3 rounded-sm ${config.color.split(" ")[0]}`}
+            />
+            <span className="text-muted-foreground">{config.label}</span>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="h-3 w-3 rounded-sm bg-brand-accent/30" />
+          <span className="text-muted-foreground">არჩეული</span>
         </div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="grid gap-6 md:grid-cols-2"
-        >
-          <div className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]">
-            <CalendarGrid
-              year={currentDate.getFullYear()}
-              month={currentDate.getMonth()}
-              dates={calendarDates}
-              onDateClick={handleDateClick}
-            />
-          </div>
+      </div>
 
-          {/* Second month (desktop only on mobile shows single) */}
-          <div className="hidden rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] md:block">
-            <CalendarGrid
-              year={secondMonth.getFullYear()}
-              month={secondMonth.getMonth()}
-              dates={calendarDates}
-              onDateClick={handleDateClick}
-            />
-          </div>
-        </motion.div>
-      )}
+      {/* Calendar */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:p-6"
+      >
+        {/* Month navigation */}
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="icon" onClick={handlePrevMonth}>
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h3 className="text-base font-semibold text-foreground">
+            {monthNames[month]} {year}
+          </h3>
+          <Button variant="ghost" size="icon" onClick={handleNextMonth}>
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
 
-      {/* Booking details panel */}
-      {selectedBooking && (
+        {/* Day headers */}
+        <div className="mt-4 grid grid-cols-7 gap-1">
+          {dayNames.map((day) => (
+            <div
+              key={day}
+              className="py-2 text-center text-xs font-medium text-muted-foreground"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Date grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {/* Empty cells for offset */}
+          {Array.from({ length: firstDay }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
+
+          {/* Date cells */}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const block = blocksByDate.get(dateStr);
+            const isSelected = selectedDates.has(dateStr);
+            const isToday = new Date().toISOString().startsWith(dateStr);
+            const isPast =
+              new Date(dateStr) < new Date(new Date().toDateString());
+
+            let bgColor = "bg-white hover:bg-gray-50";
+            if (block?.status === "booked") bgColor = "bg-red-100 text-red-700";
+            else if (block?.status === "blocked")
+              bgColor = "bg-gray-200 text-gray-700";
+            else if (block?.status === "available")
+              bgColor = "bg-green-100 text-green-700";
+
+            if (isSelected)
+              bgColor = "bg-brand-accent/20 ring-2 ring-brand-accent";
+
+            return (
+              <button
+                key={dateStr}
+                onClick={() => !isPast && handleDateClick(dateStr)}
+                disabled={isPast}
+                className={cn(
+                  "flex h-10 items-center justify-center rounded-lg text-sm font-medium transition-colors sm:h-12",
+                  bgColor,
+                  isPast && "cursor-not-allowed opacity-40",
+                  isToday && "ring-1 ring-brand-accent",
+                )}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Actions for selected dates */}
+      {selectedDates.size > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+          className="flex flex-col gap-3 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between"
         >
-          <h3 className="text-sm font-semibold text-foreground">
-            ჯავშნის დეტალები
-          </h3>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {selectedBooking.check_in} — {selectedBooking.check_out}
+          <p className="text-sm text-foreground">
+            არჩეულია <span className="font-bold">{selectedDates.size}</span> დღე
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {selectedBooking.guests_count} სტუმარი •{" "}
-            {selectedBooking.total_price} ₾
-          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleBlockDates("blocked")}
+            >
+              დაბლოკვა
+            </Button>
+            <Button size="sm" onClick={() => handleBlockDates("available")}>
+              გახსნა
+            </Button>
+          </div>
         </motion.div>
       )}
     </div>

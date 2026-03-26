@@ -22,21 +22,21 @@ interface PropertyCardProps {
   isForSale: boolean;
 }
 
-export default function PropertyCard({
-  id,
-  title,
-  location,
-  photos,
-  pricePerNight,
-  salePrice,
-  rating,
-  capacity,
-  rooms,
-  isVip,
-  isSuperVip,
-  discountPercent,
-  isForSale,
-}: PropertyCardProps) {
+export default function PropertyCard(props: PropertyCardProps) {
+  const {
+    id,
+    title,
+    location,
+    photos,
+    pricePerNight,
+    salePrice,
+    rating,
+    capacity,
+    isVip,
+    isSuperVip,
+    discountPercent,
+    isForSale,
+  } = props;
   const href = isForSale ? `/sales/${id}` : `/apartments/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-property.jpg";
 

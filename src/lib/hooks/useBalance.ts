@@ -45,8 +45,10 @@ export function useBalance() {
     }
 
     fetchBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function topUp(amount: number) {
     setError(null);
 

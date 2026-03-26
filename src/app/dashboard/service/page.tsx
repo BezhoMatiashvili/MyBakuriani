@@ -122,34 +122,46 @@ export default function ServiceDashboardPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{"\u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8\u10E1 \u10D9\u10D0\u10D1\u10D8\u10DC\u10D4\u10E2\u10D8"}</h1>
+        <h1 className="text-2xl font-bold">
+          {
+            "\u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8\u10E1 \u10D9\u10D0\u10D1\u10D8\u10DC\u10D4\u10E2\u10D8"
+          }
+        </h1>
         <Link
           href="/create/service"
           className="inline-flex items-center gap-2 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent/90"
         >
           <Plus className="h-4 w-4" />
-          {"\u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D8\u10E1 \u10D3\u10D0\u10DB\u10D0\u10E2\u10D4\u10D1\u10D0"}
+          {
+            "\u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D8\u10E1 \u10D3\u10D0\u10DB\u10D0\u10E2\u10D4\u10D1\u10D0"
+          }
         </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <StatCard
           icon={<Briefcase className="h-5 w-5" />}
-          label={"\u10D0\u10E5\u10E2\u10D8\u10E3\u10E0\u10D8 \u10D2\u10D0\u10DC\u10EA\u10EE\u10D0\u10D3\u10D4\u10D1\u10D4\u10D1\u10D8"}
+          label={
+            "\u10D0\u10E5\u10E2\u10D8\u10E3\u10E0\u10D8 \u10D2\u10D0\u10DC\u10EA\u10EE\u10D0\u10D3\u10D4\u10D1\u10D4\u10D1\u10D8"
+          }
           value={stats.activeListings}
           change={null}
           loading={loading}
         />
         <StatCard
           icon={<Eye className="h-5 w-5" />}
-          label={"\u10DC\u10D0\u10EE\u10D5\u10D4\u10D1\u10D8 \u10E1\u10E3\u10DA"}
+          label={
+            "\u10DC\u10D0\u10EE\u10D5\u10D4\u10D1\u10D8 \u10E1\u10E3\u10DA"
+          }
           value={stats.totalViews}
           change={null}
           loading={loading}
         />
         <StatCard
           icon={<MessageSquare className="h-5 w-5" />}
-          label={"\u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8 \u10D0\u10DB \u10D7\u10D5\u10D4\u10E8\u10D8"}
+          label={
+            "\u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8 \u10D0\u10DB \u10D7\u10D5\u10D4\u10E8\u10D8"
+          }
           value={stats.inquiriesThisMonth}
           change={null}
           loading={loading}
@@ -165,7 +177,11 @@ export default function ServiceDashboardPage() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{"\u10E9\u10D4\u10DB\u10D8 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8"}</h2>
+          <h2 className="text-lg font-semibold">
+            {
+              "\u10E9\u10D4\u10DB\u10D8 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8"
+            }
+          </h2>
           <Link
             href="/dashboard/service/orders"
             className="text-sm font-medium text-brand-accent hover:underline"
@@ -184,14 +200,18 @@ export default function ServiceDashboardPage() {
           <div className="rounded-xl border border-dashed border-muted-foreground/30 p-8 text-center">
             <Briefcase className="mx-auto h-10 w-10 text-muted-foreground/50" />
             <p className="mt-2 text-sm text-muted-foreground">
-              {"\u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D2\u10D0\u10E5\u10D5\u10D7 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8"}
+              {
+                "\u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D2\u10D0\u10E5\u10D5\u10D7 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8"
+              }
             </p>
             <Link
               href="/create/service"
               className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-accent hover:underline"
             >
               <Plus className="h-3.5 w-3.5" />
-              {"\u10D3\u10D0\u10D0\u10DB\u10D0\u10E2\u10D4\u10D7 \u10DE\u10D8\u10E0\u10D5\u10D4\u10DA\u10D8 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D8"}
+              {
+                "\u10D3\u10D0\u10D0\u10DB\u10D0\u10E2\u10D4\u10D7 \u10DE\u10D8\u10E0\u10D5\u10D4\u10DA\u10D8 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D8"
+              }
             </Link>
           </div>
         ) : (
@@ -206,6 +226,7 @@ export default function ServiceDashboardPage() {
               >
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
                   {service.photos[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={service.photos[0]}
                       alt={service.title}
@@ -235,7 +256,9 @@ export default function ServiceDashboardPage() {
                         {service.price_unit && ` / ${service.price_unit}`}
                       </span>
                     )}
-                    <span>{service.views_count} {"\u10DC\u10D0\u10EE\u10D5\u10D0"}</span>
+                    <span>
+                      {service.views_count} {"\u10DC\u10D0\u10EE\u10D5\u10D0"}
+                    </span>
                   </div>
                 </div>
 
@@ -286,7 +309,11 @@ function RecentInquiries({ userId }: { userId: string | undefined }) {
   if (loading) {
     return (
       <div>
-        <h2 className="mb-3 text-lg font-semibold">{"\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"}</h2>
+        <h2 className="mb-3 text-lg font-semibold">
+          {
+            "\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
+          }
+        </h2>
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />
@@ -299,15 +326,27 @@ function RecentInquiries({ userId }: { userId: string | undefined }) {
   if (messages.length === 0) {
     return (
       <div>
-        <h2 className="mb-3 text-lg font-semibold">{"\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"}</h2>
-        <p className="text-sm text-muted-foreground">{"\u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8 \u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"}</p>
+        <h2 className="mb-3 text-lg font-semibold">
+          {
+            "\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
+          }
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {
+            "\u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8 \u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
+          }
+        </p>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="mb-3 text-lg font-semibold">{"\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"}</h2>
+      <h2 className="mb-3 text-lg font-semibold">
+        {
+          "\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
+        }
+      </h2>
       <div className="space-y-2">
         {messages.map((msg) => (
           <div
@@ -320,7 +359,8 @@ function RecentInquiries({ userId }: { userId: string | undefined }) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">
                 {(msg.sender as { display_name: string } | undefined)
-                  ?.display_name ?? "\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}
+                  ?.display_name ??
+                  "\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {msg.message}

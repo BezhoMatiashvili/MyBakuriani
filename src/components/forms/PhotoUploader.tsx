@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
+import Image from "next/image";
 import { Upload, X } from "lucide-react";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -127,10 +128,12 @@ export default function PhotoUploader({
               key={index}
               className="group relative aspect-square overflow-hidden rounded-lg"
             >
-              <img
+              <Image
                 src={photo}
                 alt={`Photo ${index + 1}`}
-                className="size-full object-cover"
+                fill
+                className="object-cover"
+                unoptimized
               />
               <button
                 type="button"

@@ -1,222 +1,225 @@
 "use client";
 
-import { useEffect } from "react";
-import { motion } from "framer-motion";
-import {
-  Building2,
-  Eye,
-  MessageSquareMore,
-  TrendingUp,
-  ChevronRight,
-} from "lucide-react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Building, Eye, MessageSquare, ArrowRight, Plus } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/hooks/useAuth";
 import StatCard from "@/components/cards/StatCard";
-import StatusBadge from "@/components/shared/StatusBadge";
-import VIPBadge from "@/components/shared/VIPBadge";
-import { useProperties } from "@/lib/hooks/useProperties";
-import { useProfile } from "@/lib/hooks/useProfile";
-import { formatPrice } from "@/lib/utils/format";
-import { staggerChildren, slideUp } from "@/lib/utils/animations";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { Tables } from "@/lib/types/database";
+
+const statusLabels: Record<string, string> = {
+  active: "აქტიური",
+  blocked: "დაბლოკილი",
+  pending: "მოლოდინში",
+  draft: "დრაფტი",
+};
+
+const statusColors: Record<string, string> = {
+  active: "bg-green-100 text-green-700",
+  blocked: "bg-red-100 text-red-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  draft: "bg-gray-100 text-gray-700",
+};
 
 export default function SellerDashboardPage() {
-  const {
-    properties,
-    loading: propsLoading,
-    list: listProperties,
-  } = useProperties();
-  const { profile, loading: profileLoading } = useProfile();
+  const { user } = useAuth();
+  const supabase = createClient();
+
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [properties, setProperties] = useState<Tables<"properties">[]>([]);
+  const [totalViews, setTotalViews] = useState(0);
+  const [inquiriesCount, setInquiriesCount] = useState(0);
 
   useEffect(() => {
-    listProperties({ isForSale: true });
-  }, [listProperties]);
+    if (!user) return;
 
-  const loading = propsLoading || profileLoading;
+    async function fetchData() {
+      const [profileRes, propertiesRes, inquiriesRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user!.id).single(),
+        supabase
+          .from("properties")
+          .select("*")
+          .eq("owner_id", user!.id)
+          .eq("is_for_sale", true)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("sms_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("to_user_id", user!.id),
+      ]);
 
-  // Stats
-  const activeListings = properties.filter((p) => p.status === "active").length;
-  const totalViews = properties.reduce((sum, p) => sum + p.views_count, 0);
-  const inquiriesThisMonth = Math.floor(totalViews * 0.05); // simulated
+      if (profileRes.data) setProfile(profileRes.data);
+      if (propertiesRes.data) {
+        setProperties(propertiesRes.data);
+        setTotalViews(
+          propertiesRes.data.reduce((sum, p) => sum + p.views_count, 0),
+        );
+      }
+      setInquiriesCount(inquiriesRes.count ?? 0);
+      setLoading(false);
+    }
+
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
+    <div className="space-y-8">
+      {/* Welcome */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
         <h1 className="text-2xl font-bold text-foreground">
-          გამარჯობა, {profile?.display_name ?? "გამყიდველი"}
+          გამარჯობა, {profile?.display_name ?? "გამყიდველი"}!
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          თქვენი გაყიდვების პანელი
+          თქვენი გასაყიდი ობიექტების მართვა
         </p>
-      </div>
-
-      {/* Stat cards */}
-      <motion.div
-        variants={staggerChildren}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
-      >
-        <motion.div variants={slideUp}>
-          <StatCard
-            icon={<Building2 className="h-5 w-5" />}
-            label="აქტიური განცხადებები"
-            value={activeListings}
-            change={null}
-            loading={loading}
-          />
-        </motion.div>
-        <motion.div variants={slideUp}>
-          <StatCard
-            icon={<Eye className="h-5 w-5" />}
-            label="ნახვები სულ"
-            value={totalViews.toLocaleString()}
-            change={15}
-            loading={loading}
-          />
-        </motion.div>
-        <motion.div variants={slideUp}>
-          <StatCard
-            icon={<MessageSquareMore className="h-5 w-5" />}
-            label="შეკითხვები ამ თვეში"
-            value={inquiriesThisMonth}
-            change={10}
-            loading={loading}
-          />
-        </motion.div>
       </motion.div>
 
-      {/* Sale properties list */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">გასაყიდი ქონება</h2>
-          <Link
-            href="/dashboard/seller/listings"
-            className="flex items-center gap-1 text-sm font-medium text-brand-accent hover:text-brand-accent-hover"
-          >
-            ყველა <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          icon={<Building className="h-5 w-5" />}
+          label="გასაყიდი ობიექტები"
+          value={properties.length}
+          change={null}
+          loading={loading}
+        />
+        <StatCard
+          icon={<Eye className="h-5 w-5" />}
+          label="სულ ნახვები"
+          value={totalViews}
+          change={null}
+          loading={loading}
+        />
+        <StatCard
+          icon={<MessageSquare className="h-5 w-5" />}
+          label="შეკითხვები"
+          value={inquiriesCount}
+          change={null}
+          loading={loading}
+        />
+      </div>
 
-        {propsLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-[var(--radius-card)]" />
-            ))}
-          </div>
-        ) : properties.length === 0 ? (
-          <div className="rounded-[var(--radius-card)] bg-brand-surface p-8 text-center shadow-[var(--shadow-card)]">
-            <Building2 className="mx-auto h-10 w-10 text-muted-foreground/40" />
-            <p className="mt-3 text-muted-foreground">
-              გასაყიდი ქონება ჯერ არ დამატებულა
-            </p>
+      {/* Properties */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">
+            ჩემი ობიექტები
+          </h2>
+          <div className="flex items-center gap-3">
+            <Link href="/create/sale">
+              <Button size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                ახალი
+              </Button>
+            </Link>
             <Link
-              href="/create/property"
-              className="mt-3 inline-block rounded-lg bg-brand-accent px-5 py-2 text-sm font-medium text-white hover:bg-brand-accent-hover"
+              href="/dashboard/seller/listings"
+              className="flex items-center gap-1 text-sm text-brand-accent hover:underline"
             >
-              ქონების დამატება
+              ყველა
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-        ) : (
-          <motion.div
-            variants={staggerChildren}
-            initial="hidden"
-            animate="visible"
-            className="space-y-3"
-          >
-            {properties.map((prop) => (
-              <motion.div
-                key={prop.id}
-                variants={slideUp}
-                className="flex gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
               >
-                {/* Photo */}
-                <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-lg">
-                  <Image
-                    src={prop.photos[0] ?? "/placeholder-property.jpg"}
-                    alt={prop.title}
-                    fill
-                    sizes="128px"
-                    className="object-cover"
-                  />
-                  {(prop.is_vip || prop.is_super_vip) && (
-                    <div className="absolute top-1.5 right-1.5">
-                      <VIPBadge
-                        level={prop.is_super_vip ? "super_vip" : "vip"}
-                      />
-                    </div>
+                <div className="flex gap-4">
+                  <Skeleton className="h-24 w-24 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : properties.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]">
+              <Building className="h-12 w-12 text-muted-foreground" />
+              <p className="mt-3 text-sm text-muted-foreground">
+                გასაყიდი ობიექტები ჯერ არ გაქვთ
+              </p>
+              <Link href="/create/sale" className="mt-4">
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  დაამატეთ ობიექტი
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            properties.map((property) => (
+              <div
+                key={property.id}
+                className="flex flex-col gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:flex-row"
+              >
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  {property.photos[0] && (
+                    <Image
+                      src={property.photos[0]}
+                      alt={property.title}
+                      fill
+                      className="object-cover"
+                    />
                   )}
                 </div>
-
-                {/* Details */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-sm font-semibold text-foreground">
-                        {prop.title}
-                      </h3>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {prop.location}
-                      </p>
-                    </div>
-                    <StatusBadge
-                      status={prop.status as "active" | "blocked" | "pending"}
-                    />
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    {prop.sale_price && (
-                      <span className="text-sm font-bold text-foreground">
-                        {formatPrice(prop.sale_price)}
-                      </span>
-                    )}
-                    {prop.roi_percent != null && (
-                      <span className="flex items-center gap-1 text-brand-success">
-                        <TrendingUp className="h-3.5 w-3.5" />
-                        ROI {prop.roi_percent}%
-                      </span>
-                    )}
-                    {prop.construction_status && (
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                        {prop.construction_status}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3.5 w-3.5" />
-                      {prop.views_count} ნახვა
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquareMore className="h-3.5 w-3.5" />
-                      {Math.floor(prop.views_count * 0.05)} შეკითხვა
+                    <h3 className="truncate text-sm font-semibold text-foreground">
+                      {property.title}
+                    </h3>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status] ?? ""}`}
+                    >
+                      {statusLabels[property.status] ?? property.status}
                     </span>
                   </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {property.location}
+                  </p>
+                  <div className="mt-2 flex items-center gap-4">
+                    <span className="text-lg font-bold text-brand-accent">
+                      {property.sale_price?.toLocaleString()} ₾
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Eye className="h-3 w-3" />
+                      {property.views_count}
+                    </span>
+                    {property.area_sqm && (
+                      <span className="text-xs text-muted-foreground">
+                        {property.area_sqm} მ²
+                      </span>
+                    )}
+                  </div>
+                  {property.is_vip && (
+                    <Badge className="mt-2 bg-amber-500 text-white">VIP</Badge>
+                  )}
                 </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </div>
-
-      {/* Recent inquiries */}
-      <div>
-        <h2 className="mb-3 text-lg font-bold text-foreground">
-          ბოლო შეკითხვები
-        </h2>
-        <div className="rounded-[var(--radius-card)] bg-brand-surface p-6 text-center shadow-[var(--shadow-card)]">
-          <MessageSquareMore className="mx-auto h-8 w-8 text-muted-foreground/40" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            შეკითხვები ჯერ არ არის
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            როდესაც მყიდველი დაინტერესდება თქვენი ქონებით, შეკითხვა აქ
-            გამოჩნდება
-          </p>
+              </div>
+            ))
+          )}
         </div>
-      </div>
+      </motion.section>
     </div>
   );
 }

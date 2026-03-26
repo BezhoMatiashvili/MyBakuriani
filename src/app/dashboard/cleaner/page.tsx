@@ -1,280 +1,319 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  CheckCircle2,
-  Clock,
-  Wallet,
-  ToggleLeft,
-  ToggleRight,
   Sparkles,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  MapPin,
+  CalendarDays,
+  Banknote,
+  ArrowRight,
+  Bell,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useProfile } from "@/lib/hooks/useProfile";
-import { formatPrice, formatDate } from "@/lib/utils/format";
+import { useAuth } from "@/lib/hooks/useAuth";
 import StatCard from "@/components/cards/StatCard";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Database } from "@/lib/types/database";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Tables } from "@/lib/types/database";
 
-type CleaningTask = Database["public"]["Tables"]["cleaning_tasks"]["Row"];
+type CleaningTaskWithProperty = Tables<"cleaning_tasks"> & {
+  properties: Pick<Tables<"properties">, "title" | "location"> | null;
+};
+
+const taskStatusConfig: Record<
+  string,
+  { label: string; color: string; icon: React.ElementType }
+> = {
+  pending: {
+    label: "ახალი",
+    color: "bg-yellow-100 text-yellow-700",
+    icon: Bell,
+  },
+  accepted: {
+    label: "მიღებული",
+    color: "bg-blue-100 text-blue-700",
+    icon: Clock,
+  },
+  in_progress: {
+    label: "მიმდინარე",
+    color: "bg-purple-100 text-purple-700",
+    icon: Sparkles,
+  },
+  completed: {
+    label: "დასრულებული",
+    color: "bg-green-100 text-green-700",
+    icon: CheckCircle,
+  },
+  cancelled: {
+    label: "გაუქმებული",
+    color: "bg-red-100 text-red-700",
+    icon: AlertCircle,
+  },
+};
 
 export default function CleanerDashboardPage() {
+  const { user } = useAuth();
   const supabase = createClient();
-  const { profile, loading: profileLoading } = useProfile();
-  const [tasks, setTasks] = useState<CleaningTask[]>([]);
+
   const [loading, setLoading] = useState(true);
-  const [available, setAvailable] = useState(true);
-  const [monthlyEarnings, setMonthlyEarnings] = useState(0);
+  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [tasks, setTasks] = useState<CleaningTaskWithProperty[]>([]);
+  const [newTasks, setNewTasks] = useState<CleaningTaskWithProperty[]>([]);
 
   useEffect(() => {
+    if (!user) return;
+
     async function fetchData() {
-      setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      const [profileRes, tasksRes, newTasksRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user!.id).single(),
+        supabase
+          .from("cleaning_tasks")
+          .select("*, properties(title, location)")
+          .eq("cleaner_id", user!.id)
+          .order("scheduled_at", { ascending: true }),
+        supabase
+          .from("cleaning_tasks")
+          .select("*, properties(title, location)")
+          .is("cleaner_id", null)
+          .eq("status", "pending")
+          .order("scheduled_at", { ascending: true })
+          .limit(10),
+      ]);
 
-      // Fetch cleaning tasks assigned to this cleaner
-      const { data: taskData } = await supabase
-        .from("cleaning_tasks")
-        .select("*")
-        .eq("cleaner_id", user.id)
-        .order("scheduled_at", { ascending: false });
-
-      setTasks(taskData ?? []);
-
-      // Calculate monthly earnings
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const completedThisMonth = (taskData ?? []).filter(
-        (t) =>
-          t.status === "completed" && new Date(t.scheduled_at) >= startOfMonth,
-      );
-      const total = completedThisMonth.reduce(
-        (sum, t) => sum + (t.price ?? 0),
-        0,
-      );
-      setMonthlyEarnings(total);
+      if (profileRes.data) setProfile(profileRes.data);
+      if (tasksRes.data) setTasks(tasksRes.data as CleaningTaskWithProperty[]);
+      if (newTasksRes.data)
+        setNewTasks(newTasksRes.data as CleaningTaskWithProperty[]);
       setLoading(false);
     }
 
     fetchData();
-  }, []);
 
-  const activeTask = tasks.find(
-    (t) => t.status === "in_progress" || t.status === "accepted",
+    // Realtime new tasks
+    const channel = supabase
+      .channel("cleaner-new-tasks")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "cleaning_tasks",
+        },
+        () => {
+          fetchData();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const activeTasks = tasks.filter(
+    (t) => t.status === "accepted" || t.status === "in_progress",
   );
-  const pendingTasks = tasks.filter((t) => t.status === "pending");
-  const completedCount = tasks.filter((t) => t.status === "completed").length;
+  const completedTasks = tasks.filter((t) => t.status === "completed");
+  const totalEarnings = completedTasks.reduce(
+    (sum, t) => sum + (t.price ?? 0),
+    0,
+  );
 
-  if (profileLoading || loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
-        <Skeleton className="h-32" />
-      </div>
-    );
-  }
+  const handleAcceptTask = async (taskId: string) => {
+    if (!user) return;
+
+    await supabase
+      .from("cleaning_tasks")
+      .update({ cleaner_id: user.id, status: "accepted" })
+      .eq("id", taskId);
+
+    // Refresh data
+    setNewTasks((prev) => prev.filter((t) => t.id !== taskId));
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header with availability toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            გამარჯობა, {profile?.display_name ?? "დამლაგებელი"}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            დამლაგებლის პანელი
-          </p>
-        </div>
-        <button
-          onClick={() => setAvailable(!available)}
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          {available ? (
-            <>
-              <ToggleRight className="size-6 text-brand-success" />
-              <span className="text-brand-success">ხელმისაწვდომი</span>
-            </>
-          ) : (
-            <>
-              <ToggleLeft className="size-6 text-muted-foreground" />
-              <span className="text-muted-foreground">დაკავებული</span>
-            </>
-          )}
-        </button>
-      </div>
+    <div className="space-y-8">
+      {/* Welcome */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-2xl font-bold text-foreground">
+          გამარჯობა, {profile?.display_name ?? "დამლაგებელი"}!
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          თქვენი დალაგების ამოცანების მართვა
+        </p>
+      </motion.div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          icon={<CheckCircle2 className="size-5" />}
-          label="შესრულებული ამ თვეში"
-          value={completedCount}
+          icon={<Sparkles className="h-5 w-5" />}
+          label="აქტიური ამოცანები"
+          value={activeTasks.length}
           change={null}
-          loading={false}
+          loading={loading}
         />
         <StatCard
-          icon={<Wallet className="size-5" />}
-          label="შემოსავალი ამ თვეში"
-          value={formatPrice(monthlyEarnings)}
+          icon={<CheckCircle className="h-5 w-5" />}
+          label="შესრულებული"
+          value={completedTasks.length}
           change={null}
-          loading={false}
+          loading={loading}
         />
         <StatCard
-          icon={<Clock className="size-5" />}
-          label="მოლოდინში"
-          value={pendingTasks.length}
+          icon={<Banknote className="h-5 w-5" />}
+          label="შემოსავალი"
+          value={`${totalEarnings} ₾`}
           change={null}
-          loading={false}
+          loading={loading}
         />
       </div>
 
-      {/* Active task */}
-      {activeTask && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
-            მიმდინარე დავალება
+      {/* New task calls */}
+      {newTasks.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <h2 className="text-lg font-semibold text-foreground">
+            ახალი გამოძახებები
           </h2>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-[var(--radius-card)] border-2 border-brand-accent bg-brand-surface p-5 shadow-[var(--shadow-card)]"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="inline-flex items-center rounded-full bg-brand-accent-light px-2.5 py-0.5 text-xs font-medium text-brand-accent">
-                  {activeTask.cleaning_type === "general"
-                    ? "გენერალური"
-                    : "სტანდარტული"}
-                </span>
-                <p className="mt-2 text-sm font-semibold text-foreground">
-                  დავალება #{activeTask.id.slice(0, 8)}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatDate(activeTask.scheduled_at)}
-                </p>
+          <div className="mt-3 space-y-3">
+            {newTasks.map((task) => (
+              <div
+                key={task.id}
+                className="rounded-[var(--radius-card)] border-2 border-dashed border-brand-accent/30 bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {task.properties?.title ?? "ობიექტი"}
+                    </h3>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      {task.properties?.location}
+                    </p>
+                  </div>
+                  <Badge className="bg-yellow-100 text-yellow-700">ახალი</Badge>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {new Date(task.scheduled_at).toLocaleDateString("ka-GE", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span>{task.cleaning_type}</span>
+                  {task.price && (
+                    <span className="font-bold text-brand-accent">
+                      {task.price} ₾
+                    </span>
+                  )}
+                </div>
+                {task.notes && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {task.notes}
+                  </p>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" onClick={() => handleAcceptTask(task.id)}>
+                    მიღება
+                  </Button>
+                  <Button size="sm" variant="outline">
+                    გამოტოვება
+                  </Button>
+                </div>
               </div>
-              {activeTask.price != null && (
-                <span className="text-lg font-bold text-foreground">
-                  {formatPrice(activeTask.price)}
-                </span>
-              )}
-            </div>
-            {activeTask.notes && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {activeTask.notes}
-              </p>
-            )}
-          </motion.div>
-        </section>
-      )}
-
-      {/* Incoming requests */}
-      {pendingTasks.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold text-foreground">
-            ახალი მოთხოვნები ({pendingTasks.length})
-          </h2>
-          <div className="space-y-3">
-            {pendingTasks.map((task, i) => (
-              <CleaningRequestCard key={task.id} task={task} index={i} />
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
-      {/* Empty state */}
-      {!activeTask && pendingTasks.length === 0 && (
-        <div className="flex flex-col items-center py-12 text-center">
-          <Sparkles className="size-12 text-muted-foreground/40" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            ამჟამად ახალი დავალებები არ არის
-          </p>
+      {/* Active tasks */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">
+            აქტიური ამოცანები
+          </h2>
+          <Link
+            href="/dashboard/cleaner/schedule"
+            className="flex items-center gap-1 text-sm text-brand-accent hover:underline"
+          >
+            განრიგი
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
-      )}
-    </div>
-  );
-}
+        <div className="mt-3 space-y-3">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="h-20 w-full rounded-[var(--radius-card)]"
+              />
+            ))
+          ) : activeTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-12 shadow-[var(--shadow-card)]">
+              <Sparkles className="h-10 w-10 text-muted-foreground" />
+              <p className="mt-2 text-sm text-muted-foreground">
+                აქტიური ამოცანები არ არის
+              </p>
+            </div>
+          ) : (
+            activeTasks.map((task) => {
+              const config =
+                taskStatusConfig[task.status] ?? taskStatusConfig.pending;
+              const StatusIcon = config.icon;
 
-function CleaningRequestCard({
-  task,
-  index,
-}: {
-  task: CleaningTask;
-  index: number;
-}) {
-  const supabase = createClient();
-  const [responding, setResponding] = useState(false);
-
-  async function handleAccept() {
-    setResponding(true);
-    await supabase
-      .from("cleaning_tasks")
-      .update({ status: "accepted" })
-      .eq("id", task.id);
-    setResponding(false);
-  }
-
-  async function handleDecline() {
-    setResponding(true);
-    await supabase
-      .from("cleaning_tasks")
-      .update({ status: "declined", cleaner_id: null })
-      .eq("id", task.id);
-    setResponding(false);
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-            {task.cleaning_type === "general" ? "გენერალური" : "სტანდარტული"}
-          </span>
-          <p className="mt-1.5 text-sm font-medium text-foreground">
-            {formatDate(task.scheduled_at)}
-          </p>
-          {task.notes && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{task.notes}</p>
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold text-foreground">
+                      {task.properties?.title ?? "ობიექტი"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(task.scheduled_at).toLocaleDateString("ka-GE", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}
+                  >
+                    <StatusIcon className="h-3 w-3" />
+                    {config.label}
+                  </span>
+                </div>
+              );
+            })
           )}
         </div>
-        {task.price != null && (
-          <span className="text-sm font-bold text-foreground">
-            {formatPrice(task.price)}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <Button size="sm" disabled={responding} onClick={handleAccept}>
-          მიღება
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={responding}
-          onClick={handleDecline}
-        >
-          უარყოფა
-        </Button>
-      </div>
-    </motion.div>
+      </motion.section>
+    </div>
   );
 }

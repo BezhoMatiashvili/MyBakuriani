@@ -1,0 +1,369 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  MapPin,
+  Star,
+  Users,
+  BedDouble,
+  Bath,
+  Maximize,
+  Eye,
+  Wifi,
+  Car,
+  Snowflake,
+  Flame,
+  Tv,
+  UtensilsCrossed,
+  WashingMachine,
+  Mountain,
+  Hotel,
+} from "lucide-react";
+import { PhotoGallery } from "@/components/detail/PhotoGallery";
+import { BookingSidebar } from "@/components/booking/BookingSidebar";
+import {
+  CalendarGrid,
+  type CalendarDate,
+} from "@/components/booking/CalendarGrid";
+import ReviewCard from "@/components/cards/ReviewCard";
+import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@/lib/types/database";
+
+const AMENITY_MAP: Record<string, { icon: React.ElementType; label: string }> =
+  {
+    wifi: { icon: Wifi, label: "Wi-Fi" },
+    parking: { icon: Car, label: "პარკინგი" },
+    heating: { icon: Flame, label: "გათბობა" },
+    ac: { icon: Snowflake, label: "კონდიციონერი" },
+    tv: { icon: Tv, label: "ტელევიზორი" },
+    restaurant: { icon: UtensilsCrossed, label: "რესტორანი" },
+    laundry: { icon: WashingMachine, label: "სამრეცხაო" },
+    mountain_view: { icon: Mountain, label: "მთის ხედი" },
+    spa: { icon: Hotel, label: "სპა" },
+  };
+
+type PropertyWithOwner = Tables<"properties"> & {
+  profiles: Tables<"profiles"> | null;
+};
+
+interface ReviewWithGuest {
+  id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  profiles: { display_name: string } | null;
+}
+
+interface CalendarBlock {
+  date: string;
+  status: string;
+}
+
+interface Props {
+  property: PropertyWithOwner;
+  reviews: ReviewWithGuest[];
+  calendarBlocks: CalendarBlock[];
+}
+
+const fadeIn = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.4 },
+};
+
+export default function HotelDetailClient({
+  property,
+  reviews,
+  calendarBlocks,
+}: Props) {
+  const router = useRouter();
+  const [selectedRange, setSelectedRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({ start: null, end: null });
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.rpc("increment_views", { prop_id: property.id });
+  }, [property.id]);
+
+  const owner = property.profiles;
+  const amenities = (property.amenities ?? []) as string[];
+  const houseRulesObj = (property.house_rules ?? {}) as Record<string, unknown>;
+  const houseRulesLabels: Record<string, string> = {
+    smoking: "მოწევა",
+    pets: "შინაური ცხოველები",
+    check_in: "შესვლა",
+    check_out: "გასვლა",
+  };
+  const houseRules = Object.entries(houseRulesObj).map(([key, value]) => {
+    const label = houseRulesLabels[key] ?? key;
+    if (typeof value === "boolean")
+      return `${label}: ${value ? "დიახ" : "არა"}`;
+    return `${label}: ${value}`;
+  });
+  const avgRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : null;
+
+  const now = new Date();
+  const calendarDates: CalendarDate[] = calendarBlocks.map((block) => ({
+    date: new Date(block.date),
+    status: block.status as CalendarDate["status"],
+  }));
+
+  const handleDateClick = (date: Date) => {
+    if (!selectedRange.start || (selectedRange.start && selectedRange.end)) {
+      setSelectedRange({ start: date, end: null });
+    } else {
+      if (date > selectedRange.start) {
+        setSelectedRange({ start: selectedRange.start, end: date });
+      } else {
+        setSelectedRange({ start: date, end: null });
+      }
+    }
+  };
+
+  const handleBook = () => {
+    router.push("/auth/login");
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8">
+      <motion.button
+        {...fadeIn}
+        onClick={() => router.back()}
+        className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        უკან დაბრუნება
+      </motion.button>
+
+      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
+        <PhotoGallery photos={property.photos} title={property.title} />
+      </motion.div>
+
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-8">
+          {/* Title + meta */}
+          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    სასტუმრო
+                  </span>
+                  {property.is_super_vip && (
+                    <span className="rounded-md bg-brand-vip-super px-2 py-0.5 text-xs font-bold text-white">
+                      Super VIP
+                    </span>
+                  )}
+                  {property.is_vip && !property.is_super_vip && (
+                    <span className="rounded-md bg-brand-vip px-2 py-0.5 text-xs font-bold text-white">
+                      VIP
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+                  {property.title}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {property.location}
+                  </span>
+                  {avgRating !== null && (
+                    <span className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-brand-warning text-brand-warning" />
+                      {avgRating.toFixed(1)} ({reviews.length} შეფასება)
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-4 w-4" />
+                    {property.views_count} ნახვა
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick specs */}
+            <div className="mt-4 flex flex-wrap gap-4 rounded-xl bg-muted/50 p-4">
+              {property.rooms != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <BedDouble className="h-5 w-5 text-blue-600" />
+                  <span>{property.rooms} ნომერი</span>
+                </div>
+              )}
+              {property.bathrooms != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Bath className="h-5 w-5 text-blue-600" />
+                  <span>{property.bathrooms} სააბაზანო</span>
+                </div>
+              )}
+              {property.capacity != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  <span>{property.capacity} სტუმარი</span>
+                </div>
+              )}
+              {property.area_sqm != null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Maximize className="h-5 w-5 text-blue-600" />
+                  <span>{property.area_sqm} მ²</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Description */}
+          {property.description && (
+            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
+              <h2 className="mb-3 text-lg font-semibold text-foreground">
+                აღწერა
+              </h2>
+              <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
+                {property.description}
+              </p>
+            </motion.div>
+          )}
+
+          {/* Amenities */}
+          {amenities.length > 0 && (
+            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
+              <h2 className="mb-3 text-lg font-semibold text-foreground">
+                კეთილმოწყობა
+              </h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {amenities.map((key) => {
+                  const amenity = AMENITY_MAP[key];
+                  const Icon = amenity?.icon;
+                  const label = amenity?.label ?? key;
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm"
+                    >
+                      {Icon && (
+                        <Icon className="h-5 w-5 text-blue-600 shrink-0" />
+                      )}
+                      <span>{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* House Rules */}
+          {houseRules.length > 0 && (
+            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
+              <h2 className="mb-3 text-lg font-semibold text-foreground">
+                სასტუმროს წესები
+              </h2>
+              <ul className="space-y-2">
+                {houseRules.map((rule, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                    {String(rule)}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          )}
+
+          {/* Calendar */}
+          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
+            <h2 className="mb-3 text-lg font-semibold text-foreground">
+              ხელმისაწვდომობა
+            </h2>
+            <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-green-50 border border-green-200" />
+                თავისუფალი
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-red-50 border border-red-200" />
+                დაკავებული
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {[0, 1, 2].map((offset) => {
+                const monthDate = new Date(
+                  now.getFullYear(),
+                  now.getMonth() + offset,
+                );
+                return (
+                  <CalendarGrid
+                    key={offset}
+                    year={monthDate.getFullYear()}
+                    month={monthDate.getMonth()}
+                    dates={calendarDates}
+                    onDateClick={handleDateClick}
+                  />
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Reviews */}
+          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
+            <h2 className="mb-4 text-lg font-semibold text-foreground">
+              შეფასებები {reviews.length > 0 && `(${reviews.length})`}
+            </h2>
+            {reviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                ჯერ არ არის შეფასებები
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    displayName={review.profiles?.display_name ?? "ანონიმური"}
+                    rating={review.rating}
+                    comment={review.comment ?? ""}
+                    createdAt={review.created_at}
+                  />
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Sidebar */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          {property.price_per_night != null && (
+            <BookingSidebar
+              pricePerNight={property.price_per_night}
+              minBookingDays={property.min_booking_days}
+              ownerName={owner?.display_name ?? "სასტუმრო"}
+              ownerAvatar={owner?.avatar_url ?? null}
+              isOwnerVerified={owner?.is_verified ?? false}
+              selectedRange={selectedRange}
+              onBook={handleBook}
+            />
+          )}
+
+          {property.discount_percent > 0 && (
+            <div className="mt-4 rounded-xl bg-red-50 p-4 text-center">
+              <span className="text-lg font-bold text-red-600">
+                -{property.discount_percent}% ფასდაკლება
+              </span>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    </div>
+  );
+}

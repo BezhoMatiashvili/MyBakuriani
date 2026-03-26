@@ -2,330 +2,271 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Clock, MapPin } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { formatPrice, formatDate } from "@/lib/utils/format";
 import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameDay,
-  addMonths,
-  subMonths,
-  getDay,
-} from "date-fns";
-import { ka } from "date-fns/locale";
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  MapPin,
+  Clock,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { Database } from "@/lib/types/database";
+import { cn } from "@/lib/utils";
+import type { Tables } from "@/lib/types/database";
 
-type CleaningTask = Database["public"]["Tables"]["cleaning_tasks"]["Row"];
-type Property = Database["public"]["Tables"]["properties"]["Row"];
+type CleaningTaskWithProperty = Tables<"cleaning_tasks"> & {
+  properties: Pick<Tables<"properties">, "title" | "location"> | null;
+};
+
+const dayNames = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
+const monthNames = [
+  "იანვარი",
+  "თებერვალი",
+  "მარტი",
+  "აპრილი",
+  "მაისი",
+  "ივნისი",
+  "ივლისი",
+  "აგვისტო",
+  "სექტემბერი",
+  "ოქტომბერი",
+  "ნოემბერი",
+  "დეკემბერი",
+];
+
+const statusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-700",
+  accepted: "bg-blue-100 text-blue-700",
+  in_progress: "bg-purple-100 text-purple-700",
+  completed: "bg-green-100 text-green-700",
+  cancelled: "bg-red-100 text-red-700",
+};
+
+const statusLabels: Record<string, string> = {
+  pending: "ახალი",
+  accepted: "მიღებული",
+  in_progress: "მიმდინარე",
+  completed: "დასრულებული",
+  cancelled: "გაუქმებული",
+};
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  const day = new Date(year, month, 1).getDay();
+  return day === 0 ? 6 : day - 1;
+}
 
 export default function CleanerSchedulePage() {
+  const { user } = useAuth();
   const supabase = createClient();
-  const [tasks, setTasks] = useState<CleaningTask[]>([]);
-  const [properties, setProperties] = useState<Record<string, Property>>({});
-  const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const [tasks, setTasks] = useState<CleaningTaskWithProperty[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
 
   useEffect(() => {
+    if (!user) return;
+
     async function fetchTasks() {
-      setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      const lastDay = getDaysInMonth(year, month);
+      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${lastDay}`;
 
       const { data } = await supabase
         .from("cleaning_tasks")
-        .select("*")
-        .eq("cleaner_id", user.id)
+        .select("*, properties(title, location)")
+        .eq("cleaner_id", user!.id)
+        .gte("scheduled_at", `${startDate}T00:00:00`)
+        .lte("scheduled_at", `${endDate}T23:59:59`)
         .order("scheduled_at", { ascending: true });
 
-      setTasks(data ?? []);
-
-      // Fetch properties
-      if (data && data.length > 0) {
-        const propertyIds = [...new Set(data.map((t) => t.property_id))];
-        const { data: propData } = await supabase
-          .from("properties")
-          .select("*")
-          .in("id", propertyIds);
-
-        if (propData) {
-          const map: Record<string, Property> = {};
-          propData.forEach((p) => {
-            map[p.id] = p;
-          });
-          setProperties(map);
-        }
-      }
-
-      setLoading(false);
+      if (data) setTasks(data as CleaningTaskWithProperty[]);
     }
 
     fetchTasks();
-  }, []);
-
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const startDayOfWeek = getDay(monthStart); // 0 = Sunday
-  const adjustedStart = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // Monday start
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, year, month]);
 
   const tasksByDate = useMemo(() => {
-    const map = new Map<string, CleaningTask[]>();
-    tasks.forEach((t) => {
-      const key = format(new Date(t.scheduled_at), "yyyy-MM-dd");
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(t);
+    const map = new Map<string, CleaningTaskWithProperty[]>();
+    tasks.forEach((task) => {
+      const date = task.scheduled_at.split("T")[0];
+      const existing = map.get(date) ?? [];
+      existing.push(task);
+      map.set(date, existing);
     });
     return map;
   }, [tasks]);
 
   const selectedTasks = selectedDate
-    ? (tasksByDate.get(format(selectedDate, "yyyy-MM-dd")) ?? [])
+    ? (tasksByDate.get(selectedDate) ?? [])
     : [];
 
-  const weekDays = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfMonth(year, month);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-foreground">განრიგი</h1>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-2xl font-bold text-foreground">განრიგი</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          თქვენი დალაგების კალენდარი
+        </p>
+      </motion.div>
 
       {/* Calendar */}
-      <div className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]">
-        {/* Month navigation */}
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            className="rounded-lg p-1.5 hover:bg-muted"
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:p-6"
+      >
+        {/* Month nav */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
           >
-            <ChevronLeft className="size-5" />
-          </button>
-          <h2 className="text-sm font-semibold text-foreground">
-            {format(currentMonth, "LLLL yyyy", { locale: ka })}
-          </h2>
-          <button
-            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            className="rounded-lg p-1.5 hover:bg-muted"
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h3 className="text-base font-semibold text-foreground">
+            {monthNames[month]} {year}
+          </h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
           >
-            <ChevronRight className="size-5" />
-          </button>
+            <ChevronRight className="h-5 w-5" />
+          </Button>
         </div>
 
-        {/* Week day headers */}
-        <div className="mb-2 grid grid-cols-7 gap-1">
-          {weekDays.map((d) => (
+        {/* Day headers */}
+        <div className="mt-4 grid grid-cols-7 gap-1">
+          {dayNames.map((day) => (
             <div
-              key={d}
-              className="text-center text-[10px] font-medium text-muted-foreground"
+              key={day}
+              className="py-2 text-center text-xs font-medium text-muted-foreground"
             >
-              {d}
+              {day}
             </div>
           ))}
         </div>
 
-        {/* Day grid */}
+        {/* Grid */}
         <div className="grid grid-cols-7 gap-1">
-          {/* Empty cells for offset */}
-          {Array.from({ length: adjustedStart }).map((_, i) => (
+          {Array.from({ length: firstDay }).map((_, i) => (
             <div key={`empty-${i}`} />
           ))}
-
-          {daysInMonth.map((day) => {
-            const key = format(day, "yyyy-MM-dd");
-            const dayTasks = tasksByDate.get(key) ?? [];
-            const isSelected = selectedDate && isSameDay(day, selectedDate);
-            const isToday = isSameDay(day, new Date());
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const dayTasks = tasksByDate.get(dateStr) ?? [];
+            const isToday = new Date().toISOString().startsWith(dateStr);
+            const isSelected = selectedDate === dateStr;
 
             return (
               <button
-                key={key}
-                onClick={() => setSelectedDate(day)}
-                className={`relative flex min-h-[40px] flex-col items-center justify-center rounded-lg text-sm transition-colors ${
+                key={dateStr}
+                onClick={() => setSelectedDate(dateStr)}
+                className={cn(
+                  "relative flex h-10 flex-col items-center justify-center rounded-lg text-sm font-medium transition-colors sm:h-12",
                   isSelected
                     ? "bg-brand-accent text-white"
                     : isToday
-                      ? "bg-brand-accent-light text-brand-accent font-semibold"
-                      : "hover:bg-muted text-foreground"
-                }`}
+                      ? "bg-brand-accent/10 text-brand-accent"
+                      : "hover:bg-muted",
+                )}
               >
-                {day.getDate()}
+                {day}
                 {dayTasks.length > 0 && (
                   <span
-                    className={`absolute bottom-1 size-1.5 rounded-full ${
-                      isSelected ? "bg-white" : "bg-brand-accent"
-                    }`}
+                    className={cn(
+                      "absolute bottom-1 h-1.5 w-1.5 rounded-full",
+                      isSelected ? "bg-white" : "bg-brand-accent",
+                    )}
                   />
                 )}
               </button>
             );
           })}
         </div>
-      </div>
+      </motion.div>
 
       {/* Selected date tasks */}
       {selectedDate && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-foreground">
-            {formatDate(selectedDate)} — {selectedTasks.length} დავალება
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h2 className="text-lg font-semibold text-foreground">
+            {new Date(selectedDate).toLocaleDateString("ka-GE", {
+              day: "numeric",
+              month: "long",
+            })}
           </h2>
-
-          {selectedTasks.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              ამ დღეს დავალებები არ არის
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {selectedTasks.map((task, i) => {
-                const property = properties[task.property_id];
-                return (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            task.cleaning_type === "general"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-blue-100 text-blue-700"
-                          }`}
-                        >
-                          {task.cleaning_type === "general"
-                            ? "გენერალური"
-                            : "სტანდარტული"}
-                        </span>
-                        {property && (
-                          <p className="mt-1.5 text-sm font-medium text-foreground">
-                            {property.title}
-                          </p>
-                        )}
-                        {property?.location && (
-                          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="size-3" />
-                            {property.location}
-                          </p>
-                        )}
-                        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="size-3" />
-                          {format(new Date(task.scheduled_at), "HH:mm")}
-                        </p>
-                      </div>
-                      {task.price != null && (
-                        <span className="text-sm font-bold text-foreground">
-                          {formatPrice(task.price)}
-                        </span>
-                      )}
-                    </div>
-
-                    {task.notes && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {task.notes}
+          <div className="mt-3 space-y-3">
+            {selectedTasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-8 shadow-[var(--shadow-card)]">
+                <Sparkles className="h-8 w-8 text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">
+                  ამოცანები არ არის
+                </p>
+              </div>
+            ) : (
+              selectedTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {task.properties?.title ?? "ობიექტი"}
+                      </h3>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {task.properties?.location}
                       </p>
-                    )}
-
-                    {/* Accept/Decline for pending tasks */}
-                    {task.status === "pending" && (
-                      <ScheduleTaskActions taskId={task.id} />
-                    )}
-
-                    {/* Status badge */}
-                    <div className="mt-2">
-                      <TaskStatusBadge status={task.status} />
                     </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[task.status] ?? ""}`}
+                    >
+                      {statusLabels[task.status] ?? task.status}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {new Date(task.scheduled_at).toLocaleTimeString("ka-GE", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span>{task.cleaning_type}</span>
+                    {task.price && (
+                      <span className="font-bold text-brand-accent">
+                        {task.price} ₾
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </motion.section>
       )}
     </div>
-  );
-}
-
-function ScheduleTaskActions({ taskId }: { taskId: string }) {
-  const supabase = createClient();
-  const [responding, setResponding] = useState(false);
-
-  async function accept() {
-    setResponding(true);
-    await supabase
-      .from("cleaning_tasks")
-      .update({ status: "accepted" })
-      .eq("id", taskId);
-    setResponding(false);
-  }
-
-  async function decline() {
-    setResponding(true);
-    await supabase
-      .from("cleaning_tasks")
-      .update({ status: "declined", cleaner_id: null })
-      .eq("id", taskId);
-    setResponding(false);
-  }
-
-  return (
-    <div className="mt-3 flex gap-2">
-      <Button size="sm" disabled={responding} onClick={accept}>
-        მიღება
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={responding}
-        onClick={decline}
-      >
-        უარყოფა
-      </Button>
-    </div>
-  );
-}
-
-function TaskStatusBadge({ status }: { status: string }) {
-  const config: Record<string, { label: string; classes: string }> = {
-    pending: { label: "მოლოდინში", classes: "bg-amber-100 text-amber-700" },
-    accepted: { label: "მიღებული", classes: "bg-blue-100 text-blue-700" },
-    in_progress: {
-      label: "მიმდინარე",
-      classes: "bg-brand-accent-light text-brand-accent",
-    },
-    completed: { label: "დასრულებული", classes: "bg-green-100 text-green-700" },
-    declined: { label: "უარყოფილი", classes: "bg-red-100 text-red-700" },
-  };
-
-  const c = config[status] ?? {
-    label: status,
-    classes: "bg-gray-100 text-gray-700",
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${c.classes}`}
-    >
-      {c.label}
-    </span>
   );
 }

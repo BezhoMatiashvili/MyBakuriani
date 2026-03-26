@@ -1,309 +1,304 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Banknote,
   TrendingUp,
   BarChart3,
   Eye,
+  Building,
+  ArrowRight,
   CalendarDays,
-  ChevronRight,
+  Sparkles,
 } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/hooks/useAuth";
 import StatCard from "@/components/cards/StatCard";
-import SmartMatchCard from "@/components/cards/SmartMatchCard";
-import StatusBadge from "@/components/shared/StatusBadge";
-import VIPBadge from "@/components/shared/VIPBadge";
-import { useProperties } from "@/lib/hooks/useProperties";
-import { useBookings } from "@/lib/hooks/useBookings";
-import { useProfile } from "@/lib/hooks/useProfile";
-import { useBalance } from "@/lib/hooks/useBalance";
-import { formatPrice, formatDateRange } from "@/lib/utils/format";
-import { staggerChildren, slideUp } from "@/lib/utils/animations";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import type { Tables } from "@/lib/types/database";
+
+const statusLabels: Record<string, string> = {
+  active: "აქტიური",
+  blocked: "დაბლოკილი",
+  pending: "მოლოდინში",
+  draft: "დრაფტი",
+};
+
+const statusColors: Record<string, string> = {
+  active: "bg-green-100 text-green-700",
+  blocked: "bg-red-100 text-red-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  draft: "bg-gray-100 text-gray-700",
+};
 
 export default function RenterDashboardPage() {
-  const router = useRouter();
-  const {
-    properties,
-    loading: propsLoading,
-    list: listProperties,
-  } = useProperties();
-  const {
-    bookings,
-    loading: bookingsLoading,
-    list: listBookings,
-  } = useBookings();
-  const { profile, loading: profileLoading } = useProfile();
-  const { balance, loading: balanceLoading } = useBalance();
+  const { user } = useAuth();
+  const supabase = createClient();
 
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [properties, setProperties] = useState<Tables<"properties">[]>([]);
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [receivable, setReceivable] = useState(0);
+  const [occupancy, setOccupancy] = useState(0);
+  const [totalViews, setTotalViews] = useState(0);
   const [smartMatchCount, setSmartMatchCount] = useState(0);
 
   useEffect(() => {
-    listProperties({ status: "active" });
-    listBookings();
-    // Simulated smart match count — in production, fetch from supabase
-    setSmartMatchCount(3);
-  }, [listProperties, listBookings]);
+    if (!user) return;
 
-  const loading =
-    propsLoading || bookingsLoading || profileLoading || balanceLoading;
+    async function fetchData() {
+      const [profileRes, propertiesRes, bookingsRes, matchesRes] =
+        await Promise.all([
+          supabase.from("profiles").select("*").eq("id", user!.id).single(),
+          supabase
+            .from("properties")
+            .select("*")
+            .eq("owner_id", user!.id)
+            .order("created_at", { ascending: false }),
+          supabase.from("bookings").select("*").eq("owner_id", user!.id),
+          supabase
+            .from("smart_match_requests")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "active"),
+        ]);
 
-  // Compute stats
-  const monthlyIncome = bookings
-    .filter((b) => b.status === "confirmed" || b.status === "completed")
-    .reduce((sum, b) => sum + b.total_price, 0);
+      if (profileRes.data) setProfile(profileRes.data);
+      if (propertiesRes.data) {
+        setProperties(propertiesRes.data);
+        setTotalViews(
+          propertiesRes.data.reduce((sum, p) => sum + p.views_count, 0),
+        );
+      }
+      setSmartMatchCount(matchesRes.count ?? 0);
 
-  const pendingIncome = bookings
-    .filter((b) => b.status === "pending")
-    .reduce((sum, b) => sum + b.total_price, 0);
+      // Calculate income metrics from bookings
+      if (bookingsRes.data) {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const totalCapacity = properties.length * 30; // approximate monthly capacity
-  const bookedDays = bookings.filter(
-    (b) => b.status === "confirmed" || b.status === "completed",
-  ).length;
-  const occupancy =
-    totalCapacity > 0 ? Math.round((bookedDays / totalCapacity) * 100) : 0;
+        const completedThisMonth = bookingsRes.data.filter(
+          (b) =>
+            b.status === "completed" && new Date(b.check_out) >= monthStart,
+        );
+        const pendingBookings = bookingsRes.data.filter(
+          (b) => b.status === "confirmed",
+        );
 
-  const totalViews = properties.reduce((sum, p) => sum + p.views_count, 0);
+        setMonthlyIncome(
+          completedThisMonth.reduce((sum, b) => sum + b.total_price, 0),
+        );
+        setReceivable(
+          pendingBookings.reduce((sum, b) => sum + b.total_price, 0),
+        );
 
-  const recentBookings = bookings.slice(0, 5);
+        // Calculate occupancy based on confirmed/completed bookings this month
+        const totalProps = propertiesRes.data?.length ?? 1;
+        const daysInMonth = new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          0,
+        ).getDate();
+        const bookedDays = bookingsRes.data.filter(
+          (b) =>
+            (b.status === "confirmed" || b.status === "completed") &&
+            new Date(b.check_in) <=
+              new Date(now.getFullYear(), now.getMonth() + 1, 0) &&
+            new Date(b.check_out) >= monthStart,
+        ).length;
+
+        setOccupancy(
+          totalProps > 0
+            ? Math.round((bookedDays / (totalProps * daysInMonth)) * 100)
+            : 0,
+        );
+      }
+
+      setLoading(false);
+    }
+
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div>
+    <div className="space-y-8">
+      {/* Welcome */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
         <h1 className="text-2xl font-bold text-foreground">
-          გამარჯობა, {profile?.display_name ?? "გამქირავებელი"}
+          გამარჯობა, {profile?.display_name ?? "მესაკუთრე"}!
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          თქვენი ქირავნობის პანელი
+          თქვენი ობიექტების მართვის პანელი
         </p>
-      </div>
-
-      {/* Stat cards row */}
-      <motion.div
-        variants={staggerChildren}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-      >
-        <motion.div variants={slideUp}>
-          <StatCard
-            icon={<Banknote className="h-5 w-5" />}
-            label="თვის შემოსავალი"
-            value={formatPrice(monthlyIncome)}
-            change={12}
-            loading={loading}
-          />
-        </motion.div>
-        <motion.div variants={slideUp}>
-          <StatCard
-            icon={<TrendingUp className="h-5 w-5" />}
-            label="მისაღები / ვალი"
-            value={formatPrice(pendingIncome)}
-            change={null}
-            loading={loading}
-          />
-        </motion.div>
-        <motion.div variants={slideUp}>
-          <StatCard
-            icon={<BarChart3 className="h-5 w-5" />}
-            label="დატვირთულობა"
-            value={`${occupancy}%`}
-            change={5}
-            loading={loading}
-          />
-        </motion.div>
-        <motion.div variants={slideUp}>
-          <StatCard
-            icon={<Eye className="h-5 w-5" />}
-            label="პროფილის ნახვები"
-            value={totalViews.toLocaleString()}
-            change={8}
-            loading={loading}
-          />
-        </motion.div>
       </motion.div>
 
-      {/* Smart Match + Subscription row */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <SmartMatchCard
-          notificationCount={smartMatchCount}
-          onClick={() => router.push("/dashboard/renter/smart-match")}
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icon={<Banknote className="h-5 w-5" />}
+          label="თვის შემოსავალი"
+          value={`${monthlyIncome} ₾`}
+          change={null}
+          loading={loading}
         />
-
-        {/* Subscription status */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">გამოწერის სტატუსი</p>
-              <p className="mt-1 text-lg font-bold text-foreground">
-                {balance && balance.amount > 0 ? "აქტიური" : "უფასო"}
-              </p>
-            </div>
-            <Link
-              href="/dashboard/renter/balance"
-              className="rounded-lg bg-brand-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-accent-hover"
-            >
-              შევსება
-            </Link>
-          </div>
-          {balance && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              ბალანსი: {formatPrice(balance.amount)} | SMS:{" "}
-              {balance.sms_remaining}
-            </p>
-          )}
-        </motion.div>
+        <StatCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="მისაღები (ვალი)"
+          value={`${receivable} ₾`}
+          change={null}
+          loading={loading}
+        />
+        <StatCard
+          icon={<BarChart3 className="h-5 w-5" />}
+          label="დატვირთულობა"
+          value={`${occupancy}%`}
+          change={null}
+          loading={loading}
+        />
+        <StatCard
+          icon={<Eye className="h-5 w-5" />}
+          label="პროფილის ნახვები"
+          value={totalViews}
+          change={null}
+          loading={loading}
+        />
       </div>
 
-      {/* My Properties */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">ჩემი ქონება</h2>
+      {/* Quick navigation */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          {
+            label: "კალენდარი",
+            href: "/dashboard/renter/calendar",
+            icon: CalendarDays,
+            color: "bg-blue-100 text-blue-600",
+          },
+          {
+            label: "Smart Match",
+            href: "/dashboard/renter/smart-match",
+            icon: Sparkles,
+            count: smartMatchCount,
+            color: "bg-purple-100 text-purple-600",
+          },
+          {
+            label: "ობიექტები",
+            href: "/dashboard/renter/listings",
+            icon: Building,
+            count: properties.length,
+            color: "bg-green-100 text-green-600",
+          },
+          {
+            label: "ბალანსი",
+            href: "/dashboard/renter/balance",
+            icon: Banknote,
+            color: "bg-orange-100 text-orange-600",
+          },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex flex-col items-center gap-2 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-md"
+            >
+              <div
+                className={`relative flex h-12 w-12 items-center justify-center rounded-full ${item.color}`}
+              >
+                <Icon className="h-6 w-6" />
+                {"count" in item &&
+                  item.count !== undefined &&
+                  item.count > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-white">
+                      {item.count > 99 ? "99+" : item.count}
+                    </span>
+                  )}
+              </div>
+              <span className="text-center text-xs font-medium text-foreground">
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Property listing overview */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">
+            ჩემი ობიექტები
+          </h2>
           <Link
             href="/dashboard/renter/listings"
-            className="flex items-center gap-1 text-sm font-medium text-brand-accent hover:text-brand-accent-hover"
+            className="flex items-center gap-1 text-sm text-brand-accent hover:underline"
           >
-            ყველა <ChevronRight className="h-4 w-4" />
+            ყველა
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-
-        {propsLoading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-48 rounded-[var(--radius-card)]" />
-            ))}
-          </div>
-        ) : properties.length === 0 ? (
-          <div className="rounded-[var(--radius-card)] bg-brand-surface p-8 text-center shadow-[var(--shadow-card)]">
-            <p className="text-muted-foreground">ქონება ჯერ არ დამატებულა</p>
-            <Link
-              href="/create/property"
-              className="mt-3 inline-block rounded-lg bg-brand-accent px-5 py-2 text-sm font-medium text-white hover:bg-brand-accent-hover"
-            >
-              ქონების დამატება
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {properties.slice(0, 6).map((prop) => (
-              <motion.div
-                key={prop.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="overflow-hidden rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)]"
-              >
-                <Link href={`/dashboard/renter/listings`}>
-                  <div className="relative aspect-[16/9] overflow-hidden">
-                    <Image
-                      src={prop.photos[0] ?? "/placeholder-property.jpg"}
-                      alt={prop.title}
-                      fill
-                      sizes="(max-width: 640px) 100vw, 33vw"
-                      className="object-cover"
-                    />
-                    <div className="absolute top-2 right-2 flex gap-1.5">
-                      {prop.is_super_vip && <VIPBadge level="super_vip" />}
-                      {prop.is_vip && !prop.is_super_vip && (
-                        <VIPBadge level="vip" />
-                      )}
+        <div className="mt-3 space-y-3">
+          {loading
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                >
+                  <div className="flex gap-4">
+                    <Skeleton className="h-16 w-16 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-3 w-24" />
                     </div>
                   </div>
-                  <div className="p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="truncate text-sm font-semibold text-foreground">
-                        {prop.title}
-                      </h3>
-                      <StatusBadge
-                        status={prop.status as "active" | "blocked" | "pending"}
+                </div>
+              ))
+            : properties.slice(0, 5).map((property) => (
+                <div
+                  key={property.id}
+                  className="flex items-center gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                >
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
+                    {property.photos[0] && (
+                      <Image
+                        src={property.photos[0]}
+                        alt={property.title}
+                        fill
+                        className="object-cover"
                       />
-                    </div>
-                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {prop.price_per_night
-                          ? formatPrice(prop.price_per_night) + " / ღამე"
-                          : ""}
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold text-foreground">
+                      {property.title}
+                    </h3>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[property.status] ?? ""}`}
+                      >
+                        {statusLabels[property.status] ?? property.status}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3.5 w-3.5" />
-                        {prop.views_count}
+                      <span className="text-xs text-muted-foreground">
+                        {property.views_count} ნახვა
                       </span>
                     </div>
                   </div>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Recent Bookings */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">ბოლო ჯავშნები</h2>
-          <Link
-            href="/dashboard/renter/calendar"
-            className="flex items-center gap-1 text-sm font-medium text-brand-accent hover:text-brand-accent-hover"
-          >
-            კალენდარი <CalendarDays className="h-4 w-4" />
-          </Link>
-        </div>
-
-        {bookingsLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 rounded-[var(--radius-card)]" />
-            ))}
-          </div>
-        ) : recentBookings.length === 0 ? (
-          <div className="rounded-[var(--radius-card)] bg-brand-surface p-6 text-center shadow-[var(--shadow-card)]">
-            <p className="text-muted-foreground">ჯავშნები ჯერ არ არის</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {recentBookings.map((booking) => (
-              <motion.div
-                key={booking.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-center justify-between rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {formatDateRange(booking.check_in, booking.check_out)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {booking.guests_count} სტუმარი
-                  </p>
-                </div>
-                <div className="ml-4 flex items-center gap-3">
-                  <span className="text-sm font-bold text-foreground">
-                    {formatPrice(booking.total_price)}
+                  <span className="text-sm font-bold text-brand-accent">
+                    {property.price_per_night} ₾
                   </span>
-                  <StatusBadge
-                    status={
-                      booking.status === "confirmed"
-                        ? "active"
-                        : booking.status === "cancelled"
-                          ? "blocked"
-                          : "pending"
-                    }
-                  />
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+        </div>
+      </motion.section>
     </div>
   );
 }

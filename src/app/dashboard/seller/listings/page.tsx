@@ -1,310 +1,217 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import {
-  Eye,
-  Pencil,
-  Power,
-  Rocket,
-  LayoutGrid,
-  List,
-  Plus,
-  TrendingUp,
-  MessageSquareMore,
-  Building2,
-} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import StatusBadge from "@/components/shared/StatusBadge";
-import VIPBadge from "@/components/shared/VIPBadge";
-import { useProperties } from "@/lib/hooks/useProperties";
-import { formatPrice } from "@/lib/utils/format";
+import { motion } from "framer-motion";
+import { Plus, Eye, Edit, Building, Search, MapPin, Ruler } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { staggerChildren, slideUp } from "@/lib/utils/animations";
-import { cn } from "@/lib/utils";
-import type { Database } from "@/lib/types/database";
+import type { Tables } from "@/lib/types/database";
 
-type Property = Database["public"]["Tables"]["properties"]["Row"];
+const statusLabels: Record<string, string> = {
+  active: "აქტიური",
+  blocked: "დაბლოკილი",
+  pending: "მოლოდინში",
+  draft: "დრაფტი",
+};
+
+const statusColors: Record<string, string> = {
+  active: "bg-green-100 text-green-700",
+  blocked: "bg-red-100 text-red-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  draft: "bg-gray-100 text-gray-700",
+};
 
 export default function SellerListingsPage() {
-  const { properties, loading, list } = useProperties();
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const { user } = useAuth();
+  const supabase = createClient();
+
+  const [properties, setProperties] = useState<Tables<"properties">[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    list({ isForSale: true });
-  }, [list]);
+    if (!user) return;
+
+    async function fetchProperties() {
+      const { data } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("owner_id", user!.id)
+        .eq("is_for_sale", true)
+        .order("created_at", { ascending: false });
+
+      if (data) setProperties(data);
+      setLoading(false);
+    }
+
+    fetchProperties();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const filteredProperties = properties.filter(
+    (p) =>
+      !searchQuery ||
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.location.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      >
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            გაყიდვის განცხადებები
+            გასაყიდი ობიექტები
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {properties.length} განცხადება
+            მართეთ თქვენი გასაყიდი ობიექტები
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-brand-surface-border">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={cn(
-                "flex items-center gap-1 rounded-l-lg px-3 py-2 text-sm transition-colors",
-                viewMode === "grid"
-                  ? "bg-brand-accent text-white"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={cn(
-                "flex items-center gap-1 rounded-r-lg px-3 py-2 text-sm transition-colors",
-                viewMode === "table"
-                  ? "bg-brand-accent text-white"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-          <Link
-            href="/create/property"
-            className="flex items-center gap-1.5 rounded-lg bg-brand-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-accent-hover"
-          >
+        <Link href="/create/sale">
+          <Button className="gap-2">
             <Plus className="h-4 w-4" />
-            დამატება
-          </Link>
-        </div>
+            ახალი ობიექტი
+          </Button>
+        </Link>
+      </motion.div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="ობიექტის ძებნა..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
+        />
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-72 rounded-[var(--radius-card)]" />
-          ))}
-        </div>
-      ) : properties.length === 0 ? (
-        <div className="rounded-[var(--radius-card)] bg-brand-surface p-12 text-center shadow-[var(--shadow-card)]">
-          <Building2 className="mx-auto h-12 w-12 text-muted-foreground/40" />
-          <p className="mt-4 text-lg text-muted-foreground">
-            გასაყიდი ქონება ჯერ არ დამატებულა
-          </p>
-          <Link
-            href="/create/property"
-            className="mt-4 inline-block rounded-lg bg-brand-accent px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-accent-hover"
-          >
-            პირველი განცხადების დამატება
-          </Link>
-        </div>
-      ) : viewMode === "grid" ? (
-        <SellerGridView properties={properties} />
-      ) : (
-        <SellerTableView properties={properties} />
-      )}
-    </div>
-  );
-}
-
-function SellerGridView({ properties }: { properties: Property[] }) {
-  return (
-    <motion.div
-      variants={staggerChildren}
-      initial="hidden"
-      animate="visible"
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      {properties.map((prop) => (
-        <motion.div
-          key={prop.id}
-          variants={slideUp}
-          className="overflow-hidden rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
-        >
-          <div className="relative aspect-[16/9] overflow-hidden">
-            <Image
-              src={prop.photos[0] ?? "/placeholder-property.jpg"}
-              alt={prop.title}
-              fill
-              sizes="(max-width: 640px) 100vw, 33vw"
-              className="object-cover"
-            />
-            <div className="absolute top-2 left-2">
-              <StatusBadge
-                status={prop.status as "active" | "blocked" | "pending"}
-              />
-            </div>
-            <div className="absolute top-2 right-2 flex gap-1.5">
-              {prop.is_super_vip && <VIPBadge level="super_vip" />}
-              {prop.is_vip && !prop.is_super_vip && <VIPBadge level="vip" />}
-            </div>
-          </div>
-
-          <div className="p-4">
-            <h3 className="truncate text-sm font-semibold text-foreground">
-              {prop.title}
-            </h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {prop.location}
-            </p>
-
-            {/* Sale-specific info */}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {prop.sale_price && (
-                <span className="text-sm font-bold text-foreground">
-                  {formatPrice(prop.sale_price)}
-                </span>
-              )}
-              {prop.roi_percent != null && (
-                <span className="flex items-center gap-0.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                  <TrendingUp className="h-3 w-3" />
-                  ROI {prop.roi_percent}%
-                </span>
-              )}
-            </div>
-
-            {prop.construction_status && (
-              <span className="mt-2 inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs text-blue-700">
-                {prop.construction_status}
-              </span>
-            )}
-
-            <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Eye className="h-3.5 w-3.5" />
-                {prop.views_count}
-              </span>
-              <span className="flex items-center gap-1">
-                <MessageSquareMore className="h-3.5 w-3.5" />
-                {Math.floor(prop.views_count * 0.05)}
-              </span>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-3 flex items-center gap-2 border-t border-brand-surface-border pt-3">
-              <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                <Pencil className="h-3.5 w-3.5" />
-                რედაქტირება
-              </button>
-              <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                <Power className="h-3.5 w-3.5" />
-                სტატუსი
-              </button>
-              <button className="ml-auto flex items-center gap-1 rounded-md bg-brand-accent-light px-2.5 py-1.5 text-xs font-medium text-brand-accent transition-colors hover:bg-brand-accent hover:text-white">
-                <Rocket className="h-3.5 w-3.5" />
-                VIP
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      ))}
-    </motion.div>
-  );
-}
-
-function SellerTableView({ properties }: { properties: Property[] }) {
-  return (
-    <div className="overflow-x-auto rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)]">
-      <table className="w-full min-w-[720px]">
-        <thead>
-          <tr className="border-b border-brand-surface-border text-left text-xs font-medium text-muted-foreground">
-            <th className="px-4 py-3">ქონება</th>
-            <th className="px-4 py-3">სტატუსი</th>
-            <th className="px-4 py-3">ფასი</th>
-            <th className="px-4 py-3">ROI</th>
-            <th className="px-4 py-3">ნახვები</th>
-            <th className="px-4 py-3">შეკითხვები</th>
-            <th className="px-4 py-3">VIP</th>
-            <th className="px-4 py-3">მოქმედება</th>
-          </tr>
-        </thead>
-        <tbody>
-          {properties.map((prop) => (
-            <tr
-              key={prop.id}
-              className="border-b border-brand-surface-border last:border-0"
+      {/* Listings */}
+      <div className="space-y-3">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
             >
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md">
+              <div className="flex gap-4">
+                <Skeleton className="h-24 w-24 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredProperties.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+          >
+            <Building className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              ობიექტები ვერ მოიძებნა
+            </p>
+          </motion.div>
+        ) : (
+          filteredProperties.map((property, index) => (
+            <motion.div
+              key={property.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-lg bg-muted sm:w-32">
+                  {property.photos[0] && (
                     <Image
-                      src={prop.photos[0] ?? "/placeholder-property.jpg"}
-                      alt={prop.title}
+                      src={property.photos[0]}
+                      alt={property.title}
                       fill
-                      sizes="56px"
                       className="object-cover"
                     />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="truncate text-sm font-semibold text-foreground">
+                        {property.title}
+                      </h3>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {property.location}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status] ?? ""}`}
+                    >
+                      {statusLabels[property.status] ?? property.status}
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {prop.title}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {prop.location}
-                    </p>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                    <span className="text-lg font-bold text-brand-accent">
+                      {property.sale_price?.toLocaleString()} ₾
+                    </span>
+                    {property.area_sqm && (
+                      <span className="flex items-center gap-1">
+                        <Ruler className="h-3 w-3" />
+                        {property.area_sqm} მ²
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" />
+                      {property.views_count} ნახვა
+                    </span>
+                    {property.rooms && <span>{property.rooms} ოთახი</span>}
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-2">
+                    {property.is_vip && (
+                      <Badge className="bg-amber-500 text-white">VIP</Badge>
+                    )}
+                    {property.roi_percent && (
+                      <Badge variant="secondary">
+                        ROI: {property.roi_percent}%
+                      </Badge>
+                    )}
+                    {property.construction_status && (
+                      <Badge variant="outline">
+                        {property.construction_status}
+                      </Badge>
+                    )}
                   </div>
                 </div>
-              </td>
-              <td className="px-4 py-3">
-                <StatusBadge
-                  status={prop.status as "active" | "blocked" | "pending"}
-                />
-              </td>
-              <td className="px-4 py-3 text-sm font-medium text-foreground">
-                {prop.sale_price ? formatPrice(prop.sale_price) : "—"}
-              </td>
-              <td className="px-4 py-3">
-                {prop.roi_percent != null ? (
-                  <span className="flex items-center gap-0.5 text-sm text-brand-success">
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    {prop.roi_percent}%
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
-              <td className="px-4 py-3">
-                <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Eye className="h-3.5 w-3.5" />
-                  {prop.views_count}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <MessageSquareMore className="h-3.5 w-3.5" />
-                  {Math.floor(prop.views_count * 0.05)}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                {prop.is_super_vip ? (
-                  <VIPBadge level="super_vip" />
-                ) : prop.is_vip ? (
-                  <VIPBadge level="vip" />
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-1">
-                  <button className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                    <Power className="h-4 w-4" />
-                  </button>
-                  <button className="rounded-md p-1.5 text-brand-accent transition-colors hover:bg-brand-accent-light">
-                    <Rocket className="h-4 w-4" />
-                  </button>
+
+                <div className="flex shrink-0 gap-2 sm:flex-col">
+                  <Link href={`/properties/${property.id}`}>
+                    <Button variant="outline" size="icon-sm">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="icon-sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
                 </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+            </motion.div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

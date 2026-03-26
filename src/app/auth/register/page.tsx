@@ -152,6 +152,7 @@ export default function RegisterPage() {
                   <label className="group relative cursor-pointer">
                     <div className="flex size-24 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/25 bg-muted transition-colors group-hover:border-brand-accent/50">
                       {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={avatarUrl}
                           alt="ავატარი"

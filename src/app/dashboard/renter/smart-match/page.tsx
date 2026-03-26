@@ -1,56 +1,98 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Sparkles,
   CalendarDays,
-  Wallet,
   Users,
-  CheckCircle2,
+  Wallet,
+  CheckCircle,
   XCircle,
   Clock,
-  Star,
-  Bell,
+  Inbox,
 } from "lucide-react";
-import { useProperties } from "@/lib/hooks/useProperties";
 import { createClient } from "@/lib/supabase/client";
-import { formatPrice, formatDateRange } from "@/lib/utils/format";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { staggerChildren, slideUp } from "@/lib/utils/animations";
-import { cn } from "@/lib/utils";
-import type { Database, Json } from "@/lib/types/database";
+import type { Tables } from "@/lib/types/database";
 
-type SmartMatchRequest =
-  Database["public"]["Tables"]["smart_match_requests"]["Row"];
+type SmartMatchRequest = Tables<"smart_match_requests"> & {
+  profiles: Pick<
+    Tables<"profiles">,
+    "display_name" | "phone" | "avatar_url"
+  > | null;
+};
 
-interface GuestPreferences {
-  amenities?: string[];
-  property_type?: string;
-  location?: string;
-}
+const statusConfig: Record<
+  string,
+  { label: string; color: string; icon: React.ElementType }
+> = {
+  active: {
+    label: "აქტიური",
+    color: "bg-green-100 text-green-700",
+    icon: Clock,
+  },
+  matched: {
+    label: "შესატყვისი",
+    color: "bg-blue-100 text-blue-700",
+    icon: CheckCircle,
+  },
+  closed: {
+    label: "დახურული",
+    color: "bg-gray-100 text-gray-700",
+    icon: XCircle,
+  },
+};
 
 export default function RenterSmartMatchPage() {
+  const { user } = useAuth();
   const supabase = createClient();
-  const { properties, list: listProperties } = useProperties();
-  const [matchRequests, setMatchRequests] = useState<SmartMatchRequest[]>([]);
+
+  const [requests, setRequests] = useState<SmartMatchRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listProperties();
-    fetchMatchRequests();
+    if (!user) return;
 
-    // Real-time subscription
+    async function fetchRequests() {
+      // Fetch smart match requests that might be relevant to this renter's properties
+      const { data: properties } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("owner_id", user!.id);
+
+      if (!properties || properties.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("smart_match_requests")
+        .select("*, profiles(display_name, phone, avatar_url)")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (data) setRequests(data as SmartMatchRequest[]);
+      setLoading(false);
+    }
+
+    fetchRequests();
+
+    // Realtime updates
     const channel = supabase
-      .channel("smart-match-renter")
+      .channel("smart-match-inbox")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "smart_match_requests" },
-        (payload) => {
-          setMatchRequests((prev) => [
-            payload.new as SmartMatchRequest,
-            ...prev,
-          ]);
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "smart_match_requests",
+        },
+        () => {
+          fetchRequests();
         },
       )
       .subscribe();
@@ -58,239 +100,160 @@ export default function RenterSmartMatchPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [listProperties]);
-
-  async function fetchMatchRequests() {
-    setLoading(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Fetch match requests where user's properties are in matched_properties
-      const { data } = await supabase
-        .from("smart_match_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      // Filter to requests that match owner's properties
-      const propIds = new Set(properties.map((p) => p.id));
-      const relevant = (data ?? []).filter((req) =>
-        req.matched_properties.some((id) => propIds.has(id)),
-      );
-
-      setMatchRequests(
-        relevant.length > 0 ? relevant : (data?.slice(0, 10) ?? []),
-      );
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function getMatchScore(): number {
-    return Math.floor(Math.random() * 30) + 70; // 70-99
-  }
-
-  function parsePreferences(prefs: Json): GuestPreferences {
-    if (typeof prefs === "object" && prefs !== null && !Array.isArray(prefs)) {
-      return prefs as unknown as GuestPreferences;
-    }
-    return {};
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-brand-accent to-brand-vip-super text-white">
-          <Sparkles className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Smart Match</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            სტუმრების მოთხოვნები თქვენს ქონებაზე
-          </p>
-        </div>
-        {matchRequests.length > 0 && (
-          <span className="ml-auto flex items-center gap-1 rounded-full bg-brand-accent px-3 py-1 text-xs font-bold text-white">
-            <Bell className="h-3.5 w-3.5" />
-            {matchRequests.length}
-          </span>
-        )}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-2xl font-bold text-foreground">Smart Match</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          სტუმრების მოთხოვნები რომლებიც შეესატყვისება თქვენს ობიექტებს
+        </p>
+      </motion.div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          {
+            label: "აქტიური მოთხოვნები",
+            value: requests.filter((r) => r.status === "active").length,
+            color: "bg-green-100 text-green-600",
+          },
+          {
+            label: "შესატყვისი",
+            value: requests.filter((r) => r.status === "matched").length,
+            color: "bg-blue-100 text-blue-600",
+          },
+          {
+            label: "სულ მოთხოვნები",
+            value: requests.length,
+            color: "bg-purple-100 text-purple-600",
+          },
+        ].map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+          >
+            <p className="text-xs text-muted-foreground">{stat.label}</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">
+              {loading ? <Skeleton className="h-8 w-12" /> : stat.value}
+            </p>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Match requests */}
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-48 rounded-[var(--radius-card)]" />
-          ))}
-        </div>
-      ) : matchRequests.length === 0 ? (
-        <div className="rounded-[var(--radius-card)] bg-brand-surface p-12 text-center shadow-[var(--shadow-card)]">
-          <Sparkles className="mx-auto h-12 w-12 text-muted-foreground/40" />
-          <p className="mt-4 text-lg text-muted-foreground">
-            ახალი მოთხოვნები ჯერ არ არის
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            როდესაც სტუმარი მოითხოვს Smart Match-ს, თქვენ მიიღებთ შეტყობინებას
-          </p>
-        </div>
-      ) : (
-        <motion.div
-          variants={staggerChildren}
-          initial="hidden"
-          animate="visible"
-          className="space-y-4"
-        >
-          <AnimatePresence>
-            {matchRequests.map((request) => {
-              const prefs = parsePreferences(request.preferences);
-              const score = getMatchScore();
+      {/* Requests list */}
+      <div className="space-y-3">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+            >
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-3 w-64" />
+              </div>
+            </div>
+          ))
+        ) : requests.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+          >
+            <Inbox className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              ახალი მოთხოვნები ჯერ არ არის
+            </p>
+          </motion.div>
+        ) : (
+          requests.map((request, index) => {
+            const config = statusConfig[request.status] ?? statusConfig.active;
+            const StatusIcon = config.icon;
 
-              return (
-                <motion.div
-                  key={request.id}
-                  variants={slideUp}
-                  layout
-                  className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
-                >
-                  {/* Top row: score + status */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      {/* Match score */}
-                      <div
-                        className={cn(
-                          "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white",
-                          score >= 90
-                            ? "bg-brand-success"
-                            : score >= 75
-                              ? "bg-brand-accent"
-                              : "bg-brand-warning",
-                        )}
-                      >
-                        {score}%
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">
-                          Smart Match მოთხოვნა
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {new Date(request.created_at).toLocaleDateString(
-                            "ka-GE",
-                          )}
-                        </p>
-                      </div>
+            return (
+              <motion.div
+                key={request.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
+                className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                      <Sparkles className="h-5 w-5" />
                     </div>
-                    <span
-                      className={cn(
-                        "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        request.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : request.status === "matched"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600",
-                      )}
-                    >
-                      {request.status === "active"
-                        ? "აქტიური"
-                        : request.status === "matched"
-                          ? "შესაბამისი"
-                          : request.status}
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {request.profiles?.display_name ?? "სტუმარი"}
+                      </h3>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(request.created_at).toLocaleDateString(
+                          "ka-GE",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}
+                  >
+                    <StatusIcon className="h-3 w-3" />
+                    {config.label}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  {request.check_in && request.check_out && (
+                    <span className="flex items-center gap-1">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      {request.check_in} — {request.check_out}
                     </span>
+                  )}
+                  {request.guests_count && (
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {request.guests_count} სტუმარი
+                    </span>
+                  )}
+                  {(request.budget_min || request.budget_max) && (
+                    <span className="flex items-center gap-1">
+                      <Wallet className="h-3.5 w-3.5" />
+                      {request.budget_min ?? 0} — {request.budget_max ?? "∞"} ₾
+                    </span>
+                  )}
+                </div>
+
+                {request.matched_properties.length > 0 && (
+                  <div className="mt-2">
+                    <Badge variant="secondary">
+                      {request.matched_properties.length} შესატყვისი ობიექტი
+                    </Badge>
                   </div>
+                )}
 
-                  {/* Guest preferences */}
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {request.check_in && request.check_out && (
-                      <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                        <CalendarDays className="h-4 w-4 text-brand-accent" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            თარიღები
-                          </p>
-                          <p className="text-xs font-medium text-foreground">
-                            {formatDateRange(
-                              request.check_in,
-                              request.check_out,
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {(request.budget_min || request.budget_max) && (
-                      <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                        <Wallet className="h-4 w-4 text-brand-accent" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            ბიუჯეტი
-                          </p>
-                          <p className="text-xs font-medium text-foreground">
-                            {request.budget_min
-                              ? formatPrice(request.budget_min)
-                              : ""}
-                            {request.budget_min && request.budget_max
-                              ? " – "
-                              : ""}
-                            {request.budget_max
-                              ? formatPrice(request.budget_max)
-                              : ""}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {request.guests_count && (
-                      <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                        <Users className="h-4 w-4 text-brand-accent" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            სტუმრები
-                          </p>
-                          <p className="text-xs font-medium text-foreground">
-                            {request.guests_count} სტუმარი
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {prefs.amenities && prefs.amenities.length > 0 && (
-                      <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                        <Star className="h-4 w-4 text-brand-accent" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            სურვილები
-                          </p>
-                          <p className="truncate text-xs font-medium text-foreground">
-                            {prefs.amenities.join(", ")}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                {request.status === "active" && (
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm">შეთავაზება</Button>
+                    <Button size="sm" variant="outline">
+                      გამოტოვება
+                    </Button>
                   </div>
-
-                  {/* Actions */}
-                  <div className="mt-4 flex items-center gap-2 border-t border-brand-surface-border pt-4">
-                    <button className="flex items-center gap-1.5 rounded-lg bg-brand-success px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90">
-                      <CheckCircle2 className="h-4 w-4" />
-                      შეთავაზების გაგზავნა
-                    </button>
-                    <button className="flex items-center gap-1.5 rounded-lg border border-brand-surface-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                      <XCircle className="h-4 w-4" />
-                      უარყოფა
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </motion.div>
-      )}
+                )}
+              </motion.div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

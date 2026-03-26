@@ -9,9 +9,20 @@ import { slideFromRight } from "@/lib/utils/animations";
 
 const navItems = [
   { label: "ყველა განცხადება", href: "/apartments" },
-  { label: "როგორ მუშაობს", href: "#how-it-works" },
+  { label: "სერვისები", href: "/services" },
   { label: "ვერიფიკაცია", href: "#verification" },
   { label: "ფასები", href: "#pricing" },
+];
+
+const mobileNavItems = [
+  { label: "აპარტამენტები", href: "/apartments" },
+  { label: "სასტუმროები", href: "/hotels" },
+  { label: "ყიდვა-გაყიდვა", href: "/sales" },
+  { label: "სერვისები", href: "/services" },
+  { label: "ტრანსპორტი", href: "/transport" },
+  { label: "გართობა", href: "/entertainment" },
+  { label: "კვება", href: "/food" },
+  { label: "დასაქმება", href: "/employment" },
 ];
 
 export function Navbar() {
@@ -64,18 +75,17 @@ export function Navbar() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" aria-label="ძიება">
-            <Search className="size-5" />
-          </Button>
+          <Link href="/search">
+            <Button variant="ghost" size="icon" aria-label="ძიება">
+              <Search className="size-5" />
+            </Button>
+          </Link>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden md:inline-flex"
-            aria-label="პროფილი"
-          >
-            <User className="size-5" />
-          </Button>
+          <Link href="/auth/login" className="hidden md:inline-flex">
+            <Button variant="ghost" size="icon" aria-label="პროფილი">
+              <User className="size-5" />
+            </Button>
+          </Link>
 
           {/* Mobile hamburger */}
           <Button
@@ -125,12 +135,12 @@ export function Navbar() {
                 </Button>
               </div>
 
-              <ul className="flex flex-col gap-4">
-                {navItems.map((item) => (
+              <ul className="flex flex-col gap-1">
+                {mobileNavItems.map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                       onClick={() => setMobileOpen(false)}
                     >
                       {item.label}
@@ -139,11 +149,13 @@ export function Navbar() {
                 ))}
               </ul>
 
-              <div className="mt-8 border-t pt-6">
-                <Button variant="outline" className="w-full gap-2">
-                  <User className="size-4" />
-                  შესვლა
-                </Button>
+              <div className="mt-6 space-y-2 border-t pt-6">
+                <Link href="/auth/login" onClick={() => setMobileOpen(false)}>
+                  <Button variant="outline" className="w-full gap-2">
+                    <User className="size-4" />
+                    შესვლა
+                  </Button>
+                </Link>
               </div>
             </motion.div>
           </>

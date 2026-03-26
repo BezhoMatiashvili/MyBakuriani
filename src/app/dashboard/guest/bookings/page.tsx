@@ -1,76 +1,99 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Users, ChevronDown, ChevronUp, X } from "lucide-react";
-import { useBookings } from "@/lib/hooks/useBookings";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  CalendarCheck,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { formatPrice, formatDateRange } from "@/lib/utils/format";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import type { Database } from "@/lib/types/database";
+import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
+import type { Tables } from "@/lib/types/database";
 
-type Booking = Database["public"]["Tables"]["bookings"]["Row"];
-type Property = Database["public"]["Tables"]["properties"]["Row"];
+type BookingWithProperty = Tables<"bookings"> & {
+  properties: Pick<
+    Tables<"properties">,
+    "title" | "location" | "photos"
+  > | null;
+};
 
-type TabKey = "upcoming" | "past" | "cancelled";
+const statusConfig: Record<
+  string,
+  { label: string; color: string; icon: React.ElementType }
+> = {
+  pending: {
+    label: "მოლოდინში",
+    color: "bg-yellow-100 text-yellow-700",
+    icon: Clock,
+  },
+  confirmed: {
+    label: "დადასტურებული",
+    color: "bg-green-100 text-green-700",
+    icon: CheckCircle,
+  },
+  cancelled: {
+    label: "გაუქმებული",
+    color: "bg-red-100 text-red-700",
+    icon: XCircle,
+  },
+  completed: {
+    label: "დასრულებული",
+    color: "bg-blue-100 text-blue-700",
+    icon: CalendarCheck,
+  },
+};
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: "upcoming", label: "მომავალი" },
-  { key: "past", label: "წარსული" },
+const filterTabs = [
+  { key: "all", label: "ყველა" },
+  { key: "pending", label: "მოლოდინში" },
+  { key: "confirmed", label: "დადასტურებული" },
+  { key: "completed", label: "დასრულებული" },
   { key: "cancelled", label: "გაუქმებული" },
 ];
 
 export default function GuestBookingsPage() {
-  const { bookings, loading, list } = useBookings();
-  const [activeTab, setActiveTab] = useState<TabKey>("upcoming");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [properties, setProperties] = useState<Record<string, Property>>({});
+  const { user } = useAuth();
+  const supabase = createClient();
+
+  const [bookings, setBookings] = useState<BookingWithProperty[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("all");
 
   useEffect(() => {
-    list();
-  }, [list]);
+    if (!user) return;
 
-  // Fetch property details for bookings
-  useEffect(() => {
-    if (bookings.length === 0) return;
+    async function fetchBookings() {
+      const { data } = await supabase
+        .from("bookings")
+        .select("*, properties(title, location, photos)")
+        .eq("guest_id", user!.id)
+        .order("created_at", { ascending: false });
 
-    const propertyIds = [...new Set(bookings.map((b) => b.property_id))];
-    const missing = propertyIds.filter((id) => !properties[id]);
-    if (missing.length === 0) return;
+      if (data) setBookings(data as BookingWithProperty[]);
+      setLoading(false);
+    }
 
-    const supabase = createClient();
-    supabase
-      .from("properties")
-      .select("*")
-      .in("id", missing)
-      .then(({ data }) => {
-        if (data) {
-          setProperties((prev) => {
-            const next = { ...prev };
-            data.forEach((p) => {
-              next[p.id] = p;
-            });
-            return next;
-          });
-        }
-      });
-  }, [bookings, properties]);
+    fetchBookings();
 
-  // Set up real-time subscription for booking updates
-  useEffect(() => {
-    const supabase = createClient();
+    // Realtime booking updates
     const channel = supabase
       .channel("guest-bookings")
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "bookings",
+          filter: `guest_id=eq.${user.id}`,
         },
         () => {
-          list();
+          fetchBookings();
         },
       )
       .subscribe();
@@ -78,252 +101,139 @@ export default function GuestBookingsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [list]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  const filtered = useMemo(() => {
-    const now = new Date();
-    return bookings.filter((b) => {
-      if (activeTab === "cancelled") return b.status === "cancelled";
-      if (activeTab === "past")
-        return b.status === "completed" || new Date(b.check_out) < now;
-      // upcoming
-      return (
-        (b.status === "pending" || b.status === "confirmed") &&
-        new Date(b.check_out) >= now
-      );
-    });
-  }, [bookings, activeTab]);
-
-  if (loading && bookings.length === 0) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <div className="flex gap-2">
-          {tabs.map((t) => (
-            <Skeleton key={t.key} className="h-9 w-24 rounded-full" />
-          ))}
-        </div>
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-28 w-full" />
-        ))}
-      </div>
-    );
-  }
+  const filteredBookings =
+    activeFilter === "all"
+      ? bookings
+      : bookings.filter((b) => b.status === activeFilter);
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold text-foreground">ჩემი ჯავშნები</h1>
+    <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-2xl font-bold text-foreground">ჩემი ჯავშნები</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          მართეთ თქვენი ჯავშნები და ნახეთ სტატუსები
+        </p>
+      </motion.div>
 
-      {/* Tabs */}
-      <div className="flex gap-2">
-        {tabs.map((tab) => (
-          <button
+      {/* Filter tabs */}
+      <div className="flex flex-wrap gap-2">
+        {filterTabs.map((tab) => (
+          <Button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? "bg-brand-accent text-white"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+            variant={activeFilter === tab.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveFilter(tab.key)}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
-      {/* Booking list */}
-      {filtered.length === 0 ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
-          {activeTab === "upcoming" && "მომავალი ჯავშნები არ გაქვთ"}
-          {activeTab === "past" && "წარსული ჯავშნები არ გაქვთ"}
-          {activeTab === "cancelled" && "გაუქმებული ჯავშნები არ გაქვთ"}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <AnimatePresence mode="popLayout">
-            {filtered.map((booking) => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                property={properties[booking.property_id]}
-                expanded={expandedId === booking.id}
-                onToggle={() =>
-                  setExpandedId(expandedId === booking.id ? null : booking.id)
-                }
-              />
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BookingCard({
-  booking,
-  property,
-  expanded,
-  onToggle,
-}: {
-  booking: Booking;
-  property?: Property;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const { updateStatus } = useBookings();
-  const [cancelling, setCancelling] = useState(false);
-
-  const photoUrl = property?.photos?.[0] ?? "/placeholder-property.jpg";
-
-  const statusConfig: Record<string, { label: string; classes: string }> = {
-    pending: { label: "მოლოდინში", classes: "bg-amber-100 text-amber-700" },
-    confirmed: {
-      label: "დადასტურებული",
-      classes: "bg-green-100 text-green-700",
-    },
-    cancelled: {
-      label: "გაუქმებული",
-      classes: "bg-red-100 text-red-700",
-    },
-    completed: {
-      label: "დასრულებული",
-      classes: "bg-blue-100 text-blue-700",
-    },
-  };
-
-  const sc = statusConfig[booking.status] ?? {
-    label: booking.status,
-    classes: "bg-gray-100 text-gray-700",
-  };
-
-  async function handleCancel() {
-    setCancelling(true);
-    try {
-      await updateStatus(booking.id, "cancelled");
-    } catch {
-      // error handled in hook
-    } finally {
-      setCancelling(false);
-    }
-  }
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="overflow-hidden rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)]"
-    >
-      {/* Main row */}
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center gap-4 p-4 text-left"
-      >
-        {/* Property photo */}
-        <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photoUrl}
-            alt={property?.title ?? "ობიექტი"}
-            className="size-full object-cover"
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">
-            {property?.title ?? `ჯავშანი #${booking.id.slice(0, 8)}`}
-          </p>
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-            <CalendarDays className="size-3" />
-            {formatDateRange(booking.check_in, booking.check_out)}
-          </p>
-          <div className="mt-1 flex items-center gap-2">
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.classes}`}
+      {/* Bookings list */}
+      <div className="space-y-4">
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
             >
-              {sc.label}
-            </span>
-            <span className="text-xs font-semibold text-foreground">
-              {formatPrice(booking.total_price)}
-            </span>
-          </div>
-        </div>
-
-        {expanded ? (
-          <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-        )}
-      </button>
-
-      {/* Expanded details */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0 }}
-            animate={{ height: "auto" }}
-            exit={{ height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="border-t border-brand-surface-border px-4 pb-4 pt-3 space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">სტუმრები</p>
-                  <p className="flex items-center gap-1 font-medium text-foreground">
-                    <Users className="size-3.5" />
-                    {booking.guests_count}
-                  </p>
+              <div className="flex gap-4">
+                <Skeleton className="h-20 w-20 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-3 w-24" />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">ჯამი</p>
-                  <p className="font-medium text-foreground">
-                    {formatPrice(booking.total_price)}
-                  </p>
-                </div>
-              </div>
-
-              {booking.guest_message && (
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    თქვენი შეტყობინება
-                  </p>
-                  <p className="mt-0.5 text-sm text-foreground">
-                    {booking.guest_message}
-                  </p>
-                </div>
-              )}
-
-              {booking.owner_response && (
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    მეპატრონის პასუხი
-                  </p>
-                  <p className="mt-0.5 text-sm text-foreground">
-                    {booking.owner_response}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                {(booking.status === "pending" ||
-                  booking.status === "confirmed") && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={cancelling}
-                    onClick={handleCancel}
-                    className="gap-1"
-                  >
-                    <X className="size-3.5" />
-                    {cancelling ? "იტვირთება..." : "გაუქმება"}
-                  </Button>
-                )}
               </div>
             </div>
+          ))
+        ) : filteredBookings.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+          >
+            <AlertCircle className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              ჯავშნები ვერ მოიძებნა
+            </p>
           </motion.div>
+        ) : (
+          filteredBookings.map((booking, index) => {
+            const config = statusConfig[booking.status];
+            const StatusIcon = config?.icon ?? Clock;
+
+            return (
+              <motion.div
+                key={booking.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row">
+                  {/* Property image */}
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                    {booking.properties?.photos?.[0] && (
+                      <Image
+                        src={booking.properties.photos[0]}
+                        alt={booking.properties?.title ?? ""}
+                        fill
+                        className="object-cover"
+                      />
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="truncate text-sm font-semibold text-foreground">
+                          {booking.properties?.title ?? "ობიექტი"}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {booking.properties?.location}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config?.color ?? ""}`}
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                        {config?.label ?? booking.status}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <CalendarCheck className="h-3.5 w-3.5" />
+                        {booking.check_in} — {booking.check_out}
+                      </span>
+                      <span>სტუმრები: {booking.guests_count}</span>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-sm font-bold text-brand-accent">
+                        {booking.total_price} ₾
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(booking.created_at).toLocaleDateString(
+                          "ka-GE",
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })
         )}
-      </AnimatePresence>
-    </motion.div>
+      </div>
+    </div>
   );
 }

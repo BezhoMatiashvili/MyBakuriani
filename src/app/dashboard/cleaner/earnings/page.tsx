@@ -2,234 +2,252 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Wallet, TrendingUp, Clock, ArrowUpRight } from "lucide-react";
+import {
+  Banknote,
+  TrendingUp,
+  CheckCircle,
+  ArrowDownLeft,
+  History,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { formatPrice, formatDate } from "@/lib/utils/format";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
-import { ka } from "date-fns/locale";
+import { useAuth } from "@/lib/hooks/useAuth";
 import StatCard from "@/components/cards/StatCard";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Database } from "@/lib/types/database";
+import type { Tables } from "@/lib/types/database";
 
-type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
-type CleaningTask = Database["public"]["Tables"]["cleaning_tasks"]["Row"];
+type CleaningTask = Tables<"cleaning_tasks"> & {
+  properties: Pick<Tables<"properties">, "title" | "location"> | null;
+};
 
 export default function CleanerEarningsPage() {
+  const { user } = useAuth();
   const supabase = createClient();
-  const [tasks, setTasks] = useState<CleaningTask[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
   const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<CleaningTask[]>([]);
+  const [filterPeriod, setFilterPeriod] = useState<"week" | "month" | "all">(
+    "month",
+  );
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (!user) return;
 
-      const [tasksRes, txRes] = await Promise.all([
-        supabase
-          .from("cleaning_tasks")
-          .select("*")
-          .eq("cleaner_id", user.id)
-          .eq("status", "completed")
-          .order("scheduled_at", { ascending: false }),
-        supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ]);
+    async function fetchTasks() {
+      const { data } = await supabase
+        .from("cleaning_tasks")
+        .select("*, properties(title, location)")
+        .eq("cleaner_id", user!.id)
+        .eq("status", "completed")
+        .order("scheduled_at", { ascending: false });
 
-      setTasks(tasksRes.data ?? []);
-      setTransactions(txRes.data ?? []);
+      if (data) setTasks(data as CleaningTask[]);
       setLoading(false);
     }
 
-    fetchData();
-  }, []);
+    fetchTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  // Monthly earnings calculation
-  const monthlyData = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     const now = new Date();
-    const months: { label: string; amount: number }[] = [];
+    let cutoff: Date;
 
-    for (let i = 5; i >= 0; i--) {
-      const monthDate = subMonths(now, i);
-      const start = startOfMonth(monthDate);
-      const end = endOfMonth(monthDate);
-
-      const monthTasks = tasks.filter((t) => {
-        const d = new Date(t.scheduled_at);
-        return d >= start && d <= end;
-      });
-
-      const total = monthTasks.reduce((sum, t) => sum + (t.price ?? 0), 0);
-
-      months.push({
-        label: format(monthDate, "LLL", { locale: ka }),
-        amount: total,
-      });
+    switch (filterPeriod) {
+      case "week":
+        cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "month":
+        cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      default:
+        return tasks;
     }
 
-    return months;
-  }, [tasks]);
+    return tasks.filter((t) => new Date(t.scheduled_at) >= cutoff);
+  }, [tasks, filterPeriod]);
 
-  const totalEarned = tasks.reduce((sum, t) => sum + (t.price ?? 0), 0);
-
-  const currentMonthStart = startOfMonth(new Date());
-  const currentMonthTasks = tasks.filter(
-    (t) => new Date(t.scheduled_at) >= currentMonthStart,
-  );
-  const currentMonthEarnings = currentMonthTasks.reduce(
+  const totalEarnings = filteredTasks.reduce(
     (sum, t) => sum + (t.price ?? 0),
     0,
   );
+  const completedCount = filteredTasks.length;
+  const avgEarning =
+    completedCount > 0 ? Math.round(totalEarnings / completedCount) : 0;
 
-  const pendingPayments = transactions
-    .filter((t) => t.type === "commission" && t.amount > 0)
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const maxMonthly = Math.max(...monthlyData.map((m) => m.amount), 1);
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
-        <Skeleton className="h-48" />
-      </div>
-    );
-  }
+  const periodLabels = {
+    week: "კვირა",
+    month: "თვე",
+    all: "სულ",
+  };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-foreground">შემოსავალი</h1>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-2xl font-bold text-foreground">შემოსავალი</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          თქვენი შემოსავლის ისტორია და სტატისტიკა
+        </p>
+      </motion.div>
+
+      {/* Period filter */}
+      <div className="flex gap-2">
+        {(["week", "month", "all"] as const).map((period) => (
+          <Button
+            key={period}
+            variant={filterPeriod === period ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterPeriod(period)}
+          >
+            {periodLabels[period]}
+          </Button>
+        ))}
+      </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          icon={<Wallet className="size-5" />}
-          label="ჯამური შემოსავალი"
-          value={formatPrice(totalEarned)}
+          icon={<Banknote className="h-5 w-5" />}
+          label="შემოსავალი"
+          value={`${totalEarnings} ₾`}
           change={null}
-          loading={false}
+          loading={loading}
         />
         <StatCard
-          icon={<TrendingUp className="size-5" />}
-          label="ამ თვის შემოსავალი"
-          value={formatPrice(currentMonthEarnings)}
+          icon={<CheckCircle className="h-5 w-5" />}
+          label="შესრულებული"
+          value={completedCount}
           change={null}
-          loading={false}
+          loading={loading}
         />
         <StatCard
-          icon={<Clock className="size-5" />}
-          label="მოლოდინში"
-          value={formatPrice(pendingPayments)}
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="საშუალო"
+          value={`${avgEarning} ₾`}
           change={null}
-          loading={false}
+          loading={loading}
         />
       </div>
 
-      {/* Monthly chart */}
-      <div className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">
-          თვიური შემოსავალი
+      {/* Earnings summary chart placeholder */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+      >
+        <h2 className="text-base font-semibold text-foreground">
+          შემოსავალი პერიოდის მიხედვით
         </h2>
-        <div className="flex items-end gap-2" style={{ height: 160 }}>
-          {monthlyData.map((month, i) => (
-            <div key={i} className="flex flex-1 flex-col items-center gap-1">
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{
-                  height: `${(month.amount / maxMonthly) * 120}px`,
-                }}
-                transition={{ delay: i * 0.1, duration: 0.4 }}
-                className="w-full max-w-[40px] rounded-t-md bg-brand-accent"
-              />
-              <span className="text-[10px] text-muted-foreground">
-                {month.label}
-              </span>
-            </div>
-          ))}
+        <div className="mt-4 flex h-32 items-end gap-2">
+          {loading
+            ? Array.from({ length: 7 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="flex-1 rounded-t-md"
+                  style={{ height: `${30 + Math.random() * 70}%` }}
+                />
+              ))
+            : (() => {
+                // Group by date and show bar chart
+                const earningsByDate = new Map<string, number>();
+                filteredTasks.forEach((t) => {
+                  const date = t.scheduled_at.split("T")[0];
+                  earningsByDate.set(
+                    date,
+                    (earningsByDate.get(date) ?? 0) + (t.price ?? 0),
+                  );
+                });
+
+                const entries = Array.from(earningsByDate.entries())
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .slice(-7);
+
+                const maxVal = Math.max(...entries.map(([, v]) => v), 1);
+
+                return entries.map(([date, amount]) => (
+                  <div
+                    key={date}
+                    className="flex flex-1 flex-col items-center gap-1"
+                  >
+                    <div
+                      className="w-full rounded-t-md bg-brand-accent/20 transition-all"
+                      style={{
+                        height: `${(amount / maxVal) * 100}%`,
+                        minHeight: 4,
+                      }}
+                    >
+                      <div
+                        className="h-full rounded-t-md bg-brand-accent"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <span className="text-[9px] text-muted-foreground">
+                      {new Date(date).toLocaleDateString("ka-GE", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
+                  </div>
+                ));
+              })()}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Transaction list */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">
-          ტრანზაქციები
-        </h2>
-        {transactions.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            ტრანზაქციები ჯერ არ არის
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {transactions.slice(0, 20).map((tx, i) => (
-              <motion.div
-                key={tx.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className="flex items-center justify-between rounded-[var(--radius-card)] bg-brand-surface px-4 py-3 shadow-[var(--shadow-card)]"
+      {/* Transaction history */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <h2 className="text-lg font-semibold text-foreground">ისტორია</h2>
+        <div className="mt-3 space-y-2">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))
+          ) : filteredTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-12 shadow-[var(--shadow-card)]">
+              <History className="h-10 w-10 text-muted-foreground" />
+              <p className="mt-2 text-sm text-muted-foreground">
+                ამ პერიოდში ჩანაწერები არ არის
+              </p>
+            </div>
+          ) : (
+            filteredTasks.map((task) => (
+              <div
+                key={task.id}
+                className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-sm"
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`flex size-8 items-center justify-center rounded-full ${
-                      tx.amount >= 0
-                        ? "bg-green-100 text-brand-success"
-                        : "bg-red-100 text-brand-error"
-                    }`}
-                  >
-                    <ArrowUpRight
-                      className={`size-4 ${tx.amount < 0 ? "rotate-180" : ""}`}
-                    />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-600">
+                    <ArrowDownLeft className="h-4 w-4" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">
-                      {tx.description ?? transactionTypeLabel(tx.type)}
+                      {task.properties?.title ?? "დალაგება"}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {formatDate(tx.created_at)}
+                      {new Date(task.scheduled_at).toLocaleDateString("ka-GE", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </div>
-                <span
-                  className={`text-sm font-semibold ${
-                    tx.amount >= 0 ? "text-brand-success" : "text-brand-error"
-                  }`}
-                >
-                  {tx.amount >= 0 ? "+" : ""}
-                  {formatPrice(tx.amount)}
+                <span className="text-sm font-bold text-brand-success">
+                  +{task.price ?? 0} ₾
                 </span>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </section>
+              </div>
+            ))
+          )}
+        </div>
+      </motion.section>
     </div>
   );
-}
-
-function transactionTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    topup: "შევსება",
-    withdrawal: "გატანა",
-    commission: "საკომისიო",
-    vip_boost: "VIP",
-    super_vip: "Super VIP",
-    sms_package: "SMS პაკეტი",
-    discount_badge: "ფასდაკლების ბეჯი",
-  };
-  return labels[type] ?? type;
 }
