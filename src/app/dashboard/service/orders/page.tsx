@@ -24,9 +24,9 @@ type Message = Tables<"sms_messages"> & {
 type OrderTab = "new" | "in_progress" | "completed";
 
 const tabs: { key: OrderTab; label: string }[] = [
-  { key: "new", label: "ახალი" },
-  { key: "in_progress", label: "მიმდინარე" },
-  { key: "completed", label: "დასრულებული" },
+  { key: "new", label: "\u10D0\u10EE\u10D0\u10DA\u10D8" },
+  { key: "in_progress", label: "\u10DB\u10D8\u10DB\u10D3\u10D8\u10DC\u10D0\u10E0\u10D4" },
+  { key: "completed", label: "\u10D3\u10D0\u10E1\u10E0\u10E3\u10DA\u10D4\u10D1\u10E3\u10DA\u10D8" },
 ];
 
 export default function ServiceOrdersPage() {
@@ -57,7 +57,6 @@ export default function ServiceOrdersPage() {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Real-time notifications for new orders
   useEffect(() => {
     if (!user) return;
 
@@ -82,10 +81,8 @@ export default function ServiceOrdersPage() {
     };
   }, [user, supabase, fetchOrders]);
 
-  // Simple tab filtering: new = unread, in_progress = read, completed = older read
   const filtered = messages.filter((msg) => {
     if (activeTab === "new") return !msg.is_read;
-    if (activeTab === "in_progress") return msg.is_read;
     return msg.is_read;
   });
 
@@ -98,9 +95,8 @@ export default function ServiceOrdersPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <h1 className="text-2xl font-bold">შეკვეთები / შეკითხვები</h1>
+      <h1 className="text-2xl font-bold">{"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 / \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"}</h1>
 
-      {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-muted p-1">
         {tabs.map((tab) => (
           <button
@@ -123,7 +119,6 @@ export default function ServiceOrdersPage() {
         ))}
       </div>
 
-      {/* Orders Table */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
@@ -135,34 +130,23 @@ export default function ServiceOrdersPage() {
           <MessageSquare className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <p className="mt-2 text-sm text-muted-foreground">
             {activeTab === "new"
-              ? "ახალი შეკვეთები არ არის"
+              ? "\u10D0\u10EE\u10D0\u10DA\u10D8 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
               : activeTab === "in_progress"
-                ? "მიმდინარე შეკვეთები არ არის"
-                : "დასრულებული შეკვეთები არ არის"}
+                ? "\u10DB\u10D8\u10DB\u10D3\u10D8\u10DC\u10D0\u10E0\u10D4 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
+                : "\u10D3\u10D0\u10E1\u10E0\u10E3\u10DA\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"}
           </p>
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="hidden overflow-hidden rounded-xl border sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-left">
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    კლიენტი
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    შეტყობინება
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    თარიღი
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    სტატუსი
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    მოქმედება
-                  </th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10D9\u10DA\u10D8\u10D4\u10DC\u10E2\u10D8"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10E1\u10E2\u10D0\u10E2\u10E3\u10E1\u10D8"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10DB\u10DD\u10E5\u10DB\u10D4\u10D3\u10D4\u10D1\u10D0"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -175,8 +159,7 @@ export default function ServiceOrdersPage() {
                     className="border-b last:border-0 hover:bg-muted/30"
                   >
                     <td className="px-4 py-3 font-medium">
-                      {(msg.sender as { display_name: string } | undefined)
-                        ?.display_name ?? "—"}
+                      {(msg.sender as { display_name: string } | undefined)?.display_name ?? "\u2014"}
                     </td>
                     <td className="max-w-[200px] truncate px-4 py-3 text-muted-foreground">
                       {msg.message}
@@ -185,9 +168,7 @@ export default function ServiceOrdersPage() {
                       {formatDate(msg.created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge
-                        status={msg.is_read ? "active" : "pending"}
-                      />
+                      <StatusBadge status={msg.is_read ? "active" : "pending"} />
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -195,7 +176,7 @@ export default function ServiceOrdersPage() {
                         onClick={() => setSelectedOrder(msg)}
                         className="text-sm font-medium text-brand-accent hover:underline"
                       >
-                        ნახვა
+                        {"\u10DC\u10D0\u10EE\u10D5\u10D0"}
                       </button>
                     </td>
                   </motion.tr>
@@ -204,7 +185,6 @@ export default function ServiceOrdersPage() {
             </table>
           </div>
 
-          {/* Mobile Cards */}
           <div className="space-y-3 sm:hidden">
             {filtered.map((msg, idx) => (
               <motion.button
@@ -222,8 +202,7 @@ export default function ServiceOrdersPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">
-                      {(msg.sender as { display_name: string } | undefined)
-                        ?.display_name ?? "—"}
+                      {(msg.sender as { display_name: string } | undefined)?.display_name ?? "\u2014"}
                     </span>
                     <StatusBadge status={msg.is_read ? "active" : "pending"} />
                   </div>
@@ -240,76 +219,58 @@ export default function ServiceOrdersPage() {
         </>
       )}
 
-      {/* Order Detail Modal */}
       <AnimatePresence>
         {selectedOrder && (
           <Modal
             isOpen={!!selectedOrder}
             onClose={() => setSelectedOrder(null)}
-            title="შეკვეთის დეტალები"
+            title={"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D8\u10E1 \u10D3\u10D4\u10E2\u10D0\u10DA\u10D4\u10D1\u10D8"}
             size="md"
           >
             <div className="space-y-5">
-              {/* Client info */}
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
                   <User className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="font-semibold">
-                    {(
-                      selectedOrder.sender as
-                        | { display_name: string }
-                        | undefined
-                    )?.display_name ?? "მომხმარებელი"}
+                    {(selectedOrder.sender as { display_name: string } | undefined)?.display_name ?? "\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {(selectedOrder.sender as { phone: string } | undefined)
-                      ?.phone ?? ""}
+                    {(selectedOrder.sender as { phone: string } | undefined)?.phone ?? ""}
                   </p>
                 </div>
               </div>
 
-              {/* Message */}
               <div>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">
-                  შეტყობინება
-                </p>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">{"\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0"}</p>
                 <div className="rounded-lg bg-muted p-3 text-sm">
                   {selectedOrder.message}
                 </div>
               </div>
 
-              {/* Date */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 {formatDate(selectedOrder.created_at)}
               </div>
 
-              {/* Status */}
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <StatusBadge
-                  status={selectedOrder.is_read ? "active" : "pending"}
-                />
+                <StatusBadge status={selectedOrder.is_read ? "active" : "pending"} />
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 border-t pt-4">
                 {!selectedOrder.is_read && (
                   <button
                     type="button"
                     onClick={() => {
                       markAsRead(selectedOrder.id);
-                      setSelectedOrder({
-                        ...selectedOrder,
-                        is_read: true,
-                      });
+                      setSelectedOrder({ ...selectedOrder, is_read: true });
                     }}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent/90"
                   >
                     <Check className="h-4 w-4" />
-                    მიღება
+                    {"\u10DB\u10D8\u10E6\u10D4\u10D1\u10D0"}
                   </button>
                 )}
                 <button
@@ -318,7 +279,7 @@ export default function ServiceOrdersPage() {
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
                 >
                   <XIcon className="h-4 w-4" />
-                  დახურვა
+                  {"\u10D3\u10D0\u10EE\u10E3\u10E0\u10D5\u10D0"}
                 </button>
               </div>
             </div>

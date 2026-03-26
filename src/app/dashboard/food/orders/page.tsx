@@ -25,16 +25,24 @@ type Message = Tables<"sms_messages"> & {
 type FoodTab = "new" | "preparing" | "ready" | "delivered";
 
 const tabs: { key: FoodTab; label: string; icon: React.ReactNode }[] = [
-  { key: "new", label: "ახალი", icon: <ShoppingBag className="h-3.5 w-3.5" /> },
+  {
+    key: "new",
+    label: "\u10D0\u10EE\u10D0\u10DA\u10D8",
+    icon: <ShoppingBag className="h-3.5 w-3.5" />,
+  },
   {
     key: "preparing",
-    label: "მზადდება",
+    label: "\u10DB\u10D6\u10D0\u10D3\u10D3\u10D4\u10D1\u10D0",
     icon: <ChefHat className="h-3.5 w-3.5" />,
   },
-  { key: "ready", label: "მზადაა", icon: <Package className="h-3.5 w-3.5" /> },
+  {
+    key: "ready",
+    label: "\u10DB\u10D6\u10D0\u10D3\u10D0\u10D0",
+    icon: <Package className="h-3.5 w-3.5" />,
+  },
   {
     key: "delivered",
-    label: "მიტანილი",
+    label: "\u10DB\u10D8\u10E2\u10D0\u10DC\u10D8\u10DA\u10D8",
     icon: <Truck className="h-3.5 w-3.5" />,
   },
 ];
@@ -67,7 +75,6 @@ export default function FoodOrdersPage() {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Real-time order notifications
   useEffect(() => {
     if (!user) return;
 
@@ -92,7 +99,6 @@ export default function FoodOrdersPage() {
     };
   }, [user, supabase, fetchOrders]);
 
-  // Tab filtering: new=unread, preparing/ready/delivered=read (simplified)
   const filtered = orders.filter((msg) => {
     if (activeTab === "new") return !msg.is_read;
     return msg.is_read;
@@ -107,9 +113,8 @@ export default function FoodOrdersPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <h1 className="text-2xl font-bold">კვების შეკვეთები</h1>
+      <h1 className="text-2xl font-bold">{"\u10D9\u10D5\u10D4\u10D1\u10D8\u10E1 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8"}</h1>
 
-      {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-muted p-1">
         {tabs.map((tab) => (
           <button
@@ -133,7 +138,6 @@ export default function FoodOrdersPage() {
         ))}
       </div>
 
-      {/* Orders */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
@@ -144,34 +148,21 @@ export default function FoodOrdersPage() {
         <div className="rounded-xl border border-dashed border-muted-foreground/30 p-8 text-center">
           <ShoppingBag className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <p className="mt-2 text-sm text-muted-foreground">
-            შეკვეთები არ არის
+            {"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"}
           </p>
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="hidden overflow-hidden rounded-xl border sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-left">
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    მომხმარებელი
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    შეკვეთა
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    მიტანა/წაღება
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    დრო
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    სტატუსი
-                  </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">
-                    მოქმედება
-                  </th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D0"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10DB\u10D8\u10E2\u10D0\u10DC\u10D0/\u10EC\u10D0\u10E6\u10D4\u10D1\u10D0"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10D3\u10E0\u10DD"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10E1\u10E2\u10D0\u10E2\u10E3\u10E1\u10D8"}</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10DB\u10DD\u10E5\u10DB\u10D4\u10D3\u10D4\u10D1\u10D0"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -184,24 +175,21 @@ export default function FoodOrdersPage() {
                     className="border-b last:border-0 hover:bg-muted/30"
                   >
                     <td className="px-4 py-3 font-medium">
-                      {(order.sender as { display_name: string } | undefined)
-                        ?.display_name ?? "—"}
+                      {(order.sender as { display_name: string } | undefined)?.display_name ?? "\u2014"}
                     </td>
                     <td className="max-w-[180px] truncate px-4 py-3 text-muted-foreground">
                       {order.message}
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1 text-xs">
-                        <Truck className="h-3 w-3" /> მიტანა
+                        <Truck className="h-3 w-3" /> {"\u10DB\u10D8\u10E2\u10D0\u10DC\u10D0"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatDate(order.created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge
-                        status={order.is_read ? "active" : "pending"}
-                      />
+                      <StatusBadge status={order.is_read ? "active" : "pending"} />
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -209,7 +197,7 @@ export default function FoodOrdersPage() {
                         onClick={() => setSelectedOrder(order)}
                         className="text-sm font-medium text-brand-accent hover:underline"
                       >
-                        დეტალები
+                        {"\u10D3\u10D4\u10E2\u10D0\u10DA\u10D4\u10D1\u10D8"}
                       </button>
                     </td>
                   </motion.tr>
@@ -218,7 +206,6 @@ export default function FoodOrdersPage() {
             </table>
           </div>
 
-          {/* Mobile Cards */}
           <div className="space-y-3 sm:hidden">
             {filtered.map((order, idx) => (
               <motion.button
@@ -236,12 +223,9 @@ export default function FoodOrdersPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">
-                      {(order.sender as { display_name: string } | undefined)
-                        ?.display_name ?? "კლიენტი"}
+                      {(order.sender as { display_name: string } | undefined)?.display_name ?? "\u10D9\u10DA\u10D8\u10D4\u10DC\u10E2\u10D8"}
                     </span>
-                    <StatusBadge
-                      status={order.is_read ? "active" : "pending"}
-                    />
+                    <StatusBadge status={order.is_read ? "active" : "pending"} />
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {order.message}
@@ -256,75 +240,57 @@ export default function FoodOrdersPage() {
         </>
       )}
 
-      {/* Order Detail Modal */}
       <AnimatePresence>
         {selectedOrder && (
           <Modal
             isOpen={!!selectedOrder}
             onClose={() => setSelectedOrder(null)}
-            title="შეკვეთის დეტალები"
+            title={"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D8\u10E1 \u10D3\u10D4\u10E2\u10D0\u10DA\u10D4\u10D1\u10D8"}
             size="md"
           >
             <div className="space-y-5">
-              {/* Customer info */}
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
                   <User className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="font-semibold">
-                    {(
-                      selectedOrder.sender as
-                        | { display_name: string }
-                        | undefined
-                    )?.display_name ?? "კლიენტი"}
+                    {(selectedOrder.sender as { display_name: string } | undefined)?.display_name ?? "\u10D9\u10DA\u10D8\u10D4\u10DC\u10E2\u10D8"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {(selectedOrder.sender as { phone: string } | undefined)
-                      ?.phone ?? ""}
+                    {(selectedOrder.sender as { phone: string } | undefined)?.phone ?? ""}
                   </p>
                 </div>
               </div>
 
-              {/* Order details */}
               <div>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">
-                  შეკვეთა
-                </p>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">{"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D0"}</p>
                 <div className="rounded-lg bg-muted p-3 text-sm">
                   {selectedOrder.message}
                 </div>
               </div>
 
-              {/* Time */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 {formatDate(selectedOrder.created_at)}
               </div>
 
-              {/* Status */}
               <div className="flex items-center gap-2">
-                <StatusBadge
-                  status={selectedOrder.is_read ? "active" : "pending"}
-                />
+                <StatusBadge status={selectedOrder.is_read ? "active" : "pending"} />
               </div>
 
-              {/* Actions */}
               <div className="flex flex-wrap gap-2 border-t pt-4">
                 {!selectedOrder.is_read && (
                   <button
                     type="button"
                     onClick={() => {
                       markAsRead(selectedOrder.id);
-                      setSelectedOrder({
-                        ...selectedOrder,
-                        is_read: true,
-                      });
+                      setSelectedOrder({ ...selectedOrder, is_read: true });
                     }}
                     className="inline-flex items-center gap-2 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent/90"
                   >
                     <Check className="h-4 w-4" />
-                    მიღება
+                    {"\u10DB\u10D8\u10E6\u10D4\u10D1\u10D0"}
                   </button>
                 )}
                 <button
@@ -332,21 +298,21 @@ export default function FoodOrdersPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600"
                 >
                   <ChefHat className="h-4 w-4" />
-                  მომზადება
+                  {"\u10DB\u10DD\u10DB\u10D6\u10D0\u10D3\u10D4\u10D1\u10D0"}
                 </button>
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-600"
                 >
                   <Package className="h-4 w-4" />
-                  მზადაა
+                  {"\u10DB\u10D6\u10D0\u10D3\u10D0\u10D0"}
                 </button>
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
                 >
                   <Truck className="h-4 w-4" />
-                  მიტანილია
+                  {"\u10DB\u10D8\u10E2\u10D0\u10DC\u10D8\u10DA\u10D8\u10D0"}
                 </button>
               </div>
             </div>

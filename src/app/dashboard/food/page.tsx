@@ -44,7 +44,6 @@ export default function FoodDashboardPage() {
     if (!user) return;
     setLoading(true);
 
-    // Fetch food service(s)
     const { data: svcData } = await supabase
       .from("services")
       .select("*")
@@ -60,7 +59,6 @@ export default function FoodDashboardPage() {
       ? (svcData.menu as unknown as MenuItem[]).length
       : 0;
 
-    // Count orders (messages) today
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -70,7 +68,6 @@ export default function FoodDashboardPage() {
       .eq("to_user_id", user.id)
       .gte("created_at", startOfDay.toISOString());
 
-    // Count messages this month for revenue estimate
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -94,7 +91,6 @@ export default function FoodDashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  // Real-time subscription for new orders
   useEffect(() => {
     if (!user) return;
 
@@ -135,48 +131,44 @@ export default function FoodDashboardPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">სამზარეულოს კაბინეტი</h1>
+        <h1 className="text-2xl font-bold">{"\u10E1\u10D0\u10DB\u10D6\u10D0\u10E0\u10D4\u10E3\u10DA\u10DD\u10E1 \u10D9\u10D0\u10D1\u10D8\u10DC\u10D4\u10E2\u10D8"}</h1>
         <Link
           href="/dashboard/food/orders"
           className="text-sm font-medium text-brand-accent hover:underline"
         >
-          შეკვეთები →
+          {"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8"} →
         </Link>
       </div>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <StatCard
           icon={<UtensilsCrossed className="h-5 w-5" />}
-          label="მენიუს ერთეულები"
+          label={"\u10DB\u10D4\u10DC\u10D8\u10E3\u10E1 \u10D4\u10E0\u10D7\u10D4\u10E3\u10DA\u10D4\u10D1\u10D8"}
           value={stats.menuItems}
           change={null}
           loading={loading}
         />
         <StatCard
           icon={<ShoppingBag className="h-5 w-5" />}
-          label="შეკვეთები დღეს"
+          label={"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D3\u10E6\u10D4\u10E1"}
           value={stats.ordersToday}
           change={null}
           loading={loading}
         />
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
-          label="შემოსავალი ამ თვეში"
+          label={"\u10E8\u10D4\u10DB\u10DD\u10E1\u10D0\u10D5\u10D0\u10DA\u10D8 \u10D0\u10DB \u10D7\u10D5\u10D4\u10E8\u10D8"}
           value={formatPrice(stats.revenueThisMonth)}
           change={null}
           loading={loading}
         />
       </div>
 
-      {/* Quick Settings */}
       {foodService && (
         <div className="rounded-xl bg-brand-surface p-4 shadow-[var(--shadow-card)]">
-          <h2 className="mb-3 text-lg font-semibold">პარამეტრები</h2>
+          <h2 className="mb-3 text-lg font-semibold">{"\u10DE\u10D0\u10E0\u10D0\u10DB\u10D4\u10E2\u10E0\u10D4\u10D1\u10D8"}</h2>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-            {/* Delivery toggle */}
             <button
               type="button"
               onClick={toggleDelivery}
@@ -188,36 +180,34 @@ export default function FoodDashboardPage() {
                 <ToggleLeft className="h-6 w-6 text-muted-foreground" />
               )}
               <Truck className="h-4 w-4" />
-              <span>მიტანის სერვისი</span>
+              <span>{"\u10DB\u10D8\u10E2\u10D0\u10DC\u10D8\u10E1 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D8"}</span>
               <span
                 className={`text-xs ${foodService.has_delivery ? "text-brand-success" : "text-muted-foreground"}`}
               >
-                {foodService.has_delivery ? "ჩართულია" : "გამორთულია"}
+                {foodService.has_delivery ? "\u10E9\u10D0\u10E0\u10D7\u10E3\u10DA\u10D8\u10D0" : "\u10D2\u10D0\u10DB\u10DD\u10E0\u10D7\u10E3\u10DA\u10D8\u10D0"}
               </span>
             </button>
 
-            {/* Operating hours */}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span>სამუშაო საათები:</span>
+              <span>{"\u10E1\u10D0\u10DB\u10E3\u10E8\u10D0\u10DD \u10E1\u10D0\u10D0\u10D7\u10D4\u10D1\u10D8"}:</span>
               <span className="font-medium text-foreground">
-                {foodService.operating_hours ?? "არ არის მითითებული"}
+                {foodService.operating_hours ?? "\u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1 \u10DB\u10D8\u10D7\u10D8\u10D7\u10D4\u10D1\u10E3\u10DA\u10D8"}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Menu Management */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">მენიუ</h2>
+          <h2 className="text-lg font-semibold">{"\u10DB\u10D4\u10DC\u10D8\u10E3"}</h2>
           <Link
             href="/create/service?category=food"
             className="inline-flex items-center gap-2 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent/90"
           >
             <Plus className="h-4 w-4" />
-            ერთეულის დამატება
+            {"\u10D4\u10E0\u10D7\u10D4\u10E3\u10DA\u10D8\u10E1 \u10D3\u10D0\u10DB\u10D0\u10E2\u10D4\u10D1\u10D0"}
           </Link>
         </div>
 
@@ -230,7 +220,9 @@ export default function FoodDashboardPage() {
         ) : menuItems.length === 0 ? (
           <div className="rounded-xl border border-dashed border-muted-foreground/30 p-8 text-center">
             <UtensilsCrossed className="mx-auto h-10 w-10 text-muted-foreground/50" />
-            <p className="mt-2 text-sm text-muted-foreground">მენიუ ცარიელია</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {"\u10DB\u10D4\u10DC\u10D8\u10E3 \u10EA\u10D0\u10E0\u10D8\u10D4\u10DA\u10D8\u10D0"}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -267,7 +259,6 @@ export default function FoodDashboardPage() {
         )}
       </div>
 
-      {/* Current Orders Overview */}
       <CurrentOrders userId={user?.id} />
     </div>
   );
@@ -306,7 +297,7 @@ function CurrentOrders({ userId }: { userId: string | undefined }) {
 
   return (
     <div>
-      <h2 className="mb-3 text-lg font-semibold">დღევანდელი შეკვეთები</h2>
+      <h2 className="mb-3 text-lg font-semibold">{"\u10D3\u10E6\u10D4\u10D5\u10D0\u10DC\u10D3\u10D4\u10DA\u10D8 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8"}</h2>
       {loading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
@@ -315,7 +306,7 @@ function CurrentOrders({ userId }: { userId: string | undefined }) {
         </div>
       ) : orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          დღეს შეკვეთები ჯერ არ არის
+          {"\u10D3\u10E6\u10D4\u10E1 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"}
         </p>
       ) : (
         <div className="space-y-2">
@@ -329,8 +320,7 @@ function CurrentOrders({ userId }: { userId: string | undefined }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
-                  {(order.sender as { display_name: string } | undefined)
-                    ?.display_name ?? "კლიენტი"}
+                  {(order.sender as { display_name: string } | undefined)?.display_name ?? "\u10D9\u10DA\u10D8\u10D4\u10DC\u10E2\u10D8"}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {order.message}
