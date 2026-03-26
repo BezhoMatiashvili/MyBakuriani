@@ -92,7 +92,19 @@ export default function ApartmentDetailClient({
 
   const owner = property.profiles;
   const amenities = (property.amenities ?? []) as string[];
-  const houseRules = (property.house_rules ?? []) as string[];
+  const houseRulesObj = (property.house_rules ?? {}) as Record<string, unknown>;
+  const houseRulesLabels: Record<string, string> = {
+    smoking: "მოწევა",
+    pets: "შინაური ცხოველები",
+    check_in: "შესვლა",
+    check_out: "გასვლა",
+  };
+  const houseRules = Object.entries(houseRulesObj).map(([key, value]) => {
+    const label = houseRulesLabels[key] ?? key;
+    if (typeof value === "boolean")
+      return `${label}: ${value ? "დიახ" : "არა"}`;
+    return `${label}: ${value}`;
+  });
   const avgRating =
     reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
