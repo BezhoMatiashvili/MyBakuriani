@@ -106,17 +106,23 @@ export default function SalesPageClient({ properties }: Props) {
   return (
     <div className="flex min-h-screen flex-col">
       {/* Header */}
-      <section className="bg-brand-primary px-4 py-12 md:py-16">
+      <section
+        className="px-4 py-12 md:py-16"
+        style={{
+          background:
+            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+        }}
+      >
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
             <div className="flex items-center gap-3 text-white/70">
               <TrendingUp className="h-5 w-5" />
               <span className="text-sm">მთავარი / ყიდვა-გაყიდვა</span>
             </div>
-            <h1 className="mt-4 text-3xl font-bold text-white md:text-4xl">
+            <h1 className="mt-4 text-3xl font-black text-white md:text-4xl">
               ყიდვა-გაყიდვა
             </h1>
-            <p className="mt-2 text-base text-white/70">
+            <p className="mt-2 text-[13px] font-medium text-white/70">
               საინვესტიციო უძრავი ქონება ბაკურიანში
             </p>
           </ScrollReveal>
@@ -124,7 +130,13 @@ export default function SalesPageClient({ properties }: Props) {
       </section>
 
       {/* Investment Stats */}
-      <section className="bg-brand-primary-dark px-4 py-8">
+      <section
+        className="px-4 py-8"
+        style={{
+          background:
+            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+        }}
+      >
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4">
           {INVESTMENT_STATS.map((stat) => (
             <ScrollReveal key={stat.label}>
@@ -169,7 +181,7 @@ export default function SalesPageClient({ properties }: Props) {
           <aside className="hidden w-[280px] shrink-0 lg:block">
             <div className="sticky top-24">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">ფილტრები</h2>
+                <h2 className="text-sm font-black text-[#1E293B]">ფილტრები</h2>
                 {hasActiveFilters && (
                   <button
                     onClick={() => setFilters(INITIAL_FILTERS)}
@@ -202,7 +214,9 @@ export default function SalesPageClient({ properties }: Props) {
                   className="fixed inset-y-0 left-0 z-50 w-[320px] overflow-y-auto bg-background p-4 shadow-xl lg:hidden"
                 >
                   <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">ფილტრები</h2>
+                    <h2 className="text-lg font-black text-[#1E293B]">
+                      ფილტრები
+                    </h2>
                     <button
                       onClick={() => setMobileFiltersOpen(false)}
                       className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted"
@@ -235,7 +249,7 @@ export default function SalesPageClient({ properties }: Props) {
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                   <TrendingUp className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-black text-[#1E293B]">
                   განცხადებები ვერ მოიძებნა
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">

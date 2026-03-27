@@ -19,7 +19,7 @@ export default function SmartMatchCard({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="relative w-full cursor-pointer overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-r from-brand-accent to-brand-vip-super p-5 text-left text-white shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+      className="relative w-full cursor-pointer overflow-hidden rounded-3xl bg-gradient-to-r from-brand-accent to-brand-vip-super p-5 text-left text-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
     >
       <div className="flex items-center gap-3">
         <Sparkles className="h-6 w-6 shrink-0" />

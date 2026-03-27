@@ -37,7 +37,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
 
   if (photos.length === 0) {
     return (
-      <div className="aspect-[16/9] w-full rounded-2xl bg-muted flex items-center justify-center">
+      <div className="aspect-[16/9] w-full rounded-3xl bg-muted flex items-center justify-center">
         <span className="text-muted-foreground">ფოტო არ არის</span>
       </div>
     );

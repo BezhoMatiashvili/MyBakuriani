@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SkeletonCard() {
   return (
-    <div className="overflow-hidden rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)]">
+    <div className="overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white">
       {/* Image placeholder */}
       <Skeleton className="aspect-[4/3] w-full rounded-none" />
 

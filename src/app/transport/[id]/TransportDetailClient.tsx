@@ -80,7 +80,7 @@ export default function TransportDetailClient({ service }: Props) {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+            <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl">
               {service.title}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -99,7 +99,7 @@ export default function TransportDetailClient({ service }: Props) {
 
           {/* Transport details */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 text-lg font-black text-[#1E293B]">
               ტრანსპორტის დეტალები
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -156,9 +156,7 @@ export default function TransportDetailClient({ service }: Props) {
           {/* Description */}
           {service.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">
-                აღწერა
-              </h2>
+              <h2 className="mb-3 text-lg font-black text-[#1E293B]">აღწერა</h2>
               <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
                 {service.description}
               </p>

@@ -46,17 +46,23 @@ export default function ServicesPageClient({ services }: Props) {
   return (
     <div className="flex min-h-screen flex-col">
       {/* Header */}
-      <section className="bg-brand-primary px-4 py-12 md:py-16">
+      <section
+        className="px-4 py-12 md:py-16"
+        style={{
+          background:
+            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+        }}
+      >
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
             <div className="flex items-center gap-3 text-white/70">
               <Wrench className="h-5 w-5" />
               <span className="text-sm">მთავარი / სერვისები და ხელოსნები</span>
             </div>
-            <h1 className="mt-4 text-3xl font-bold text-white md:text-4xl">
+            <h1 className="mt-4 text-3xl font-black text-white md:text-4xl">
               სერვისები და ხელოსნები
             </h1>
-            <p className="mt-2 text-base text-white/70">
+            <p className="mt-2 text-[13px] font-medium text-white/70">
               {filtered.length} განცხადება ნაპოვნია
             </p>
           </ScrollReveal>

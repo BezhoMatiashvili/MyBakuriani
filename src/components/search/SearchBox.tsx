@@ -104,12 +104,17 @@ export function SearchBox({
   return (
     <form
       onSubmit={handleSubmit}
-      className={cn("rounded-2xl bg-white p-4 shadow-lg md:p-6", className)}
+      className={cn(
+        "rounded-2xl bg-white p-4 shadow-lg",
+        "md:flex md:h-[80px] md:items-center md:rounded-full md:p-2",
+        className,
+      )}
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
+      {/* Mobile: stacked grid layout */}
+      <div className="grid grid-cols-1 gap-3 md:hidden">
         {/* Location */}
         <div className="relative">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
             ლოკაცია
           </label>
           <div className="relative">
@@ -125,8 +130,8 @@ export function SearchBox({
         </div>
 
         {/* Date Range Picker */}
-        <div className="relative" ref={calendarRef}>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+        <div className="relative" ref={isMobile ? calendarRef : undefined}>
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
             თარიღი
           </label>
           <div className="relative">
@@ -142,19 +147,16 @@ export function SearchBox({
               {dateLabel || "შეარჩიეთ თარიღი"}
             </button>
           </div>
-
-          {calendarOpen && (
-            <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-2rem)] rounded-xl border bg-white p-3 shadow-xl md:max-w-none">
+          {calendarOpen && isMobile && (
+            <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-2rem)] rounded-xl border bg-white p-3 shadow-xl">
               <Calendar
                 mode="range"
                 selected={dateRange}
                 onSelect={(range) => {
                   setDateRange(range);
-                  if (range?.from && range?.to) {
-                    setCalendarOpen(false);
-                  }
+                  if (range?.from && range?.to) setCalendarOpen(false);
                 }}
-                numberOfMonths={isMobile ? 1 : 2}
+                numberOfMonths={1}
                 disabled={{ before: new Date() }}
                 className="rounded-md"
               />
@@ -164,7 +166,7 @@ export function SearchBox({
 
         {/* Guests */}
         <div className="relative">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
             სტუმრები
           </label>
           <div className="relative">
@@ -182,31 +184,104 @@ export function SearchBox({
           </div>
         </div>
 
-        {/* Cadastral Code */}
-        <div className="relative">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
-            საკადასტრო კოდი
-          </label>
-          <div className="relative">
-            <Hash className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="XX.XX.XX.XXX"
-              value={cadastralCode}
-              onChange={(e) => setCadastralCode(e.target.value)}
-              className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
-            />
-          </div>
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            className="h-10 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover"
+          >
+            <Search className="size-4" />
+            ძებნა
+          </Button>
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      {/* Desktop: horizontal pill layout */}
+      <div className="hidden flex-1 items-center md:flex">
+        {/* Date field */}
+        <div
+          className="relative flex h-[64px] flex-1 flex-col justify-center rounded-l-full px-6"
+          ref={calendarRef}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
+            თარიღები
+          </span>
+          <button
+            type="button"
+            onClick={() => setCalendarOpen(!calendarOpen)}
+            className={cn(
+              "text-left text-[15px] font-bold text-[#1E293B]",
+              !dateLabel && "text-muted-foreground",
+            )}
+          >
+            {dateLabel || "შეარჩიეთ თარიღი"}
+          </button>
+          {calendarOpen && (
+            <div className="absolute left-0 top-full z-50 mt-2 rounded-xl border bg-white p-3 shadow-xl">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={(range) => {
+                  setDateRange(range);
+                  if (range?.from && range?.to) setCalendarOpen(false);
+                }}
+                numberOfMonths={2}
+                disabled={{ before: new Date() }}
+                className="rounded-md"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Location field */}
+        <div className="flex h-[64px] flex-1 flex-col justify-center px-6">
+          <span className="text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
+            ლოკაცია (ზონა)
+          </span>
+          <input
+            type="text"
+            placeholder="დიდველი / კრისტალი"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="w-full border-none bg-transparent text-[15px] font-bold text-[#1E293B] outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+
+        {/* Filters / Guests field */}
+        <div className="flex h-[64px] flex-1 flex-col justify-center px-6">
+          <span className="text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
+            სტუმრები
+          </span>
+          <input
+            type="number"
+            min={1}
+            placeholder="რაოდენობა"
+            value={guests}
+            onChange={(e) =>
+              setGuests(e.target.value ? Number(e.target.value) : "")
+            }
+            className="w-full border-none bg-transparent text-[15px] font-bold text-[#1E293B] outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+
+        {/* Cadastral field */}
+        <div className="flex h-[61.5px] items-center justify-center px-2">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="საკადასტრო კოდი"
+              value={cadastralCode}
+              onChange={(e) => setCadastralCode(e.target.value)}
+              className="h-[45px] w-[260px] rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-5 text-sm text-[#1E293B] outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+
+        {/* Search button */}
         <Button
           type="submit"
-          className="h-10 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover"
+          className="ml-2 h-[64px] w-[64px] shrink-0 rounded-full bg-brand-accent text-white hover:bg-brand-accent-hover"
         >
-          <Search className="size-4" />
-          ძებნა
+          <Search className="size-5" />
         </Button>
       </div>
     </form>

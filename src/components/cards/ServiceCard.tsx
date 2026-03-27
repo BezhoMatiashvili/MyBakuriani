@@ -63,10 +63,10 @@ export default function ServiceCard({
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
         {/* Photo area */}
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative h-[190px] overflow-hidden">
           <Image
             src={photoUrl}
             alt={title}
@@ -85,33 +85,33 @@ export default function ServiceCard({
 
           {/* VIP badge */}
           {isVip && (
-            <span className="absolute top-3 right-3 rounded-md bg-brand-vip px-2 py-0.5 text-xs font-bold text-white">
+            <span className="absolute top-3 left-3 rounded bg-[#FEE2E2] border border-[#FEF08A] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
               VIP
             </span>
           )}
 
           {/* Discount badge */}
           {discountPercent > 0 && (
-            <span className="absolute top-3 left-3 rounded-md bg-brand-error px-2 py-0.5 text-xs font-bold text-white">
+            <span className="absolute top-3 right-3 rounded-md bg-brand-error px-2 py-0.5 text-xs font-bold text-white">
               -{discountPercent}%
             </span>
           )}
         </div>
 
         {/* Content */}
-        <div className="p-4">
-          <h3 className="truncate text-sm font-semibold text-foreground">
+        <div className="p-5">
+          <h3 className="truncate text-lg font-black leading-[22px] text-[#1E293B]">
             {title}
           </h3>
 
           {location && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            <p className="mt-1 truncate text-xs text-muted-foreground">
               {location}
             </p>
           )}
 
           {price != null && (
-            <p className="mt-2 text-sm font-bold text-foreground">
+            <p className="mt-3 text-sm font-bold text-foreground">
               {formatPrice(price)}
               {priceUnit && (
                 <span className="ml-1 text-xs font-normal text-muted-foreground">

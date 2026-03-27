@@ -33,7 +33,7 @@ export default function ReviewCard({
   const colorClass = getAvatarColor(displayName);
 
   return (
-    <div className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]">
+    <div className="rounded-3xl border border-[#E2E8F0] bg-white p-4">
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div

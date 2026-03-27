@@ -15,7 +15,7 @@ const options = [
 
 export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
   return (
-    <div className="inline-flex rounded-full bg-muted p-1">
+    <div className="inline-flex h-[54px] items-center rounded-full border border-white/5 bg-[#1F2A44] p-1.5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
       {options.map((option) => {
         const isActive = value === option.key;
         return (
@@ -24,16 +24,16 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
             type="button"
             onClick={() => onChange(option.key)}
             className={cn(
-              "relative rounded-full px-5 py-2 text-sm font-medium transition-colors",
+              "relative h-[40px] rounded-full px-8 text-sm transition-colors",
               isActive
-                ? "text-white"
-                : "text-muted-foreground hover:text-foreground",
+                ? "font-bold text-white"
+                : "font-medium text-[#CBD5E1] hover:text-white/80",
             )}
           >
             {isActive && (
               <motion.span
                 layoutId="rent-buy-pill"
-                className="absolute inset-0 rounded-full bg-brand-accent"
+                className="absolute inset-0 rounded-full bg-brand-accent shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
                 transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
               />
             )}

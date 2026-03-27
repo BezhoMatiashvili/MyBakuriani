@@ -169,7 +169,7 @@ export default function ApartmentDetailClient({
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+                <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl">
                   {property.title}
                 </h1>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -203,31 +203,31 @@ export default function ApartmentDetailClient({
               )}
             </div>
 
-            {/* Quick specs */}
-            <div className="mt-4 flex flex-wrap gap-4 rounded-xl bg-muted/50 p-4">
+            {/* Quick specs — pill badges per Figma */}
+            <div className="mt-4 flex flex-wrap gap-2">
               {property.rooms != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <BedDouble className="h-5 w-5 text-brand-accent" />
-                  <span>{property.rooms} ოთახი</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <BedDouble className="h-4 w-4 text-brand-accent" />
+                  {property.rooms} ოთახი
+                </span>
               )}
               {property.bathrooms != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Bath className="h-5 w-5 text-brand-accent" />
-                  <span>{property.bathrooms} სააბაზანო</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <Bath className="h-4 w-4 text-brand-accent" />
+                  {property.bathrooms} სააბაზანო
+                </span>
               )}
               {property.capacity != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-5 w-5 text-brand-accent" />
-                  <span>{property.capacity} სტუმარი</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <Users className="h-4 w-4 text-brand-accent" />
+                  {property.capacity} სტუმარი
+                </span>
               )}
               {property.area_sqm != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Maximize className="h-5 w-5 text-brand-accent" />
-                  <span>{property.area_sqm} მ²</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <Maximize className="h-4 w-4 text-brand-accent" />
+                  {property.area_sqm} მ²
+                </span>
               )}
             </div>
           </motion.div>
@@ -235,9 +235,7 @@ export default function ApartmentDetailClient({
           {/* Description */}
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">
-                აღწერა
-              </h2>
+              <h2 className="mb-3 text-lg font-black text-[#1E293B]">აღწერა</h2>
               <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
                 {property.description}
               </p>
@@ -247,7 +245,7 @@ export default function ApartmentDetailClient({
           {/* Amenities */}
           {amenities.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">
+              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
                 კეთილმოწყობა
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -258,7 +256,7 @@ export default function ApartmentDetailClient({
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm"
+                      className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]"
                     >
                       {Icon && (
                         <Icon className="h-5 w-5 text-brand-accent shrink-0" />
@@ -274,7 +272,7 @@ export default function ApartmentDetailClient({
           {/* House Rules */}
           {houseRules.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">
+              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
                 სახლის წესები
               </h2>
               <ul className="space-y-2">
@@ -293,7 +291,7 @@ export default function ApartmentDetailClient({
 
           {/* Location */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 text-lg font-black text-[#1E293B]">
               მდებარეობა
             </h2>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -309,7 +307,7 @@ export default function ApartmentDetailClient({
 
           {/* Calendar */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 text-lg font-black text-[#1E293B]">
               ხელმისაწვდომობა
             </h2>
             <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
@@ -343,7 +341,7 @@ export default function ApartmentDetailClient({
 
           {/* Reviews */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
-            <h2 className="mb-4 text-lg font-semibold text-foreground">
+            <h2 className="mb-4 text-lg font-black text-[#1E293B]">
               შეფასებები {reviews.length > 0 && `(${reviews.length})`}
             </h2>
             {reviews.length === 0 ? (

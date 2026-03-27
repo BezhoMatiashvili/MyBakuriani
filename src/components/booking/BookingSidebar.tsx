@@ -35,10 +35,10 @@ export function BookingSidebar({
   const totalPrice = nights > 0 ? nights * pricePerNight : null;
 
   return (
-    <div className="sticky top-24 rounded-2xl bg-white p-5 shadow-sm">
+    <div className="sticky top-24 rounded-3xl border border-[#EEF1F4] bg-white p-8 shadow-[0px_20px_48px_rgba(0,0,0,0.06)]">
       {/* Price */}
       <div className="mb-4">
-        <span className="text-2xl font-bold text-foreground">
+        <span className="text-[32px] font-black leading-[44px] text-[#0C1F15]">
           {formatPrice(pricePerNight)}
         </span>
         <span className="text-sm text-muted-foreground"> / ღამე</span>
@@ -64,7 +64,7 @@ export function BookingSidebar({
       )}
 
       {/* Divider */}
-      <div className="my-4 border-t border-border" />
+      <div className="my-6 border-t border-[#EEF1F4]" />
 
       {/* Owner info */}
       <div className="mb-4 flex items-center gap-3">
@@ -96,7 +96,7 @@ export function BookingSidebar({
       {/* CTA */}
       <Button
         onClick={onBook}
-        className="h-11 w-full gap-2 bg-brand-accent text-base font-semibold text-white hover:bg-brand-accent-hover"
+        className="h-12 w-full gap-2 rounded-[14px] bg-brand-accent text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] hover:bg-brand-accent-hover"
       >
         დაჯავშნა
       </Button>

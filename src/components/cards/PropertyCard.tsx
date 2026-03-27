@@ -50,10 +50,10 @@ export default function PropertyCard(props: PropertyCardProps) {
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
         {/* Photo area */}
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative h-[190px] overflow-hidden">
           <Image
             src={photoUrl}
             alt={title}
@@ -63,20 +63,22 @@ export default function PropertyCard(props: PropertyCardProps) {
           />
 
           {/* VIP / Super VIP badge */}
-          {isSuperVip && (
-            <span className="absolute top-3 right-3 rounded-md bg-brand-vip-super px-2 py-0.5 text-xs font-bold text-white">
-              Super VIP
-            </span>
-          )}
-          {isVip && !isSuperVip && (
-            <span className="absolute top-3 right-3 rounded-md bg-brand-vip px-2 py-0.5 text-xs font-bold text-white">
-              VIP
-            </span>
-          )}
+          <div className="absolute top-3 left-3 flex gap-2">
+            {isSuperVip && (
+              <span className="rounded bg-[#FEE2E2] border border-[#FEF08A] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                Super VIP
+              </span>
+            )}
+            {isVip && !isSuperVip && (
+              <span className="rounded bg-[#FEE2E2] border border-[#FEF08A] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                VIP
+              </span>
+            )}
+          </div>
 
           {/* Discount badge */}
           {discountPercent > 0 && (
-            <span className="absolute top-3 left-3 rounded-md bg-brand-error px-2 py-0.5 text-xs font-bold text-white">
+            <span className="absolute top-3 right-3 rounded-md bg-brand-error px-2 py-0.5 text-xs font-bold text-white">
               -{discountPercent}%
             </span>
           )}
@@ -97,15 +99,23 @@ export default function PropertyCard(props: PropertyCardProps) {
         </div>
 
         {/* Content */}
-        <div className="p-4">
-          <h3 className="truncate text-sm font-semibold text-foreground">
-            {title}
-          </h3>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        <div className="p-5">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="truncate text-lg font-black leading-[22px] text-[#1E293B]">
+              {title}
+            </h3>
+            {rating != null && (
+              <span className="flex shrink-0 items-center gap-1 rounded-md bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                <Star className="h-3 w-3 fill-white text-white" />
+                {rating.toFixed(1)}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
             {location}
           </p>
 
-          <div className="mt-3 flex items-center justify-between">
+          <div className="mt-4 flex items-center justify-between">
             {/* Price */}
             <span className="text-sm font-bold text-foreground">
               {isForSale && salePrice != null
@@ -115,21 +125,13 @@ export default function PropertyCard(props: PropertyCardProps) {
                   : ""}
             </span>
 
-            {/* Rating + capacity */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {rating != null && (
-                <span className="flex items-center gap-0.5">
-                  <Star className="h-3.5 w-3.5 fill-brand-warning text-brand-warning" />
-                  {rating.toFixed(1)}
-                </span>
-              )}
-              {capacity != null && (
-                <span className="flex items-center gap-0.5">
-                  <Users className="h-3.5 w-3.5" />
-                  {capacity} სტუმარი
-                </span>
-              )}
-            </div>
+            {/* Capacity */}
+            {capacity != null && (
+              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                {capacity} სტუმარი
+              </span>
+            )}
           </div>
         </div>
       </Link>

@@ -129,7 +129,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
     filters.amenities.length > 0;
 
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="rounded-3xl border border-[#E2E8F0] bg-white p-8">
       {/* Clear all */}
       {hasActiveFilters && (
         <button

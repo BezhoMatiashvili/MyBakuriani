@@ -177,7 +177,7 @@ export default function HotelDetailClient({
                     </span>
                   )}
                 </div>
-                <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+                <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl">
                   {property.title}
                 </h1>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -231,9 +231,7 @@ export default function HotelDetailClient({
           {/* Description */}
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">
-                აღწერა
-              </h2>
+              <h2 className="mb-3 text-lg font-black text-[#1E293B]">აღწერა</h2>
               <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
                 {property.description}
               </p>
@@ -243,7 +241,7 @@ export default function HotelDetailClient({
           {/* Amenities */}
           {amenities.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">
+              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
                 კეთილმოწყობა
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -270,7 +268,7 @@ export default function HotelDetailClient({
           {/* House Rules */}
           {houseRules.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-3 text-lg font-semibold text-foreground">
+              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
                 სასტუმროს წესები
               </h2>
               <ul className="space-y-2">
@@ -289,7 +287,7 @@ export default function HotelDetailClient({
 
           {/* Calendar */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 text-lg font-black text-[#1E293B]">
               ხელმისაწვდომობა
             </h2>
             <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
@@ -323,7 +321,7 @@ export default function HotelDetailClient({
 
           {/* Reviews */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-            <h2 className="mb-4 text-lg font-semibold text-foreground">
+            <h2 className="mb-4 text-lg font-black text-[#1E293B]">
               შეფასებები {reviews.length > 0 && `(${reviews.length})`}
             </h2>
             {reviews.length === 0 ? (

@@ -288,7 +288,7 @@ export default function SearchPageClient({
         {/* Desktop filter sidebar */}
         <aside className="hidden w-[280px] shrink-0 lg:block">
           <div className="sticky top-24">
-            <h2 className="mb-4 text-lg font-semibold">ფილტრები</h2>
+            <h2 className="mb-4 text-lg font-black text-[#1E293B]">ფილტრები</h2>
             <FilterPanel filters={filters} onFilterChange={setFilters} />
           </div>
         </aside>
@@ -313,7 +313,7 @@ export default function SearchPageClient({
 
           {/* Results count — desktop */}
           <div className="mb-6 hidden items-center justify-between lg:flex">
-            <h1 className="text-xl font-bold">
+            <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
               {mode === "sale" ? "გასაყიდი ობიექტები" : "ძებნის შედეგები"}
             </h1>
             <span className="text-sm text-muted-foreground">

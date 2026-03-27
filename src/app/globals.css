@@ -8,12 +8,12 @@
   --font-heading: "Noto Sans Georgian", sans-serif;
   --font-sans: "Noto Sans Georgian", sans-serif;
 
-  /* MyBakuriani custom design tokens */
-  --color-brand-primary: #1a1a2e;
-  --color-brand-primary-light: #16213e;
-  --color-brand-primary-dark: #0f0f1a;
-  --color-brand-accent: #3b82f6;
-  --color-brand-accent-hover: #2563eb;
+  /* MyBakuriani custom design tokens — synced with Figma */
+  --color-brand-primary: #0e2150;
+  --color-brand-primary-light: #1e419a;
+  --color-brand-primary-dark: #101a33;
+  --color-brand-accent: #2563eb;
+  --color-brand-accent-hover: #1d4ed8;
   --color-brand-accent-light: #dbeafe;
   --color-brand-success: #22c55e;
   --color-brand-warning: #f59e0b;
@@ -23,11 +23,15 @@
   --color-brand-surface: #ffffff;
   --color-brand-surface-muted: #f8fafc;
   --color-brand-surface-border: #e2e8f0;
+  --color-dark-card: #222a3b;
+  --color-dark-toggle: #1f2a44;
 
   --radius-card: 12px;
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --shadow-search: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --shadow-search: 0px 20px 40px -10px rgba(0, 0, 0, 0.15);
+  --shadow-dark-card:
+    0px 10px 15px -3px rgba(0, 0, 0, 0.1), 0px 4px 6px -4px rgba(0, 0, 0, 0.1);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

@@ -665,11 +665,16 @@ export default function LandingPage({
   return (
     <div className="flex flex-col">
       {/* ═══ 1. Hero Section ═══ */}
-      <section className="relative flex min-h-[600px] items-center justify-center overflow-hidden bg-brand-primary px-4 py-20">
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-primary/90 to-brand-primary-dark/95" />
-        <div className="relative z-10 mx-auto max-w-4xl text-center">
+      <section
+        className="relative flex min-h-[470px] items-center justify-center overflow-hidden px-4 py-20"
+        style={{
+          background:
+            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+        }}
+      >
+        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
           <ScrollReveal>
-            <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl md:text-5xl lg:text-6xl">
+            <h1 className="text-3xl font-black leading-none tracking-[-1.25px] text-white sm:text-4xl md:text-[50px]">
               ყველაზე სანდო გზამკვლევი ბაკურიანში
             </h1>
             <p className="mt-4 text-base text-white/80 sm:text-lg">
@@ -690,17 +695,29 @@ export default function LandingPage({
         </div>
       </section>
 
-      {/* ═══ 2. Stats Row ═══ */}
-      <section className="bg-brand-primary-dark px-4 py-8">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4">
+      {/* ═══ 2. Dark Status Cards ═══ */}
+      <section
+        className="px-4 py-8"
+        style={{
+          background:
+            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+        }}
+      >
+        <div className="mx-auto flex max-w-[1160px] flex-wrap justify-center gap-4">
           {STATS.map((stat) => (
             <ScrollReveal key={stat.label}>
-              <div className="flex flex-col items-center gap-2 text-center text-white">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-accent/20 text-brand-accent">
+              <div className="flex h-[94px] min-w-[240px] flex-1 items-center gap-4 rounded-2xl border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-accent/20 text-brand-accent">
                   {stat.icon}
                 </div>
-                <span className="text-2xl font-bold">{stat.value}</span>
-                <span className="text-xs text-white/70">{stat.label}</span>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                    {stat.label}
+                  </span>
+                  <span className="text-2xl font-black text-white">
+                    {stat.value}
+                  </span>
+                </div>
               </div>
             </ScrollReveal>
           ))}
@@ -711,7 +728,9 @@ export default function LandingPage({
       <section className="mx-auto w-full max-w-7xl px-4 py-16">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">ცხელი შეთავაზებები</h2>
+            <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              ცხელი შეთავაზებები
+            </h2>
             <div className="flex gap-2">
               <button
                 onClick={() => scrollCarousel("left")}
@@ -747,7 +766,9 @@ export default function LandingPage({
       <section className="bg-brand-surface-muted px-4 py-16">
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
-            <h2 className="text-2xl font-bold">სტუმრების მოთხოვნები</h2>
+            <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              სტუმრების მოთხოვნები
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               ნახე რას ეძებენ ახლა
             </p>
@@ -766,9 +787,9 @@ export default function LandingPage({
       <section className="px-4 py-8">
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-accent to-brand-accent-hover p-8 text-white md:p-12">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-brand-accent to-brand-accent-hover p-8 text-white md:p-12">
               <div className="relative z-10 max-w-lg">
-                <h3 className="text-2xl font-bold md:text-3xl">
+                <h3 className="text-2xl font-black md:text-3xl">
                   დიდველი სათხილამურო კურორტი
                 </h3>
                 <p className="mt-2 text-sm text-white/80">
@@ -853,10 +874,12 @@ export default function LandingPage({
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
             <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">ბლოგი და სიახლეები</h2>
+              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                ბლოგი და სიახლეები
+              </h2>
               <Link
                 href="/blog"
-                className="flex items-center gap-1 text-sm font-medium text-brand-accent hover:underline"
+                className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
               >
                 ყველა <ArrowRight className="h-4 w-4" />
               </Link>
@@ -867,7 +890,7 @@ export default function LandingPage({
               <ScrollReveal key={post.id} delay={i * 0.1}>
                 <Link
                   href={`/blog/${post.id}`}
-                  className="group block overflow-hidden rounded-[var(--radius-card)] bg-white shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+                  className="group block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <Image
@@ -899,7 +922,7 @@ export default function LandingPage({
       <section className="px-4 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <ScrollReveal>
-            <h2 className="text-2xl font-bold md:text-3xl">
+            <h2 className="text-2xl font-black md:text-3xl">
               გქონდეთ ობიექტი ბაკურიანში?
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -946,10 +969,12 @@ function ServiceSection({
       <div className="mx-auto max-w-7xl">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">{title}</h2>
+            <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              {title}
+            </h2>
             <Link
               href={href}
-              className="flex items-center gap-1 text-sm font-medium text-brand-accent hover:underline"
+              className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
             >
               ყველა <ArrowRight className="h-4 w-4" />
             </Link>
@@ -997,10 +1022,12 @@ function PropertySection({
       <div className="mx-auto max-w-7xl">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">{title}</h2>
+            <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              {title}
+            </h2>
             <Link
               href={href}
-              className="flex items-center gap-1 text-sm font-medium text-brand-accent hover:underline"
+              className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
             >
               ყველა <ArrowRight className="h-4 w-4" />
             </Link>

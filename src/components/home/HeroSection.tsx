@@ -22,10 +22,16 @@ export function HeroSection() {
   );
 
   return (
-    <section className="relative flex min-h-[600px] items-center justify-center bg-brand-primary px-4">
-      <div className="mx-auto max-w-4xl text-center">
+    <section
+      className="relative flex min-h-[470px] items-center justify-center px-4"
+      style={{
+        background:
+          "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+      }}
+    >
+      <div className="mx-auto w-full max-w-[1160px] text-center">
         <ScrollReveal>
-          <h1 className="text-3xl font-bold text-white sm:text-4xl md:text-5xl">
+          <h1 className="text-3xl font-black leading-none tracking-[-1.25px] text-white sm:text-4xl md:text-[50px]">
             ყველაზე სანდო გზამკვლევი ბაკურიანში
           </h1>
           <p className="mt-4 text-lg text-white/80">

@@ -81,7 +81,9 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-12">
       <ScrollReveal>
-        <h1 className="text-3xl font-bold">ბლოგი და სიახლეები</h1>
+        <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+          ბლოგი და სიახლეები
+        </h1>
         <p className="mt-2 text-muted-foreground">
           ბაკურიანის უახლესი სიახლეები, რჩევები და სტატიები
         </p>
@@ -92,7 +94,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
           <ScrollReveal key={post.id} delay={i * 0.08}>
             <Link
               href={`/blog/${post.id}`}
-              className="group block overflow-hidden rounded-[var(--radius-card)] bg-white shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+              className="group block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
             >
               <div className="relative aspect-[16/9] overflow-hidden">
                 <Image
@@ -110,7 +112,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
                 <time className="text-xs text-muted-foreground">
                   {post.date}
                 </time>
-                <h2 className="mt-2 text-base font-semibold leading-snug group-hover:text-brand-accent">
+                <h2 className="mt-2 text-base font-black leading-snug text-[#1E293B] group-hover:text-brand-accent">
                   {post.title}
                 </h2>
                 <p className="mt-2 text-sm text-muted-foreground line-clamp-2">

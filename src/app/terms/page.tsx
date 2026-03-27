@@ -6,7 +6,9 @@ export const metadata = {
 export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-3xl font-bold">წესები და პირობები</h1>
+      <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+        წესები და პირობები
+      </h1>
       <p className="mt-2 text-sm text-muted-foreground">
         ბოლო განახლება: 2026 წლის 1 მარტი
       </p>
