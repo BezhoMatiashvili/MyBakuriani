@@ -105,7 +105,7 @@ export default function EmploymentDetailClient({ service }: Props) {
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {service.position && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <Briefcase className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">პოზიცია</p>
@@ -114,7 +114,7 @@ export default function EmploymentDetailClient({ service }: Props) {
                 </div>
               )}
               {service.salary_range && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <Banknote className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">ანაზღაურება</p>
@@ -123,7 +123,7 @@ export default function EmploymentDetailClient({ service }: Props) {
                 </div>
               )}
               {service.experience_required && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <GraduationCap className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">გამოცდილება</p>
@@ -132,7 +132,7 @@ export default function EmploymentDetailClient({ service }: Props) {
                 </div>
               )}
               {service.employment_schedule && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <CalendarDays className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">
@@ -143,7 +143,7 @@ export default function EmploymentDetailClient({ service }: Props) {
                 </div>
               )}
               {service.schedule && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <Clock className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">განრიგი</p>
@@ -152,7 +152,7 @@ export default function EmploymentDetailClient({ service }: Props) {
                 </div>
               )}
               {service.phone && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <Phone className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">ტელეფონი</p>

@@ -117,7 +117,7 @@ export default function ServiceDetailClient({ service }: Props) {
             <h2 className="mb-3 text-lg font-black text-[#1E293B]">დეტალები</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {service.schedule && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <Clock className="h-5 w-5 text-brand-accent shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">განრიგი</p>
@@ -126,7 +126,7 @@ export default function ServiceDetailClient({ service }: Props) {
                 </div>
               )}
               {service.phone && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <Phone className="h-5 w-5 text-brand-accent shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">ტელეფონი</p>
@@ -135,7 +135,7 @@ export default function ServiceDetailClient({ service }: Props) {
                 </div>
               )}
               {service.price != null && (
-                <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
                   <Wrench className="h-5 w-5 text-brand-accent shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">ფასი</p>

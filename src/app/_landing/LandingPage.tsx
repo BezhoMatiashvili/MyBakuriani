@@ -930,7 +930,7 @@ export default function LandingPage({
             </p>
             <Link
               href="/create"
-              className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-brand-accent px-8 text-sm font-medium text-white transition-colors hover:bg-brand-accent-hover"
+              className="mt-6 inline-flex h-12 items-center justify-center rounded-[14px] bg-brand-accent px-8 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] transition-colors hover:bg-brand-accent-hover"
             >
               განცხადების დამატება
             </Link>

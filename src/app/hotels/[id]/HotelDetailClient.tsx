@@ -199,31 +199,31 @@ export default function HotelDetailClient({
               </div>
             </div>
 
-            {/* Quick specs */}
-            <div className="mt-4 flex flex-wrap gap-4 rounded-xl bg-muted/50 p-4">
+            {/* Quick specs — pill badges per Figma */}
+            <div className="mt-4 flex flex-wrap gap-2">
               {property.rooms != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <BedDouble className="h-5 w-5 text-brand-accent" />
-                  <span>{property.rooms} ნომერი</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <BedDouble className="h-4 w-4 text-brand-accent" />
+                  {property.rooms} ნომერი
+                </span>
               )}
               {property.bathrooms != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Bath className="h-5 w-5 text-brand-accent" />
-                  <span>{property.bathrooms} სააბაზანო</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <Bath className="h-4 w-4 text-brand-accent" />
+                  {property.bathrooms} სააბაზანო
+                </span>
               )}
               {property.capacity != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-5 w-5 text-brand-accent" />
-                  <span>{property.capacity} სტუმარი</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <Users className="h-4 w-4 text-brand-accent" />
+                  {property.capacity} სტუმარი
+                </span>
               )}
               {property.area_sqm != null && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Maximize className="h-5 w-5 text-brand-accent" />
-                  <span>{property.area_sqm} მ²</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                  <Maximize className="h-4 w-4 text-brand-accent" />
+                  {property.area_sqm} მ²
+                </span>
               )}
             </div>
           </motion.div>
@@ -252,7 +252,7 @@ export default function HotelDetailClient({
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm"
+                      className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]"
                     >
                       {Icon && (
                         <Icon className="h-5 w-5 text-brand-accent shrink-0" />
