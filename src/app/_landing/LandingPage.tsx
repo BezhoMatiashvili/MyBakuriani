@@ -890,7 +890,7 @@ export default function LandingPage({
               <ScrollReveal key={post.id} delay={i * 0.1}>
                 <Link
                   href={`/blog/${post.id}`}
-                  className="group block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+                  className="group block overflow-hidden rounded-3xl border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <Image
@@ -900,14 +900,14 @@ export default function LandingPage({
                       className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
-                  <div className="p-4">
-                    <time className="text-xs text-muted-foreground">
+                  <div className="p-6">
+                    <time className="text-[11px] font-medium text-[#94A3B8]">
                       {post.date}
                     </time>
-                    <h3 className="mt-1 text-sm font-semibold leading-snug">
+                    <h3 className="mt-1 text-[17px] font-black leading-[21px] text-[#1E293B]">
                       {post.title}
                     </h3>
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                    <p className="mt-2 text-[13px] leading-[21px] text-muted-foreground line-clamp-2">
                       {post.excerpt}
                     </p>
                   </div>
