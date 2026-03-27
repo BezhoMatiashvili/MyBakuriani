@@ -88,7 +88,7 @@ export default function TransportPageClient({ services }: Props) {
           <aside className="hidden w-[280px] shrink-0 lg:block">
             <div className="sticky top-24">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">ფილტრები</h2>
+                <h2 className="text-sm font-black text-[#1E293B]">ფილტრები</h2>
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
@@ -147,7 +147,9 @@ export default function TransportPageClient({ services }: Props) {
                   className="fixed inset-y-0 left-0 z-50 w-[320px] overflow-y-auto bg-background p-4 shadow-xl lg:hidden"
                 >
                   <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">ფილტრები</h2>
+                    <h2 className="text-lg font-black text-[#1E293B]">
+                      ფილტრები
+                    </h2>
                     <button
                       onClick={() => setMobileFiltersOpen(false)}
                       className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted"
@@ -204,7 +206,7 @@ export default function TransportPageClient({ services }: Props) {
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                   <Car className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-black text-[#1E293B]">
                   ტრანსპორტი ვერ მოიძებნა
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
