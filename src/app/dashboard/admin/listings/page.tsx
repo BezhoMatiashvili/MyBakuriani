@@ -401,7 +401,9 @@ export default function ListingsPage() {
                   </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Eye className="h-3.5 w-3.5" />
-                    {item.views.toLocaleString("ka-GE")}
+                    {item.views
+                      .toString()
+                      .replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {formatDate(item.createdAt)}

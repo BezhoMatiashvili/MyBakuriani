@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import StatCard from "@/components/cards/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -144,14 +145,14 @@ export default function RenterDashboardPage() {
         <StatCard
           icon={<Banknote className="h-5 w-5" />}
           label="თვის შემოსავალი"
-          value={`${monthlyIncome} ₾`}
+          value={formatPrice(Number(monthlyIncome))}
           change={null}
           loading={loading}
         />
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
           label="მისაღები (ვალი)"
-          value={`${receivable} ₾`}
+          value={formatPrice(Number(receivable))}
           change={null}
           loading={loading}
         />
@@ -178,7 +179,7 @@ export default function RenterDashboardPage() {
             label: "კალენდარი",
             href: "/dashboard/renter/calendar",
             icon: CalendarDays,
-            color: "bg-blue-100 text-blue-600",
+            color: "bg-brand-accent-light text-brand-accent",
           },
           {
             label: "Smart Match",
@@ -293,7 +294,7 @@ export default function RenterDashboardPage() {
                     </div>
                   </div>
                   <span className="text-sm font-bold text-brand-accent">
-                    {property.price_per_night} ₾
+                    {formatPrice(Number(property.price_per_night ?? 0))}
                   </span>
                 </div>
               ))}

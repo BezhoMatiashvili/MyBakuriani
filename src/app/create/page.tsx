@@ -18,8 +18,8 @@ const CATEGORIES = [
     icon: Home,
     title: "უძრავი ქონება — ქირაობა",
     description: "ბინა, კოტეჯი, სასტუმრო, ვილა",
-    color: "text-blue-500",
-    bg: "bg-blue-500/10",
+    color: "text-brand-accent",
+    bg: "bg-brand-accent-light/10",
   },
   {
     href: "/create/sale",

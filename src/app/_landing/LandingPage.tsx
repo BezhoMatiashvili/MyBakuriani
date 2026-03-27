@@ -766,7 +766,7 @@ export default function LandingPage({
       <section className="px-4 py-8">
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-accent to-blue-700 p-8 text-white md:p-12">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-accent to-brand-accent-hover p-8 text-white md:p-12">
               <div className="relative z-10 max-w-lg">
                 <h3 className="text-2xl font-bold md:text-3xl">
                   დიდველი სათხილამურო კურორტი
@@ -825,19 +825,27 @@ export default function LandingPage({
         href="/employment"
       />
 
-      {/* ═══ 11. Hotels Section ═══ */}
+      {/* ═══ 11. Apartments Section ═══ */}
+      <PropertySection
+        title="აპარტამენტები და კოტეჯები"
+        properties={hotOfferCards.slice(0, 4)}
+        href="/apartments"
+        muted
+      />
+
+      {/* ═══ 12. Hotels Section ═══ */}
       <PropertySection
         title="სასტუმროები"
         properties={hotelCards}
         href="/hotels"
-        muted
       />
 
-      {/* ═══ 12. Apartments Section ═══ */}
+      {/* ═══ 13. Sales Section ═══ */}
       <PropertySection
-        title="აპარტამენტები და კოტეჯები"
+        title="გასაყიდი ობიექტები"
         properties={saleCards}
-        href="/apartments"
+        href="/sales"
+        muted
       />
 
       {/* ═══ 13. Blog Section ═══ */}

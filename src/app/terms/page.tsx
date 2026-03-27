@@ -82,7 +82,9 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold">8. კონფიდენციალურობა</h2>
+          <h2 id="confidentiality" className="text-xl font-semibold">
+            8. კონფიდენციალურობა
+          </h2>
           <p className="mt-2 leading-relaxed text-muted-foreground">
             მომხმარებლის პერსონალური მონაცემები მუშავდება საქართველოს
             კანონმდებლობის შესაბამისად. ჩვენ არ ვაზიარებთ მომხმარებლის

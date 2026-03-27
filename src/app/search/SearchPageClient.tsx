@@ -1,25 +1,20 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
-import { FilterPanel, type Filters } from "@/components/search/FilterPanel";
+import {
+  FilterPanel,
+  DEFAULT_FILTERS,
+  type Filters,
+} from "@/components/search/FilterPanel";
 import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import BottomSheet from "@/components/shared/BottomSheet";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { Button } from "@/components/ui/button";
-
-const DEFAULT_FILTERS: Filters = {
-  priceMin: "",
-  priceMax: "",
-  rooms: null,
-  areaMin: "",
-  areaMax: "",
-  types: [],
-  amenities: [],
-};
 
 const ITEMS_PER_PAGE = 12;
 
@@ -65,6 +60,8 @@ export default function SearchPageClient({
     useState<Tables<"properties">[]>(initialProperties);
   const [totalCount, setTotalCount] = useState(initialProperties.length);
   const [loading, setLoading] = useState(false);
+  const isInitialMount = useRef(true);
+  const router = useRouter();
 
   const fetchProperties = useCallback(
     async (
@@ -131,7 +128,7 @@ export default function SearchPageClient({
         }
 
         setProperties(data);
-        setTotalCount(data.length);
+        setTotalCount(result.total ?? data.length);
       } catch {
         // Fallback to client-side filtering of initial data
         let filtered = initialProperties;
@@ -228,10 +225,28 @@ export default function SearchPageClient({
     [initialProperties],
   );
 
-  // Re-fetch when filters change
+  // Re-fetch when filters change (skip initial mount — server already loaded data)
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     fetchProperties(searchState, filters, mode, page);
   }, [filters, mode, page, fetchProperties, searchState]);
+
+  // Sync URL with current search state (so refresh/share preserves filters)
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    const params = new URLSearchParams();
+    if (searchState.location) params.set("location", searchState.location);
+    if (searchState.checkIn) params.set("check_in", searchState.checkIn);
+    if (searchState.checkOut) params.set("check_out", searchState.checkOut);
+    if (searchState.guests) params.set("guests", String(searchState.guests));
+    if (searchState.cadastralCode)
+      params.set("cadastral", searchState.cadastralCode);
+    params.set("mode", mode);
+    router.replace(`/search?${params.toString()}`, { scroll: false });
+  }, [searchState, mode, router]);
 
   const handleSearch = useCallback((sf: SearchFilters) => {
     setSearchState({
@@ -264,6 +279,8 @@ export default function SearchPageClient({
           defaultLocation={initialLocation}
           defaultGuests={initialGuests}
           defaultCadastralCode={initialCadastral}
+          defaultCheckIn={initialCheckIn}
+          defaultCheckOut={initialCheckOut}
         />
       </ScrollReveal>
 
@@ -307,7 +324,7 @@ export default function SearchPageClient({
           {/* Loading state */}
           {loading && (
             <div className="flex items-center justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
             </div>
           )}
 

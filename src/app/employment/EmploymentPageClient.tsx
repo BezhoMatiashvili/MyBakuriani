@@ -179,7 +179,7 @@ export default function EmploymentPageClient({ services }: Props) {
                     </div>
                   </div>
                   <Button
-                    className="mt-4 w-full bg-blue-600 text-white hover:bg-blue-700"
+                    className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent-hover"
                     onClick={() => setMobileFiltersOpen(false)}
                   >
                     ნახვა ({filtered.length})

@@ -31,18 +31,25 @@ export default function ApartmentsPageClient({ properties }: Props) {
     return properties.filter((p) => {
       if (
         filters.priceMin !== "" &&
-        (p.price_per_night ?? 0) < filters.priceMin
+        Number(p.price_per_night ?? 0) < Number(filters.priceMin)
       )
         return false;
       if (
         filters.priceMax !== "" &&
-        (p.price_per_night ?? 0) > filters.priceMax
+        Number(p.price_per_night ?? 0) > Number(filters.priceMax)
       )
         return false;
-      if (filters.rooms !== null && p.rooms !== filters.rooms) return false;
-      if (filters.areaMin !== "" && (p.area_sqm ?? 0) < filters.areaMin)
+      if (filters.rooms !== null && (p.rooms ?? 0) < filters.rooms)
         return false;
-      if (filters.areaMax !== "" && (p.area_sqm ?? 0) > filters.areaMax)
+      if (
+        filters.areaMin !== "" &&
+        Number(p.area_sqm ?? 0) < Number(filters.areaMin)
+      )
+        return false;
+      if (
+        filters.areaMax !== "" &&
+        Number(p.area_sqm ?? 0) > Number(filters.areaMax)
+      )
         return false;
       if (filters.types.length > 0 && !filters.types.includes(p.type))
         return false;
@@ -161,7 +168,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
                   </div>
                   <FilterPanel filters={filters} onFilterChange={setFilters} />
                   <Button
-                    className="mt-4 w-full bg-blue-600 text-white hover:bg-blue-700"
+                    className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent-hover"
                     onClick={() => setMobileFiltersOpen(false)}
                   >
                     ნახვა ({filtered.length})
@@ -202,16 +209,18 @@ export default function ApartmentsPageClient({ properties }: Props) {
                       id={p.id}
                       title={p.title}
                       location={p.location}
-                      photos={p.photos}
-                      pricePerNight={p.price_per_night}
-                      salePrice={p.sale_price}
+                      photos={p.photos ?? []}
+                      pricePerNight={
+                        p.price_per_night ? Number(p.price_per_night) : null
+                      }
+                      salePrice={p.sale_price ? Number(p.sale_price) : null}
                       rating={null}
                       capacity={p.capacity}
                       rooms={p.rooms}
-                      isVip={p.is_vip}
-                      isSuperVip={p.is_super_vip}
-                      discountPercent={p.discount_percent}
-                      isForSale={p.is_for_sale}
+                      isVip={p.is_vip ?? false}
+                      isSuperVip={p.is_super_vip ?? false}
+                      discountPercent={p.discount_percent ?? 0}
+                      isForSale={p.is_for_sale ?? false}
                     />
                   </ScrollReveal>
                 ))}

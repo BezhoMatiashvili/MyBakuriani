@@ -93,7 +93,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
         {photos.length > 1 && (
           <button
             onClick={() => openLightbox(0)}
-            className="mt-2 text-sm font-medium text-blue-600 underline md:hidden"
+            className="mt-2 text-sm font-medium text-brand-accent underline md:hidden"
           >
             ყველა ფოტოს ნახვა ({photos.length})
           </button>

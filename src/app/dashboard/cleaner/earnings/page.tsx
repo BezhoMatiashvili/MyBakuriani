@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import StatCard from "@/components/cards/StatCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type CleaningTask = Tables<"cleaning_tasks"> & {
@@ -112,7 +113,7 @@ export default function CleanerEarningsPage() {
         <StatCard
           icon={<Banknote className="h-5 w-5" />}
           label="შემოსავალი"
-          value={`${totalEarnings} ₾`}
+          value={formatPrice(Number(totalEarnings))}
           change={null}
           loading={loading}
         />
@@ -126,7 +127,7 @@ export default function CleanerEarningsPage() {
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
           label="საშუალო"
-          value={`${avgEarning} ₾`}
+          value={formatPrice(Number(avgEarning))}
           change={null}
           loading={loading}
         />
@@ -241,7 +242,7 @@ export default function CleanerEarningsPage() {
                   </div>
                 </div>
                 <span className="text-sm font-bold text-brand-success">
-                  +{task.price ?? 0} ₾
+                  +{formatPrice(Number(task.price ?? 0))}
                 </span>
               </div>
             ))

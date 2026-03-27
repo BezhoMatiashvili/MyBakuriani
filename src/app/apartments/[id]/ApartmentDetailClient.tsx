@@ -20,6 +20,11 @@ import {
   UtensilsCrossed,
   WashingMachine,
   Mountain,
+  Warehouse,
+  Fence,
+  Waves,
+  Sparkles,
+  Hotel,
 } from "lucide-react";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
@@ -36,6 +41,12 @@ const AMENITY_MAP: Record<string, { icon: React.ElementType; label: string }> =
   {
     wifi: { icon: Wifi, label: "Wi-Fi" },
     parking: { icon: Car, label: "პარკინგი" },
+    ski_storage: { icon: Warehouse, label: "სათხილამურო საწყობი" },
+    fireplace: { icon: Flame, label: "ბუხარი" },
+    balcony: { icon: Fence, label: "აივანი" },
+    pool: { icon: Waves, label: "აუზი" },
+    spa: { icon: Sparkles, label: "SPA" },
+    restaurant: { icon: Hotel, label: "რესტორანი" },
     heating: { icon: Flame, label: "გათბობა" },
     ac: { icon: Snowflake, label: "კონდიციონერი" },
     tv: { icon: Tv, label: "ტელევიზორი" },
@@ -196,25 +207,25 @@ export default function ApartmentDetailClient({
             <div className="mt-4 flex flex-wrap gap-4 rounded-xl bg-muted/50 p-4">
               {property.rooms != null && (
                 <div className="flex items-center gap-2 text-sm">
-                  <BedDouble className="h-5 w-5 text-blue-600" />
+                  <BedDouble className="h-5 w-5 text-brand-accent" />
                   <span>{property.rooms} ოთახი</span>
                 </div>
               )}
               {property.bathrooms != null && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Bath className="h-5 w-5 text-blue-600" />
+                  <Bath className="h-5 w-5 text-brand-accent" />
                   <span>{property.bathrooms} სააბაზანო</span>
                 </div>
               )}
               {property.capacity != null && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-5 w-5 text-blue-600" />
+                  <Users className="h-5 w-5 text-brand-accent" />
                   <span>{property.capacity} სტუმარი</span>
                 </div>
               )}
               {property.area_sqm != null && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Maximize className="h-5 w-5 text-blue-600" />
+                  <Maximize className="h-5 w-5 text-brand-accent" />
                   <span>{property.area_sqm} მ²</span>
                 </div>
               )}
@@ -250,7 +261,7 @@ export default function ApartmentDetailClient({
                       className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm"
                     >
                       {Icon && (
-                        <Icon className="h-5 w-5 text-blue-600 shrink-0" />
+                        <Icon className="h-5 w-5 text-brand-accent shrink-0" />
                       )}
                       <span>{label}</span>
                     </div>
@@ -272,7 +283,7 @@ export default function ApartmentDetailClient({
                     key={i}
                     className="flex items-start gap-2 text-sm text-muted-foreground"
                   >
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-accent" />
                     {String(rule)}
                   </li>
                 ))}

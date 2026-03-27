@@ -20,6 +20,7 @@ import StatCard from "@/components/cards/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type CleaningTaskWithProperty = Tables<"cleaning_tasks"> & {
@@ -37,7 +38,7 @@ const taskStatusConfig: Record<
   },
   accepted: {
     label: "მიღებული",
-    color: "bg-blue-100 text-blue-700",
+    color: "bg-brand-accent-light text-brand-accent",
     icon: Clock,
   },
   in_progress: {
@@ -172,7 +173,7 @@ export default function CleanerDashboardPage() {
         <StatCard
           icon={<Banknote className="h-5 w-5" />}
           label="შემოსავალი"
-          value={`${totalEarnings} ₾`}
+          value={formatPrice(Number(totalEarnings))}
           change={null}
           loading={loading}
         />
@@ -219,7 +220,7 @@ export default function CleanerDashboardPage() {
                   <span>{task.cleaning_type}</span>
                   {task.price && (
                     <span className="font-bold text-brand-accent">
-                      {task.price} ₾
+                      {formatPrice(Number(task.price))}
                     </span>
                   )}
                 </div>

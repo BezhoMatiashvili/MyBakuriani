@@ -29,6 +29,8 @@ interface SearchBoxProps {
   defaultLocation?: string;
   defaultGuests?: number | "";
   defaultCadastralCode?: string;
+  defaultCheckIn?: string;
+  defaultCheckOut?: string;
 }
 
 export function SearchBox({
@@ -37,9 +39,20 @@ export function SearchBox({
   defaultLocation = "",
   defaultGuests = "",
   defaultCadastralCode = "",
+  defaultCheckIn = "",
+  defaultCheckOut = "",
 }: SearchBoxProps) {
   const [location, setLocation] = useState(defaultLocation);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    if (defaultCheckIn) {
+      const from = new Date(defaultCheckIn + "T00:00:00");
+      const to = defaultCheckOut
+        ? new Date(defaultCheckOut + "T00:00:00")
+        : undefined;
+      return { from, to };
+    }
+    return undefined;
+  });
   const [guests, setGuests] = useState<number | "">(defaultGuests);
   const [cadastralCode, setCadastralCode] = useState(defaultCadastralCode);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -190,7 +203,7 @@ export function SearchBox({
       <div className="mt-4 flex justify-end">
         <Button
           type="submit"
-          className="h-10 gap-2 bg-blue-600 px-6 text-white hover:bg-blue-700"
+          className="h-10 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover"
         >
           <Search className="size-4" />
           ძებნა

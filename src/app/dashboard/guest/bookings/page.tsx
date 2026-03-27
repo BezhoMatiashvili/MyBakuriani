@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type BookingWithProperty = Tables<"bookings"> & {
@@ -44,7 +45,7 @@ const statusConfig: Record<
   },
   completed: {
     label: "დასრულებული",
-    color: "bg-blue-100 text-blue-700",
+    color: "bg-brand-accent-light text-brand-accent",
     icon: CalendarCheck,
   },
 };
@@ -219,7 +220,7 @@ export default function GuestBookingsPage() {
 
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-sm font-bold text-brand-accent">
-                        {booking.total_price} ₾
+                        {formatPrice(Number(booking.total_price))}
                       </span>
                       <span className="text-[10px] text-muted-foreground">
                         {new Date(booking.created_at).toLocaleDateString(

@@ -47,7 +47,7 @@ const boostPackages = [
     description: "200 SMS შეტყობინება",
     price: "10.00",
     unit: "₾/200 SMS",
-    color: "bg-blue-100 text-blue-600",
+    color: "bg-brand-accent-light text-brand-accent",
   },
   {
     id: "discount_badge",

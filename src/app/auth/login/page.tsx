@@ -172,7 +172,10 @@ export default function LoginPage() {
             მომსახურების პირობებს
           </a>{" "}
           და{" "}
-          <a href="/privacy" className="underline hover:text-foreground">
+          <a
+            href="/terms#confidentiality"
+            className="underline hover:text-foreground"
+          >
             კონფიდენციალურობის პოლიტიკას
           </a>
         </p>

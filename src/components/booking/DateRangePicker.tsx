@@ -162,7 +162,7 @@ export function DateRangePicker({
           <span className="text-xs text-muted-foreground">დაკავებული</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="size-3 rounded-sm bg-blue-500" />
+          <span className="size-3 rounded-sm bg-brand-accent-light" />
           <span className="text-xs text-muted-foreground">არჩეული</span>
         </div>
       </div>

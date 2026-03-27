@@ -19,6 +19,7 @@ import StatCard from "@/components/cards/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type SmartMatchRequest = Tables<"smart_match_requests">;
@@ -29,7 +30,7 @@ const quickActions = [
     label: "ობიექტის ძებნა",
     href: "/search",
     icon: Search,
-    color: "bg-blue-100 text-blue-600",
+    color: "bg-brand-accent-light text-brand-accent",
   },
   {
     label: "Smart Match",
@@ -181,7 +182,7 @@ export default function GuestDashboardPage() {
                     <p className="text-xs text-muted-foreground">
                       {match.guests_count} სტუმარი
                       {match.budget_max
-                        ? ` | ბიუჯეტი: ${match.budget_max} ₾`
+                        ? ` | ბიუჯეტი: ${formatPrice(Number(match.budget_max))}`
                         : ""}
                     </p>
                   </div>
@@ -260,7 +261,11 @@ export default function GuestDashboardPage() {
             : recentProperties.map((property) => (
                 <Link
                   key={property.id}
-                  href={`/properties/${property.id}`}
+                  href={
+                    property.is_for_sale
+                      ? `/sales/${property.id}`
+                      : `/apartments/${property.id}`
+                  }
                   className="group rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-md"
                 >
                   <div className="relative h-32 overflow-hidden rounded-lg bg-muted">
@@ -286,8 +291,9 @@ export default function GuestDashboardPage() {
                       {property.location}
                     </span>
                     <span className="text-sm font-bold text-brand-accent">
-                      {property.price_per_night} ₾
+                      {formatPrice(Number(property.price_per_night ?? 0))}
                       <span className="text-xs font-normal text-muted-foreground">
+                        {" "}
                         /ღამე
                       </span>
                     </span>

@@ -30,16 +30,20 @@ export default async function EmploymentDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: service } = await supabase
-    .from("services")
-    .select("*, profiles!services_owner_id_fkey(*)")
-    .eq("id", id)
-    .eq("status", "active")
-    .single();
+  try {
+    const { data: service } = await supabase
+      .from("services")
+      .select("*, profiles!services_owner_id_fkey(*)")
+      .eq("id", id)
+      .eq("status", "active")
+      .single();
 
-  if (!service) {
+    if (!service) {
+      notFound();
+    }
+
+    return <EmploymentDetailClient service={service} />;
+  } catch {
     notFound();
   }
-
-  return <EmploymentDetailClient service={service} />;
 }

@@ -155,7 +155,7 @@ export default function RenterProfilePage() {
         )}
         {profile?.response_time_minutes && (
           <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-sm">
-            <Clock className="h-4 w-4 text-blue-500" />
+            <Clock className="h-4 w-4 text-brand-accent" />
             <span className="text-xs font-medium">
               {profile.response_time_minutes} წთ
             </span>

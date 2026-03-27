@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -210,7 +211,7 @@ export default function RenterListingsPage() {
                       {property.rooms} ოთახი | {property.capacity} სტუმარი
                     </span>
                     <span className="font-bold text-brand-accent">
-                      {property.price_per_night} ₾/ღამე
+                      {formatPrice(Number(property.price_per_night ?? 0))}/ღამე
                     </span>
                   </div>
 
@@ -233,7 +234,13 @@ export default function RenterListingsPage() {
 
                 {/* Actions */}
                 <div className="flex shrink-0 gap-2">
-                  <Link href={`/properties/${property.id}`}>
+                  <Link
+                    href={
+                      property.is_for_sale
+                        ? `/sales/${property.id}`
+                        : `/apartments/${property.id}`
+                    }
+                  >
                     <Button variant="outline" size="icon-sm">
                       <Eye className="h-4 w-4" />
                     </Button>

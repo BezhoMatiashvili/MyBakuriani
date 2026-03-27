@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { slideFromRight } from "@/lib/utils/animations";
 
 const navItems = [
-  { label: "ყველა განცხადება", href: "/apartments" },
-  { label: "როგორ მუშაობს", href: "#how-it-works" },
-  { label: "ვერიფიკაცია", href: "#verification" },
-  { label: "ფასები", href: "#pricing" },
+  { label: "აპარტამენტები", href: "/apartments" },
+  { label: "სასტუმროები", href: "/hotels" },
+  { label: "ყიდვა-გაყიდვა", href: "/sales" },
+  { label: "სერვისები", href: "/services" },
+  { label: "გართობა", href: "/entertainment" },
 ];
 
 const mobileNavItems = [

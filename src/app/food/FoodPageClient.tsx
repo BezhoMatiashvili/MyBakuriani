@@ -79,7 +79,7 @@ export default function FoodPageClient({ services }: Props) {
               onClick={() => setActiveCuisine(cat.value)}
               className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 activeCuisine === cat.value
-                  ? "bg-blue-600 text-white"
+                  ? "bg-brand-accent text-white"
                   : "bg-muted text-foreground hover:bg-muted/80"
               }`}
             >
@@ -160,7 +160,7 @@ export default function FoodPageClient({ services }: Props) {
                       type="checkbox"
                       checked={deliveryOnly}
                       onChange={(e) => setDeliveryOnly(e.target.checked)}
-                      className="size-4 rounded border-border accent-blue-600"
+                      className="size-4 rounded border-border accent-brand-accent"
                     />
                     მიტანის სერვისი
                   </label>
@@ -232,14 +232,14 @@ export default function FoodPageClient({ services }: Props) {
                           type="checkbox"
                           checked={deliveryOnly}
                           onChange={(e) => setDeliveryOnly(e.target.checked)}
-                          className="size-4 rounded border-border accent-blue-600"
+                          className="size-4 rounded border-border accent-brand-accent"
                         />
                         მიტანის სერვისი
                       </label>
                     </div>
                   </div>
                   <Button
-                    className="mt-4 w-full bg-blue-600 text-white hover:bg-blue-700"
+                    className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent-hover"
                     onClick={() => setMobileFiltersOpen(false)}
                   >
                     ნახვა ({filtered.length})

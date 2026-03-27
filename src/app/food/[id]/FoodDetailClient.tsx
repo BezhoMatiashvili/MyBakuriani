@@ -262,7 +262,7 @@ export default function FoodDetailClient({ service }: Props) {
                     {owner?.display_name ?? "რესტორანი"}
                   </p>
                   {owner?.is_verified && (
-                    <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <div className="flex items-center gap-1 text-xs text-brand-accent">
                       <BadgeCheck className="size-3.5" />
                       ვერიფიცირებული
                     </div>

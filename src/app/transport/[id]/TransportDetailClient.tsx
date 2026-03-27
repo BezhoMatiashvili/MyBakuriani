@@ -237,7 +237,7 @@ export default function TransportDetailClient({ service }: Props) {
                   {service.driver_name ?? owner?.display_name ?? "მძღოლი"}
                 </p>
                 {owner?.is_verified && (
-                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                  <div className="flex items-center gap-1 text-xs text-brand-accent">
                     <BadgeCheck className="size-3.5" />
                     ვერიფიცირებული
                   </div>

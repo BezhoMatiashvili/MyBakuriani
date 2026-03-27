@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -165,7 +166,7 @@ export default function SellerListingsPage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                     <span className="text-lg font-bold text-brand-accent">
-                      {property.sale_price?.toLocaleString()} ₾
+                      {formatPrice(Number(property.sale_price ?? 0))}
                     </span>
                     {property.area_sqm && (
                       <span className="flex items-center gap-1">
@@ -198,7 +199,7 @@ export default function SellerListingsPage() {
                 </div>
 
                 <div className="flex shrink-0 gap-2 sm:flex-col">
-                  <Link href={`/properties/${property.id}`}>
+                  <Link href={`/sales/${property.id}`}>
                     <Button variant="outline" size="icon-sm">
                       <Eye className="h-4 w-4" />
                     </Button>

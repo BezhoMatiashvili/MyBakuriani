@@ -132,7 +132,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {property.area_sqm != null && (
                 <div className="rounded-xl bg-muted/50 p-4 text-center">
-                  <Maximize className="mx-auto h-6 w-6 text-blue-600" />
+                  <Maximize className="mx-auto h-6 w-6 text-brand-accent" />
                   <p className="mt-2 text-lg font-bold">
                     {property.area_sqm} მ²
                   </p>
@@ -141,14 +141,14 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               )}
               {property.rooms != null && (
                 <div className="rounded-xl bg-muted/50 p-4 text-center">
-                  <BedDouble className="mx-auto h-6 w-6 text-blue-600" />
+                  <BedDouble className="mx-auto h-6 w-6 text-brand-accent" />
                   <p className="mt-2 text-lg font-bold">{property.rooms}</p>
                   <p className="text-xs text-muted-foreground">ოთახი</p>
                 </div>
               )}
               {property.bathrooms != null && (
                 <div className="rounded-xl bg-muted/50 p-4 text-center">
-                  <Bath className="mx-auto h-6 w-6 text-blue-600" />
+                  <Bath className="mx-auto h-6 w-6 text-brand-accent" />
                   <p className="mt-2 text-lg font-bold">{property.bathrooms}</p>
                   <p className="text-xs text-muted-foreground">სააბაზანო</p>
                 </div>
@@ -185,7 +185,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               </h2>
               <div className="rounded-xl border border-border p-4">
                 <div className="flex items-center gap-3">
-                  <Building2 className="h-6 w-6 text-blue-600" />
+                  <Building2 className="h-6 w-6 text-brand-accent" />
                   <div>
                     <p className="font-medium text-foreground">
                       {property.construction_status}
@@ -220,7 +220,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                         onClick={() => setRoiYears(y)}
                         className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                           roiYears === y
-                            ? "bg-blue-600 text-white"
+                            ? "bg-brand-accent text-white"
                             : "bg-muted text-foreground hover:bg-muted/80"
                         }`}
                       >
@@ -345,7 +345,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                     {owner?.display_name ?? "მესაკუთრე"}
                   </p>
                   {owner?.is_verified && (
-                    <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <div className="flex items-center gap-1 text-xs text-brand-accent">
                       <BadgeCheck className="size-3.5" />
                       ვერიფიცირებული მესაკუთრე
                     </div>

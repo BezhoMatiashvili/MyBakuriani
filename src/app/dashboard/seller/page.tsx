@@ -11,6 +11,7 @@ import StatCard from "@/components/cards/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -199,7 +200,7 @@ export default function SellerDashboardPage() {
                   </p>
                   <div className="mt-2 flex items-center gap-4">
                     <span className="text-lg font-bold text-brand-accent">
-                      {property.sale_price?.toLocaleString()} ₾
+                      {formatPrice(Number(property.sale_price ?? 0))}
                     </span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Eye className="h-3 w-3" />

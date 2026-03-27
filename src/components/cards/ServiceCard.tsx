@@ -28,6 +28,16 @@ const categoryRouteMap: Record<string, string> = {
   employment: "/employment",
 };
 
+const categoryLabelMap: Record<string, string> = {
+  cleaner: "დალაგება",
+  cleaning: "დალაგება",
+  food: "კვება",
+  entertainment: "გართობა",
+  transport: "ტრანსპორტი",
+  handyman: "ხელოსანი",
+  employment: "დასაქმება",
+};
+
 export default function ServiceCard({
   id,
   title,
@@ -70,7 +80,7 @@ export default function ServiceCard({
             variant="secondary"
             className="absolute bottom-3 left-3 bg-white/90 text-foreground backdrop-blur-sm"
           >
-            {category}
+            {categoryLabelMap[category] ?? category}
           </Badge>
 
           {/* VIP badge */}

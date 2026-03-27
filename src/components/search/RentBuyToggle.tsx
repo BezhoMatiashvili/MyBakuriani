@@ -33,7 +33,7 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
             {isActive && (
               <motion.span
                 layoutId="rent-buy-pill"
-                className="absolute inset-0 rounded-full bg-blue-600"
+                className="absolute inset-0 rounded-full bg-brand-accent"
                 transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
               />
             )}

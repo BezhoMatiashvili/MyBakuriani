@@ -85,7 +85,7 @@ export function BookingSidebar({
         <div>
           <p className="text-sm font-medium text-foreground">{ownerName}</p>
           {isOwnerVerified && (
-            <div className="flex items-center gap-1 text-xs text-blue-600">
+            <div className="flex items-center gap-1 text-xs text-brand-accent">
               <BadgeCheck className="size-3.5" />
               ვერიფიცირებული მესაკუთრე
             </div>
@@ -96,7 +96,7 @@ export function BookingSidebar({
       {/* CTA */}
       <Button
         onClick={onBook}
-        className="h-11 w-full gap-2 bg-blue-600 text-base font-semibold text-white hover:bg-blue-700"
+        className="h-11 w-full gap-2 bg-brand-accent text-base font-semibold text-white hover:bg-brand-accent-hover"
       >
         დაჯავშნა
       </Button>

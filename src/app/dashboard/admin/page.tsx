@@ -148,7 +148,7 @@ export default function AdminDashboardPage() {
       });
 
       setFunnel([
-        { label: "ნახვები", value: 12450, color: "bg-blue-500" },
+        { label: "ნახვები", value: 12450, color: "bg-brand-accent-light" },
         { label: "ძიებები", value: 8320, color: "bg-indigo-500" },
         { label: "ჯავშნები", value: allBookings, color: "bg-violet-500" },
         {
@@ -229,7 +229,9 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{step.label}</span>
                   <span className="font-medium text-foreground">
-                    {step.value.toLocaleString("ka-GE")}
+                    {step.value
+                      .toString()
+                      .replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
                   </span>
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-muted">

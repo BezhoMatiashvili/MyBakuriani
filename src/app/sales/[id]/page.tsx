@@ -32,23 +32,27 @@ export default async function SaleDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: property } = await supabase
-    .from("properties")
-    .select("*, profiles!properties_owner_id_fkey(*)")
-    .eq("id", id)
-    .eq("status", "active")
-    .single();
+  try {
+    const { data: property } = await supabase
+      .from("properties")
+      .select("*, profiles!properties_owner_id_fkey(*)")
+      .eq("id", id)
+      .eq("status", "active")
+      .single();
 
-  if (!property) {
+    if (!property) {
+      notFound();
+    }
+
+    const { data: reviews } = await supabase
+      .from("reviews")
+      .select("*, profiles!reviews_guest_id_fkey(display_name)")
+      .eq("property_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    return <SaleDetailClient property={property} reviews={reviews ?? []} />;
+  } catch {
     notFound();
   }
-
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select("*, profiles!reviews_guest_id_fkey(display_name)")
-    .eq("property_id", id)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  return <SaleDetailClient property={property} reviews={reviews ?? []} />;
 }

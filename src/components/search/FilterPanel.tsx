@@ -19,6 +19,9 @@ const AMENITIES = [
   { value: "ski_storage", label: "სათხილამურო საწყობი" },
   { value: "fireplace", label: "ბუხარი" },
   { value: "balcony", label: "აივანი" },
+  { value: "pool", label: "აუზი" },
+  { value: "spa", label: "SPA" },
+  { value: "restaurant", label: "რესტორანი" },
 ] as const;
 
 const ROOM_OPTIONS = [1, 2, 3, 4, "5+"] as const;
@@ -81,6 +84,16 @@ function FilterSection({
   );
 }
 
+export const DEFAULT_FILTERS: Filters = {
+  priceMin: "",
+  priceMax: "",
+  rooms: null,
+  areaMin: "",
+  areaMax: "",
+  types: [],
+  amenities: [],
+};
+
 export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     price: true,
@@ -106,8 +119,28 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
     updateFilters({ [key]: next });
   };
 
+  const hasActiveFilters =
+    filters.priceMin !== "" ||
+    filters.priceMax !== "" ||
+    filters.rooms !== null ||
+    filters.areaMin !== "" ||
+    filters.areaMax !== "" ||
+    filters.types.length > 0 ||
+    filters.amenities.length > 0;
+
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm">
+      {/* Clear all */}
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={() => onFilterChange(DEFAULT_FILTERS)}
+          className="mb-3 text-xs font-medium text-brand-accent hover:underline"
+        >
+          ფილტრების გასუფთავება
+        </button>
+      )}
+
       {/* Price */}
       <FilterSection
         title="ფასის მიხედვით"
@@ -164,7 +197,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 className={cn(
                   "flex h-9 min-w-[40px] items-center justify-center rounded-lg border text-sm font-medium transition-colors",
                   isActive
-                    ? "border-blue-600 bg-blue-600 text-white"
+                    ? "border-brand-accent bg-brand-accent text-white"
                     : "border-border bg-background text-foreground hover:bg-muted",
                 )}
               >
@@ -227,7 +260,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 type="checkbox"
                 checked={filters.types.includes(value)}
                 onChange={() => toggleArrayItem("types", value)}
-                className="size-4 rounded border-border accent-blue-600"
+                className="size-4 rounded border-border accent-brand-accent"
               />
               {label}
             </label>
@@ -251,7 +284,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 type="checkbox"
                 checked={filters.amenities.includes(value)}
                 onChange={() => toggleArrayItem("amenities", value)}
-                className="size-4 rounded border-border accent-blue-600"
+                className="size-4 rounded border-border accent-brand-accent"
               />
               {label}
             </label>

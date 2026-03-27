@@ -16,7 +16,7 @@ export default function ContactPage() {
 
       <div className="mt-10 grid gap-6 sm:grid-cols-3">
         <div className="flex flex-col items-center gap-3 rounded-2xl border p-6 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
             <Phone className="h-6 w-6" />
           </div>
           <h2 className="font-semibold">ტელეფონი</h2>
@@ -24,7 +24,7 @@ export default function ContactPage() {
         </div>
 
         <div className="flex flex-col items-center gap-3 rounded-2xl border p-6 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
             <Mail className="h-6 w-6" />
           </div>
           <h2 className="font-semibold">ელ.ფოსტა</h2>
@@ -32,7 +32,7 @@ export default function ContactPage() {
         </div>
 
         <div className="flex flex-col items-center gap-3 rounded-2xl border p-6 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
             <MapPin className="h-6 w-6" />
           </div>
           <h2 className="font-semibold">მისამართი</h2>

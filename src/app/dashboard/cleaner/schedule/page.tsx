@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type CleaningTaskWithProperty = Tables<"cleaning_tasks"> & {
@@ -37,7 +38,7 @@ const monthNames = [
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-700",
-  accepted: "bg-blue-100 text-blue-700",
+  accepted: "bg-brand-accent-light text-brand-accent",
   in_progress: "bg-purple-100 text-purple-700",
   completed: "bg-green-100 text-green-700",
   cancelled: "bg-red-100 text-red-700",
@@ -257,7 +258,7 @@ export default function CleanerSchedulePage() {
                     <span>{task.cleaning_type}</span>
                     {task.price && (
                       <span className="font-bold text-brand-accent">
-                        {task.price} ₾
+                        {formatPrice(Number(task.price))}
                       </span>
                     )}
                   </div>

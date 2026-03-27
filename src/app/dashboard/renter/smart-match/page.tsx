@@ -17,6 +17,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type SmartMatchRequest = Tables<"smart_match_requests"> & {
@@ -37,7 +38,7 @@ const statusConfig: Record<
   },
   matched: {
     label: "შესატყვისი",
-    color: "bg-blue-100 text-blue-700",
+    color: "bg-brand-accent-light text-brand-accent",
     icon: CheckCircle,
   },
   closed: {
@@ -126,7 +127,7 @@ export default function RenterSmartMatchPage() {
           {
             label: "შესატყვისი",
             value: requests.filter((r) => r.status === "matched").length,
-            color: "bg-blue-100 text-blue-600",
+            color: "bg-brand-accent-light text-brand-accent",
           },
           {
             label: "სულ მოთხოვნები",
@@ -228,7 +229,10 @@ export default function RenterSmartMatchPage() {
                   {(request.budget_min || request.budget_max) && (
                     <span className="flex items-center gap-1">
                       <Wallet className="h-3.5 w-3.5" />
-                      {request.budget_min ?? 0} — {request.budget_max ?? "∞"} ₾
+                      {formatPrice(Number(request.budget_min ?? 0))} —{" "}
+                      {request.budget_max
+                        ? formatPrice(Number(request.budget_max))
+                        : "∞"}
                     </span>
                   )}
                 </div>

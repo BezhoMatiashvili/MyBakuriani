@@ -122,7 +122,7 @@ export default function ServiceDetailClient({ service }: Props) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {service.schedule && (
                 <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
-                  <Clock className="h-5 w-5 text-blue-600 shrink-0" />
+                  <Clock className="h-5 w-5 text-brand-accent shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">განრიგი</p>
                     <p className="font-medium">{service.schedule}</p>
@@ -131,7 +131,7 @@ export default function ServiceDetailClient({ service }: Props) {
               )}
               {service.phone && (
                 <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
-                  <Phone className="h-5 w-5 text-blue-600 shrink-0" />
+                  <Phone className="h-5 w-5 text-brand-accent shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">ტელეფონი</p>
                     <p className="font-medium">{formatPhone(service.phone)}</p>
@@ -140,7 +140,7 @@ export default function ServiceDetailClient({ service }: Props) {
               )}
               {service.price != null && (
                 <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
-                  <Wrench className="h-5 w-5 text-blue-600 shrink-0" />
+                  <Wrench className="h-5 w-5 text-brand-accent shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">ფასი</p>
                     <p className="font-medium">
@@ -205,7 +205,7 @@ export default function ServiceDetailClient({ service }: Props) {
                   {owner?.display_name ?? "სერვისის მომწოდებელი"}
                 </p>
                 {owner?.is_verified && (
-                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                  <div className="flex items-center gap-1 text-xs text-brand-accent">
                     <BadgeCheck className="size-3.5" />
                     ვერიფიცირებული
                   </div>
@@ -215,7 +215,7 @@ export default function ServiceDetailClient({ service }: Props) {
 
             <Button
               onClick={() => router.push("/auth/login")}
-              className="h-11 w-full gap-2 bg-blue-600 text-base font-semibold text-white hover:bg-blue-700"
+              className="h-11 w-full gap-2 bg-brand-accent text-base font-semibold text-white hover:bg-brand-accent-hover"
             >
               <Phone className="h-4 w-4" />
               დაკავშირება
