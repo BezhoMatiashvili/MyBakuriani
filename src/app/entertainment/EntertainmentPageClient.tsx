@@ -128,7 +128,7 @@ export default function EntertainmentPageClient({ services }: Props) {
                   </button>
                 )}
               </div>
-              <div className="rounded-2xl bg-white p-4 shadow-sm">
+              <div className="rounded-3xl border border-[#E2E8F0] bg-white p-4">
                 <h3 className="mb-2 text-sm font-medium">ფასის მიხედვით</h3>
                 <div className="flex items-center gap-2">
                   <input
@@ -187,7 +187,7 @@ export default function EntertainmentPageClient({ services }: Props) {
                       <X className="h-5 w-5" />
                     </button>
                   </div>
-                  <div className="rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="rounded-3xl border border-[#E2E8F0] bg-white p-4">
                     <h3 className="mb-2 text-sm font-medium">ფასის მიხედვით</h3>
                     <div className="flex items-center gap-2">
                       <input

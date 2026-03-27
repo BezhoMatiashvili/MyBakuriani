@@ -303,7 +303,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
         >
           <div className="sticky top-24 space-y-4">
             {/* Price card */}
-            <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-[#EEF1F4] bg-white p-8 shadow-[0px_20px_48px_rgba(0,0,0,0.06)]">
               <div className="mb-1 text-sm text-muted-foreground">ფასი</div>
               <div className="text-2xl font-bold text-foreground">
                 {salePrice > 0 ? formatPrice(salePrice) : "შეთანხმებით"}
@@ -353,7 +353,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
               <Button
                 onClick={() => router.push("/auth/login")}
-                className="h-11 w-full gap-2 bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
+                className="h-12 w-full gap-2 rounded-[14px] bg-emerald-600 text-[13px] font-bold text-white hover:bg-emerald-700"
               >
                 <Phone className="h-4 w-4" />
                 დაკავშირება

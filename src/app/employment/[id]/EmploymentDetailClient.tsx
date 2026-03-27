@@ -182,7 +182,7 @@ export default function EmploymentDetailClient({ service }: Props) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
         >
-          <div className="sticky top-24 rounded-2xl bg-white p-5 shadow-sm">
+          <div className="sticky top-24 rounded-3xl border border-[#EEF1F4] bg-white p-8 shadow-[0px_20px_48px_rgba(0,0,0,0.06)]">
             {/* Salary */}
             {service.salary_range && (
               <div className="mb-4">
@@ -236,7 +236,7 @@ export default function EmploymentDetailClient({ service }: Props) {
 
             <Button
               onClick={() => router.push("/auth/login")}
-              className="h-11 w-full gap-2 bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-700"
+              className="h-12 w-full gap-2 rounded-[14px] bg-indigo-600 text-[13px] font-bold text-white hover:bg-indigo-700"
             >
               <Briefcase className="h-4 w-4" />
               გამოხმაურება

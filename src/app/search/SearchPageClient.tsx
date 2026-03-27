@@ -331,7 +331,7 @@ export default function SearchPageClient({
           {/* Empty state */}
           {!loading && properties.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-lg font-semibold text-foreground">
+              <p className="text-lg font-black text-[#1E293B]">
                 შედეგი ვერ მოიძებნა
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
