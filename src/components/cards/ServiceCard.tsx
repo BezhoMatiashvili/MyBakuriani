@@ -63,7 +63,7 @@ export default function ServiceCard({
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
         {/* Photo area */}
         <div className="relative h-[190px] overflow-hidden">
@@ -92,7 +92,7 @@ export default function ServiceCard({
 
           {/* Discount badge */}
           {discountPercent > 0 && (
-            <span className="absolute top-3 right-3 rounded-md bg-brand-error px-2 py-0.5 text-xs font-bold text-white">
+            <span className="absolute top-3 right-3 rounded bg-[#E11D48] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
               -{discountPercent}%
             </span>
           )}
@@ -100,21 +100,23 @@ export default function ServiceCard({
 
         {/* Content */}
         <div className="p-5">
-          <h3 className="truncate text-lg font-black leading-[22px] text-[#1E293B]">
+          <h3 className="truncate text-[18px] font-black leading-[22px] text-[#1E293B]">
             {title}
           </h3>
 
           {location && (
-            <p className="mt-1 truncate text-xs text-muted-foreground">
+            <p className="mt-1 truncate text-[11px] font-bold text-muted-foreground">
               {location}
             </p>
           )}
 
           {price != null && (
-            <p className="mt-3 text-sm font-bold text-foreground">
-              {formatPrice(price)}
+            <p className="mt-3 flex items-baseline gap-0.5">
+              <span className="text-[15px] font-black text-[#1E293B]">
+                {formatPrice(price)}
+              </span>
               {priceUnit && (
-                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                <span className="text-xs font-normal text-muted-foreground">
                   / {priceUnit}
                 </span>
               )}

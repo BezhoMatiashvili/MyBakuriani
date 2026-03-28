@@ -33,11 +33,11 @@ export default function ReviewCard({
   const colorClass = getAvatarColor(displayName);
 
   return (
-    <div className="rounded-3xl border border-[#E2E8F0] bg-white p-4">
+    <div className="rounded-3xl border border-[#F1F5F9] bg-white p-4">
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${colorClass}`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${colorClass}`}
         >
           {initial}
         </div>
@@ -45,7 +45,7 @@ export default function ReviewCard({
         <div className="min-w-0 flex-1">
           {/* Name + date */}
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-semibold text-foreground">
+            <span className="truncate text-[15px] font-bold text-[#1E293B]">
               {displayName}
             </span>
             <span className="shrink-0 text-xs text-muted-foreground">

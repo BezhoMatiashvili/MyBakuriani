@@ -80,12 +80,12 @@ export default function ServiceDetailClient({ service }: Props) {
                 {CATEGORY_LABELS[service.category] ?? service.category}
               </span>
               {service.is_vip && (
-                <span className="rounded-md bg-brand-vip px-2 py-0.5 text-xs font-bold text-white">
+                <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
                   VIP
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl">
+            <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
               {service.title}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -105,7 +105,9 @@ export default function ServiceDetailClient({ service }: Props) {
           {/* Description */}
           {service.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-lg font-black text-[#1E293B]">აღწერა</h2>
+              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+                აღწერა
+              </h2>
               <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
                 {service.description}
               </p>
@@ -114,7 +116,9 @@ export default function ServiceDetailClient({ service }: Props) {
 
           {/* Service details */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-            <h2 className="mb-3 text-lg font-black text-[#1E293B]">დეტალები</h2>
+            <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+              დეტალები
+            </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {service.schedule && (
                 <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
@@ -156,11 +160,11 @@ export default function ServiceDetailClient({ service }: Props) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
         >
-          <div className="sticky top-24 rounded-3xl border border-[#EEF1F4] bg-white p-8 shadow-[0px_20px_48px_rgba(0,0,0,0.06)]">
+          <div className="sticky top-24 rounded-3xl border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
             {/* Price */}
             {service.price != null && (
               <div className="mb-4">
-                <span className="text-2xl font-bold text-foreground">
+                <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">
                   {formatPrice(service.price)}
                 </span>
                 {service.price_unit && (
@@ -211,7 +215,7 @@ export default function ServiceDetailClient({ service }: Props) {
 
             <Button
               onClick={() => router.push("/auth/login")}
-              className="h-12 w-full gap-2 rounded-[14px] bg-brand-accent text-[13px] font-bold text-white hover:bg-brand-accent-hover"
+              className="h-[55px] w-full gap-2 rounded-2xl bg-brand-accent text-[15px] font-bold tracking-[0.375px] text-white hover:bg-brand-accent-hover"
             >
               <Phone className="h-4 w-4" />
               დაკავშირება

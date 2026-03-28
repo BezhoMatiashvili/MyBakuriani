@@ -62,7 +62,7 @@ export default async function BlogDetailPage({ params }: Props) {
         </Link>
 
         {/* Title */}
-        <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl lg:text-4xl">
+        <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
           {post.title}
         </h1>
 
@@ -79,7 +79,7 @@ export default async function BlogDetailPage({ params }: Props) {
 
         {/* Featured image */}
         {post.image_url && (
-          <div className="relative mt-8 aspect-[16/9] overflow-hidden rounded-3xl">
+          <div className="relative mt-8 aspect-[8/5] overflow-hidden rounded-3xl">
             <Image
               src={post.image_url}
               alt={post.title}

@@ -649,7 +649,24 @@ export default function LandingPage({
           title: bp.title,
           excerpt: bp.excerpt ?? "",
           image: bp.image_url ?? "/placeholder-property.jpg",
-          date: bp.published_at ?? bp.created_at,
+          date: (() => {
+            const d = new Date(bp.published_at ?? bp.created_at);
+            const months = [
+              "იანვარი",
+              "თებერვალი",
+              "მარტი",
+              "აპრილი",
+              "მაისი",
+              "ივნისი",
+              "ივლისი",
+              "აგვისტო",
+              "სექტემბერი",
+              "ოქტომბერი",
+              "ნოემბერი",
+              "დეკემბერი",
+            ];
+            return `${d.getUTCDate()} ${months[d.getUTCMonth()]}, ${d.getUTCFullYear()}`;
+          })(),
         }))
       : MOCK_BLOG_POSTS;
 
@@ -666,7 +683,7 @@ export default function LandingPage({
     <div className="flex flex-col">
       {/* ═══ 1. Hero Section ═══ */}
       <section
-        className="relative flex min-h-[470px] items-center justify-center overflow-hidden px-4 py-20"
+        className="relative flex min-h-[470px] items-center justify-center overflow-visible px-4 pb-0 pt-20"
         style={{
           background:
             "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
@@ -892,7 +909,7 @@ export default function LandingPage({
                   href={`/blog/${post.id}`}
                   className="group block overflow-hidden rounded-3xl border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
                 >
-                  <div className="relative aspect-[16/9] overflow-hidden">
+                  <div className="relative aspect-[8/5] overflow-hidden">
                     <Image
                       src={post.image}
                       alt={post.title}
@@ -930,7 +947,7 @@ export default function LandingPage({
             </p>
             <Link
               href="/create"
-              className="mt-6 inline-flex h-12 items-center justify-center rounded-[14px] bg-brand-accent px-8 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] transition-colors hover:bg-brand-accent-hover"
+              className="mt-6 inline-flex h-12 items-center justify-center rounded-full bg-brand-accent px-8 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] transition-colors hover:bg-brand-accent-hover"
             >
               განცხადების დამატება
             </Link>

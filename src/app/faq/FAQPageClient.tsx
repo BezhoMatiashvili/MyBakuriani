@@ -77,7 +77,7 @@ export default function FAQPageClient() {
         </p>
       </ScrollReveal>
 
-      <div className="mt-10 divide-y divide-border rounded-3xl border border-[#E2E8F0] bg-white">
+      <div className="mt-10 divide-y divide-border rounded-3xl border border-[#F1F5F9] bg-white">
         {FAQ_ITEMS.map((item, i) => (
           <ScrollReveal key={i} delay={i * 0.05}>
             <div>

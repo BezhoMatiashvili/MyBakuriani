@@ -96,17 +96,17 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                     გასაყიდი
                   </span>
                   {property.is_super_vip && (
-                    <span className="rounded-md bg-brand-vip-super px-2 py-0.5 text-xs font-bold text-white">
+                    <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
                       Super VIP
                     </span>
                   )}
                   {property.is_vip && !property.is_super_vip && (
-                    <span className="rounded-md bg-brand-vip px-2 py-0.5 text-xs font-bold text-white">
+                    <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
                       VIP
                     </span>
                   )}
                 </div>
-                <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl">
+                <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
                   {property.title}
                 </h1>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -168,7 +168,9 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Description */}
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-lg font-black text-[#1E293B]">აღწერა</h2>
+              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+                აღწერა
+              </h2>
               <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
                 {property.description}
               </p>
@@ -178,7 +180,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Construction Status */}
           {property.construction_status && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
+              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
                 მშენებლობის სტატუსი
               </h2>
               <div className="rounded-xl border border-border p-4">
@@ -202,7 +204,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* ROI Calculator */}
           {roiPercent > 0 && salePrice > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-[#1E293B]">
+              <h2 className="mb-3 flex items-center gap-2 text-[22px] font-extrabold text-[#1E293B]">
                 <Calculator className="h-5 w-5" />
                 ინვესტიციის კალკულატორი
               </h2>
@@ -260,7 +262,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
           {/* Location */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
-            <h2 className="mb-3 text-lg font-black text-[#1E293B]">
+            <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
               მდებარეობა
             </h2>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -277,7 +279,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Reviews */}
           {reviews.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-              <h2 className="mb-4 text-lg font-black text-[#1E293B]">
+              <h2 className="mb-4 text-[22px] font-extrabold text-[#1E293B]">
                 შეფასებები ({reviews.length})
               </h2>
               <div className="space-y-4">
@@ -303,9 +305,9 @@ export default function SaleDetailClient({ property, reviews }: Props) {
         >
           <div className="sticky top-24 space-y-4">
             {/* Price card */}
-            <div className="rounded-3xl border border-[#EEF1F4] bg-white p-8 shadow-[0px_20px_48px_rgba(0,0,0,0.06)]">
+            <div className="rounded-3xl border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
               <div className="mb-1 text-sm text-muted-foreground">ფასი</div>
-              <div className="text-2xl font-bold text-foreground">
+              <div className="text-[32px] font-black leading-[32px] text-[#1E293B]">
                 {salePrice > 0 ? formatPrice(salePrice) : "შეთანხმებით"}
               </div>
               {property.area_sqm != null && salePrice > 0 && (
@@ -353,7 +355,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
               <Button
                 onClick={() => router.push("/auth/login")}
-                className="h-12 w-full gap-2 rounded-[14px] bg-emerald-600 text-[13px] font-bold text-white hover:bg-emerald-700"
+                className="h-[55px] w-full gap-2 rounded-2xl bg-emerald-600 text-[15px] font-bold tracking-[0.375px] text-white hover:bg-emerald-700"
               >
                 <Phone className="h-4 w-4" />
                 დაკავშირება

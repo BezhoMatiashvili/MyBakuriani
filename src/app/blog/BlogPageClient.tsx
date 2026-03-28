@@ -74,7 +74,24 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
           title: bp.title,
           excerpt: bp.excerpt ?? "",
           image: bp.image_url ?? "/placeholder-property.jpg",
-          date: bp.published_at ?? bp.created_at,
+          date: (() => {
+            const d = new Date(bp.published_at ?? bp.created_at);
+            const months = [
+              "იანვარი",
+              "თებერვალი",
+              "მარტი",
+              "აპრილი",
+              "მაისი",
+              "ივნისი",
+              "ივლისი",
+              "აგვისტო",
+              "სექტემბერი",
+              "ოქტომბერი",
+              "ნოემბერი",
+              "დეკემბერი",
+            ];
+            return `${d.getUTCDate()} ${months[d.getUTCMonth()]}, ${d.getUTCFullYear()}`;
+          })(),
           category: "სიახლეები",
         }))
       : BLOG_POSTS;
@@ -96,7 +113,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
               href={`/blog/${post.id}`}
               className="group block overflow-hidden rounded-3xl border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
             >
-              <div className="relative aspect-[16/9] overflow-hidden">
+              <div className="relative aspect-[8/5] overflow-hidden">
                 <Image
                   src={post.image}
                   alt={post.title}

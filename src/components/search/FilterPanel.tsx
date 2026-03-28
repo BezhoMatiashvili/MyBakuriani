@@ -57,7 +57,7 @@ function FilterSection({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between py-3 text-sm font-medium text-foreground transition-colors hover:text-foreground/80"
+        className="flex w-full items-center justify-between py-3 text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B] transition-colors hover:text-[#475569]"
       >
         {title}
         <motion.span
@@ -129,7 +129,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
     filters.amenities.length > 0;
 
   return (
-    <div className="rounded-3xl border border-[#E2E8F0] bg-white p-8">
+    <div className="rounded-3xl border border-[#F1F5F9] bg-white p-8">
       {/* Clear all */}
       {hasActiveFilters && (
         <button
@@ -158,7 +158,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 priceMin: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
           />
           <span className="text-sm text-muted-foreground">–</span>
           <input
@@ -171,7 +171,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 priceMax: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
           />
           <span className="text-sm text-muted-foreground">₾</span>
         </div>
@@ -183,7 +183,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
         isOpen={!!expanded.rooms}
         onToggle={() => toggleSection("rooms")}
       >
-        <div className="flex gap-2">
+        <div className="flex gap-4">
           {ROOM_OPTIONS.map((opt) => {
             const numVal = typeof opt === "number" ? opt : 5;
             const isActive = filters.rooms === numVal;
@@ -195,7 +195,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                   updateFilters({ rooms: isActive ? null : numVal })
                 }
                 className={cn(
-                  "flex h-9 min-w-[40px] items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                  "flex h-10 min-w-[42px] items-center justify-center rounded-lg border text-sm font-medium transition-colors",
                   isActive
                     ? "border-brand-accent bg-brand-accent text-white"
                     : "border-border bg-background text-foreground hover:bg-muted",
@@ -225,7 +225,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 areaMin: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
           />
           <span className="text-sm text-muted-foreground">–</span>
           <input
@@ -238,7 +238,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 areaMax: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
           />
           <span className="text-sm text-muted-foreground">მ²</span>
         </div>
@@ -250,7 +250,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
         isOpen={!!expanded.type}
         onToggle={() => toggleSection("type")}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {PROPERTY_TYPES.map(({ value, label }) => (
             <label
               key={value}
@@ -260,7 +260,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 type="checkbox"
                 checked={filters.types.includes(value)}
                 onChange={() => toggleArrayItem("types", value)}
-                className="size-4 rounded border-border accent-brand-accent"
+                className="size-5 rounded-[6px] border-border accent-brand-accent"
               />
               {label}
             </label>
@@ -274,7 +274,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
         isOpen={!!expanded.amenities}
         onToggle={() => toggleSection("amenities")}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {AMENITIES.map(({ value, label }) => (
             <label
               key={value}
@@ -284,7 +284,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 type="checkbox"
                 checked={filters.amenities.includes(value)}
                 onChange={() => toggleArrayItem("amenities", value)}
-                className="size-4 rounded border-border accent-brand-accent"
+                className="size-5 rounded-[6px] border-border accent-brand-accent"
               />
               {label}
             </label>

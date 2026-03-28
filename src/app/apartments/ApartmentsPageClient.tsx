@@ -92,7 +92,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
                 მთავარი / აპარტამენტები და კოტეჯები
               </span>
             </div>
-            <h1 className="mt-4 text-3xl font-bold text-white md:text-4xl">
+            <h1 className="mt-4 text-3xl font-black text-white md:text-4xl">
               აპარტამენტები და კოტეჯები
             </h1>
             <p className="mt-2 text-[13px] font-medium text-white/70">

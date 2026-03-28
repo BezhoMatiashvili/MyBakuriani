@@ -17,7 +17,7 @@ export default function ContactPage() {
       </p>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-3">
-        <div className="flex flex-col items-center gap-3 rounded-3xl border border-[#E2E8F0] p-6 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-[#F1F5F9] p-6 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
             <Phone className="h-6 w-6" />
           </div>
@@ -25,7 +25,7 @@ export default function ContactPage() {
           <p className="text-sm text-muted-foreground">+995 555 00 00 00</p>
         </div>
 
-        <div className="flex flex-col items-center gap-3 rounded-3xl border border-[#E2E8F0] p-6 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-[#F1F5F9] p-6 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
             <Mail className="h-6 w-6" />
           </div>
@@ -33,7 +33,7 @@ export default function ContactPage() {
           <p className="text-sm text-muted-foreground">info@mybakuriani.ge</p>
         </div>
 
-        <div className="flex flex-col items-center gap-3 rounded-3xl border border-[#E2E8F0] p-6 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-[#F1F5F9] p-6 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
             <MapPin className="h-6 w-6" />
           </div>

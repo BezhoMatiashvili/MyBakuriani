@@ -76,12 +76,12 @@ export default function EmploymentDetailClient({ service }: Props) {
                 ვაკანსია
               </span>
               {service.is_vip && (
-                <span className="rounded-md bg-brand-vip px-2 py-0.5 text-xs font-bold text-white">
+                <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
                   VIP
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl">
+            <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
               {service.title}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -100,7 +100,7 @@ export default function EmploymentDetailClient({ service }: Props) {
 
           {/* Job details grid */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-            <h2 className="mb-3 text-lg font-black text-[#1E293B]">
+            <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
               ვაკანსიის დეტალები
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -166,7 +166,7 @@ export default function EmploymentDetailClient({ service }: Props) {
           {/* Description */}
           {service.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
+              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
                 სრული აღწერა
               </h2>
               <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
@@ -182,12 +182,12 @@ export default function EmploymentDetailClient({ service }: Props) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
         >
-          <div className="sticky top-24 rounded-3xl border border-[#EEF1F4] bg-white p-8 shadow-[0px_20px_48px_rgba(0,0,0,0.06)]">
+          <div className="sticky top-24 rounded-3xl border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
             {/* Salary */}
             {service.salary_range && (
               <div className="mb-4">
                 <p className="text-xs text-muted-foreground">ანაზღაურება</p>
-                <span className="text-2xl font-bold text-foreground">
+                <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">
                   {service.salary_range}
                 </span>
               </div>
@@ -236,7 +236,7 @@ export default function EmploymentDetailClient({ service }: Props) {
 
             <Button
               onClick={() => router.push("/auth/login")}
-              className="h-12 w-full gap-2 rounded-[14px] bg-indigo-600 text-[13px] font-bold text-white hover:bg-indigo-700"
+              className="h-[55px] w-full gap-2 rounded-2xl bg-indigo-600 text-[15px] font-bold tracking-[0.375px] text-white hover:bg-indigo-700"
             >
               <Briefcase className="h-4 w-4" />
               გამოხმაურება

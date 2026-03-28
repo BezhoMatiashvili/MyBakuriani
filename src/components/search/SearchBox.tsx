@@ -105,8 +105,8 @@ export function SearchBox({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        "rounded-2xl bg-white p-4 shadow-lg",
-        "md:flex md:h-[80px] md:items-center md:rounded-full md:p-2",
+        "rounded-2xl bg-white p-4 shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.15)]",
+        "md:flex md:h-[80px] md:items-center md:overflow-visible md:rounded-full md:p-2",
         className,
       )}
     >
@@ -216,7 +216,7 @@ export function SearchBox({
             {dateLabel || "შეარჩიეთ თარიღი"}
           </button>
           {calendarOpen && (
-            <div className="absolute left-0 top-full z-50 mt-2 rounded-xl border bg-white p-3 shadow-xl">
+            <div className="absolute left-0 top-full z-50 mt-2 w-[730px] rounded-xl border bg-white p-4 shadow-xl">
               <Calendar
                 mode="range"
                 selected={dateRange}
@@ -226,7 +226,7 @@ export function SearchBox({
                 }}
                 numberOfMonths={2}
                 disabled={{ before: new Date() }}
-                className="rounded-md"
+                className="w-full rounded-md [--cell-size:40px]"
               />
             </div>
           )}

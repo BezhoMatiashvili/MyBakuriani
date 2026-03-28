@@ -96,7 +96,7 @@ export default function EmploymentPageClient({ services }: Props) {
                   </button>
                 )}
               </div>
-              <div className="rounded-3xl border border-[#E2E8F0] bg-white p-4">
+              <div className="rounded-3xl border border-[#F1F5F9] bg-white p-4">
                 <h3 className="mb-2 text-sm font-medium">ანაზღაურება</h3>
                 <div className="flex items-center gap-2">
                   <input
@@ -145,7 +145,7 @@ export default function EmploymentPageClient({ services }: Props) {
                   className="fixed inset-y-0 left-0 z-50 w-[320px] overflow-y-auto bg-background p-4 shadow-xl lg:hidden"
                 >
                   <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-black text-[#1E293B]">
+                    <h2 className="text-[17px] font-black leading-[21px] text-[#1E293B]">
                       ფილტრები
                     </h2>
                     <button
@@ -155,7 +155,7 @@ export default function EmploymentPageClient({ services }: Props) {
                       <X className="h-5 w-5" />
                     </button>
                   </div>
-                  <div className="rounded-3xl border border-[#E2E8F0] bg-white p-4">
+                  <div className="rounded-3xl border border-[#F1F5F9] bg-white p-4">
                     <h3 className="mb-2 text-sm font-medium">ანაზღაურება</h3>
                     <div className="flex items-center gap-2">
                       <input
@@ -204,7 +204,7 @@ export default function EmploymentPageClient({ services }: Props) {
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                   <Briefcase className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-black text-[#1E293B]">
+                <h3 className="text-[17px] font-black leading-[21px] text-[#1E293B]">
                   ვაკანსიები ვერ მოიძებნა
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">

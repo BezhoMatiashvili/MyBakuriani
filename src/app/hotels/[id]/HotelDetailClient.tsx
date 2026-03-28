@@ -167,17 +167,17 @@ export default function HotelDetailClient({
                     სასტუმრო
                   </span>
                   {property.is_super_vip && (
-                    <span className="rounded-md bg-brand-vip-super px-2 py-0.5 text-xs font-bold text-white">
+                    <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
                       Super VIP
                     </span>
                   )}
                   {property.is_vip && !property.is_super_vip && (
-                    <span className="rounded-md bg-brand-vip px-2 py-0.5 text-xs font-bold text-white">
+                    <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
                       VIP
                     </span>
                   )}
                 </div>
-                <h1 className="text-2xl font-black text-[#1E293B] sm:text-3xl">
+                <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
                   {property.title}
                 </h1>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -202,25 +202,25 @@ export default function HotelDetailClient({
             {/* Quick specs — pill badges per Figma */}
             <div className="mt-4 flex flex-wrap gap-2">
               {property.rooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
                   <BedDouble className="h-4 w-4 text-brand-accent" />
                   {property.rooms} ნომერი
                 </span>
               )}
               {property.bathrooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
                   <Bath className="h-4 w-4 text-brand-accent" />
                   {property.bathrooms} სააბაზანო
                 </span>
               )}
               {property.capacity != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
                   <Users className="h-4 w-4 text-brand-accent" />
                   {property.capacity} სტუმარი
                 </span>
               )}
               {property.area_sqm != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
                   <Maximize className="h-4 w-4 text-brand-accent" />
                   {property.area_sqm} მ²
                 </span>
@@ -231,7 +231,9 @@ export default function HotelDetailClient({
           {/* Description */}
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-lg font-black text-[#1E293B]">აღწერა</h2>
+              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+                აღწერა
+              </h2>
               <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
                 {property.description}
               </p>
@@ -241,7 +243,7 @@ export default function HotelDetailClient({
           {/* Amenities */}
           {amenities.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
+              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
                 კეთილმოწყობა
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -268,7 +270,7 @@ export default function HotelDetailClient({
           {/* House Rules */}
           {houseRules.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-3 text-lg font-black text-[#1E293B]">
+              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
                 სასტუმროს წესები
               </h2>
               <ul className="space-y-2">
@@ -287,7 +289,7 @@ export default function HotelDetailClient({
 
           {/* Calendar */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
-            <h2 className="mb-3 text-lg font-black text-[#1E293B]">
+            <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
               ხელმისაწვდომობა
             </h2>
             <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
@@ -321,7 +323,7 @@ export default function HotelDetailClient({
 
           {/* Reviews */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-            <h2 className="mb-4 text-lg font-black text-[#1E293B]">
+            <h2 className="mb-4 text-[22px] font-extrabold text-[#1E293B]">
               შეფასებები {reviews.length > 0 && `(${reviews.length})`}
             </h2>
             {reviews.length === 0 ? (

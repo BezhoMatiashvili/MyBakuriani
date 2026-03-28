@@ -116,7 +116,7 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-20 border-t border-white/5 pt-6 text-center text-sm text-white/40">
+        <div className="mt-20 border-t border-white/5 pt-8 text-center text-[10px] font-bold uppercase tracking-[1px] text-white/60">
           &copy; {new Date().getFullYear()} MyBakuriani. ყველა უფლება დაცულია.
         </div>
       </div>

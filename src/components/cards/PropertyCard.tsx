@@ -50,10 +50,10 @@ export default function PropertyCard(props: PropertyCardProps) {
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="block overflow-hidden rounded-3xl border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
         {/* Photo area */}
-        <div className="relative h-[190px] overflow-hidden">
+        <div className="relative h-[247px] overflow-hidden">
           <Image
             src={photoUrl}
             alt={title}
@@ -78,7 +78,7 @@ export default function PropertyCard(props: PropertyCardProps) {
 
           {/* Discount badge */}
           {discountPercent > 0 && (
-            <span className="absolute top-3 right-3 rounded-md bg-brand-error px-2 py-0.5 text-xs font-bold text-white">
+            <span className="absolute top-3 right-3 rounded bg-[#E11D48] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
               -{discountPercent}%
             </span>
           )}
@@ -101,7 +101,7 @@ export default function PropertyCard(props: PropertyCardProps) {
         {/* Content */}
         <div className="p-5">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="truncate text-lg font-black leading-[22px] text-[#1E293B]">
+            <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
               {title}
             </h3>
             {rating != null && (
@@ -111,24 +111,33 @@ export default function PropertyCard(props: PropertyCardProps) {
               </span>
             )}
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
+          <p className="mt-1 truncate text-[11px] font-bold text-muted-foreground">
             {location}
           </p>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex items-end justify-between border-t border-[#F8FAFC] pt-4">
             {/* Price */}
-            <span className="text-sm font-bold text-foreground">
-              {isForSale && salePrice != null
-                ? formatPrice(salePrice)
-                : pricePerNight != null
-                  ? formatPricePerNight(pricePerNight)
-                  : ""}
-            </span>
+            <div>
+              {isForSale && salePrice != null ? (
+                <span className="whitespace-nowrap text-[15px] font-black leading-[20px] text-[#1E293B]">
+                  {formatPrice(salePrice)}
+                </span>
+              ) : pricePerNight != null ? (
+                <span className="flex flex-wrap items-baseline gap-x-1">
+                  <span className="text-[17px] font-black leading-[22px] text-[#1E293B]">
+                    {formatPrice(pricePerNight)}
+                  </span>
+                  <span className="text-[12px] font-bold text-[#64748B]">
+                    / ღამე
+                  </span>
+                </span>
+              ) : null}
+            </div>
 
             {/* Capacity */}
             {capacity != null && (
-              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                <Users className="h-3.5 w-3.5" />
+              <span className="flex items-center gap-1 text-[13px] text-[#475569]">
+                <Users className="h-4 w-4" />
                 {capacity} სტუმარი
               </span>
             )}
