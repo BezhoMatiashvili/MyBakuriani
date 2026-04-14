@@ -56,17 +56,17 @@ export default function CreateEmploymentPage() {
         დასაქმების განცხადება
       </h1>
 
-      <div className="space-y-5 rounded-2xl border bg-card p-6 shadow-sm">
+      <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
         <div className="space-y-2">
           <label className="text-sm font-medium">
-            პოზიცია <span className="text-destructive">*</span>
+            პოზიცია <span className="text-[#EF4444]">*</span>
           </label>
           <input
             type="text"
             value={position}
             onChange={(e) => setPosition(e.target.value)}
             placeholder="მაგ: მიმტანი, ადმინისტრატორი"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -77,7 +77,7 @@ export default function CreateEmploymentPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="სამუშაოს დეტალური აღწერა..."
             rows={4}
-            className="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -89,7 +89,7 @@ export default function CreateEmploymentPage() {
               value={salaryRange}
               onChange={(e) => setSalaryRange(e.target.value)}
               placeholder="მაგ: 1000-1500 ₾"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             />
           </div>
           <div className="space-y-2">
@@ -99,7 +99,7 @@ export default function CreateEmploymentPage() {
               value={experience}
               onChange={(e) => setExperience(e.target.value)}
               placeholder="მაგ: 1 წელი"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             />
           </div>
         </div>
@@ -111,7 +111,7 @@ export default function CreateEmploymentPage() {
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
             placeholder="მაგ: ორშ-პარ, 09:00-18:00"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -120,7 +120,7 @@ export default function CreateEmploymentPage() {
           <PhoneInput value={phone} onChange={setPhone} />
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
         <Button
           onClick={handleSubmit}

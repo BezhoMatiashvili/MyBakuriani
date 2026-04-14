@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Share2, Heart } from "lucide-react";
 
 interface PhotoGalleryProps {
   photos: string[];
@@ -37,59 +37,121 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
 
   if (photos.length === 0) {
     return (
-      <div className="aspect-[16/9] w-full rounded-3xl bg-muted flex items-center justify-center">
-        <span className="text-muted-foreground">ფოტო არ არის</span>
+      <div className="aspect-[16/9] w-full rounded-[24px] bg-[#F8FAFC] flex items-center justify-center">
+        <span className="text-[#94A3B8]">ფოტო არ არის</span>
       </div>
     );
   }
 
+  /* Ensure we always have 5 display slots; duplicate first photo as fallback */
+  const displayPhotos = [
+    photos[0],
+    photos[1] ?? photos[0],
+    photos[2] ?? photos[0],
+    photos[3] ?? photos[0],
+    photos[4] ?? photos[0],
+  ];
+
   return (
     <>
-      {/* Gallery Grid */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-4 md:grid-rows-2">
-        {/* Main photo */}
+      {/* Share / Favorite actions above gallery */}
+      <div className="mb-3 flex items-center justify-end gap-2">
+        <button
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+          aria-label="გაზიარება"
+        >
+          <Share2 className="h-[18px] w-[18px]" />
+        </button>
+        <button
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-red-500"
+          aria-label="ფავორიტებში დამატება"
+        >
+          <Heart className="h-[18px] w-[18px]" />
+        </button>
+      </div>
+
+      {/* Gallery Grid — desktop: 3-column (1.5fr 1fr 1fr), 2 rows */}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.5fr_1fr_1fr] md:grid-rows-2">
+        {/* Main photo — spans both rows, left corners rounded */}
         <div
-          className="relative aspect-[16/9] cursor-pointer overflow-hidden rounded-l-2xl md:col-span-2 md:row-span-2"
+          className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-[24px] md:row-span-2 md:rounded-none md:rounded-l-[24px]"
           onClick={() => openLightbox(0)}
         >
           <Image
-            src={photos[0]}
+            src={displayPhotos[0]}
             alt={`${title} - 1`}
             fill
-            sizes="(max-width: 768px) 100vw, 50vw"
+            sizes="(max-width: 768px) 100vw, 60vw"
             className="object-cover transition-transform duration-300 hover:scale-105"
             priority
           />
         </div>
 
-        {/* Secondary photos */}
-        {photos.slice(1, 5).map((photo, i) => (
-          <div
-            key={i}
-            className={`relative hidden aspect-[4/3] cursor-pointer overflow-hidden md:block ${
-              i === 1 ? "rounded-tr-2xl" : ""
-            } ${i === 3 ? "rounded-br-2xl" : ""}`}
-            onClick={() => openLightbox(i + 1)}
-          >
-            <Image
-              src={photo}
-              alt={`${title} - ${i + 2}`}
-              fill
-              sizes="25vw"
-              className="object-cover transition-transform duration-300 hover:scale-105"
-            />
-            {/* "Show all" overlay on last visible photo */}
-            {i === 3 && photos.length > 5 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <span className="text-sm font-semibold text-white">
-                  +{photos.length - 5} ფოტო
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
+        {/* Top-left of right grid (row 1, col 2) */}
+        <div
+          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden md:block"
+          onClick={() => openLightbox(1)}
+        >
+          <Image
+            src={displayPhotos[1]}
+            alt={`${title} - 2`}
+            fill
+            sizes="20vw"
+            className="object-cover transition-transform duration-300 hover:scale-105"
+          />
+        </div>
 
-        {/* Mobile: show photo count */}
+        {/* Top-right of right grid (row 1, col 3) — rounded-tr */}
+        <div
+          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden rounded-tr-[24px] md:block"
+          onClick={() => openLightbox(2)}
+        >
+          <Image
+            src={displayPhotos[2]}
+            alt={`${title} - 3`}
+            fill
+            sizes="20vw"
+            className="object-cover transition-transform duration-300 hover:scale-105"
+          />
+        </div>
+
+        {/* Bottom-left of right grid (row 2, col 2) */}
+        <div
+          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden md:block"
+          onClick={() => openLightbox(3)}
+        >
+          <Image
+            src={displayPhotos[3]}
+            alt={`${title} - 4`}
+            fill
+            sizes="20vw"
+            className="object-cover transition-transform duration-300 hover:scale-105"
+          />
+        </div>
+
+        {/* Bottom-right of right grid (row 2, col 3) — rounded-br + overlay */}
+        <div
+          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden rounded-br-[24px] md:block"
+          onClick={() => openLightbox(4)}
+        >
+          <Image
+            src={displayPhotos[4]}
+            alt={`${title} - 5`}
+            fill
+            sizes="20vw"
+            className="object-cover transition-transform duration-300 hover:scale-105"
+          />
+          {/* Dark overlay with total photo count */}
+          {photos.length > 5 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+              <span className="text-sm font-semibold text-white">
+                ყველა ფოტო ({photos.length})
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile: show photo count link */}
         {photos.length > 1 && (
           <button
             onClick={() => openLightbox(0)}

@@ -109,7 +109,7 @@ export default function CreateSalePage() {
                     className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
                       propertyType === pt.value
                         ? "border-brand-accent bg-brand-accent/10 text-brand-accent"
-                        : "border-input hover:border-muted-foreground/40"
+                        : "border-[#E2E8F0] hover:border-[#64748B]/40"
                     }`}
                   >
                     {pt.label}
@@ -120,14 +120,14 @@ export default function CreateSalePage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                სათაური <span className="text-destructive">*</span>
+                სათაური <span className="text-[#EF4444]">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="მაგ: ახალაშენებული ბინა ბაკურიანში"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
               />
             </div>
 
@@ -138,20 +138,20 @@ export default function CreateSalePage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="დეტალური აღწერა..."
                 rows={4}
-                className="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
               />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                მდებარეობა <span className="text-destructive">*</span>
+                მდებარეობა <span className="text-[#EF4444]">*</span>
               </label>
               <input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="მაგ: ბაკურიანი, დიდველის მიმართულება"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
               />
             </div>
 
@@ -162,7 +162,7 @@ export default function CreateSalePage() {
                 value={cadastralCode}
                 onChange={(e) => setCadastralCode(e.target.value)}
                 placeholder="XX.XX.XX.XXX.XXX"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
               />
             </div>
 
@@ -175,7 +175,7 @@ export default function CreateSalePage() {
                   onChange={(e) => setAreaSqm(e.target.value)}
                   placeholder="0"
                   min="0"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                  className="w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
                 />
               </div>
               <div className="space-y-2">
@@ -186,7 +186,7 @@ export default function CreateSalePage() {
                   onChange={(e) => setRooms(e.target.value)}
                   placeholder="0"
                   min="0"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                  className="w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
                 />
               </div>
               <div className="space-y-2">
@@ -197,7 +197,7 @@ export default function CreateSalePage() {
                   onChange={(e) => setBathrooms(e.target.value)}
                   placeholder="0"
                   min="0"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                  className="w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
                 />
               </div>
             </div>
@@ -219,7 +219,7 @@ export default function CreateSalePage() {
           <div className="space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                გასაყიდი ფასი (₾) <span className="text-destructive">*</span>
+                გასაყიდი ფასი (₾) <span className="text-[#EF4444]">*</span>
               </label>
               <input
                 type="number"
@@ -227,7 +227,7 @@ export default function CreateSalePage() {
                 onChange={(e) => setSalePrice(e.target.value)}
                 placeholder="0"
                 min="1"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
               />
             </div>
 
@@ -240,7 +240,7 @@ export default function CreateSalePage() {
                 placeholder="მაგ: 12"
                 min="0"
                 max="100"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
               />
             </div>
 
@@ -255,7 +255,7 @@ export default function CreateSalePage() {
                     className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
                       constructionStatus === cs.value
                         ? "border-brand-accent bg-brand-accent/10 text-brand-accent"
-                        : "border-input hover:border-muted-foreground/40"
+                        : "border-[#E2E8F0] hover:border-[#64748B]/40"
                     }`}
                   >
                     {cs.label}
@@ -271,11 +271,11 @@ export default function CreateSalePage() {
                 value={developer}
                 onChange={(e) => setDeveloper(e.target.value)}
                 placeholder="კომპანიის სახელი"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
               />
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
             <Button
               onClick={handleSubmit}

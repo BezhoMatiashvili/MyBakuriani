@@ -1,43 +1,24 @@
 import { format } from "date-fns";
 import { ka } from "date-fns/locale";
 
-/**
- * Format a price in Georgian Lari (₾).
- * Returns "X ₾" with a space before the symbol.
- */
 export function formatPrice(amount: number): string {
   return `${formatNumber(amount)} ₾`;
 }
 
-/**
- * Format a per-night price: "X ₾ / ღამე"
- */
 export function formatPricePerNight(amount: number): string {
   return `${formatNumber(amount)} ₾ / ღამე`;
 }
 
-/**
- * Locale-safe number formatting with space as thousand separator.
- * Avoids toLocaleString() which can differ between server and client,
- * causing React hydration mismatches.
- */
 function formatNumber(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
-/**
- * Format a date string or Date object using Georgian locale.
- * Output example: "25 მარტი, 2026"
- */
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
   return format(d, "d MMMM, yyyy", { locale: ka });
 }
 
-/**
- * Format a date range in Georgian locale.
- * Output example: "25 მარტი – 30 მარტი, 2026"
- */
 export function formatDateRange(
   start: string | Date,
   end: string | Date,
@@ -51,40 +32,19 @@ export function formatDateRange(
   if (sameMonth) {
     return `${format(s, "d", { locale: ka })} – ${format(e, "d MMMM, yyyy", { locale: ka })}`;
   }
-
   if (sameYear) {
     return `${format(s, "d MMMM", { locale: ka })} – ${format(e, "d MMMM, yyyy", { locale: ka })}`;
   }
-
   return `${format(s, "d MMMM, yyyy", { locale: ka })} – ${format(e, "d MMMM, yyyy", { locale: ka })}`;
 }
 
-/**
- * Format a Georgian phone number as +995 5XX XX XX XX.
- * Accepts raw digits like "995599123456" or "+995599123456".
- */
 export function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
-
-  // Expect 12 digits: 995 + 9 digit number
   if (digits.length === 12 && digits.startsWith("995")) {
-    const country = digits.slice(0, 3);
-    const p1 = digits.slice(3, 6);
-    const p2 = digits.slice(6, 8);
-    const p3 = digits.slice(8, 10);
-    const p4 = digits.slice(10, 12);
-    return `+${country} ${p1} ${p2} ${p3} ${p4}`;
+    return `+${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;
   }
-
-  // 9-digit local number
   if (digits.length === 9) {
-    const p1 = digits.slice(0, 3);
-    const p2 = digits.slice(3, 5);
-    const p3 = digits.slice(5, 7);
-    const p4 = digits.slice(7, 9);
-    return `+995 ${p1} ${p2} ${p3} ${p4}`;
+    return `+995 ${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`;
   }
-
-  // Return as-is if format is unrecognised
   return phone;
 }

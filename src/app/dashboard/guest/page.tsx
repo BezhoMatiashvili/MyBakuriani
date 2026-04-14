@@ -106,17 +106,18 @@ export default function GuestDashboardPage() {
   }, [user]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 sm:p-8 lg:p-12">
       {/* Welcome */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
+        className="space-y-2"
       >
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
           გამარჯობა, {profile?.display_name ?? "სტუმარი"}!
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-sm font-medium text-[#64748B]">
           კეთილი იყოს თქვენი მობრძანება MyBakuriani-ზე
         </p>
       </motion.div>
@@ -154,7 +155,7 @@ export default function GuestDashboardPage() {
           transition={{ duration: 0.3, delay: 0.1 }}
         >
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-[#1E293B]">
               Smart Match შეტყობინებები
             </h2>
             <Link
@@ -169,17 +170,17 @@ export default function GuestDashboardPage() {
             {smartMatches.map((match) => (
               <div
                 key={match.id}
-                className="flex items-center justify-between rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                className="flex items-center justify-between rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#1E293B]">
                       {match.check_in} - {match.check_out}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-[#94A3B8]">
                       {match.guests_count} სტუმარი
                       {match.budget_max
                         ? ` | ბიუჯეტი: ${formatPrice(Number(match.budget_max))}`
@@ -188,7 +189,7 @@ export default function GuestDashboardPage() {
                   </div>
                 </div>
                 <Badge variant="secondary">
-                  {match.matched_properties.length} შესატყვისი
+                  {(match.matched_properties ?? []).length} შესატყვისი
                 </Badge>
               </div>
             ))}
@@ -202,7 +203,7 @@ export default function GuestDashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.2 }}
       >
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-lg font-semibold text-[#1E293B]">
           სწრაფი მოქმედებები
         </h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -212,14 +213,14 @@ export default function GuestDashboardPage() {
               <Link
                 key={action.href}
                 href={action.href}
-                className="flex flex-col items-center gap-2 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-md"
+                className="flex flex-col items-center gap-2 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-md"
               >
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-full ${action.color}`}
                 >
                   <Icon className="h-6 w-6" />
                 </div>
-                <span className="text-center text-xs font-medium text-foreground">
+                <span className="text-center text-xs font-medium text-[#1E293B]">
                   {action.label}
                 </span>
               </Link>
@@ -235,7 +236,7 @@ export default function GuestDashboardPage() {
         transition={{ duration: 0.3, delay: 0.3 }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-lg font-semibold text-[#1E293B]">
             პოპულარული ობიექტები
           </h2>
           <Link
@@ -251,7 +252,7 @@ export default function GuestDashboardPage() {
             ? Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                  className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
                 >
                   <Skeleton className="h-32 w-full rounded-lg" />
                   <Skeleton className="mt-3 h-4 w-3/4" />
@@ -266,12 +267,12 @@ export default function GuestDashboardPage() {
                       ? `/sales/${property.id}`
                       : `/apartments/${property.id}`
                   }
-                  className="group rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-md"
+                  className="group rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-md"
                 >
-                  <div className="relative h-32 overflow-hidden rounded-lg bg-muted">
-                    {property.photos[0] && (
+                  <div className="relative h-32 overflow-hidden rounded-lg bg-[#F8FAFC]">
+                    {(property.photos ?? [])[0] && (
                       <Image
-                        src={property.photos[0]}
+                        src={(property.photos ?? [])[0]}
                         alt={property.title}
                         fill
                         className="object-cover transition-transform group-hover:scale-105"
@@ -283,22 +284,22 @@ export default function GuestDashboardPage() {
                       </Badge>
                     )}
                   </div>
-                  <h3 className="mt-3 truncate text-sm font-semibold text-foreground">
+                  <h3 className="mt-3 truncate text-sm font-semibold text-[#1E293B]">
                     {property.title}
                   </h3>
                   <div className="mt-1 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-[#94A3B8]">
                       {property.location}
                     </span>
                     <span className="text-sm font-bold text-brand-accent">
                       {formatPrice(Number(property.price_per_night ?? 0))}
-                      <span className="text-xs font-normal text-muted-foreground">
+                      <span className="text-xs font-normal text-[#94A3B8]">
                         {" "}
                         /ღამე
                       </span>
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-[#94A3B8]">
                     <Eye className="h-3 w-3" />
                     {property.views_count} ნახვა
                   </div>

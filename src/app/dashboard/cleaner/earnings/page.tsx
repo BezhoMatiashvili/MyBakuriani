@@ -88,8 +88,10 @@ export default function CleanerEarningsPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">შემოსავალი</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          შემოსავალი
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           თქვენი შემოსავლის ისტორია და სტატისტიკა
         </p>
       </motion.div>
@@ -138,9 +140,9 @@ export default function CleanerEarningsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
-        <h2 className="text-base font-semibold text-foreground">
+        <h2 className="text-base font-semibold text-[#1E293B]">
           შემოსავალი პერიოდის მიხედვით
         </h2>
         <div className="mt-4 flex h-32 items-end gap-2">
@@ -186,7 +188,7 @@ export default function CleanerEarningsPage() {
                         style={{ width: "100%" }}
                       />
                     </div>
-                    <span className="text-[9px] text-muted-foreground">
+                    <span className="text-[9px] text-[#94A3B8]">
                       {new Date(date).toLocaleDateString("ka-GE", {
                         day: "numeric",
                         month: "short",
@@ -204,16 +206,16 @@ export default function CleanerEarningsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <h2 className="text-lg font-semibold text-foreground">ისტორია</h2>
+        <h2 className="text-lg font-semibold text-[#1E293B]">ისტორია</h2>
         <div className="mt-3 space-y-2">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full" />
             ))
           ) : filteredTasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-12 shadow-[var(--shadow-card)]">
-              <History className="h-10 w-10 text-muted-foreground" />
-              <p className="mt-2 text-sm text-muted-foreground">
+            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+              <History className="h-10 w-10 text-[#94A3B8]" />
+              <p className="mt-2 text-sm text-[#94A3B8]">
                 ამ პერიოდში ჩანაწერები არ არის
               </p>
             </div>
@@ -221,17 +223,17 @@ export default function CleanerEarningsPage() {
             filteredTasks.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-sm"
+                className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-600">
                     <ArrowDownLeft className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#1E293B]">
                       {task.properties?.title ?? "დალაგება"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[10px] text-[#94A3B8]">
                       {new Date(task.scheduled_at).toLocaleDateString("ka-GE", {
                         day: "numeric",
                         month: "short",

@@ -11,13 +11,17 @@ export const metadata: Metadata = {
 export default async function EntertainmentPage() {
   const supabase = await createClient();
 
-  const { data: services } = await supabase
+  const { data: services, error } = await supabase
     .from("services")
     .select("*")
     .eq("status", "active")
     .eq("category", "entertainment")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[entertainment] failed to load services", error.message);
+  }
 
   return <EntertainmentPageClient services={services ?? []} />;
 }

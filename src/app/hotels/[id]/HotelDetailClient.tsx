@@ -25,8 +25,16 @@ import {
   Waves,
   Sparkles,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
+
+const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[300px] animate-pulse rounded-2xl bg-[#F1F5F9]" />
+  ),
+});
 import {
   CalendarGrid,
   type CalendarDate,
@@ -62,7 +70,7 @@ interface ReviewWithGuest {
   id: string;
   rating: number;
   comment: string | null;
-  created_at: string;
+  created_at: string | null;
   profiles: { display_name: string } | null;
 }
 
@@ -120,10 +128,11 @@ export default function HotelDetailClient({
       : null;
 
   const now = new Date();
-  const calendarDates: CalendarDate[] = calendarBlocks.map((block) => ({
+  const parsedCalendarDates = calendarBlocks.map((block) => ({
     date: new Date(block.date),
-    status: block.status as CalendarDate["status"],
+    status: block.status as "available" | "booked" | "blocked",
   }));
+  const calendarDates: CalendarDate[] = parsedCalendarDates;
 
   const handleDateClick = (date: Date) => {
     if (!selectedRange.start || (selectedRange.start && selectedRange.end)) {
@@ -137,6 +146,13 @@ export default function HotelDetailClient({
     }
   };
 
+  const handleRangeChange = (range: {
+    start: Date | null;
+    end: Date | null;
+  }) => {
+    setSelectedRange(range);
+  };
+
   const handleBook = () => {
     router.push("/auth/login");
   };
@@ -146,17 +162,17 @@ export default function HotelDetailClient({
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
         უკან დაბრუნება
       </motion.button>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-        <PhotoGallery photos={property.photos} title={property.title} />
+        <PhotoGallery photos={property.photos ?? []} title={property.title} />
       </motion.div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           {/* Title + meta */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
@@ -177,21 +193,21 @@ export default function HotelDetailClient({
                     </span>
                   )}
                 </div>
-                <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
+                <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
                   {property.title}
                 </h1>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <MapPin className="h-4 w-4 text-[#2563EB]" />
                     {property.location}
                   </span>
                   {avgRating !== null && (
-                    <span className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-brand-warning text-brand-warning" />
+                    <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                      <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
                       {avgRating.toFixed(1)} ({reviews.length} შეფასება)
                     </span>
                   )}
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5 font-medium">
                     <Eye className="h-4 w-4" />
                     {property.views_count} ნახვა
                   </span>
@@ -202,25 +218,25 @@ export default function HotelDetailClient({
             {/* Quick specs — pill badges per Figma */}
             <div className="mt-4 flex flex-wrap gap-2">
               {property.rooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <BedDouble className="h-4 w-4 text-brand-accent" />
                   {property.rooms} ნომერი
                 </span>
               )}
               {property.bathrooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Bath className="h-4 w-4 text-brand-accent" />
                   {property.bathrooms} სააბაზანო
                 </span>
               )}
               {property.capacity != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Users className="h-4 w-4 text-brand-accent" />
                   {property.capacity} სტუმარი
                 </span>
               )}
               {property.area_sqm != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-2.5 py-1 text-[13px] font-extrabold text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Maximize className="h-4 w-4 text-brand-accent" />
                   {property.area_sqm} მ²
                 </span>
@@ -231,10 +247,10 @@ export default function HotelDetailClient({
           {/* Description */}
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 აღწერა
               </h2>
-              <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
+              <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {property.description}
               </p>
             </motion.div>
@@ -243,7 +259,7 @@ export default function HotelDetailClient({
           {/* Amenities */}
           {amenities.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 კეთილმოწყობა
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -254,7 +270,7 @@ export default function HotelDetailClient({
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]"
+                      className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
                     >
                       {Icon && (
                         <Icon className="h-5 w-5 text-brand-accent shrink-0" />
@@ -267,17 +283,31 @@ export default function HotelDetailClient({
             </motion.div>
           )}
 
+          {/* Location with Map */}
+          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
+            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
+              ზუსტი ლოკაცია
+            </h2>
+            <p className="mb-3 flex items-center gap-1.5 text-[14px] font-medium text-[#64748B]">
+              <MapPin className="h-4 w-4 shrink-0 text-[#F97316]" />
+              {property.location}
+            </p>
+            <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
+              <BakurianiMap className="h-full w-full" />
+            </div>
+          </motion.div>
+
           {/* House Rules */}
           {houseRules.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.33 }}>
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 სასტუმროს წესები
               </h2>
               <ul className="space-y-2">
                 {houseRules.map((rule, i) => (
                   <li
                     key={i}
-                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                    className="flex items-start gap-2 text-[14px] text-[#64748B]"
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-accent" />
                     {String(rule)}
@@ -289,10 +319,10 @@ export default function HotelDetailClient({
 
           {/* Calendar */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
-            <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               ხელმისაწვდომობა
             </h2>
-            <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4 mb-4 text-xs text-[#94A3B8]">
               <span className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-sm bg-green-50 border border-green-200" />
                 თავისუფალი
@@ -323,22 +353,20 @@ export default function HotelDetailClient({
 
           {/* Reviews */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-            <h2 className="mb-4 text-[22px] font-extrabold text-[#1E293B]">
+            <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
               შეფასებები {reviews.length > 0 && `(${reviews.length})`}
             </h2>
             {reviews.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                ჯერ არ არის შეფასებები
-              </p>
+              <p className="text-sm text-[#94A3B8]">ჯერ არ არის შეფასებები</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-8">
                 {reviews.map((review) => (
                   <ReviewCard
                     key={review.id}
                     displayName={review.profiles?.display_name ?? "ანონიმური"}
                     rating={review.rating}
                     comment={review.comment ?? ""}
-                    createdAt={review.created_at}
+                    createdAt={review.created_at ?? ""}
                   />
                 ))}
               </div>
@@ -355,16 +383,20 @@ export default function HotelDetailClient({
           {property.price_per_night != null && (
             <BookingSidebar
               pricePerNight={property.price_per_night}
-              minBookingDays={property.min_booking_days}
+              minBookingDays={property.min_booking_days ?? 0}
               ownerName={owner?.display_name ?? "სასტუმრო"}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
               selectedRange={selectedRange}
+              onRangeChange={handleRangeChange}
               onBook={handleBook}
+              rating={avgRating}
+              calendarDates={parsedCalendarDates}
+              maxGuests={property.capacity ?? 10}
             />
           )}
 
-          {property.discount_percent > 0 && (
+          {(property.discount_percent ?? 0) > 0 && (
             <div className="mt-4 rounded-xl bg-red-50 p-4 text-center">
               <span className="text-lg font-bold text-red-600">
                 -{property.discount_percent}% ფასდაკლება

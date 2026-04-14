@@ -179,8 +179,10 @@ export default function RenterCalendarPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">კალენდარი</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          კალენდარი
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           მართეთ ობიექტების ხელმისაწვდომობა
         </p>
       </motion.div>
@@ -217,12 +219,12 @@ export default function RenterCalendarPage() {
             <span
               className={`h-3 w-3 rounded-sm ${config.color.split(" ")[0]}`}
             />
-            <span className="text-muted-foreground">{config.label}</span>
+            <span className="text-[#94A3B8]">{config.label}</span>
           </div>
         ))}
         <div className="flex items-center gap-2 text-xs">
           <span className="h-3 w-3 rounded-sm bg-brand-accent/30" />
-          <span className="text-muted-foreground">არჩეული</span>
+          <span className="text-[#94A3B8]">არჩეული</span>
         </div>
       </div>
 
@@ -231,14 +233,14 @@ export default function RenterCalendarPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:p-6"
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:p-6"
       >
         {/* Month navigation */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={handlePrevMonth}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h3 className="text-base font-semibold text-foreground">
+          <h3 className="text-base font-semibold text-[#1E293B]">
             {monthNames[month]} {year}
           </h3>
           <Button variant="ghost" size="icon" onClick={handleNextMonth}>
@@ -251,7 +253,7 @@ export default function RenterCalendarPage() {
           {dayNames.map((day) => (
             <div
               key={day}
-              className="py-2 text-center text-xs font-medium text-muted-foreground"
+              className="py-2 text-center text-xs font-medium text-[#94A3B8]"
             >
               {day}
             </div>
@@ -309,9 +311,9 @@ export default function RenterCalendarPage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col gap-3 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-3 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:flex-row sm:items-center sm:justify-between"
         >
-          <p className="text-sm text-foreground">
+          <p className="text-sm text-[#1E293B]">
             არჩეულია <span className="font-bold">{selectedDates.size}</span> დღე
           </p>
           <div className="flex gap-2">

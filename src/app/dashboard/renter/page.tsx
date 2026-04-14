@@ -71,7 +71,7 @@ export default function RenterDashboardPage() {
       if (propertiesRes.data) {
         setProperties(propertiesRes.data);
         setTotalViews(
-          propertiesRes.data.reduce((sum, p) => sum + p.views_count, 0),
+          propertiesRes.data.reduce((sum, p) => sum + (p.views_count ?? 0), 0),
         );
       }
       setSmartMatchCount(matchesRes.count ?? 0);
@@ -126,16 +126,17 @@ export default function RenterDashboardPage() {
   }, [user]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 sm:p-8 lg:p-12">
       {/* Welcome */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
+        className="space-y-2"
       >
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
           გამარჯობა, {profile?.display_name ?? "მესაკუთრე"}!
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-sm font-medium text-[#64748B]">
           თქვენი ობიექტების მართვის პანელი
         </p>
       </motion.div>
@@ -207,7 +208,7 @@ export default function RenterDashboardPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-col items-center gap-2 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-md"
+              className="flex flex-col items-center gap-2 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-md"
             >
               <div
                 className={`relative flex h-12 w-12 items-center justify-center rounded-full ${item.color}`}
@@ -221,7 +222,7 @@ export default function RenterDashboardPage() {
                     </span>
                   )}
               </div>
-              <span className="text-center text-xs font-medium text-foreground">
+              <span className="text-center text-xs font-medium text-[#1E293B]">
                 {item.label}
               </span>
             </Link>
@@ -236,7 +237,7 @@ export default function RenterDashboardPage() {
         transition={{ delay: 0.2 }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-lg font-semibold text-[#1E293B]">
             ჩემი ობიექტები
           </h2>
           <Link
@@ -252,7 +253,7 @@ export default function RenterDashboardPage() {
             ? Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                  className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
                 >
                   <div className="flex gap-4">
                     <Skeleton className="h-16 w-16 rounded-lg" />
@@ -266,12 +267,12 @@ export default function RenterDashboardPage() {
             : properties.slice(0, 5).map((property) => (
                 <div
                   key={property.id}
-                  className="flex items-center gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                  className="flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
                 >
-                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    {property.photos[0] && (
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
+                    {(property.photos ?? [])[0] && (
                       <Image
-                        src={property.photos[0]}
+                        src={(property.photos ?? [])[0]}
                         alt={property.title}
                         fill
                         className="object-cover"
@@ -279,16 +280,17 @@ export default function RenterDashboardPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-semibold text-foreground">
+                    <h3 className="truncate text-sm font-semibold text-[#1E293B]">
                       {property.title}
                     </h3>
                     <div className="mt-1 flex items-center gap-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[property.status] ?? ""}`}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[property.status ?? "draft"] ?? ""}`}
                       >
-                        {statusLabels[property.status] ?? property.status}
+                        {statusLabels[property.status ?? "draft"] ??
+                          property.status}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-[#94A3B8]">
                         {property.views_count} ნახვა
                       </span>
                     </div>

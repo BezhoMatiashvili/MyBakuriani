@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Heart, MapPin, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils/format";
@@ -63,10 +64,9 @@ export default function ServiceCard({
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="block overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
-        {/* Photo area */}
-        <div className="relative h-[190px] overflow-hidden">
+        <div className="relative h-[190px] overflow-hidden rounded-t-[24px]">
           <Image
             src={photoUrl}
             alt={title}
@@ -74,54 +74,71 @@ export default function ServiceCard({
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
-
-          {/* Category badge */}
+          <div className="absolute top-3 left-3 flex gap-2">
+            {isVip && (
+              <span className="rounded-[4px] bg-[#FEE2E2] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                VIP
+              </span>
+            )}
+            {discountPercent > 0 && (
+              <span className="flex items-center gap-1 rounded-[4px] bg-[#E11D48] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                -{discountPercent}%
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
+            onClick={(e) => e.preventDefault()}
+            aria-label="ფავორიტებში დამატება"
+          >
+            <Heart className="h-4 w-4 text-[#1E293B]" />
+          </button>
           <Badge
             variant="secondary"
-            className="absolute bottom-3 left-3 bg-white/90 text-foreground backdrop-blur-sm"
+            className="absolute bottom-3 left-3 bg-white/90 text-[#1E293B] backdrop-blur-sm"
           >
             {categoryLabelMap[category] ?? category}
           </Badge>
-
-          {/* VIP badge */}
-          {isVip && (
-            <span className="absolute top-3 left-3 rounded bg-[#FEE2E2] border border-[#FEF08A] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-              VIP
-            </span>
-          )}
-
-          {/* Discount badge */}
-          {discountPercent > 0 && (
-            <span className="absolute top-3 right-3 rounded bg-[#E11D48] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-              -{discountPercent}%
-            </span>
-          )}
         </div>
-
-        {/* Content */}
         <div className="p-5">
-          <h3 className="truncate text-[18px] font-black leading-[22px] text-[#1E293B]">
-            {title}
-          </h3>
-
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="min-w-0 flex-1 truncate text-[18px] font-black leading-[22px] text-[#1E293B]">
+              {title}
+            </h3>
+            <span className="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <Star className="h-3 w-3 fill-white text-white" />
+              4.9
+            </span>
+          </div>
           {location && (
-            <p className="mt-1 truncate text-[11px] font-bold text-muted-foreground">
+            <p className="mt-1 flex items-center gap-1 text-[12px] font-medium leading-[18px] text-[#64748B]">
+              <MapPin className="h-3 w-3" />
               {location}
             </p>
           )}
-
           {price != null && (
-            <p className="mt-3 flex items-baseline gap-0.5">
-              <span className="text-[15px] font-black text-[#1E293B]">
-                {formatPrice(price)}
-              </span>
-              {priceUnit && (
-                <span className="text-xs font-normal text-muted-foreground">
-                  / {priceUnit}
+            <div className="mt-3">
+              <span className="flex items-baseline gap-0.5">
+                <span className="text-[22px] font-black text-[#1E293B]">
+                  {formatPrice(price)}
                 </span>
-              )}
-            </p>
+                {priceUnit && (
+                  <span className="text-[13px] font-bold text-[#94A3B8]">
+                    / {priceUnit}
+                  </span>
+                )}
+              </span>
+            </div>
           )}
+          <div className="mt-3 flex gap-3">
+            <span className="flex flex-1 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-3 py-2.5 text-[13px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]">
+              დეტალები
+            </span>
+            <span className="flex flex-1 items-center justify-center rounded-[12px] bg-[#22C55E] px-3 py-2.5 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)]">
+              WhatsApp
+            </span>
+          </div>
         </div>
       </Link>
     </motion.div>

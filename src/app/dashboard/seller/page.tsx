@@ -60,7 +60,7 @@ export default function SellerDashboardPage() {
       if (propertiesRes.data) {
         setProperties(propertiesRes.data);
         setTotalViews(
-          propertiesRes.data.reduce((sum, p) => sum + p.views_count, 0),
+          propertiesRes.data.reduce((sum, p) => sum + (p.views_count ?? 0), 0),
         );
       }
       setInquiriesCount(inquiriesRes.count ?? 0);
@@ -72,16 +72,17 @@ export default function SellerDashboardPage() {
   }, [user]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 sm:p-8 lg:p-12">
       {/* Welcome */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
+        className="space-y-2"
       >
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
           გამარჯობა, {profile?.display_name ?? "გამყიდველი"}!
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-sm font-medium text-[#64748B]">
           თქვენი გასაყიდი ობიექტების მართვა
         </p>
       </motion.div>
@@ -118,7 +119,7 @@ export default function SellerDashboardPage() {
         transition={{ delay: 0.2 }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-lg font-semibold text-[#1E293B]">
             ჩემი ობიექტები
           </h2>
           <div className="flex items-center gap-3">
@@ -143,7 +144,7 @@ export default function SellerDashboardPage() {
             Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
                 <div className="flex gap-4">
                   <Skeleton className="h-24 w-24 rounded-lg" />
@@ -156,9 +157,9 @@ export default function SellerDashboardPage() {
               </div>
             ))
           ) : properties.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]">
-              <Building className="h-12 w-12 text-muted-foreground" />
-              <p className="mt-3 text-sm text-muted-foreground">
+            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+              <Building className="h-12 w-12 text-[#94A3B8]" />
+              <p className="mt-3 text-sm text-[#94A3B8]">
                 გასაყიდი ობიექტები ჯერ არ გაქვთ
               </p>
               <Link href="/create/sale" className="mt-4">
@@ -172,12 +173,12 @@ export default function SellerDashboardPage() {
             properties.map((property) => (
               <div
                 key={property.id}
-                className="flex flex-col gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:flex-row"
+                className="flex flex-col gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:flex-row"
               >
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {property.photos[0] && (
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
+                  {(property.photos ?? [])[0] && (
                     <Image
-                      src={property.photos[0]}
+                      src={(property.photos ?? [])[0]}
                       alt={property.title}
                       fill
                       className="object-cover"
@@ -186,28 +187,29 @@ export default function SellerDashboardPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="truncate text-sm font-semibold text-foreground">
+                    <h3 className="truncate text-sm font-semibold text-[#1E293B]">
                       {property.title}
                     </h3>
                     <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status] ?? ""}`}
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status ?? "draft"] ?? ""}`}
                     >
-                      {statusLabels[property.status] ?? property.status}
+                      {statusLabels[property.status ?? "draft"] ??
+                        property.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-[#94A3B8]">
                     {property.location}
                   </p>
                   <div className="mt-2 flex items-center gap-4">
                     <span className="text-lg font-bold text-brand-accent">
                       {formatPrice(Number(property.sale_price ?? 0))}
                     </span>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1 text-xs text-[#94A3B8]">
                       <Eye className="h-3 w-3" />
                       {property.views_count}
                     </span>
                     {property.area_sqm && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-[#94A3B8]">
                         {property.area_sqm} მ²
                       </span>
                     )}

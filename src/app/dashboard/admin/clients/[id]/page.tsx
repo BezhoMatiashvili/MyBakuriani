@@ -57,43 +57,45 @@ export default function ClientDetailPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
+      try {
+        const [
+          { data: profileData },
+          { data: propsData },
+          { data: bookingsData },
+          { data: txData },
+          { data: verifData },
+        ] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", userId).single(),
+          supabase
+            .from("properties")
+            .select("*")
+            .eq("owner_id", userId)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("bookings")
+            .select("*")
+            .or(`guest_id.eq.${userId},owner_id.eq.${userId}`)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("transactions")
+            .select("*")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("verifications")
+            .select("*")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false }),
+        ]);
 
-      const [
-        { data: profileData },
-        { data: propsData },
-        { data: bookingsData },
-        { data: txData },
-        { data: verifData },
-      ] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", userId).single(),
-        supabase
-          .from("properties")
-          .select("*")
-          .eq("owner_id", userId)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("bookings")
-          .select("*")
-          .or(`guest_id.eq.${userId},owner_id.eq.${userId}`)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("verifications")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false }),
-      ]);
-
-      setProfile(profileData);
-      setProperties(propsData ?? []);
-      setBookings(bookingsData ?? []);
-      setTransactions(txData ?? []);
-      setVerifications(verifData ?? []);
-      setLoading(false);
+        setProfile(profileData);
+        setProperties(propsData ?? []);
+        setBookings(bookingsData ?? []);
+        setTransactions(txData ?? []);
+        setVerifications(verifData ?? []);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [userId]);
@@ -155,7 +157,7 @@ export default function ClientDetailPage() {
   if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center p-12">
-        <p className="text-muted-foreground">მომხმარებელი ვერ მოიძებნა</p>
+        <p className="text-[#94A3B8]">მომხმარებელი ვერ მოიძებნა</p>
         <Button
           variant="outline"
           className="mt-4"
@@ -172,7 +174,7 @@ export default function ClientDetailPage() {
       {/* Back */}
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-2 text-sm text-[#94A3B8] hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
         კლიენტებთან დაბრუნება
@@ -182,7 +184,7 @@ export default function ClientDetailPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
@@ -190,17 +192,17 @@ export default function ClientDetailPage() {
               <User className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">
+              <h1 className="text-xl font-bold text-[#1E293B]">
                 {profile.display_name}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-[#94A3B8]">
                 {formatPhone(profile.phone)}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <StatusBadge
                   status={profile.is_verified ? "verified" : "pending"}
                 />
-                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                <span className="rounded-full bg-[#F8FAFC] px-2.5 py-0.5 text-xs font-medium text-[#94A3B8]">
                   {roleLabels[profile.role]}
                 </span>
               </div>
@@ -214,7 +216,7 @@ export default function ClientDetailPage() {
               onChange={(e) =>
                 handleRoleChange(e.target.value as Enums<"user_role">)
               }
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none"
+              className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-sm focus:outline-none"
             >
               {Object.entries(roleLabels).map(([v, l]) => (
                 <option key={v} value={v}>
@@ -252,28 +254,28 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Profile details grid */}
-        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-[#E2E8F0] pt-4 sm:grid-cols-4">
           <div>
-            <p className="text-xs text-muted-foreground">რეგისტრაცია</p>
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-xs text-[#94A3B8]">რეგისტრაცია</p>
+            <p className="text-sm font-medium text-[#1E293B]">
               {formatDate(profile.created_at)}
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">რეიტინგი</p>
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-xs text-[#94A3B8]">რეიტინგი</p>
+            <p className="text-sm font-medium text-[#1E293B]">
               {profile.rating ? `${profile.rating}/5` : "—"}
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">განცხადებები</p>
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-xs text-[#94A3B8]">განცხადებები</p>
+            <p className="text-sm font-medium text-[#1E293B]">
               {properties.length}
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">ჯავშნები</p>
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-xs text-[#94A3B8]">ჯავშნები</p>
+            <p className="text-sm font-medium text-[#1E293B]">
               {bookings.length}
             </p>
           </div>
@@ -285,14 +287,14 @@ export default function ClientDetailPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
         <div className="flex items-center gap-2">
-          <StickyNote className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">შენიშვნები</h3>
+          <StickyNote className="h-4 w-4 text-[#94A3B8]" />
+          <h3 className="text-sm font-semibold text-[#1E293B]">შენიშვნები</h3>
         </div>
         <textarea
-          className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-accent focus:outline-none"
+          className="mt-2 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#1E293B] placeholder:text-[#94A3B8] focus:border-brand-accent focus:outline-none"
           rows={2}
           placeholder="ადმინის შენიშვნის დამატება..."
           value={adminNote}
@@ -301,7 +303,7 @@ export default function ClientDetailPage() {
       </motion.div>
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-border">
+      <div className="flex gap-1 overflow-x-auto border-b border-[#E2E8F0]">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -309,7 +311,7 @@ export default function ClientDetailPage() {
             className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               activeTab === tab.key
                 ? "border-brand-accent text-brand-accent"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "border-transparent text-[#94A3B8] hover:text-[#1E293B]"
             }`}
           >
             <tab.icon className="h-4 w-4" />
@@ -328,18 +330,18 @@ export default function ClientDetailPage() {
         {activeTab === "properties" && (
           <div className="space-y-2">
             {properties.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-sm text-[#94A3B8]">
                 ქონება არ მოიძებნა
               </p>
             ) : (
               properties.map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-sm"
+                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
                 >
                   <div>
-                    <p className="font-medium text-foreground">{p.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-medium text-[#1E293B]">{p.title}</p>
+                    <p className="text-xs text-[#94A3B8]">
                       {p.type} • {p.location} •{" "}
                       {p.price_per_night
                         ? `${formatPrice(p.price_per_night)} / ღამე`
@@ -364,22 +366,22 @@ export default function ClientDetailPage() {
         {activeTab === "bookings" && (
           <div className="space-y-2">
             {bookings.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-sm text-[#94A3B8]">
                 ჯავშნები არ მოიძებნა
               </p>
             ) : (
               bookings.map((b) => (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-sm"
+                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
                 >
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#1E293B]">
                       {formatDate(b.check_in)} — {formatDate(b.check_out)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-[#94A3B8]">
                       {formatPrice(b.total_price)} •{" "}
-                      {bookingStatusLabels[b.status]}
+                      {bookingStatusLabels[b.status ?? "pending"]}
                     </p>
                   </div>
                   <StatusBadge
@@ -400,20 +402,20 @@ export default function ClientDetailPage() {
         {activeTab === "transactions" && (
           <div className="space-y-2">
             {transactions.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-sm text-[#94A3B8]">
                 ტრანზაქციები არ მოიძებნა
               </p>
             ) : (
               transactions.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-sm"
+                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
                 >
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#1E293B]">
                       {t.type} — {t.description ?? "—"}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-[#94A3B8]">
                       {formatDate(t.created_at)}
                     </p>
                   </div>
@@ -432,26 +434,28 @@ export default function ClientDetailPage() {
         {activeTab === "verifications" && (
           <div className="space-y-2">
             {verifications.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-sm text-[#94A3B8]">
                 ვერიფიკაციები არ მოიძებნა
               </p>
             ) : (
               verifications.map((v) => (
                 <div
                   key={v.id}
-                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-sm"
+                  className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
                 >
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#1E293B]">
                       ვერიფიკაციის მოთხოვნა
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-[#94A3B8]">
                       {formatDate(v.created_at)}
                       {v.admin_notes && ` • ${v.admin_notes}`}
                     </p>
                   </div>
                   <StatusBadge
-                    status={verificationStatusMap[v.status] ?? "pending"}
+                    status={
+                      verificationStatusMap[v.status ?? "pending"] ?? "pending"
+                    }
                   />
                 </div>
               ))

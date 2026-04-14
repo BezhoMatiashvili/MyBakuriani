@@ -88,80 +88,83 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function loadData() {
       const supabase = createClient();
+      try {
+        const [
+          { count: activeListings },
+          { data: bookingsData },
+          { data: profilesData },
+          { count: totalProperties },
+        ] = await Promise.all([
+          supabase
+            .from("properties")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "active"),
+          supabase.from("bookings").select("total_price, status"),
+          supabase.from("profiles").select("response_time_minutes"),
+          supabase
+            .from("properties")
+            .select("*", { count: "exact", head: true }),
+        ]);
 
-      const [
-        { count: activeListings },
-        { data: bookingsData },
-        { data: profilesData },
-        { count: totalProperties },
-      ] = await Promise.all([
-        supabase
-          .from("properties")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "active"),
-        supabase.from("bookings").select("total_price, status"),
-        supabase.from("profiles").select("response_time_minutes"),
-        supabase.from("properties").select("*", { count: "exact", head: true }),
-      ]);
+        const completedBookings =
+          bookingsData?.filter((b) => b.status === "completed") ?? [];
+        const totalRevenue = completedBookings.reduce(
+          (sum, b) => sum + (b.total_price || 0),
+          0,
+        );
+        const allBookings = bookingsData?.length ?? 0;
+        const conversionRate =
+          allBookings > 0
+            ? Math.round((completedBookings.length / allBookings) * 100)
+            : 0;
 
-      const completedBookings =
-        bookingsData?.filter((b) => b.status === "completed") ?? [];
-      const totalRevenue = completedBookings.reduce(
-        (sum, b) => sum + (b.total_price || 0),
-        0,
-      );
-      const allBookings = bookingsData?.length ?? 0;
-      const conversionRate =
-        allBookings > 0
-          ? Math.round((completedBookings.length / allBookings) * 100)
-          : 0;
+        const responseTimes =
+          profilesData
+            ?.map((p) => p.response_time_minutes)
+            .filter((t): t is number => t !== null) ?? [];
+        const avgResponse =
+          responseTimes.length > 0
+            ? Math.round(
+                responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length,
+              )
+            : 0;
 
-      const responseTimes =
-        profilesData
-          ?.map((p) => p.response_time_minutes)
-          .filter((t): t is number => t !== null) ?? [];
-      const avgResponse =
-        responseTimes.length > 0
-          ? Math.round(
-              responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length,
-            )
-          : 0;
+        const bookedCount =
+          bookingsData?.filter(
+            (b) => b.status === "confirmed" || b.status === "completed",
+          ).length ?? 0;
+        const occ =
+          (totalProperties ?? 0) > 0
+            ? Math.round((bookedCount / (totalProperties ?? 1)) * 100)
+            : 0;
 
-      const bookedCount =
-        bookingsData?.filter(
-          (b) => b.status === "confirmed" || b.status === "completed",
-        ).length ?? 0;
-      const occ =
-        (totalProperties ?? 0) > 0
-          ? Math.round((bookedCount / (totalProperties ?? 1)) * 100)
-          : 0;
+        setKpis({
+          revenue: totalRevenue,
+          revenueChange: 12.5,
+          conversionRate,
+          conversionChange: 3.2,
+          activeListings: activeListings ?? 0,
+          listingsChange: 8.1,
+          avgResponseTime: avgResponse,
+          responseChange: -5.3,
+        });
 
-      setKpis({
-        revenue: totalRevenue,
-        revenueChange: 12.5,
-        conversionRate,
-        conversionChange: 3.2,
-        activeListings: activeListings ?? 0,
-        listingsChange: 8.1,
-        avgResponseTime: avgResponse,
-        responseChange: -5.3,
-      });
+        setFunnel([
+          { label: "ნახვები", value: 12450, color: "bg-brand-accent-light" },
+          { label: "ძიებები", value: 8320, color: "bg-indigo-500" },
+          { label: "ჯავშნები", value: allBookings, color: "bg-violet-500" },
+          {
+            label: "დასრულებული",
+            value: completedBookings.length,
+            color: "bg-green-500",
+          },
+        ]);
 
-      setFunnel([
-        { label: "ნახვები", value: 12450, color: "bg-brand-accent-light" },
-        { label: "ძიებები", value: 8320, color: "bg-indigo-500" },
-        { label: "ჯავშნები", value: allBookings, color: "bg-violet-500" },
-        {
-          label: "დასრულებული",
-          value: completedBookings.length,
-          color: "bg-green-500",
-        },
-      ]);
-
-      setOccupancyRate(occ);
-      setAvgPriceTrend(185);
-
-      setLoading(false);
+        setOccupancyRate(occ);
+        setAvgPriceTrend(185);
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadData();
@@ -170,11 +173,13 @@ export default function AdminDashboardPage() {
   const maxFunnelValue = Math.max(...funnel.map((f) => f.value), 1);
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-8 p-6 sm:p-8 lg:p-12">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">ადმინ პანელი</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[20px] font-black leading-[30px] tracking-[-0.5px] text-[#1E293B]">
+          ადმინ პანელი
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           პლატფორმის მთავარი მართვის პანელი
         </p>
       </div>
@@ -218,23 +223,23 @@ export default function AdminDashboardPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
+          <h2 className="mb-4 text-lg font-semibold text-[#1E293B]">
             გაყიდვების ფუნელი
           </h2>
           <div className="space-y-3">
             {funnel.map((step) => (
               <div key={step.label} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{step.label}</span>
-                  <span className="font-medium text-foreground">
+                  <span className="text-[#94A3B8]">{step.label}</span>
+                  <span className="font-medium text-[#1E293B]">
                     {step.value
                       .toString()
                       .replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
                   </span>
                 </div>
-                <div className="h-3 overflow-hidden rounded-full bg-muted">
+                <div className="h-3 overflow-hidden rounded-full bg-[#F8FAFC]">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{
@@ -254,23 +259,23 @@ export default function AdminDashboardPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
+          <h2 className="mb-4 text-lg font-semibold text-[#1E293B]">
             ბაზრის ჯანმრთელობა
           </h2>
           <div className="space-y-6">
             {/* Occupancy */}
             <div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
+                <span className="text-[#94A3B8]">
                   დაკავებულობის მაჩვენებელი
                 </span>
-                <span className="font-semibold text-foreground">
+                <span className="font-semibold text-[#1E293B]">
                   {occupancyRate}%
                 </span>
               </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-muted">
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#F8FAFC]">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${occupancyRate}%` }}
@@ -283,10 +288,8 @@ export default function AdminDashboardPage() {
             {/* Average price trend */}
             <div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  საშუალო ფასის ტრენდი
-                </span>
-                <span className="font-semibold text-foreground">
+                <span className="text-[#94A3B8]">საშუალო ფასის ტრენდი</span>
+                <span className="font-semibold text-[#1E293B]">
                   {formatPrice(avgPriceTrend)} / ღამე
                 </span>
               </div>
@@ -303,7 +306,7 @@ export default function AdminDashboardPage() {
                   ),
                 )}
               </div>
-              <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+              <div className="mt-1 flex justify-between text-[10px] text-[#94A3B8]">
                 <span>იან</span>
                 <span>მარ</span>
                 <span>მაი</span>
@@ -322,7 +325,7 @@ export default function AdminDashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <h2 className="mb-4 text-lg font-semibold text-foreground">
+        <h2 className="mb-4 text-lg font-semibold text-[#1E293B]">
           სწრაფი ნავიგაცია
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -330,16 +333,16 @@ export default function AdminDashboardPage() {
             <Link
               key={link.href}
               href={link.href}
-              className="group flex items-center gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-brand-accent-light"
+              className="group flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-colors hover:bg-[#EFF6FF]"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent group-hover:bg-brand-accent group-hover:text-white">
                 <link.icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-foreground">{link.label}</p>
-                <p className="text-xs text-muted-foreground">{link.desc}</p>
+                <p className="font-medium text-[#1E293B]">{link.label}</p>
+                <p className="text-xs text-[#64748B]">{link.desc}</p>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+              <ChevronRight className="h-4 w-4 text-[#94A3B8] transition-transform group-hover:translate-x-1" />
             </Link>
           ))}
         </div>

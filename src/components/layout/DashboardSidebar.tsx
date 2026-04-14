@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -26,7 +25,6 @@ import {
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface DashboardSidebarProps {
@@ -36,7 +34,6 @@ interface DashboardSidebarProps {
   smsCount?: number;
   currentPath: string;
 }
-
 interface NavItem {
   label: string;
   href: string;
@@ -145,7 +142,6 @@ function getNavItems(role: string): NavItem[] {
           icon: Briefcase,
         },
       ];
-    case "guest":
     default:
       return [
         { label: "მთავარი", href: "/dashboard/guest", icon: Home },
@@ -169,7 +165,6 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const navItems = getNavItems(userRole);
-
   const initials = userName
     .split(" ")
     .map((n) => n[0])
@@ -178,53 +173,49 @@ export function DashboardSidebar({
 
   return (
     <motion.aside
-      className="hidden h-screen border-r border-brand-surface-border bg-white md:flex md:flex-col"
-      animate={{ width: collapsed ? 72 : 256 }}
+      className="hidden h-screen border-r border-[#E2E8F0] bg-white md:flex md:flex-col"
+      animate={{ width: collapsed ? 72 : 275 }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
     >
-      {/* User info */}
-      <div className="flex items-center gap-3 border-b border-brand-surface-border p-4">
-        <Avatar>
+      <div className="flex items-center gap-3 border-b border-[#E2E8F0] px-5 py-4">
+        <Avatar className="h-11 w-11 shrink-0">
           {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-          <AvatarFallback>{initials}</AvatarFallback>
+          <AvatarFallback className="bg-[#2563EB] text-[15px] font-extrabold text-white">
+            {initials}
+          </AvatarFallback>
         </Avatar>
-
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-foreground">
+            <p className="truncate text-sm font-extrabold text-[#0F172A]">
               {userName}
             </p>
-            <Badge variant="secondary" className="mt-0.5 text-xs">
+            <p className="mt-0.5 text-[10px] font-bold text-[#10B981]">
               {roleLabels[userRole] ?? userRole}
-            </Badge>
+            </p>
           </div>
         )}
       </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-2">
+      <nav className="flex-1 overflow-y-auto p-4">
         <ul className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               currentPath === item.href ||
               (item.href.split("/").length > 2 &&
-                currentPath.startsWith(item.href) &&
-                currentPath !== item.href.split("/").slice(0, -1).join("/"));
-
+                currentPath.startsWith(item.href));
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-[10px] px-4 py-3 text-[13px] font-bold transition-colors",
                     isActive
-                      ? "bg-brand-accent-light text-brand-accent"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "border-l-4 border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                      : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]",
                   )}
                   title={collapsed ? item.label : undefined}
                 >
-                  <Icon className="size-5 shrink-0" />
+                  <Icon className="size-[18px] shrink-0" />
                   {!collapsed && (
                     <span className="flex-1 truncate">{item.label}</span>
                   )}
@@ -234,8 +225,6 @@ export function DashboardSidebar({
           })}
         </ul>
       </nav>
-
-      {/* SMS counter */}
       {!collapsed && smsCount > 0 && (
         <div className="mx-2 mb-2 flex items-center gap-2 rounded-lg bg-brand-accent-light px-3 py-2">
           <Bell className="size-4 text-brand-accent" />
@@ -244,13 +233,11 @@ export function DashboardSidebar({
           </span>
         </div>
       )}
-
-      {/* Collapse toggle */}
-      <div className="border-t border-brand-surface-border p-2">
+      <div className="border-t border-[#E2E8F0] p-2">
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setCollapsed((prev) => !prev)}
+          onClick={() => setCollapsed((p) => !p)}
           aria-label={collapsed ? "გაშლა" : "ჩაკეცვა"}
           className="w-full"
         >

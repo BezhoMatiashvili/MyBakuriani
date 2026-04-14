@@ -25,8 +25,14 @@ type OrderTab = "new" | "in_progress" | "completed";
 
 const tabs: { key: OrderTab; label: string }[] = [
   { key: "new", label: "\u10D0\u10EE\u10D0\u10DA\u10D8" },
-  { key: "in_progress", label: "\u10DB\u10D8\u10DB\u10D3\u10D8\u10DC\u10D0\u10E0\u10D4" },
-  { key: "completed", label: "\u10D3\u10D0\u10E1\u10E0\u10E3\u10DA\u10D4\u10D1\u10E3\u10DA\u10D8" },
+  {
+    key: "in_progress",
+    label: "\u10DB\u10D8\u10DB\u10D3\u10D8\u10DC\u10D0\u10E0\u10D4",
+  },
+  {
+    key: "completed",
+    label: "\u10D3\u10D0\u10E1\u10E0\u10E3\u10DA\u10D4\u10D1\u10E3\u10DA\u10D8",
+  },
 ];
 
 export default function ServiceOrdersPage() {
@@ -95,9 +101,13 @@ export default function ServiceOrdersPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <h1 className="text-2xl font-bold">{"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 / \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"}</h1>
+      <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+        {
+          "\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 / \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
+        }
+      </h1>
 
-      <div className="flex gap-1 rounded-xl bg-muted p-1">
+      <div className="flex gap-1 rounded-xl bg-[#F8FAFC] p-1">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -105,8 +115,8 @@ export default function ServiceOrdersPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? "bg-brand-surface text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-brand-surface text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
+                : "text-[#94A3B8] hover:text-[#1E293B]"
             }`}
           >
             {tab.label}
@@ -122,13 +132,13 @@ export default function ServiceOrdersPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-[#F8FAFC]" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-muted-foreground/30 p-8 text-center">
-          <MessageSquare className="mx-auto h-10 w-10 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-[#64748B]/30 p-8 text-center">
+          <MessageSquare className="mx-auto h-10 w-10 text-[#94A3B8]/50" />
+          <p className="mt-2 text-sm text-[#94A3B8]">
             {activeTab === "new"
               ? "\u10D0\u10EE\u10D0\u10DA\u10D8 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
               : activeTab === "in_progress"
@@ -141,12 +151,24 @@ export default function ServiceOrdersPage() {
           <div className="hidden overflow-hidden rounded-xl border sm:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/50 text-left">
-                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10D9\u10DA\u10D8\u10D4\u10DC\u10E2\u10D8"}</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0"}</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8"}</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10E1\u10E2\u10D0\u10E2\u10E3\u10E1\u10D8"}</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">{"\u10DB\u10DD\u10E5\u10DB\u10D4\u10D3\u10D4\u10D1\u10D0"}</th>
+                <tr className="border-b bg-[#F8FAFC] text-left">
+                  <th className="px-4 py-3 font-medium text-[#94A3B8]">
+                    {"\u10D9\u10DA\u10D8\u10D4\u10DC\u10E2\u10D8"}
+                  </th>
+                  <th className="px-4 py-3 font-medium text-[#94A3B8]">
+                    {
+                      "\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0"
+                    }
+                  </th>
+                  <th className="px-4 py-3 font-medium text-[#94A3B8]">
+                    {"\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8"}
+                  </th>
+                  <th className="px-4 py-3 font-medium text-[#94A3B8]">
+                    {"\u10E1\u10E2\u10D0\u10E2\u10E3\u10E1\u10D8"}
+                  </th>
+                  <th className="px-4 py-3 font-medium text-[#94A3B8]">
+                    {"\u10DB\u10DD\u10E5\u10DB\u10D4\u10D3\u10D4\u10D1\u10D0"}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -156,19 +178,22 @@ export default function ServiceOrdersPage() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: idx * 0.03 }}
-                    className="border-b last:border-0 hover:bg-muted/30"
+                    className="border-b last:border-0 hover:bg-[#F8FAFC]/60"
                   >
                     <td className="px-4 py-3 font-medium">
-                      {(msg.sender as { display_name: string } | undefined)?.display_name ?? "\u2014"}
+                      {(msg.sender as { display_name: string } | undefined)
+                        ?.display_name ?? "\u2014"}
                     </td>
-                    <td className="max-w-[200px] truncate px-4 py-3 text-muted-foreground">
+                    <td className="max-w-[200px] truncate px-4 py-3 text-[#94A3B8]">
                       {msg.message}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="px-4 py-3 text-[#94A3B8]">
                       {formatDate(msg.created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={msg.is_read ? "active" : "pending"} />
+                      <StatusBadge
+                        status={msg.is_read ? "active" : "pending"}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -202,11 +227,12 @@ export default function ServiceOrdersPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">
-                      {(msg.sender as { display_name: string } | undefined)?.display_name ?? "\u2014"}
+                      {(msg.sender as { display_name: string } | undefined)
+                        ?.display_name ?? "\u2014"}
                     </span>
                     <StatusBadge status={msg.is_read ? "active" : "pending"} />
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p className="mt-0.5 truncate text-xs text-[#94A3B8]">
                     {msg.message}
                   </p>
                 </div>
@@ -224,7 +250,9 @@ export default function ServiceOrdersPage() {
           <Modal
             isOpen={!!selectedOrder}
             onClose={() => setSelectedOrder(null)}
-            title={"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D8\u10E1 \u10D3\u10D4\u10E2\u10D0\u10DA\u10D4\u10D1\u10D8"}
+            title={
+              "\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D8\u10E1 \u10D3\u10D4\u10E2\u10D0\u10DA\u10D4\u10D1\u10D8"
+            }
             size="md"
           >
             <div className="space-y-5">
@@ -234,29 +262,41 @@ export default function ServiceOrdersPage() {
                 </div>
                 <div>
                   <p className="font-semibold">
-                    {(selectedOrder.sender as { display_name: string } | undefined)?.display_name ?? "\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}
+                    {(
+                      selectedOrder.sender as
+                        | { display_name: string }
+                        | undefined
+                    )?.display_name ??
+                      "\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {(selectedOrder.sender as { phone: string } | undefined)?.phone ?? ""}
+                  <p className="text-sm text-[#94A3B8]">
+                    {(selectedOrder.sender as { phone: string } | undefined)
+                      ?.phone ?? ""}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">{"\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0"}</p>
-                <div className="rounded-lg bg-muted p-3 text-sm">
+                <p className="mb-1 text-xs font-medium text-[#94A3B8]">
+                  {
+                    "\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0"
+                  }
+                </p>
+                <div className="rounded-lg bg-[#F8FAFC] p-3 text-sm">
                   {selectedOrder.message}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
                 <Calendar className="h-4 w-4" />
                 {formatDate(selectedOrder.created_at)}
               </div>
 
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <StatusBadge status={selectedOrder.is_read ? "active" : "pending"} />
+                <Clock className="h-4 w-4 text-[#94A3B8]" />
+                <StatusBadge
+                  status={selectedOrder.is_read ? "active" : "pending"}
+                />
               </div>
 
               <div className="flex gap-3 border-t pt-4">
@@ -276,7 +316,7 @@ export default function ServiceOrdersPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedOrder(null)}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#F8FAFC]"
                 >
                   <XIcon className="h-4 w-4" />
                   {"\u10D3\u10D0\u10EE\u10E3\u10E0\u10D5\u10D0"}

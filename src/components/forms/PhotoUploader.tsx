@@ -19,26 +19,61 @@ export default function PhotoUploader({
 }: PhotoUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const processFiles = useCallback(
-    (files: FileList | File[]) => {
+    async (files: FileList | File[]) => {
       const validFiles = Array.from(files).filter((file) =>
         ACCEPTED_TYPES.includes(file.type),
       );
+      const invalidCount = Array.from(files).length - validFiles.length;
 
       const remaining = maxPhotos - photos.length;
       const filesToProcess = validFiles.slice(0, remaining);
+      const skippedByLimit = Math.max(
+        validFiles.length - filesToProcess.length,
+        0,
+      );
 
-      filesToProcess.forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result as string;
-          if (result) {
-            onPhotosChange([...photos, result]);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      if (invalidCount > 0 || skippedByLimit > 0) {
+        setErrorMessage(
+          [
+            invalidCount > 0
+              ? `${invalidCount} ფაილი გამოტოვებულია (მხოლოდ JPG/PNG/WEBP)`
+              : "",
+            skippedByLimit > 0
+              ? `${skippedByLimit} ფაილი გამოტოვებულია (მაქს. ${maxPhotos} ფოტო)`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" • "),
+        );
+      } else {
+        setErrorMessage("");
+      }
+
+      const encoded = await Promise.all(
+        filesToProcess.map(
+          (file) =>
+            new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const result = e.target?.result as string;
+                if (result) {
+                  resolve(result);
+                  return;
+                }
+                reject(new Error("Failed to read image"));
+              };
+              reader.onerror = () => reject(new Error("Failed to read image"));
+              reader.readAsDataURL(file);
+            }),
+        ),
+      ).catch(() => []);
+
+      if (encoded.length > 0) {
+        onPhotosChange([...photos, ...encoded]);
+      }
     },
     [photos, onPhotosChange, maxPhotos],
   );
@@ -95,15 +130,21 @@ export default function PhotoUploader({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-8 transition-colors ${
           isDragging
-            ? "border-brand-accent bg-brand-accent/5"
-            : "border-muted-foreground/25 hover:border-brand-accent/50"
+            ? "border-[#2563EB] bg-[#EFF6FF]"
+            : "hover:border-[#94A3B8]"
         } ${photos.length >= maxPhotos ? "pointer-events-none opacity-50" : ""}`}
       >
-        <Upload className="size-8 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">ატვირთეთ ფოტოები</span>
-        <span className="text-xs text-muted-foreground/60">JPG, PNG, WebP</span>
+        <div className="flex size-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+          <Upload className="size-4 text-[#94A3B8]" />
+        </div>
+        <span className="text-[15px] font-black text-[#1E293B]">
+          ატვირთეთ ფოტოები
+        </span>
+        <span className="text-xs font-normal text-[#64748B]">
+          ჩააგდეთ ფოტოები აქ ან დააჭირეთ ასარჩევად
+        </span>
       </div>
 
       <input
@@ -116,9 +157,9 @@ export default function PhotoUploader({
       />
 
       {/* Photo count */}
-      <p className="text-sm text-muted-foreground">
-        {photos.length} / {maxPhotos}
-      </p>
+      <span className="inline-block rounded-lg bg-[#EEF1F4] px-3 py-1.5 text-[10px] font-black uppercase tracking-[1px] text-[#8B5CF6]">
+        {photos.length} / {maxPhotos} ფოტო
+      </span>
 
       {/* Preview grid */}
       {photos.length > 0 && (
@@ -126,7 +167,7 @@ export default function PhotoUploader({
           {photos.map((photo, index) => (
             <div
               key={index}
-              className="group relative aspect-square overflow-hidden rounded-lg"
+              className="group relative aspect-square overflow-hidden rounded-2xl border border-[#E2E8F0]"
             >
               <Image
                 src={photo}
@@ -145,6 +186,9 @@ export default function PhotoUploader({
             </div>
           ))}
         </div>
+      )}
+      {errorMessage && (
+        <p className="text-xs font-medium text-[#DC2626]">{errorMessage}</p>
       )}
     </div>
   );

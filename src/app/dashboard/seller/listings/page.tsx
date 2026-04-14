@@ -69,10 +69,10 @@ export default function SellerListingsPage() {
         className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
             გასაყიდი ობიექტები
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm font-medium text-[#64748B]">
             მართეთ თქვენი გასაყიდი ობიექტები
           </p>
         </div>
@@ -86,13 +86,13 @@ export default function SellerListingsPage() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
         <input
           type="text"
           placeholder="ობიექტის ძებნა..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
+          className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-10 pr-4 text-sm focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
         />
       </div>
 
@@ -102,7 +102,7 @@ export default function SellerListingsPage() {
           Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="flex gap-4">
                 <Skeleton className="h-24 w-24 rounded-lg" />
@@ -118,10 +118,10 @@ export default function SellerListingsPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+            className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
-            <Building className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
+            <Building className="h-12 w-12 text-[#94A3B8]" />
+            <p className="mt-3 text-sm text-[#94A3B8]">
               ობიექტები ვერ მოიძებნა
             </p>
           </motion.div>
@@ -132,13 +132,13 @@ export default function SellerListingsPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-lg bg-muted sm:w-32">
-                  {property.photos[0] && (
+                <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC] sm:w-32">
+                  {(property.photos ?? [])[0] && (
                     <Image
-                      src={property.photos[0]}
+                      src={(property.photos ?? [])[0]}
                       alt={property.title}
                       fill
                       className="object-cover"
@@ -149,22 +149,23 @@ export default function SellerListingsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="truncate text-sm font-semibold text-foreground">
+                      <h3 className="truncate text-sm font-semibold text-[#1E293B]">
                         {property.title}
                       </h3>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-[#94A3B8]">
                         <MapPin className="h-3 w-3" />
                         {property.location}
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status] ?? ""}`}
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status ?? "draft"] ?? ""}`}
                     >
-                      {statusLabels[property.status] ?? property.status}
+                      {statusLabels[property.status ?? "draft"] ??
+                        property.status}
                     </span>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[#94A3B8]">
                     <span className="text-lg font-bold text-brand-accent">
                       {formatPrice(Number(property.sale_price ?? 0))}
                     </span>

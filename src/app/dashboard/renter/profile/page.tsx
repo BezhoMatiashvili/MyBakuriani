@@ -126,8 +126,10 @@ export default function RenterProfilePage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">პროფილი</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          პროფილი
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           მართეთ თქვენი პირადი ინფორმაცია
         </p>
       </motion.div>
@@ -139,22 +141,22 @@ export default function RenterProfilePage() {
         transition={{ delay: 0.1 }}
         className="flex flex-wrap gap-3"
       >
-        <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-sm">
+        <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
           <Shield
-            className={`h-4 w-4 ${profile?.is_verified ? "text-green-500" : "text-muted-foreground"}`}
+            className={`h-4 w-4 ${profile?.is_verified ? "text-green-500" : "text-[#94A3B8]"}`}
           />
           <span className="text-xs font-medium">
             {profile?.is_verified ? "ვერიფიცირებული" : "არა ვერიფიცირებული"}
           </span>
         </div>
         {profile?.rating && (
-          <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-sm">
+          <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
             <Star className="h-4 w-4 text-amber-400" />
             <span className="text-xs font-medium">{profile.rating}</span>
           </div>
         )}
         {profile?.response_time_minutes && (
-          <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-sm">
+          <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
             <Clock className="h-4 w-4 text-brand-accent" />
             <span className="text-xs font-medium">
               {profile.response_time_minutes} წთ
@@ -167,7 +169,7 @@ export default function RenterProfilePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
         {/* Avatar */}
         <div className="flex flex-col items-center gap-4 sm:flex-row">
@@ -193,7 +195,7 @@ export default function RenterProfilePage() {
             </label>
           </div>
           <div>
-            <p className="text-lg font-semibold text-foreground">
+            <p className="text-lg font-semibold text-[#1E293B]">
               {profile?.display_name}
             </p>
             <Badge variant="secondary" className="mt-1">
@@ -205,45 +207,45 @@ export default function RenterProfilePage() {
         {/* Form */}
         <div className="mt-6 space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               სახელი
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-10 pr-4 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
                 placeholder="თქვენი სახელი"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               ტელეფონი
             </label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
               <input
                 type="tel"
                 value={profile?.phone ?? ""}
                 disabled
-                className="w-full rounded-lg border border-border bg-muted py-2.5 pl-10 pr-4 text-sm text-muted-foreground"
+                className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] py-2.5 pl-10 pr-4 text-sm text-[#94A3B8]"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               ბიო
             </label>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
               placeholder="მოკლე აღწერა თქვენს შესახებ..."
             />
           </div>

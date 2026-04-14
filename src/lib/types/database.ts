@@ -7,262 +7,139 @@ export type Json =
   | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.4";
+  };
   public: {
     Tables: {
-      profiles: {
+      balances: {
         Row: {
-          id: string;
-          phone: string;
-          display_name: string;
-          avatar_url: string | null;
-          role: Database["public"]["Enums"]["user_role"];
-          bio: string | null;
-          rating: number | null;
-          response_time_minutes: number | null;
-          is_verified: boolean;
-          verified_at: string | null;
-          created_at: string;
-          updated_at: string;
+          amount: number | null;
+          sms_remaining: number | null;
+          updated_at: string | null;
+          user_id: string;
         };
         Insert: {
-          id: string;
-          phone: string;
-          display_name: string;
-          avatar_url?: string | null;
-          role?: Database["public"]["Enums"]["user_role"];
-          bio?: string | null;
-          rating?: number | null;
-          response_time_minutes?: number | null;
-          is_verified?: boolean;
-          verified_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          amount?: number | null;
+          sms_remaining?: number | null;
+          updated_at?: string | null;
+          user_id: string;
         };
         Update: {
-          id?: string;
-          phone?: string;
-          display_name?: string;
-          avatar_url?: string | null;
-          role?: Database["public"]["Enums"]["user_role"];
-          bio?: string | null;
-          rating?: number | null;
-          response_time_minutes?: number | null;
-          is_verified?: boolean;
-          verified_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      properties: {
-        Row: {
-          id: string;
-          owner_id: string;
-          type: Database["public"]["Enums"]["property_type"];
-          title: string;
-          description: string | null;
-          location: string;
-          location_lat: number | null;
-          location_lng: number | null;
-          cadastral_code: string | null;
-          area_sqm: number | null;
-          rooms: number | null;
-          bathrooms: number | null;
-          capacity: number | null;
-          price_per_night: number | null;
-          sale_price: number | null;
-          currency: string;
-          amenities: Json;
-          photos: string[];
-          status: Database["public"]["Enums"]["listing_status"];
-          is_vip: boolean;
-          is_super_vip: boolean;
-          vip_expires_at: string | null;
-          discount_percent: number;
-          views_count: number;
-          house_rules: Json;
-          min_booking_days: number;
-          is_for_sale: boolean;
-          roi_percent: number | null;
-          construction_status: string | null;
-          developer: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          owner_id: string;
-          type: Database["public"]["Enums"]["property_type"];
-          title: string;
-          description?: string | null;
-          location: string;
-          location_lat?: number | null;
-          location_lng?: number | null;
-          cadastral_code?: string | null;
-          area_sqm?: number | null;
-          rooms?: number | null;
-          bathrooms?: number | null;
-          capacity?: number | null;
-          price_per_night?: number | null;
-          sale_price?: number | null;
-          currency?: string;
-          amenities?: Json;
-          photos?: string[];
-          status?: Database["public"]["Enums"]["listing_status"];
-          is_vip?: boolean;
-          is_super_vip?: boolean;
-          vip_expires_at?: string | null;
-          discount_percent?: number;
-          views_count?: number;
-          house_rules?: Json;
-          min_booking_days?: number;
-          is_for_sale?: boolean;
-          roi_percent?: number | null;
-          construction_status?: string | null;
-          developer?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          owner_id?: string;
-          type?: Database["public"]["Enums"]["property_type"];
-          title?: string;
-          description?: string | null;
-          location?: string;
-          location_lat?: number | null;
-          location_lng?: number | null;
-          cadastral_code?: string | null;
-          area_sqm?: number | null;
-          rooms?: number | null;
-          bathrooms?: number | null;
-          capacity?: number | null;
-          price_per_night?: number | null;
-          sale_price?: number | null;
-          currency?: string;
-          amenities?: Json;
-          photos?: string[];
-          status?: Database["public"]["Enums"]["listing_status"];
-          is_vip?: boolean;
-          is_super_vip?: boolean;
-          vip_expires_at?: string | null;
-          discount_percent?: number;
-          views_count?: number;
-          house_rules?: Json;
-          min_booking_days?: number;
-          is_for_sale?: boolean;
-          roi_percent?: number | null;
-          construction_status?: string | null;
-          developer?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          amount?: number | null;
+          sms_remaining?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "properties_owner_id_fkey";
-            columns: ["owner_id"];
+            foreignKeyName: "balances_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      blog_posts: {
+        Row: {
+          author_id: string | null;
+          content: string;
+          created_at: string | null;
+          excerpt: string | null;
+          id: string;
+          image_url: string | null;
+          published: boolean | null;
+          published_at: string | null;
+          slug: string;
+          title: string;
+        };
+        Insert: {
+          author_id?: string | null;
+          content: string;
+          created_at?: string | null;
+          excerpt?: string | null;
+          id?: string;
+          image_url?: string | null;
+          published?: boolean | null;
+          published_at?: string | null;
+          slug: string;
+          title: string;
+        };
+        Update: {
+          author_id?: string | null;
+          content?: string;
+          created_at?: string | null;
+          excerpt?: string | null;
+          id?: string;
+          image_url?: string | null;
+          published?: boolean | null;
+          published_at?: string | null;
+          slug?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_author_id_fkey";
+            columns: ["author_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
       };
-      calendar_blocks: {
-        Row: {
-          id: string;
-          property_id: string;
-          date: string;
-          status: Database["public"]["Enums"]["calendar_status"];
-          booking_id: string | null;
-        };
-        Insert: {
-          id?: string;
-          property_id: string;
-          date: string;
-          status?: Database["public"]["Enums"]["calendar_status"];
-          booking_id?: string | null;
-        };
-        Update: {
-          id?: string;
-          property_id?: string;
-          date?: string;
-          status?: Database["public"]["Enums"]["calendar_status"];
-          booking_id?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "calendar_blocks_property_id_fkey";
-            columns: ["property_id"];
-            isOneToOne: false;
-            referencedRelation: "properties";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "calendar_blocks_booking_id_fkey";
-            columns: ["booking_id"];
-            isOneToOne: false;
-            referencedRelation: "bookings";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       bookings: {
         Row: {
-          id: string;
-          property_id: string;
-          guest_id: string;
-          owner_id: string;
           check_in: string;
           check_out: string;
-          guests_count: number;
-          status: Database["public"]["Enums"]["booking_status"];
-          total_price: number;
-          currency: string;
+          created_at: string | null;
+          currency: string | null;
+          guest_id: string;
           guest_message: string | null;
+          guests_count: number;
+          id: string;
+          owner_id: string;
           owner_response: string | null;
-          created_at: string;
-          updated_at: string;
+          property_id: string;
+          status: Database["public"]["Enums"]["booking_status"] | null;
+          total_price: number;
+          updated_at: string | null;
         };
         Insert: {
-          id?: string;
-          property_id: string;
-          guest_id: string;
-          owner_id: string;
           check_in: string;
           check_out: string;
-          guests_count?: number;
-          status?: Database["public"]["Enums"]["booking_status"];
-          total_price: number;
-          currency?: string;
+          created_at?: string | null;
+          currency?: string | null;
+          guest_id: string;
           guest_message?: string | null;
+          guests_count?: number;
+          id?: string;
+          owner_id: string;
           owner_response?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          property_id: string;
+          status?: Database["public"]["Enums"]["booking_status"] | null;
+          total_price: number;
+          updated_at?: string | null;
         };
         Update: {
-          id?: string;
-          property_id?: string;
-          guest_id?: string;
-          owner_id?: string;
           check_in?: string;
           check_out?: string;
-          guests_count?: number;
-          status?: Database["public"]["Enums"]["booking_status"];
-          total_price?: number;
-          currency?: string;
+          created_at?: string | null;
+          currency?: string | null;
+          guest_id?: string;
           guest_message?: string | null;
+          guests_count?: number;
+          id?: string;
+          owner_id?: string;
           owner_response?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          property_id?: string;
+          status?: Database["public"]["Enums"]["booking_status"] | null;
+          total_price?: number;
+          updated_at?: string | null;
         };
         Relationships: [
-          {
-            foreignKeyName: "bookings_property_id_fkey";
-            columns: ["property_id"];
-            isOneToOne: false;
-            referencedRelation: "properties";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "bookings_guest_id_fkey";
             columns: ["guest_id"];
@@ -277,44 +154,336 @@ export type Database = {
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
-        ];
-      };
-      reviews: {
-        Row: {
-          id: string;
-          property_id: string;
-          booking_id: string | null;
-          guest_id: string;
-          rating: number;
-          comment: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          property_id: string;
-          booking_id?: string | null;
-          guest_id: string;
-          rating: number;
-          comment?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          property_id?: string;
-          booking_id?: string | null;
-          guest_id?: string;
-          rating?: number;
-          comment?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
           {
-            foreignKeyName: "reviews_property_id_fkey";
+            foreignKeyName: "bookings_property_id_fkey";
             columns: ["property_id"];
             isOneToOne: false;
             referencedRelation: "properties";
             referencedColumns: ["id"];
           },
+        ];
+      };
+      calendar_blocks: {
+        Row: {
+          booking_id: string | null;
+          date: string;
+          id: string;
+          property_id: string;
+          status: Database["public"]["Enums"]["calendar_status"];
+        };
+        Insert: {
+          booking_id?: string | null;
+          date: string;
+          id?: string;
+          property_id: string;
+          status?: Database["public"]["Enums"]["calendar_status"];
+        };
+        Update: {
+          booking_id?: string | null;
+          date?: string;
+          id?: string;
+          property_id?: string;
+          status?: Database["public"]["Enums"]["calendar_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "calendar_blocks_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cleaning_tasks: {
+        Row: {
+          cleaner_id: string | null;
+          cleaning_type: string;
+          created_at: string | null;
+          id: string;
+          notes: string | null;
+          owner_id: string;
+          price: number | null;
+          property_id: string;
+          scheduled_at: string;
+          status: string | null;
+        };
+        Insert: {
+          cleaner_id?: string | null;
+          cleaning_type: string;
+          created_at?: string | null;
+          id?: string;
+          notes?: string | null;
+          owner_id: string;
+          price?: number | null;
+          property_id: string;
+          scheduled_at: string;
+          status?: string | null;
+        };
+        Update: {
+          cleaner_id?: string | null;
+          cleaning_type?: string;
+          created_at?: string | null;
+          id?: string;
+          notes?: string | null;
+          owner_id?: string;
+          price?: number | null;
+          property_id?: string;
+          scheduled_at?: string;
+          status?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_tasks_cleaner_id_fkey";
+            columns: ["cleaner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cleaning_tasks_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cleaning_tasks_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notifications: {
+        Row: {
+          action_url: string | null;
+          created_at: string | null;
+          id: string;
+          is_read: boolean | null;
+          message: string | null;
+          title: string;
+          type: string;
+          user_id: string;
+        };
+        Insert: {
+          action_url?: string | null;
+          created_at?: string | null;
+          id?: string;
+          is_read?: boolean | null;
+          message?: string | null;
+          title: string;
+          type: string;
+          user_id: string;
+        };
+        Update: {
+          action_url?: string | null;
+          created_at?: string | null;
+          id?: string;
+          is_read?: boolean | null;
+          message?: string | null;
+          title?: string;
+          type?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profiles: {
+        Row: {
+          avatar_url: string | null;
+          bio: string | null;
+          created_at: string | null;
+          display_name: string;
+          id: string;
+          is_verified: boolean | null;
+          phone: string;
+          rating: number | null;
+          response_time_minutes: number | null;
+          role: Database["public"]["Enums"]["user_role"];
+          updated_at: string | null;
+          verified_at: string | null;
+        };
+        Insert: {
+          avatar_url?: string | null;
+          bio?: string | null;
+          created_at?: string | null;
+          display_name: string;
+          id: string;
+          is_verified?: boolean | null;
+          phone: string;
+          rating?: number | null;
+          response_time_minutes?: number | null;
+          role?: Database["public"]["Enums"]["user_role"];
+          updated_at?: string | null;
+          verified_at?: string | null;
+        };
+        Update: {
+          avatar_url?: string | null;
+          bio?: string | null;
+          created_at?: string | null;
+          display_name?: string;
+          id?: string;
+          is_verified?: boolean | null;
+          phone?: string;
+          rating?: number | null;
+          response_time_minutes?: number | null;
+          role?: Database["public"]["Enums"]["user_role"];
+          updated_at?: string | null;
+          verified_at?: string | null;
+        };
+        Relationships: [];
+      };
+      properties: {
+        Row: {
+          amenities: Json | null;
+          area_sqm: number | null;
+          bathrooms: number | null;
+          cadastral_code: string | null;
+          capacity: number | null;
+          construction_status: string | null;
+          created_at: string | null;
+          currency: string | null;
+          description: string | null;
+          developer: string | null;
+          discount_percent: number | null;
+          house_rules: Json | null;
+          id: string;
+          is_for_sale: boolean | null;
+          is_super_vip: boolean | null;
+          is_vip: boolean | null;
+          location: string;
+          location_lat: number | null;
+          location_lng: number | null;
+          min_booking_days: number | null;
+          owner_id: string;
+          photos: string[] | null;
+          price_per_night: number | null;
+          roi_percent: number | null;
+          rooms: number | null;
+          sale_price: number | null;
+          status: Database["public"]["Enums"]["listing_status"] | null;
+          title: string;
+          type: Database["public"]["Enums"]["property_type"];
+          updated_at: string | null;
+          views_count: number | null;
+          vip_expires_at: string | null;
+        };
+        Insert: {
+          amenities?: Json | null;
+          area_sqm?: number | null;
+          bathrooms?: number | null;
+          cadastral_code?: string | null;
+          capacity?: number | null;
+          construction_status?: string | null;
+          created_at?: string | null;
+          currency?: string | null;
+          description?: string | null;
+          developer?: string | null;
+          discount_percent?: number | null;
+          house_rules?: Json | null;
+          id?: string;
+          is_for_sale?: boolean | null;
+          is_super_vip?: boolean | null;
+          is_vip?: boolean | null;
+          location: string;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          min_booking_days?: number | null;
+          owner_id: string;
+          photos?: string[] | null;
+          price_per_night?: number | null;
+          roi_percent?: number | null;
+          rooms?: number | null;
+          sale_price?: number | null;
+          status?: Database["public"]["Enums"]["listing_status"] | null;
+          title: string;
+          type: Database["public"]["Enums"]["property_type"];
+          updated_at?: string | null;
+          views_count?: number | null;
+          vip_expires_at?: string | null;
+        };
+        Update: {
+          amenities?: Json | null;
+          area_sqm?: number | null;
+          bathrooms?: number | null;
+          cadastral_code?: string | null;
+          capacity?: number | null;
+          construction_status?: string | null;
+          created_at?: string | null;
+          currency?: string | null;
+          description?: string | null;
+          developer?: string | null;
+          discount_percent?: number | null;
+          house_rules?: Json | null;
+          id?: string;
+          is_for_sale?: boolean | null;
+          is_super_vip?: boolean | null;
+          is_vip?: boolean | null;
+          location?: string;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          min_booking_days?: number | null;
+          owner_id?: string;
+          photos?: string[] | null;
+          price_per_night?: number | null;
+          roi_percent?: number | null;
+          rooms?: number | null;
+          sale_price?: number | null;
+          status?: Database["public"]["Enums"]["listing_status"] | null;
+          title?: string;
+          type?: Database["public"]["Enums"]["property_type"];
+          updated_at?: string | null;
+          views_count?: number | null;
+          vip_expires_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "properties_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reviews: {
+        Row: {
+          booking_id: string | null;
+          comment: string | null;
+          created_at: string | null;
+          guest_id: string;
+          id: string;
+          property_id: string;
+          rating: number;
+        };
+        Insert: {
+          booking_id?: string | null;
+          comment?: string | null;
+          created_at?: string | null;
+          guest_id: string;
+          id?: string;
+          property_id: string;
+          rating: number;
+        };
+        Update: {
+          booking_id?: string | null;
+          comment?: string | null;
+          created_at?: string | null;
+          guest_id?: string;
+          id?: string;
+          property_id?: string;
+          rating?: number;
+        };
+        Relationships: [
           {
             foreignKeyName: "reviews_booking_id_fkey";
             columns: ["booking_id"];
@@ -329,101 +498,108 @@ export type Database = {
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "reviews_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
         ];
       };
       services: {
         Row: {
-          id: string;
-          owner_id: string;
           category: Database["public"]["Enums"]["service_category"];
-          title: string;
+          created_at: string | null;
+          cuisine_type: string | null;
+          currency: string | null;
           description: string | null;
+          discount_percent: number | null;
+          driver_name: string | null;
+          employment_schedule: string | null;
+          experience_required: string | null;
+          has_delivery: boolean | null;
+          id: string;
+          is_vip: boolean | null;
+          location: string | null;
+          menu: Json | null;
+          operating_hours: string | null;
+          owner_id: string;
+          phone: string | null;
+          photos: string[] | null;
+          position: string | null;
           price: number | null;
           price_unit: string | null;
-          currency: string;
-          photos: string[];
-          location: string | null;
-          schedule: string | null;
-          phone: string | null;
-          discount_percent: number;
-          status: Database["public"]["Enums"]["listing_status"];
-          is_vip: boolean;
-          views_count: number;
-          driver_name: string | null;
-          vehicle_capacity: number | null;
           route: string | null;
-          cuisine_type: string | null;
-          has_delivery: boolean;
-          operating_hours: string | null;
-          menu: Json | null;
-          position: string | null;
           salary_range: string | null;
-          experience_required: string | null;
-          employment_schedule: string | null;
-          created_at: string;
-          updated_at: string;
+          schedule: string | null;
+          status: Database["public"]["Enums"]["listing_status"] | null;
+          title: string;
+          updated_at: string | null;
+          vehicle_capacity: number | null;
+          views_count: number | null;
         };
         Insert: {
-          id?: string;
-          owner_id: string;
           category: Database["public"]["Enums"]["service_category"];
-          title: string;
+          created_at?: string | null;
+          cuisine_type?: string | null;
+          currency?: string | null;
           description?: string | null;
+          discount_percent?: number | null;
+          driver_name?: string | null;
+          employment_schedule?: string | null;
+          experience_required?: string | null;
+          has_delivery?: boolean | null;
+          id?: string;
+          is_vip?: boolean | null;
+          location?: string | null;
+          menu?: Json | null;
+          operating_hours?: string | null;
+          owner_id: string;
+          phone?: string | null;
+          photos?: string[] | null;
+          position?: string | null;
           price?: number | null;
           price_unit?: string | null;
-          currency?: string;
-          photos?: string[];
-          location?: string | null;
-          schedule?: string | null;
-          phone?: string | null;
-          discount_percent?: number;
-          status?: Database["public"]["Enums"]["listing_status"];
-          is_vip?: boolean;
-          views_count?: number;
-          driver_name?: string | null;
-          vehicle_capacity?: number | null;
           route?: string | null;
-          cuisine_type?: string | null;
-          has_delivery?: boolean;
-          operating_hours?: string | null;
-          menu?: Json | null;
-          position?: string | null;
           salary_range?: string | null;
-          experience_required?: string | null;
-          employment_schedule?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          schedule?: string | null;
+          status?: Database["public"]["Enums"]["listing_status"] | null;
+          title: string;
+          updated_at?: string | null;
+          vehicle_capacity?: number | null;
+          views_count?: number | null;
         };
         Update: {
-          id?: string;
-          owner_id?: string;
           category?: Database["public"]["Enums"]["service_category"];
-          title?: string;
+          created_at?: string | null;
+          cuisine_type?: string | null;
+          currency?: string | null;
           description?: string | null;
+          discount_percent?: number | null;
+          driver_name?: string | null;
+          employment_schedule?: string | null;
+          experience_required?: string | null;
+          has_delivery?: boolean | null;
+          id?: string;
+          is_vip?: boolean | null;
+          location?: string | null;
+          menu?: Json | null;
+          operating_hours?: string | null;
+          owner_id?: string;
+          phone?: string | null;
+          photos?: string[] | null;
+          position?: string | null;
           price?: number | null;
           price_unit?: string | null;
-          currency?: string;
-          photos?: string[];
-          location?: string | null;
-          schedule?: string | null;
-          phone?: string | null;
-          discount_percent?: number;
-          status?: Database["public"]["Enums"]["listing_status"];
-          is_vip?: boolean;
-          views_count?: number;
-          driver_name?: string | null;
-          vehicle_capacity?: number | null;
           route?: string | null;
-          cuisine_type?: string | null;
-          has_delivery?: boolean;
-          operating_hours?: string | null;
-          menu?: Json | null;
-          position?: string | null;
           salary_range?: string | null;
-          experience_required?: string | null;
-          employment_schedule?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          schedule?: string | null;
+          status?: Database["public"]["Enums"]["listing_status"] | null;
+          title?: string;
+          updated_at?: string | null;
+          vehicle_capacity?: number | null;
+          views_count?: number | null;
         };
         Relationships: [
           {
@@ -437,43 +613,43 @@ export type Database = {
       };
       smart_match_requests: {
         Row: {
-          id: string;
-          guest_id: string;
+          budget_max: number | null;
+          budget_min: number | null;
           check_in: string | null;
           check_out: string | null;
-          budget_min: number | null;
-          budget_max: number | null;
+          created_at: string | null;
+          guest_id: string;
           guests_count: number | null;
-          preferences: Json;
-          status: string;
-          matched_properties: string[];
-          created_at: string;
+          id: string;
+          matched_properties: string[] | null;
+          preferences: Json | null;
+          status: string | null;
         };
         Insert: {
-          id?: string;
-          guest_id: string;
+          budget_max?: number | null;
+          budget_min?: number | null;
           check_in?: string | null;
           check_out?: string | null;
-          budget_min?: number | null;
-          budget_max?: number | null;
+          created_at?: string | null;
+          guest_id: string;
           guests_count?: number | null;
-          preferences?: Json;
-          status?: string;
-          matched_properties?: string[];
-          created_at?: string;
+          id?: string;
+          matched_properties?: string[] | null;
+          preferences?: Json | null;
+          status?: string | null;
         };
         Update: {
-          id?: string;
-          guest_id?: string;
+          budget_max?: number | null;
+          budget_min?: number | null;
           check_in?: string | null;
           check_out?: string | null;
-          budget_min?: number | null;
-          budget_max?: number | null;
+          created_at?: string | null;
+          guest_id?: string;
           guests_count?: number | null;
-          preferences?: Json;
-          status?: string;
-          matched_properties?: string[];
-          created_at?: string;
+          id?: string;
+          matched_properties?: string[] | null;
+          preferences?: Json | null;
+          status?: string | null;
         };
         Relationships: [
           {
@@ -485,112 +661,38 @@ export type Database = {
           },
         ];
       };
-      balances: {
-        Row: {
-          user_id: string;
-          amount: number;
-          sms_remaining: number;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          amount?: number;
-          sms_remaining?: number;
-          updated_at?: string;
-        };
-        Update: {
-          user_id?: string;
-          amount?: number;
-          sms_remaining?: number;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "balances_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: true;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      transactions: {
-        Row: {
-          id: string;
-          user_id: string;
-          amount: number;
-          type: Database["public"]["Enums"]["transaction_type"];
-          description: string | null;
-          reference_id: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          amount: number;
-          type: Database["public"]["Enums"]["transaction_type"];
-          description?: string | null;
-          reference_id?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          amount?: number;
-          type?: Database["public"]["Enums"]["transaction_type"];
-          description?: string | null;
-          reference_id?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "transactions_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       sms_messages: {
         Row: {
-          id: string;
+          created_at: string | null;
           from_user_id: string;
-          to_user_id: string;
-          property_id: string | null;
+          id: string;
+          is_read: boolean | null;
           message: string;
-          is_read: boolean;
-          created_at: string;
+          property_id: string | null;
+          to_user_id: string;
         };
         Insert: {
-          id?: string;
+          created_at?: string | null;
           from_user_id: string;
-          to_user_id: string;
-          property_id?: string | null;
+          id?: string;
+          is_read?: boolean | null;
           message: string;
-          is_read?: boolean;
-          created_at?: string;
+          property_id?: string | null;
+          to_user_id: string;
         };
         Update: {
-          id?: string;
+          created_at?: string | null;
           from_user_id?: string;
-          to_user_id?: string;
-          property_id?: string | null;
+          id?: string;
+          is_read?: boolean | null;
           message?: string;
-          is_read?: boolean;
-          created_at?: string;
+          property_id?: string | null;
+          to_user_id?: string;
         };
         Relationships: [
           {
             foreignKeyName: "sms_messages_from_user_id_fkey";
             columns: ["from_user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "sms_messages_to_user_id_fkey";
-            columns: ["to_user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -602,50 +704,88 @@ export type Database = {
             referencedRelation: "properties";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "sms_messages_to_user_id_fkey";
+            columns: ["to_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
         ];
       };
-      verifications: {
+      transactions: {
         Row: {
+          amount: number;
+          created_at: string | null;
+          description: string | null;
           id: string;
+          reference_id: string | null;
+          type: Database["public"]["Enums"]["transaction_type"];
           user_id: string;
-          property_id: string | null;
-          status: Database["public"]["Enums"]["verification_status"];
-          documents: Json;
-          admin_notes: string | null;
-          reviewed_by: string | null;
-          reviewed_at: string | null;
-          created_at: string;
         };
         Insert: {
+          amount: number;
+          created_at?: string | null;
+          description?: string | null;
           id?: string;
+          reference_id?: string | null;
+          type: Database["public"]["Enums"]["transaction_type"];
           user_id: string;
-          property_id?: string | null;
-          status?: Database["public"]["Enums"]["verification_status"];
-          documents?: Json;
-          admin_notes?: string | null;
-          reviewed_by?: string | null;
-          reviewed_at?: string | null;
-          created_at?: string;
         };
         Update: {
+          amount?: number;
+          created_at?: string | null;
+          description?: string | null;
           id?: string;
+          reference_id?: string | null;
+          type?: Database["public"]["Enums"]["transaction_type"];
           user_id?: string;
-          property_id?: string | null;
-          status?: Database["public"]["Enums"]["verification_status"];
-          documents?: Json;
-          admin_notes?: string | null;
-          reviewed_by?: string | null;
-          reviewed_at?: string | null;
-          created_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "verifications_user_id_fkey";
+            foreignKeyName: "transactions_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
+        ];
+      };
+      verifications: {
+        Row: {
+          admin_notes: string | null;
+          created_at: string | null;
+          documents: Json | null;
+          id: string;
+          property_id: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status: Database["public"]["Enums"]["verification_status"] | null;
+          user_id: string;
+        };
+        Insert: {
+          admin_notes?: string | null;
+          created_at?: string | null;
+          documents?: Json | null;
+          id?: string;
+          property_id?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: Database["public"]["Enums"]["verification_status"] | null;
+          user_id: string;
+        };
+        Update: {
+          admin_notes?: string | null;
+          created_at?: string | null;
+          documents?: Json | null;
+          id?: string;
+          property_id?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: Database["public"]["Enums"]["verification_status"] | null;
+          user_id?: string;
+        };
+        Relationships: [
           {
             foreignKeyName: "verifications_property_id_fkey";
             columns: ["property_id"];
@@ -660,151 +800,9 @@ export type Database = {
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
-        ];
-      };
-      notifications: {
-        Row: {
-          id: string;
-          user_id: string;
-          type: string;
-          title: string;
-          message: string | null;
-          is_read: boolean;
-          action_url: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          type: string;
-          title: string;
-          message?: string | null;
-          is_read?: boolean;
-          action_url?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          type?: string;
-          title?: string;
-          message?: string | null;
-          is_read?: boolean;
-          action_url?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
           {
-            foreignKeyName: "notifications_user_id_fkey";
+            foreignKeyName: "verifications_user_id_fkey";
             columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      blog_posts: {
-        Row: {
-          id: string;
-          title: string;
-          slug: string;
-          content: string;
-          excerpt: string | null;
-          image_url: string | null;
-          author_id: string | null;
-          published: boolean;
-          published_at: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          title: string;
-          slug: string;
-          content: string;
-          excerpt?: string | null;
-          image_url?: string | null;
-          author_id?: string | null;
-          published?: boolean;
-          published_at?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          slug?: string;
-          content?: string;
-          excerpt?: string | null;
-          image_url?: string | null;
-          author_id?: string | null;
-          published?: boolean;
-          published_at?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "blog_posts_author_id_fkey";
-            columns: ["author_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      cleaning_tasks: {
-        Row: {
-          id: string;
-          property_id: string;
-          owner_id: string;
-          cleaner_id: string | null;
-          cleaning_type: string;
-          scheduled_at: string;
-          price: number | null;
-          status: string;
-          notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          property_id: string;
-          owner_id: string;
-          cleaner_id?: string | null;
-          cleaning_type: string;
-          scheduled_at: string;
-          price?: number | null;
-          status?: string;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          property_id?: string;
-          owner_id?: string;
-          cleaner_id?: string | null;
-          cleaning_type?: string;
-          scheduled_at?: string;
-          price?: number | null;
-          status?: string;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "cleaning_tasks_property_id_fkey";
-            columns: ["property_id"];
-            isOneToOne: false;
-            referencedRelation: "properties";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "cleaning_tasks_owner_id_fkey";
-            columns: ["owner_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "cleaning_tasks_cleaner_id_fkey";
-            columns: ["cleaner_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -816,35 +814,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      increment_views: {
-        Args: {
-          prop_id: string;
-        };
-        Returns: undefined;
-      };
-      update_property_rating: {
-        Args: {
-          prop_id: string;
-        };
-        Returns: undefined;
-      };
+      increment_views: { Args: { prop_id: string }; Returns: undefined };
+      show_limit: { Args: never; Returns: number };
+      show_trgm: { Args: { "": string }; Returns: string[] };
     };
     Enums: {
-      user_role:
-        | "guest"
-        | "renter"
-        | "seller"
-        | "cleaner"
-        | "food"
-        | "entertainment"
-        | "transport"
-        | "employment"
-        | "handyman"
-        | "admin";
-      property_type: "apartment" | "cottage" | "hotel" | "studio" | "villa";
-      listing_status: "active" | "blocked" | "pending" | "draft";
       booking_status: "pending" | "confirmed" | "cancelled" | "completed";
-      verification_status: "pending" | "approved" | "rejected";
+      calendar_status: "available" | "booked" | "blocked";
+      listing_status: "active" | "blocked" | "pending" | "draft";
+      property_type: "apartment" | "cottage" | "hotel" | "studio" | "villa";
       service_category:
         | "transport"
         | "cleaning"
@@ -860,7 +838,18 @@ export type Database = {
         | "discount_badge"
         | "withdrawal"
         | "commission";
-      calendar_status: "available" | "booked" | "blocked";
+      user_role:
+        | "guest"
+        | "renter"
+        | "seller"
+        | "cleaner"
+        | "food"
+        | "entertainment"
+        | "transport"
+        | "employment"
+        | "handyman"
+        | "admin";
+      verification_status: "pending" | "approved" | "rejected";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -868,12 +857,163 @@ export type Database = {
   };
 };
 
-// Convenience type helpers
-export type Tables<T extends keyof Database["public"]["Tables"]> =
-  Database["public"]["Tables"][T]["Row"];
-export type TablesInsert<T extends keyof Database["public"]["Tables"]> =
-  Database["public"]["Tables"][T]["Insert"];
-export type TablesUpdate<T extends keyof Database["public"]["Tables"]> =
-  Database["public"]["Tables"][T]["Update"];
-export type Enums<T extends keyof Database["public"]["Enums"]> =
-  Database["public"]["Enums"][T];
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<
+  keyof Database,
+  "public"
+>];
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R;
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
+      }
+      ? R
+      : never
+    : never;
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
+      ? I
+      : never
+    : never;
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
+      ? U
+      : never
+    : never;
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never;
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never;
+
+export const Constants = {
+  public: {
+    Enums: {
+      booking_status: ["pending", "confirmed", "cancelled", "completed"],
+      calendar_status: ["available", "booked", "blocked"],
+      listing_status: ["active", "blocked", "pending", "draft"],
+      property_type: ["apartment", "cottage", "hotel", "studio", "villa"],
+      service_category: [
+        "transport",
+        "cleaning",
+        "food",
+        "entertainment",
+        "employment",
+        "handyman",
+      ],
+      transaction_type: [
+        "topup",
+        "vip_boost",
+        "super_vip",
+        "sms_package",
+        "discount_badge",
+        "withdrawal",
+        "commission",
+      ],
+      user_role: [
+        "guest",
+        "renter",
+        "seller",
+        "cleaner",
+        "food",
+        "entertainment",
+        "transport",
+        "employment",
+        "handyman",
+        "admin",
+      ],
+      verification_status: ["pending", "approved", "rejected"],
+    },
+  },
+} as const;

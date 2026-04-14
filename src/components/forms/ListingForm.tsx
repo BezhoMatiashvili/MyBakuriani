@@ -20,13 +20,16 @@ export default function ListingForm({
 }: ListingFormProps) {
   const totalSteps = steps.length;
   const progress = ((currentStep + 1) / totalSteps) * 100;
+  const goToStep = (step: number) => {
+    onStepChange(Math.max(0, Math.min(step, totalSteps - 1)));
+  };
 
   return (
     <div className="w-full space-y-8">
       {/* Progress bar */}
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
         <motion.div
-          className="h-full rounded-full bg-brand-accent"
+          className="h-full rounded-full bg-[#2563EB]"
           initial={false}
           animate={{ width: `${progress}%` }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -45,7 +48,7 @@ export default function ListingForm({
               {index > 0 && (
                 <div
                   className={`h-0.5 w-8 sm:w-12 ${
-                    index <= currentStep ? "bg-brand-accent" : "bg-muted"
+                    index <= currentStep ? "bg-[#2563EB]" : "bg-[#E2E8F0]"
                   }`}
                 />
               )}
@@ -55,23 +58,21 @@ export default function ListingForm({
                 <button
                   type="button"
                   onClick={() => {
-                    if (isCompleted) onStepChange(index);
+                    if (isCompleted) goToStep(index);
                   }}
-                  className={`flex size-9 items-center justify-center rounded-full border-2 text-sm font-medium transition-colors ${
+                  className={`flex size-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
                     isCompleted
-                      ? "cursor-pointer border-brand-accent bg-brand-accent text-white"
+                      ? "cursor-pointer border-[#2563EB] bg-[#2563EB] text-white"
                       : isActive
-                        ? "border-brand-accent bg-background text-brand-accent"
-                        : "cursor-default border-muted bg-muted text-muted-foreground"
+                        ? "border-[#2563EB] bg-white text-[#2563EB]"
+                        : "cursor-default border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8]"
                   }`}
                 >
                   {isCompleted ? <Check className="size-4" /> : index + 1}
                 </button>
                 <span
                   className={`hidden text-xs sm:block ${
-                    isActive
-                      ? "font-medium text-foreground"
-                      : "text-muted-foreground"
+                    isActive ? "font-bold text-[#0F172A]" : "text-[#94A3B8]"
                   }`}
                 >
                   {label}
@@ -101,18 +102,18 @@ export default function ListingForm({
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
-          onClick={() => onStepChange(currentStep - 1)}
+          onClick={() => goToStep(currentStep - 1)}
           disabled={currentStep === 0}
         >
           უკან
         </Button>
 
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-[#94A3B8]">
           {currentStep + 1} / {totalSteps}
         </span>
 
         <Button
-          onClick={() => onStepChange(currentStep + 1)}
+          onClick={() => goToStep(currentStep + 1)}
           disabled={currentStep === totalSteps - 1}
         >
           შემდეგი

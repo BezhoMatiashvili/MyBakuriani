@@ -49,7 +49,7 @@ export default function FoodDetailClient({ service }: Props) {
     const supabase = createClient();
     supabase
       .from("services")
-      .update({ views_count: service.views_count + 1 })
+      .update({ views_count: (service.views_count ?? 0) + 1 })
       .eq("id", service.id)
       .then();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,17 +65,17 @@ export default function FoodDetailClient({ service }: Props) {
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
         უკან დაბრუნება
       </motion.button>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-        <PhotoGallery photos={service.photos} title={service.title} />
+        <PhotoGallery photos={service.photos ?? []} title={service.title} />
       </motion.div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           {/* Title */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
@@ -84,7 +84,7 @@ export default function FoodDetailClient({ service }: Props) {
                 კვება
               </span>
               {service.cuisine_type && (
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                <span className="rounded-md bg-[#F8FAFC] px-2 py-0.5 text-xs font-medium text-[#1E293B]">
                   {service.cuisine_type}
                 </span>
               )}
@@ -99,17 +99,17 @@ export default function FoodDetailClient({ service }: Props) {
                 </span>
               )}
             </div>
-            <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
+            <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
               {service.title}
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
               {service.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 font-medium">
+                  <MapPin className="h-4 w-4 text-[#2563EB]" />
                   {service.location}
                 </span>
               )}
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5 font-medium">
                 <Eye className="h-4 w-4" />
                 {service.views_count} ნახვა
               </span>
@@ -120,12 +120,10 @@ export default function FoodDetailClient({ service }: Props) {
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {service.operating_hours && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Clock className="h-5 w-5 text-amber-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">
-                      სამუშაო საათები
-                    </p>
+                    <p className="text-xs text-[#94A3B8]">სამუშაო საათები</p>
                     <p className="font-medium">{service.operating_hours}</p>
                   </div>
                 </div>
@@ -134,16 +132,16 @@ export default function FoodDetailClient({ service }: Props) {
                 <div className="flex items-center gap-3 rounded-lg bg-green-50 px-4 py-3 text-sm">
                   <Truck className="h-5 w-5 text-green-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">მიტანა</p>
+                    <p className="text-xs text-[#94A3B8]">მიტანა</p>
                     <p className="font-medium text-green-700">ხელმისაწვდომია</p>
                   </div>
                 </div>
               )}
               {service.cuisine_type && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <ChefHat className="h-5 w-5 text-amber-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">სამზარეულო</p>
+                    <p className="text-xs text-[#94A3B8]">სამზარეულო</p>
                     <p className="font-medium">{service.cuisine_type}</p>
                   </div>
                 </div>
@@ -154,10 +152,10 @@ export default function FoodDetailClient({ service }: Props) {
           {/* Description */}
           {service.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 აღწერა
               </h2>
-              <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
+              <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {service.description}
               </p>
             </motion.div>
@@ -166,25 +164,25 @@ export default function FoodDetailClient({ service }: Props) {
           {/* Menu */}
           {menuItems.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-4 flex items-center gap-2 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-4 flex items-center gap-2 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 <UtensilsCrossed className="h-5 w-5" />
                 მენიუ
               </h2>
-              <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+              <div className="divide-y divide-[#E2E8F0] rounded-xl border border-[#E2E8F0] overflow-hidden">
                 {menuItems.map((item, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                    className="flex items-center justify-between px-4 py-3 hover:bg-[#F8FAFC]/60 transition-colors"
                   >
                     <div>
-                      <p className="font-medium text-foreground">{item.name}</p>
+                      <p className="font-medium text-[#1E293B]">{item.name}</p>
                       {item.description && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">
+                        <p className="mt-0.5 text-xs text-[#94A3B8]">
                           {item.description}
                         </p>
                       )}
                     </div>
-                    <span className="shrink-0 font-semibold text-foreground">
+                    <span className="shrink-0 font-semibold text-[#1E293B]">
                       {formatPrice(item.price)}
                     </span>
                   </div>
@@ -201,7 +199,7 @@ export default function FoodDetailClient({ service }: Props) {
           transition={{ duration: 0.4, delay: 0.2 }}
         >
           <div className="sticky top-24 space-y-4">
-            <div className="rounded-3xl border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
+            <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
               {/* Price */}
               {service.price != null && (
                 <div className="mb-4">
@@ -209,7 +207,7 @@ export default function FoodDetailClient({ service }: Props) {
                     {formatPrice(service.price)}
                   </span>
                   {service.price_unit && (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-[#94A3B8]">
                       {" "}
                       / {service.price_unit}
                     </span>
@@ -217,7 +215,7 @@ export default function FoodDetailClient({ service }: Props) {
                 </div>
               )}
 
-              {service.discount_percent > 0 && (
+              {(service.discount_percent ?? 0) > 0 && (
                 <div className="mb-4 rounded-lg bg-red-50 p-2 text-center text-sm font-semibold text-red-600">
                   -{service.discount_percent}% ფასდაკლება
                 </div>
@@ -233,17 +231,17 @@ export default function FoodDetailClient({ service }: Props) {
 
               {/* Operating hours */}
               {service.operating_hours && (
-                <div className="mb-4 flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                <div className="mb-4 flex items-center gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-sm">
+                  <Clock className="h-4 w-4 text-[#94A3B8]" />
                   <span>{service.operating_hours}</span>
                 </div>
               )}
 
-              <div className="my-4 border-t border-border" />
+              <div className="my-4 border-t border-[#E2E8F0]" />
 
               {/* Owner */}
               <div className="mb-4 flex items-center gap-3">
-                <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-muted">
+                <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
                   {owner?.avatar_url ? (
                     <Image
                       src={owner.avatar_url}
@@ -252,13 +250,13 @@ export default function FoodDetailClient({ service }: Props) {
                       className="object-cover"
                     />
                   ) : (
-                    <div className="flex size-full items-center justify-center text-sm font-medium text-muted-foreground">
+                    <div className="flex size-full items-center justify-center text-sm font-medium text-[#94A3B8]">
                       {owner?.display_name?.charAt(0) ?? "კ"}
                     </div>
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-medium text-[#1E293B]">
                     {owner?.display_name ?? "რესტორანი"}
                   </p>
                   {owner?.is_verified && (

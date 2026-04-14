@@ -109,7 +109,7 @@ export default function CreateRentalPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-8 text-center text-2xl font-bold">
+      <h1 className="mb-8 text-center text-[28px] font-black leading-8 tracking-[-0.7px] text-[#1E293B]">
         ქირაობის განცხადება
       </h1>
 
@@ -118,17 +118,19 @@ export default function CreateRentalPage() {
           <div className="space-y-5">
             {/* Property type */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">ქონების ტიპი</label>
+              <label className="text-[13px] font-bold text-[#334155]">
+                ქონების ტიპი
+              </label>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                 {PROPERTY_TYPES.map((pt) => (
                   <button
                     key={pt.value}
                     type="button"
                     onClick={() => setPropertyType(pt.value)}
-                    className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                       propertyType === pt.value
-                        ? "border-brand-accent bg-brand-accent/10 text-brand-accent"
-                        : "border-input hover:border-muted-foreground/40"
+                        ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                        : "border-[#E2E8F0] hover:border-[#94A3B8]"
                     }`}
                   >
                     {pt.label}
@@ -139,100 +141,112 @@ export default function CreateRentalPage() {
 
             {/* Title */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                სათაური <span className="text-destructive">*</span>
+              <label className="text-[13px] font-bold text-[#334155]">
+                სათაური <span className="text-[#EF4444]">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="მაგ: თანამედროვე ბინა ბაკურიანის ცენტრში"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </div>
 
             {/* Description */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">აღწერა</label>
+              <label className="text-[13px] font-bold text-[#334155]">
+                აღწერა
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="დეტალური აღწერა..."
                 rows={4}
-                className="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </div>
 
             {/* Location */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                მდებარეობა <span className="text-destructive">*</span>
+              <label className="text-[13px] font-bold text-[#334155]">
+                მდებარეობა <span className="text-[#EF4444]">*</span>
               </label>
               <input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="მაგ: ბაკურიანი, დიდველის მიმართულება"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </div>
 
             {/* Cadastral code */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">საკადასტრო კოდი</label>
+              <label className="text-[13px] font-bold text-[#334155]">
+                საკადასტრო კოდი
+              </label>
               <input
                 type="text"
                 value={cadastralCode}
                 onChange={(e) => setCadastralCode(e.target.value)}
                 placeholder="XX.XX.XX.XXX.XXX"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </div>
 
             {/* Numeric fields */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">ფართი (მ²)</label>
+                <label className="text-[13px] font-bold text-[#334155]">
+                  ფართი (მ²)
+                </label>
                 <input
                   type="number"
                   value={areaSqm}
                   onChange={(e) => setAreaSqm(e.target.value)}
                   placeholder="0"
                   min="0"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                  className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">ოთახები</label>
+                <label className="text-[13px] font-bold text-[#334155]">
+                  ოთახები
+                </label>
                 <input
                   type="number"
                   value={rooms}
                   onChange={(e) => setRooms(e.target.value)}
                   placeholder="0"
                   min="0"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                  className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">სააბაზანო</label>
+                <label className="text-[13px] font-bold text-[#334155]">
+                  სააბაზანო
+                </label>
                 <input
                   type="number"
                   value={bathrooms}
                   onChange={(e) => setBathrooms(e.target.value)}
                   placeholder="0"
                   min="0"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                  className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">ტევადობა</label>
+                <label className="text-[13px] font-bold text-[#334155]">
+                  ტევადობა
+                </label>
                 <input
                   type="number"
                   value={capacity}
                   onChange={(e) => setCapacity(e.target.value)}
                   placeholder="0"
                   min="1"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                  className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                 />
               </div>
             </div>
@@ -243,7 +257,9 @@ export default function CreateRentalPage() {
           <div className="space-y-6">
             {/* Photos */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">ფოტოები</label>
+              <label className="text-[13px] font-bold text-[#334155]">
+                ფოტოები
+              </label>
               <PhotoUploader
                 photos={photos}
                 onPhotosChange={setPhotos}
@@ -253,17 +269,19 @@ export default function CreateRentalPage() {
 
             {/* Amenities */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">კეთილმოწყობა</label>
+              <label className="text-[13px] font-bold text-[#334155]">
+                კეთილმოწყობა
+              </label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {AMENITIES.map((am) => (
                   <button
                     key={am.key}
                     type="button"
                     onClick={() => toggleAmenity(am.key)}
-                    className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                       selectedAmenities.includes(am.key)
-                        ? "border-brand-accent bg-brand-accent/10 text-brand-accent"
-                        : "border-input hover:border-muted-foreground/40"
+                        ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                        : "border-[#E2E8F0] hover:border-[#94A3B8]"
                     }`}
                   >
                     {am.label}
@@ -274,7 +292,9 @@ export default function CreateRentalPage() {
 
             {/* House rules */}
             <div className="space-y-3">
-              <label className="text-sm font-medium">სახლის წესები</label>
+              <label className="text-[13px] font-bold text-[#334155]">
+                სახლის წესები
+              </label>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -297,25 +317,21 @@ export default function CreateRentalPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    შესვლა
-                  </label>
+                  <label className="text-xs text-[#94A3B8]">შესვლა</label>
                   <input
                     type="time"
                     value={checkIn}
                     onChange={(e) => setCheckIn(e.target.value)}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                    className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    გასვლა
-                  </label>
+                  <label className="text-xs text-[#94A3B8]">გასვლა</label>
                   <input
                     type="time"
                     value={checkOut}
                     onChange={(e) => setCheckOut(e.target.value)}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                    className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                   />
                 </div>
               </div>
@@ -327,8 +343,8 @@ export default function CreateRentalPage() {
           <div className="space-y-6">
             {/* Price */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                ფასი ღამეში (₾) <span className="text-destructive">*</span>
+              <label className="text-[13px] font-bold text-[#334155]">
+                ფასი ღამეში (₾) <span className="text-[#EF4444]">*</span>
               </label>
               <input
                 type="number"
@@ -336,13 +352,13 @@ export default function CreateRentalPage() {
                 onChange={(e) => setPricePerNight(e.target.value)}
                 placeholder="0"
                 min="1"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </div>
 
             {/* Min booking */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">
+              <label className="text-[13px] font-bold text-[#334155]">
                 მინიმუმ ჯავშნის დღეები
               </label>
               <input
@@ -351,13 +367,15 @@ export default function CreateRentalPage() {
                 onChange={(e) => setMinBookingDays(e.target.value)}
                 placeholder="1"
                 min="1"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </div>
 
             {/* Discount */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">ფასდაკლება (%)</label>
+              <label className="text-[13px] font-bold text-[#334155]">
+                ფასდაკლება (%)
+              </label>
               <input
                 type="number"
                 value={discountPercent}
@@ -365,24 +383,24 @@ export default function CreateRentalPage() {
                 placeholder="0"
                 min="0"
                 max="100"
-                className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </div>
 
             {/* Preview */}
             {title && pricePerNight && (
-              <div className="rounded-xl border bg-muted/30 p-4">
-                <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                <h3 className="mb-2 text-sm font-medium text-[#94A3B8]">
                   გადახედვა
                 </h3>
                 <div className="space-y-1">
                   <p className="font-semibold">{title}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-[#94A3B8]">
                     {location || "ბაკურიანი"}
                   </p>
                   <p className="text-lg font-bold text-brand-accent">
                     {pricePerNight} ₾{" "}
-                    <span className="text-sm font-normal text-muted-foreground">
+                    <span className="text-sm font-normal text-[#94A3B8]">
                       / ღამე
                     </span>
                   </p>
@@ -395,13 +413,13 @@ export default function CreateRentalPage() {
               </div>
             )}
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
             {/* Submit */}
             <Button
               onClick={handleSubmit}
               disabled={loading || !title || !pricePerNight || !location}
-              className="w-full"
+              className="h-[48px] w-full rounded-xl bg-[#F97316] text-sm font-bold text-white shadow-[0px_8px_20px_rgba(249,115,22,0.25)] hover:bg-[#EA6C0E]"
               size="lg"
             >
               {loading ? (

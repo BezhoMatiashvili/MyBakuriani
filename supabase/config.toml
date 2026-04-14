@@ -30,3 +30,30 @@ enable_confirmations = true
 [storage]
 enabled = true
 file_size_limit = "5MB"
+
+[functions.admin-stats]
+verify_jwt = false
+
+[functions.balance-topup]
+verify_jwt = false
+
+[functions.booking-create]
+verify_jwt = false
+
+[functions.booking-manage]
+verify_jwt = false
+
+[functions.purchase-vip]
+verify_jwt = false
+
+[functions.search]
+verify_jwt = false
+
+[functions.smart-match]
+verify_jwt = false
+
+[functions.upload-photos]
+verify_jwt = false
+
+[functions.verify-listing]
+verify_jwt = false

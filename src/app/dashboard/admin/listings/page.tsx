@@ -25,10 +25,10 @@ type ListingItem = {
   ownerName: string;
   ownerId: string;
   kind: "property" | "service";
-  status: Enums<"listing_status">;
-  views: number;
-  createdAt: string;
-  isVip: boolean;
+  status: Enums<"listing_status"> | null;
+  views: number | null;
+  createdAt: string | null;
+  isVip: boolean | null;
 };
 
 type SortField =
@@ -77,50 +77,52 @@ export default function ListingsPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
+      try {
+        const [{ data: profiles }, { data: props }, { data: services }] =
+          await Promise.all([
+            supabase.from("profiles").select("id, display_name"),
+            supabase
+              .from("properties")
+              .select("*")
+              .order("created_at", { ascending: false }),
+            supabase
+              .from("services")
+              .select("*")
+              .order("created_at", { ascending: false }),
+          ]);
 
-      const [{ data: profiles }, { data: props }, { data: services }] =
-        await Promise.all([
-          supabase.from("profiles").select("id, display_name"),
-          supabase
-            .from("properties")
-            .select("*")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("services")
-            .select("*")
-            .order("created_at", { ascending: false }),
-        ]);
+        const nameMap = new Map<string, string>();
+        profiles?.forEach((p) => nameMap.set(p.id, p.display_name));
 
-      const nameMap = new Map<string, string>();
-      profiles?.forEach((p) => nameMap.set(p.id, p.display_name));
+        const allItems: ListingItem[] = [
+          ...(props?.map((p) => ({
+            id: p.id,
+            title: p.title,
+            ownerName: nameMap.get(p.owner_id) ?? "—",
+            ownerId: p.owner_id,
+            kind: "property" as const,
+            status: p.status,
+            views: p.views_count,
+            createdAt: p.created_at,
+            isVip: p.is_vip,
+          })) ?? []),
+          ...(services?.map((s) => ({
+            id: s.id,
+            title: s.title,
+            ownerName: nameMap.get(s.owner_id) ?? "—",
+            ownerId: s.owner_id,
+            kind: "service" as const,
+            status: s.status,
+            views: s.views_count,
+            createdAt: s.created_at,
+            isVip: s.is_vip,
+          })) ?? []),
+        ];
 
-      const allItems: ListingItem[] = [
-        ...(props?.map((p) => ({
-          id: p.id,
-          title: p.title,
-          ownerName: nameMap.get(p.owner_id) ?? "—",
-          ownerId: p.owner_id,
-          kind: "property" as const,
-          status: p.status,
-          views: p.views_count,
-          createdAt: p.created_at,
-          isVip: p.is_vip,
-        })) ?? []),
-        ...(services?.map((s) => ({
-          id: s.id,
-          title: s.title,
-          ownerName: nameMap.get(s.owner_id) ?? "—",
-          ownerId: s.owner_id,
-          kind: "service" as const,
-          status: s.status,
-          views: s.views_count,
-          createdAt: s.created_at,
-          isVip: s.is_vip,
-        })) ?? []),
-      ];
-
-      setItems(allItems);
-      setLoading(false);
+        setItems(allItems);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -151,10 +153,13 @@ export default function ListingsPage() {
       else if (sortField === "ownerName")
         cmp = a.ownerName.localeCompare(b.ownerName);
       else if (sortField === "kind") cmp = a.kind.localeCompare(b.kind);
-      else if (sortField === "status") cmp = a.status.localeCompare(b.status);
-      else if (sortField === "views") cmp = a.views - b.views;
+      else if (sortField === "status")
+        cmp = (a.status ?? "").localeCompare(b.status ?? "");
+      else if (sortField === "views") cmp = (a.views ?? 0) - (b.views ?? 0);
       else if (sortField === "createdAt")
-        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        cmp =
+          new Date(a.createdAt ?? "").getTime() -
+          new Date(b.createdAt ?? "").getTime();
       return sortDir === "asc" ? cmp : -cmp;
     });
 
@@ -234,7 +239,7 @@ export default function ListingsPage() {
   }) => (
     <button
       onClick={() => toggleSort(field)}
-      className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+      className="flex items-center gap-1 text-xs font-medium text-[#94A3B8] hover:text-[#1E293B]"
     >
       {children}
       <ArrowUpDown className="h-3 w-3" />
@@ -245,8 +250,10 @@ export default function ListingsPage() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">განცხადებები</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[20px] font-black leading-[30px] tracking-[-0.5px] text-[#1E293B]">
+          განცხადებები
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           ქონების და სერვისების მართვა
         </p>
       </div>
@@ -254,7 +261,7 @@ export default function ListingsPage() {
       {/* Search & Filters */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
           <input
             type="text"
             placeholder="ძიება სათაურით ან მესაკუთრით..."
@@ -263,7 +270,7 @@ export default function ListingsPage() {
               setSearchQuery(e.target.value);
               setPage(0);
             }}
-            className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+            className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] py-2.5 pl-10 pr-4 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] placeholder:text-[#94A3B8] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
           />
         </div>
         <select
@@ -272,7 +279,7 @@ export default function ListingsPage() {
             setKindFilter(e.target.value as "all" | "property" | "service");
             setPage(0);
           }}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none"
+          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm focus:outline-none"
         >
           <option value="all">ყველა ტიპი</option>
           <option value="property">ქონება</option>
@@ -284,7 +291,7 @@ export default function ListingsPage() {
             setStatusFilter(e.target.value as Enums<"listing_status"> | "all");
             setPage(0);
           }}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none"
+          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm focus:outline-none"
         >
           <option value="all">ყველა სტატუსი</option>
           {Object.entries(statusLabels).map(([v, l]) => (
@@ -302,7 +309,7 @@ export default function ListingsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-wrap items-center gap-3 rounded-lg bg-brand-accent-light px-4 py-2.5"
         >
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-[#1E293B]">
             {selected.size} მონიშნული
           </span>
           <Button
@@ -343,7 +350,7 @@ export default function ListingsPage() {
         <div className="overflow-x-auto">
           <div className="min-w-[900px]">
             {/* Header row */}
-            <div className="grid grid-cols-7 gap-4 rounded-t-lg bg-muted/50 px-4 py-2.5">
+            <div className="grid grid-cols-7 gap-4 rounded-t-lg bg-[#F8FAFC] px-4 py-2.5">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -351,7 +358,7 @@ export default function ListingsPage() {
                     selected.size === paginated.length && paginated.length > 0
                   }
                   onChange={toggleSelectAll}
-                  className="mr-3 h-4 w-4 rounded border-border"
+                  className="mr-3 h-4 w-4 rounded border-[#E2E8F0]"
                 />
                 <SortableHeader field="title">სათაური</SortableHeader>
               </div>
@@ -360,7 +367,7 @@ export default function ListingsPage() {
               <SortableHeader field="status">სტატუსი</SortableHeader>
               <SortableHeader field="views">ნახვები</SortableHeader>
               <SortableHeader field="createdAt">თარიღი</SortableHeader>
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="text-xs font-medium text-[#94A3B8]">
                 მოქმედება
               </span>
             </div>
@@ -372,17 +379,17 @@ export default function ListingsPage() {
                   key={item.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="grid grid-cols-7 items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
+                  className="grid grid-cols-7 items-center gap-4 px-4 py-3 transition-colors hover:bg-[#F8FAFC]/60"
                 >
                   <div className="flex items-center">
                     <input
                       type="checkbox"
                       checked={selected.has(item.id)}
                       onChange={() => toggleSelect(item.id)}
-                      className="mr-3 h-4 w-4 rounded border-border"
+                      className="mr-3 h-4 w-4 rounded border-[#E2E8F0]"
                     />
                     <div className="flex items-center gap-2 truncate">
-                      <span className="truncate text-sm font-medium text-foreground">
+                      <span className="truncate text-sm font-medium text-[#1E293B]">
                         {item.title}
                       </span>
                       {item.isVip && (
@@ -390,22 +397,24 @@ export default function ListingsPage() {
                       )}
                     </div>
                   </div>
-                  <p className="truncate text-sm text-muted-foreground">
+                  <p className="truncate text-sm text-[#94A3B8]">
                     {item.ownerName}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-[#94A3B8]">
                     {item.kind === "property" ? "ქონება" : "სერვისი"}
                   </p>
                   <div>
-                    <StatusBadge status={statusBadgeMap[item.status]} />
+                    <StatusBadge
+                      status={statusBadgeMap[item.status ?? "pending"]}
+                    />
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1 text-sm text-[#94A3B8]">
                     <Eye className="h-3.5 w-3.5" />
-                    {item.views
+                    {(item.views ?? 0)
                       .toString()
                       .replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-[#94A3B8]">
                     {formatDate(item.createdAt)}
                   </p>
                   <div className="flex gap-2">
@@ -443,21 +452,21 @@ export default function ListingsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-[#94A3B8]">
             {filtered.length} განცხადება • გვერდი {page + 1} / {totalPages}
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page === 0}
-              className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted disabled:opacity-50"
+              className="rounded-lg border border-[#E2E8F0] p-2 text-[#94A3B8] hover:bg-[#F8FAFC] disabled:opacity-50"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
-              className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted disabled:opacity-50"
+              className="rounded-lg border border-[#E2E8F0] p-2 text-[#94A3B8] hover:bg-[#F8FAFC] disabled:opacity-50"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

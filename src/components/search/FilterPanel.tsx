@@ -53,18 +53,18 @@ function FilterSection({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-[#E2E8F0] last:border-b-0">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between py-3 text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B] transition-colors hover:text-[#475569]"
+        className="flex w-full items-center justify-between py-3 text-[15px] font-bold leading-[22px] text-[#1E293B] transition-colors hover:text-[#64748B]"
       >
         {title}
         <motion.span
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown className="size-4" />
+          <ChevronDown className="size-4 text-[#94A3B8]" />
         </motion.span>
       </button>
       <AnimatePresence initial={false}>
@@ -129,8 +129,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
     filters.amenities.length > 0;
 
   return (
-    <div className="rounded-3xl border border-[#F1F5F9] bg-white p-8">
-      {/* Clear all */}
+    <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
       {hasActiveFilters && (
         <button
           type="button"
@@ -158,9 +157,9 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 priceMin: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
-          <span className="text-sm text-muted-foreground">–</span>
+          <span className="text-[13px] text-[#94A3B8]">–</span>
           <input
             type="number"
             min={0}
@@ -171,9 +170,9 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 priceMax: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
-          <span className="text-sm text-muted-foreground">₾</span>
+          <span className="text-sm text-[#94A3B8]">₾</span>
         </div>
       </FilterSection>
 
@@ -198,7 +197,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                   "flex h-10 min-w-[42px] items-center justify-center rounded-lg border text-sm font-medium transition-colors",
                   isActive
                     ? "border-brand-accent bg-brand-accent text-white"
-                    : "border-border bg-background text-foreground hover:bg-muted",
+                    : "border-[#E2E8F0] bg-white text-[#1E293B] hover:bg-[#F8FAFC]",
                 )}
               >
                 {opt}
@@ -225,9 +224,9 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 areaMin: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
-          <span className="text-sm text-muted-foreground">–</span>
+          <span className="text-[13px] text-[#94A3B8]">–</span>
           <input
             type="number"
             min={0}
@@ -238,9 +237,9 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 areaMax: e.target.value ? Number(e.target.value) : "",
               })
             }
-            className="h-[41px] w-full rounded-lg border border-border bg-background px-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
-          <span className="text-sm text-muted-foreground">მ²</span>
+          <span className="text-[13px] text-[#94A3B8]">მ²</span>
         </div>
       </FilterSection>
 
@@ -254,13 +253,13 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
           {PROPERTY_TYPES.map(({ value, label }) => (
             <label
               key={value}
-              className="flex cursor-pointer items-center gap-2 text-sm"
+              className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#64748B]"
             >
               <input
                 type="checkbox"
                 checked={filters.types.includes(value)}
                 onChange={() => toggleArrayItem("types", value)}
-                className="size-5 rounded-[6px] border-border accent-brand-accent"
+                className="size-5 rounded-[6px] border-[#E2E8F0] accent-brand-accent"
               />
               {label}
             </label>
@@ -278,13 +277,13 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
           {AMENITIES.map(({ value, label }) => (
             <label
               key={value}
-              className="flex cursor-pointer items-center gap-2 text-sm"
+              className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#64748B]"
             >
               <input
                 type="checkbox"
                 checked={filters.amenities.includes(value)}
                 onChange={() => toggleArrayItem("amenities", value)}
-                className="size-5 rounded-[6px] border-border accent-brand-accent"
+                className="size-5 rounded-[6px] border-[#E2E8F0] accent-brand-accent"
               />
               {label}
             </label>

@@ -26,6 +26,7 @@ interface Props {
   initialGuests?: number | "";
   initialCadastral?: string;
   initialMode?: "rent" | "sale";
+  initialFilters?: Filters;
 }
 
 interface SearchState {
@@ -44,8 +45,9 @@ export default function SearchPageClient({
   initialGuests = "",
   initialCadastral = "",
   initialMode = "rent",
+  initialFilters = DEFAULT_FILTERS,
 }: Props) {
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<Filters>(initialFilters);
   const [searchState, setSearchState] = useState<SearchState>({
     location: initialLocation,
     checkIn: initialCheckIn,
@@ -245,8 +247,18 @@ export default function SearchPageClient({
     if (searchState.cadastralCode)
       params.set("cadastral", searchState.cadastralCode);
     params.set("mode", mode);
+    if (filters.priceMin !== "")
+      params.set("price_min", String(filters.priceMin));
+    if (filters.priceMax !== "")
+      params.set("price_max", String(filters.priceMax));
+    if (filters.rooms !== null) params.set("rooms", String(filters.rooms));
+    if (filters.areaMin !== "") params.set("area_min", String(filters.areaMin));
+    if (filters.areaMax !== "") params.set("area_max", String(filters.areaMax));
+    if (filters.types.length > 0) params.set("types", filters.types.join(","));
+    if (filters.amenities.length > 0)
+      params.set("amenities", filters.amenities.join(","));
     router.replace(`/search?${params.toString()}`, { scroll: false });
-  }, [searchState, mode, router]);
+  }, [searchState, mode, filters, router]);
 
   const handleSearch = useCallback((sf: SearchFilters) => {
     setSearchState({
@@ -267,159 +279,159 @@ export default function SearchPageClient({
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Search bar + RentBuyToggle */}
-      <ScrollReveal>
-        <div className="mb-4 flex justify-center">
-          <RentBuyToggle value={mode} onChange={handleModeChange} />
-        </div>
-        <SearchBox
-          onSearch={handleSearch}
-          className="mb-8"
-          defaultLocation={initialLocation}
-          defaultGuests={initialGuests}
-          defaultCadastralCode={initialCadastral}
-          defaultCheckIn={initialCheckIn}
-          defaultCheckOut={initialCheckOut}
-        />
-      </ScrollReveal>
-
-      <div className="flex gap-8">
-        {/* Desktop filter sidebar */}
-        <aside className="hidden w-[280px] shrink-0 lg:block">
-          <div className="sticky top-24">
-            <h2 className="mb-4 text-lg font-black text-[#1E293B]">ფილტრები</h2>
-            <FilterPanel filters={filters} onFilterChange={setFilters} />
+    <div className="min-h-screen bg-[#F8FAFC]">
+      <div className="mx-auto max-w-7xl px-4 py-8">
+        {/* Search bar + RentBuyToggle */}
+        <ScrollReveal>
+          <div className="mb-4 flex justify-center">
+            <RentBuyToggle value={mode} onChange={handleModeChange} />
           </div>
-        </aside>
+          <SearchBox
+            onSearch={handleSearch}
+            className="mb-8"
+            defaultLocation={initialLocation}
+            defaultGuests={initialGuests}
+            defaultCadastralCode={initialCadastral}
+            defaultCheckIn={initialCheckIn}
+            defaultCheckOut={initialCheckOut}
+          />
+        </ScrollReveal>
 
-        {/* Results area */}
-        <div className="min-w-0 flex-1">
-          {/* Mobile filter button */}
-          <div className="mb-4 flex items-center justify-between lg:hidden">
-            <span className="text-sm text-muted-foreground">
-              {totalCount} შედეგი
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setMobileFiltersOpen(true)}
-              className="gap-2"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              ფილტრები
-            </Button>
-          </div>
-
-          {/* Results count — desktop */}
-          <div className="mb-6 hidden items-center justify-between lg:flex">
-            <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-              {mode === "sale" ? "გასაყიდი ობიექტები" : "ძებნის შედეგები"}
-            </h1>
-            <span className="text-sm text-muted-foreground">
-              {totalCount} შედეგი
-            </span>
-          </div>
-
-          {/* Loading state */}
-          {loading && (
-            <div className="flex items-center justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
+        <div className="flex gap-8">
+          {/* Desktop filter sidebar */}
+          <aside className="hidden w-[280px] shrink-0 lg:block">
+            <div className="sticky top-24">
+              <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
+                ფილტრები
+              </h2>
+              <FilterPanel filters={filters} onFilterChange={setFilters} />
             </div>
-          )}
+          </aside>
 
-          {/* Empty state */}
-          {!loading && properties.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-lg font-black text-[#1E293B]">
-                შედეგი ვერ მოიძებნა
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                სცადეთ სხვა საძიებო სიტყვა ან შეცვალეთ ფილტრები
-              </p>
-            </div>
-          )}
-
-          {/* Property grid */}
-          {!loading && (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {properties.map((p, i) => (
-                <ScrollReveal key={p.id} delay={i * 0.05}>
-                  <PropertyCard
-                    id={p.id}
-                    title={p.title}
-                    location={p.location}
-                    photos={p.photos ?? []}
-                    pricePerNight={
-                      p.price_per_night ? Number(p.price_per_night) : null
-                    }
-                    salePrice={p.sale_price ? Number(p.sale_price) : null}
-                    rating={null}
-                    capacity={p.capacity}
-                    rooms={p.rooms}
-                    isVip={p.is_vip ?? false}
-                    isSuperVip={p.is_super_vip ?? false}
-                    discountPercent={p.discount_percent ?? 0}
-                    isForSale={p.is_for_sale ?? false}
-                  />
-                </ScrollReveal>
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-10 flex items-center justify-center gap-2">
+          {/* Results area */}
+          <div className="min-w-0 flex-1">
+            {/* Mobile filter button */}
+            <div className="mb-4 flex items-center justify-between lg:hidden">
+              <span className="text-[13px] font-medium leading-[20px] text-[#64748B]">
+                {totalCount} შედეგი
+              </span>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
+                onClick={() => setMobileFiltersOpen(true)}
+                className="gap-2"
               >
-                წინა
+                <SlidersHorizontal className="h-4 w-4" />
+                ფილტრები
               </Button>
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => (
-                <Button
-                  key={i + 1}
-                  variant={page === i + 1 ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPage(i + 1)}
-                  className={
-                    page === i + 1
-                      ? "bg-brand-accent text-white hover:bg-brand-accent-hover"
-                      : ""
-                  }
+            </div>
+
+            {/* Results count — desktop */}
+            <div className="mb-6 hidden items-center justify-between lg:flex">
+              <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                {mode === "sale" ? "გასაყიდი ობიექტები" : "ძებნის შედეგები"}
+              </h1>
+              <span className="text-[13px] font-medium leading-[20px] text-[#64748B]">
+                {totalCount} შედეგი
+              </span>
+            </div>
+
+            {/* Loading state */}
+            {loading && (
+              <div className="flex items-center justify-center py-20">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && properties.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-[17px] font-black leading-[21px] text-[#1E293B]">
+                  შედეგი ვერ მოიძებნა
+                </p>
+                <p className="mt-2 text-[13px] leading-[20px] text-[#64748B]">
+                  სცადეთ სხვა საძიებო სიტყვა ან შეცვალეთ ფილტრები
+                </p>
+              </div>
+            )}
+
+            {/* Property grid */}
+            {!loading && (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {properties.map((p, i) => (
+                  <ScrollReveal key={p.id} delay={i * 0.05}>
+                    <PropertyCard
+                      id={p.id}
+                      title={p.title}
+                      location={p.location}
+                      photos={p.photos ?? []}
+                      pricePerNight={
+                        p.price_per_night ? Number(p.price_per_night) : null
+                      }
+                      salePrice={p.sale_price ? Number(p.sale_price) : null}
+                      rating={null}
+                      capacity={p.capacity}
+                      rooms={p.rooms}
+                      isVip={p.is_vip ?? false}
+                      isSuperVip={p.is_super_vip ?? false}
+                      discountPercent={p.discount_percent ?? 0}
+                      isForSale={p.is_for_sale ?? false}
+                    />
+                  </ScrollReveal>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-10 flex items-center justify-center gap-2">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[14px] font-semibold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
                 >
-                  {i + 1}
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                შემდეგი
-              </Button>
-            </div>
-          )}
+                  &lsaquo;
+                </button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => (
+                  <button
+                    key={i + 1}
+                    onClick={() => setPage(i + 1)}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-semibold transition-colors ${
+                      page === i + 1
+                        ? "border border-[#3B82F6] bg-[#3B82F6] text-white"
+                        : "border border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F8FAFC]"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[14px] font-semibold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
+                >
+                  &rsaquo;
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Mobile filter BottomSheet */}
-      <BottomSheet
-        isOpen={mobileFiltersOpen}
-        onClose={() => setMobileFiltersOpen(false)}
-        title="ფილტრები"
-      >
-        <FilterPanel filters={filters} onFilterChange={setFilters} />
-        <Button
-          className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent-hover"
-          onClick={() => setMobileFiltersOpen(false)}
+        {/* Mobile filter BottomSheet */}
+        <BottomSheet
+          isOpen={mobileFiltersOpen}
+          onClose={() => setMobileFiltersOpen(false)}
+          title="ფილტრები"
         >
-          შედეგების ნახვა
-        </Button>
-      </BottomSheet>
+          <FilterPanel filters={filters} onFilterChange={setFilters} />
+          <Button
+            className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent-hover"
+            onClick={() => setMobileFiltersOpen(false)}
+          >
+            შედეგების ნახვა
+          </Button>
+        </BottomSheet>
+      </div>
     </div>
   );
 }

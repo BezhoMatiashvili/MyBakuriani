@@ -1,5 +1,4 @@
 "use client";
-
 import { useCallback, ChangeEvent } from "react";
 
 interface PhoneInputProps {
@@ -8,20 +7,12 @@ interface PhoneInputProps {
   error?: string | null;
 }
 
-/**
- * Formats a raw digit string (e.g. "555123456") as "5XX XX XX XX"
- */
 function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 9);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 5) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
-  if (digits.length <= 7)
-    return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
-  return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7)}`;
-}
-
-function stripFormat(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 9);
+  const d = raw.replace(/\D/g, "").slice(0, 9);
+  if (d.length <= 3) return d;
+  if (d.length <= 5) return `${d.slice(0, 3)} ${d.slice(3)}`;
+  if (d.length <= 7) return `${d.slice(0, 3)} ${d.slice(3, 5)} ${d.slice(5)}`;
+  return `${d.slice(0, 3)} ${d.slice(3, 5)} ${d.slice(5, 7)} ${d.slice(7)}`;
 }
 
 export default function PhoneInput({
@@ -31,8 +22,7 @@ export default function PhoneInput({
 }: PhoneInputProps) {
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
-      const raw = stripFormat(e.target.value);
-      onChange(raw);
+      onChange(e.target.value.replace(/\D/g, "").slice(0, 9));
     },
     [onChange],
   );
@@ -40,31 +30,22 @@ export default function PhoneInput({
   return (
     <div className="space-y-1.5">
       <div
-        className={`flex items-center overflow-hidden rounded-lg border bg-background transition-colors focus-within:ring-2 focus-within:ring-ring/50 ${
-          error
-            ? "border-destructive focus-within:ring-destructive/20"
-            : "border-input"
-        }`}
+        className={`flex h-[50px] items-center overflow-hidden rounded-xl border bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[#DBEAFE] ${error ? "border-[#EF4444] focus-within:ring-[#EF4444]/20" : "border-[#E2E8F0]"}`}
       >
-        {/* Prefix */}
-        <span className="flex shrink-0 items-center gap-1.5 border-r border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-1.5 border-r border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm font-bold text-[#94A3B8]">
           <span>🇬🇪</span>
           <span>+995</span>
         </span>
-
-        {/* Input */}
         <input
           type="tel"
           inputMode="numeric"
           value={formatPhone(value)}
           onChange={handleChange}
           placeholder="5XX XX XX XX"
-          className="w-full bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50"
+          className="w-full bg-transparent px-4 py-3 text-sm font-bold outline-none placeholder:font-medium placeholder:text-[#94A3B8]/50"
         />
       </div>
-
-      {/* Error message */}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-[#EF4444]">{error}</p>}
     </div>
   );
 }

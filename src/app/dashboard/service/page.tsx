@@ -46,7 +46,10 @@ export default function ServiceDashboardPage() {
     setServices(myServices);
 
     const activeCount = myServices.filter((s) => s.status === "active").length;
-    const totalViews = myServices.reduce((sum, s) => sum + s.views_count, 0);
+    const totalViews = myServices.reduce(
+      (sum, s) => sum + (s.views_count ?? 0),
+      0,
+    );
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -122,7 +125,7 @@ export default function ServiceDashboardPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
           {
             "\u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8\u10E1 \u10D9\u10D0\u10D1\u10D8\u10DC\u10D4\u10E2\u10D8"
           }
@@ -193,13 +196,16 @@ export default function ServiceDashboardPage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />
+              <div
+                key={i}
+                className="h-20 animate-pulse rounded-xl bg-[#F8FAFC]"
+              />
             ))}
           </div>
         ) : services.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-muted-foreground/30 p-8 text-center">
-            <Briefcase className="mx-auto h-10 w-10 text-muted-foreground/50" />
-            <p className="mt-2 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-[#64748B]/30 p-8 text-center">
+            <Briefcase className="mx-auto h-10 w-10 text-[#94A3B8]/50" />
+            <p className="mt-2 text-sm text-[#94A3B8]">
               {
                 "\u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D2\u10D0\u10E5\u10D5\u10D7 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8"
               }
@@ -222,18 +228,18 @@ export default function ServiceDashboardPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className="flex items-center gap-4 rounded-xl bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                className="flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {service.photos[0] ? (
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
+                  {(service.photos ?? [])[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={service.photos[0]}
+                      src={(service.photos ?? [])[0]}
                       alt={service.title}
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                    <div className="flex h-full w-full items-center justify-center text-[#94A3B8]">
                       <Briefcase className="h-5 w-5" />
                     </div>
                   )}
@@ -244,14 +250,16 @@ export default function ServiceDashboardPage() {
                     <h3 className="truncate text-sm font-semibold">
                       {service.title}
                     </h3>
-                    <StatusBadge status={statusMap(service.status)} />
+                    <StatusBadge
+                      status={statusMap(service.status ?? "draft")}
+                    />
                   </div>
-                  <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="mt-0.5 flex items-center gap-3 text-xs text-[#94A3B8]">
                     <span>
                       {categoryLabels[service.category] ?? service.category}
                     </span>
                     {service.price != null && (
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-[#1E293B]">
                         {formatPrice(service.price)}
                         {service.price_unit && ` / ${service.price_unit}`}
                       </span>
@@ -264,7 +272,7 @@ export default function ServiceDashboardPage() {
 
                 <button
                   type="button"
-                  className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="shrink-0 rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-[#F8FAFC] hover:text-[#1E293B]"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </button>
@@ -316,7 +324,10 @@ function RecentInquiries({ userId }: { userId: string | undefined }) {
         </h2>
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />
+            <div
+              key={i}
+              className="h-14 animate-pulse rounded-xl bg-[#F8FAFC]"
+            />
           ))}
         </div>
       </div>
@@ -331,7 +342,7 @@ function RecentInquiries({ userId }: { userId: string | undefined }) {
             "\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
           }
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-[#94A3B8]">
           {
             "\u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8 \u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
           }
@@ -351,7 +362,7 @@ function RecentInquiries({ userId }: { userId: string | undefined }) {
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className="flex items-center gap-3 rounded-xl bg-brand-surface p-3 shadow-[var(--shadow-card)]"
+            className="flex items-center gap-3 rounded-[20px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
               <MessageSquare className="h-4 w-4" />
@@ -362,9 +373,7 @@ function RecentInquiries({ userId }: { userId: string | undefined }) {
                   ?.display_name ??
                   "\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {msg.message}
-              </p>
+              <p className="truncate text-xs text-[#94A3B8]">{msg.message}</p>
             </div>
             {!msg.is_read && (
               <span className="h-2 w-2 shrink-0 rounded-full bg-brand-accent" />

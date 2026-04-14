@@ -14,7 +14,28 @@ interface SearchPageProps {
     guests?: string;
     cadastral?: string;
     mode?: string;
+    price_min?: string;
+    price_max?: string;
+    rooms?: string;
+    area_min?: string;
+    area_max?: string;
+    types?: string;
+    amenities?: string;
   }>;
+}
+
+function parseNumeric(value?: string): number | "" {
+  if (!value) return "";
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : "";
+}
+
+function parseStringList(value?: string): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
@@ -52,6 +73,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       initialGuests={params.guests ? Number(params.guests) : ""}
       initialCadastral={params.cadastral ?? ""}
       initialMode={(params.mode as "rent" | "sale") ?? "rent"}
+      initialFilters={{
+        priceMin: parseNumeric(params.price_min),
+        priceMax: parseNumeric(params.price_max),
+        rooms: parseNumeric(params.rooms) === "" ? null : Number(params.rooms),
+        areaMin: parseNumeric(params.area_min),
+        areaMax: parseNumeric(params.area_max),
+        types: parseStringList(params.types),
+        amenities: parseStringList(params.amenities),
+      }}
     />
   );
 }

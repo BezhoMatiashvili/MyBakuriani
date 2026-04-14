@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import {
+  corsHeaders,
+  errorResponse,
+  jsonResponse,
+  requireUser,
+} from "../_shared/guards.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,16 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const authHeader = req.headers.get("Authorization")!;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) throw new Error("Unauthorized");
+    const { supabase, user } = await requireUser(req);
 
     // Verify admin role
     const { data: profile } = await supabase
@@ -89,8 +79,8 @@ serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .eq("status", "active");
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         data: {
           total_revenue: totalRevenue,
           active_listings: activeListings || 0,
@@ -101,16 +91,10 @@ serve(async (req) => {
           new_users_this_month: newUsersThisMonth || 0,
           pending_verifications: pendingVerifications || 0,
         },
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
       },
+      200,
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return errorResponse(err);
   }
 });

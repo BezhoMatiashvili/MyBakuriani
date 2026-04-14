@@ -33,7 +33,7 @@ interface ReviewWithGuest {
   id: string;
   rating: number;
   comment: string | null;
-  created_at: string;
+  created_at: string | null;
   profiles: { display_name: string } | null;
 }
 
@@ -75,17 +75,17 @@ export default function SaleDetailClient({ property, reviews }: Props) {
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
         უკან დაბრუნება
       </motion.button>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-        <PhotoGallery photos={property.photos} title={property.title} />
+        <PhotoGallery photos={property.photos ?? []} title={property.title} />
       </motion.div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           {/* Title + meta */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
@@ -106,21 +106,21 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                     </span>
                   )}
                 </div>
-                <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
+                <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
                   {property.title}
                 </h1>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <MapPin className="h-4 w-4 text-orange-500" />
                     {property.location}
                   </span>
                   {avgRating !== null && (
-                    <span className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-brand-warning text-brand-warning" />
+                    <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                      <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
                       {avgRating.toFixed(1)}
                     </span>
                   )}
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5 font-medium">
                     <Eye className="h-4 w-4" />
                     {property.views_count} ნახვა
                   </span>
@@ -131,26 +131,26 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             {/* Property specs */}
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {property.area_sqm != null && (
-                <div className="rounded-xl bg-muted/50 p-4 text-center">
+                <div className="rounded-xl bg-[#F8FAFC] p-4 text-center">
                   <Maximize className="mx-auto h-6 w-6 text-brand-accent" />
                   <p className="mt-2 text-lg font-bold">
                     {property.area_sqm} მ²
                   </p>
-                  <p className="text-xs text-muted-foreground">ფართობი</p>
+                  <p className="text-xs text-[#94A3B8]">ფართობი</p>
                 </div>
               )}
               {property.rooms != null && (
-                <div className="rounded-xl bg-muted/50 p-4 text-center">
+                <div className="rounded-xl bg-[#F8FAFC] p-4 text-center">
                   <BedDouble className="mx-auto h-6 w-6 text-brand-accent" />
                   <p className="mt-2 text-lg font-bold">{property.rooms}</p>
-                  <p className="text-xs text-muted-foreground">ოთახი</p>
+                  <p className="text-xs text-[#94A3B8]">ოთახი</p>
                 </div>
               )}
               {property.bathrooms != null && (
-                <div className="rounded-xl bg-muted/50 p-4 text-center">
+                <div className="rounded-xl bg-[#F8FAFC] p-4 text-center">
                   <Bath className="mx-auto h-6 w-6 text-brand-accent" />
                   <p className="mt-2 text-lg font-bold">{property.bathrooms}</p>
-                  <p className="text-xs text-muted-foreground">სააბაზანო</p>
+                  <p className="text-xs text-[#94A3B8]">სააბაზანო</p>
                 </div>
               )}
               {roiPercent > 0 && (
@@ -159,7 +159,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                   <p className="mt-2 text-lg font-bold text-emerald-700">
                     {roiPercent}%
                   </p>
-                  <p className="text-xs text-muted-foreground">ROI</p>
+                  <p className="text-xs text-[#94A3B8]">ROI</p>
                 </div>
               )}
             </div>
@@ -168,10 +168,10 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Description */}
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 აღწერა
               </h2>
-              <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
+              <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {property.description}
               </p>
             </motion.div>
@@ -180,18 +180,18 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Construction Status */}
           {property.construction_status && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 მშენებლობის სტატუსი
               </h2>
-              <div className="rounded-xl border border-border p-4">
+              <div className="rounded-xl border border-[#E2E8F0] p-4">
                 <div className="flex items-center gap-3">
                   <Building2 className="h-6 w-6 text-brand-accent" />
                   <div>
-                    <p className="font-medium text-foreground">
+                    <p className="font-medium text-[#1E293B]">
                       {property.construction_status}
                     </p>
                     {property.developer && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-[#94A3B8]">
                         დეველოპერი: {property.developer}
                       </p>
                     )}
@@ -204,13 +204,13 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* ROI Calculator */}
           {roiPercent > 0 && salePrice > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-3 flex items-center gap-2 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-3 flex items-center gap-2 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 <Calculator className="h-5 w-5" />
                 ინვესტიციის კალკულატორი
               </h2>
-              <div className="rounded-xl border border-border p-6">
+              <div className="rounded-xl border border-[#E2E8F0] p-6">
                 <div className="mb-4">
-                  <label className="mb-2 block text-sm text-muted-foreground">
+                  <label className="mb-2 block text-sm text-[#94A3B8]">
                     ინვესტიციის ვადა (წელი)
                   </label>
                   <div className="flex items-center gap-3">
@@ -221,7 +221,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                         className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                           roiYears === y
                             ? "bg-brand-accent text-white"
-                            : "bg-muted text-foreground hover:bg-muted/80"
+                            : "bg-[#F8FAFC] text-[#1E293B] hover:bg-[#F8FAFC]"
                         }`}
                       >
                         {y} წელი
@@ -231,26 +231,22 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div className="rounded-lg bg-muted/50 p-4">
-                    <p className="text-xs text-muted-foreground">
-                      წლიური შემოსავალი
-                    </p>
-                    <p className="mt-1 text-lg font-bold text-foreground">
+                  <div className="rounded-lg bg-[#F8FAFC] p-4">
+                    <p className="text-xs text-[#94A3B8]">წლიური შემოსავალი</p>
+                    <p className="mt-1 text-lg font-bold text-[#1E293B]">
                       {formatPrice(Math.round(annualReturn))}
                     </p>
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-4">
-                    <p className="text-xs text-muted-foreground">
+                  <div className="rounded-lg bg-[#F8FAFC] p-4">
+                    <p className="text-xs text-[#94A3B8]">
                       ჯამური შემოსავალი ({roiYears} წ.)
                     </p>
-                    <p className="mt-1 text-lg font-bold text-foreground">
+                    <p className="mt-1 text-lg font-bold text-[#1E293B]">
                       {formatPrice(Math.round(totalReturn))}
                     </p>
                   </div>
                   <div className="rounded-lg bg-emerald-50 p-4">
-                    <p className="text-xs text-muted-foreground">
-                      საერთო ღირებულება
-                    </p>
+                    <p className="text-xs text-[#94A3B8]">საერთო ღირებულება</p>
                     <p className="mt-1 text-lg font-bold text-emerald-700">
                       {formatPrice(Math.round(totalValue))}
                     </p>
@@ -262,15 +258,15 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
           {/* Location */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
-            <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               მდებარეობა
             </h2>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4" />
+            <div className="flex items-center gap-2 text-[14px] font-medium text-[#64748B]">
+              <MapPin className="h-4 w-4 text-orange-500" />
               {property.location}
             </div>
             {property.cadastral_code && (
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-[#64748B]">
                 საკადასტრო კოდი: {property.cadastral_code}
               </p>
             )}
@@ -279,7 +275,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Reviews */}
           {reviews.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-              <h2 className="mb-4 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 შეფასებები ({reviews.length})
               </h2>
               <div className="space-y-4">
@@ -289,7 +285,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                     displayName={review.profiles?.display_name ?? "ანონიმური"}
                     rating={review.rating}
                     comment={review.comment ?? ""}
-                    createdAt={review.created_at}
+                    createdAt={review.created_at ?? ""}
                   />
                 ))}
               </div>
@@ -305,28 +301,28 @@ export default function SaleDetailClient({ property, reviews }: Props) {
         >
           <div className="sticky top-24 space-y-4">
             {/* Price card */}
-            <div className="rounded-3xl border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
-              <div className="mb-1 text-sm text-muted-foreground">ფასი</div>
+            <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
+              <div className="mb-1 text-sm text-[#94A3B8]">ფასი</div>
               <div className="text-[32px] font-black leading-[32px] text-[#1E293B]">
                 {salePrice > 0 ? formatPrice(salePrice) : "შეთანხმებით"}
               </div>
               {property.area_sqm != null && salePrice > 0 && (
-                <div className="mt-1 text-sm text-muted-foreground">
+                <div className="mt-1 text-sm text-[#94A3B8]">
                   {formatPrice(Math.round(salePrice / property.area_sqm))} / მ²
                 </div>
               )}
 
-              {property.discount_percent > 0 && (
+              {(property.discount_percent ?? 0) > 0 && (
                 <div className="mt-3 rounded-lg bg-red-50 p-2 text-center text-sm font-semibold text-red-600">
                   -{property.discount_percent}% ფასდაკლება
                 </div>
               )}
 
-              <div className="my-4 border-t border-border" />
+              <div className="my-4 border-t border-[#E2E8F0]" />
 
               {/* Owner */}
               <div className="mb-4 flex items-center gap-3">
-                <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-muted">
+                <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
                   {owner?.avatar_url ? (
                     <Image
                       src={owner.avatar_url}
@@ -335,13 +331,13 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                       className="object-cover"
                     />
                   ) : (
-                    <div className="flex size-full items-center justify-center text-sm font-medium text-muted-foreground">
+                    <div className="flex size-full items-center justify-center text-sm font-medium text-[#94A3B8]">
                       {owner?.display_name?.charAt(0) ?? "მ"}
                     </div>
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-medium text-[#1E293B]">
                     {owner?.display_name ?? "მესაკუთრე"}
                   </p>
                   {owner?.is_verified && (
@@ -370,22 +366,20 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">ROI</span>
+                    <span className="text-[#94A3B8]">ROI</span>
                     <span className="font-semibold text-emerald-700">
                       {roiPercent}%
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      წლიური შემოსავალი
-                    </span>
+                    <span className="text-[#94A3B8]">წლიური შემოსავალი</span>
                     <span className="font-semibold">
                       {formatPrice(Math.round(annualReturn))}
                     </span>
                   </div>
                   {property.construction_status && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">სტატუსი</span>
+                      <span className="text-[#94A3B8]">სტატუსი</span>
                       <span className="font-semibold">
                         {property.construction_status}
                       </span>
@@ -393,7 +387,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                   )}
                   {property.developer && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">დეველოპერი</span>
+                      <span className="text-[#94A3B8]">დეველოპერი</span>
                       <span className="font-semibold">
                         {property.developer}
                       </span>

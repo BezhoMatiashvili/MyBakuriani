@@ -85,47 +85,51 @@ export default function CreateFoodPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-8 text-center text-2xl font-bold">კვების განცხადება</h1>
+      <h1 className="mb-8 text-center text-[28px] font-black leading-8 tracking-[-0.7px] text-[#1E293B]">
+        კვების განცხადება
+      </h1>
 
-      <div className="space-y-5 rounded-2xl border bg-card p-6 shadow-sm">
+      <div className="space-y-5 rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            დასახელება <span className="text-destructive">*</span>
+          <label className="text-[13px] font-bold text-[#334155]">
+            დასახელება <span className="text-[#EF4444]">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="მაგ: რესტორანი ბაკურიანი"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">აღწერა</label>
+          <label className="text-[13px] font-bold text-[#334155]">აღწერა</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="რესტორნის აღწერა..."
             rows={3}
-            className="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">სამზარეულოს ტიპი</label>
+          <label className="text-[13px] font-bold text-[#334155]">
+            სამზარეულოს ტიპი
+          </label>
           <input
             type="text"
             value={cuisineType}
             onChange={(e) => setCuisineType(e.target.value)}
             placeholder="მაგ: ქართული, ევროპული"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </div>
 
         {/* Menu editor */}
         <div className="space-y-3">
-          <label className="text-sm font-medium">მენიუ</label>
+          <label className="text-[13px] font-bold text-[#334155]">მენიუ</label>
           {menuItems.map((item, index) => (
             <div key={index} className="flex items-center gap-2">
               <input
@@ -133,7 +137,7 @@ export default function CreateFoodPage() {
                 value={item.name}
                 onChange={(e) => updateMenuItem(index, "name", e.target.value)}
                 placeholder="კერძის სახელი"
-                className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
               <input
                 type="number"
@@ -141,13 +145,13 @@ export default function CreateFoodPage() {
                 onChange={(e) => updateMenuItem(index, "price", e.target.value)}
                 placeholder="₾"
                 min="0"
-                className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+                className="h-[48px] w-24 rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
               {menuItems.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeMenuItem(index)}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#94A3B8] hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
                 >
                   <X className="size-4" />
                 </button>
@@ -175,18 +179,22 @@ export default function CreateFoodPage() {
         </label>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">სამუშაო საათები</label>
+          <label className="text-[13px] font-bold text-[#334155]">
+            სამუშაო საათები
+          </label>
           <input
             type="text"
             value={operatingHours}
             onChange={(e) => setOperatingHours(e.target.value)}
             placeholder="მაგ: 10:00-23:00"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">ფოტოები</label>
+          <label className="text-[13px] font-bold text-[#334155]">
+            ფოტოები
+          </label>
           <PhotoUploader
             photos={photos}
             onPhotosChange={setPhotos}
@@ -195,16 +203,18 @@ export default function CreateFoodPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">საკონტაქტო ტელეფონი</label>
+          <label className="text-[13px] font-bold text-[#334155]">
+            საკონტაქტო ტელეფონი
+          </label>
           <PhoneInput value={phone} onChange={setPhone} />
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
         <Button
           onClick={handleSubmit}
           disabled={loading || !title.trim()}
-          className="w-full"
+          className="h-[48px] w-full rounded-xl bg-[#F97316] text-sm font-bold text-white shadow-[0px_8px_20px_rgba(249,115,22,0.25)] hover:bg-[#EA6C0E]"
           size="lg"
         >
           {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}

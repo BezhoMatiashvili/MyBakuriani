@@ -110,8 +110,10 @@ export default function RenterSmartMatchPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">Smart Match</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          Smart Match
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           სტუმრების მოთხოვნები რომლებიც შეესატყვისება თქვენს ობიექტებს
         </p>
       </motion.div>
@@ -140,10 +142,10 @@ export default function RenterSmartMatchPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+            className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-            <p className="mt-1 text-2xl font-bold text-foreground">
+            <p className="text-xs text-[#94A3B8]">{stat.label}</p>
+            <p className="mt-1 text-2xl font-bold text-[#1E293B]">
               {loading ? <Skeleton className="h-8 w-12" /> : stat.value}
             </p>
           </motion.div>
@@ -156,7 +158,7 @@ export default function RenterSmartMatchPage() {
           Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="space-y-3">
                 <Skeleton className="h-4 w-48" />
@@ -169,16 +171,17 @@ export default function RenterSmartMatchPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+            className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
-            <Inbox className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
+            <Inbox className="h-12 w-12 text-[#94A3B8]" />
+            <p className="mt-3 text-sm text-[#94A3B8]">
               ახალი მოთხოვნები ჯერ არ არის
             </p>
           </motion.div>
         ) : (
           requests.map((request, index) => {
-            const config = statusConfig[request.status] ?? statusConfig.active;
+            const config =
+              statusConfig[request.status ?? "active"] ?? statusConfig.active;
             const StatusIcon = config.icon;
 
             return (
@@ -187,7 +190,7 @@ export default function RenterSmartMatchPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
-                className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+                className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -195,11 +198,11 @@ export default function RenterSmartMatchPage() {
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">
+                      <h3 className="text-sm font-semibold text-[#1E293B]">
                         {request.profiles?.display_name ?? "სტუმარი"}
                       </h3>
-                      <p className="text-[10px] text-muted-foreground">
-                        {new Date(request.created_at).toLocaleDateString(
+                      <p className="text-[10px] text-[#94A3B8]">
+                        {new Date(request.created_at ?? "").toLocaleDateString(
                           "ka-GE",
                         )}
                       </p>
@@ -213,7 +216,7 @@ export default function RenterSmartMatchPage() {
                   </span>
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#94A3B8]">
                   {request.check_in && request.check_out && (
                     <span className="flex items-center gap-1">
                       <CalendarDays className="h-3.5 w-3.5" />
@@ -237,10 +240,11 @@ export default function RenterSmartMatchPage() {
                   )}
                 </div>
 
-                {request.matched_properties.length > 0 && (
+                {(request.matched_properties ?? []).length > 0 && (
                   <div className="mt-2">
                     <Badge variant="secondary">
-                      {request.matched_properties.length} შესატყვისი ობიექტი
+                      {(request.matched_properties ?? []).length} შესატყვისი
+                      ობიექტი
                     </Badge>
                   </div>
                 )}

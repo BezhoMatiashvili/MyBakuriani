@@ -7,7 +7,7 @@ import type { Database } from "@/lib/types/database";
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
 export function useNotifications() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +53,12 @@ export function useNotifications() {
           },
           (payload) => {
             const newNotification = payload.new as Notification;
-            setNotifications((prev) => [newNotification, ...prev]);
+            setNotifications((prev) => {
+              if (prev.some((item) => item.id === newNotification.id)) {
+                return prev;
+              }
+              return [newNotification, ...prev];
+            });
           },
         )
         .on(
@@ -69,6 +74,19 @@ export function useNotifications() {
             setNotifications((prev) =>
               prev.map((n) => (n.id === updated.id ? updated : n)),
             );
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const deleted = payload.old as Notification;
+            setNotifications((prev) => prev.filter((n) => n.id !== deleted.id));
           },
         )
         .subscribe();

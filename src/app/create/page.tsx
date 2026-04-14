@@ -18,7 +18,6 @@ const CATEGORIES = [
     icon: Home,
     title: "უძრავი ქონება — ქირაობა",
     description: "ბინა, კოტეჯი, სასტუმრო, ვილა",
-    color: "text-brand-accent",
     bg: "bg-brand-accent-light/10",
   },
   {
@@ -26,7 +25,6 @@ const CATEGORIES = [
     icon: DollarSign,
     title: "უძრავი ქონება — გაყიდვა",
     description: "ქონების გაყიდვა და ინვესტიცია",
-    color: "text-emerald-500",
     bg: "bg-emerald-500/10",
   },
   {
@@ -34,7 +32,6 @@ const CATEGORIES = [
     icon: Briefcase,
     title: "დასაქმება",
     description: "ვაკანსიები და სამუშაო შეთავაზებები",
-    color: "text-amber-500",
     bg: "bg-amber-500/10",
   },
   {
@@ -42,7 +39,6 @@ const CATEGORIES = [
     icon: Wrench,
     title: "სერვისები",
     description: "დალაგება, ხელოსანი და სხვა",
-    color: "text-purple-500",
     bg: "bg-purple-500/10",
   },
   {
@@ -50,7 +46,6 @@ const CATEGORIES = [
     icon: Car,
     title: "ტრანსპორტი",
     description: "მძღოლის მომსახურება და გადაზიდვა",
-    color: "text-red-500",
     bg: "bg-red-500/10",
   },
   {
@@ -58,7 +53,6 @@ const CATEGORIES = [
     icon: UtensilsCrossed,
     title: "კვება",
     description: "რესტორანი, კაფე, მიტანის სერვისი",
-    color: "text-orange-500",
     bg: "bg-orange-500/10",
   },
   {
@@ -66,7 +60,6 @@ const CATEGORIES = [
     icon: Snowflake,
     title: "გართობა",
     description: "სათხილამურო, ტურები, აქტივობები",
-    color: "text-cyan-500",
     bg: "bg-cyan-500/10",
   },
 ];
@@ -79,36 +72,35 @@ export default function CreatePage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-8"
       >
-        {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold">განცხადების დამატება</h1>
-          <p className="mt-2 text-muted-foreground">
+          <h1 className="text-[28px] font-black leading-8 tracking-[-0.7px] text-[#1E293B]">
+            განცხადების დამატება
+          </h1>
+          <p className="mt-2 text-sm font-medium text-[#64748B]">
             აირჩიეთ კატეგორია თქვენი განცხადებისთვის
           </p>
         </div>
-
-        {/* Category grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CATEGORIES.map((cat, index) => (
+          {CATEGORIES.map((cat, i) => (
             <motion.div
               key={cat.href}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: i * 0.05 }}
             >
               <Link
                 href={cat.href}
-                className="group flex flex-col items-center gap-3 rounded-2xl border bg-card p-6 text-center shadow-sm transition-all hover:border-brand-accent/30 hover:shadow-md"
+                className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-[#E2E8F0] bg-white p-6 text-center transition-all hover:border-brand-accent/30 hover:shadow-md"
               >
                 <div
-                  className={`flex size-14 items-center justify-center rounded-xl ${cat.bg}`}
+                  className={`flex size-[30px] items-center justify-center ${cat.bg}`}
                 >
-                  <cat.icon className={`size-7 ${cat.color}`} />
+                  <cat.icon className="size-[30px] text-[#94A3B8]" />
                 </div>
-                <h2 className="font-semibold">{cat.title}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {cat.description}
-                </p>
+                <h2 className="text-sm font-semibold text-[#475569]">
+                  {cat.title}
+                </h2>
+                <p className="text-sm text-[#94A3B8]">{cat.description}</p>
               </Link>
             </motion.div>
           ))}

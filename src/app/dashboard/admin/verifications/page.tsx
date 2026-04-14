@@ -36,20 +36,23 @@ export default function VerificationsPage() {
 
   const loadVerifications = useCallback(async () => {
     const supabase = createClient();
-    let query = supabase
-      .from("verifications")
-      .select(
-        "*, user:profiles!verifications_user_id_fkey(*), property:properties!verifications_property_id_fkey(*)",
-      )
-      .order("created_at", { ascending: false });
+    try {
+      let query = supabase
+        .from("verifications")
+        .select(
+          "*, user:profiles!verifications_user_id_fkey(*), property:properties!verifications_property_id_fkey(*)",
+        )
+        .order("created_at", { ascending: false });
 
-    if (filterStatus !== "all") {
-      query = query.eq("status", filterStatus);
+      if (filterStatus !== "all") {
+        query = query.eq("status", filterStatus);
+      }
+
+      const { data } = await query;
+      setVerifications((data as VerificationWithRelations[]) ?? []);
+    } finally {
+      setLoading(false);
     }
-
-    const { data } = await query;
-    setVerifications((data as VerificationWithRelations[]) ?? []);
-    setLoading(false);
   }, [filterStatus]);
 
   useEffect(() => {
@@ -101,14 +104,16 @@ export default function VerificationsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">ვერიფიკაციები</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-[20px] font-black leading-[30px] tracking-[-0.5px] text-[#1E293B]">
+            ვერიფიკაციები
+          </h1>
+          <p className="mt-1 text-sm font-medium text-[#64748B]">
             მომხმარებლების და ქონების ვერიფიკაციის მართვა
           </p>
         </div>
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-brand-accent" />
-          <span className="text-sm font-medium text-muted-foreground">
+          <span className="text-sm font-medium text-[#94A3B8]">
             {verifications.filter((v) => v.status === "pending").length}{" "}
             მომლოდინე
           </span>
@@ -127,7 +132,7 @@ export default function VerificationsPage() {
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
               filterStatus === f.value
                 ? "bg-brand-accent text-white"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                : "bg-[#F8FAFC] text-[#94A3B8] hover:bg-[#F8FAFC]"
             }`}
           >
             {f.label}
@@ -143,16 +148,14 @@ export default function VerificationsPage() {
           ))}
         </div>
       ) : verifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 py-16">
-          <Search className="mb-3 h-10 w-10 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">
-            ვერიფიკაციები ვერ მოიძებნა
-          </p>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#64748B]/30 py-16">
+          <Search className="mb-3 h-10 w-10 text-[#94A3B8]/50" />
+          <p className="text-sm text-[#94A3B8]">ვერიფიკაციები ვერ მოიძებნა</p>
         </div>
       ) : (
         <div className="space-y-2">
           {/* Table header */}
-          <div className="hidden grid-cols-5 gap-4 rounded-lg bg-muted/50 px-4 py-2.5 text-xs font-medium text-muted-foreground sm:grid">
+          <div className="hidden grid-cols-5 gap-4 rounded-lg bg-[#F8FAFC] px-4 py-2.5 text-xs font-medium text-[#94A3B8] sm:grid">
             <span>მომხმარებელი</span>
             <span>ქონება</span>
             <span>გაგზავნის თარიღი</span>
@@ -164,7 +167,7 @@ export default function VerificationsPage() {
             <motion.div
               key={v.id}
               layout
-              className="overflow-hidden rounded-[var(--radius-card)] bg-brand-surface shadow-[var(--shadow-card)]"
+              className="overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               {/* Row */}
               <button
@@ -172,27 +175,29 @@ export default function VerificationsPage() {
                 className="grid w-full grid-cols-1 gap-2 px-4 py-3 text-left sm:grid-cols-5 sm:items-center sm:gap-4"
               >
                 <div>
-                  <p className="font-medium text-foreground">
+                  <p className="font-medium text-[#1E293B]">
                     {v.user?.display_name ?? "—"}
                   </p>
-                  <p className="text-xs text-muted-foreground sm:hidden">
+                  <p className="text-xs text-[#94A3B8] sm:hidden">
                     {v.user?.phone ? formatPhone(v.user.phone) : ""}
                   </p>
                 </div>
-                <p className="truncate text-sm text-muted-foreground">
+                <p className="truncate text-sm text-[#94A3B8]">
                   {v.property?.title ?? "პირადი ვერიფიკაცია"}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-[#94A3B8]">
                   {formatDate(v.created_at)}
                 </p>
                 <div>
-                  <StatusBadge status={statusBadgeMap[v.status] ?? "pending"} />
+                  <StatusBadge
+                    status={statusBadgeMap[v.status ?? "pending"] ?? "pending"}
+                  />
                 </div>
                 <div className="flex justify-end">
                   {expandedId === v.id ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    <ChevronUp className="h-4 w-4 text-[#94A3B8]" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 text-[#94A3B8]" />
                   )}
                 </div>
               </button>
@@ -205,38 +210,38 @@ export default function VerificationsPage() {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="border-t border-border"
+                    className="border-t border-[#E2E8F0]"
                   >
                     <div className="grid grid-cols-1 gap-6 p-4 lg:grid-cols-2">
                       {/* User info */}
                       <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-foreground">
+                        <h3 className="text-sm font-semibold text-[#1E293B]">
                           მომხმარებლის ინფორმაცია
                         </h3>
                         <dl className="space-y-2 text-sm">
                           <div className="flex justify-between">
-                            <dt className="text-muted-foreground">სახელი</dt>
-                            <dd className="font-medium text-foreground">
+                            <dt className="text-[#94A3B8]">სახელი</dt>
+                            <dd className="font-medium text-[#1E293B]">
                               {v.user?.display_name ?? "—"}
                             </dd>
                           </div>
                           <div className="flex justify-between">
-                            <dt className="text-muted-foreground">ტელეფონი</dt>
-                            <dd className="font-medium text-foreground">
+                            <dt className="text-[#94A3B8]">ტელეფონი</dt>
+                            <dd className="font-medium text-[#1E293B]">
                               {v.user?.phone ? formatPhone(v.user.phone) : "—"}
                             </dd>
                           </div>
                           <div className="flex justify-between">
-                            <dt className="text-muted-foreground">როლი</dt>
-                            <dd className="font-medium text-foreground">
+                            <dt className="text-[#94A3B8]">როლი</dt>
+                            <dd className="font-medium text-[#1E293B]">
                               {v.user?.role ?? "—"}
                             </dd>
                           </div>
                           <div className="flex justify-between">
-                            <dt className="text-muted-foreground">
+                            <dt className="text-[#94A3B8]">
                               რეგისტრაციის თარიღი
                             </dt>
-                            <dd className="font-medium text-foreground">
+                            <dd className="font-medium text-[#1E293B]">
                               {v.user?.created_at
                                 ? formatDate(v.user.created_at)
                                 : "—"}
@@ -247,29 +252,25 @@ export default function VerificationsPage() {
                         {/* Property details */}
                         {v.property && (
                           <>
-                            <h3 className="pt-2 text-sm font-semibold text-foreground">
+                            <h3 className="pt-2 text-sm font-semibold text-[#1E293B]">
                               ქონების დეტალები
                             </h3>
                             <dl className="space-y-2 text-sm">
                               <div className="flex justify-between">
-                                <dt className="text-muted-foreground">
-                                  სათაური
-                                </dt>
-                                <dd className="font-medium text-foreground">
+                                <dt className="text-[#94A3B8]">სათაური</dt>
+                                <dd className="font-medium text-[#1E293B]">
                                   {v.property.title}
                                 </dd>
                               </div>
                               <div className="flex justify-between">
-                                <dt className="text-muted-foreground">ტიპი</dt>
-                                <dd className="font-medium text-foreground">
+                                <dt className="text-[#94A3B8]">ტიპი</dt>
+                                <dd className="font-medium text-[#1E293B]">
                                   {v.property.type}
                                 </dd>
                               </div>
                               <div className="flex justify-between">
-                                <dt className="text-muted-foreground">
-                                  მდებარეობა
-                                </dt>
-                                <dd className="font-medium text-foreground">
+                                <dt className="text-[#94A3B8]">მდებარეობა</dt>
+                                <dd className="font-medium text-[#1E293B]">
                                   {v.property.location}
                                 </dd>
                               </div>
@@ -282,7 +283,7 @@ export default function VerificationsPage() {
                       <div className="space-y-4">
                         {/* Documents */}
                         <div>
-                          <h3 className="mb-2 text-sm font-semibold text-foreground">
+                          <h3 className="mb-2 text-sm font-semibold text-[#1E293B]">
                             ატვირთული დოკუმენტები
                           </h3>
                           {Array.isArray(v.documents) &&
@@ -294,7 +295,7 @@ export default function VerificationsPage() {
                                   href={doc}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm text-brand-accent hover:underline"
+                                  className="flex items-center gap-2 rounded-md bg-[#F8FAFC] px-3 py-2 text-sm text-brand-accent hover:underline"
                                 >
                                   <FileText className="h-4 w-4" />
                                   დოკუმენტი {i + 1}
@@ -302,7 +303,7 @@ export default function VerificationsPage() {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-[#94A3B8]">
                               დოკუმენტები არ არის ატვირთული
                             </p>
                           )}
@@ -310,11 +311,11 @@ export default function VerificationsPage() {
 
                         {/* Admin notes */}
                         <div>
-                          <label className="mb-1.5 block text-sm font-semibold text-foreground">
+                          <label className="mb-1.5 block text-sm font-semibold text-[#1E293B]">
                             ადმინის შენიშვნები
                           </label>
                           <textarea
-                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                            className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] placeholder:text-[#94A3B8] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
                             rows={3}
                             placeholder="შენიშვნის დამატება..."
                             value={adminNotes[v.id] ?? v.admin_notes ?? ""}
@@ -329,7 +330,7 @@ export default function VerificationsPage() {
 
                         {/* Decision history */}
                         {v.reviewed_at && (
-                          <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                          <div className="rounded-md bg-[#F8FAFC] px-3 py-2 text-xs text-[#94A3B8]">
                             გადაწყვეტილება: {formatDate(v.reviewed_at)}
                           </div>
                         )}

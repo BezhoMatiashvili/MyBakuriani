@@ -2,6 +2,14 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@source "../../src";
+@source not "../../node_modules_old";
+@source not "../../.node_modules_old";
+@source not "../../.playwright-mcp";
+@source not "../../e2e";
+@source not "../../playwright-report";
+@source not "../../design.txt";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -23,11 +31,14 @@
   --color-brand-surface: #ffffff;
   --color-brand-surface-muted: #f8fafc;
   --color-brand-surface-border: #e2e8f0;
+  --color-brand-orange: #f97316;
+  --color-sky-accent: #38bdf8;
   --color-dark-card: #222a3b;
   --color-dark-toggle: #1f2a44;
 
   --radius-card: 12px;
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-category-nav: 0px 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-card: 0px 1px 3px rgba(0, 0, 0, 0.05);
   --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-search: 0px 20px 40px -10px rgba(0, 0, 0, 0.15);
   --shadow-dark-card:
@@ -73,7 +84,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: #f8fafc;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);

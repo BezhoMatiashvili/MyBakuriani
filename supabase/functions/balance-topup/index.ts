@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import {
+  corsHeaders,
+  errorResponse,
+  jsonResponse,
+  requireUser,
+} from "../_shared/guards.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,16 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const authHeader = req.headers.get("Authorization")!;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) throw new Error("Unauthorized");
+    const { supabase, user } = await requireUser(req);
 
     const { amount } = await req.json();
 
@@ -65,19 +55,13 @@ serve(async (req) => {
 
     if (updateError) throw updateError;
 
-    return new Response(
-      JSON.stringify({
-        data: { new_balance: newAmount, amount_added: amount },
-      }),
+    return jsonResponse(
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+        data: { new_balance: newAmount, amount_added: amount },
       },
+      200,
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return errorResponse(err);
   }
 });

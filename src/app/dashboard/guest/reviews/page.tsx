@@ -71,8 +71,10 @@ export default function GuestReviewsPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">ჩემი შეფასებები</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          ჩემი შეფასებები
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           თქვენი დატოვებული შეფასებები და რეიტინგი
         </p>
       </motion.div>
@@ -82,16 +84,16 @@ export default function GuestReviewsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="flex items-center gap-6 rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+        className="flex items-center gap-6 rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
         <div className="text-center">
-          <p className="text-3xl font-bold text-foreground">{averageRating}</p>
+          <p className="text-3xl font-bold text-[#1E293B]">{averageRating}</p>
           <StarRating rating={Math.round(Number(averageRating))} />
         </div>
         <div className="h-12 w-px bg-border" />
         <div>
-          <p className="text-2xl font-bold text-foreground">{reviews.length}</p>
-          <p className="text-xs text-muted-foreground">სულ შეფასებები</p>
+          <p className="text-2xl font-bold text-[#1E293B]">{reviews.length}</p>
+          <p className="text-xs text-[#94A3B8]">სულ შეფასებები</p>
         </div>
       </motion.div>
 
@@ -101,7 +103,7 @@ export default function GuestReviewsPage() {
           Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <Skeleton className="h-4 w-48" />
               <Skeleton className="mt-2 h-3 w-full" />
@@ -112,10 +114,10 @@ export default function GuestReviewsPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+            className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
-            <MessageSquare className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
+            <MessageSquare className="h-12 w-12 text-[#94A3B8]" />
+            <p className="mt-3 text-sm text-[#94A3B8]">
               შეფასებები ჯერ არ გაქვთ
             </p>
           </motion.div>
@@ -126,11 +128,11 @@ export default function GuestReviewsPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
                     {review.properties?.photos?.[0] && (
                       <Image
                         src={review.properties.photos[0]}
@@ -141,10 +143,10 @@ export default function GuestReviewsPage() {
                     )}
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-foreground">
+                    <h3 className="text-sm font-semibold text-[#1E293B]">
                       {review.properties?.title ?? "ობიექტი"}
                     </h3>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-[#94A3B8]">
                       {review.properties?.location}
                     </p>
                   </div>
@@ -153,13 +155,11 @@ export default function GuestReviewsPage() {
               </div>
 
               {review.comment && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {review.comment}
-                </p>
+                <p className="mt-3 text-sm text-[#94A3B8]">{review.comment}</p>
               )}
 
-              <p className="mt-2 text-[10px] text-muted-foreground">
-                {new Date(review.created_at).toLocaleDateString("ka-GE")}
+              <p className="mt-2 text-[10px] text-[#94A3B8]">
+                {new Date(review.created_at ?? "").toLocaleDateString("ka-GE")}
               </p>
             </motion.div>
           ))

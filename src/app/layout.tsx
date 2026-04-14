@@ -24,9 +24,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ka" className={cn("font-sans", notoSansGeorgian.variable)}>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="flex min-h-screen flex-col bg-white text-[#1E293B] antialiased">
         <Navbar />
-        <main className="min-h-[calc(100vh-80px)]">{children}</main>
+        <main className="flex-1">{children}</main>
         <Footer />
       </body>
     </html>

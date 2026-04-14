@@ -62,17 +62,17 @@ export default function CreateTransportPage() {
         ტრანსპორტის განცხადება
       </h1>
 
-      <div className="space-y-5 rounded-2xl border bg-card p-6 shadow-sm">
+      <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
         <div className="space-y-2">
           <label className="text-sm font-medium">
-            სათაური <span className="text-destructive">*</span>
+            სათაური <span className="text-[#EF4444]">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="მაგ: ტრანსფერი თბილისი-ბაკურიანი"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -83,7 +83,7 @@ export default function CreateTransportPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="სერვისის აღწერა..."
             rows={3}
-            className="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -95,7 +95,7 @@ export default function CreateTransportPage() {
               value={driverName}
               onChange={(e) => setDriverName(e.target.value)}
               placeholder="სახელი გვარი"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             />
           </div>
           <div className="space-y-2">
@@ -106,7 +106,7 @@ export default function CreateTransportPage() {
               onChange={(e) => setVehicleCapacity(e.target.value)}
               placeholder="მაგ: 4"
               min="1"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             />
           </div>
         </div>
@@ -118,7 +118,7 @@ export default function CreateTransportPage() {
             value={route}
             onChange={(e) => setRoute(e.target.value)}
             placeholder="მაგ: თბილისი → ბაკურიანი"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -131,7 +131,7 @@ export default function CreateTransportPage() {
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0"
               min="0"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             />
           </div>
           <div className="space-y-2">
@@ -139,7 +139,7 @@ export default function CreateTransportPage() {
             <select
               value={priceUnit}
               onChange={(e) => setPriceUnit(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             >
               <option value="მგზავრი">მგზავრი</option>
               <option value="მანქანა">მანქანა</option>
@@ -155,7 +155,7 @@ export default function CreateTransportPage() {
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
             placeholder="მაგ: ყოველდღე, 08:00-20:00"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -164,7 +164,7 @@ export default function CreateTransportPage() {
           <PhoneInput value={phone} onChange={setPhone} />
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
         <Button
           onClick={handleSubmit}

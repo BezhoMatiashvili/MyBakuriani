@@ -1,6 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function getSafeNextPath(request: NextRequest) {
+  const redirectTo = request.nextUrl.pathname + request.nextUrl.search;
+  if (!redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
+    return "/dashboard";
+  }
+  return redirectTo;
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -37,6 +45,7 @@ export async function updateSession(request: NextRequest) {
     if (!user && isProtected) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth/login";
+      url.searchParams.set("next", getSafeNextPath(request));
       return NextResponse.redirect(url);
     }
   } catch {
@@ -44,6 +53,7 @@ export async function updateSession(request: NextRequest) {
     if (isProtected) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth/login";
+      url.searchParams.set("next", getSafeNextPath(request));
       return NextResponse.redirect(url);
     }
   }

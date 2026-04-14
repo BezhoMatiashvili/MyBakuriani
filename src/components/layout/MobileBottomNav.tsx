@@ -130,21 +130,20 @@ export function MobileBottomNav({
   const tabs = getTabs(userRole);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-surface-border bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white shadow-[0px_-4px_12px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)] md:hidden">
       <ul className="flex items-center justify-around">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive =
             currentPath === tab.href ||
             (tab.href !== "/dashboard" && currentPath.startsWith(tab.href));
-
           return (
             <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
                 className={cn(
                   "flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors",
-                  isActive ? "text-brand-accent" : "text-muted-foreground",
+                  isActive ? "text-brand-accent" : "text-[#94A3B8]",
                 )}
               >
                 <Icon className="size-5" />

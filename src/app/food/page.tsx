@@ -11,13 +11,17 @@ export const metadata: Metadata = {
 export default async function FoodPage() {
   const supabase = await createClient();
 
-  const { data: services } = await supabase
+  const { data: services, error } = await supabase
     .from("services")
     .select("*")
     .eq("status", "active")
     .eq("category", "food")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[food] failed to load services", error.message);
+  }
 
   return <FoodPageClient services={services ?? []} />;
 }

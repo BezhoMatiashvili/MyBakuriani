@@ -119,8 +119,10 @@ export default function CleanerSchedulePage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">განრიგი</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          განრიგი
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           თქვენი დალაგების კალენდარი
         </p>
       </motion.div>
@@ -130,7 +132,7 @@ export default function CleanerSchedulePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)] sm:p-6"
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:p-6"
       >
         {/* Month nav */}
         <div className="flex items-center justify-between">
@@ -141,7 +143,7 @@ export default function CleanerSchedulePage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h3 className="text-base font-semibold text-foreground">
+          <h3 className="text-base font-semibold text-[#1E293B]">
             {monthNames[month]} {year}
           </h3>
           <Button
@@ -158,7 +160,7 @@ export default function CleanerSchedulePage() {
           {dayNames.map((day) => (
             <div
               key={day}
-              className="py-2 text-center text-xs font-medium text-muted-foreground"
+              className="py-2 text-center text-xs font-medium text-[#94A3B8]"
             >
               {day}
             </div>
@@ -187,7 +189,7 @@ export default function CleanerSchedulePage() {
                     ? "bg-brand-accent text-white"
                     : isToday
                       ? "bg-brand-accent/10 text-brand-accent"
-                      : "hover:bg-muted",
+                      : "hover:bg-[#F8FAFC]",
                 )}
               >
                 {day}
@@ -211,7 +213,7 @@ export default function CleanerSchedulePage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-lg font-semibold text-[#1E293B]">
             {new Date(selectedDate).toLocaleDateString("ka-GE", {
               day: "numeric",
               month: "long",
@@ -219,35 +221,33 @@ export default function CleanerSchedulePage() {
           </h2>
           <div className="mt-3 space-y-3">
             {selectedTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-8 shadow-[var(--shadow-card)]">
-                <Sparkles className="h-8 w-8 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  ამოცანები არ არის
-                </p>
+              <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-8 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+                <Sparkles className="h-8 w-8 text-[#94A3B8]" />
+                <p className="mt-2 text-sm text-[#94A3B8]">ამოცანები არ არის</p>
               </div>
             ) : (
               selectedTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                  className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">
+                      <h3 className="text-sm font-semibold text-[#1E293B]">
                         {task.properties?.title ?? "ობიექტი"}
                       </h3>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-[#94A3B8]">
                         <MapPin className="h-3 w-3" />
                         {task.properties?.location}
                       </p>
                     </div>
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[task.status] ?? ""}`}
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[task.status ?? "pending"] ?? ""}`}
                     >
-                      {statusLabels[task.status] ?? task.status}
+                      {statusLabels[task.status ?? "pending"] ?? task.status}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="mt-2 flex items-center gap-3 text-xs text-[#94A3B8]">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
                       {new Date(task.scheduled_at).toLocaleTimeString("ka-GE", {

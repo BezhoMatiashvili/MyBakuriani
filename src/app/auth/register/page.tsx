@@ -9,6 +9,18 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
 
+const ROLE_DASHBOARD: Record<string, string> = {
+  admin: "/dashboard/admin",
+  renter: "/dashboard/renter",
+  seller: "/dashboard/seller",
+  cleaner: "/dashboard/cleaner",
+  food: "/dashboard/food",
+  entertainment: "/dashboard/service",
+  transport: "/dashboard/service",
+  employment: "/dashboard/service",
+  handyman: "/dashboard/service",
+};
+
 const ROLES: { value: Enums<"user_role">; label: string; icon: string }[] = [
   { value: "guest", label: "სტუმარი", icon: "🏠" },
   { value: "renter", label: "გამქირავებელი", icon: "🔑" },
@@ -37,10 +49,34 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [checkingProfile, setCheckingProfile] = useState(true);
+
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading) return;
+
+    if (!user) {
       router.push("/auth/login");
+      return;
     }
+
+    // Check if user already has a profile — redirect to dashboard if so
+    const sb = createClient();
+    async function checkExistingProfile() {
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("role")
+        .eq("id", user!.id)
+        .single();
+
+      if (profile) {
+        const path = ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest";
+        router.replace(path);
+      } else {
+        setCheckingProfile(false);
+      }
+    }
+    checkExistingProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, router]);
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -85,7 +121,8 @@ export default function RegisterPage() {
 
       const { error: profileError } = await supabase.from("profiles").upsert({
         id: user.id,
-        phone: user.phone || "",
+        phone: user.phone || (null as unknown as string),
+        email: user.email || "",
         display_name: displayName.trim(),
         bio: bio.trim() || null,
         avatar_url: uploadedAvatarUrl,
@@ -94,7 +131,8 @@ export default function RegisterPage() {
 
       if (profileError) throw profileError;
 
-      router.push("/dashboard");
+      const dashPath = ROLE_DASHBOARD[selectedRole] ?? "/dashboard/guest";
+      router.push(dashPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
@@ -102,10 +140,10 @@ export default function RegisterPage() {
     }
   }
 
-  if (authLoading) {
+  if (authLoading || checkingProfile) {
     return (
       <div className="flex min-h-[calc(100vh-160px)] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-8 animate-spin text-[#94A3B8]" />
       </div>
     );
   }
@@ -129,7 +167,7 @@ export default function RegisterPage() {
           <h1 className="text-2xl font-bold">
             {step === 1 ? "პროფილის შექმნა" : "აირჩიეთ როლი"}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-[#94A3B8]">
             {step === 1
               ? "შეავსეთ თქვენი პროფილის ინფორმაცია"
               : "რა როლით გსურთ პლატფორმის გამოყენება?"}
@@ -137,7 +175,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Form */}
-        <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="rounded-[24px] border bg-white p-10 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)]">
           <AnimatePresence mode="wait">
             {step === 1 ? (
               <motion.div
@@ -150,7 +188,7 @@ export default function RegisterPage() {
                 {/* Avatar */}
                 <div className="flex justify-center">
                   <label className="group relative cursor-pointer">
-                    <div className="flex size-24 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/25 bg-muted transition-colors group-hover:border-brand-accent/50">
+                    <div className="flex size-24 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-[#64748B]/25 bg-[#F8FAFC] transition-colors group-hover:border-brand-accent/50">
                       {avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -159,7 +197,7 @@ export default function RegisterPage() {
                           className="size-full object-cover"
                         />
                       ) : (
-                        <Camera className="size-8 text-muted-foreground" />
+                        <Camera className="size-8 text-[#94A3B8]" />
                       )}
                     </div>
                     <input
@@ -168,7 +206,7 @@ export default function RegisterPage() {
                       onChange={handleAvatarChange}
                       className="hidden"
                     />
-                    <span className="mt-1 block text-center text-xs text-muted-foreground">
+                    <span className="mt-1 block text-center text-xs text-[#94A3B8]">
                       ფოტოს ატვირთვა
                     </span>
                   </label>
@@ -177,14 +215,14 @@ export default function RegisterPage() {
                 {/* Display name */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    სახელი <span className="text-destructive">*</span>
+                    სახელი <span className="text-[#EF4444]">*</span>
                   </label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="თქვენი სახელი"
-                    className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-ring/50"
+                    className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50"
                   />
                 </div>
 
@@ -196,11 +234,11 @@ export default function RegisterPage() {
                     onChange={(e) => setBio(e.target.value)}
                     placeholder="მოკლე აღწერა..."
                     rows={3}
-                    className="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-ring/50"
+                    className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50"
                   />
                 </div>
 
-                {error && <p className="text-sm text-destructive">{error}</p>}
+                {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
                 <Button
                   onClick={handleProfileSubmit}
@@ -227,8 +265,8 @@ export default function RegisterPage() {
                       onClick={() => setSelectedRole(role.value)}
                       className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
                         selectedRole === role.value
-                          ? "border-brand-accent bg-brand-accent/5 shadow-sm"
-                          : "border-transparent bg-muted/50 hover:border-muted-foreground/20"
+                          ? "border-brand-accent bg-brand-accent/5 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
+                          : "border-transparent bg-[#F8FAFC] hover:border-[#64748B]/20"
                       }`}
                     >
                       <span className="text-2xl">{role.icon}</span>
@@ -237,7 +275,7 @@ export default function RegisterPage() {
                   ))}
                 </div>
 
-                {error && <p className="text-sm text-destructive">{error}</p>}
+                {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
                 <div className="flex gap-3">
                   <Button

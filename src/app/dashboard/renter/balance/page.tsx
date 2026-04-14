@@ -125,7 +125,7 @@ export default function RenterBalancePage() {
 
   const handlePurchase = async (packageId: string, amount: number) => {
     if (!user || !balance) return;
-    if (balance.amount < amount) return;
+    if ((balance.amount ?? 0) < amount) return;
 
     setPurchasing(packageId);
 
@@ -140,7 +140,7 @@ export default function RenterBalancePage() {
     // Deduct balance
     await supabase
       .from("balances")
-      .update({ amount: balance.amount - amount })
+      .update({ amount: (balance.amount ?? 0) - amount })
       .eq("user_id", user.id);
 
     setPurchasing(null);
@@ -152,8 +152,10 @@ export default function RenterBalancePage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">ბალანსი</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          ბალანსი
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           მართეთ თქვენი ბალანსი და შეიძინეთ სერვისები
         </p>
       </motion.div>
@@ -163,7 +165,7 @@ export default function RenterBalancePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-[var(--radius-card)] bg-gradient-to-br from-brand-accent to-brand-accent/80 p-6 text-white shadow-lg"
+        className="rounded-[20px] bg-gradient-to-br from-brand-accent to-brand-accent/80 p-6 text-white shadow-lg"
       >
         {loading ? (
           <div className="space-y-3">
@@ -203,7 +205,7 @@ export default function RenterBalancePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <h2 className="text-lg font-semibold text-foreground">სერვისები</h2>
+        <h2 className="text-lg font-semibold text-[#1E293B]">სერვისები</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {boostPackages.map((pkg) => {
             const Icon = pkg.icon;
@@ -213,7 +215,7 @@ export default function RenterBalancePage() {
             return (
               <div
                 key={pkg.id}
-                className="flex items-center gap-4 rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+                className="flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
                 <div
                   className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${pkg.color}`}
@@ -221,12 +223,10 @@ export default function RenterBalancePage() {
                   <Icon className="h-6 w-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-foreground">
+                  <h3 className="text-sm font-semibold text-[#1E293B]">
                     {pkg.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {pkg.description}
-                  </p>
+                  <p className="text-xs text-[#94A3B8]">{pkg.description}</p>
                   <p className="mt-1 text-sm font-bold text-brand-accent">
                     {pkg.price} {pkg.unit}
                   </p>
@@ -250,16 +250,16 @@ export default function RenterBalancePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <h2 className="text-lg font-semibold text-foreground">ტრანზაქციები</h2>
+        <h2 className="text-lg font-semibold text-[#1E293B]">ტრანზაქციები</h2>
         <div className="mt-3 space-y-2">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))
           ) : transactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-12 shadow-[var(--shadow-card)]">
-              <History className="h-10 w-10 text-muted-foreground" />
-              <p className="mt-2 text-sm text-muted-foreground">
+            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+              <History className="h-10 w-10 text-[#94A3B8]" />
+              <p className="mt-2 text-sm text-[#94A3B8]">
                 ტრანზაქციები ჯერ არ გაქვთ
               </p>
             </div>
@@ -267,7 +267,7 @@ export default function RenterBalancePage() {
             transactions.map((tx) => (
               <div
                 key={tx.id}
-                className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-sm"
+                className="flex items-center justify-between rounded-lg bg-brand-surface px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -284,16 +284,19 @@ export default function RenterBalancePage() {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-[#1E293B]">
                       {transactionLabels[tx.type] ?? tx.type}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {new Date(tx.created_at).toLocaleDateString("ka-GE", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                    <p className="text-[10px] text-[#94A3B8]">
+                      {new Date(tx.created_at ?? "").toLocaleDateString(
+                        "ka-GE",
+                        {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
                     </p>
                   </div>
                 </div>

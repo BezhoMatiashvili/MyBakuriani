@@ -85,8 +85,10 @@ export default function RenterListingsPage() {
         className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground">ჩემი ობიექტები</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+            ჩემი ობიექტები
+          </h1>
+          <p className="mt-1 text-sm font-medium text-[#64748B]">
             მართეთ თქვენი გაქირავების ობიექტები
           </p>
         </div>
@@ -100,13 +102,13 @@ export default function RenterListingsPage() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
         <input
           type="text"
           placeholder="ობიექტის ძებნა..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
+          className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] py-2.5 pl-10 pr-4 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] placeholder:text-[#94A3B8] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
         />
       </div>
 
@@ -133,7 +135,7 @@ export default function RenterListingsPage() {
           Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="flex gap-4">
                 <Skeleton className="h-20 w-20 rounded-lg" />
@@ -149,10 +151,10 @@ export default function RenterListingsPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+            className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
-            <Building className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
+            <Building className="h-12 w-12 text-[#94A3B8]" />
+            <p className="mt-3 text-sm text-[#94A3B8]">
               ობიექტები ვერ მოიძებნა
             </p>
             <Link href="/create/rental" className="mt-4">
@@ -169,14 +171,14 @@ export default function RenterListingsPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-4 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 {/* Image */}
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {property.photos[0] && (
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
+                  {(property.photos ?? [])[0] && (
                     <Image
-                      src={property.photos[0]}
+                      src={(property.photos ?? [])[0]}
                       alt={property.title}
                       fill
                       className="object-cover"
@@ -188,21 +190,22 @@ export default function RenterListingsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="truncate text-sm font-semibold text-foreground">
+                      <h3 className="truncate text-sm font-semibold text-[#1E293B]">
                         {property.title}
                       </h3>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-[#94A3B8]">
                         {property.location}
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status] ?? ""}`}
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status ?? "draft"] ?? ""}`}
                     >
-                      {statusLabels[property.status] ?? property.status}
+                      {statusLabels[property.status ?? "draft"] ??
+                        property.status}
                     </span>
                   </div>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-[#94A3B8]">
                     <span className="flex items-center gap-1">
                       <Eye className="h-3.5 w-3.5" />
                       {property.views_count} ნახვა
@@ -224,7 +227,7 @@ export default function RenterListingsPage() {
                         Super VIP
                       </Badge>
                     )}
-                    {property.discount_percent > 0 && (
+                    {(property.discount_percent ?? 0) > 0 && (
                       <Badge variant="secondary">
                         -{property.discount_percent}%
                       </Badge>

@@ -86,7 +86,7 @@ export default function SettingsPage() {
       content: (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               საკომისიო (%)
             </label>
             <input
@@ -100,11 +100,11 @@ export default function SettingsPage() {
                   commissionRate: Number(e.target.value),
                 }))
               }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               VIP ფასი (₾)
             </label>
             <input
@@ -117,11 +117,11 @@ export default function SettingsPage() {
                   vipPrice: Number(e.target.value),
                 }))
               }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               Super VIP ფასი (₾)
             </label>
             <input
@@ -134,11 +134,11 @@ export default function SettingsPage() {
                   superVipPrice: Number(e.target.value),
                 }))
               }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               მაქს. ფოტო რაოდენობა
             </label>
             <input
@@ -152,7 +152,7 @@ export default function SettingsPage() {
                   maxPhotos: Number(e.target.value),
                 }))
               }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
             />
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function SettingsPage() {
       content: (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               10 SMS (₾)
             </label>
             <input
@@ -177,11 +177,11 @@ export default function SettingsPage() {
                   smsPackage10: Number(e.target.value),
                 }))
               }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               50 SMS (₾)
             </label>
             <input
@@ -194,11 +194,11 @@ export default function SettingsPage() {
                   smsPackage50: Number(e.target.value),
                 }))
               }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
               100 SMS (₾)
             </label>
             <input
@@ -211,7 +211,7 @@ export default function SettingsPage() {
                   smsPackage100: Number(e.target.value),
                 }))
               }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
             />
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function SettingsPage() {
             };
             return (
               <div key={key}>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
                   {labels[key] ?? key}
                 </label>
                 <textarea
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                       [key]: e.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                  className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
                 />
               </div>
             );
@@ -259,17 +259,17 @@ export default function SettingsPage() {
           {admins.map((admin) => (
             <div
               key={admin.id}
-              className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-2.5"
+              className="flex items-center justify-between rounded-lg bg-[#F8FAFC]/60 px-4 py-2.5"
             >
               <div>
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-medium text-[#1E293B]">
                   {admin.name}
                 </p>
-                <p className="text-xs text-muted-foreground">{admin.phone}</p>
+                <p className="text-xs text-[#94A3B8]">{admin.phone}</p>
               </div>
               <button
                 onClick={() => handleRemoveAdmin(admin.id)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                className="rounded-md p-1.5 text-[#94A3B8] hover:bg-red-50 hover:text-red-600"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -281,7 +281,7 @@ export default function SettingsPage() {
               placeholder="+995 5XX XX XX XX"
               value={newAdminPhone}
               onChange={(e) => setNewAdminPhone(e.target.value)}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-accent focus:outline-none"
+              className="flex-1 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm focus:border-brand-accent focus:outline-none"
             />
             <Button size="sm" onClick={handleAddAdmin}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -297,10 +297,10 @@ export default function SettingsPage() {
       content: (
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-sm font-medium text-[#1E293B]">
               ტექნიკური სამუშაოების რეჟიმი
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-[#94A3B8]">
               ჩართვის შემთხვევაში მომხმარებლები ვერ შეძლებენ საიტზე წვდომას
             </p>
           </div>
@@ -312,7 +312,7 @@ export default function SettingsPage() {
               }))
             }
             className={`relative h-6 w-11 rounded-full transition-colors ${
-              settings.maintenanceMode ? "bg-red-500" : "bg-muted"
+              settings.maintenanceMode ? "bg-red-500" : "bg-[#F8FAFC]"
             }`}
           >
             <span
@@ -331,8 +331,10 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">პარამეტრები</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-[20px] font-black leading-[30px] tracking-[-0.5px] text-[#1E293B]">
+            პარამეტრები
+          </h1>
+          <p className="mt-1 text-sm font-medium text-[#64748B]">
             პლატფორმის კონფიგურაცია
           </p>
         </div>
@@ -350,11 +352,11 @@ export default function SettingsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
-            className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+            className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
             <div className="mb-4 flex items-center gap-2">
               <section.icon className="h-5 w-5 text-brand-accent" />
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-[#1E293B]">
                 {section.title}
               </h2>
             </div>

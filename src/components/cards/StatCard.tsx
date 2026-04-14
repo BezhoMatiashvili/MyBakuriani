@@ -1,5 +1,4 @@
 "use client";
-
 import { motion } from "framer-motion";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,57 +18,36 @@ export default function StatCard({
   change,
   loading,
 }: StatCardProps) {
-  if (loading) {
+  if (loading)
     return (
-      <div className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-6 w-16" />
-          </div>
-        </div>
+      <div className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+        <Skeleton className="h-3 w-20 mb-2" />
+        <Skeleton className="h-8 w-16" />
       </div>
     );
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+      className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
     >
-      <div className="flex items-center gap-3">
-        {/* Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
-          {icon}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          {/* Label */}
-          <p className="truncate text-xs text-muted-foreground">{label}</p>
-
-          {/* Value + change */}
-          <div className="mt-0.5 flex items-baseline gap-2">
-            <span className="text-xl font-bold text-foreground">{value}</span>
-
-            {change != null && (
-              <span
-                className={`flex items-center gap-0.5 text-xs font-medium ${
-                  change >= 0 ? "text-brand-success" : "text-brand-error"
-                }`}
-              >
-                {change >= 0 ? (
-                  <ArrowUp className="h-3 w-3" />
-                ) : (
-                  <ArrowDown className="h-3 w-3" />
-                )}
-                {Math.abs(change)}%
-              </span>
+      <p className="truncate text-[11px] font-bold text-[#64748B]">{label}</p>
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          {value}
+        </span>
+        {change != null && (
+          <span
+            className={`flex items-center gap-0.5 text-xs font-medium ${change >= 0 ? "text-brand-success" : "text-brand-error"}`}
+          >
+            {change >= 0 ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : (
+              <ArrowDown className="h-3 w-3" />
             )}
-          </div>
-        </div>
+            {Math.abs(change)}%
+          </span>
+        )}
       </div>
     </motion.div>
   );

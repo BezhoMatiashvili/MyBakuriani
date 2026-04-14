@@ -1,10 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, Users } from "lucide-react";
+import { Heart, MapPin, Clock } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { formatPrice, formatPricePerNight } from "@/lib/utils/format";
+import { formatPrice } from "@/lib/utils/format";
+
+function formatNum(n: number): string {
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
 
 interface PropertyCardProps {
   id: string;
@@ -20,6 +24,13 @@ interface PropertyCardProps {
   isSuperVip: boolean;
   discountPercent: number;
   isForSale: boolean;
+  isHotel?: boolean;
+  numericRating?: number;
+  isB2BPartner?: boolean;
+  hotelStars?: number;
+  roomType?: string;
+  amenities?: string;
+  amenityTags?: string[];
 }
 
 export default function PropertyCard(props: PropertyCardProps) {
@@ -32,13 +43,45 @@ export default function PropertyCard(props: PropertyCardProps) {
     salePrice,
     rating,
     capacity,
+    rooms,
     isVip,
     isSuperVip,
     discountPercent,
     isForSale,
+    isHotel,
+    numericRating,
+    isB2BPartner,
+    hotelStars,
+    roomType,
+    amenities,
+    amenityTags,
   } = props;
-  const href = isForSale ? `/sales/${id}` : `/apartments/${id}`;
+  const href = isHotel
+    ? `/hotels/${id}`
+    : isForSale
+      ? `/sales/${id}`
+      : `/apartments/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-property.jpg";
+
+  const tags: string[] = [];
+  if (!isHotel) {
+    if (rooms) tags.push(`${rooms} ოთახი`);
+    if (capacity) tags.push(`${capacity} სტუმარი`);
+    if (amenityTags?.length) {
+      tags.push(...amenityTags.slice(0, 2));
+    }
+  }
+
+  const currentPrice = isForSale ? salePrice : pricePerNight;
+  const originalPrice =
+    discountPercent > 0 && currentPrice != null
+      ? Math.round(currentPrice / (1 - discountPercent / 100))
+      : null;
+
+  // For hotels: show discount badge when discount > 0, stars when no discount
+  const showHotelDiscount = isHotel && discountPercent > 0;
+  const showHotelStars =
+    isHotel && !showHotelDiscount && hotelStars != null && hotelStars > 0;
 
   return (
     <motion.div
@@ -50,10 +93,9 @@ export default function PropertyCard(props: PropertyCardProps) {
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-3xl border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="block overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
-        {/* Photo area */}
-        <div className="relative h-[247px] overflow-hidden">
+        <div className="relative aspect-[4/3] overflow-hidden">
           <Image
             src={photoUrl}
             alt={title}
@@ -62,85 +104,136 @@ export default function PropertyCard(props: PropertyCardProps) {
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
 
-          {/* VIP / Super VIP badge */}
-          <div className="absolute top-3 left-3 flex gap-2">
-            {isSuperVip && (
-              <span className="rounded bg-[#FEE2E2] border border-[#FEF08A] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-                Super VIP
-              </span>
-            )}
-            {isVip && !isSuperVip && (
-              <span className="rounded bg-[#FEE2E2] border border-[#FEF08A] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-                VIP
-              </span>
-            )}
-          </div>
-
-          {/* Discount badge */}
-          {discountPercent > 0 && (
-            <span className="absolute top-3 right-3 rounded bg-[#E11D48] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-              -{discountPercent}%
+          {showHotelStars && (
+            <span className="absolute top-4 left-4 flex items-center gap-0.5 text-[#F59E0B] drop-shadow-sm">
+              {Array.from({ length: hotelStars! }, (_, i) => (
+                <span key={i} className="text-[14px] leading-none">
+                  ★
+                </span>
+              ))}
             </span>
           )}
 
-          {/* Carousel dots */}
-          {photos.length > 1 && (
-            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-              {photos.map((_, i) => (
-                <span
-                  key={i}
-                  className={`block h-1.5 w-1.5 rounded-full ${
-                    i === 0 ? "bg-white" : "bg-white/50"
-                  }`}
-                />
-              ))}
-            </div>
+          {showHotelDiscount && (
+            <span className="absolute top-4 left-4 flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <Clock className="h-3 w-3" />-{discountPercent}%
+            </span>
+          )}
+
+          {!isHotel && discountPercent > 0 && (
+            <span className="absolute top-4 left-4 flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <Clock className="h-3 w-3" />-{discountPercent}%
+            </span>
+          )}
+
+          {!isHotel && discountPercent === 0 && (isSuperVip || isVip) && (
+            <span className="absolute top-4 left-4 rounded-[4px] bg-[#F97316] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              {isSuperVip ? "SUPER VIP" : "VIP"}
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => e.preventDefault()}
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:text-[#F97316]"
+          >
+            <Heart className="h-4 w-4" />
+          </button>
+
+          {isHotel && isB2BPartner && (
+            <span className="absolute bottom-4 right-4 rounded-lg bg-[#F97316] px-3 py-1 text-[10px] font-bold uppercase text-white">
+              B2B პარტნიორი
+            </span>
+          )}
+
+          {!isHotel && isSuperVip && (
+            <span className="absolute bottom-4 left-4 rounded-full bg-[#22C55E] px-2.5 py-1 text-[9px] font-bold text-white">
+              ახალი დაკავებული
+            </span>
           )}
         </div>
 
-        {/* Content */}
         <div className="p-5">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
-              {title}
-            </h3>
-            {rating != null && (
-              <span className="flex shrink-0 items-center gap-1 rounded-md bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-                <Star className="h-3 w-3 fill-white text-white" />
-                {rating.toFixed(1)}
-              </span>
-            )}
-          </div>
-          <p className="mt-1 truncate text-[11px] font-bold text-muted-foreground">
-            {location}
-          </p>
+          {isHotel ? (
+            <>
+              <div className="flex items-center gap-2">
+                <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
+                  {title}
+                </h3>
+                {numericRating != null && (
+                  <span className="shrink-0 text-[14px] font-bold text-[#1E293B]">
+                    {numericRating}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 truncate text-[11px] font-bold leading-[16px] text-[#94A3B8]">
+                {amenities || location}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
+                <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
+                {location}
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
+                  {title}
+                </h3>
+              </div>
+            </>
+          )}
 
-          <div className="mt-4 flex items-end justify-between border-t border-[#F8FAFC] pt-4">
-            {/* Price */}
+          {tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-[#E2E8F0] px-2.5 py-1 text-[11px] font-bold text-[#475569]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {isHotel && roomType && (
+            <p className="mt-3 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+              {roomType}
+            </p>
+          )}
+
+          <div className="mt-4 flex items-end justify-between pt-4">
             <div>
+              {originalPrice != null && (
+                <span className="block text-[11px] font-bold leading-[16px] text-[#94A3B8] line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              )}
               {isForSale && salePrice != null ? (
-                <span className="whitespace-nowrap text-[15px] font-black leading-[20px] text-[#1E293B]">
+                <span className="whitespace-nowrap text-[24px] font-black leading-[32px] text-[#1E293B]">
                   {formatPrice(salePrice)}
                 </span>
               ) : pricePerNight != null ? (
-                <span className="flex flex-wrap items-baseline gap-x-1">
-                  <span className="text-[17px] font-black leading-[22px] text-[#1E293B]">
-                    {formatPrice(pricePerNight)}
+                <span className="flex items-baseline gap-1">
+                  <span className="text-[24px] font-black leading-[32px] text-[#1E293B]">
+                    {formatNum(pricePerNight)}
                   </span>
-                  <span className="text-[12px] font-bold text-[#64748B]">
-                    / ღამე
+                  <span className="text-[14px] font-black leading-[20px] text-[#64748B]">
+                    ₾/ღამე
                   </span>
                 </span>
               ) : null}
             </div>
-
-            {/* Capacity */}
-            {capacity != null && (
-              <span className="flex items-center gap-1 text-[13px] text-[#475569]">
-                <Users className="h-4 w-4" />
-                {capacity} სტუმარი
-              </span>
-            )}
+            <span
+              className={`rounded-[12px] px-5 py-2 text-[13px] font-bold text-white transition-colors ${
+                isHotel
+                  ? "bg-[#1E293B] hover:bg-[#334155]"
+                  : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+              }`}
+            >
+              ნახვა
+            </span>
           </div>
         </div>
       </Link>

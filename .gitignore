@@ -10,9 +10,13 @@
 
 # testing
 /coverage
+/e2e/.test-users.json
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
+/.next-dev/
 /out/
 
 # production

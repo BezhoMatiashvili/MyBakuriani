@@ -61,17 +61,17 @@ export default function CreateEntertainmentPage() {
         გართობის განცხადება
       </h1>
 
-      <div className="space-y-5 rounded-2xl border bg-card p-6 shadow-sm">
+      <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
         <div className="space-y-2">
           <label className="text-sm font-medium">
-            აქტივობის სახელი <span className="text-destructive">*</span>
+            აქტივობის სახელი <span className="text-[#EF4444]">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="მაგ: სათხილამურო ტური"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -82,7 +82,7 @@ export default function CreateEntertainmentPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="აქტივობის აღწერა..."
             rows={4}
-            className="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -95,7 +95,7 @@ export default function CreateEntertainmentPage() {
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0"
               min="0"
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             />
           </div>
           <div className="space-y-2">
@@ -103,7 +103,7 @@ export default function CreateEntertainmentPage() {
             <select
               value={priceUnit}
               onChange={(e) => setPriceUnit(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
             >
               <option value="ადამიანი">ადამიანი</option>
               <option value="ჯგუფი">ჯგუფი</option>
@@ -120,7 +120,7 @@ export default function CreateEntertainmentPage() {
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
             placeholder="მაგ: ყოველდღე, 10:00-17:00"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -131,7 +131,7 @@ export default function CreateEntertainmentPage() {
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="მაგ: ბაკურიანი, დიდველი"
-            className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
         </div>
 
@@ -149,7 +149,7 @@ export default function CreateEntertainmentPage() {
           <PhoneInput value={phone} onChange={setPhone} />
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
         <Button
           onClick={handleSubmit}

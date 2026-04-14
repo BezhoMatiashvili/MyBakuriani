@@ -1,7 +1,6 @@
 "use client";
-
 import { useState, useMemo } from "react";
-import { SlidersHorizontal, X, Wrench } from "lucide-react";
+import { SlidersHorizontal, X, Wrench, Home } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
@@ -24,63 +23,54 @@ export default function ServicesPageClient({ services }: Props) {
   const [priceMax, setPriceMax] = useState<number | "">("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const filtered = useMemo(() => {
-    return services.filter((s) => {
-      if (activeCategory !== "all" && s.category !== activeCategory)
-        return false;
-      if (priceMin !== "" && (s.price ?? 0) < priceMin) return false;
-      if (priceMax !== "" && (s.price ?? 0) > priceMax) return false;
-      return true;
-    });
-  }, [services, activeCategory, priceMin, priceMax]);
+  const filtered = useMemo(
+    () =>
+      services.filter((s) => {
+        if (activeCategory !== "all" && s.category !== activeCategory)
+          return false;
+        if (priceMin !== "" && (s.price ?? 0) < priceMin) return false;
+        if (priceMax !== "" && (s.price ?? 0) > priceMax) return false;
+        return true;
+      }),
+    [services, activeCategory, priceMin, priceMax],
+  );
 
   const clearFilters = () => {
     setActiveCategory("all");
     setPriceMin("");
     setPriceMax("");
   };
-
   const hasActiveFilters =
     priceMin !== "" || priceMax !== "" || activeCategory !== "all";
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {/* Header */}
-      <section
-        className="px-4 py-12 md:py-16"
-        style={{
-          background:
-            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
-        }}
-      >
+    <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
+      <section className="px-4 pt-10 pb-6">
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
-            <div className="flex items-center gap-3 text-white/70">
-              <Wrench className="h-5 w-5" />
-              <span className="text-sm">მთავარი / სერვისები და ხელოსნები</span>
-            </div>
-            <h1 className="mt-4 text-3xl font-black text-white md:text-4xl">
+            <nav className="flex items-center gap-1.5 text-[12px]">
+              <Home className="size-4 text-[#94A3B8]" />
+              <span className="text-[#94A3B8]">მთავარი</span>
+              <span className="text-[#CBD5E1]">/</span>
+              <span className="text-[#64748B]">სერვისები და ხელოსნები</span>
+            </nav>
+            <h1 className="mt-4 text-[26px] font-black leading-[32px] text-[#1E293B]">
               სერვისები და ხელოსნები
             </h1>
-            <p className="mt-2 text-[13px] font-medium text-white/70">
+            <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
               {filtered.length} განცხადება ნაპოვნია
             </p>
           </ScrollReveal>
         </div>
       </section>
 
-      {/* Category Tabs */}
-      <section className="border-b border-border bg-white px-4">
+      <section className="border-b border-[#E2E8F0] bg-white px-4">
         <div className="scrollbar-hide mx-auto flex max-w-7xl gap-1 overflow-x-auto py-3">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
               onClick={() => setActiveCategory(cat.value)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                activeCategory === cat.value
-                  ? "bg-brand-accent text-white"
-                  : "bg-muted text-foreground hover:bg-muted/80"
-              }`}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${activeCategory === cat.value ? "bg-brand-accent text-white" : "bg-[#F8FAFC] text-[#1E293B] hover:bg-[#F8FAFC]"}`}
             >
               {cat.label}
             </button>
@@ -88,7 +78,6 @@ export default function ServicesPageClient({ services }: Props) {
         </div>
       </section>
 
-      {/* Content */}
       <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
         <div className="mb-6 flex items-center justify-between lg:hidden">
           <Button
@@ -110,13 +99,13 @@ export default function ServicesPageClient({ services }: Props) {
             </Button>
           )}
         </div>
-
         <div className="flex gap-8">
-          {/* Sidebar */}
           <aside className="hidden w-[280px] shrink-0 lg:block">
             <div className="sticky top-24">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-black text-[#1E293B]">ფილტრები</h2>
+                <h2 className="text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
+                  ფილტრები
+                </h2>
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
@@ -126,7 +115,7 @@ export default function ServicesPageClient({ services }: Props) {
                   </button>
                 )}
               </div>
-              <div className="rounded-3xl border border-[#F1F5F9] bg-white p-4">
+              <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-4">
                 <h3 className="mb-2 text-sm font-medium">ფასის მიხედვით</h3>
                 <div className="flex items-center gap-2">
                   <input
@@ -137,9 +126,9 @@ export default function ServicesPageClient({ services }: Props) {
                     onChange={(e) =>
                       setPriceMin(e.target.value ? Number(e.target.value) : "")
                     }
-                    className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+                    className="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#64748B] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
                   />
-                  <span className="text-sm text-muted-foreground">–</span>
+                  <span className="text-sm text-[#64748B]">–</span>
                   <input
                     type="number"
                     min={0}
@@ -148,15 +137,13 @@ export default function ServicesPageClient({ services }: Props) {
                     onChange={(e) =>
                       setPriceMax(e.target.value ? Number(e.target.value) : "")
                     }
-                    className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+                    className="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#64748B] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
                   />
-                  <span className="text-sm text-muted-foreground">₾</span>
+                  <span className="text-sm text-[#64748B]">₾</span>
                 </div>
               </div>
             </div>
           </aside>
-
-          {/* Mobile filters */}
           <AnimatePresence>
             {mobileFiltersOpen && (
               <>
@@ -172,20 +159,20 @@ export default function ServicesPageClient({ services }: Props) {
                   animate={{ x: 0 }}
                   exit={{ x: "-100%" }}
                   transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                  className="fixed inset-y-0 left-0 z-50 w-[320px] overflow-y-auto bg-background p-4 shadow-xl lg:hidden"
+                  className="fixed inset-y-0 left-0 z-50 w-[320px] overflow-y-auto bg-white p-4 shadow-xl lg:hidden"
                 >
                   <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-[17px] font-black leading-[21px] text-[#1E293B]">
+                    <h2 className="text-[17px] font-black text-[#1E293B]">
                       ფილტრები
                     </h2>
                     <button
                       onClick={() => setMobileFiltersOpen(false)}
-                      className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted"
+                      className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#F8FAFC]"
                     >
                       <X className="h-5 w-5" />
                     </button>
                   </div>
-                  <div className="rounded-3xl border border-[#F1F5F9] bg-white p-4">
+                  <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-4">
                     <h3 className="mb-2 text-sm font-medium">ფასის მიხედვით</h3>
                     <div className="flex items-center gap-2">
                       <input
@@ -198,9 +185,9 @@ export default function ServicesPageClient({ services }: Props) {
                             e.target.value ? Number(e.target.value) : "",
                           )
                         }
-                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+                        className="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none"
                       />
-                      <span className="text-sm text-muted-foreground">–</span>
+                      <span className="text-sm text-[#64748B]">–</span>
                       <input
                         type="number"
                         min={0}
@@ -211,9 +198,9 @@ export default function ServicesPageClient({ services }: Props) {
                             e.target.value ? Number(e.target.value) : "",
                           )
                         }
-                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
+                        className="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none"
                       />
-                      <span className="text-sm text-muted-foreground">₾</span>
+                      <span className="text-sm text-[#64748B]">₾</span>
                     </div>
                   </div>
                   <Button
@@ -226,18 +213,16 @@ export default function ServicesPageClient({ services }: Props) {
               </>
             )}
           </AnimatePresence>
-
-          {/* Grid */}
           <div className="flex-1">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                  <Wrench className="h-8 w-8 text-muted-foreground" />
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F8FAFC]">
+                  <Wrench className="h-8 w-8 text-[#64748B]" />
                 </div>
-                <h3 className="text-[17px] font-black leading-[21px] text-[#1E293B]">
+                <h3 className="text-[17px] font-black text-[#1E293B]">
                   სერვისები ვერ მოიძებნა
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-[#64748B]">
                   სცადეთ ფილტრების შეცვლა
                 </p>
               </div>
@@ -250,11 +235,11 @@ export default function ServicesPageClient({ services }: Props) {
                       title={s.title}
                       category={s.category}
                       location={s.location}
-                      photos={s.photos}
+                      photos={s.photos ?? []}
                       price={s.price}
                       priceUnit={s.price_unit}
-                      discountPercent={s.discount_percent}
-                      isVip={s.is_vip}
+                      discountPercent={s.discount_percent ?? 0}
+                      isVip={s.is_vip ?? false}
                     />
                   </ScrollReveal>
                 ))}

@@ -23,33 +23,21 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!user) return;
-
     const supabase = createClient();
-
-    async function fetchProfile() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("display_name, role, avatar_url")
-        .eq("id", user!.id)
-        .single();
-
-      if (data) setProfile(data);
-    }
-
-    async function fetchUnreadSms() {
-      const { count } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user!.id)
-        .eq("is_read", false);
-
-      setSmsCount(count ?? 0);
-    }
-
-    fetchProfile();
-    fetchUnreadSms();
-
-    // Realtime notifications
+    supabase
+      .from("profiles")
+      .select("display_name, role, avatar_url")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setProfile(data);
+      });
+    supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false)
+      .then(({ count }) => setSmsCount(count ?? 0));
     const channel = supabase
       .channel("dashboard-notifications")
       .on(
@@ -60,27 +48,23 @@ export default function DashboardLayout({
           table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          setSmsCount((prev) => prev + 1);
-        },
+        () => setSmsCount((p) => p + 1),
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
 
-  if (loading) {
+  if (loading)
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
       </div>
     );
-  }
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
+    <div className="flex min-h-screen bg-[#F8FAFC]/60">
       <DashboardSidebar
         userName={profile?.display_name ?? "მომხმარებელი"}
         userRole={profile?.role ?? "guest"}
@@ -88,13 +72,11 @@ export default function DashboardLayout({
         smsCount={smsCount}
         currentPath={pathname}
       />
-
       <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </div>
       </div>
-
       <MobileBottomNav
         currentPath={pathname}
         userRole={profile?.role ?? "guest"}

@@ -116,8 +116,10 @@ export default function GuestBookingsPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl font-bold text-foreground">ჩემი ჯავშნები</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+          ჩემი ჯავშნები
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[#64748B]">
           მართეთ თქვენი ჯავშნები და ნახეთ სტატუსები
         </p>
       </motion.div>
@@ -142,7 +144,7 @@ export default function GuestBookingsPage() {
           Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="flex gap-4">
                 <Skeleton className="h-20 w-20 rounded-lg" />
@@ -158,16 +160,14 @@ export default function GuestBookingsPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center rounded-[var(--radius-card)] bg-brand-surface py-16 shadow-[var(--shadow-card)]"
+            className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
-            <AlertCircle className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              ჯავშნები ვერ მოიძებნა
-            </p>
+            <AlertCircle className="h-12 w-12 text-[#94A3B8]" />
+            <p className="mt-3 text-sm text-[#94A3B8]">ჯავშნები ვერ მოიძებნა</p>
           </motion.div>
         ) : (
           filteredBookings.map((booking, index) => {
-            const config = statusConfig[booking.status];
+            const config = statusConfig[booking.status ?? "pending"];
             const StatusIcon = config?.icon ?? Clock;
 
             return (
@@ -176,11 +176,11 @@ export default function GuestBookingsPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="rounded-[var(--radius-card)] bg-brand-surface p-5 shadow-[var(--shadow-card)]"
+                className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
                 <div className="flex flex-col gap-4 sm:flex-row">
                   {/* Property image */}
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
                     {booking.properties?.photos?.[0] && (
                       <Image
                         src={booking.properties.photos[0]}
@@ -195,10 +195,10 @@ export default function GuestBookingsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h3 className="truncate text-sm font-semibold text-foreground">
+                        <h3 className="truncate text-sm font-semibold text-[#1E293B]">
                           {booking.properties?.title ?? "ობიექტი"}
                         </h3>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-[#94A3B8]">
                           {booking.properties?.location}
                         </p>
                       </div>
@@ -210,7 +210,7 @@ export default function GuestBookingsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                    <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-[#94A3B8]">
                       <span className="flex items-center gap-1">
                         <CalendarCheck className="h-3.5 w-3.5" />
                         {booking.check_in} — {booking.check_out}
@@ -222,8 +222,8 @@ export default function GuestBookingsPage() {
                       <span className="text-sm font-bold text-brand-accent">
                         {formatPrice(Number(booking.total_price))}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(booking.created_at).toLocaleDateString(
+                      <span className="text-[10px] text-[#94A3B8]">
+                        {new Date(booking.created_at ?? "").toLocaleDateString(
                           "ka-GE",
                         )}
                       </span>

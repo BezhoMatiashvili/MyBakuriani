@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default async function SalesPage() {
   const supabase = await createClient();
 
-  const { data: properties } = await supabase
+  const { data: properties, error } = await supabase
     .from("properties")
     .select("*")
     .eq("status", "active")
@@ -19,6 +19,10 @@ export default async function SalesPage() {
     .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[sales] failed to load properties", error.message);
+  }
 
   return <SalesPageClient properties={properties ?? []} />;
 }

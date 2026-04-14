@@ -65,92 +65,96 @@ export default function AnalyticsPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
+      try {
+        const [{ data: bookings }, { data: profiles }, { data: properties }] =
+          await Promise.all([
+            supabase.from("bookings").select("*"),
+            supabase.from("profiles").select("id, created_at"),
+            supabase
+              .from("properties")
+              .select("id, title, location, views_count"),
+          ]);
 
-      const [{ data: bookings }, { data: profiles }, { data: properties }] =
-        await Promise.all([
-          supabase.from("bookings").select("*"),
-          supabase.from("profiles").select("id, created_at"),
-          supabase
-            .from("properties")
-            .select("id, title, location, views_count"),
-        ]);
+        const allBookings = bookings ?? [];
+        const completed = allBookings.filter((b) => b.status === "completed");
+        const cancelled = allBookings.filter((b) => b.status === "cancelled");
+        const totalRevenue = completed.reduce(
+          (sum, b) => sum + (b.total_price || 0),
+          0,
+        );
+        const avgValue =
+          completed.length > 0
+            ? Math.round(totalRevenue / completed.length)
+            : 0;
 
-      const allBookings = bookings ?? [];
-      const completed = allBookings.filter((b) => b.status === "completed");
-      const cancelled = allBookings.filter((b) => b.status === "cancelled");
-      const totalRevenue = completed.reduce(
-        (sum, b) => sum + (b.total_price || 0),
-        0,
-      );
-      const avgValue =
-        completed.length > 0 ? Math.round(totalRevenue / completed.length) : 0;
-
-      // Monthly revenue (placeholder distribution)
-      const monthlyRev = Array.from({ length: 12 }, (_, i) => {
-        const monthBookings = completed.filter((b) => {
-          const d = new Date(b.created_at);
-          return d.getMonth() === i;
-        });
-        return monthBookings.reduce((s, b) => s + (b.total_price || 0), 0);
-      });
-
-      // New users per month
-      const monthlyUsers = Array.from({ length: 12 }, (_, i) => {
-        return (
-          profiles?.filter((p) => {
-            const d = new Date(p.created_at);
+        // Monthly revenue (placeholder distribution)
+        const monthlyRev = Array.from({ length: 12 }, (_, i) => {
+          const monthBookings = completed.filter((b) => {
+            const d = new Date(b.created_at ?? "");
             return d.getMonth() === i;
-          }).length ?? 0
-        );
-      });
+          });
+          return monthBookings.reduce((s, b) => s + (b.total_price || 0), 0);
+        });
 
-      // Top properties by booking count
-      const propBookingCount = new Map<string, number>();
-      allBookings.forEach((b) => {
-        propBookingCount.set(
-          b.property_id,
-          (propBookingCount.get(b.property_id) ?? 0) + 1,
-        );
-      });
+        // New users per month
+        const monthlyUsers = Array.from({ length: 12 }, (_, i) => {
+          return (
+            profiles?.filter((p) => {
+              const d = new Date(p.created_at ?? "");
+              return d.getMonth() === i;
+            }).length ?? 0
+          );
+        });
 
-      const topProps = (properties ?? [])
-        .map((p) => ({
-          title: p.title,
-          bookings: propBookingCount.get(p.id) ?? 0,
-          rating: null as number | null,
-        }))
-        .sort((a, b) => b.bookings - a.bookings)
-        .slice(0, 5);
+        // Top properties by booking count
+        const propBookingCount = new Map<string, number>();
+        allBookings.forEach((b) => {
+          propBookingCount.set(
+            b.property_id,
+            (propBookingCount.get(b.property_id) ?? 0) + 1,
+          );
+        });
 
-      // Location distribution
-      const locMap = new Map<string, number>();
-      properties?.forEach((p) => {
-        locMap.set(p.location, (locMap.get(p.location) ?? 0) + 1);
-      });
-      const locationDist = Array.from(locMap.entries())
-        .map(([location, count]) => ({ location, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 6);
+        const topProps = (properties ?? [])
+          .map((p) => ({
+            title: p.title,
+            bookings: propBookingCount.get(p.id) ?? 0,
+            rating: null as number | null,
+          }))
+          .sort((a, b) => b.bookings - a.bookings)
+          .slice(0, 5);
 
-      setData({
-        monthlyRevenue: monthlyRev,
-        newUsers: monthlyUsers,
-        completionRate:
-          allBookings.length > 0
-            ? Math.round((completed.length / allBookings.length) * 100)
-            : 0,
-        cancellationRate:
-          allBookings.length > 0
-            ? Math.round((cancelled.length / allBookings.length) * 100)
-            : 0,
-        avgBookingValue: avgValue,
-        topProperties: topProps,
-        locationDistribution: locationDist,
-        totalUsers: profiles?.length ?? 0,
-        totalBookings: allBookings.length,
-        totalRevenue,
-      });
-      setLoading(false);
+        // Location distribution
+        const locMap = new Map<string, number>();
+        properties?.forEach((p) => {
+          locMap.set(p.location, (locMap.get(p.location) ?? 0) + 1);
+        });
+        const locationDist = Array.from(locMap.entries())
+          .map(([location, count]) => ({ location, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 6);
+
+        setData({
+          monthlyRevenue: monthlyRev,
+          newUsers: monthlyUsers,
+          completionRate:
+            allBookings.length > 0
+              ? Math.round((completed.length / allBookings.length) * 100)
+              : 0,
+          cancellationRate:
+            allBookings.length > 0
+              ? Math.round((cancelled.length / allBookings.length) * 100)
+              : 0,
+          avgBookingValue: avgValue,
+          topProperties: topProps,
+          locationDistribution: locationDist,
+          totalUsers: profiles?.length ?? 0,
+          totalBookings: allBookings.length,
+          totalRevenue,
+        });
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -163,14 +167,16 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">ანალიტიკა</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-[20px] font-black leading-[30px] tracking-[-0.5px] text-[#1E293B]">
+            ანალიტიკა
+          </h1>
+          <p className="mt-1 text-sm font-medium text-[#64748B]">
             პლატფორმის დეტალური სტატისტიკა
           </p>
         </div>
         <div className="flex gap-2">
           {/* Date range selector */}
-          <div className="flex rounded-lg border border-border">
+          <div className="flex rounded-lg border border-[#E2E8F0]">
             {(["month", "quarter", "year"] as const).map((range) => (
               <button
                 key={range}
@@ -178,7 +184,7 @@ export default function AnalyticsPage() {
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                   dateRange === range
                     ? "bg-brand-accent text-white"
-                    : "text-muted-foreground hover:bg-muted"
+                    : "text-[#94A3B8] hover:bg-[#F8FAFC]"
                 } ${range === "month" ? "rounded-l-lg" : range === "year" ? "rounded-r-lg" : ""}`}
               >
                 {range === "month"
@@ -235,9 +241,9 @@ export default function AnalyticsPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
+          <h2 className="mb-4 text-lg font-semibold text-[#1E293B]">
             ყოველთვიური შემოსავალი
           </h2>
           {loading ? (
@@ -258,7 +264,7 @@ export default function AnalyticsPage() {
                   />
                 ))}
               </div>
-              <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+              <div className="mt-2 flex justify-between text-[10px] text-[#94A3B8]">
                 {months.map((m) => (
                   <span key={m}>{m}</span>
                 ))}
@@ -272,9 +278,9 @@ export default function AnalyticsPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
+          <h2 className="mb-4 text-lg font-semibold text-[#1E293B]">
             ახალი რეგისტრაციები
           </h2>
           {loading ? (
@@ -295,7 +301,7 @@ export default function AnalyticsPage() {
                   />
                 ))}
               </div>
-              <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+              <div className="mt-2 flex justify-between text-[10px] text-[#94A3B8]">
                 {months.map((m) => (
                   <span key={m}>{m}</span>
                 ))}
@@ -310,9 +316,9 @@ export default function AnalyticsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
-        <h2 className="mb-4 text-lg font-semibold text-foreground">
+        <h2 className="mb-4 text-lg font-semibold text-[#1E293B]">
           ჯავშნების მეტრიკები
         </h2>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
@@ -320,7 +326,7 @@ export default function AnalyticsPage() {
             <p className="text-3xl font-bold text-green-600">
               {data.completionRate}%
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-[#94A3B8]">
               დასრულების მაჩვენებელი
             </p>
           </div>
@@ -328,17 +334,13 @@ export default function AnalyticsPage() {
             <p className="text-3xl font-bold text-red-500">
               {data.cancellationRate}%
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              გაუქმების მაჩვენებელი
-            </p>
+            <p className="mt-1 text-sm text-[#94A3B8]">გაუქმების მაჩვენებელი</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-brand-accent">
               {formatPrice(data.avgBookingValue)}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              საშუალო ღირებულება
-            </p>
+            <p className="mt-1 text-sm text-[#94A3B8]">საშუალო ღირებულება</p>
           </div>
         </div>
       </motion.div>
@@ -350,9 +352,9 @@ export default function AnalyticsPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
+          <h2 className="mb-4 text-lg font-semibold text-[#1E293B]">
             ტოპ ქონებები
           </h2>
           {loading ? (
@@ -362,7 +364,7 @@ export default function AnalyticsPage() {
               ))}
             </div>
           ) : data.topProperties.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
+            <p className="py-4 text-center text-sm text-[#94A3B8]">
               მონაცემები არ არის
             </p>
           ) : (
@@ -370,17 +372,17 @@ export default function AnalyticsPage() {
               {data.topProperties.map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2"
+                  className="flex items-center justify-between rounded-lg bg-[#F8FAFC]/60 px-3 py-2"
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent/10 text-xs font-bold text-brand-accent">
                       {i + 1}
                     </span>
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="text-sm font-medium text-[#1E293B]">
                       {p.title}
                     </span>
                   </div>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-[#94A3B8]">
                     {p.bookings} ჯავშანი
                   </span>
                 </div>
@@ -394,11 +396,11 @@ export default function AnalyticsPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="rounded-[var(--radius-card)] bg-brand-surface p-6 shadow-[var(--shadow-card)]"
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
           <div className="mb-4 flex items-center gap-2">
             <MapPin className="h-5 w-5 text-brand-accent" />
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-[#1E293B]">
               გეოგრაფიული განაწილება
             </h2>
           </div>
@@ -409,7 +411,7 @@ export default function AnalyticsPage() {
               ))}
             </div>
           ) : data.locationDistribution.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
+            <p className="py-4 text-center text-sm text-[#94A3B8]">
               მონაცემები არ არის
             </p>
           ) : (
@@ -419,14 +421,12 @@ export default function AnalyticsPage() {
                 return (
                   <div key={loc.location} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {loc.location}
-                      </span>
-                      <span className="font-medium text-foreground">
+                      <span className="text-[#94A3B8]">{loc.location}</span>
+                      <span className="font-medium text-[#1E293B]">
                         {loc.count}
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div className="h-2 overflow-hidden rounded-full bg-[#F8FAFC]">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{

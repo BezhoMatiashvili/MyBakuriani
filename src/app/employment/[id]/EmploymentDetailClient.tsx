@@ -44,7 +44,7 @@ export default function EmploymentDetailClient({ service }: Props) {
     const supabase = createClient();
     supabase
       .from("services")
-      .update({ views_count: service.views_count + 1 })
+      .update({ views_count: (service.views_count ?? 0) + 1 })
       .eq("id", service.id)
       .then();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,19 +55,19 @@ export default function EmploymentDetailClient({ service }: Props) {
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
         უკან დაბრუნება
       </motion.button>
 
-      {service.photos.length > 0 && (
+      {(service.photos ?? []).length > 0 && (
         <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-          <PhotoGallery photos={service.photos} title={service.title} />
+          <PhotoGallery photos={service.photos ?? []} title={service.title} />
         </motion.div>
       )}
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           {/* Title */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
@@ -81,17 +81,17 @@ export default function EmploymentDetailClient({ service }: Props) {
                 </span>
               )}
             </div>
-            <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
+            <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
               {service.title}
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
               {service.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 font-medium">
+                  <MapPin className="h-4 w-4 text-[#2563EB]" />
                   {service.location}
                 </span>
               )}
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5 font-medium">
                 <Eye className="h-4 w-4" />
                 {service.views_count} ნახვა
               </span>
@@ -100,62 +100,60 @@ export default function EmploymentDetailClient({ service }: Props) {
 
           {/* Job details grid */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-            <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               ვაკანსიის დეტალები
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {service.position && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Briefcase className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">პოზიცია</p>
+                    <p className="text-xs text-[#94A3B8]">პოზიცია</p>
                     <p className="font-medium">{service.position}</p>
                   </div>
                 </div>
               )}
               {service.salary_range && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Banknote className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">ანაზღაურება</p>
+                    <p className="text-xs text-[#94A3B8]">ანაზღაურება</p>
                     <p className="font-medium">{service.salary_range}</p>
                   </div>
                 </div>
               )}
               {service.experience_required && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <GraduationCap className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">გამოცდილება</p>
+                    <p className="text-xs text-[#94A3B8]">გამოცდილება</p>
                     <p className="font-medium">{service.experience_required}</p>
                   </div>
                 </div>
               )}
               {service.employment_schedule && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <CalendarDays className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">
-                      სამუშაო განრიგი
-                    </p>
+                    <p className="text-xs text-[#94A3B8]">სამუშაო განრიგი</p>
                     <p className="font-medium">{service.employment_schedule}</p>
                   </div>
                 </div>
               )}
               {service.schedule && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Clock className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">განრიგი</p>
+                    <p className="text-xs text-[#94A3B8]">განრიგი</p>
                     <p className="font-medium">{service.schedule}</p>
                   </div>
                 </div>
               )}
               {service.phone && (
-                <div className="flex items-center gap-3 rounded-md border border-[#ECFDF5] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-[#475569]">
+                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Phone className="h-5 w-5 text-indigo-600 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground">ტელეფონი</p>
+                    <p className="text-xs text-[#94A3B8]">ტელეფონი</p>
                     <p className="font-medium">{formatPhone(service.phone)}</p>
                   </div>
                 </div>
@@ -166,10 +164,10 @@ export default function EmploymentDetailClient({ service }: Props) {
           {/* Description */}
           {service.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
-              <h2 className="mb-3 text-[22px] font-extrabold text-[#1E293B]">
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 სრული აღწერა
               </h2>
-              <p className="leading-relaxed text-muted-foreground whitespace-pre-line">
+              <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {service.description}
               </p>
             </motion.div>
@@ -182,11 +180,11 @@ export default function EmploymentDetailClient({ service }: Props) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
         >
-          <div className="sticky top-24 rounded-3xl border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
+          <div className="sticky top-24 rounded-[20px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
             {/* Salary */}
             {service.salary_range && (
               <div className="mb-4">
-                <p className="text-xs text-muted-foreground">ანაზღაურება</p>
+                <p className="text-xs text-[#94A3B8]">ანაზღაურება</p>
                 <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">
                   {service.salary_range}
                 </span>
@@ -196,18 +194,18 @@ export default function EmploymentDetailClient({ service }: Props) {
             {/* Position highlight */}
             {service.position && (
               <div className="mb-4 rounded-lg bg-indigo-50 p-3">
-                <p className="text-xs text-muted-foreground">პოზიცია</p>
+                <p className="text-xs text-[#94A3B8]">პოზიცია</p>
                 <p className="font-semibold text-indigo-700">
                   {service.position}
                 </p>
               </div>
             )}
 
-            <div className="my-4 border-t border-border" />
+            <div className="my-4 border-t border-[#E2E8F0]" />
 
             {/* Employer */}
             <div className="mb-4 flex items-center gap-3">
-              <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-muted">
+              <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
                 {owner?.avatar_url ? (
                   <Image
                     src={owner.avatar_url}
@@ -216,13 +214,13 @@ export default function EmploymentDetailClient({ service }: Props) {
                     className="object-cover"
                   />
                 ) : (
-                  <div className="flex size-full items-center justify-center text-sm font-medium text-muted-foreground">
+                  <div className="flex size-full items-center justify-center text-sm font-medium text-[#94A3B8]">
                     {owner?.display_name?.charAt(0) ?? "დ"}
                   </div>
                 )}
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-medium text-[#1E293B]">
                   {owner?.display_name ?? "დამსაქმებელი"}
                 </p>
                 {owner?.is_verified && (

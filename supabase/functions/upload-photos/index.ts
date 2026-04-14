@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import {
+  corsHeaders,
+  errorResponse,
+  jsonResponse,
+  requireUser,
+} from "../_shared/guards.ts";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -16,20 +15,15 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const authHeader = req.headers.get("Authorization")!;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) throw new Error("Unauthorized");
+    const { supabase, user } = await requireUser(req);
 
     const formData = await req.formData();
     const files = formData.getAll("photos") as File[];
-    const propertyId = formData.get("property_id") as string;
+    const propertyIdField = formData.get("property_id");
+    const propertyId =
+      typeof propertyIdField === "string" && propertyIdField.trim().length > 0
+        ? propertyIdField.trim()
+        : null;
 
     if (!files || files.length === 0) {
       throw new Error("ფოტო არ არის ატვირთული");
@@ -54,7 +48,7 @@ serve(async (req) => {
 
       // Generate unique filename
       const ext = file.name.split(".").pop() || "jpg";
-      const fileName = `${propertyId || user.id}/${crypto.randomUUID()}.${ext}`;
+      const fileName = `${propertyId ?? user.id}/${crypto.randomUUID()}.${ext}`;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
@@ -96,19 +90,13 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        data: { urls: uploadedUrls, count: uploadedUrls.length },
-      }),
+    return jsonResponse(
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+        data: { urls: uploadedUrls, count: uploadedUrls.length },
       },
+      200,
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return errorResponse(err);
   }
 });

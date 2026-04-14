@@ -55,19 +55,19 @@ export default async function BlogDetailPage({ params }: Props) {
         {/* Back link */}
         <Link
           href="/blog"
-          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
         >
           <ArrowLeft className="h-4 w-4" />
           ბლოგზე დაბრუნება
         </Link>
 
         {/* Title */}
-        <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A] tracking-[-1.1px] sm:text-[44px] sm:leading-[55px]">
+        <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
           {post.title}
         </h1>
 
         {/* Meta */}
-        <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="mt-4 flex items-center gap-3 text-sm text-[#64748B]">
           {post.published_at && <time>{formatDate(post.published_at)}</time>}
           {author && (
             <>
@@ -79,7 +79,7 @@ export default async function BlogDetailPage({ params }: Props) {
 
         {/* Featured image */}
         {post.image_url && (
-          <div className="relative mt-8 aspect-[8/5] overflow-hidden rounded-3xl">
+          <div className="relative mt-8 aspect-[8/5] overflow-hidden rounded-[20px]">
             <Image
               src={post.image_url}
               alt={post.title}
@@ -93,7 +93,7 @@ export default async function BlogDetailPage({ params }: Props) {
 
         {/* Content */}
         <div className="prose prose-slate mt-8 max-w-none">
-          <div className="whitespace-pre-line text-foreground leading-relaxed">
+          <div className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {post.content}
           </div>
         </div>

@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import {
+  corsHeaders,
+  createServiceClient,
+  errorResponse,
+  jsonResponse,
+} from "../_shared/guards.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,10 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = createServiceClient();
 
     const {
       query,
@@ -131,23 +127,17 @@ serve(async (req) => {
       );
     }
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         data: filtered,
         total: count,
         page,
         per_page,
         total_pages: Math.ceil((count || 0) / per_page),
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
       },
+      200,
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return errorResponse(err);
   }
 });
