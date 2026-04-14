@@ -2,6 +2,7 @@
 
 import { Home, Building2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface RentBuyToggleProps {
@@ -10,11 +11,12 @@ interface RentBuyToggleProps {
 }
 
 const options = [
-  { key: "rent" as const, label: "ქირაობა", icon: Home },
-  { key: "sale" as const, label: "ყიდვა (ინვესტიცია)", icon: Building2 },
+  { key: "rent" as const, tKey: "rent" as const, icon: Home },
+  { key: "sale" as const, tKey: "buy" as const, icon: Building2 },
 ];
 
 export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
+  const t = useTranslations("RentBuyToggle");
   return (
     <div className="inline-flex h-[54px] items-center rounded-full border border-white/5 bg-[#1F2A44] p-[7px] shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
       {options.map((option) => {
@@ -40,7 +42,7 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
               />
             )}
             <Icon className="relative z-10 size-4" />
-            <span className="relative z-10">{option.label}</span>
+            <span className="relative z-10">{t(option.tKey)}</span>
           </button>
         );
       })}

@@ -16,6 +16,7 @@ import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
 
 export interface SearchFilters {
   location: string;
@@ -44,25 +45,25 @@ interface SearchBoxProps {
 // ─── Location zones ──────────────────────────────────────────────────
 const ZONES = [
   {
-    value: "დიდველი / კრისტალი",
+    value: SEARCH_LOCATION_ZONES[0],
     title: "დიდველი / კრისტალი",
     description: "ტრასასთან ახლოს, საბაგირეს ხედვით",
     icon: Mountain,
   },
   {
-    value: "ცენტრი / პარკი",
+    value: SEARCH_LOCATION_ZONES[1],
     title: "ცენტრი / პარკი",
     description: "გართობა, რესტორნები და ცენტრალური პარკი",
     icon: TreePine,
   },
   {
-    value: "კოხტა / მიტარბი",
+    value: SEARCH_LOCATION_ZONES[2],
     title: "კოხტა / მიტარბი",
     description: "პრემიუმ ფარეხი და ახალი საბაგიროები",
     icon: Mountain,
   },
   {
-    value: "25-იანები",
+    value: SEARCH_LOCATION_ZONES[3],
     title: "25-იანები",
     description: "იაფფასიანი ბინები და დამწყებთათვის",
     icon: MapPin,
@@ -73,7 +74,6 @@ const ZONES = [
 const CAPACITY_OPTIONS = ["2 სტუმარი", "4 სტუმარი", "6 სტუმარი", "8+ სტუმარი"];
 const BEDROOM_OPTIONS = ["1", "2", "3", "4+"];
 const BATHROOM_OPTIONS = ["1", "2", "3+"];
-const FLOOR_OPTIONS = ["1", "2-5", "6+"];
 const AMENITIES = [
   "Wi-Fi",
   "ცენტრალური გათბობა",
@@ -90,7 +90,6 @@ interface FilterState {
   priceMax: number;
   bedrooms: string | null;
   bathrooms: string | null;
-  floors: string | null;
   capacity: string | null;
   amenities: string[];
   verifiedOnly: boolean;
@@ -101,10 +100,20 @@ const DEFAULT_FILTERS: FilterState = {
   priceMax: 450,
   bedrooms: null,
   bathrooms: null,
-  floors: null,
   capacity: null,
   amenities: [],
   verifiedOnly: false,
+};
+
+const AMENITY_LABEL_TO_KEY: Record<string, string> = {
+  "Wi-Fi": "wifi",
+  "ცენტრალური გათბობა": "central_heating",
+  "თხილამურების სათავსო": "ski_storage",
+  "ცხელი წყალი": "hot_water",
+  ბუხარი: "fireplace",
+  პარკინგი: "parking",
+  "სარეცხი მანქანა": "washing_machine",
+  ჭურჭელი: "kitchenware",
 };
 
 // ─── Chip button ─────────────────────────────────────────────────────
@@ -301,6 +310,9 @@ export function SearchBox({
         : filters.capacity
           ? Number.parseInt(filters.capacity, 10)
           : "";
+    const normalizedAmenities = filters.amenities.map(
+      (amenity) => AMENITY_LABEL_TO_KEY[amenity] ?? amenity,
+    );
     setGuests(capacityGuests || "");
     setActiveDropdown(null);
     onSearch({
@@ -309,7 +321,10 @@ export function SearchBox({
       checkOut: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "",
       guests: capacityGuests || guests,
       cadastralCode,
-      advancedFilters: filters,
+      advancedFilters: {
+        ...filters,
+        amenities: normalizedAmenities,
+      },
     });
   };
 
@@ -854,25 +869,6 @@ function FiltersDropdown({
                       "bathrooms",
                       filters.bathrooms === opt ? null : opt,
                     )
-                  }
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Floors */}
-          <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
-              სართული
-            </span>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {FLOOR_OPTIONS.map((opt) => (
-                <Chip
-                  key={opt}
-                  label={opt}
-                  selected={filters.floors === opt}
-                  onClick={() =>
-                    updateFilter("floors", filters.floors === opt ? null : opt)
                   }
                 />
               ))}

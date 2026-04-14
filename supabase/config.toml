@@ -1,5 +1,4 @@
-[project]
-id = "mybakuriani"
+project_id = "mybakuriani"
 
 [api]
 enabled = true

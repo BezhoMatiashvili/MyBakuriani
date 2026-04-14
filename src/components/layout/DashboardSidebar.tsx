@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   Home,
   Building,
@@ -35,97 +36,92 @@ interface DashboardSidebarProps {
   currentPath: string;
 }
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: LucideIcon;
 }
-
-const roleLabels: Record<string, string> = {
-  guest: "სტუმარი",
-  renter: "გამქირავებელი",
-  seller: "გამყიდველი",
-  cleaner: "დამლაგებელი",
-  food: "კვება",
-  entertainment: "გართობა",
-  transport: "ტრანსპორტი",
-  employment: "დასაქმება",
-  handyman: "ხელოსანი",
-  admin: "ადმინი",
-};
 
 function getNavItems(role: string): NavItem[] {
   switch (role) {
     case "admin":
       return [
-        { label: "მთავარი", href: "/dashboard/admin", icon: Home },
+        { labelKey: "home", href: "/dashboard/admin", icon: Home },
         {
-          label: "ვერიფიკაციები",
+          labelKey: "verifications",
           href: "/dashboard/admin/verifications",
           icon: ShieldCheck,
         },
-        { label: "კლიენტები", href: "/dashboard/admin/clients", icon: Users },
+        { labelKey: "clients", href: "/dashboard/admin/clients", icon: Users },
         {
-          label: "განცხადებები",
+          labelKey: "listings",
           href: "/dashboard/admin/listings",
           icon: Building,
         },
         {
-          label: "ანალიტიკა",
+          labelKey: "analytics",
           href: "/dashboard/admin/analytics",
           icon: BarChart3,
         },
         {
-          label: "პარამეტრები",
+          labelKey: "settings",
           href: "/dashboard/admin/settings",
           icon: Settings,
         },
       ];
     case "renter":
       return [
-        { label: "მთავარი", href: "/dashboard/renter", icon: Home },
+        { labelKey: "home", href: "/dashboard/renter", icon: Home },
         {
-          label: "ჩემი ობიექტები",
+          labelKey: "myProperties",
           href: "/dashboard/renter/listings",
           icon: Building,
         },
         {
-          label: "კალენდარი",
+          labelKey: "calendar",
           href: "/dashboard/renter/calendar",
           icon: CalendarDays,
         },
-        { label: "ბალანსი", href: "/dashboard/renter/balance", icon: Wallet },
         {
-          label: "Smart Match",
+          labelKey: "balance",
+          href: "/dashboard/renter/balance",
+          icon: Wallet,
+        },
+        {
+          labelKey: "smartMatch",
           href: "/dashboard/renter/smart-match",
           icon: Sparkles,
         },
-        { label: "პროფილი", href: "/dashboard/renter/profile", icon: User },
+        { labelKey: "profile", href: "/dashboard/renter/profile", icon: User },
       ];
     case "seller":
       return [
-        { label: "მთავარი", href: "/dashboard/seller", icon: Home },
+        { labelKey: "home", href: "/dashboard/seller", icon: Home },
         {
-          label: "ჩემი განცხადებები",
+          labelKey: "myListings",
           href: "/dashboard/seller/listings",
           icon: Building,
         },
-        { label: "პროფილი", href: "/dashboard/renter/profile", icon: User },
+        { labelKey: "profile", href: "/dashboard/renter/profile", icon: User },
       ];
     case "cleaner":
       return [
-        { label: "მთავარი", href: "/dashboard/cleaner", icon: Home },
-        { label: "განრიგი", href: "/dashboard/cleaner/schedule", icon: Clock },
+        { labelKey: "home", href: "/dashboard/cleaner", icon: Home },
         {
-          label: "შემოსავალი",
+          labelKey: "schedule",
+          href: "/dashboard/cleaner/schedule",
+          icon: Clock,
+        },
+        {
+          labelKey: "earnings",
           href: "/dashboard/cleaner/earnings",
           icon: DollarSign,
         },
       ];
     case "food":
       return [
-        { label: "მთავარი", href: "/dashboard/food", icon: Home },
+        { labelKey: "home", href: "/dashboard/food", icon: Home },
         {
-          label: "შეკვეთები",
+          labelKey: "orders",
           href: "/dashboard/food/orders",
           icon: ShoppingBag,
         },
@@ -135,23 +131,27 @@ function getNavItems(role: string): NavItem[] {
     case "employment":
     case "handyman":
       return [
-        { label: "მთავარი", href: "/dashboard/service", icon: Home },
+        { labelKey: "home", href: "/dashboard/service", icon: Home },
         {
-          label: "შეკვეთები",
+          labelKey: "orders",
           href: "/dashboard/service/orders",
           icon: Briefcase,
         },
       ];
     default:
       return [
-        { label: "მთავარი", href: "/dashboard/guest", icon: Home },
+        { labelKey: "home", href: "/dashboard/guest", icon: Home },
         {
-          label: "ჯავშნები",
+          labelKey: "bookings",
           href: "/dashboard/guest/bookings",
           icon: ClipboardList,
         },
-        { label: "შეფასებები", href: "/dashboard/guest/reviews", icon: Star },
-        { label: "პროფილი", href: "/dashboard/guest/profile", icon: User },
+        {
+          labelKey: "reviews",
+          href: "/dashboard/guest/reviews",
+          icon: Star,
+        },
+        { labelKey: "profile", href: "/dashboard/guest/profile", icon: User },
       ];
   }
 }
@@ -164,6 +164,7 @@ export function DashboardSidebar({
   currentPath,
 }: DashboardSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const t = useTranslations("DashboardSidebar");
   const navItems = getNavItems(userRole);
   const initials = userName
     .split(" ")
@@ -190,19 +191,20 @@ export function DashboardSidebar({
               {userName}
             </p>
             <p className="mt-0.5 text-[10px] font-bold text-[#10B981]">
-              {roleLabels[userRole] ?? userRole}
+              {t(`roles.${userRole}`)}
             </p>
           </div>
         )}
       </div>
       <nav className="flex-1 overflow-y-auto p-4">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {navItems.map((item, index) => {
             const Icon = item.icon;
-            const isActive =
-              currentPath === item.href ||
-              (item.href.split("/").length > 2 &&
-                currentPath.startsWith(item.href));
+            const isDashboardHomeTab = index === 0;
+            const isActive = isDashboardHomeTab
+              ? currentPath === item.href
+              : currentPath === item.href ||
+                currentPath.startsWith(`${item.href}/`);
             return (
               <li key={item.href}>
                 <Link
@@ -213,11 +215,13 @@ export function DashboardSidebar({
                       ? "border-l-4 border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
                       : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]",
                   )}
-                  title={collapsed ? item.label : undefined}
+                  title={collapsed ? t(`nav.${item.labelKey}`) : undefined}
                 >
                   <Icon className="size-[18px] shrink-0" />
                   {!collapsed && (
-                    <span className="flex-1 truncate">{item.label}</span>
+                    <span className="flex-1 truncate">
+                      {t(`nav.${item.labelKey}`)}
+                    </span>
                   )}
                 </Link>
               </li>
@@ -229,7 +233,7 @@ export function DashboardSidebar({
         <div className="mx-2 mb-2 flex items-center gap-2 rounded-lg bg-brand-accent-light px-3 py-2">
           <Bell className="size-4 text-brand-accent" />
           <span className="text-xs font-medium text-brand-accent">
-            {smsCount} შეტყობინება
+            {t("notifications", { count: smsCount })}
           </span>
         </div>
       )}
@@ -238,7 +242,7 @@ export function DashboardSidebar({
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed((p) => !p)}
-          aria-label={collapsed ? "გაშლა" : "ჩაკეცვა"}
+          aria-label={collapsed ? t("expand") : t("collapse")}
           className="w-full"
         >
           <motion.div

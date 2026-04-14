@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   Home,
   Building2,
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { slideFromRight } from "@/lib/utils/animations";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -40,18 +42,19 @@ const ROLE_DASHBOARD: Record<string, string> = {
   handyman: "/dashboard/service",
 };
 
-const navItems = [
-  { label: "ბინები", href: "/apartments", icon: Home },
-  { label: "სასტუმროები", href: "/hotels", icon: Building2 },
-  { label: "ტრანსპორტი", href: "/transport", icon: Bus },
-  { label: "დასაქმება", href: "/employment", icon: Briefcase },
-  { label: "სერვისები", href: "/services", icon: Wrench },
-  { label: "კვება", href: "/food", icon: UtensilsCrossed },
-  { label: "გართობა", href: "/entertainment", icon: LayoutGrid },
+const navItemKeys = [
+  { key: "apartments" as const, href: "/apartments", icon: Home },
+  { key: "hotels" as const, href: "/hotels", icon: Building2 },
+  { key: "transport" as const, href: "/transport", icon: Bus },
+  { key: "employment" as const, href: "/employment", icon: Briefcase },
+  { key: "services" as const, href: "/services", icon: Wrench },
+  { key: "food" as const, href: "/food", icon: UtensilsCrossed },
+  { key: "entertainment" as const, href: "/entertainment", icon: LayoutGrid },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const t = useTranslations("Navbar");
   const { user, loading: authLoading, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -186,11 +189,12 @@ export function Navbar() {
 
         {/* Right side action buttons — desktop */}
         <div className="hidden items-center gap-3 md:flex">
+          <LanguageSelector />
           {user && (
             <Link href="/create/rental">
               <Button className="h-[39.5px] w-[222px] gap-1.5 rounded-xl bg-[#F97316] px-5 text-[13px] font-bold leading-5 text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]">
                 <Plus className="size-4" />
-                განცხადების დამატება
+                {t("addListing")}
               </Button>
             </Link>
           )}
@@ -201,7 +205,8 @@ export function Navbar() {
                 className="gap-1.5 rounded-xl border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-bold leading-5 text-[#334155]"
               >
                 <Wallet className="size-4" />
-                ბალანსი {balance !== null ? `₾ ${balance.toFixed(2)}` : "..."}
+                {t("balance")}{" "}
+                {balance !== null ? `₾ ${balance.toFixed(2)}` : "..."}
                 <ChevronRight className="size-4 text-[#94A3B8]" />
               </Button>
             </Link>
@@ -212,7 +217,7 @@ export function Navbar() {
                 variant="outline"
                 className="rounded-xl border-2 border-[#DBEAFE] bg-white px-6 text-[13px] font-bold leading-5 text-[#2563EB]"
               >
-                შესვლა
+                {t("login")}
               </Button>
             </Link>
           )}
@@ -221,7 +226,7 @@ export function Navbar() {
               <button
                 onClick={() => setProfileOpen((v) => !v)}
                 className="flex size-10 items-center justify-center rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF]"
-                aria-label="პროფილი"
+                aria-label={t("profile")}
               >
                 {profile?.avatar_url ? (
                   <span className="relative block size-full overflow-hidden rounded-full">
@@ -250,17 +255,17 @@ export function Navbar() {
                       {
                         href: `${dashboardPath}/bookings`,
                         icon: ClipboardList,
-                        label: "ჯავშნები",
+                        label: t("bookings"),
                       },
                       {
                         href: `${dashboardPath}/reviews`,
                         icon: Star,
-                        label: "შეფასებები",
+                        label: t("reviews"),
                       },
                       {
                         href: `${dashboardPath}/profile`,
                         icon: User,
-                        label: "პროფილი",
+                        label: t("profile"),
                       },
                     ].map((item) => {
                       const isActive = pathname === item.href;
@@ -292,7 +297,7 @@ export function Navbar() {
                       className="flex w-full items-center gap-3 px-4 py-3 text-[14px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
                     >
                       <LogOut className="size-5" />
-                      გასვლა
+                      {t("logout")}
                     </button>
                   </motion.div>
                 )}
@@ -307,7 +312,7 @@ export function Navbar() {
           size="icon"
           className="md:hidden"
           onClick={() => setMobileOpen(true)}
-          aria-label="მენიუ"
+          aria-label={t("menu")}
         >
           <Menu className="size-5" />
         </Button>
@@ -316,7 +321,7 @@ export function Navbar() {
       {/* Category Navigation Bar (desktop only) */}
       <nav className="hidden border-b border-[#EEF1F4] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
         <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-[60px] px-4 lg:gap-[104px]">
-          {navItems.map((item) => {
+          {navItemKeys.map((item) => {
             const Icon = item.icon;
             return (
               <Link
@@ -325,7 +330,7 @@ export function Navbar() {
                 className="flex flex-col items-center gap-2 text-[#64748B] transition-colors hover:text-[#1E293B]"
               >
                 <Icon className="size-[26px]" strokeWidth={1.5} />
-                <span className="text-[14px] font-bold">{item.label}</span>
+                <span className="text-[14px] font-bold">{t(item.key)}</span>
               </Link>
             );
           })}
@@ -351,7 +356,9 @@ export function Navbar() {
               exit="exit"
             >
               <div className="flex items-center justify-between border-b border-[#F1F5F9] p-4">
-                <span className="text-lg font-bold text-[#1E293B]">მენიუ</span>
+                <span className="text-lg font-bold text-[#1E293B]">
+                  {t("menu")}
+                </span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -360,8 +367,11 @@ export function Navbar() {
                   <X className="size-5" />
                 </Button>
               </div>
+              <div className="border-b border-[#F1F5F9] px-4 py-3">
+                <LanguageSelector />
+              </div>
               <div className="flex-1 overflow-y-auto p-4">
-                {navItems.map((item) => {
+                {navItemKeys.map((item) => {
                   const Icon = item.icon;
                   return (
                     <Link
@@ -371,7 +381,7 @@ export function Navbar() {
                       className="flex items-center gap-3 rounded-xl px-3 py-3 text-[14px] font-bold text-[#334155] transition-colors hover:bg-[#F8FAFC]"
                     >
                       <Icon className="size-5 text-[#64748B]" />
-                      {item.label}
+                      {t(item.key)}
                     </Link>
                   );
                 })}
@@ -380,7 +390,7 @@ export function Navbar() {
                 {!authLoading && !user ? (
                   <Link href="/auth/login" onClick={() => setMobileOpen(false)}>
                     <Button className="w-full rounded-xl bg-brand-accent text-white">
-                      შესვლა
+                      {t("login")}
                     </Button>
                   </Link>
                 ) : user ? (
@@ -391,7 +401,7 @@ export function Navbar() {
                     >
                       <Button variant="outline" className="w-full rounded-xl">
                         <User className="mr-2 size-4" />
-                        კაბინეტი
+                        {t("dashboard")}
                       </Button>
                     </Link>
                     <Button
@@ -400,7 +410,7 @@ export function Navbar() {
                       onClick={handleLogout}
                     >
                       <LogOut className="mr-2 size-4" />
-                      გასვლა
+                      {t("logout")}
                     </Button>
                   </div>
                 ) : null}

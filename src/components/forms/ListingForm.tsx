@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 interface ListingFormProps {
@@ -18,6 +19,7 @@ export default function ListingForm({
   onStepChange,
   children,
 }: ListingFormProps) {
+  const t = useTranslations("ListingForm");
   const totalSteps = steps.length;
   const progress = ((currentStep + 1) / totalSteps) * 100;
   const goToStep = (step: number) => {
@@ -105,7 +107,7 @@ export default function ListingForm({
           onClick={() => goToStep(currentStep - 1)}
           disabled={currentStep === 0}
         >
-          უკან
+          {t("back")}
         </Button>
 
         <span className="text-sm text-[#94A3B8]">
@@ -116,7 +118,7 @@ export default function ListingForm({
           onClick={() => goToStep(currentStep + 1)}
           disabled={currentStep === totalSteps - 1}
         >
-          შემდეგი
+          {t("next")}
         </Button>
       </div>
     </div>

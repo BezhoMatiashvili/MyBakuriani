@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 import { Heart, MapPin, Clock } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 
 function formatNum(n: number): string {
@@ -34,6 +35,7 @@ interface PropertyCardProps {
 }
 
 export default function PropertyCard(props: PropertyCardProps) {
+  const t = useTranslations("PropertyCard");
   const {
     id,
     title,
@@ -65,8 +67,8 @@ export default function PropertyCard(props: PropertyCardProps) {
 
   const tags: string[] = [];
   if (!isHotel) {
-    if (rooms) tags.push(`${rooms} ოთახი`);
-    if (capacity) tags.push(`${capacity} სტუმარი`);
+    if (rooms) tags.push(t("rooms", { count: rooms }));
+    if (capacity) tags.push(t("guests", { count: capacity }));
     if (amenityTags?.length) {
       tags.push(...amenityTags.slice(0, 2));
     }
@@ -89,11 +91,11 @@ export default function PropertyCard(props: PropertyCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
-      className="group"
+      className="group h-full"
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="flex h-[440px] flex-col overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
         <div className="relative aspect-[4/3] overflow-hidden">
           <Image
@@ -142,20 +144,20 @@ export default function PropertyCard(props: PropertyCardProps) {
 
           {isHotel && isB2BPartner && (
             <span className="absolute bottom-4 right-4 rounded-lg bg-[#F97316] px-3 py-1 text-[10px] font-bold uppercase text-white">
-              B2B პარტნიორი
+              {t("b2bPartner")}
             </span>
           )}
 
           {!isHotel && isSuperVip && (
             <span className="absolute bottom-4 left-4 rounded-full bg-[#22C55E] px-2.5 py-1 text-[9px] font-bold text-white">
-              ახალი დაკავებული
+              {t("newlyBooked")}
             </span>
           )}
         </div>
 
-        <div className="p-5">
+        <div className="flex flex-1 flex-col p-5">
           {isHotel ? (
-            <>
+            <div className="min-h-[44px]">
               <div className="flex items-center gap-2">
                 <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
                   {title}
@@ -169,9 +171,9 @@ export default function PropertyCard(props: PropertyCardProps) {
               <p className="mt-1 truncate text-[11px] font-bold leading-[16px] text-[#94A3B8]">
                 {amenities || location}
               </p>
-            </>
+            </div>
           ) : (
-            <>
+            <div className="min-h-[44px]">
               <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
                 <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
                 {location}
@@ -181,34 +183,38 @@ export default function PropertyCard(props: PropertyCardProps) {
                   {title}
                 </h3>
               </div>
-            </>
-          )}
-
-          {tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-[#E2E8F0] px-2.5 py-1 text-[11px] font-bold text-[#475569]"
-                >
-                  {tag}
-                </span>
-              ))}
             </div>
           )}
 
-          {isHotel && roomType && (
-            <p className="mt-3 text-[11px] uppercase tracking-wider text-[#94A3B8]">
-              {roomType}
+          <div className="mt-3 min-h-[30px]">
+            {tags.length > 0 && (
+              <div className="flex flex-nowrap gap-1.5 overflow-hidden">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="truncate whitespace-nowrap rounded-full border border-[#E2E8F0] px-2.5 py-1 text-[11px] font-bold text-[#475569]"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {isHotel && (
+            <p className="mt-3 min-h-[16px] truncate text-[11px] uppercase tracking-wider text-[#94A3B8]">
+              {roomType ?? ""}
             </p>
           )}
 
-          <div className="mt-4 flex items-end justify-between pt-4">
+          <div className="mt-auto flex items-end justify-between pt-4">
             <div>
-              {originalPrice != null && (
+              {originalPrice != null ? (
                 <span className="block text-[11px] font-bold leading-[16px] text-[#94A3B8] line-through">
                   {formatPrice(originalPrice)}
                 </span>
+              ) : (
+                <span className="block h-[16px]" aria-hidden="true" />
               )}
               {isForSale && salePrice != null ? (
                 <span className="whitespace-nowrap text-[24px] font-black leading-[32px] text-[#1E293B]">
@@ -220,7 +226,7 @@ export default function PropertyCard(props: PropertyCardProps) {
                     {formatNum(pricePerNight)}
                   </span>
                   <span className="text-[14px] font-black leading-[20px] text-[#64748B]">
-                    ₾/ღამე
+                    {t("perNight")}
                   </span>
                 </span>
               ) : null}
@@ -232,7 +238,7 @@ export default function PropertyCard(props: PropertyCardProps) {
                   : "bg-[#2563EB] hover:bg-[#1D4ED8]"
               }`}
             >
-              ნახვა
+              {t("view")}
             </span>
           </div>
         </div>

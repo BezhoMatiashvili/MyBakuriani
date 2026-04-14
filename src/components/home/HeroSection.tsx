@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 
 export function HeroSection() {
   const router = useRouter();
+  const t = useTranslations("HeroSection");
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
@@ -32,11 +34,9 @@ export function HeroSection() {
       <div className="mx-auto w-full max-w-[1160px] text-center">
         <ScrollReveal>
           <h1 className="text-3xl font-black leading-none tracking-[-1.25px] text-white sm:text-4xl md:text-[50px]">
-            ყველაზე სანდო გზამკვლევი ბაკურიანში
+            {t("title")}
           </h1>
-          <p className="mt-4 text-lg text-white/80">
-            მხოლოდ ვერიფიცირებული და სანდო მესაკუთრეები
-          </p>
+          <p className="mt-4 text-lg text-white/80">{t("subtitle")}</p>
         </ScrollReveal>
 
         <div className="mt-8">

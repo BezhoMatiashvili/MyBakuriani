@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 import { Heart, MapPin, Star } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { Badge } from "@/components/ui/badge";
 
@@ -29,15 +30,7 @@ const categoryRouteMap: Record<string, string> = {
   employment: "/employment",
 };
 
-const categoryLabelMap: Record<string, string> = {
-  cleaner: "დალაგება",
-  cleaning: "დალაგება",
-  food: "კვება",
-  entertainment: "გართობა",
-  transport: "ტრანსპორტი",
-  handyman: "ხელოსანი",
-  employment: "დასაქმება",
-};
+// Category labels are now in translations
 
 export default function ServiceCard({
   id,
@@ -50,6 +43,7 @@ export default function ServiceCard({
   discountPercent,
   isVip,
 }: ServiceCardProps) {
+  const t = useTranslations("ServiceCard");
   const basePath = categoryRouteMap[category] ?? `/services/${category}`;
   const href = `${basePath}/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-service.jpg";
@@ -64,7 +58,7 @@ export default function ServiceCard({
     >
       <Link
         href={href}
-        className="flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="flex h-[420px] flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
         <div className="relative h-[200px] overflow-hidden rounded-t-[24px]">
           <Image
@@ -90,7 +84,7 @@ export default function ServiceCard({
             type="button"
             className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
             onClick={(e) => e.preventDefault()}
-            aria-label="ფავორიტებში დამატება"
+            aria-label={t("addToFavorites")}
           >
             <Heart className="h-4 w-4 text-[#1E293B]" />
           </button>
@@ -98,7 +92,9 @@ export default function ServiceCard({
             variant="secondary"
             className="absolute bottom-3 left-3 bg-white/90 text-[#1E293B] backdrop-blur-sm"
           >
-            {categoryLabelMap[category] ?? category}
+            {t.has(`categories.${category}`)
+              ? t(`categories.${category}`)
+              : category}
           </Badge>
         </div>
         <div className="flex flex-1 flex-col p-5">
@@ -111,14 +107,16 @@ export default function ServiceCard({
               4.9
             </span>
           </div>
-          {location && (
-            <p className="mt-1 flex items-center gap-1 text-[12px] font-medium leading-[18px] text-[#64748B]">
-              <MapPin className="h-3 w-3" />
-              {location}
-            </p>
-          )}
-          {price != null && (
-            <div className="mt-3">
+          <div className="mt-1 min-h-[18px]">
+            {location && (
+              <p className="flex items-center gap-1 text-[12px] font-medium leading-[18px] text-[#64748B]">
+                <MapPin className="h-3 w-3" />
+                {location}
+              </p>
+            )}
+          </div>
+          <div className="mt-3 min-h-[33px]">
+            {price != null && (
               <span className="flex items-baseline gap-0.5">
                 <span className="text-[22px] font-black text-[#1E293B]">
                   {formatPrice(price)}
@@ -129,11 +127,11 @@ export default function ServiceCard({
                   </span>
                 )}
               </span>
-            </div>
-          )}
+            )}
+          </div>
           <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
             <span className="flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-2 py-2.5 text-[12px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]">
-              დეტალები
+              {t("details")}
             </span>
             <span className="flex min-w-0 items-center justify-center whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[12px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)]">
               WhatsApp

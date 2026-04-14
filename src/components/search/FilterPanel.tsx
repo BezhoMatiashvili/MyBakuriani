@@ -3,25 +3,26 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
-const PROPERTY_TYPES = [
-  { value: "apartment", label: "ბინა" },
-  { value: "cottage", label: "კოტეჯი" },
-  { value: "hotel", label: "სასტუმრო" },
-  { value: "villa", label: "ვილა" },
-  { value: "studio", label: "სტუდიო" },
+const PROPERTY_TYPE_KEYS = [
+  "apartment",
+  "cottage",
+  "hotel",
+  "villa",
+  "studio",
 ] as const;
 
-const AMENITIES = [
-  { value: "wifi", label: "Wi-Fi" },
-  { value: "parking", label: "პარკინგი" },
-  { value: "ski_storage", label: "სათხილამურო საწყობი" },
-  { value: "fireplace", label: "ბუხარი" },
-  { value: "balcony", label: "აივანი" },
-  { value: "pool", label: "აუზი" },
-  { value: "spa", label: "SPA" },
-  { value: "restaurant", label: "რესტორანი" },
+const AMENITY_KEYS = [
+  { value: "wifi", key: "wifi" },
+  { value: "parking", key: "parking" },
+  { value: "ski_storage", key: "skiStorage" },
+  { value: "fireplace", key: "fireplace" },
+  { value: "balcony", key: "balcony" },
+  { value: "pool", key: "pool" },
+  { value: "spa", key: "spa" },
+  { value: "restaurant", key: "restaurant" },
 ] as const;
 
 const ROOM_OPTIONS = [1, 2, 3, 4, "5+"] as const;
@@ -30,10 +31,12 @@ export interface Filters {
   priceMin: number | "";
   priceMax: number | "";
   rooms: number | null;
+  bathrooms: number | null;
   areaMin: number | "";
   areaMax: number | "";
   types: string[];
   amenities: string[];
+  verifiedOnly: boolean;
 }
 
 interface FilterPanelProps {
@@ -88,13 +91,16 @@ export const DEFAULT_FILTERS: Filters = {
   priceMin: "",
   priceMax: "",
   rooms: null,
+  bathrooms: null,
   areaMin: "",
   areaMax: "",
   types: [],
   amenities: [],
+  verifiedOnly: false,
 };
 
 export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
+  const t = useTranslations("FilterPanel");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     price: true,
     rooms: false,
@@ -123,10 +129,12 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
     filters.priceMin !== "" ||
     filters.priceMax !== "" ||
     filters.rooms !== null ||
+    filters.bathrooms !== null ||
     filters.areaMin !== "" ||
     filters.areaMax !== "" ||
     filters.types.length > 0 ||
-    filters.amenities.length > 0;
+    filters.amenities.length > 0 ||
+    filters.verifiedOnly;
 
   return (
     <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
@@ -136,13 +144,13 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
           onClick={() => onFilterChange(DEFAULT_FILTERS)}
           className="mb-3 text-xs font-medium text-brand-accent hover:underline"
         >
-          ფილტრების გასუფთავება
+          {t("clearFilters")}
         </button>
       )}
 
       {/* Price */}
       <FilterSection
-        title="ფასის მიხედვით"
+        title={t("byPrice")}
         isOpen={!!expanded.price}
         onToggle={() => toggleSection("price")}
       >
@@ -150,7 +158,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
           <input
             type="number"
             min={0}
-            placeholder="მინ."
+            placeholder={t("min")}
             value={filters.priceMin}
             onChange={(e) =>
               updateFilters({
@@ -163,7 +171,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
           <input
             type="number"
             min={0}
-            placeholder="მაქს."
+            placeholder={t("max")}
             value={filters.priceMax}
             onChange={(e) =>
               updateFilters({
@@ -178,7 +186,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
 
       {/* Rooms */}
       <FilterSection
-        title="ოთახები"
+        title={t("rooms")}
         isOpen={!!expanded.rooms}
         onToggle={() => toggleSection("rooms")}
       >
@@ -209,7 +217,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
 
       {/* Area */}
       <FilterSection
-        title="ფართობი"
+        title={t("area")}
         isOpen={!!expanded.area}
         onToggle={() => toggleSection("area")}
       >
@@ -217,7 +225,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
           <input
             type="number"
             min={0}
-            placeholder="მინ."
+            placeholder={t("min")}
             value={filters.areaMin}
             onChange={(e) =>
               updateFilters({
@@ -230,7 +238,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
           <input
             type="number"
             min={0}
-            placeholder="მაქს."
+            placeholder={t("max")}
             value={filters.areaMax}
             onChange={(e) =>
               updateFilters({
@@ -239,29 +247,29 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
             }
             className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
           />
-          <span className="text-[13px] text-[#94A3B8]">მ²</span>
+          <span className="text-[13px] text-[#94A3B8]">{t("sqm")}</span>
         </div>
       </FilterSection>
 
       {/* Type */}
       <FilterSection
-        title="ტიპი"
+        title={t("type")}
         isOpen={!!expanded.type}
         onToggle={() => toggleSection("type")}
       >
         <div className="flex flex-col gap-3">
-          {PROPERTY_TYPES.map(({ value, label }) => (
+          {PROPERTY_TYPE_KEYS.map((key) => (
             <label
-              key={value}
+              key={key}
               className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#64748B]"
             >
               <input
                 type="checkbox"
-                checked={filters.types.includes(value)}
-                onChange={() => toggleArrayItem("types", value)}
+                checked={filters.types.includes(key)}
+                onChange={() => toggleArrayItem("types", key)}
                 className="size-5 rounded-[6px] border-[#E2E8F0] accent-brand-accent"
               />
-              {label}
+              {t(`types.${key}`)}
             </label>
           ))}
         </div>
@@ -269,12 +277,12 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
 
       {/* Amenities */}
       <FilterSection
-        title="კეთილმოწყობა"
+        title={t("amenities")}
         isOpen={!!expanded.amenities}
         onToggle={() => toggleSection("amenities")}
       >
         <div className="flex flex-col gap-3">
-          {AMENITIES.map(({ value, label }) => (
+          {AMENITY_KEYS.map(({ value, key }) => (
             <label
               key={value}
               className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#64748B]"
@@ -285,7 +293,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                 onChange={() => toggleArrayItem("amenities", value)}
                 className="size-5 rounded-[6px] border-[#E2E8F0] accent-brand-accent"
               />
-              {label}
+              {t(`amenityLabels.${key}`)}
             </label>
           ))}
         </div>

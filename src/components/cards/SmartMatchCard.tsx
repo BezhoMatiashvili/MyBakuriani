@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 
 interface RequestItem {
   title: string;
@@ -35,6 +36,7 @@ export default function SmartMatchCard({
   notificationCount,
   onClick,
 }: SmartMatchCardProps) {
+  const t = useTranslations("SmartMatchCard");
   const visibleRequests = mockRequests.slice(0, Math.max(notificationCount, 0));
 
   return (
@@ -55,11 +57,11 @@ export default function SmartMatchCard({
               SMART MATCH
             </span>
             <span className="text-[10px] font-medium text-[#BFDBFE]">
-              სტუმრების მოთხოვნები
+              {t("guestRequests")}
             </span>
           </div>
           <h3 className="mt-6 text-[30px] font-black leading-[38px]">
-            ნახე რას ეძებენ ახლა
+            {t("seeWhatTheySearch")}
           </h3>
         </div>
         {notificationCount > 0 && (
@@ -101,7 +103,7 @@ export default function SmartMatchCard({
 
       {visibleRequests.length > 0 && (
         <p className="mt-4 text-[11px] leading-relaxed text-white/40">
-          მესაკუთრეების კაბინეტში შეგიძლიათ იხილოთ შეუსრულებელი მოთხოვნები.
+          {t("ownersNote")}
         </p>
       )}
     </motion.div>

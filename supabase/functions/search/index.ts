@@ -21,6 +21,7 @@ serve(async (req) => {
       price_min,
       price_max,
       rooms,
+      bathrooms,
       capacity,
       property_type,
       cadastral_code,
@@ -28,17 +29,23 @@ serve(async (req) => {
       amenities,
       area_min,
       area_max,
+      verified_only,
       lat,
       lng,
       page = 1,
       per_page = 20,
     } = await req.json();
 
+    const profileJoin = verified_only
+      ? "profiles!owner_id!inner"
+      : "profiles!owner_id";
+
     let dbQuery = supabase
       .from("properties")
-      .select("*, profiles!owner_id(display_name, phone, avatar_url, rating)", {
-        count: "exact",
-      })
+      .select(
+        `*, ${profileJoin}(display_name, phone, avatar_url, rating, is_verified)`,
+        { count: "exact" },
+      )
       .eq("status", "active");
 
     // Location trigram search (also search title)
@@ -62,11 +69,13 @@ serve(async (req) => {
 
     // Other filters
     if (rooms) dbQuery = dbQuery.gte("rooms", rooms);
+    if (bathrooms) dbQuery = dbQuery.gte("bathrooms", bathrooms);
     if (capacity) dbQuery = dbQuery.gte("capacity", capacity);
     if (property_type) dbQuery = dbQuery.eq("type", property_type);
     if (cadastral_code) dbQuery = dbQuery.eq("cadastral_code", cadastral_code);
     if (area_min) dbQuery = dbQuery.gte("area_sqm", area_min);
     if (area_max) dbQuery = dbQuery.lte("area_sqm", area_max);
+    if (verified_only) dbQuery = dbQuery.eq("profiles.is_verified", true);
 
     // Amenities filter — check JSONB contains each amenity
     if (amenities && Array.isArray(amenities) && amenities.length > 0) {

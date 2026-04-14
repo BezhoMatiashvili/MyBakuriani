@@ -1,26 +1,29 @@
-import Link from "next/link";
-
-const platformLinks = [
-  { label: "ყველა განცხადება", href: "/apartments" },
-  { label: "როგორ მუშაობს", href: "/faq" },
-  { label: "ვერიფიკაცია", href: "/faq" },
-  { label: "ფასები", href: "/apartments" },
-];
-
-const serviceLinks = [
-  { label: "ტრანსფერი", href: "/transport" },
-  { label: "თხილამურები", href: "/entertainment" },
-  { label: "ბურანები", href: "/entertainment" },
-  { label: "რესტორნები", href: "/food" },
-];
-
-const helpLinks = [
-  { label: "კონტაქტი", href: "/contact" },
-  { label: "ხშირად დასმული კითხვები", href: "/faq" },
-  { label: "წესები და პირობები", href: "/terms" },
-];
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 
 export function Footer() {
+  const t = useTranslations("Footer");
+
+  const platformLinks = [
+    { label: t("allListings"), href: "/apartments" },
+    { label: t("howItWorks"), href: "/faq" },
+    { label: t("verification"), href: "/faq" },
+    { label: t("pricing"), href: "/apartments" },
+  ];
+
+  const serviceLinks = [
+    { label: t("transfer"), href: "/transport" },
+    { label: t("skiing"), href: "/entertainment" },
+    { label: t("snowmobiles"), href: "/entertainment" },
+    { label: t("restaurants"), href: "/food" },
+  ];
+
+  const helpLinks = [
+    { label: t("contact"), href: "/contact" },
+    { label: t("faq"), href: "/faq" },
+    { label: t("terms"), href: "/terms" },
+  ];
+
   return (
     <footer className="border-t border-white/[0.05] bg-[#0B1C2D] text-white">
       <div className="mx-auto max-w-[1160px] px-4 py-20 sm:px-6 lg:px-8">
@@ -63,8 +66,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="max-w-[252px] text-sm leading-[23px] text-white/60">
-              პრემიუმ უძრავი ქონების და გაქირავების პლატფორმა ბაკურიანში. ჩვენ
-              ვზრუნავთ თქვენს დაცულ დასვენებაზე.
+              {t("brandDescription")}
             </p>
             <div className="flex gap-4">
               <a
@@ -96,9 +98,11 @@ export function Footer() {
             </div>
           </div>
 
-          {/* პლატფორმა */}
+          {/* Platform */}
           <div>
-            <h3 className="mb-6 text-base font-bold text-white">პლატფორმა</h3>
+            <h3 className="mb-6 text-base font-bold text-white">
+              {t("platform")}
+            </h3>
             <ul className="flex flex-col gap-[16px]">
               {platformLinks.map((link) => (
                 <li key={link.label}>
@@ -113,9 +117,11 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* სერვისები */}
+          {/* Services */}
           <div>
-            <h3 className="mb-6 text-base font-bold text-white">სერვისები</h3>
+            <h3 className="mb-6 text-base font-bold text-white">
+              {t("services")}
+            </h3>
             <ul className="flex flex-col gap-[16px]">
               {serviceLinks.map((link) => (
                 <li key={link.label}>
@@ -130,9 +136,9 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* დახმარება */}
+          {/* Help */}
           <div>
-            <h3 className="mb-6 text-base font-bold text-white">დახმარება</h3>
+            <h3 className="mb-6 text-base font-bold text-white">{t("help")}</h3>
             <ul className="flex flex-col gap-[16px]">
               {helpLinks.map((link) => (
                 <li key={link.label}>
@@ -150,7 +156,7 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-20 flex flex-col items-center justify-between gap-4 border-t border-white/[0.05] pt-8 text-[10px] font-bold uppercase tracking-[1px] text-white/60 sm:flex-row">
-          <span>&copy; 2024 MYBAKURIANI.GE - ყველა უფლება დაცულია</span>
+          <span>{t("copyright")}</span>
           <div className="flex gap-6">
             <Link
               href="/privacy"

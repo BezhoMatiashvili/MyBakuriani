@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   Home,
   Building,
@@ -25,7 +26,7 @@ interface MobileBottomNavProps {
 }
 
 interface TabItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: LucideIcon;
 }
@@ -34,64 +35,72 @@ function getTabs(role: string): TabItem[] {
   switch (role) {
     case "admin":
       return [
-        { label: "მთავარი", href: "/dashboard/admin", icon: Home },
+        { labelKey: "home", href: "/dashboard/admin", icon: Home },
         {
-          label: "ვერიფიკაცია",
+          labelKey: "verifications",
           href: "/dashboard/admin/verifications",
           icon: ShieldCheck,
         },
-        { label: "კლიენტები", href: "/dashboard/admin/clients", icon: User },
+        { labelKey: "clients", href: "/dashboard/admin/clients", icon: User },
         {
-          label: "ანალიტიკა",
+          labelKey: "analytics",
           href: "/dashboard/admin/analytics",
           icon: BarChart3,
         },
       ];
     case "renter":
       return [
-        { label: "მთავარი", href: "/dashboard/renter", icon: Home },
+        { labelKey: "home", href: "/dashboard/renter", icon: Home },
         {
-          label: "ობიექტები",
+          labelKey: "myProperties",
           href: "/dashboard/renter/listings",
           icon: Building,
         },
         {
-          label: "კალენდარი",
+          labelKey: "calendar",
           href: "/dashboard/renter/calendar",
           icon: CalendarDays,
         },
-        { label: "ბალანსი", href: "/dashboard/renter/balance", icon: Wallet },
         {
-          label: "Smart",
+          labelKey: "balance",
+          href: "/dashboard/renter/balance",
+          icon: Wallet,
+        },
+        {
+          labelKey: "smartMatch",
           href: "/dashboard/renter/smart-match",
           icon: Sparkles,
         },
       ];
     case "seller":
       return [
-        { label: "მთავარი", href: "/dashboard/seller", icon: Home },
+        { labelKey: "home", href: "/dashboard/seller", icon: Home },
         {
-          label: "განცხადებები",
+          labelKey: "myListings",
           href: "/dashboard/seller/listings",
           icon: Building,
         },
-        { label: "პროფილი", href: "/dashboard/renter/profile", icon: User },
+        { labelKey: "profile", href: "/dashboard/renter/profile", icon: User },
       ];
     case "cleaner":
       return [
-        { label: "მთავარი", href: "/dashboard/cleaner", icon: Home },
-        { label: "განრიგი", href: "/dashboard/cleaner/schedule", icon: Clock },
+        { labelKey: "home", href: "/dashboard/cleaner", icon: Home },
         {
-          label: "შემოსავალი",
+          labelKey: "schedule",
+          href: "/dashboard/cleaner/schedule",
+          icon: Clock,
+        },
+        {
+          labelKey: "earnings",
           href: "/dashboard/cleaner/earnings",
           icon: Wallet,
         },
       ];
     case "food":
       return [
-        { label: "მთავარი", href: "/dashboard/food", icon: Home },
+        { labelKey: "home", href: "/dashboard/food", icon: Home },
         {
-          label: "შეკვეთები",
+          labelKey: "orders",
           href: "/dashboard/food/orders",
           icon: ShoppingBag,
         },
@@ -101,9 +110,9 @@ function getTabs(role: string): TabItem[] {
     case "employment":
     case "handyman":
       return [
-        { label: "მთავარი", href: "/dashboard/service", icon: Home },
+        { labelKey: "home", href: "/dashboard/service", icon: Home },
         {
-          label: "შეკვეთები",
+          labelKey: "orders",
           href: "/dashboard/service/orders",
           icon: Briefcase,
         },
@@ -111,14 +120,14 @@ function getTabs(role: string): TabItem[] {
     case "guest":
     default:
       return [
-        { label: "მთავარი", href: "/dashboard/guest", icon: Home },
+        { labelKey: "home", href: "/dashboard/guest", icon: Home },
         {
-          label: "ჯავშნები",
+          labelKey: "bookings",
           href: "/dashboard/guest/bookings",
           icon: ClipboardList,
         },
-        { label: "შეფასებები", href: "/dashboard/guest/reviews", icon: Star },
-        { label: "პროფილი", href: "/dashboard/guest/profile", icon: User },
+        { labelKey: "reviews", href: "/dashboard/guest/reviews", icon: Star },
+        { labelKey: "profile", href: "/dashboard/guest/profile", icon: User },
       ];
   }
 }
@@ -128,15 +137,18 @@ export function MobileBottomNav({
   userRole = "guest",
 }: MobileBottomNavProps) {
   const tabs = getTabs(userRole);
+  const t = useTranslations("DashboardSidebar.nav");
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white shadow-[0px_-4px_12px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)] md:hidden">
       <ul className="flex items-center justify-around">
-        {tabs.map((tab) => {
+        {tabs.map((tab, index) => {
           const Icon = tab.icon;
-          const isActive =
-            currentPath === tab.href ||
-            (tab.href !== "/dashboard" && currentPath.startsWith(tab.href));
+          const isDashboardHomeTab = index === 0;
+          const isActive = isDashboardHomeTab
+            ? currentPath === tab.href
+            : currentPath === tab.href ||
+              currentPath.startsWith(`${tab.href}/`);
           return (
             <li key={tab.href} className="flex-1">
               <Link
@@ -147,7 +159,7 @@ export function MobileBottomNav({
                 )}
               >
                 <Icon className="size-5" />
-                <span>{tab.label}</span>
+                <span>{t(tab.labelKey)}</span>
               </Link>
             </li>
           );

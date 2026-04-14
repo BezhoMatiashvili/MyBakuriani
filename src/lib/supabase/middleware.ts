@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { routing } from "@/i18n/routing";
 
 function getSafeNextPath(request: NextRequest) {
   const redirectTo = request.nextUrl.pathname + request.nextUrl.search;
@@ -33,9 +34,17 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
+  const normalizedPath = routing.locales.reduce(
+    (path, locale) =>
+      path.startsWith(`/${locale}/`) || path === `/${locale}`
+        ? path.replace(`/${locale}`, "") || "/"
+        : path,
+    request.nextUrl.pathname,
+  );
+
   const isProtected =
-    request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/create");
+    normalizedPath.startsWith("/dashboard") ||
+    normalizedPath.startsWith("/create");
 
   try {
     const {
