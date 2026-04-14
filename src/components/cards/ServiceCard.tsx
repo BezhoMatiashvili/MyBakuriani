@@ -60,13 +60,13 @@ export default function ServiceCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
-      className="group"
+      className="group h-full"
     >
       <Link
         href={href}
-        className="block overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
-        <div className="relative h-[190px] overflow-hidden rounded-t-[24px]">
+        <div className="relative h-[200px] overflow-hidden rounded-t-[24px]">
           <Image
             src={photoUrl}
             alt={title}
@@ -101,9 +101,9 @@ export default function ServiceCard({
             {categoryLabelMap[category] ?? category}
           </Badge>
         </div>
-        <div className="p-5">
+        <div className="flex flex-1 flex-col p-5">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-[18px] font-black leading-[22px] text-[#1E293B]">
+            <h3 className="min-w-0 flex-1 text-[18px] font-black leading-[22px] text-[#1E293B] line-clamp-2">
               {title}
             </h3>
             <span className="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
@@ -131,11 +131,11 @@ export default function ServiceCard({
               </span>
             </div>
           )}
-          <div className="mt-3 flex gap-3">
-            <span className="flex flex-1 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-3 py-2.5 text-[13px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]">
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+            <span className="flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-2 py-2.5 text-[12px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]">
               დეტალები
             </span>
-            <span className="flex flex-1 items-center justify-center rounded-[12px] bg-[#22C55E] px-3 py-2.5 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)]">
+            <span className="flex min-w-0 items-center justify-center whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[12px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)]">
               WhatsApp
             </span>
           </div>

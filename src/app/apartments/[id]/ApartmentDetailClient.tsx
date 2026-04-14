@@ -288,7 +288,18 @@ export default function ApartmentDetailClient({
               {property.cadastral_code && `, ${property.cadastral_code}`}
             </p>
             <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
-              <BakurianiMap className="h-full w-full" />
+              <BakurianiMap
+                className="h-full w-full"
+                center={
+                  property.location_lat && property.location_lng
+                    ? {
+                        lat: Number(property.location_lat),
+                        lng: Number(property.location_lng),
+                      }
+                    : undefined
+                }
+                zoom={15}
+              />
             </div>
           </motion.div>
 

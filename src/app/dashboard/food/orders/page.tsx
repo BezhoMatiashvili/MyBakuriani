@@ -22,7 +22,7 @@ type Message = Tables<"sms_messages"> & {
   sender?: { display_name: string; phone: string };
 };
 
-type FoodTab = "new" | "preparing" | "ready" | "delivered";
+type FoodTab = "new" | "processed";
 
 const tabs: { key: FoodTab; label: string; icon: React.ReactNode }[] = [
   {
@@ -31,19 +31,10 @@ const tabs: { key: FoodTab; label: string; icon: React.ReactNode }[] = [
     icon: <ShoppingBag className="h-3.5 w-3.5" />,
   },
   {
-    key: "preparing",
-    label: "\u10DB\u10D6\u10D0\u10D3\u10D3\u10D4\u10D1\u10D0",
+    key: "processed",
+    label:
+      "\u10D3\u10D0\u10DB\u10E3\u10E8\u10D0\u10D5\u10D4\u10D1\u10E3\u10DA\u10D8",
     icon: <ChefHat className="h-3.5 w-3.5" />,
-  },
-  {
-    key: "ready",
-    label: "\u10DB\u10D6\u10D0\u10D3\u10D0\u10D0",
-    icon: <Package className="h-3.5 w-3.5" />,
-  },
-  {
-    key: "delivered",
-    label: "\u10DB\u10D8\u10E2\u10D0\u10DC\u10D8\u10DA\u10D8",
-    icon: <Truck className="h-3.5 w-3.5" />,
   },
 ];
 
@@ -100,8 +91,7 @@ export default function FoodOrdersPage() {
   }, [user, supabase, fetchOrders]);
 
   const filtered = orders.filter((msg) => {
-    if (activeTab === "new") return !msg.is_read;
-    return msg.is_read;
+    return activeTab === "new" ? !msg.is_read : msg.is_read;
   });
 
   async function markAsRead(id: string) {
@@ -145,7 +135,10 @@ export default function FoodOrdersPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-[#F8FAFC]" />
+            <div
+              key={i}
+              className="h-16 animate-pulse rounded-xl bg-[#F8FAFC]"
+            />
           ))}
         </div>
       ) : filtered.length === 0 ? (

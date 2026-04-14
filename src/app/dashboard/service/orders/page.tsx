@@ -21,17 +21,14 @@ type Message = Tables<"sms_messages"> & {
   sender?: { display_name: string; phone: string };
 };
 
-type OrderTab = "new" | "in_progress" | "completed";
+type OrderTab = "new" | "processed";
 
 const tabs: { key: OrderTab; label: string }[] = [
   { key: "new", label: "\u10D0\u10EE\u10D0\u10DA\u10D8" },
   {
-    key: "in_progress",
-    label: "\u10DB\u10D8\u10DB\u10D3\u10D8\u10DC\u10D0\u10E0\u10D4",
-  },
-  {
-    key: "completed",
-    label: "\u10D3\u10D0\u10E1\u10E0\u10E3\u10DA\u10D4\u10D1\u10E3\u10DA\u10D8",
+    key: "processed",
+    label:
+      "\u10D3\u10D0\u10DB\u10E3\u10E8\u10D0\u10D5\u10D4\u10D1\u10E3\u10DA\u10D8",
   },
 ];
 
@@ -88,8 +85,7 @@ export default function ServiceOrdersPage() {
   }, [user, supabase, fetchOrders]);
 
   const filtered = messages.filter((msg) => {
-    if (activeTab === "new") return !msg.is_read;
-    return msg.is_read;
+    return activeTab === "new" ? !msg.is_read : msg.is_read;
   });
 
   async function markAsRead(id: string) {
@@ -132,7 +128,10 @@ export default function ServiceOrdersPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-[#F8FAFC]" />
+            <div
+              key={i}
+              className="h-16 animate-pulse rounded-xl bg-[#F8FAFC]"
+            />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -141,9 +140,7 @@ export default function ServiceOrdersPage() {
           <p className="mt-2 text-sm text-[#94A3B8]">
             {activeTab === "new"
               ? "\u10D0\u10EE\u10D0\u10DA\u10D8 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
-              : activeTab === "in_progress"
-                ? "\u10DB\u10D8\u10DB\u10D3\u10D8\u10DC\u10D0\u10E0\u10D4 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
-                : "\u10D3\u10D0\u10E1\u10E0\u10E3\u10DA\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"}
+              : "\u10D3\u10D0\u10DB\u10E3\u10E8\u10D0\u10D5\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"}
           </p>
         </div>
       ) : (

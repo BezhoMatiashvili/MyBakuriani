@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building,
@@ -21,6 +21,7 @@ import {
 } from "@/components/search/SearchBox";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import { cn } from "@/lib/utils";
+import type { MapProperty } from "@/components/maps/BakurianiMap";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -66,6 +67,7 @@ export default function HotelsPageClient({ properties }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
+  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const handleSearch = useCallback(
@@ -89,11 +91,42 @@ export default function HotelsPageClient({ properties }: Props) {
     listingsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const totalPages = Math.max(1, Math.ceil(properties.length / ITEMS_PER_PAGE));
+  const mapProperties = useMemo<MapProperty[]>(
+    () =>
+      properties
+        .filter((p) => p.location_lat && p.location_lng)
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          price: Number(p.price_per_night),
+          lat: Number(p.location_lat),
+          lng: Number(p.location_lng),
+          isVip: p.is_vip ?? false,
+          isSuperVip: p.is_super_vip ?? false,
+          photo: Array.isArray(p.photos) ? (p.photos[0] as string) : undefined,
+        })),
+    [properties],
+  );
+
+  const filteredProperties = useMemo(
+    () =>
+      onlyAvailable
+        ? properties.filter((p) => (p.discount_percent ?? 0) > 0)
+        : properties,
+    [properties, onlyAvailable],
+  );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProperties.length / ITEMS_PER_PAGE),
+  );
   const paginatedProperties = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return properties.slice(start, start + ITEMS_PER_PAGE);
-  }, [properties, currentPage]);
+    return filteredProperties.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProperties, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const getPageNumbers = () => {
     const pages: (number | "...")[] = [];
@@ -150,16 +183,24 @@ export default function HotelsPageClient({ properties }: Props) {
               onSearch={handleSearch}
               className="shadow-[var(--shadow-search)]"
               dropdownPortalRef={dropdownPortalRef}
+              dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
             />
           </div>
 
           {activeDropdown === "filters" ? (
-            <div className="mt-8 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex">
+            <div
+              ref={dropdownBoundaryRef}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="mt-8 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex"
+            >
               <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
               <BakurianiMap
                 className="min-h-[400px] w-[280px] shrink-0 self-stretch"
                 embedded
+                expandable
+                properties={mapProperties}
+                onPropertyClick={(id) => router.push(`/hotels/${id}`)}
               />
             </div>
           ) : activeDropdown === "calendar" ? (
@@ -250,9 +291,9 @@ export default function HotelsPageClient({ properties }: Props) {
               </h2>
               <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
                 სრული სერვისი: საუზმე, აუზი, სპა
-                {properties.length > 0 && (
+                {filteredProperties.length > 0 && (
                   <span className="ml-1 text-[#94A3B8]">
-                    · {properties.length} განცხადება
+                    · {filteredProperties.length} განცხადება
                   </span>
                 )}
               </p>

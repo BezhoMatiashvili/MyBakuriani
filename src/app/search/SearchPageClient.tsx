@@ -261,6 +261,22 @@ export default function SearchPageClient({
   }, [searchState, mode, filters, router]);
 
   const handleSearch = useCallback((sf: SearchFilters) => {
+    if (sf.advancedFilters) {
+      setFilters((prev) => ({
+        ...prev,
+        priceMin: sf.advancedFilters?.priceMin ?? prev.priceMin,
+        priceMax: sf.advancedFilters?.priceMax ?? prev.priceMax,
+        rooms:
+          sf.advancedFilters?.bedrooms === "4+"
+            ? 4
+            : sf.advancedFilters?.bedrooms
+              ? Number(sf.advancedFilters.bedrooms)
+              : prev.rooms,
+        amenities: sf.advancedFilters?.amenities.length
+          ? sf.advancedFilters.amenities
+          : prev.amenities,
+      }));
+    }
     setSearchState({
       location: sf.location,
       checkIn: sf.checkIn,

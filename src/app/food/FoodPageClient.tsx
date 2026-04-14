@@ -30,12 +30,18 @@ export default function FoodPageClient({ services }: Props) {
   const filtered = useMemo(
     () =>
       services.filter((s) => {
+        if (activeCuisine !== "all") {
+          const category = (s.category ?? "").toLowerCase();
+          if (activeCuisine === "delivery" && !s.has_delivery) return false;
+          if (activeCuisine !== "delivery" && !category.includes(activeCuisine))
+            return false;
+        }
         if (priceMin !== "" && (s.price ?? 0) < priceMin) return false;
         if (priceMax !== "" && (s.price ?? 0) > priceMax) return false;
         if (deliveryOnly && !s.has_delivery) return false;
         return true;
       }),
-    [services, priceMin, priceMax, deliveryOnly],
+    [services, activeCuisine, priceMin, priceMax, deliveryOnly],
   );
 
   const clearFilters = () => {
@@ -251,7 +257,7 @@ export default function FoodPageClient({ services }: Props) {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 2xl:grid-cols-3">
                 {filtered.map((s, i) => (
                   <ScrollReveal key={s.id} delay={i * 0.05}>
                     <ServiceCard

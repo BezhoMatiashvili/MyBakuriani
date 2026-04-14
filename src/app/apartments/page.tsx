@@ -10,16 +10,28 @@ export const metadata: Metadata = {
 
 export default async function ApartmentsPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { data: properties, error } = await supabase
+  let query = supabase
     .from("properties")
     .select("*")
-    .eq("status", "active")
     .eq("is_for_sale", false)
     .in("type", ["apartment", "cottage", "villa", "studio"])
     .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false });
+
+  if (user) {
+    query = query.or(
+      `status.eq.active,and(status.eq.pending,owner_id.eq.${user.id})`,
+    );
+  } else {
+    query = query.eq("status", "active");
+  }
+
+  const { data: properties, error } = await query;
 
   if (error) {
     console.error("[apartments] failed to load properties", error.message);

@@ -23,6 +23,7 @@ export interface SearchFilters {
   checkOut: string;
   guests: number | "";
   cadastralCode: string;
+  advancedFilters?: FilterState;
 }
 
 export type ActiveDropdown = "calendar" | "location" | "filters" | null;
@@ -36,6 +37,7 @@ interface SearchBoxProps {
   defaultCheckIn?: string;
   defaultCheckOut?: string;
   dropdownPortalRef?: React.RefObject<HTMLDivElement | null>;
+  dropdownBoundaryRef?: React.RefObject<HTMLElement | null>;
   onActiveDropdownChange?: (active: ActiveDropdown) => void;
 }
 
@@ -140,6 +142,7 @@ export function SearchBox({
   defaultCheckIn = "",
   defaultCheckOut = "",
   dropdownPortalRef,
+  dropdownBoundaryRef,
   onActiveDropdownChange,
 }: SearchBoxProps) {
   const [location, setLocation] = useState(defaultLocation);
@@ -153,7 +156,7 @@ export function SearchBox({
     }
     return undefined;
   });
-  const [guests] = useState<number | "">(defaultGuests);
+  const [guests, setGuests] = useState<number | "">(defaultGuests);
   const [cadastralCode, setCadastralCode] = useState(defaultCadastralCode);
 
   // Custom range handler: when a complete range exists and user clicks a new date,
@@ -199,9 +202,31 @@ export function SearchBox({
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
+      const eventPath = event.composedPath();
+
       const inContainer = containerRef.current?.contains(target);
       const inPortal = dropdownPortalRef?.current?.contains(target);
-      if (!inContainer && !inPortal) {
+      const inBoundary = dropdownBoundaryRef?.current?.contains(target);
+
+      const inContainerPath = containerRef.current
+        ? eventPath.includes(containerRef.current)
+        : false;
+      const inPortalPath = dropdownPortalRef?.current
+        ? eventPath.includes(dropdownPortalRef.current)
+        : false;
+      const inBoundaryPath = dropdownBoundaryRef?.current
+        ? eventPath.includes(dropdownBoundaryRef.current)
+        : false;
+
+      const isInside =
+        inContainer ||
+        inPortal ||
+        inBoundary ||
+        inContainerPath ||
+        inPortalPath ||
+        inBoundaryPath;
+
+      if (!isInside) {
         setActiveDropdown(null);
       }
     }
@@ -210,14 +235,40 @@ export function SearchBox({
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [activeDropdown, dropdownPortalRef]);
+  }, [activeDropdown, dropdownPortalRef, dropdownBoundaryRef]);
 
-  // Track portal readiness — ref isn't available on the first render frame
-  // when the parent conditionally mounts the portal container
+  // Track portal readiness — ref can appear one frame later when parent
+  // conditionally mounts the portal container.
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => {
-    const ready = !!dropdownPortalRef?.current;
-    setPortalReady((prev) => (prev !== ready ? ready : prev));
+    if (
+      !dropdownPortalRef ||
+      activeDropdown === "location" ||
+      !activeDropdown
+    ) {
+      setPortalReady(false);
+      return;
+    }
+
+    let rafId: number | null = null;
+    let cancelled = false;
+
+    const waitForPortal = () => {
+      if (cancelled) return;
+      const ready = !!dropdownPortalRef.current;
+      if (ready) {
+        setPortalReady(true);
+        return;
+      }
+      setPortalReady(false);
+      rafId = requestAnimationFrame(waitForPortal);
+    };
+
+    waitForPortal();
+    return () => {
+      cancelled = true;
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [dropdownPortalRef, activeDropdown]);
   const usePortal = portalReady;
 
@@ -233,6 +284,7 @@ export function SearchBox({
       checkOut: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "",
       guests,
       cadastralCode,
+      advancedFilters: filters,
     });
   };
 
@@ -243,13 +295,21 @@ export function SearchBox({
     : "";
 
   const handleApplyFilters = () => {
+    const capacityGuests =
+      filters.capacity === "8+ სტუმარი"
+        ? 8
+        : filters.capacity
+          ? Number.parseInt(filters.capacity, 10)
+          : "";
+    setGuests(capacityGuests || "");
     setActiveDropdown(null);
     onSearch({
       location,
       checkIn: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "",
       checkOut: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "",
-      guests,
+      guests: capacityGuests || guests,
       cadastralCode,
+      advancedFilters: filters,
     });
   };
 
@@ -577,11 +637,10 @@ export function SearchBox({
               portalPanel,
               dropdownPortalRef.current,
             );
-          } else if (!dropdownPortalRef) {
-            // No portal ref provided — render as absolute overlay
+          } else {
+            // Portal target not ready yet — render inline fallback
             portalContent = portalPanel;
           }
-          // If portal ref provided but not ready yet → render nothing (wait for next frame)
         }
 
         return (
@@ -907,7 +966,7 @@ function FiltersDropdown({
           onClick={onApply}
           className="h-[47px] rounded-[12px] bg-[#2563EB] px-8 text-[14px] font-bold text-white shadow-[0px_4px_12px_rgba(37,99,235,0.2)] hover:bg-[#1D4ED8]"
         >
-          შედეგების ჩვენება (142)
+          შედეგების ჩვენება
         </Button>
       </div>
     </div>

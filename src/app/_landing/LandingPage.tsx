@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Plus, Car, Video } from "lucide-react";
 import Image from "next/image";
@@ -13,6 +13,7 @@ import {
   type ActiveDropdown,
 } from "@/components/search/SearchBox";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
+import type { MapProperty } from "@/components/maps/BakurianiMap";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -582,7 +583,30 @@ export default function LandingPage({
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
+  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  const mapProperties = useMemo<MapProperty[]>(() => {
+    const seen = new Set<string>();
+    const all = [...(serverHotOffers ?? []), ...(serverHotels ?? [])];
+    return all
+      .filter((p) => {
+        if (!p.location_lat || !p.location_lng || seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      })
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        price: p.is_for_sale ? Number(p.sale_price) : Number(p.price_per_night),
+        lat: Number(p.location_lat),
+        lng: Number(p.location_lng),
+        isVip: p.is_vip ?? false,
+        isSuperVip: p.is_super_vip ?? false,
+        photo: Array.isArray(p.photos) ? (p.photos[0] as string) : undefined,
+      }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverHotOffers, serverHotels]);
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
@@ -736,6 +760,7 @@ export default function LandingPage({
               onSearch={handleSearch}
               className="shadow-[var(--shadow-search)]"
               dropdownPortalRef={dropdownPortalRef}
+              dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
             />
           </div>
@@ -743,11 +768,17 @@ export default function LandingPage({
           {/* Status Cards + Dropdown Panel Area */}
           {activeDropdown === "filters" ? (
             /* Filters: portal + map */
-            <div className="mt-8 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex">
+            <div
+              ref={dropdownBoundaryRef}
+              className="mt-8 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex"
+            >
               <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
               <BakurianiMap
                 className="min-h-[400px] w-[280px] shrink-0 self-stretch"
                 embedded
+                expandable
+                properties={mapProperties}
+                onPropertyClick={(id) => router.push(`/apartments/${id}`)}
               />
             </div>
           ) : activeDropdown === "calendar" ? (

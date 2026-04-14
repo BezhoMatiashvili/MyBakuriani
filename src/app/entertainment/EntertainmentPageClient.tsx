@@ -29,11 +29,15 @@ export default function EntertainmentPageClient({ services }: Props) {
   const filtered = useMemo(
     () =>
       services.filter((s) => {
+        if (activeCategory !== "all") {
+          const category = (s.category ?? "").toLowerCase();
+          if (!category.includes(activeCategory)) return false;
+        }
         if (priceMin !== "" && (s.price ?? 0) < priceMin) return false;
         if (priceMax !== "" && (s.price ?? 0) > priceMax) return false;
         return true;
       }),
-    [services, priceMin, priceMax],
+    [services, activeCategory, priceMin, priceMax],
   );
 
   const clearFilters = () => {
@@ -223,7 +227,7 @@ export default function EntertainmentPageClient({ services }: Props) {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 2xl:grid-cols-3">
                 {filtered.map((s, i) => (
                   <ScrollReveal key={s.id} delay={i * 0.05}>
                     <ServiceCard
