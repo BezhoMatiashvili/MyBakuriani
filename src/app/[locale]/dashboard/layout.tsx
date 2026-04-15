@@ -97,13 +97,13 @@ export default function DashboardLayout({
 
   if (isAdmin) {
     return (
-      <div className="flex min-h-screen items-start justify-center bg-[#02060E] p-4">
-        <div className="relative flex h-[850px] w-full max-w-[1280px] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
-          <AdminSidebar verificationAlerts={3} onSignOut={handleSignOut} />
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#F8FAFC]">
-            <AdminTopbar userName={profile?.display_name ?? "Admin"} />
-            <main className="w-full flex-1 overflow-auto p-10">{children}</main>
-          </div>
+      <div className="flex h-screen w-full overflow-hidden bg-[#02060E]">
+        <AdminSidebar verificationAlerts={3} onSignOut={handleSignOut} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
+          <AdminTopbar userName={profile?.display_name ?? "Admin"} />
+          <main className="h-0 w-full flex-1 overflow-y-auto p-5 sm:p-8 xl:p-10">
+            {children}
+          </main>
         </div>
       </div>
     );

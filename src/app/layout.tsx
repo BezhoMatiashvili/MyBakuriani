@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Noto_Sans_Georgian } from "next/font/google";
+import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { getLocale } from "next-intl/server";
 
@@ -26,6 +27,7 @@ export default async function RootLayout({
     <html lang={locale} className={cn("font-sans", notoSansGeorgian.variable)}>
       <body className="flex min-h-screen flex-col bg-white text-[#1E293B] antialiased">
         {children}
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

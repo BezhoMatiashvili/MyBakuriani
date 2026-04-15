@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
-  Eye,
-  Flame,
-  Search,
+  Check,
   ChevronLeft,
   ChevronRight,
+  Flame,
+  Loader2,
+  Search,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPhone } from "@/lib/utils/format";
@@ -29,6 +32,30 @@ export default function VerificationsPage() {
   >([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function moderate(id: string, action: "approve" | "reject") {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/admin/verifications/moderate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? "შეცდომა");
+      toast.success(
+        action === "approve"
+          ? "ვერიფიკაცია დამტკიცდა"
+          : "ვერიფიკაცია უარყოფილია",
+      );
+      setVerifications((prev) => prev.filter((v) => v.id !== id));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "შეცდომა");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -104,28 +131,28 @@ export default function VerificationsPage() {
   }, [page, totalPages]);
 
   return (
-    <div className="space-y-7">
-      <div>
-        <h1 className="text-[56px] font-black leading-[1.05] tracking-[-1px] text-[#0F172A]">
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-7 pb-10">
+      <div className="space-y-2">
+        <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
           ვერიფიკაციის გვერდი
         </h1>
-        <p className="mt-2 text-[30px] leading-tight text-[#64748B]">
+        <p className="text-[14px] font-medium leading-[21px] text-[#64748B]">
           ახალი ობიექტების შემოწმება
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
-        <span className="inline-flex items-center gap-2 rounded-full border border-[#FDE68A] bg-[#FFFBEB] px-5 py-2 text-lg font-semibold text-[#B45309]">
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#FDE68A] bg-[#FFFBEB] px-5 py-2 text-[13px] font-semibold text-[#B45309]">
           <AlertTriangle className="h-4 w-4" />
           &gt;24h რიგში ({over24Count})
         </span>
-        <span className="inline-flex items-center gap-2 rounded-full border border-[#FECACA] bg-[#FEF2F2] px-5 py-2 text-lg font-semibold text-[#B91C1C]">
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#FECACA] bg-[#FEF2F2] px-5 py-2 text-[13px] font-semibold text-[#B91C1C]">
           <Flame className="h-4 w-4" />
           მაღალი რისკი ({highRiskCount})
         </span>
       </div>
 
-      <section className="overflow-hidden rounded-[26px] border border-[#E2E8F0] bg-white">
+      <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
         <div className="grid grid-cols-[56px_1.4fr_1fr_1.2fr_1.1fr_120px] items-center gap-3 border-b border-[#EDF2F7] px-6 py-4 text-sm font-semibold text-[#64748B]">
           <div className="flex justify-center">
             <input
@@ -186,11 +213,11 @@ export default function VerificationsPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EEF2F7] text-base font-black text-[#475569]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EEF2F7] text-sm font-black text-[#475569]">
                   {item.initials}
                 </div>
                 <div>
-                  <p className="text-2xl font-extrabold leading-tight text-[#0F172A]">
+                  <p className="text-[16px] font-black leading-6 text-[#0F172A]">
                     {item.user?.display_name ?? "—"}
                   </p>
                   <p className="text-sm font-medium text-[#94A3B8]">
@@ -200,10 +227,10 @@ export default function VerificationsPage() {
               </div>
 
               <div>
-                <p className="text-[34px] font-black leading-none text-[#B91C1C]">
+                <p className="text-[20px] font-black leading-7 text-[#B91C1C]">
                   SLA: {item.elapsedHours}h
                 </p>
-                <p className="text-[28px] font-black leading-tight text-[#B91C1C]">
+                <p className="text-[14px] font-bold leading-[21px] text-[#B91C1C]">
                   მოლოდინი
                 </p>
                 <span
@@ -218,7 +245,7 @@ export default function VerificationsPage() {
               </div>
 
               <div>
-                <span className="inline-flex rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-[28px] font-black leading-tight text-[#1D4ED8]">
+                <span className="inline-flex rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-[14px] font-bold leading-[21px] text-[#1D4ED8]">
                   {item.property?.title ?? "FB პაკეტი"} (30₾)
                 </span>
                 <p className="mt-1 text-xs text-[#94A3B8]">
@@ -228,17 +255,33 @@ export default function VerificationsPage() {
               </div>
 
               <div>
-                <span className="inline-flex rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[30px] font-black leading-none text-[#475569]">
-                  {item.napr}
+                <span className="inline-flex rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[14px] font-bold leading-[21px] text-[#475569]">
+                  {item.property?.cadastral_code ?? "—"}
                 </span>
               </div>
 
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-2">
                 <button
                   type="button"
-                  className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2563EB] text-white shadow-[0px_10px_18px_rgba(37,99,235,0.28)] transition-colors hover:bg-[#1D4ED8]"
+                  onClick={() => moderate(item.id, "approve")}
+                  disabled={busyId === item.id}
+                  aria-label="დადასტურება"
+                  className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_8px_20px_rgba(5,150,105,0.25)] transition-colors hover:bg-[#047857] disabled:opacity-50"
                 >
-                  <Eye className="h-6 w-6" />
+                  {busyId === item.id ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Check className="h-5 w-5" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moderate(item.id, "reject")}
+                  disabled={busyId === item.id}
+                  aria-label="უარყოფა"
+                  className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
+                >
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             </motion.div>

@@ -371,7 +371,7 @@ function makeServiceCards(category: string, count: number) {
       {
         title: "სათხილამურო ტრანსფერი დიდველზე",
         photo:
-          "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=600&fit=crop",
+          "https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800&h=600&fit=crop",
         price: 20,
         unit: "მგზავრობა",
         discount: 0,
@@ -969,6 +969,7 @@ export default function LandingPage({
                   src="https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&h=500&fit=crop"
                   alt="DIDVELI"
                   fill
+                  sizes="(max-width: 1024px) 100vw, 386px"
                   className="object-cover"
                 />
                 <span className="absolute right-4 top-4 rounded bg-[#1E293B]/80 px-3 py-1 text-[11px] font-bold uppercase text-white">
@@ -1037,6 +1038,7 @@ export default function LandingPage({
                       src={post.image}
                       alt={post.title}
                       fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>

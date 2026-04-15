@@ -45,3 +45,6 @@ next-env.d.ts
 
 # MCP config (contains secrets)
 .mcp.json
+
+# Ralph loop state + admin audit artifacts (may contain screenshots of admin UI)
+/.ralph/

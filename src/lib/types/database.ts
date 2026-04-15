@@ -14,6 +14,59 @@ export type Database = {
   };
   public: {
     Tables: {
+      ads: {
+        Row: {
+          banner_url: string | null;
+          clicks_count: number;
+          created_at: string;
+          created_by: string | null;
+          end_at: string;
+          id: string;
+          position: string;
+          start_at: string;
+          status: string;
+          title: string;
+          url: string;
+          views_count: number;
+        };
+        Insert: {
+          banner_url?: string | null;
+          clicks_count?: number;
+          created_at?: string;
+          created_by?: string | null;
+          end_at: string;
+          id?: string;
+          position: string;
+          start_at: string;
+          status?: string;
+          title: string;
+          url: string;
+          views_count?: number;
+        };
+        Update: {
+          banner_url?: string | null;
+          clicks_count?: number;
+          created_at?: string;
+          created_by?: string | null;
+          end_at?: string;
+          id?: string;
+          position?: string;
+          start_at?: string;
+          status?: string;
+          title?: string;
+          url?: string;
+          views_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ads_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       balances: {
         Row: {
           amount: number | null;
@@ -163,6 +216,47 @@ export type Database = {
           },
         ];
       };
+      broadcasts: {
+        Row: {
+          audience_filter: string;
+          body: string;
+          channel: string;
+          id: string;
+          recipient_count: number;
+          sent_at: string;
+          sent_by: string | null;
+          subject: string | null;
+        };
+        Insert: {
+          audience_filter: string;
+          body: string;
+          channel: string;
+          id?: string;
+          recipient_count?: number;
+          sent_at?: string;
+          sent_by?: string | null;
+          subject?: string | null;
+        };
+        Update: {
+          audience_filter?: string;
+          body?: string;
+          channel?: string;
+          id?: string;
+          recipient_count?: number;
+          sent_at?: string;
+          sent_by?: string | null;
+          subject?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "broadcasts_sent_by_fkey";
+            columns: ["sent_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       calendar_blocks: {
         Row: {
           booking_id: string | null;
@@ -297,8 +391,45 @@ export type Database = {
           },
         ];
       };
+      pricing_packages: {
+        Row: {
+          amount_gel: number;
+          category: string;
+          code: string;
+          id: string;
+          is_enabled: boolean;
+          label: string | null;
+          name: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          amount_gel: number;
+          category: string;
+          code: string;
+          id?: string;
+          is_enabled?: boolean;
+          label?: string | null;
+          name: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          amount_gel?: number;
+          category?: string;
+          code?: string;
+          id?: string;
+          is_enabled?: boolean;
+          label?: string | null;
+          name?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
+          admin_notes: string | null;
           avatar_url: string | null;
           bio: string | null;
           created_at: string | null;
@@ -313,6 +444,7 @@ export type Database = {
           verified_at: string | null;
         };
         Insert: {
+          admin_notes?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
@@ -327,6 +459,7 @@ export type Database = {
           verified_at?: string | null;
         };
         Update: {
+          admin_notes?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
@@ -341,6 +474,53 @@ export type Database = {
           verified_at?: string | null;
         };
         Relationships: [];
+      };
+      promocodes: {
+        Row: {
+          code: string;
+          created_at: string;
+          created_by: string | null;
+          discount_type: string;
+          discount_value: number;
+          expires_at: string | null;
+          id: string;
+          is_active: boolean;
+          max_uses: number | null;
+          uses_count: number;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          created_by?: string | null;
+          discount_type: string;
+          discount_value: number;
+          expires_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          max_uses?: number | null;
+          uses_count?: number;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          created_by?: string | null;
+          discount_type?: string;
+          discount_value?: number;
+          expires_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          max_uses?: number | null;
+          uses_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "promocodes_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       properties: {
         Row: {
@@ -457,31 +637,52 @@ export type Database = {
       };
       reviews: {
         Row: {
+          ai_analyzed_at: string | null;
+          ai_risk_tags: Json;
+          ai_sentiment: string | null;
           booking_id: string | null;
           comment: string | null;
           created_at: string | null;
           guest_id: string;
           id: string;
+          moderated_at: string | null;
+          moderated_by: string | null;
+          moderation_notes: string | null;
           property_id: string;
           rating: number;
+          status: string;
         };
         Insert: {
+          ai_analyzed_at?: string | null;
+          ai_risk_tags?: Json;
+          ai_sentiment?: string | null;
           booking_id?: string | null;
           comment?: string | null;
           created_at?: string | null;
           guest_id: string;
           id?: string;
+          moderated_at?: string | null;
+          moderated_by?: string | null;
+          moderation_notes?: string | null;
           property_id: string;
           rating: number;
+          status?: string;
         };
         Update: {
+          ai_analyzed_at?: string | null;
+          ai_risk_tags?: Json;
+          ai_sentiment?: string | null;
           booking_id?: string | null;
           comment?: string | null;
           created_at?: string | null;
           guest_id?: string;
           id?: string;
+          moderated_at?: string | null;
+          moderated_by?: string | null;
+          moderation_notes?: string | null;
           property_id?: string;
           rating?: number;
+          status?: string;
         };
         Relationships: [
           {
@@ -494,6 +695,13 @@ export type Database = {
           {
             foreignKeyName: "reviews_guest_id_fkey";
             columns: ["guest_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reviews_moderated_by_fkey";
+            columns: ["moderated_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -815,6 +1023,7 @@ export type Database = {
     };
     Functions: {
       increment_views: { Args: { prop_id: string }; Returns: undefined };
+      is_admin_user: { Args: never; Returns: boolean };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
     };

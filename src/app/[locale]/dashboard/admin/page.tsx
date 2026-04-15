@@ -100,29 +100,44 @@ export default function AdminDashboardPage() {
             ? Math.round((bookedCount / (totalProperties ?? 1)) * 100)
             : 0;
 
+        // Week-over-week deltas require a prior-period snapshot that we don't
+        // yet collect. Keep at 0 until the admin-stats edge function supplies
+        // a real WoW comparison; falsy data is preferable to fabricated data.
         setKpis({
           revenue: totalRevenue,
-          revenueChange: 12.5,
+          revenueChange: 0,
           conversionRate,
-          conversionChange: 3.2,
+          conversionChange: 0,
           activeListings: activeListings ?? 0,
-          listingsChange: 8.1,
+          listingsChange: 0,
           avgResponseTime: avgResponse,
-          responseChange: -5.3,
+          responseChange: 0,
         });
 
+        // Funnel top steps require analytics tracking we haven't wired yet.
+        // Surface only the known terminal count; upper steps stay at 0 until
+        // page-view / search / request events are tracked.
         setFunnel([
-          { label: "ნახვები", value: 15000 },
-          { label: "ძიებები", value: 9000 },
-          { label: "მოთხოვნები", value: 3600 },
+          { label: "ნახვები", value: 0 },
+          { label: "ძიებები", value: 0 },
+          { label: "მოთხოვნები", value: 0 },
           {
             label: "დასრულებული",
             value: completedBookings.length,
           },
         ]);
 
+        const avgNightlyPrice =
+          bookingsData && bookingsData.length > 0
+            ? Math.round(
+                bookingsData.reduce(
+                  (sum, b) => sum + Number(b.total_price ?? 0),
+                  0,
+                ) / bookingsData.length,
+              )
+            : 0;
         setOccupancyRate(occ);
-        setAvgPriceTrend(185);
+        setAvgPriceTrend(avgNightlyPrice);
       } finally {
         setLoading(false);
       }
@@ -183,12 +198,12 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-7">
+    <div className="mx-auto w-full max-w-[1280px] space-y-7 pb-10">
       <div className="pt-2">
-        <h1 className="text-[48px] font-extrabold tracking-[-0.03em] text-[#0F172A]">
+        <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
           მთავარი გვერდი
         </h1>
-        <p className="mt-1 text-xl font-semibold text-[#64748B]">
+        <p className="mt-2 text-[14px] font-medium leading-[21px] text-[#64748B]">
           პლატფორმის ოპერატიული მართვა
         </p>
       </div>
@@ -209,7 +224,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <h2 className="text-[32px] font-extrabold tracking-[-0.02em] text-[#475569]">
+        <h2 className="text-[16px] font-black uppercase tracking-[1px] text-[#64748B]">
           მთავარი მაჩვენებლები (KPI)
         </h2>
         <button
@@ -234,7 +249,7 @@ export default function AdminDashboardPage() {
               <card.icon className="h-4 w-4 text-[#CBD5E1]" />
             </div>
             <div className="mt-2 flex items-end justify-between">
-              <p className="text-[39px] font-black leading-none text-[#0F172A]">
+              <p className="text-[42px] font-black leading-none text-[#0F172A]">
                 {loading ? "..." : card.value}
               </p>
               <p
@@ -251,8 +266,8 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[2fr,1fr]">
-        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-6 shadow-[0px_6px_18px_rgba(15,23,42,0.05)]">
-          <h2 className="mb-4 text-[34px] font-extrabold tracking-[-0.03em] text-[#475569]">
+        <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
+          <h2 className="mb-4 text-[16px] font-black uppercase tracking-[1px] text-[#64748B]">
             გაყიდვების ფუნელი (FUNNEL)
           </h2>
           <div className="space-y-3">
@@ -291,8 +306,8 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-6 shadow-[0px_6px_18px_rgba(15,23,42,0.05)]">
-          <h2 className="mb-5 text-[30px] font-extrabold tracking-[-0.03em] text-[#475569]">
+        <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
+          <h2 className="mb-5 text-[16px] font-black uppercase tracking-[1px] text-[#64748B]">
             ბაზრის ჯანმრთელობა
           </h2>
           <div className="space-y-3">
@@ -304,9 +319,6 @@ export default function AdminDashboardPage() {
                 <p className="text-[38px] font-black leading-none text-[#0F172A]">
                   {loading ? "0" : kpis.activeListings}
                 </p>
-                <p className="text-[33px] font-black leading-none text-[#EF4444]">
-                  45
-                </p>
               </div>
             </div>
             <div className="rounded-2xl bg-[#F8FAFC] p-4">
@@ -317,7 +329,6 @@ export default function AdminDashboardPage() {
                 <p className="text-[38px] font-black leading-none text-[#0F172A]">
                   {occupancyRate}%
                 </p>
-                <p className="text-sm font-bold text-[#F97316]">12%</p>
               </div>
             </div>
             <div className="rounded-2xl bg-[#F8FAFC] p-4">

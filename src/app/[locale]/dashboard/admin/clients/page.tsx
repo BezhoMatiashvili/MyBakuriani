@@ -129,7 +129,7 @@ export default function ClientsPage() {
   }, [page, totalPages]);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[1280px] space-y-6 pb-10">
       <div className="flex items-end justify-between gap-4 pb-2">
         <div>
           <h1 className="text-[32px] font-black leading-[32px] tracking-[-0.8px] text-[#0F172A]">
