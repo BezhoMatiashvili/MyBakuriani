@@ -14,6 +14,7 @@ import {
 } from "@/components/search/SearchBox";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
+import SaleLandingBody from "./SaleLandingBody";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -718,6 +719,16 @@ export default function LandingPage({
           })(),
         }))
       : MOCK_BLOG_POSTS;
+
+  if (mode === "sale") {
+    return (
+      <SaleLandingBody
+        mode={mode}
+        onModeChange={setMode}
+        saleProperties={serverSaleProperties}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col">
