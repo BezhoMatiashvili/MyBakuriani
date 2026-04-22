@@ -17,9 +17,13 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .rpc("admin_dashboard_stats")
-    .single<AdminDashboardStatsRow>();
+  // Cast: admin_dashboard_stats RPC is defined in migration
+  // 20260422165037_admin_dashboard_stats_rpc.sql; regenerate DB types to drop.
+  const { data, error } = await (
+    supabase.rpc as unknown as (fn: "admin_dashboard_stats") => {
+      single<T>(): Promise<{ data: T | null; error: unknown }>;
+    }
+  )("admin_dashboard_stats").single<AdminDashboardStatsRow>();
 
   if (error) {
     return Response.json({ error: "stats_unavailable" }, { status: 500 });

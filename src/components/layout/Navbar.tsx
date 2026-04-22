@@ -96,17 +96,20 @@ export function Navbar() {
     };
 
     if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(deferFetch, { timeout: 1500 });
+      const idleId = (window as Window & typeof globalThis).requestIdleCallback(
+        deferFetch,
+        { timeout: 1500 },
+      );
       return () => {
         cancelled = true;
-        window.cancelIdleCallback(idleId);
+        (window as Window & typeof globalThis).cancelIdleCallback(idleId);
       };
     }
 
-    const timeoutId = window.setTimeout(deferFetch, 600);
+    const timeoutId = setTimeout(deferFetch, 600);
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
     };
   }, [user]);
 

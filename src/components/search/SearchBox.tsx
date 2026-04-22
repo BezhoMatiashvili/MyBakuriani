@@ -26,7 +26,7 @@ export interface SearchFilters {
 }
 
 export type ActiveDropdown = "calendar" | "location" | "filters" | null;
-type DateRange = { from?: Date; to?: Date };
+type DateRange = { from: Date | undefined; to?: Date };
 
 const Calendar = dynamic(
   () => import("@/components/ui/calendar").then((mod) => mod.Calendar),
