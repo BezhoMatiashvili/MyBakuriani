@@ -78,6 +78,17 @@ export default function ApartmentsPageClient({ properties }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const handleModeChange = useCallback(
+    (next: "rent" | "sale") => {
+      if (next === "sale") {
+        startTransition(() => router.push("/sales"));
+        return;
+      }
+      setMode(next);
+    },
+    [router],
+  );
+
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
       const params = new URLSearchParams();
@@ -189,7 +200,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
           </ScrollReveal>
 
           <div className="mt-6 flex justify-center">
-            <RentBuyToggle value={mode} onChange={setMode} />
+            <RentBuyToggle value={mode} onChange={handleModeChange} />
           </div>
 
           <div className="mt-6">

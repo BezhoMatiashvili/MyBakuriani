@@ -63,6 +63,17 @@ export default function SalesPageClient({ properties }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const handleModeChange = useCallback(
+    (next: "rent" | "sale") => {
+      if (next === "rent") {
+        startTransition(() => router.push("/apartments"));
+        return;
+      }
+      setMode(next);
+    },
+    [router],
+  );
+
   const investmentStats = useMemo(() => {
     const sellable = properties.filter((p) => p.sale_price);
     const avgRoi =
@@ -226,7 +237,7 @@ export default function SalesPageClient({ properties }: Props) {
           </ScrollReveal>
 
           <div className="mt-6 flex justify-center">
-            <RentBuyToggle value={mode} onChange={setMode} />
+            <RentBuyToggle value={mode} onChange={handleModeChange} />
           </div>
 
           <div className="mt-6">
