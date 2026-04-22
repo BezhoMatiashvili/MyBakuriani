@@ -12,7 +12,6 @@ import {
   TrendingUp,
   Users2,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils/format";
 
 interface AdminKPIs {
@@ -30,6 +29,19 @@ interface FunnelStep {
   label: string;
   value: number;
 }
+
+type AdminStatsApiResponse = {
+  data: {
+    active_listings: number;
+    total_properties: number;
+    total_bookings: number;
+    completed_bookings: number;
+    active_or_completed_bookings: number;
+    total_revenue: number;
+    average_response_minutes: number;
+    average_booking_price: number;
+  };
+};
 
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -49,68 +61,44 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function loadData() {
-      const supabase = createClient();
       try {
-        const [
-          { count: activeListings },
-          { data: bookingsData },
-          { data: profilesData },
-          { count: totalProperties },
-        ] = await Promise.all([
-          supabase
-            .from("properties")
-            .select("*", { count: "exact", head: true })
-            .eq("status", "active"),
-          supabase.from("bookings").select("total_price, status"),
-          supabase.from("profiles").select("response_time_minutes"),
-          supabase
-            .from("properties")
-            .select("*", { count: "exact", head: true }),
-        ]);
+        const response = await fetch("/api/admin/stats", {
+          cache: "no-store",
+        });
 
-        const completedBookings =
-          bookingsData?.filter((b) => b.status === "completed") ?? [];
-        const totalRevenue = completedBookings.reduce(
-          (sum, b) => sum + (b.total_price || 0),
-          0,
-        );
-        const allBookings = bookingsData?.length ?? 0;
+        if (!response.ok) {
+          throw new Error("stats_unavailable");
+        }
+
+        const payload = (await response.json()) as AdminStatsApiResponse;
+        const stats = payload.data;
         const conversionRate =
-          allBookings > 0
-            ? Math.round((completedBookings.length / allBookings) * 100)
-            : 0;
-
-        const responseTimes =
-          profilesData
-            ?.map((p) => p.response_time_minutes)
-            .filter((t): t is number => t !== null) ?? [];
-        const avgResponse =
-          responseTimes.length > 0
+          stats.total_bookings > 0
             ? Math.round(
-                responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length,
+                (stats.completed_bookings / stats.total_bookings) * 100,
               )
             : 0;
-
-        const bookedCount =
-          bookingsData?.filter(
-            (b) => b.status === "confirmed" || b.status === "completed",
-          ).length ?? 0;
         const occ =
-          (totalProperties ?? 0) > 0
-            ? Math.round((bookedCount / (totalProperties ?? 1)) * 100)
+          stats.total_properties > 0
+            ? Math.round(
+                (stats.active_or_completed_bookings / stats.total_properties) *
+                  100,
+              )
             : 0;
 
         // Week-over-week deltas require a prior-period snapshot that we don't
         // yet collect. Keep at 0 until the admin-stats edge function supplies
         // a real WoW comparison; falsy data is preferable to fabricated data.
         setKpis({
-          revenue: totalRevenue,
+          revenue: Number(stats.total_revenue ?? 0),
           revenueChange: 0,
           conversionRate,
           conversionChange: 0,
-          activeListings: activeListings ?? 0,
+          activeListings: Number(stats.active_listings ?? 0),
           listingsChange: 0,
-          avgResponseTime: avgResponse,
+          avgResponseTime: Math.round(
+            Number(stats.average_response_minutes ?? 0),
+          ),
           responseChange: 0,
         });
 
@@ -123,21 +111,12 @@ export default function AdminDashboardPage() {
           { label: "მოთხოვნები", value: 0 },
           {
             label: "დასრულებული",
-            value: completedBookings.length,
+            value: Number(stats.completed_bookings ?? 0),
           },
         ]);
 
-        const avgNightlyPrice =
-          bookingsData && bookingsData.length > 0
-            ? Math.round(
-                bookingsData.reduce(
-                  (sum, b) => sum + Number(b.total_price ?? 0),
-                  0,
-                ) / bookingsData.length,
-              )
-            : 0;
         setOccupancyRate(occ);
-        setAvgPriceTrend(avgNightlyPrice);
+        setAvgPriceTrend(Math.round(Number(stats.average_booking_price ?? 0)));
       } finally {
         setLoading(false);
       }

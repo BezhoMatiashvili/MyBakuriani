@@ -23,9 +23,7 @@ import {
   ClipboardList,
   Star,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { slideFromRight } from "@/lib/utils/animations";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -73,8 +71,9 @@ export function Navbar() {
       setBalance(null);
       return;
     }
-    const supabase = createClient();
+    let cancelled = false;
     async function fetchUserData() {
+      const supabase = createClient();
       const [profileRes, balanceRes] = await Promise.all([
         supabase
           .from("profiles")
@@ -87,10 +86,28 @@ export function Navbar() {
           .eq("user_id", user!.id)
           .single(),
       ]);
+      if (cancelled) return;
       if (profileRes.data) setProfile(profileRes.data);
       if (balanceRes.data) setBalance(Number(balanceRes.data.amount));
     }
-    fetchUserData();
+
+    const deferFetch = () => {
+      void fetchUserData();
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(deferFetch, { timeout: 1500 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(deferFetch, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [user]);
 
   const dashboardPath = profile
@@ -242,66 +259,58 @@ export function Navbar() {
                   <User className="size-5 text-[#2563EB]" />
                 )}
               </button>
-              <AnimatePresence>
-                {profileOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-12 z-50 w-[220px] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white py-2 shadow-lg"
+              {profileOpen && (
+                <div className="absolute right-0 top-12 z-50 w-[220px] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white py-2 shadow-lg">
+                  {[
+                    {
+                      href: `${dashboardPath}/bookings`,
+                      icon: ClipboardList,
+                      label: t("bookings"),
+                    },
+                    {
+                      href: `${dashboardPath}/reviews`,
+                      icon: Star,
+                      label: t("reviews"),
+                    },
+                    {
+                      href: `${dashboardPath}/profile`,
+                      icon: User,
+                      label: t("profile"),
+                    },
+                  ].map((item) => {
+                    const isActive = pathname === item.href;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setProfileOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-3 text-[14px] font-bold transition-colors ${
+                          isActive
+                            ? "border-l-[3px] border-l-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                            : "text-[#334155] hover:bg-[#EFF6FF]"
+                        }`}
+                      >
+                        <Icon
+                          className={`size-5 ${isActive ? "text-[#2563EB]" : "text-[#64748B]"}`}
+                        />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                  <div className="my-1 border-t border-[#F1F5F9]" />
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-[14px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
                   >
-                    {[
-                      {
-                        href: `${dashboardPath}/bookings`,
-                        icon: ClipboardList,
-                        label: t("bookings"),
-                      },
-                      {
-                        href: `${dashboardPath}/reviews`,
-                        icon: Star,
-                        label: t("reviews"),
-                      },
-                      {
-                        href: `${dashboardPath}/profile`,
-                        icon: User,
-                        label: t("profile"),
-                      },
-                    ].map((item) => {
-                      const isActive = pathname === item.href;
-                      const Icon = item.icon;
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setProfileOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-3 text-[14px] font-bold transition-colors ${
-                            isActive
-                              ? "border-l-[3px] border-l-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
-                              : "text-[#334155] hover:bg-[#EFF6FF]"
-                          }`}
-                        >
-                          <Icon
-                            className={`size-5 ${isActive ? "text-[#2563EB]" : "text-[#64748B]"}`}
-                          />
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-                    <div className="my-1 border-t border-[#F1F5F9]" />
-                    <button
-                      onClick={() => {
-                        setProfileOpen(false);
-                        handleLogout();
-                      }}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-[14px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
-                    >
-                      <LogOut className="size-5" />
-                      {t("logout")}
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    <LogOut className="size-5" />
+                    {t("logout")}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -338,87 +347,76 @@ export function Navbar() {
       </nav>
 
       {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-50 bg-black/40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileOpen(false)}
-            />
-            <motion.div
-              className="fixed right-0 top-0 z-50 flex h-full w-[300px] flex-col bg-white shadow-2xl"
-              variants={slideFromRight}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
-              <div className="flex items-center justify-between border-b border-[#F1F5F9] p-4">
-                <span className="text-lg font-bold text-[#1E293B]">
-                  {t("menu")}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <X className="size-5" />
-                </Button>
-              </div>
-              <div className="border-b border-[#F1F5F9] px-4 py-3">
-                <LanguageSelector />
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {navItemKeys.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-3 py-3 text-[14px] font-bold text-[#334155] transition-colors hover:bg-[#F8FAFC]"
-                    >
-                      <Icon className="size-5 text-[#64748B]" />
-                      {t(item.key)}
-                    </Link>
-                  );
-                })}
-              </div>
-              <div className="border-t border-[#F1F5F9] p-4">
-                {!authLoading && !user ? (
-                  <Link href="/auth/login" onClick={() => setMobileOpen(false)}>
-                    <Button className="w-full rounded-xl bg-brand-accent text-white">
-                      {t("login")}
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/40"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="fixed right-0 top-0 z-50 flex h-full w-[300px] flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#F1F5F9] p-4">
+              <span className="text-lg font-bold text-[#1E293B]">
+                {t("menu")}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="size-5" />
+              </Button>
+            </div>
+            <div className="border-b border-[#F1F5F9] px-4 py-3">
+              <LanguageSelector />
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {navItemKeys.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-[14px] font-bold text-[#334155] transition-colors hover:bg-[#F8FAFC]"
+                  >
+                    <Icon className="size-5 text-[#64748B]" />
+                    {t(item.key)}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="border-t border-[#F1F5F9] p-4">
+              {!authLoading && !user ? (
+                <Link href="/auth/login" onClick={() => setMobileOpen(false)}>
+                  <Button className="w-full rounded-xl bg-brand-accent text-white">
+                    {t("login")}
+                  </Button>
+                </Link>
+              ) : user ? (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    href={dashboardPath}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Button variant="outline" className="w-full rounded-xl">
+                      <User className="mr-2 size-4" />
+                      {t("dashboard")}
                     </Button>
                   </Link>
-                ) : user ? (
-                  <div className="flex flex-col gap-2">
-                    <Link
-                      href={dashboardPath}
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      <Button variant="outline" className="w-full rounded-xl">
-                        <User className="mr-2 size-4" />
-                        {t("dashboard")}
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      className="w-full text-[#EF4444]"
-                      onClick={handleLogout}
-                    >
-                      <LogOut className="mr-2 size-4" />
-                      {t("logout")}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-[#EF4444]"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 size-4" />
+                    {t("logout")}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </>
+      )}
     </header>
   );
 }

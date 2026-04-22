@@ -3,21 +3,38 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
+import { createPublicClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils/format";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const supabase = await createClient();
-  const { data } = await supabase
+export const revalidate = 120;
+
+const getBlogPostMetadata = cache(async (id: string) => {
+  const supabase = createPublicClient();
+  return supabase
     .from("blog_posts")
     .select("title, excerpt")
     .eq("id", id)
     .single();
+});
+
+const getBlogPostDetail = cache(async (id: string) => {
+  const supabase = createPublicClient();
+  return supabase
+    .from("blog_posts")
+    .select("*, profiles!blog_posts_author_id_fkey(display_name, avatar_url)")
+    .eq("id", id)
+    .eq("published", true)
+    .single();
+});
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const { data } = await getBlogPostMetadata(id);
 
   if (!data) {
     return { title: "სტატია ვერ მოიძებნა — MyBakuriani" };
@@ -31,15 +48,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BlogDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
 
   try {
-    const { data: post } = await supabase
-      .from("blog_posts")
-      .select("*, profiles!blog_posts_author_id_fkey(display_name, avatar_url)")
-      .eq("id", id)
-      .eq("published", true)
-      .single();
+    const { data: post } = await getBlogPostDetail(id);
 
     if (!post) {
       notFound();

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   WizardShell,
@@ -9,7 +10,6 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
-import ExactLocationPicker from "@/components/maps/ExactLocationPicker";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
 import { createClient } from "@/lib/supabase/client";
@@ -89,6 +89,16 @@ const STEP_TITLES = [
 ];
 
 const TITLE_MAX = 35;
+
+const ExactLocationPicker = dynamic(
+  () => import("@/components/maps/ExactLocationPicker"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[320px] w-full animate-pulse rounded-xl bg-[#E2E8F0]" />
+    ),
+  },
+);
 
 export default function CreateRentalPage() {
   const router = useRouter();

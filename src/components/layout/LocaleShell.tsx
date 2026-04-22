@@ -1,13 +1,19 @@
 "use client";
 
 import { ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 
 interface LocaleShellProps {
   children: ReactNode;
 }
+
+const Navbar = dynamic(() =>
+  import("@/components/layout/Navbar").then((mod) => mod.Navbar),
+);
+const Footer = dynamic(() =>
+  import("@/components/layout/Footer").then((mod) => mod.Footer),
+);
 
 function isDashboardRoute(pathname: string) {
   return /(^|\/)dashboard(\/|$)/.test(pathname);

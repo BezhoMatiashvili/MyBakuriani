@@ -2,26 +2,67 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
-import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import { AdminTopbar } from "@/components/layout/AdminTopbar";
-import { AdminSidebar } from "@/components/layout/AdminSidebar";
-import { RenterSidebar } from "@/components/layout/RenterSidebar";
-import { RenterTopbar } from "@/components/layout/RenterTopbar";
-import { SellerSidebar } from "@/components/layout/SellerSidebar";
-import { SellerTopbar } from "@/components/layout/SellerTopbar";
-import { GuestSidebar } from "@/components/layout/GuestSidebar";
-import { GuestTopbar } from "@/components/layout/GuestTopbar";
-import { CleanerSidebar } from "@/components/layout/CleanerSidebar";
-import { CleanerTopbar } from "@/components/layout/CleanerTopbar";
-import { FoodSidebar } from "@/components/layout/FoodSidebar";
-import { FoodTopbar } from "@/components/layout/FoodTopbar";
-import { ServiceSidebar } from "@/components/layout/ServiceSidebar";
-import { ServiceTopbar } from "@/components/layout/ServiceTopbar";
 import { leadsClient } from "@/lib/supabase/leads";
 
 const SMS_PLAN_TOTAL = 100;
+const DashboardSidebar = dynamic(() =>
+  import("@/components/layout/DashboardSidebar").then(
+    (mod) => mod.DashboardSidebar,
+  ),
+);
+const MobileBottomNav = dynamic(() =>
+  import("@/components/layout/MobileBottomNav").then(
+    (mod) => mod.MobileBottomNav,
+  ),
+);
+const AdminTopbar = dynamic(() =>
+  import("@/components/layout/AdminTopbar").then((mod) => mod.AdminTopbar),
+);
+const AdminSidebar = dynamic(() =>
+  import("@/components/layout/AdminSidebar").then((mod) => mod.AdminSidebar),
+);
+const RenterSidebar = dynamic(() =>
+  import("@/components/layout/RenterSidebar").then((mod) => mod.RenterSidebar),
+);
+const RenterTopbar = dynamic(() =>
+  import("@/components/layout/RenterTopbar").then((mod) => mod.RenterTopbar),
+);
+const SellerSidebar = dynamic(() =>
+  import("@/components/layout/SellerSidebar").then((mod) => mod.SellerSidebar),
+);
+const SellerTopbar = dynamic(() =>
+  import("@/components/layout/SellerTopbar").then((mod) => mod.SellerTopbar),
+);
+const GuestSidebar = dynamic(() =>
+  import("@/components/layout/GuestSidebar").then((mod) => mod.GuestSidebar),
+);
+const GuestTopbar = dynamic(() =>
+  import("@/components/layout/GuestTopbar").then((mod) => mod.GuestTopbar),
+);
+const CleanerSidebar = dynamic(() =>
+  import("@/components/layout/CleanerSidebar").then(
+    (mod) => mod.CleanerSidebar,
+  ),
+);
+const CleanerTopbar = dynamic(() =>
+  import("@/components/layout/CleanerTopbar").then((mod) => mod.CleanerTopbar),
+);
+const FoodSidebar = dynamic(() =>
+  import("@/components/layout/FoodSidebar").then((mod) => mod.FoodSidebar),
+);
+const FoodTopbar = dynamic(() =>
+  import("@/components/layout/FoodTopbar").then((mod) => mod.FoodTopbar),
+);
+const ServiceSidebar = dynamic(() =>
+  import("@/components/layout/ServiceSidebar").then(
+    (mod) => mod.ServiceSidebar,
+  ),
+);
+const ServiceTopbar = dynamic(() =>
+  import("@/components/layout/ServiceTopbar").then((mod) => mod.ServiceTopbar),
+);
 
 interface DashboardShellProps {
   userId: string;

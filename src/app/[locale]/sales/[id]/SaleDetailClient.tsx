@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -20,6 +21,7 @@ import {
   Check,
   X,
   ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
@@ -27,6 +29,15 @@ import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
+
+const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-[20px] bg-[#F8FAFC]">
+      <div className="size-6 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-[#16A34A]" />
+    </div>
+  ),
+});
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -117,14 +128,29 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8">
-      <motion.button
-        {...fadeIn}
-        onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        უკან დაბრუნება
-      </motion.button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <motion.button
+          {...fadeIn}
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          უკან დაბრუნება
+        </motion.button>
+        <motion.nav
+          {...fadeIn}
+          aria-label="breadcrumb"
+          className="flex items-center gap-1 text-[12px] font-medium text-[#94A3B8]"
+        >
+          <span>გაყიდვა</span>
+          <ChevronRight className="size-3" />
+          <span className="truncate">{property.location}</span>
+          <ChevronRight className="size-3" />
+          <span className="max-w-[220px] truncate text-[#1E293B]">
+            {property.title}
+          </span>
+        </motion.nav>
+      </div>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
         <PhotoGallery photos={property.photos ?? []} title={property.title} />
@@ -137,7 +163,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               <div>
                 <div className="mb-2 flex items-center gap-2">
                   <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                    გასაყიდი
+                    იყიდება
                   </span>
                   {property.is_super_vip && (
                     <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
@@ -410,14 +436,41 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               შენი ლოკაცია
             </h2>
-            <div className="flex items-center gap-2 text-[14px] font-medium text-[#64748B]">
+            <div className="mb-3 flex items-center gap-2 text-[14px] font-medium text-[#64748B]">
               <MapPin className="h-4 w-4 text-orange-500" />
               {property.location}
+              {property.cadastral_code && (
+                <span className="ml-auto text-xs text-[#94A3B8]">
+                  საკადასტრო: {property.cadastral_code}
+                </span>
+              )}
             </div>
-            {property.cadastral_code && (
-              <p className="mt-1 text-xs text-[#64748B]">
-                საკადასტრო კოდი: {property.cadastral_code}
-              </p>
+            {property.location_lat && property.location_lng ? (
+              <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0]">
+                <BakurianiMap
+                  className="h-[320px] w-full"
+                  embedded
+                  properties={[
+                    {
+                      id: property.id,
+                      title: property.title,
+                      price: Number(property.sale_price ?? 0),
+                      lat: Number(property.location_lat),
+                      lng: Number(property.location_lng),
+                      isVip: property.is_vip ?? false,
+                      isSuperVip: property.is_super_vip ?? false,
+                      photo: Array.isArray(property.photos)
+                        ? (property.photos[0] as string)
+                        : undefined,
+                    },
+                  ]}
+                  isForSale
+                />
+              </div>
+            ) : (
+              <div className="flex h-[200px] items-center justify-center rounded-[20px] border border-dashed border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#94A3B8]">
+                რუკის კოორდინატები არ არის დამატებული
+              </div>
             )}
           </motion.div>
 
@@ -505,7 +558,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               <button
                 type="button"
                 onClick={() => router.push("/auth/login")}
-                className="mt-2 flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-white text-[14px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+                className="mt-3 flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-white text-[14px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
               >
                 <MessageSquare className="h-4 w-4" />
                 შეტყობინების გაგზავნა

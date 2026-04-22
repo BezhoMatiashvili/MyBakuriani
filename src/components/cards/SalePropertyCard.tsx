@@ -14,6 +14,7 @@ interface SalePropertyCardProps {
   area?: number | null;
   rooms?: number | null;
   isVip?: boolean;
+  roi?: number;
 }
 
 function formatUsd(n: number): string {
@@ -29,13 +30,18 @@ export default function SalePropertyCard({
   area,
   rooms,
   isVip,
+  roi,
 }: SalePropertyCardProps) {
   const href = `/sales/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-property.jpg";
 
-  const tags: string[] = [];
-  if (area) tags.push(`${area} კმ²`);
-  if (rooms) tags.push(`${rooms}-ოთახიანი`);
+  const sizePill = area
+    ? `${area} მ²${rooms ? ` • ${rooms} ოთახი` : ""}`
+    : rooms
+      ? `${rooms} ოთახი`
+      : null;
+
+  const pricePerSqm = area && priceUsd ? Math.round(priceUsd / area) : null;
 
   return (
     <motion.div
@@ -47,7 +53,7 @@ export default function SalePropertyCard({
     >
       <Link
         href={href}
-        className="flex h-[400px] flex-col overflow-hidden rounded-[20px] border border-[#E7EEE9] bg-white shadow-[0px_4px_16px_-2px_rgba(15,61,46,0.08)] transition-shadow hover:shadow-[0px_12px_28px_-6px_rgba(15,61,46,0.18)]"
+        className="flex h-full flex-col overflow-hidden rounded-[20px] border border-[#E7EEE9] bg-white shadow-[0px_4px_16px_-2px_rgba(15,61,46,0.08)] transition-shadow hover:shadow-[0px_12px_28px_-6px_rgba(15,61,46,0.18)]"
       >
         <div className="relative aspect-[4/3] overflow-hidden">
           <Image
@@ -79,32 +85,40 @@ export default function SalePropertyCard({
         </div>
 
         <div className="flex flex-1 flex-col p-5">
-          <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
-            <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
-            {location}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
+              <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
+              {location}
+            </p>
+            {roi !== undefined && (
+              <span className="shrink-0 rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.5px] text-[#16A34A]">
+                ROI {roi}%
+              </span>
+            )}
+          </div>
+
           <h3 className="mt-1 line-clamp-2 text-[16px] font-black leading-[20px] text-[#1E293B]">
             {title}
           </h3>
 
-          {tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-[#E2E8F0] px-2.5 py-1 text-[11px] font-bold text-[#475569]"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+          {sizePill && (
+            <p className="mt-2 text-[12px] font-medium text-[#64748B]">
+              {sizePill}
+            </p>
           )}
 
-          <div className="mt-auto flex items-end justify-between pt-4">
-            <span className="whitespace-nowrap text-[22px] font-black leading-[28px] text-[#16A34A]">
-              {formatUsd(priceUsd)}
-            </span>
-            <span className="rounded-[10px] bg-[#16A34A] px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]">
+          <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+            <div>
+              <span className="block whitespace-nowrap text-[22px] font-black leading-[28px] text-[#16A34A]">
+                {formatUsd(priceUsd)}
+              </span>
+              {pricePerSqm && (
+                <span className="block text-[11px] font-medium text-[#94A3B8]">
+                  ${pricePerSqm.toLocaleString("en-US")} / მ²
+                </span>
+              )}
+            </div>
+            <span className="rounded-full bg-[#16A34A] px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]">
               დეტალები
             </span>
           </div>

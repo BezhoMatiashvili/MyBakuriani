@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
+import type { Locale } from "date-fns";
 import {
   Search,
   MapPin,
@@ -10,11 +12,7 @@ import {
   TreePine,
   Check,
 } from "lucide-react";
-import { format } from "date-fns";
-import { ka } from "date-fns/locale";
-import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
 
@@ -28,6 +26,17 @@ export interface SearchFilters {
 }
 
 export type ActiveDropdown = "calendar" | "location" | "filters" | null;
+type DateRange = { from?: Date; to?: Date };
+
+const Calendar = dynamic(
+  () => import("@/components/ui/calendar").then((mod) => mod.Calendar),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[308px] w-full animate-pulse rounded-2xl bg-[#F1F5F9]" />
+    ),
+  },
+);
 
 interface SearchBoxProps {
   onSearch: (filters: SearchFilters) => void;
@@ -117,6 +126,22 @@ const AMENITY_LABEL_TO_KEY: Record<string, string> = {
   ჭურჭელი: "kitchenware",
 };
 
+const GEORGIAN_SHORT_DATE = new Intl.DateTimeFormat("ka-GE", {
+  day: "numeric",
+  month: "short",
+});
+
+function toIsoDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(value: Date) {
+  return GEORGIAN_SHORT_DATE.format(value);
+}
+
 // ─── Chip button ─────────────────────────────────────────────────────
 function Chip({
   label,
@@ -196,6 +221,9 @@ export function SearchBox({
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [calendarLocale, setCalendarLocale] = useState<Locale | undefined>(
+    undefined,
+  );
 
   const containerRef = useRef<HTMLFormElement>(null);
 
@@ -209,6 +237,21 @@ export function SearchBox({
   useEffect(() => {
     onActiveDropdownChange?.(activeDropdown);
   }, [activeDropdown, onActiveDropdownChange]);
+
+  useEffect(() => {
+    if (activeDropdown !== "calendar" || calendarLocale) return;
+    let cancelled = false;
+
+    import("date-fns/locale").then((mod) => {
+      if (!cancelled) {
+        setCalendarLocale(mod.ka);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDropdown, calendarLocale]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -291,8 +334,8 @@ export function SearchBox({
     e.preventDefault();
     onSearch({
       location,
-      checkIn: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "",
-      checkOut: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "",
+      checkIn: dateRange?.from ? toIsoDate(dateRange.from) : "",
+      checkOut: dateRange?.to ? toIsoDate(dateRange.to) : "",
       guests,
       cadastralCode,
       advancedFilters: filters,
@@ -301,8 +344,8 @@ export function SearchBox({
 
   const dateLabel = dateRange?.from
     ? dateRange.to
-      ? `${format(dateRange.from, "d MMM", { locale: ka })} - ${format(dateRange.to, "d MMM", { locale: ka })}`
-      : format(dateRange.from, "d MMM", { locale: ka })
+      ? `${formatDisplayDate(dateRange.from)} - ${formatDisplayDate(dateRange.to)}`
+      : formatDisplayDate(dateRange.from)
     : "";
 
   const handleApplyFilters = () => {
@@ -319,8 +362,8 @@ export function SearchBox({
     setActiveDropdown(null);
     onSearch({
       location,
-      checkIn: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "",
-      checkOut: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "",
+      checkIn: dateRange?.from ? toIsoDate(dateRange.from) : "",
+      checkOut: dateRange?.to ? toIsoDate(dateRange.to) : "",
       guests: capacityGuests || guests,
       cadastralCode,
       advancedFilters: {
@@ -391,7 +434,7 @@ export function SearchBox({
                 onSelect={handleRangeSelect}
                 numberOfMonths={1}
                 min={1}
-                locale={ka}
+                locale={calendarLocale}
                 disabled={{ before: new Date() }}
                 className="rounded-md [--cell-size:40px]"
               />
@@ -609,7 +652,7 @@ export function SearchBox({
               onSelect={handleRangeSelect}
               numberOfMonths={2}
               min={1}
-              locale={ka}
+              locale={calendarLocale}
               disabled={{ before: new Date() }}
               className="w-full rounded-md [--cell-size:40px]"
             />

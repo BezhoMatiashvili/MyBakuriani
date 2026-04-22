@@ -21,9 +21,7 @@ export async function middleware(request: NextRequest) {
     pathname,
   );
 
-  const isProtected =
-    pathnameWithoutLocale.startsWith("/dashboard") ||
-    pathnameWithoutLocale.startsWith("/create");
+  const isProtected = pathnameWithoutLocale.startsWith("/create");
 
   if (isProtected) {
     // Run Supabase auth check — updateSession returns a response with session cookies

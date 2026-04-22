@@ -25,14 +25,12 @@ import {
   Waves,
   Sparkles,
   Hotel,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
-import {
-  CalendarGrid,
-  type CalendarDate,
-} from "@/components/booking/CalendarGrid";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { createClient } from "@/lib/supabase/client";
 
@@ -101,6 +99,7 @@ export default function ApartmentDetailClient({
     start: Date | null;
     end: Date | null;
   }>({ start: null, end: null });
+  const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -127,24 +126,10 @@ export default function ApartmentDetailClient({
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
-  const now = new Date();
   const parsedCalendarDates = calendarBlocks.map((block) => ({
     date: new Date(block.date),
     status: block.status as "available" | "booked" | "blocked",
   }));
-  const calendarDates: CalendarDate[] = parsedCalendarDates;
-
-  const handleDateClick = (date: Date) => {
-    if (!selectedRange.start || (selectedRange.start && selectedRange.end)) {
-      setSelectedRange({ start: date, end: null });
-    } else {
-      if (date > selectedRange.start) {
-        setSelectedRange({ start: selectedRange.start, end: date });
-      } else {
-        setSelectedRange({ start: date, end: null });
-      }
-    }
-  };
 
   const handleRangeChange = (range: {
     start: Date | null;
@@ -168,76 +153,79 @@ export default function ApartmentDetailClient({
         უკან დაბრუნება
       </motion.button>
 
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
+      <motion.div
+        {...fadeIn}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="mb-6"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
+              {property.title}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
+              <span className="flex items-center gap-1.5 font-medium">
+                <MapPin className="h-4 w-4 text-orange-500" />
+                {property.location}
+              </span>
+              {avgRating !== null && (
+                <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                  <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
+                  {avgRating.toFixed(1)} ({reviews.length} შეფასება)
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 font-medium">
+                <Eye className="h-4 w-4" />
+                {property.views_count} ნახვა
+              </span>
+            </div>
+          </div>
+          {property.is_super_vip && (
+            <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
+              Super VIP
+            </span>
+          )}
+          {property.is_vip && !property.is_super_vip && (
+            <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
+              VIP
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {property.rooms != null && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+              <BedDouble className="h-4 w-4 text-brand-accent" />
+              {property.rooms} ოთახი
+            </span>
+          )}
+          {property.bathrooms != null && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+              <Bath className="h-4 w-4 text-brand-accent" />
+              {property.bathrooms} სააბაზანო
+            </span>
+          )}
+          {property.capacity != null && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+              <Users className="h-4 w-4 text-brand-accent" />
+              {property.capacity} სტუმარი
+            </span>
+          )}
+          {property.area_sqm != null && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+              <Maximize className="h-4 w-4 text-brand-accent" />
+              {property.area_sqm} მ²
+            </span>
+          )}
+        </div>
+      </motion.div>
+
+      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
         <PhotoGallery photos={property.photos ?? []} title={property.title} />
       </motion.div>
 
-      <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
-          {/* Title + meta */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
-                  {property.title}
-                </h1>
-                <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <MapPin className="h-4 w-4 text-orange-500" />
-                    {property.location}
-                  </span>
-                  {avgRating !== null && (
-                    <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-                      <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
-                      {avgRating.toFixed(1)} ({reviews.length} შეფასება)
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <Eye className="h-4 w-4" />
-                    {property.views_count} ნახვა
-                  </span>
-                </div>
-              </div>
-              {property.is_super_vip && (
-                <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                  Super VIP
-                </span>
-              )}
-              {property.is_vip && !property.is_super_vip && (
-                <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                  VIP
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {property.rooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <BedDouble className="h-4 w-4 text-brand-accent" />
-                  {property.rooms} ოთახი
-                </span>
-              )}
-              {property.bathrooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Bath className="h-4 w-4 text-brand-accent" />
-                  {property.bathrooms} სააბაზანო
-                </span>
-              )}
-              {property.capacity != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Users className="h-4 w-4 text-brand-accent" />
-                  {property.capacity} სტუმარი
-                </span>
-              )}
-              {property.area_sqm != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Maximize className="h-4 w-4 text-brand-accent" />
-                  {property.area_sqm} მ²
-                </span>
-              )}
-            </div>
-          </motion.div>
-
           {/* Description */}
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
@@ -257,22 +245,40 @@ export default function ApartmentDetailClient({
                 კეთილმოწყობა
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {amenities.map((key) => {
-                  const amenity = AMENITY_MAP[key];
-                  const Icon = amenity?.icon;
-                  const label = amenity?.label ?? key;
-                  return (
-                    <div
-                      key={key}
-                      className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
-                    >
-                      {Icon && (
-                        <Icon className="h-5 w-5 text-brand-accent shrink-0" />
-                      )}
-                      <span>{label}</span>
-                    </div>
-                  );
-                })}
+                {(amenitiesExpanded ? amenities : amenities.slice(0, 3)).map(
+                  (key) => {
+                    const amenity = AMENITY_MAP[key];
+                    const Icon = amenity?.icon;
+                    const label = amenity?.label ?? key;
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+                      >
+                        {Icon && (
+                          <Icon className="h-5 w-5 text-brand-accent shrink-0" />
+                        )}
+                        <span>{label}</span>
+                      </div>
+                    );
+                  },
+                )}
+                {amenities.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setAmenitiesExpanded((v) => !v)}
+                    className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155] transition-colors hover:bg-[#F1F5F9] hover:border-[#CBD5E1]"
+                  >
+                    {amenitiesExpanded ? (
+                      <ChevronUp className="h-5 w-5 text-brand-accent shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-brand-accent shrink-0" />
+                    )}
+                    <span>
+                      {amenitiesExpanded ? "ნაკლების ჩვენება" : "ყველას ნახვა"}
+                    </span>
+                  </button>
+                )}
               </div>
             </motion.div>
           )}
@@ -323,40 +329,6 @@ export default function ApartmentDetailClient({
             </motion.div>
           )}
 
-          {/* Calendar */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              ხელმისაწვდომობა
-            </h2>
-            <div className="flex items-center gap-4 mb-4 text-xs text-[#94A3B8]">
-              <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-green-50 border border-green-200" />
-                თავისუფალი
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-red-50 border border-red-200" />
-                დაკავებული
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {[0, 1, 2].map((offset) => {
-                const monthDate = new Date(
-                  now.getFullYear(),
-                  now.getMonth() + offset,
-                );
-                return (
-                  <CalendarGrid
-                    key={offset}
-                    year={monthDate.getFullYear()}
-                    month={monthDate.getMonth()}
-                    dates={calendarDates}
-                    onDateClick={handleDateClick}
-                  />
-                );
-              })}
-            </div>
-          </motion.div>
-
           {/* Reviews */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
             <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
@@ -385,6 +357,7 @@ export default function ApartmentDetailClient({
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
+          className="lg:sticky lg:top-[100px] lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1"
         >
           {property.price_per_night != null && (
             <BookingSidebar

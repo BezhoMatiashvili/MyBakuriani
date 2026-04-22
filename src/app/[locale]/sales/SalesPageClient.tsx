@@ -12,9 +12,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Home,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   Building2,
   BarChart3,
@@ -22,28 +19,17 @@ import {
   ArrowRight,
   MapPin,
 } from "lucide-react";
-import dynamic from "next/dynamic";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import {
-  SearchBox,
-  type SearchFilters,
-  type ActiveDropdown,
-} from "@/components/search/SearchBox";
+  SaleSearchBox,
+  type SaleSearchFilters,
+} from "@/components/search/SaleSearchBox";
+import { SalePagination } from "@/components/search/SalePagination";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/format";
-import type { MapProperty } from "@/components/maps/BakurianiMap";
-
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <div className="size-6 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-[#2563EB]" />
-    </div>
-  ),
-});
 
 const ITEMS_PER_PAGE = 6;
 
@@ -55,11 +41,8 @@ interface Props {
 
 export default function SalesPageClient({ properties }: Props) {
   const [mode, setMode] = useState<"rent" | "sale">("sale");
-  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [listingTab, setListingTab] = useState<ListingTab>("all");
-  const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -95,19 +78,29 @@ export default function SalesPageClient({ properties }: Props) {
   );
 
   const handleSearch = useCallback(
-    (sf: SearchFilters) => {
+    (sf: SaleSearchFilters) => {
       const params = new URLSearchParams();
       if (sf.location) params.set("location", sf.location);
-      if (sf.checkIn) params.set("check_in", sf.checkIn);
-      if (sf.checkOut) params.set("check_out", sf.checkOut);
-      if (sf.guests) params.set("guests", String(sf.guests));
+      if (sf.propertyType) params.set("type", sf.propertyType);
+      if (sf.propertyTypes.length)
+        params.set("types", sf.propertyTypes.join(","));
+      if (sf.priceMin > 0) params.set("price_min", String(sf.priceMin));
+      if (sf.priceMax > 0) params.set("price_max", String(sf.priceMax));
       if (sf.cadastralCode) params.set("cadastral", sf.cadastralCode);
-      params.set("mode", mode);
+      if (sf.statuses.length) params.set("status", sf.statuses.join(","));
+      if (sf.rooms.length) params.set("rooms", sf.rooms.join(","));
+      if (sf.areaMin > 0) params.set("area_min", String(sf.areaMin));
+      if (sf.areaMax > 0 && sf.areaMax < 500)
+        params.set("area_max", String(sf.areaMax));
+      if (sf.amenities.length) params.set("amenities", sf.amenities.join(","));
+      if (sf.payment.length) params.set("payment", sf.payment.join(","));
+      if (sf.developers.length)
+        params.set("developer", sf.developers.join(","));
       startTransition(() => {
-        router.push(`/search?${params.toString()}`);
+        router.push(`/sales/all?${params.toString()}`);
       });
     },
-    [mode, router],
+    [router],
   );
 
   const listingsRef = useRef<HTMLElement>(null);
@@ -116,23 +109,6 @@ export default function SalesPageClient({ properties }: Props) {
     setCurrentPage(page);
     listingsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-
-  const mapProperties = useMemo<MapProperty[]>(
-    () =>
-      properties
-        .filter((p) => p.location_lat && p.location_lng)
-        .map((p) => ({
-          id: p.id,
-          title: p.title,
-          price: Number(p.sale_price),
-          lat: Number(p.location_lat),
-          lng: Number(p.location_lng),
-          isVip: p.is_vip ?? false,
-          isSuperVip: p.is_super_vip ?? false,
-          photo: Array.isArray(p.photos) ? (p.photos[0] as string) : undefined,
-        })),
-    [properties],
-  );
 
   const filteredProperties = useMemo(() => {
     if (listingTab === "vip") {
@@ -160,22 +136,6 @@ export default function SalesPageClient({ properties }: Props) {
   useEffect(() => {
     setCurrentPage(1);
   }, [listingTab]);
-
-  const getPageNumbers = () => {
-    const pages: (number | "...")[] = [];
-    if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (currentPage > 3) pages.push("...");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
-    }
-    return pages;
-  };
 
   const investmentCards = [
     {
@@ -207,10 +167,7 @@ export default function SalesPageClient({ properties }: Props) {
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       <section
-        className={cn(
-          "relative flex min-h-[470px] items-start justify-center px-4 pb-20 pt-16",
-          activeDropdown ? "overflow-visible" : "overflow-hidden",
-        )}
+        className="relative flex min-h-[470px] items-start justify-center overflow-visible px-4 pb-24 pt-20"
         style={{
           background:
             "linear-gradient(90deg, #0B2E26 -4.88%, #0F3F33 51.09%, #11513F 119.49%)",
@@ -226,7 +183,7 @@ export default function SalesPageClient({ properties }: Props) {
             mixBlendMode: "overlay",
           }}
         />
-        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
+        <div className="relative z-10 mx-auto w-full max-w-[1280px] text-center">
           <ScrollReveal>
             <h1 className="text-2xl font-black leading-[1] tracking-[-1.25px] text-white sm:text-4xl md:text-[50px] md:leading-[50px]">
               აღმოაჩინე ბაკურიანში
@@ -241,69 +198,31 @@ export default function SalesPageClient({ properties }: Props) {
           </div>
 
           <div className="mt-6">
-            <SearchBox
+            <SaleSearchBox
               onSearch={handleSearch}
               isPending={isPending}
               className="shadow-[var(--shadow-search)]"
-              dropdownPortalRef={dropdownPortalRef}
-              dropdownBoundaryRef={dropdownBoundaryRef}
-              onActiveDropdownChange={setActiveDropdown}
             />
           </div>
 
-          {activeDropdown === "filters" ? (
-            <div
-              ref={dropdownBoundaryRef}
-              className="mt-8 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex"
-            >
-              <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
-              <BakurianiMap
-                className="min-h-[400px] w-[280px] shrink-0 self-stretch"
-                embedded
-                expandable
-                properties={mapProperties}
-                isForSale
-                onPropertyClick={(id) => router.push(`/sales/${id}`)}
-              />
-            </div>
-          ) : activeDropdown === "calendar" ? (
-            <div className="mt-8 hidden grid-cols-[1fr_auto] gap-4 md:grid">
-              <div ref={dropdownPortalRef} className="min-w-0" />
-              <div className="flex w-[240px] flex-col gap-3">
-                <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                      საინვესტიციო
-                    </span>
-                    <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                      {investmentStats.avgRoi.toFixed(1)}% ROI
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          <div
-            className={cn(
-              "mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4",
-              activeDropdown && activeDropdown !== "location"
-                ? "md:hidden"
-                : "",
-            )}
-          >
+          <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-4">
             {investmentCards.map((card) => (
               <div
                 key={card.label}
                 className={cn(
                   "flex items-center rounded-[16px] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]",
                   card.highlight
-                    ? "border border-[#22C55E] bg-[#16A34A]"
+                    ? "border border-[#22C55E] bg-[#0B3D2E] ring-1 ring-[#22C55E]/40"
                     : "border border-white/5 bg-[#222A3B]",
                 )}
               >
                 <div className="flex w-full flex-col gap-1 text-left">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                  <span
+                    className={cn(
+                      "text-[11px] font-bold uppercase tracking-[0.55px]",
+                      card.highlight ? "text-[#86EFAC]" : "text-[#94A3B8]",
+                    )}
+                  >
                     {card.label}
                   </span>
                   <span className="flex items-center justify-between gap-2 text-[20px] font-black leading-[28px] text-white">
@@ -318,11 +237,11 @@ export default function SalesPageClient({ properties }: Props) {
       </section>
 
       {featuredProject && (
-        <section className="mx-auto w-full max-w-[1160px] px-4 pt-16">
+        <section className="mx-auto w-full max-w-[1280px] px-4 pt-16">
           <ScrollReveal>
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                სამშენებლო ობიექტები
+                საინვესტიციო ობიექტები
               </h2>
               <button
                 type="button"
@@ -411,7 +330,7 @@ export default function SalesPageClient({ properties }: Props) {
 
       <section
         ref={listingsRef}
-        className="mx-auto w-full max-w-[1160px] px-4 py-16"
+        className="mx-auto w-full max-w-[1280px] px-4 py-16"
       >
         <ScrollReveal>
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -428,39 +347,28 @@ export default function SalesPageClient({ properties }: Props) {
                 )}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 rounded-full border border-[#E2E8F0] bg-white p-1">
-                {(
-                  [
-                    { id: "all", label: "ყველა" },
-                    { id: "vip", label: "VIP" },
-                    { id: "discount", label: "ფასდაკლება" },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setListingTab(tab.id)}
-                    className={cn(
-                      "rounded-full px-4 py-1.5 text-[12px] font-bold transition-colors",
-                      listingTab === tab.id
-                        ? "bg-[#16A34A] text-white"
-                        : "text-[#64748B] hover:text-[#1E293B]",
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => router.push("/create/sale")}
-                className="flex items-center gap-1.5 rounded-full border border-[#2563EB] px-4 py-2 text-[12px] font-bold text-[#2563EB] transition-colors hover:bg-[#EFF6FF]"
-              >
-                <Plus className="size-3.5" />
-                დამატება
-              </button>
+            <div className="flex items-center gap-1 rounded-full border border-[#E2E8F0] bg-white p-1">
+              {(
+                [
+                  { id: "all", label: "ყველა" },
+                  { id: "vip", label: "VIP" },
+                  { id: "discount", label: "ფასდაკლება" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setListingTab(tab.id)}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-[12px] font-bold transition-colors",
+                    listingTab === tab.id
+                      ? "bg-[#16A34A] text-white"
+                      : "text-[#64748B] hover:text-[#1E293B]",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
         </ScrollReveal>
@@ -506,53 +414,14 @@ export default function SalesPageClient({ properties }: Props) {
           </div>
         )}
 
-        {totalPages > 1 && (
-          <div className="mt-12 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => goToPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
-            >
-              <ChevronLeft className="size-5" />
-            </button>
-            {getPageNumbers().map((page, idx) =>
-              page === "..." ? (
-                <span
-                  key={`dots-${idx}`}
-                  className="flex h-[44px] w-[44px] items-center justify-center text-[14px] text-[#94A3B8]"
-                >
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={page}
-                  type="button"
-                  onClick={() => goToPage(page)}
-                  className={cn(
-                    "flex h-[44px] w-[44px] items-center justify-center rounded-full text-[14px] font-bold transition-colors",
-                    currentPage === page
-                      ? "bg-[#16A34A] text-white shadow-md"
-                      : "border border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]",
-                  )}
-                >
-                  {page}
-                </button>
-              ),
-            )}
-            <button
-              type="button"
-              onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-              className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
-            >
-              <ChevronRight className="size-5" />
-            </button>
-          </div>
-        )}
+        <SalePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+        />
       </section>
 
-      <section className="mx-auto w-full max-w-[1160px] px-4 pb-20">
+      <section className="mx-auto w-full max-w-[1280px] px-4 pb-20">
         <ScrollReveal>
           <div className="overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] md:p-12">
             <div className="grid grid-cols-1 items-center gap-12 md:grid-cols-[1.1fr_1fr]">
@@ -571,7 +440,7 @@ export default function SalesPageClient({ properties }: Props) {
                       წლიური ზრდა
                     </span>
                     <div className="mt-1 text-[28px] font-black leading-[36px] text-[#15803D]">
-                      18.10%
+                      19.74%
                     </div>
                   </div>
                   <div className="rounded-[16px] border border-[#E2E8F0] bg-[#F8FAFC] p-5">
@@ -579,7 +448,7 @@ export default function SalesPageClient({ properties }: Props) {
                       დამატებითი სტუმარი
                     </span>
                     <div className="mt-1 text-[28px] font-black leading-[36px] text-[#1E293B]">
-                      +9,000
+                      +11,000
                     </div>
                   </div>
                 </div>

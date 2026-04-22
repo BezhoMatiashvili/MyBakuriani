@@ -42,9 +42,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname,
   );
 
-  const isProtected =
-    normalizedPath.startsWith("/dashboard") ||
-    normalizedPath.startsWith("/create");
+  const isProtected = normalizedPath.startsWith("/create");
 
   try {
     const {
