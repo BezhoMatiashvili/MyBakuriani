@@ -84,11 +84,31 @@
       "earnings": "Earnings",
       "orders": "Orders",
       "bookings": "Bookings",
-      "reviews": "Reviews"
+      "reviews": "Reviews",
+      "myRentals": "My Rentals",
+      "guests": "Guests",
+      "cleaners": "Cleaners",
+      "qrReviews": "QR Reviews",
+      "balanceAndVip": "Balance & VIP",
+      "notificationsItem": "Notifications"
     },
     "notifications": "{count} notifications",
+    "logout": "Log out",
+    "userIdPrefix": "ID:",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "serviceSwitcher": "Switch service",
+    "switcher": {
+      "rentalsRent": "Rentals (Rent)",
+      "employment": "Employment",
+      "services": "Transport / Service / Employment / Entertainment",
+      "rentalsSale": "Rentals (Sale)",
+      "food": "Food",
+      "guest": "Guest",
+      "cleaner": "Cleaner",
+      "guestMode": "Guest mode",
+      "guestModeDesc": "Connect services"
+    }
   },
   "HeroSection": {
     "title": "The Most Trusted Guide in Bakuriani",
@@ -186,6 +206,7 @@
     "guests": "{count} guests",
     "perNight": "₾/night",
     "view": "View",
+    "details": "Details",
     "b2bPartner": "B2B Partner",
     "newlyBooked": "Newly Booked",
     "addToFavorites": "Add to Favorites"
@@ -206,7 +227,9 @@
   "SmartMatchCard": {
     "guestRequests": "Guest requests",
     "seeWhatTheySearch": "See what they're searching for now",
-    "ownersNote": "You can view pending requests in the owner's dashboard."
+    "ownersNote": "Guests are looking for rentals on your dates and budget.",
+    "newRequest": "new requests",
+    "sendOffer": "Send offer"
   },
   "BookingSidebar": {
     "days": {
@@ -292,9 +315,11 @@
     "ru": "RU"
   },
   "RenterDashboard": {
-    "welcome": "Welcome, {name}!",
+    "welcome": "Welcome, {name}",
     "defaultName": "Landlord",
     "subtitle": "Your property management dashboard",
+    "seasonActive": "Your seasonal license is active <b>until {date}</b>.",
+    "seasonEndDate": "Mar 15",
     "monthlyIncome": "Monthly Income",
     "receivable": "Receivable (Due)",
     "occupancy": "Occupancy",
@@ -303,6 +328,12 @@
     "properties": "Properties",
     "balance": "Balance",
     "myProperties": "My Properties",
+    "newProperty": "+ New Rental",
+    "adPromotion": "Ad promotion:",
+    "pay": "Pay fee",
+    "edit": "Edit",
+    "idPrefix": "ID:",
+    "viewsLabel": "Views:",
     "viewAll": "View All",
     "views": "{count} views",
     "statuses": {
@@ -311,6 +342,37 @@
       "pending": "Pending",
       "draft": "Draft"
     }
+  },
+  "PaymentModal": {
+    "title": "Membership Fee",
+    "feeAmount": "Fee amount",
+    "perMonth": "₾ / month",
+    "object": "Property",
+    "status": "Status",
+    "dueExpires": "Overdue since",
+    "paidUntil": "Valid until",
+    "badgeDue": "Due",
+    "badgePaid": "Paid",
+    "explanationPending": "To keep your listing active, please pay this month's membership fee. The listing will be temporarily limited until the fee is cleared.",
+    "explanationPaid": "Your membership fee is successfully paid. The listing is fully active on the platform and shown in search results.",
+    "payButton": "Pay now"
+  },
+  "SmartMatchModal": {
+    "title": "Incoming Requests",
+    "subtitle": "Guests searching for rentals",
+    "banner": "The algorithm shows the most accurate and recent requests first.",
+    "requestIdPrefix": "ID:",
+    "zone": "Zone",
+    "dates": "Dates",
+    "guest": "Guest",
+    "maxBudget": "Max budget",
+    "clientBudget": "Client budget",
+    "offerPropertyLabel": "Choose a rental to offer:",
+    "seekingApartment": "{name} is looking for a rental",
+    "matchLabel": "match",
+    "skipButton": "Skip",
+    "sendButton": "Send",
+    "belowYourPrice": "Below your price ({price})"
   },
   "ListingForm": {
     "back": "Back",

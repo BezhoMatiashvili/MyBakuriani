@@ -2,34 +2,32 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import {
-  User,
-  Phone,
-  Save,
-  Camera,
-  LogOut,
-  Shield,
-  Clock,
-  Star,
-} from "lucide-react";
+import { Settings as SettingsIcon, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
 
-export default function RenterProfilePage() {
-  const { user, signOut } = useAuth();
+type ProfileType = "personal" | "company";
+
+export default function RenterSettingsPage() {
+  const { user } = useAuth();
   const supabase = createClient();
 
-  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [profileType, setProfileType] = useState<ProfileType>("personal");
   const [displayName, setDisplayName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [bio, setBio] = useState("");
+  const [phone, setPhone] = useState("+995 599 00 00 00");
+  const [personalId, setPersonalId] = useState("");
+  const [whatsapp, setWhatsapp] = useState(true);
+
+  const [notifNewRequest, setNotifNewRequest] = useState(true);
+  const [notifAddFavorite, setNotifAddFavorite] = useState(true);
+  const [notifMonthlyReport, setNotifMonthlyReport] = useState(true);
+
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -46,8 +44,7 @@ export default function RenterProfilePage() {
       if (data) {
         setProfile(data);
         setDisplayName(data.display_name);
-        setPhone(data.phone ?? "");
-        setBio(data.bio ?? "");
+        if (data.phone) setPhone(data.phone);
       }
       setLoading(false);
     }
@@ -73,7 +70,6 @@ export default function RenterProfilePage() {
       .update({
         display_name: displayName,
         phone: normalizedPhone,
-        bio: bio || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
@@ -87,52 +83,19 @@ export default function RenterProfilePage() {
     }
     setSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, displayName, phone, bio]);
-
-  const handleAvatarUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!user || !e.target.files?.[0]) return;
-
-      const file = e.target.files[0];
-      const fileExt = file.name.split(".").pop();
-      const filePath = `avatars/${user.id}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("property-photos")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) return;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("property-photos").getPublicUrl(filePath);
-
-      await supabase
-        .from("profiles")
-        .update({ avatar_url: publicUrl })
-        .eq("id", user.id);
-
-      setProfile((prev) => (prev ? { ...prev, avatar_url: publicUrl } : prev));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user],
-  );
+  }, [user, displayName, phone]);
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full rounded-[var(--radius-card)]" />
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Skeleton className="h-[500px] rounded-[20px]" />
+          <Skeleton className="h-[340px] rounded-[20px]" />
+        </div>
       </div>
     );
   }
-
-  const initials =
-    profile?.display_name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2) ?? "U";
 
   return (
     <div className="space-y-6">
@@ -140,152 +103,248 @@ export default function RenterProfilePage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-          პროფილი
+        <h1 className="flex items-center gap-3 text-[36px] font-black leading-[44px] text-[#0F172A]">
+          <SettingsIcon className="h-8 w-8 text-[#94A3B8]" />
+          პარამეტრები
         </h1>
-        <p className="mt-1 text-sm font-medium text-[#64748B]">
-          მართეთ თქვენი პირადი ინფორმაცია
+        <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+          პროფილის დეტალები და ნოტიფიკაციების კონტროლი.
         </p>
       </motion.div>
 
-      {/* Stats badges */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="flex flex-wrap gap-3"
-      >
-        <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
-          <Shield
-            className={`h-4 w-4 ${profile?.is_verified ? "text-green-500" : "text-[#94A3B8]"}`}
-          />
-          <span className="text-xs font-medium">
-            {profile?.is_verified ? "ვერიფიცირებული" : "არა ვერიფიცირებული"}
-          </span>
-        </div>
-        {profile?.rating && (
-          <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
-            <Star className="h-4 w-4 text-amber-400" />
-            <span className="text-xs font-medium">{profile.rating}</span>
-          </div>
-        )}
-        {profile?.response_time_minutes && (
-          <div className="flex items-center gap-2 rounded-full bg-brand-surface px-4 py-2 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
-            <Clock className="h-4 w-4 text-brand-accent" />
-            <span className="text-xs font-medium">
-              {profile.response_time_minutes} წთ
-            </span>
-          </div>
-        )}
-      </motion.div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Left: profile details */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
+        >
+          <h2 className="text-[16px] font-black text-[#0F172A]">
+            პროფილის ტიპი და დეტალები
+          </h2>
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-      >
-        {/* Avatar */}
-        <div className="flex flex-col items-center gap-4 sm:flex-row">
-          <div className="relative">
-            <Avatar className="h-20 w-20">
-              {profile?.avatar_url && (
-                <AvatarImage src={profile.avatar_url} alt={displayName} />
-              )}
-              <AvatarFallback className="text-xl">{initials}</AvatarFallback>
-            </Avatar>
-            <label
-              htmlFor="avatar-upload"
-              className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-brand-accent text-white shadow-md transition-transform hover:scale-110"
-            >
-              <Camera className="h-4 w-4" />
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
-            </label>
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-[#1E293B]">
-              {profile?.display_name}
-            </p>
-            <Badge variant="secondary" className="mt-1">
-              მესაკუთრე
-            </Badge>
-          </div>
-        </div>
+          <div className="mt-5 space-y-4">
+            <Field label="პროფილის ტიპი">
+              <div className="relative">
+                <select
+                  value={profileType}
+                  onChange={(e) =>
+                    setProfileType(e.target.value as ProfileType)
+                  }
+                  className="w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                >
+                  <option value="personal">ფიზიკური პირი</option>
+                  <option value="company">იურიდიული პირი</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              </div>
+            </Field>
 
-        {/* Form */}
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
-              სახელი
-            </label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+            <Field label="სახელი / კომპანია">
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-10 pr-4 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
-                placeholder="თქვენი სახელი"
+                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                placeholder="გიორგი მახარაძე"
               />
-            </div>
-          </div>
+            </Field>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
-              ტელეფონი
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+            <Field label="საკონტაქტო ნომერი (საჯარო)">
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-10 pr-4 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
-                placeholder="+995 5XX XX XX XX"
+                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                placeholder="+995 599 00 00 00"
               />
-            </div>
-          </div>
+            </Field>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
-              ბიო
-            </label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
-              placeholder="მოკლე აღწერა თქვენს შესახებ..."
+            <Field label="პირადი ნომერი">
+              <input
+                type="text"
+                value={personalId}
+                onChange={(e) => setPersonalId(e.target.value)}
+                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                placeholder="01008060403"
+              />
+            </Field>
+
+            {/* WhatsApp pill toggle */}
+            <button
+              type="button"
+              onClick={() => setWhatsapp((v) => !v)}
+              className={`flex w-full items-center justify-between rounded-xl px-4 py-3 transition-colors ${
+                whatsapp
+                  ? "bg-[#DCFCE7] text-[#16A34A]"
+                  : "bg-[#F1F5F9] text-[#94A3B8]"
+              }`}
+            >
+              <span className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide">
+                <WhatsAppIcon
+                  className={whatsapp ? "text-[#16A34A]" : "text-[#94A3B8]"}
+                />
+                WHATSAPP ნომერი
+              </span>
+              <Toggle on={whatsapp} tone="success" />
+            </button>
+
+            {successMsg && (
+              <p className="text-[13px] font-semibold text-[#16A34A]">
+                {successMsg}
+              </p>
+            )}
+            {errorMsg && (
+              <p className="text-[13px] font-semibold text-[#DC2626]">
+                {errorMsg}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="mt-2 w-full rounded-xl bg-[#0F172A] py-3.5 text-[14px] font-black text-white transition-colors hover:bg-[#1E293B] disabled:opacity-60"
+            >
+              {saving ? "ინახება..." : "შენახვა"}
+            </button>
+          </div>
+        </motion.section>
+
+        {/* Right: notifications */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
+        >
+          <h2 className="text-[16px] font-black text-[#0F172A]">
+            შეტყობინებების მართვა
+          </h2>
+
+          <div className="mt-5 space-y-3">
+            <NotifRow
+              title="ახალი მოთხოვნა"
+              sub="ვებ-შეტყობინება და SMS (პრემიუმი)"
+              on={notifNewRequest}
+              onToggle={() => setNotifNewRequest((v) => !v)}
+            />
+            <NotifRow
+              title="რჩეულებში დამატება"
+              sub="მხოლოდ ვებ-შეტყობინება"
+              on={notifAddFavorite}
+              onToggle={() => setNotifAddFavorite((v) => !v)}
+            />
+            <NotifRow
+              title="ყოველთვიური რეპორტი"
+              sub="მხოლოდ ელ-ფოსტა"
+              on={notifMonthlyReport}
+              onToggle={() => setNotifMonthlyReport((v) => !v)}
             />
           </div>
-
-          {successMsg && (
-            <p className="text-sm font-medium text-brand-success">
-              {successMsg}
-            </p>
-          )}
-          {errorMsg && (
-            <p className="text-sm font-medium text-[#EF4444]">{errorMsg}</p>
-          )}
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              <Save className="h-4 w-4" />
-              {saving ? "ინახება..." : "შენახვა"}
-            </Button>
-            <Button variant="destructive" onClick={signOut} className="gap-2">
-              <LogOut className="h-4 w-4" />
-              გასვლა
-            </Button>
-          </div>
-        </div>
-      </motion.div>
+        </motion.section>
+      </div>
     </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function NotifRow({
+  title,
+  sub,
+  on,
+  onToggle,
+}: {
+  title: string;
+  sub: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-[#EEF1F4] bg-white px-4 py-3.5">
+      <div>
+        <p className="text-[13px] font-extrabold text-[#0F172A]">{title}</p>
+        <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-[#94A3B8]">
+          {sub}
+        </p>
+      </div>
+      <Toggle on={on} onToggle={onToggle} tone="primary" />
+    </div>
+  );
+}
+
+function Toggle({
+  on,
+  onToggle,
+  tone,
+}: {
+  on: boolean;
+  onToggle?: () => void;
+  tone: "primary" | "success";
+}) {
+  const onColor = tone === "primary" ? "bg-[#2563EB]" : "bg-[#22C55E]";
+  const trackClass = `relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+    on ? onColor : "bg-[#CBD5E1]"
+  }`;
+  const knob = (
+    <span
+      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${
+        on ? "translate-x-[22px]" : "translate-x-0.5"
+      }`}
+    />
+  );
+
+  if (!onToggle) {
+    return (
+      <span aria-hidden="true" className={trackClass}>
+        {knob}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className={trackClass}
+    >
+      {knob}
+    </button>
+  );
+}
+
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+    </svg>
   );
 }

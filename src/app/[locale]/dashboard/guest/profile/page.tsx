@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { User, Phone, Save, Camera, LogOut } from "lucide-react";
+import { Check, LogOut, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
 
@@ -17,112 +15,60 @@ export default function GuestProfilePage() {
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [displayName, setDisplayName] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [bio, setBio] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     if (!user) return;
-
     async function fetchProfile() {
       const { data } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user!.id)
         .single();
-
       if (data) {
         setProfile(data);
-        setDisplayName(data.display_name);
+        const parts = (data.display_name ?? "").split(" ");
+        setFirstName(parts[0] ?? "");
+        setLastName(parts.slice(1).join(" "));
         setPhone(data.phone ?? "");
-        setBio(data.bio ?? "");
+        setEmail(user!.email ?? "");
       }
       setLoading(false);
     }
-
     fetchProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const handleSave = useCallback(async () => {
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
     if (!user) return;
-    const normalizedPhone = phone.replace(/\s+/g, "");
-    if (!normalizedPhone || !/^\+9955\d{8}$/.test(normalizedPhone)) {
-      setErrorMsg("გთხოვთ მიუთითოთ სწორი ნომერი (+995 5XX XX XX XX)");
-      return;
-    }
-
     setSaving(true);
-    setSuccessMsg("");
-    setErrorMsg("");
-
+    setSaved(false);
     const { error } = await supabase
       .from("profiles")
       .update({
-        display_name: displayName,
-        phone: normalizedPhone,
-        bio: bio || null,
-        updated_at: new Date().toISOString(),
+        display_name: [firstName, lastName].filter(Boolean).join(" "),
+        phone,
       })
       .eq("id", user.id);
-
-    if (!error) {
-      setProfile((prev) => (prev ? { ...prev, phone: normalizedPhone } : prev));
-      setSuccessMsg("პროფილი წარმატებით განახლდა");
-      setTimeout(() => setSuccessMsg(""), 3000);
-    } else {
-      setErrorMsg("პროფილის განახლება ვერ მოხერხდა. სცადეთ თავიდან.");
-    }
     setSaving(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, displayName, phone, bio]);
-
-  const handleAvatarUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!user || !e.target.files?.[0]) return;
-
-      const file = e.target.files[0];
-      const fileExt = file.name.split(".").pop();
-      const filePath = `avatars/${user.id}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("property-photos")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) return;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("property-photos").getPublicUrl(filePath);
-
-      await supabase
-        .from("profiles")
-        .update({ avatar_url: publicUrl })
-        .eq("id", user.id);
-
-      setProfile((prev) => (prev ? { ...prev, avatar_url: publicUrl } : prev));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user],
-  );
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full rounded-[var(--radius-card)]" />
-      </div>
-    );
+    if (!error) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    }
   }
 
-  const initials =
-    profile?.display_name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2) ?? "U";
+  const initials = [firstName, lastName]
+    .filter(Boolean)
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="space-y-6">
@@ -130,120 +76,127 @@ export default function GuestProfilePage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-          პროფილი
+        <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+          პროფილის პარამეტრები
         </h1>
-        <p className="mt-1 text-sm font-medium text-[#64748B]">
-          მართეთ თქვენი პირადი ინფორმაცია
+        <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+          განაახლე სახელი, საკონტაქტო ინფორმაცია და სხვა დეტალები.
         </p>
       </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+        className="overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
-        {/* Avatar */}
-        <div className="flex flex-col items-center gap-4 sm:flex-row">
-          <div className="relative">
-            <Avatar className="h-20 w-20">
-              {profile?.avatar_url && (
-                <AvatarImage src={profile.avatar_url} alt={displayName} />
-              )}
-              <AvatarFallback className="text-xl">{initials}</AvatarFallback>
-            </Avatar>
-            <label
-              htmlFor="avatar-upload"
-              className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-brand-accent text-white shadow-md transition-transform hover:scale-110"
-            >
-              <Camera className="h-4 w-4" />
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
-            </label>
+        <div className="relative flex items-center gap-4 bg-gradient-to-r from-[#0F8F60] to-[#0B7A52] px-6 py-6 text-white">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-[20px] font-black text-[#0F8F60] shadow-lg">
+            {initials || "S"}
           </div>
-          <div>
-            <p className="text-lg font-semibold text-[#1E293B]">
-              {profile?.display_name}
-            </p>
-            <p className="text-sm text-[#94A3B8]">
-              {profile?.is_verified ? "ვერიფიცირებული" : "არა ვერიფიცირებული"}
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-[20px] font-black">
+              {[firstName, lastName].filter(Boolean).join(" ") || "სტუმარი"}
+            </h2>
+            <p className="mt-0.5 flex items-center gap-2 text-[12px] font-medium text-white/80">
+              <span>{user?.email ?? "—"}</span>
             </p>
           </div>
+          {profile?.rating != null && (
+            <div className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[12px] font-bold">
+              <Star className="h-3.5 w-3.5" fill="currentColor" />
+              {Number(profile.rating).toFixed(1)}
+            </div>
+          )}
         </div>
 
-        {/* Form */}
-        <div className="mt-6 space-y-4">
+        <form
+          onSubmit={handleSave}
+          className="grid grid-cols-1 gap-5 p-6 md:grid-cols-2"
+        >
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
               სახელი
             </label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+            {loading ? (
+              <Skeleton className="h-11 rounded-xl" />
+            ) : (
               <input
                 type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-10 pr-4 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
-                placeholder="თქვენი სახელი"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/10"
               />
-            </div>
+            )}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
-              ტელეფონი
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+              გვარი
             </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+            {loading ? (
+              <Skeleton className="h-11 rounded-xl" />
+            ) : (
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/10"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+              ტელეფონის ნომერი
+            </label>
+            {loading ? (
+              <Skeleton className="h-11 rounded-xl" />
+            ) : (
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-10 pr-4 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
                 placeholder="+995 5XX XX XX XX"
+                className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/10"
               />
-            </div>
+            )}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1E293B]">
-              ბიო
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+              ელ.ფოსტა
             </label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm text-[#1E293B] focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/20"
-              placeholder="მოკლე აღწერა თქვენს შესახებ..."
+            <input
+              type="email"
+              value={email}
+              disabled
+              className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-semibold text-[#94A3B8]"
             />
           </div>
 
-          {successMsg && (
-            <p className="text-sm font-medium text-brand-success">
-              {successMsg}
-            </p>
-          )}
-          {errorMsg && (
-            <p className="text-sm font-medium text-[#EF4444]">{errorMsg}</p>
-          )}
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              <Save className="h-4 w-4" />
-              {saving ? "ინახება..." : "შენახვა"}
-            </Button>
-            <Button variant="destructive" onClick={signOut} className="gap-2">
+          <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end md:col-span-2">
+            <button
+              type="button"
+              onClick={() => signOut?.()}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-5 py-3 text-[13px] font-bold text-[#64748B] transition-colors hover:border-[#EF4444] hover:text-[#EF4444]"
+            >
               <LogOut className="h-4 w-4" />
-              გასვლა
-            </Button>
+              გამოსვლა
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F8F60] px-6 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,143,96,0.35)] transition-colors hover:bg-[#0B7A52] disabled:opacity-60"
+            >
+              {saved && <Check className="h-4 w-4" />}
+              {saving
+                ? "შენახვა..."
+                : saved
+                  ? "შენახულია"
+                  : "ცვლილებების შენახვა"}
+            </button>
           </div>
-        </div>
+        </form>
       </motion.div>
     </div>
   );

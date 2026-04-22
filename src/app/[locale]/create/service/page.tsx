@@ -2,16 +2,24 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  WizardShell,
+  WizardInnerCard,
+  WizardFooter,
+} from "@/components/forms/WizardShell";
 import PhoneInput from "@/components/forms/PhoneInput";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 
-const SERVICE_CATEGORIES = [
-  { value: "cleaning", label: "დალაგება" },
+const SERVICE_SPHERES = [
+  { value: "cleaning", label: "დასუფთავება / დამლაგებელი" },
+  { value: "plumbing", label: "სანტექნიკა / გათბობის ქვები" },
+  { value: "electrical", label: "ელექტრობა" },
+  { value: "locksmith", label: "საკეტები" },
+  { value: "appliance_repair", label: "ტექნიკის შეკეთება" },
   { value: "handyman", label: "ხელოსანი" },
+  { value: "other", label: "სხვა" },
 ];
 
 export default function CreateServicePage() {
@@ -22,9 +30,10 @@ export default function CreateServicePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState("");
+  const [name, setName] = useState("");
+  const [experienceYears, setExperienceYears] = useState("");
+  const [sphere, setSphere] = useState("cleaning");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("cleaning");
   const [price, setPrice] = useState("");
   const [priceUnit, setPriceUnit] = useState("საათი");
   const [schedule, setSchedule] = useState("");
@@ -37,14 +46,18 @@ export default function CreateServicePage() {
     setError(null);
 
     try {
+      const categoryValue: "cleaning" | "handyman" =
+        sphere === "cleaning" ? "cleaning" : "handyman";
+
       const { error: insertError } = await supabase.from("services").insert({
         owner_id: user.id,
-        category: category as "cleaning" | "handyman",
-        title: title.trim(),
+        category: categoryValue,
+        title: name.trim(),
         description: description.trim() || null,
         price: price ? Number(price) : null,
         price_unit: priceUnit || null,
         schedule: schedule.trim() || null,
+        experience_required: experienceYears ? `${experienceYears} წელი` : null,
         photos,
         phone: phone ? `+995${phone}` : null,
         status: "pending",
@@ -60,119 +73,136 @@ export default function CreateServicePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-8 text-center text-2xl font-bold">
-        სერვისის განცხადება
-      </h1>
+    <WizardShell
+      title="სერვისები და ხელოსნები"
+      accent="blue"
+      footer={
+        <WizardFooter
+          accent="blue"
+          backHref="/create"
+          onSubmit={handleSubmit}
+          submitLabel="განცხადების გამოქვეყნება"
+          submitDisabled={!name.trim()}
+          loading={loading}
+          error={error}
+        />
+      }
+    >
+      <WizardInnerCard number={1} title="სფერო და პროფილი" accent="blue">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="სახელი / კომპანია" required>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ნინო"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="გამოცდილება" required>
+            <input
+              type="text"
+              value={experienceYears}
+              onChange={(e) => setExperienceYears(e.target.value)}
+              placeholder="8 წელი"
+              className={inputClass}
+            />
+          </Field>
+        </div>
 
-      <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">კატეგორია</label>
-          <div className="grid grid-cols-2 gap-2">
-            {SERVICE_CATEGORIES.map((sc) => (
-              <button
-                key={sc.value}
-                type="button"
-                onClick={() => setCategory(sc.value)}
-                className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
-                  category === sc.value
-                    ? "border-brand-accent bg-brand-accent/10 text-brand-accent"
-                    : "border-[#E2E8F0] hover:border-[#64748B]/40"
-                }`}
-              >
-                {sc.label}
-              </button>
+        <Field label="მომსახურების სფერო" required>
+          <select
+            value={sphere}
+            onChange={(e) => setSphere(e.target.value)}
+            className={inputClass}
+          >
+            {SERVICE_SPHERES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
             ))}
-          </div>
-        </div>
+          </select>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">
-            სათაური <span className="text-[#EF4444]">*</span>
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="მაგ: პროფესიონალური დალაგება"
-            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">აღწერა</label>
+        <Field label="აღწერა">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="სერვისის დეტალური აღწერა..."
             rows={4}
-            className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
-        </div>
+        </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">ფასი (₾)</label>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="ფასი (₾)">
             <input
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0"
               min="0"
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              className={inputClass}
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">ერთეული</label>
+          </Field>
+          <Field label="ერთეული">
             <select
               value={priceUnit}
               onChange={(e) => setPriceUnit(e.target.value)}
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              className={inputClass}
             >
               <option value="საათი">საათი</option>
               <option value="დღე">დღე</option>
               <option value="პროექტი">პროექტი</option>
             </select>
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">განრიგი</label>
+        <Field label="განრიგი">
           <input
             type="text"
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
             placeholder="მაგ: ყოველდღე, 09:00-18:00"
-            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+            className={inputClass}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">ფოტოები</label>
+        <Field label="ფოტოები">
           <PhotoUploader
             photos={photos}
             onPhotosChange={setPhotos}
             maxPhotos={5}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">საკონტაქტო ტელეფონი</label>
+        <Field label="საკონტაქტო ტელეფონი">
           <PhoneInput value={phone} onChange={setPhone} />
-        </div>
+        </Field>
+      </WizardInnerCard>
+    </WizardShell>
+  );
+}
 
-        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
+const inputClass =
+  "h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]";
 
-        <Button
-          onClick={handleSubmit}
-          disabled={loading || !title.trim()}
-          className="w-full"
-          size="lg"
-        >
-          {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-          განცხადების გამოქვეყნება
-        </Button>
-      </div>
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[13px] font-bold text-[#334155]">
+        {label}
+        {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
+      </label>
+      {children}
     </div>
   );
 }

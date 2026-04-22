@@ -1,37 +1,28 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Building } from "lucide-react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Plus,
+  Check,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import AddBookingModal from "@/components/renter/AddBookingModal";
 import type { Tables } from "@/lib/types/database";
 
 type CalendarBlock = Tables<"calendar_blocks">;
 type Property = Tables<"properties">;
 
-const dayNames = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
+const DAY_NAMES = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
+const WEEKEND_INDICES = [4, 5, 6]; // პარ, შაბ, კვი — weekend in the Figma ref
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  available: { label: "თავისუფალი", color: "bg-green-100 text-green-700" },
-  booked: { label: "დაკავებული", color: "bg-red-100 text-red-700" },
-  blocked: { label: "არჩეული", color: "bg-gray-200 text-gray-700" },
-};
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function getFirstDayOfMonth(year: number, month: number) {
-  const day = new Date(year, month, 1).getDay();
-  // Convert from Sunday=0 to Monday=0
-  return day === 0 ? 6 : day - 1;
-}
-
-const monthNames = [
+const MONTH_NAMES = [
   "იანვარი",
   "თებერვალი",
   "მარტი",
@@ -46,6 +37,33 @@ const monthNames = [
   "დეკემბერი",
 ];
 
+interface DayMeta {
+  date: string;
+  day: number;
+  inMonth: boolean;
+  weekendIndex: number; // 0-6 (mon..sun)
+  status: "free" | "booked" | "manual";
+  price?: number;
+  guestLabel?: string;
+}
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function fmtDate(year: number, month: number, day: number) {
+  return `${year}-${pad(month + 1)}-${pad(day)}`;
+}
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  const day = new Date(year, month, 1).getDay();
+  return day === 0 ? 6 : day - 1;
+}
+
 export default function RenterCalendarPage() {
   const { user } = useAuth();
   const supabase = createClient();
@@ -55,11 +73,16 @@ export default function RenterCalendarPage() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
     null,
   );
+  const [propertyOpen, setPropertyOpen] = useState(false);
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
-  const [isSaving, setIsSaving] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [addBookingOpen, setAddBookingOpen] = useState(false);
+  const [addBookingInitial, setAddBookingInitial] = useState<{
+    checkIn: string;
+    checkOut: string;
+  }>({ checkIn: "", checkOut: "" });
+
+  const propertyDropdownRef = useRef<HTMLDivElement>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -90,8 +113,8 @@ export default function RenterCalendarPage() {
     if (!selectedPropertyId) return;
 
     async function fetchBlocks() {
-      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${getDaysInMonth(year, month)}`;
+      const startDate = `${year}-${pad(month + 1)}-01`;
+      const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
 
       const { data } = await supabase
         .from("calendar_blocks")
@@ -105,7 +128,6 @@ export default function RenterCalendarPage() {
 
     fetchBlocks();
 
-    // Realtime updates
     const channel = supabase
       .channel("calendar-blocks")
       .on(
@@ -116,9 +138,7 @@ export default function RenterCalendarPage() {
           table: "calendar_blocks",
           filter: `property_id=eq.${selectedPropertyId}`,
         },
-        () => {
-          fetchBlocks();
-        },
+        () => fetchBlocks(),
       )
       .subscribe();
 
@@ -128,257 +148,326 @@ export default function RenterCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
+  // Close property dropdown on outside click
+  useEffect(() => {
+    if (!propertyOpen) return;
+    function handle(e: MouseEvent) {
+      if (
+        propertyDropdownRef.current &&
+        !propertyDropdownRef.current.contains(e.target as Node)
+      ) {
+        setPropertyOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [propertyOpen]);
+
   const blocksByDate = useMemo(() => {
     const map = new Map<string, CalendarBlock>();
-    calendarBlocks.forEach((block) => map.set(block.date, block));
+    calendarBlocks.forEach((b) => map.set(b.date, b));
     return map;
   }, [calendarBlocks]);
 
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
-    setSelectedDates(new Set());
-  };
+  const days: DayMeta[] = useMemo(() => {
+    const offset = getFirstDayOfMonth(year, month);
+    const daysInMonth = getDaysInMonth(year, month);
+    const prevMonthDays = getDaysInMonth(year, month - 1);
+    const total = 42; // 6 rows * 7 cols
 
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-    setSelectedDates(new Set());
-  };
-
-  const handleDateClick = (dateStr: string) => {
-    if (blocksByDate.get(dateStr)?.status === "booked") return;
-
-    setSelectedDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(dateStr)) {
-        next.delete(dateStr);
-      } else {
-        next.add(dateStr);
-      }
-      return next;
-    });
-  };
-
-  const handleBlockDates = async (status: "available" | "blocked") => {
-    if (!selectedPropertyId || selectedDates.size === 0) return;
-
-    setActionError(null);
-    setIsSaving(true);
-
-    const selectedDateValues = Array.from(selectedDates);
-    const editableDates = selectedDateValues.filter(
-      (date) => blocksByDate.get(date)?.status !== "booked",
-    );
-
-    if (editableDates.length === 0) {
-      setActionError("დაჯავშნილი დღეების ცვლილება შეუძლებელია");
-      setIsSaving(false);
-      return;
-    }
-
-    let error: { message: string } | null = null;
-
-    if (status === "blocked") {
-      const upserts = editableDates.map((date) => ({
-        property_id: selectedPropertyId,
-        date,
-        status: "blocked" as const,
-      }));
-
-      const { error: upsertError } = await supabase
-        .from("calendar_blocks")
-        .upsert(upserts, {
-          onConflict: "property_id,date",
+    const list: DayMeta[] = [];
+    for (let i = 0; i < total; i += 1) {
+      const weekendIndex = i % 7;
+      if (i < offset) {
+        const d = prevMonthDays - offset + i + 1;
+        const prev = new Date(year, month - 1, d);
+        list.push({
+          date: fmtDate(prev.getFullYear(), prev.getMonth(), d),
+          day: d,
+          inMonth: false,
+          weekendIndex,
+          status: "free",
         });
-      error = upsertError;
-    } else {
-      // "Unblock" means removing manual blocks, so the date becomes normally available.
-      const { error: deleteError } = await supabase
-        .from("calendar_blocks")
-        .delete()
-        .eq("property_id", selectedPropertyId)
-        .in("date", editableDates)
-        .eq("status", "blocked");
-      error = deleteError;
+      } else if (i - offset < daysInMonth) {
+        const d = i - offset + 1;
+        const dateStr = fmtDate(year, month, d);
+        const block = blocksByDate.get(dateStr);
+        let status: DayMeta["status"] = "free";
+        if (block?.status === "booked") status = "booked";
+        else if (block?.status === "blocked") status = "manual";
+        list.push({
+          date: dateStr,
+          day: d,
+          inMonth: true,
+          weekendIndex,
+          status,
+          price: 120,
+        });
+      } else {
+        const d = i - offset - daysInMonth + 1;
+        const next = new Date(year, month + 1, d);
+        list.push({
+          date: fmtDate(next.getFullYear(), next.getMonth(), d),
+          day: d,
+          inMonth: false,
+          weekendIndex,
+          status: "free",
+        });
+      }
     }
+    return list;
+  }, [year, month, blocksByDate]);
 
-    if (error) {
-      setActionError("ოპერაცია ვერ შესრულდა, სცადეთ თავიდან");
-      setIsSaving(false);
-      return;
-    }
+  const selectedProperty = properties.find((p) => p.id === selectedPropertyId);
 
-    setSelectedDates(new Set());
-    setIsSaving(false);
-  };
-
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfMonth(year, month);
+  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
   return (
-    <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-          კალენდარი
-        </h1>
-        <p className="mt-1 text-sm font-medium text-[#64748B]">
-          მართეთ ობიექტების ხელმისაწვდომობა
-        </p>
-      </motion.div>
+    <div className="space-y-5">
+      {/* Header row */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        {/* Property dropdown */}
+        <div ref={propertyDropdownRef} className="relative min-w-0">
+          {loading ? (
+            <Skeleton className="h-9 w-64" />
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setPropertyOpen((v) => !v)}
+                className="inline-flex items-center gap-2 text-[20px] font-black text-[#0F172A] hover:text-[#2563EB]"
+              >
+                <span className="truncate">
+                  {selectedProperty?.title ?? "—"}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-5 w-5 shrink-0 text-[#64748B] transition-transform",
+                    propertyOpen && "rotate-180 text-[#2563EB]",
+                  )}
+                />
+              </button>
+              <AnimatePresence>
+                {propertyOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-[calc(100%+8px)] z-30 min-w-[280px] overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white py-2 shadow-[0px_16px_40px_-12px_rgba(15,23,42,0.18)]"
+                  >
+                    {properties.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPropertyId(p.id);
+                          setPropertyOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-semibold text-[#0F172A] hover:bg-[#F8FAFC]"
+                      >
+                        <span className="flex-1 truncate">{p.title}</span>
+                        {p.id === selectedPropertyId && (
+                          <Check className="h-4 w-4 text-[#2563EB]" />
+                        )}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
 
-      {/* Property selector */}
-      {loading ? (
-        <Skeleton className="h-10 w-full" />
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {properties.map((property) => (
-            <Button
-              key={property.id}
-              variant={
-                selectedPropertyId === property.id ? "default" : "outline"
+          {/* Legend */}
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <LegendItem
+              swatch={
+                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-[3px] border border-[#16A34A] bg-white">
+                  <Check
+                    className="h-2.5 w-2.5 text-[#16A34A]"
+                    strokeWidth={3}
+                  />
+                </span>
               }
-              size="sm"
-              onClick={() => {
-                setSelectedPropertyId(property.id);
-                setSelectedDates(new Set());
-              }}
-              className="gap-2"
-            >
-              <Building className="h-3.5 w-3.5" />
-              {property.title}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4">
-        {Object.entries(statusConfig).map(([key, config]) => (
-          <div key={key} className="flex items-center gap-2 text-xs">
-            <span
-              className={`h-3 w-3 rounded-sm ${config.color.split(" ")[0]}`}
+              label="თავისუფალი"
             />
-            <span className="text-[#94A3B8]">{config.label}</span>
+            <LegendItem
+              swatch={
+                <span className="h-3.5 w-3.5 rounded-[3px] bg-[#FEE2E2]" />
+              }
+              label="დაკავშინილი"
+            />
+            <LegendItem
+              swatch={
+                <span className="h-3.5 w-3.5 rounded-[3px] bg-[#FEF3C7]" />
+              }
+              label="ხელით დამატებული"
+            />
           </div>
-        ))}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="h-3 w-3 rounded-sm bg-brand-accent/30" />
-          <span className="text-[#94A3B8]">არჩეული</span>
+        </div>
+
+        {/* Right side: month nav + add */}
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center rounded-xl border border-[#E2E8F0] bg-white px-2 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)]">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              aria-label="Previous month"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-3 text-[13px] font-black text-[#0F172A]">
+              {MONTH_NAMES[month]} {year}
+            </span>
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              aria-label="Next month"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAddBookingInitial({ checkIn: "", checkOut: "" });
+              setAddBookingOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A]"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.6} />
+            დამატება
+          </button>
         </div>
       </div>
 
-      {/* Calendar */}
+      {/* Day-of-week header */}
+      <div className="grid grid-cols-7 border-b border-[#EEF1F4]">
+        {DAY_NAMES.map((name, i) => (
+          <div
+            key={name}
+            className={cn(
+              "py-3 text-center text-[11px] font-bold uppercase tracking-wide",
+              WEEKEND_INDICES.includes(i) ? "text-[#EF4444]" : "text-[#94A3B8]",
+            )}
+          >
+            {name}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:p-6"
+        className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-[#EEF1F4]"
       >
-        {/* Month navigation */}
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={handlePrevMonth}>
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <h3 className="text-base font-semibold text-[#1E293B]">
-            {monthNames[month]} {year}
-          </h3>
-          <Button variant="ghost" size="icon" onClick={handleNextMonth}>
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </div>
-
-        {/* Day headers */}
-        <div className="mt-4 grid grid-cols-7 gap-1">
-          {dayNames.map((day) => (
-            <div
-              key={day}
-              className="py-2 text-center text-xs font-medium text-[#94A3B8]"
-            >
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Date grid */}
-        <div className="grid grid-cols-7 gap-1">
-          {/* Empty cells for offset */}
-          {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} />
-          ))}
-
-          {/* Date cells */}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const block = blocksByDate.get(dateStr);
-            const isSelected = selectedDates.has(dateStr);
-            const isToday = new Date().toISOString().startsWith(dateStr);
-            const isPast =
-              new Date(dateStr) < new Date(new Date().toDateString());
-
-            let bgColor = "bg-white hover:bg-gray-50";
-            if (block?.status === "booked") bgColor = "bg-red-100 text-red-700";
-            else if (block?.status === "blocked")
-              bgColor = "bg-gray-200 text-gray-700";
-            else if (block?.status === "available")
-              bgColor = "bg-green-100 text-green-700";
-
-            if (isSelected)
-              bgColor = "bg-brand-accent/20 ring-2 ring-brand-accent";
-
-            return (
-              <button
-                key={dateStr}
-                onClick={() => !isPast && handleDateClick(dateStr)}
-                disabled={isPast}
-                className={cn(
-                  "flex h-10 items-center justify-center rounded-lg text-sm font-medium transition-colors sm:h-12",
-                  bgColor,
-                  isPast && "cursor-not-allowed opacity-40",
-                  isToday && "ring-1 ring-brand-accent",
-                )}
-              >
-                {day}
-              </button>
-            );
-          })}
-        </div>
+        {days.map((d, i) => (
+          <DayCell
+            key={`${d.date}-${i}`}
+            meta={d}
+            isBottomRow={i >= 35}
+            isRightCol={d.weekendIndex === 6}
+            onClick={() => {
+              if (!d.inMonth) return;
+              setAddBookingInitial({ checkIn: d.date, checkOut: "" });
+              setAddBookingOpen(true);
+            }}
+          />
+        ))}
       </motion.div>
 
-      {/* Actions for selected dates */}
-      {selectedDates.size > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col gap-3 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:flex-row sm:items-center sm:justify-between"
-        >
-          <p className="text-sm text-[#1E293B]">
-            არჩეულია <span className="font-bold">{selectedDates.size}</span> დღე
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleBlockDates("blocked")}
-              disabled={isSaving}
-            >
-              დაბლოკვა
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => handleBlockDates("available")}
-              disabled={isSaving}
-            >
-              გახსნა
-            </Button>
-          </div>
-        </motion.div>
-      )}
-      {actionError && (
-        <p className="text-sm font-medium text-red-600">{actionError}</p>
-      )}
+      <AddBookingModal
+        isOpen={addBookingOpen}
+        onClose={() => setAddBookingOpen(false)}
+        initialCheckIn={addBookingInitial.checkIn}
+        initialCheckOut={addBookingInitial.checkOut}
+      />
     </div>
+  );
+}
+
+function LegendItem({
+  swatch,
+  label,
+}: {
+  swatch: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[#64748B]">
+      {swatch}
+      {label}
+    </span>
+  );
+}
+
+function DayCell({
+  meta,
+  isBottomRow,
+  isRightCol,
+  onClick,
+}: {
+  meta: DayMeta;
+  isBottomRow: boolean;
+  isRightCol: boolean;
+  onClick: () => void;
+}) {
+  const isWeekend = WEEKEND_INDICES.includes(meta.weekendIndex);
+
+  let bg = "bg-white";
+  let numberColor = isWeekend ? "text-[#EF4444]" : "text-[#0F172A]";
+  let accentBorder: string | null = null;
+
+  if (!meta.inMonth) {
+    bg = "bg-white";
+    numberColor = "text-[#CBD5E1]";
+  } else if (meta.status === "booked") {
+    bg = "bg-[#FEE2E2]";
+    numberColor = "text-[#B91C1C]";
+    accentBorder = "before:bg-[#EF4444]";
+  } else if (meta.status === "manual") {
+    bg = "bg-[#FEF3C7]";
+    numberColor = "text-[#D97706]";
+    accentBorder = "before:bg-[#F59E0B]";
+  } else if (isWeekend) {
+    bg = "bg-[#FEF2F2]";
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!meta.inMonth}
+      className={cn(
+        "relative flex h-[110px] flex-col items-start justify-between border-b border-r border-[#EEF1F4] px-3 py-2.5 text-left transition-colors",
+        bg,
+        isBottomRow && "border-b-0",
+        isRightCol && "border-r-0",
+        meta.inMonth ? "hover:bg-opacity-80" : "cursor-default",
+        accentBorder &&
+          `before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full ${accentBorder}`,
+      )}
+    >
+      <span className={cn("text-[13px] font-black", numberColor)}>
+        {meta.day}
+      </span>
+      <div className="flex w-full items-end justify-between">
+        {meta.status === "manual" && meta.guestLabel && (
+          <span className="text-[10px] font-bold text-[#D97706]">
+            {meta.guestLabel}
+          </span>
+        )}
+        {meta.inMonth && meta.status === "free" && meta.price != null && (
+          <span className="ml-auto text-[10px] font-semibold text-[#94A3B8]">
+            {meta.price}₾
+          </span>
+        )}
+      </div>
+    </button>
   );
 }

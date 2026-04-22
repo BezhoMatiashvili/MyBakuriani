@@ -2,12 +2,32 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Plus, X } from "lucide-react";
+import {
+  WizardShell,
+  WizardInnerCard,
+  WizardFooter,
+} from "@/components/forms/WizardShell";
 import PhoneInput from "@/components/forms/PhoneInput";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
 import { createClient } from "@/lib/supabase/client";
+
+const RESTAURANT_TYPES = [
+  { value: "restaurant", label: "რესტორანი" },
+  { value: "cafe", label: "კაფე / საკონდიტრო" },
+  { value: "bar", label: "ბარი / პაბი" },
+  { value: "fast_food", label: "სწრაფი კვება" },
+  { value: "other", label: "სხვა" },
+];
+
+const CUISINE_TYPES = [
+  { value: "georgian", label: "ქართული" },
+  { value: "european", label: "ევროპული" },
+  { value: "asian", label: "აზიური" },
+  { value: "mixed", label: "შერეული" },
+];
 
 interface MenuItem {
   name: string;
@@ -23,13 +43,16 @@ export default function CreateFoodPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [restaurantType, setRestaurantType] = useState("restaurant");
   const [cuisineType, setCuisineType] = useState("");
+  const [zone, setZone] = useState("");
+  const [exactLocation, setExactLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [operatingHours, setOperatingHours] = useState("");
+  const [hasDelivery, setHasDelivery] = useState(false);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
     { name: "", price: "" },
   ]);
-  const [hasDelivery, setHasDelivery] = useState(false);
-  const [operatingHours, setOperatingHours] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [phone, setPhone] = useState("");
 
@@ -65,10 +88,11 @@ export default function CreateFoodPage() {
         category: "food",
         title: title.trim(),
         description: description.trim() || null,
-        cuisine_type: cuisineType.trim() || null,
+        cuisine_type: cuisineType || null,
         menu: menu.length > 0 ? menu : null,
         has_delivery: hasDelivery,
         operating_hours: operatingHours.trim() || null,
+        location: zone || exactLocation.trim() || null,
         photos,
         phone: phone ? `+995${phone}` : null,
         status: "pending",
@@ -84,50 +108,110 @@ export default function CreateFoodPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-8 text-center text-[28px] font-black leading-8 tracking-[-0.7px] text-[#1E293B]">
-        კვების განცხადება
-      </h1>
-
-      <div className="space-y-5 rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
-        <div className="space-y-2">
-          <label className="text-[13px] font-bold text-[#334155]">
-            დასახელება <span className="text-[#EF4444]">*</span>
-          </label>
+    <WizardShell
+      title="კვება და რესტორნები"
+      accent="orange"
+      footer={
+        <WizardFooter
+          accent="orange"
+          backHref="/create"
+          onSubmit={handleSubmit}
+          submitLabel="განცხადების გამოქვეყნება"
+          submitDisabled={!title.trim()}
+          loading={loading}
+          error={error}
+        />
+      }
+    >
+      <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="orange">
+        <Field label="ობიექტის დასახელება" required>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="მაგ: რესტორანი ბაკურიანი"
-            className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+            placeholder="მაგ: რესტორანი პანორამა"
+            className={inputClass}
           />
+        </Field>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="რესტორნის ტიპი" required>
+            <select
+              value={restaurantType}
+              onChange={(e) => setRestaurantType(e.target.value)}
+              className={inputClass}
+            >
+              {RESTAURANT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="სამზარეულოს ტიპი">
+            <select
+              value={cuisineType}
+              onChange={(e) => setCuisineType(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">აირჩიე ტიპი</option>
+              {CUISINE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[13px] font-bold text-[#334155]">აღწერა</label>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="ლოკაცია (ზონა)" required>
+            <select
+              value={zone}
+              onChange={(e) => setZone(e.target.value)}
+              className={inputClass}
+            >
+              <option value="" disabled>
+                აირჩიე ზონა
+              </option>
+              {SEARCH_LOCATION_ZONES.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="ზუსტი ლოკაცია">
+            <input
+              type="text"
+              value={exactLocation}
+              onChange={(e) => setExactLocation(e.target.value)}
+              placeholder="მაგ: ცენტრალური პარკის შესასვლელთან"
+              className={inputClass}
+            />
+          </Field>
+        </div>
+
+        <Field label="სამუშაო საათები">
+          <input
+            type="text"
+            value={operatingHours}
+            onChange={(e) => setOperatingHours(e.target.value)}
+            placeholder="მაგ: 10:00-23:00"
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="აღწერა">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="რესტორნის აღწერა..."
-            rows={3}
-            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+            placeholder="ობიექტის აღწერა..."
+            rows={4}
+            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#F97316] focus:ring-2 focus:ring-[#FFEDD5]"
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-[13px] font-bold text-[#334155]">
-            სამზარეულოს ტიპი
-          </label>
-          <input
-            type="text"
-            value={cuisineType}
-            onChange={(e) => setCuisineType(e.target.value)}
-            placeholder="მაგ: ქართული, ევროპული"
-            className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
-          />
-        </div>
-
-        {/* Menu editor */}
         <div className="space-y-3">
           <label className="text-[13px] font-bold text-[#334155]">მენიუ</label>
           {menuItems.map((item, index) => (
@@ -137,7 +221,7 @@ export default function CreateFoodPage() {
                 value={item.name}
                 onChange={(e) => updateMenuItem(index, "name", e.target.value)}
                 placeholder="კერძის სახელი"
-                className="h-[48px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+                className={`${inputClass} flex-1`}
               />
               <input
                 type="number"
@@ -145,7 +229,7 @@ export default function CreateFoodPage() {
                 onChange={(e) => updateMenuItem(index, "price", e.target.value)}
                 placeholder="₾"
                 min="0"
-                className="h-[48px] w-24 rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+                className={`${inputClass} w-24`}
               />
               {menuItems.length > 1 && (
                 <button
@@ -161,66 +245,65 @@ export default function CreateFoodPage() {
           <button
             type="button"
             onClick={addMenuItem}
-            className="flex items-center gap-1 text-sm text-brand-accent hover:underline"
+            className="flex items-center gap-1 text-sm font-semibold text-[#F97316] hover:underline"
           >
             <Plus className="size-4" />
             კერძის დამატება
           </button>
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm font-medium text-[#334155]">
           <input
             type="checkbox"
             checked={hasDelivery}
             onChange={(e) => setHasDelivery(e.target.checked)}
-            className="rounded"
+            className="size-4 rounded accent-[#F97316]"
           />
           მიტანის სერვისი
         </label>
 
-        <div className="space-y-2">
-          <label className="text-[13px] font-bold text-[#334155]">
-            სამუშაო საათები
-          </label>
-          <input
-            type="text"
-            value={operatingHours}
-            onChange={(e) => setOperatingHours(e.target.value)}
-            placeholder="მაგ: 10:00-23:00"
-            className="h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[13px] font-bold text-[#334155]">
-            ფოტოები
-          </label>
+        <Field label="ფოტოები">
           <PhotoUploader
             photos={photos}
             onPhotosChange={setPhotos}
-            maxPhotos={5}
+            maxPhotos={10}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-[13px] font-bold text-[#334155]">
-            საკონტაქტო ტელეფონი
-          </label>
+        <Field label="საკონტაქტო ტელეფონი">
           <PhoneInput value={phone} onChange={setPhone} />
-        </div>
+        </Field>
+      </WizardInnerCard>
+    </WizardShell>
+  );
+}
 
-        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
+const inputClass =
+  "h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#F97316] focus:ring-2 focus:ring-[#FFEDD5]";
 
-        <Button
-          onClick={handleSubmit}
-          disabled={loading || !title.trim()}
-          className="h-[48px] w-full rounded-xl bg-[#F97316] text-sm font-bold text-white shadow-[0px_8px_20px_rgba(249,115,22,0.25)] hover:bg-[#EA6C0E]"
-          size="lg"
-        >
-          {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-          განცხადების გამოქვეყნება
-        </Button>
-      </div>
+function Field({
+  label,
+  required,
+  helper,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  helper?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[13px] font-bold text-[#334155]">
+        {label}
+        {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
+      </label>
+      {children}
+      {helper && (
+        <p className="text-right text-xs font-medium text-[#94A3B8]">
+          {helper}
+        </p>
+      )}
     </div>
   );
 }

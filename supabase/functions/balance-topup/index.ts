@@ -1,67 +1,46 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
-  corsHeaders,
+  buildCorsHeaders,
   errorResponse,
   jsonResponse,
   requireUser,
 } from "../_shared/guards.ts";
 
 serve(async (req) => {
+  const cors = buildCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
     const { supabase, user } = await requireUser(req);
 
-    const { amount } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const amount = Number(body.amount);
 
-    if (!amount || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       throw new Error("არასწორი თანხა");
     }
 
-    // Placeholder for TBC Bank payment integration
-    // In production, this would:
-    // 1. Create a TBC payment session
-    // 2. Redirect user to TBC payment page
-    // 3. Handle callback to confirm payment
-    // For now, we simulate a successful topup
+    // Placeholder for TBC Bank payment integration.
+    // In production: create a TBC payment session, redirect to TBC, and only
+    // credit the balance after receiving a verified server-to-server callback.
 
-    // Create transaction record
-    const { error: txError } = await supabase.from("transactions").insert({
-      user_id: user.id,
-      amount,
-      type: "topup",
-      description: `ბალანსის შევსება: ${amount} ₾`,
+    const { data, error } = await supabase.rpc("topup_balance", {
+      p_user_id: user.id,
+      p_amount: amount,
+      p_description: null,
     });
 
-    if (txError) throw txError;
-
-    // Update balance
-    const { data: balance, error: balError } = await supabase
-      .from("balances")
-      .select("amount")
-      .eq("user_id", user.id)
-      .single();
-
-    if (balError) throw balError;
-
-    const newAmount = (balance?.amount || 0) + amount;
-
-    const { error: updateError } = await supabase
-      .from("balances")
-      .update({ amount: newAmount, updated_at: new Date().toISOString() })
-      .eq("user_id", user.id);
-
-    if (updateError) throw updateError;
+    if (error) throw error;
 
     return jsonResponse(
-      {
-        data: { new_balance: newAmount, amount_added: amount },
-      },
+      { data: { new_balance: data, amount_added: amount } },
       200,
+      cors,
     );
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, cors);
   }
 });

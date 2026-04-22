@@ -13,11 +13,16 @@ function isDashboardRoute(pathname: string) {
   return /(^|\/)dashboard(\/|$)/.test(pathname);
 }
 
+function isCreateRoute(pathname: string) {
+  return /(^|\/)create(\/|$)/.test(pathname);
+}
+
 export function LocaleShell({ children }: LocaleShellProps) {
   const pathname = usePathname();
   const isDashboard = isDashboardRoute(pathname);
+  const isCreate = isCreateRoute(pathname);
 
-  if (isDashboard) {
+  if (isDashboard || isCreate) {
     return <>{children}</>;
   }
 

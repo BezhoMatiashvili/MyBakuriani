@@ -97,7 +97,7 @@ export default function ServiceOrdersPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+      <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
         {
           "\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8 / \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
         }

@@ -2,11 +2,32 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  WizardShell,
+  WizardInnerCard,
+  WizardFooter,
+} from "@/components/forms/WizardShell";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+
+const VEHICLE_MAKES = [
+  "Toyota",
+  "Mercedes-Benz",
+  "Ford",
+  "Mitsubishi",
+  "Honda",
+  "Volkswagen",
+  "სხვა",
+];
+
+const TRANSPORT_TYPES = [
+  { value: "minivan", label: "მინივენი" },
+  { value: "sedan", label: "სედანი" },
+  { value: "suv", label: "SUV" },
+  { value: "bus", label: "ავტობუსი" },
+  { value: "other", label: "სხვა" },
+];
 
 export default function CreateTransportPage() {
   const router = useRouter();
@@ -16,11 +37,12 @@ export default function CreateTransportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [driverName, setDriverName] = useState("");
-  const [route, setRoute] = useState("");
+  const [vehicleMake, setVehicleMake] = useState("Mercedes-Benz");
+  const [transportType, setTransportType] = useState("minivan");
   const [vehicleCapacity, setVehicleCapacity] = useState("");
+  const [route, setRoute] = useState("");
+  const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [priceUnit, setPriceUnit] = useState("მგზავრი");
   const [schedule, setSchedule] = useState("");
@@ -35,7 +57,7 @@ export default function CreateTransportPage() {
       const { error: insertError } = await supabase.from("services").insert({
         owner_id: user.id,
         category: "transport",
-        title: title.trim(),
+        title: driverName.trim() || "ტრანსფერი",
         description: description.trim() || null,
         driver_name: driverName.trim() || null,
         route: route.trim() || null,
@@ -57,125 +79,154 @@ export default function CreateTransportPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-8 text-center text-2xl font-bold">
-        ტრანსპორტის განცხადება
-      </h1>
-
-      <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">
-            სათაური <span className="text-[#EF4444]">*</span>
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="მაგ: ტრანსფერი თბილისი-ბაკურიანი"
-            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">აღწერა</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="სერვისის აღწერა..."
-            rows={3}
-            className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">მძღოლის სახელი</label>
+    <WizardShell
+      title="ტრანსპორტი და ტრანსფერები"
+      accent="blue"
+      footer={
+        <WizardFooter
+          accent="blue"
+          backHref="/create"
+          onSubmit={handleSubmit}
+          submitLabel="განცხადების გამოქვეყნება"
+          submitDisabled={!driverName.trim()}
+          loading={loading}
+          error={error}
+        />
+      }
+    >
+      <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="blue">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="მძღოლის სახელი" required>
             <input
               type="text"
               value={driverName}
               onChange={(e) => setDriverName(e.target.value)}
-              placeholder="სახელი გვარი"
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              placeholder="გოგა მ."
+              className={inputClass}
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">ავტომობილის ტევადობა</label>
+          </Field>
+          <Field label="მანქანის მარკა" required>
+            <select
+              value={vehicleMake}
+              onChange={(e) => setVehicleMake(e.target.value)}
+              className={inputClass}
+            >
+              {VEHICLE_MAKES.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="ტრანსპორტის ტიპი" required>
+            <select
+              value={transportType}
+              onChange={(e) => setTransportType(e.target.value)}
+              className={inputClass}
+            >
+              {TRANSPORT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="რამდენ ადგილიანია მანქანა" required>
             <input
               type="number"
               value={vehicleCapacity}
               onChange={(e) => setVehicleCapacity(e.target.value)}
-              placeholder="მაგ: 4"
+              placeholder="8"
               min="1"
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              className={inputClass}
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">მარშრუტი</label>
+        <Field label="მარშრუტი">
           <input
             type="text"
             value={route}
             onChange={(e) => setRoute(e.target.value)}
             placeholder="მაგ: თბილისი → ბაკურიანი"
-            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+            className={inputClass}
           />
-        </div>
+        </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">ფასი (₾)</label>
+        <Field label="აღწერა">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="სერვისის აღწერა..."
+            rows={3}
+            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+          />
+        </Field>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="ფასი (₾)">
             <input
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0"
               min="0"
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              className={inputClass}
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">ერთეული</label>
+          </Field>
+          <Field label="ერთეული">
             <select
               value={priceUnit}
               onChange={(e) => setPriceUnit(e.target.value)}
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              className={inputClass}
             >
               <option value="მგზავრი">მგზავრი</option>
               <option value="მანქანა">მანქანა</option>
               <option value="მარშრუტი">მარშრუტი</option>
             </select>
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">განრიგი</label>
+        <Field label="განრიგი">
           <input
             type="text"
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
             placeholder="მაგ: ყოველდღე, 08:00-20:00"
-            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+            className={inputClass}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">საკონტაქტო ტელეფონი</label>
+        <Field label="საკონტაქტო ტელეფონი">
           <PhoneInput value={phone} onChange={setPhone} />
-        </div>
+        </Field>
+      </WizardInnerCard>
+    </WizardShell>
+  );
+}
 
-        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
+const inputClass =
+  "h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]";
 
-        <Button
-          onClick={handleSubmit}
-          disabled={loading || !title.trim()}
-          className="w-full"
-          size="lg"
-        >
-          {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-          განცხადების გამოქვეყნება
-        </Button>
-      </div>
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[13px] font-bold text-[#334155]">
+        {label}
+        {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
+      </label>
+      {children}
     </div>
   );
 }

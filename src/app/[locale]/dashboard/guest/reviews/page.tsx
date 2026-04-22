@@ -2,68 +2,57 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Star, MessageSquare } from "lucide-react";
+import Image from "next/image";
+import { Link } from "@/i18n/navigation";
+import { Star, Phone, MapPin, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import Image from "next/image";
 import type { Tables } from "@/lib/types/database";
 
-type ReviewWithProperty = Tables<"reviews"> & {
+type BookingRow = Tables<"bookings"> & {
   properties: Pick<
     Tables<"properties">,
-    "title" | "location" | "photos"
+    "id" | "title" | "location" | "photos"
   > | null;
 };
 
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          className={`h-4 w-4 ${
-            i < rating
-              ? "fill-amber-400 text-amber-400"
-              : "fill-muted text-muted"
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
+type ReviewRow = Tables<"reviews"> & {
+  properties: Pick<Tables<"properties">, "title" | "photos"> | null;
+};
 
 export default function GuestReviewsPage() {
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [reviews, setReviews] = useState<ReviewWithProperty[]>([]);
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-
-    async function fetchReviews() {
-      const { data } = await supabase
-        .from("reviews")
-        .select("*, properties(title, location, photos)")
-        .eq("guest_id", user!.id)
-        .order("created_at", { ascending: false });
-
-      if (data) setReviews(data as ReviewWithProperty[]);
+    async function fetchData() {
+      const [bkRes, rvRes] = await Promise.all([
+        supabase
+          .from("bookings")
+          .select("*, properties(id, title, location, photos)")
+          .eq("guest_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+        supabase
+          .from("reviews")
+          .select("*, properties(title, photos)")
+          .eq("guest_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+      if (bkRes.data) setBookings(bkRes.data as BookingRow[]);
+      if (rvRes.data) setReviews(rvRes.data as ReviewRow[]);
       setLoading(false);
     }
-
-    fetchReviews();
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  const averageRating =
-    reviews.length > 0
-      ? (
-          reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        ).toFixed(1)
-      : "0.0";
 
   return (
     <div className="space-y-6">
@@ -71,99 +60,134 @@ export default function GuestReviewsPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-          ჩემი შეფასებები
+        <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+          ისტორია და შეფასებები
         </h1>
-        <p className="mt-1 text-sm font-medium text-[#64748B]">
-          თქვენი დატოვებული შეფასებები და რეიტინგი
+        <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+          წარსული ჯავშნები და თქვენი შეფასებები.
         </p>
       </motion.div>
 
-      {/* Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="flex items-center gap-6 rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-      >
-        <div className="text-center">
-          <p className="text-3xl font-bold text-[#1E293B]">{averageRating}</p>
-          <StarRating rating={Math.round(Number(averageRating))} />
-        </div>
-        <div className="h-12 w-px bg-border" />
-        <div>
-          <p className="text-2xl font-bold text-[#1E293B]">{reviews.length}</p>
-          <p className="text-xs text-[#94A3B8]">სულ შეფასებები</p>
-        </div>
-      </motion.div>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+        >
+          <h2 className="text-[15px] font-black text-[#0F172A]">
+            ჩემი ჯავშნები
+          </h2>
 
-      {/* Reviews list */}
-      <div className="space-y-4">
-        {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-            >
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="mt-2 h-3 w-full" />
-              <Skeleton className="mt-1 h-3 w-3/4" />
-            </div>
-          ))
-        ) : reviews.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-          >
-            <MessageSquare className="h-12 w-12 text-[#94A3B8]" />
-            <p className="mt-3 text-sm text-[#94A3B8]">
-              შეფასებები ჯერ არ გაქვთ
-            </p>
-          </motion.div>
-        ) : (
-          reviews.map((review, index) => (
-            <motion.div
-              key={review.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
-                    {review.properties?.photos?.[0] && (
+          <div className="mt-4 space-y-3">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-xl" />
+              ))
+            ) : bookings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <History className="h-8 w-8 text-[#CBD5E1]" />
+                <p className="mt-2 text-[12px] text-[#94A3B8]">
+                  ჯავშნები არ არის
+                </p>
+              </div>
+            ) : (
+              bookings.map((b) => (
+                <Link
+                  key={b.id}
+                  href={`/apartments/${b.properties?.id ?? ""}`}
+                  className="flex items-center gap-3 rounded-xl border border-[#EEF1F4] bg-white p-3 transition-colors hover:border-[#0F8F60]/40"
+                >
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
+                    {b.properties?.photos?.[0] && (
                       <Image
-                        src={review.properties.photos[0]}
-                        alt={review.properties?.title ?? ""}
+                        src={b.properties.photos[0]}
+                        alt={b.properties.title}
                         fill
+                        sizes="48px"
                         className="object-cover"
                       />
                     )}
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#1E293B]">
-                      {review.properties?.title ?? "ობიექტი"}
-                    </h3>
-                    <p className="text-xs text-[#94A3B8]">
-                      {review.properties?.location}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-bold text-[#0F172A]">
+                      {b.properties?.title ?? "ობიექტი"}
+                    </p>
+                    <p className="flex items-center gap-1 text-[11px] text-[#94A3B8]">
+                      <MapPin className="h-3 w-3" />
+                      {b.properties?.location ?? "—"}
                     </p>
                   </div>
-                </div>
-                <StarRating rating={review.rating} />
+                  <span
+                    className={`shrink-0 rounded-full p-2 ${
+                      b.status === "confirmed" || b.status === "completed"
+                        ? "bg-[#DCFCE7] text-[#16A34A]"
+                        : "bg-[#FEF3C7] text-[#D97706]"
+                    }`}
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+        >
+          <h2 className="text-[15px] font-black text-[#0F172A]">
+            ჩემი შეფასებები
+          </h2>
+
+          <div className="mt-4 space-y-3">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 rounded-xl" />
+              ))
+            ) : reviews.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Star className="h-8 w-8 text-[#CBD5E1]" />
+                <p className="mt-2 text-[12px] text-[#94A3B8]">
+                  შეფასებები არ გაქვთ
+                </p>
               </div>
-
-              {review.comment && (
-                <p className="mt-3 text-sm text-[#94A3B8]">{review.comment}</p>
-              )}
-
-              <p className="mt-2 text-[10px] text-[#94A3B8]">
-                {new Date(review.created_at ?? "").toLocaleDateString("ka-GE")}
-              </p>
-            </motion.div>
-          ))
-        )}
+            ) : (
+              reviews.map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-xl border border-[#EEF1F4] bg-white p-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="truncate text-[13px] font-bold text-[#0F172A]">
+                      {r.properties?.title ?? "ობიექტი"}
+                    </p>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-3 w-3 ${
+                            i < (r.rating ?? 0)
+                              ? "text-[#F59E0B]"
+                              : "text-[#E2E8F0]"
+                          }`}
+                          fill="currentColor"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {r.comment && (
+                    <p className="mt-1 line-clamp-2 text-[12px] leading-[18px] text-[#64748B]">
+                      {r.comment}
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </motion.section>
       </div>
     </div>
   );

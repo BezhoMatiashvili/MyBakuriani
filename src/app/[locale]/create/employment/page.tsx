@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  WizardShell,
+  WizardInnerCard,
+  WizardFooter,
+} from "@/components/forms/WizardShell";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
 import { createClient } from "@/lib/supabase/client";
 
 export default function CreateEmploymentPage() {
@@ -16,6 +20,8 @@ export default function CreateEmploymentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("ცენტრი");
   const [position, setPosition] = useState("");
   const [description, setDescription] = useState("");
   const [salaryRange, setSalaryRange] = useState("");
@@ -32,8 +38,10 @@ export default function CreateEmploymentPage() {
       const { error: insertError } = await supabase.from("services").insert({
         owner_id: user.id,
         category: "employment",
-        title: position.trim(),
+        title: title.trim() || position.trim(),
         description: description.trim() || null,
+        position: position.trim() || null,
+        location: location || null,
         salary_range: salaryRange.trim() || null,
         experience_required: experience.trim() || null,
         employment_schedule: schedule.trim() || null,
@@ -51,87 +59,126 @@ export default function CreateEmploymentPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-8 text-center text-2xl font-bold">
-        დასაქმების განცხადება
-      </h1>
+    <WizardShell
+      title="დასაქმება ბაკურიანში"
+      accent="blue"
+      footer={
+        <WizardFooter
+          accent="blue"
+          backHref="/create"
+          onSubmit={handleSubmit}
+          submitLabel="განცხადების გამოქვეყნება"
+          submitDisabled={!title.trim() && !position.trim()}
+          loading={loading}
+          error={error}
+        />
+      }
+    >
+      <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="blue">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="დამსაქმებელი / ობიექტი" required>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="რესტორანი 'პანორამა'"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="ლოკაცია" required>
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className={inputClass}
+            >
+              <option value="ცენტრი">ცენტრი</option>
+              {SEARCH_LOCATION_ZONES.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
 
-      <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">
-            პოზიცია <span className="text-[#EF4444]">*</span>
-          </label>
+        <Field label="პოზიცია" required>
           <input
             type="text"
             value={position}
             onChange={(e) => setPosition(e.target.value)}
-            placeholder="მაგ: მიმტანი, ადმინისტრატორი"
-            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+            placeholder="მიმტანი / ბარმენი"
+            className={inputClass}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">აღწერა</label>
+        <Field label="აღწერა">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="სამუშაოს დეტალური აღწერა..."
             rows={4}
-            className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
-        </div>
+        </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">ანაზღაურება</label>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="ანაზღაურება">
             <input
               type="text"
               value={salaryRange}
               onChange={(e) => setSalaryRange(e.target.value)}
               placeholder="მაგ: 1000-1500 ₾"
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              className={inputClass}
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">გამოცდილება</label>
+          </Field>
+          <Field label="გამოცდილება">
             <input
               type="text"
               value={experience}
               onChange={(e) => setExperience(e.target.value)}
               placeholder="მაგ: 1 წელი"
-              className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+              className={inputClass}
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">განრიგი</label>
+        <Field label="განრიგი">
           <input
             type="text"
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
             placeholder="მაგ: ორშ-პარ, 09:00-18:00"
-            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+            className={inputClass}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">საკონტაქტო ტელეფონი</label>
+        <Field label="საკონტაქტო ტელეფონი">
           <PhoneInput value={phone} onChange={setPhone} />
-        </div>
+        </Field>
+      </WizardInnerCard>
+    </WizardShell>
+  );
+}
 
-        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
+const inputClass =
+  "h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]";
 
-        <Button
-          onClick={handleSubmit}
-          disabled={loading || !position.trim()}
-          className="w-full"
-          size="lg"
-        >
-          {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-          განცხადების გამოქვეყნება
-        </Button>
-      </div>
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[13px] font-bold text-[#334155]">
+        {label}
+        {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
+      </label>
+      {children}
     </div>
   );
 }

@@ -1,140 +1,61 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
-  corsHeaders,
+  buildCorsHeaders,
   errorResponse,
   jsonResponse,
   requireUser,
 } from "../_shared/guards.ts";
 
-// Pricing
-const PRICING = {
-  vip_boost: { cost: 1.5, duration_hours: 24, description: "VIP გამოკვეთა" },
-  super_vip: { cost: 5.0, duration_hours: 24, description: "Super VIP" },
-  sms_package: {
-    cost: 10.0,
-    sms_count: 200,
-    description: "SMS პაკეტი (200 SMS)",
-  },
-  discount_badge: {
-    cost: 1.0,
-    duration_hours: 24,
-    description: "ფასდაკლების ბეჯი",
-  },
-} as const;
+type PurchaseType =
+  | "vip_boost"
+  | "super_vip"
+  | "sms_package"
+  | "discount_badge";
 
-type PurchaseType = keyof typeof PRICING;
+const VALID_TYPES: readonly PurchaseType[] = [
+  "vip_boost",
+  "super_vip",
+  "sms_package",
+  "discount_badge",
+];
 
 serve(async (req) => {
+  const cors = buildCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
     const { supabase, user } = await requireUser(req);
 
-    const { purchase_type, property_id, days = 1 } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const purchase_type = body.purchase_type as string | undefined;
+    const property_id = body.property_id as string | null | undefined;
+    const days = Number.isFinite(Number(body.days)) ? Number(body.days) : 1;
 
-    if (!PRICING[purchase_type as PurchaseType]) {
+    if (
+      !purchase_type ||
+      !VALID_TYPES.includes(purchase_type as PurchaseType)
+    ) {
       throw new Error("არასწორი შეძენის ტიპი");
     }
 
-    const pricing = PRICING[purchase_type as PurchaseType];
-    const totalCost = pricing.cost * days;
-
-    // Check balance
-    const { data: balance, error: balError } = await supabase
-      .from("balances")
-      .select("amount, sms_remaining")
-      .eq("user_id", user.id)
-      .single();
-
-    if (balError) throw balError;
-    if (!balance || balance.amount < totalCost) {
-      throw new Error(
-        `არასაკმარისი ბალანსი. საჭიროა: ${totalCost} ₾, ხელმისაწვდომია: ${balance?.amount || 0} ₾`,
-      );
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      throw new Error("არასწორი დღეების რაოდენობა");
     }
 
-    // Deduct from balance
-    const newBalance = balance.amount - totalCost;
-    await supabase
-      .from("balances")
-      .update({
-        amount: newBalance,
-        ...(purchase_type === "sms_package"
-          ? {
-              sms_remaining:
-                (balance.sms_remaining || 0) +
-                (pricing as { sms_count: number }).sms_count,
-            }
-          : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", user.id);
-
-    // Create transaction
-    await supabase.from("transactions").insert({
-      user_id: user.id,
-      amount: -totalCost,
-      type: purchase_type,
-      description: `${pricing.description} (${days} დღე)`,
-      reference_id: property_id || null,
+    const { data, error } = await supabase.rpc("purchase_vip", {
+      p_user_id: user.id,
+      p_purchase_type: purchase_type,
+      p_property_id: property_id ?? null,
+      p_days: days,
     });
 
-    // Apply VIP flags to property if applicable
-    if (
-      property_id &&
-      (purchase_type === "vip_boost" || purchase_type === "super_vip")
-    ) {
-      const expiresAt = new Date();
-      expiresAt.setHours(
-        expiresAt.getHours() +
-          (pricing as { duration_hours: number }).duration_hours * days,
-      );
+    if (error) throw error;
 
-      await supabase
-        .from("properties")
-        .update({
-          ...(purchase_type === "vip_boost"
-            ? { is_vip: true }
-            : { is_super_vip: true }),
-          vip_expires_at: expiresAt.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", property_id)
-        .eq("owner_id", user.id);
-    }
-
-    // Apply discount badge to property
-    if (property_id && purchase_type === "discount_badge") {
-      await supabase
-        .from("properties")
-        .update({
-          discount_percent: 10, // default discount badge percentage
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", property_id)
-        .eq("owner_id", user.id);
-    }
-
-    return jsonResponse(
-      {
-        data: {
-          purchase_type,
-          cost: totalCost,
-          new_balance: newBalance,
-          ...(purchase_type === "sms_package"
-            ? {
-                sms_remaining:
-                  (balance.sms_remaining || 0) +
-                  (pricing as { sms_count: number }).sms_count,
-              }
-            : {}),
-        },
-      },
-      200,
-    );
+    return jsonResponse({ data }, 200, cors);
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, cors);
   }
 });

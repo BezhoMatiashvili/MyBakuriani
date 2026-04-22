@@ -40,6 +40,7 @@ interface SearchBoxProps {
   dropdownPortalRef?: React.RefObject<HTMLDivElement | null>;
   dropdownBoundaryRef?: React.RefObject<HTMLElement | null>;
   onActiveDropdownChange?: (active: ActiveDropdown) => void;
+  isPending?: boolean;
 }
 
 // ─── Location zones ──────────────────────────────────────────────────
@@ -153,6 +154,7 @@ export function SearchBox({
   dropdownPortalRef,
   dropdownBoundaryRef,
   onActiveDropdownChange,
+  isPending = false,
 }: SearchBoxProps) {
   const [location, setLocation] = useState(defaultLocation);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -431,9 +433,14 @@ export function SearchBox({
         <div className="flex justify-end">
           <Button
             type="submit"
-            className="h-10 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover"
+            disabled={isPending}
+            className="h-10 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover disabled:opacity-70"
           >
-            <Search className="size-4" />
+            {isPending ? (
+              <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <Search className="size-4" />
+            )}
             ძებნა
           </Button>
         </div>
@@ -559,9 +566,14 @@ export function SearchBox({
         {/* Search button */}
         <Button
           type="submit"
-          className="ml-2 size-[34px] shrink-0 rounded-full bg-brand-accent text-white hover:bg-brand-accent-hover"
+          disabled={isPending}
+          className="ml-2 size-[34px] shrink-0 rounded-full bg-brand-accent text-white hover:bg-brand-accent-hover disabled:opacity-70"
         >
-          <Search className="size-4" />
+          {isPending ? (
+            <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          ) : (
+            <Search className="size-4" />
+          )}
         </Button>
       </div>
 

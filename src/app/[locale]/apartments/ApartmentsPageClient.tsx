@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   Home,
@@ -69,6 +76,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
   const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
@@ -79,7 +87,9 @@ export default function ApartmentsPageClient({ properties }: Props) {
       if (sf.guests) params.set("guests", String(sf.guests));
       if (sf.cadastralCode) params.set("cadastral", sf.cadastralCode);
       params.set("mode", mode);
-      router.push(`/search?${params.toString()}`);
+      startTransition(() => {
+        router.push(`/search?${params.toString()}`);
+      });
     },
     [mode, router],
   );
@@ -185,6 +195,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
           <div className="mt-6">
             <SearchBox
               onSearch={handleSearch}
+              isPending={isPending}
               className="shadow-[var(--shadow-search)]"
               dropdownPortalRef={dropdownPortalRef}
               dropdownBoundaryRef={dropdownBoundaryRef}

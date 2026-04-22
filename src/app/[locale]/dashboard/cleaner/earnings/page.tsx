@@ -88,7 +88,7 @@ export default function CleanerEarningsPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+        <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
           შემოსავალი
         </h1>
         <p className="mt-1 text-sm font-medium text-[#64748B]">

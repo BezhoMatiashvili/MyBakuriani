@@ -1,31 +1,40 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
-  corsHeaders,
+  buildCorsHeaders,
   errorResponse,
   jsonResponse,
   requireUser,
 } from "../_shared/guards.ts";
 
 serve(async (req) => {
+  const cors = buildCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
     const { supabase, user } = await requireUser(req);
 
-    const { booking_id, action, owner_response } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { booking_id, action, owner_response } = body;
 
-    // Fetch booking
+    if (!booking_id || typeof booking_id !== "string") {
+      throw new Error("ჯავშანი ვერ მოიძებნა");
+    }
+    if (action !== "accept" && action !== "reject") {
+      throw new Error("არასწორი მოქმედება. გამოიყენეთ 'accept' ან 'reject'");
+    }
+
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("*")
       .eq("id", booking_id)
-      .single();
+      .maybeSingle();
 
-    if (bookingError || !booking) throw new Error("ჯავშანი ვერ მოიძებნა");
+    if (bookingError) throw bookingError;
+    if (!booking) throw new Error("ჯავშანი ვერ მოიძებნა");
 
-    // Only owner can manage
     if (booking.owner_id !== user.id) {
       throw new Error("მხოლოდ მფლობელს შეუძლია ჯავშნის მართვა");
     }
@@ -34,58 +43,48 @@ serve(async (req) => {
       throw new Error("ჯავშანი უკვე დამუშავებულია");
     }
 
-    if (action === "accept") {
-      // Accept booking
-      const { error: updateError } = await supabase
-        .from("bookings")
-        .update({
-          status: "confirmed",
-          owner_response: owner_response || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", booking_id);
+    const nextStatus = action === "accept" ? "confirmed" : "cancelled";
 
-      if (updateError) throw updateError;
+    const { error: updateError, data: updated } = await supabase
+      .from("bookings")
+      .update({
+        status: nextStatus,
+        owner_response: owner_response || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", booking_id)
+      .eq("status", "pending") // optimistic concurrency guard
+      .select("*")
+      .maybeSingle();
 
-      // Calendar blocks will be created by the on_booking_confirmed trigger
+    if (updateError) throw updateError;
+    if (!updated) throw new Error("ჯავშანი უკვე დამუშავებულია");
 
-      // Notify guest
-      await supabase.from("notifications").insert({
-        user_id: booking.guest_id,
-        type: "booking",
-        title: "ჯავშანი დადასტურებულია",
-        message: `თქვენი ჯავშანი ${booking.check_in} - ${booking.check_out} დადასტურდა`,
-        action_url: `/dashboard/bookings/${booking.id}`,
+    if (action === "reject") {
+      // Free up the dates so other guests can book them
+      await supabase.rpc("release_booking_calendar", {
+        p_booking_id: booking_id,
       });
-
-      return jsonResponse({ data: { status: "confirmed", booking_id } }, 200);
-    } else if (action === "reject") {
-      // Reject booking
-      const { error: updateError } = await supabase
-        .from("bookings")
-        .update({
-          status: "cancelled",
-          owner_response: owner_response || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", booking_id);
-
-      if (updateError) throw updateError;
-
-      // Notify guest
-      await supabase.from("notifications").insert({
-        user_id: booking.guest_id,
-        type: "booking",
-        title: "ჯავშანი უარყოფილია",
-        message: `თქვენი ჯავშანი ${booking.check_in} - ${booking.check_out} უარყოფილია`,
-        action_url: `/dashboard/bookings/${booking.id}`,
-      });
-
-      return jsonResponse({ data: { status: "cancelled", booking_id } }, 200);
-    } else {
-      throw new Error("არასწორი მოქმედება. გამოიყენეთ 'accept' ან 'reject'");
     }
+
+    await supabase.from("notifications").insert({
+      user_id: booking.guest_id,
+      type: "booking",
+      title:
+        action === "accept" ? "ჯავშანი დადასტურებულია" : "ჯავშანი უარყოფილია",
+      message:
+        action === "accept"
+          ? `თქვენი ჯავშანი ${booking.check_in} - ${booking.check_out} დადასტურდა`
+          : `თქვენი ჯავშანი ${booking.check_in} - ${booking.check_out} უარყოფილია`,
+      action_url: `/dashboard/bookings/${booking.id}`,
+    });
+
+    return jsonResponse(
+      { data: { status: nextStatus, booking_id } },
+      200,
+      cors,
+    );
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, cors);
   }
 });

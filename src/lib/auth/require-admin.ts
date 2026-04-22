@@ -28,9 +28,9 @@ export async function requireAdmin(): Promise<
     .from("profiles")
     .select("role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (profile?.role !== "admin") {
+  if (!profile || profile.role !== "admin") {
     return {
       ok: false,
       response: Response.json({ error: "forbidden" }, { status: 403 }),

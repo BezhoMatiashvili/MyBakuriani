@@ -84,11 +84,31 @@
       "earnings": "Доходы",
       "orders": "Заказы",
       "bookings": "Бронирования",
-      "reviews": "Отзывы"
+      "reviews": "Отзывы",
+      "myRentals": "Мои квартиры",
+      "guests": "Гости",
+      "cleaners": "Уборщики",
+      "qrReviews": "QR отзывы",
+      "balanceAndVip": "Баланс и VIP",
+      "notificationsItem": "Уведомления"
     },
     "notifications": "{count} уведомлений",
+    "logout": "Выход",
+    "userIdPrefix": "ID:",
     "expand": "Развернуть",
-    "collapse": "Свернуть"
+    "collapse": "Свернуть",
+    "serviceSwitcher": "Переключить сервис",
+    "switcher": {
+      "rentalsRent": "Квартиры (аренда)",
+      "employment": "Занятость",
+      "services": "Транспорт / Сервис / Занятость / Развлечения",
+      "rentalsSale": "Квартиры (продажа)",
+      "food": "Еда",
+      "guest": "Гость",
+      "cleaner": "Уборщик",
+      "guestMode": "Режим гостя",
+      "guestModeDesc": "Подключить сервисы"
+    }
   },
   "HeroSection": {
     "title": "Самый надёжный гид в Бакуриани",
@@ -186,6 +206,7 @@
     "guests": "{count} гостей",
     "perNight": "₾/ночь",
     "view": "Смотреть",
+    "details": "Подробнее",
     "b2bPartner": "B2B Партнёр",
     "newlyBooked": "Только забронировано",
     "addToFavorites": "Добавить в избранное"
@@ -206,7 +227,9 @@
   "SmartMatchCard": {
     "guestRequests": "Запросы гостей",
     "seeWhatTheySearch": "Посмотрите, что ищут сейчас",
-    "ownersNote": "В кабинете владельцев вы можете просмотреть невыполненные запросы."
+    "ownersNote": "Гости ищут жильё на ваши даты и бюджет.",
+    "newRequest": "новых запросов",
+    "sendOffer": "Отправить предложение"
   },
   "BookingSidebar": {
     "days": {
@@ -292,9 +315,11 @@
     "ru": "RU"
   },
   "RenterDashboard": {
-    "welcome": "Добро пожаловать, {name}!",
+    "welcome": "Добро пожаловать, {name}",
     "defaultName": "Арендодатель",
     "subtitle": "Панель управления вашими объектами",
+    "seasonActive": "Ваша сезонная лицензия активна <b>до {date}</b>.",
+    "seasonEndDate": "15 марта",
     "monthlyIncome": "Доход за месяц",
     "receivable": "К получению (Долг)",
     "occupancy": "Загруженность",
@@ -303,6 +328,12 @@
     "properties": "Объекты",
     "balance": "Баланс",
     "myProperties": "Мои объекты",
+    "newProperty": "+ Новая квартира",
+    "adPromotion": "Продвижение объявления:",
+    "pay": "Оплатить",
+    "edit": "Редактировать",
+    "idPrefix": "ID:",
+    "viewsLabel": "Просмотры:",
     "viewAll": "Все",
     "views": "{count} просмотров",
     "statuses": {
@@ -311,6 +342,37 @@
       "pending": "На рассмотрении",
       "draft": "Черновик"
     }
+  },
+  "PaymentModal": {
+    "title": "Членский взнос",
+    "feeAmount": "Сумма взноса",
+    "perMonth": "₾ / мес",
+    "object": "Объект",
+    "status": "Статус",
+    "dueExpires": "Срок истёк",
+    "paidUntil": "Действует до",
+    "badgeDue": "К оплате",
+    "badgePaid": "Оплачено",
+    "explanationPending": "Чтобы сохранить активность объявления, пожалуйста, оплатите членский взнос за текущий месяц. До оплаты объект будет временно ограничен.",
+    "explanationPaid": "Ваш членский взнос успешно оплачен. Объявление полностью активно на платформе и отображается в поиске.",
+    "payButton": "Оплатить"
+  },
+  "SmartMatchModal": {
+    "title": "Входящие запросы",
+    "subtitle": "Гости, которые ищут жильё",
+    "banner": "Алгоритм покажет самые точные и свежие запросы первыми.",
+    "requestIdPrefix": "ID:",
+    "zone": "Зона",
+    "dates": "Даты",
+    "guest": "Гость",
+    "maxBudget": "Макс. бюджет",
+    "clientBudget": "Бюджет клиента",
+    "offerPropertyLabel": "Выберите объект для предложения:",
+    "seekingApartment": "{name} ищет жильё",
+    "matchLabel": "совпадение",
+    "skipButton": "Пропустить",
+    "sendButton": "Отправить",
+    "belowYourPrice": "Ниже вашей цены ({price})"
   },
   "ListingForm": {
     "back": "Назад",

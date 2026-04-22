@@ -350,6 +350,75 @@ export type Database = {
           },
         ];
       };
+      leads: {
+        Row: {
+          budget_max: number | null;
+          budget_min: number | null;
+          client_name: string;
+          client_phone: string | null;
+          created_at: string;
+          currency: string;
+          id: string;
+          next_action_at: string | null;
+          note: string | null;
+          owner_id: string;
+          priority: Database["public"]["Enums"]["lead_priority"];
+          property_id: string | null;
+          source: Database["public"]["Enums"]["lead_source"] | null;
+          stage: Database["public"]["Enums"]["lead_stage"];
+          updated_at: string;
+        };
+        Insert: {
+          budget_max?: number | null;
+          budget_min?: number | null;
+          client_name: string;
+          client_phone?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          next_action_at?: string | null;
+          note?: string | null;
+          owner_id: string;
+          priority?: Database["public"]["Enums"]["lead_priority"];
+          property_id?: string | null;
+          source?: Database["public"]["Enums"]["lead_source"] | null;
+          stage?: Database["public"]["Enums"]["lead_stage"];
+          updated_at?: string;
+        };
+        Update: {
+          budget_max?: number | null;
+          budget_min?: number | null;
+          client_name?: string;
+          client_phone?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          next_action_at?: string | null;
+          note?: string | null;
+          owner_id?: string;
+          priority?: Database["public"]["Enums"]["lead_priority"];
+          property_id?: string | null;
+          source?: Database["public"]["Enums"]["lead_source"] | null;
+          stage?: Database["public"]["Enums"]["lead_stage"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "leads_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           action_url: string | null;
@@ -529,6 +598,7 @@ export type Database = {
           bathrooms: number | null;
           cadastral_code: string | null;
           capacity: number | null;
+          completion_year: number | null;
           construction_status: string | null;
           created_at: string | null;
           currency: string | null;
@@ -547,6 +617,8 @@ export type Database = {
           owner_id: string;
           photos: string[] | null;
           price_per_night: number | null;
+          progress_note: string | null;
+          progress_note_updated_at: string | null;
           roi_percent: number | null;
           rooms: number | null;
           sale_price: number | null;
@@ -563,6 +635,7 @@ export type Database = {
           bathrooms?: number | null;
           cadastral_code?: string | null;
           capacity?: number | null;
+          completion_year?: number | null;
           construction_status?: string | null;
           created_at?: string | null;
           currency?: string | null;
@@ -581,6 +654,8 @@ export type Database = {
           owner_id: string;
           photos?: string[] | null;
           price_per_night?: number | null;
+          progress_note?: string | null;
+          progress_note_updated_at?: string | null;
           roi_percent?: number | null;
           rooms?: number | null;
           sale_price?: number | null;
@@ -597,6 +672,7 @@ export type Database = {
           bathrooms?: number | null;
           cadastral_code?: string | null;
           capacity?: number | null;
+          completion_year?: number | null;
           construction_status?: string | null;
           created_at?: string | null;
           currency?: string | null;
@@ -615,6 +691,8 @@ export type Database = {
           owner_id?: string;
           photos?: string[] | null;
           price_per_night?: number | null;
+          progress_note?: string | null;
+          progress_note_updated_at?: string | null;
           roi_percent?: number | null;
           rooms?: number | null;
           sale_price?: number | null;
@@ -1022,14 +1100,72 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      create_booking: {
+        Args: {
+          p_check_in: string;
+          p_check_out: string;
+          p_guest_id: string;
+          p_guest_message?: string;
+          p_guests_count?: number;
+          p_property_id: string;
+        };
+        Returns: {
+          check_in: string;
+          check_out: string;
+          created_at: string | null;
+          currency: string | null;
+          guest_id: string;
+          guest_message: string | null;
+          guests_count: number;
+          id: string;
+          owner_id: string;
+          owner_response: string | null;
+          property_id: string;
+          status: Database["public"]["Enums"]["booking_status"] | null;
+          total_price: number;
+          updated_at: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "bookings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       increment_views: { Args: { prop_id: string }; Returns: undefined };
       is_admin_user: { Args: never; Returns: boolean };
+      purchase_vip: {
+        Args: {
+          p_days?: number;
+          p_property_id?: string;
+          p_purchase_type: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      release_booking_calendar: {
+        Args: { p_booking_id: string };
+        Returns: number;
+      };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      topup_balance: {
+        Args: { p_amount: number; p_description?: string; p_user_id: string };
+        Returns: number;
+      };
     };
     Enums: {
       booking_status: "pending" | "confirmed" | "cancelled" | "completed";
       calendar_status: "available" | "booked" | "blocked";
+      lead_priority: "low" | "medium" | "high";
+      lead_source:
+        | "smart_match"
+        | "direct"
+        | "call"
+        | "walk_in"
+        | "referral"
+        | "other";
+      lead_stage: "new" | "contacted" | "shown" | "negotiating" | "closed";
       listing_status: "active" | "blocked" | "pending" | "draft";
       property_type: "apartment" | "cottage" | "hotel" | "studio" | "villa";
       service_category:
@@ -1191,6 +1327,16 @@ export const Constants = {
     Enums: {
       booking_status: ["pending", "confirmed", "cancelled", "completed"],
       calendar_status: ["available", "booked", "blocked"],
+      lead_priority: ["low", "medium", "high"],
+      lead_source: [
+        "smart_match",
+        "direct",
+        "call",
+        "walk_in",
+        "referral",
+        "other",
+      ],
+      lead_stage: ["new", "contacted", "shown", "negotiating", "closed"],
       listing_status: ["active", "blocked", "pending", "draft"],
       property_type: ["apartment", "cottage", "hotel", "studio", "villa"],
       service_category: [

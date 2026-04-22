@@ -84,11 +84,31 @@
       "earnings": "შემოსავალი",
       "orders": "შეკვეთები",
       "bookings": "ჯავშნები",
-      "reviews": "შეფასებები"
+      "reviews": "შეფასებები",
+      "myRentals": "ჩემი ბინები",
+      "guests": "სტუმრები",
+      "cleaners": "დამლაგებლები",
+      "qrReviews": "QR შეფასებები",
+      "balanceAndVip": "ბალანსი და VIP",
+      "notificationsItem": "შეტყობინებები"
     },
     "notifications": "{count} შეტყობინება",
+    "logout": "გამოსვლა",
+    "userIdPrefix": "ID:",
     "expand": "გაშლა",
-    "collapse": "ჩაკეცვა"
+    "collapse": "ჩაკეცვა",
+    "serviceSwitcher": "სერვისის შეცვლა",
+    "switcher": {
+      "rentalsRent": "ბინები (გაქირავება)",
+      "employment": "დასაქმება",
+      "services": "ტრანსპორტი / სერვისი / დასაქმება / გართობა",
+      "rentalsSale": "ბინები ( გაყიდვა )",
+      "food": "კვება",
+      "guest": "სტუმარი",
+      "cleaner": "დამლაგებელი",
+      "guestMode": "სტუმრის რეჟიმი",
+      "guestModeDesc": "სერვისების დაკავშმა"
+    }
   },
   "HeroSection": {
     "title": "ყველაზე სანდო გზამკვლევი ბაკურიანში",
@@ -186,6 +206,7 @@
     "guests": "{count} სტუმარი",
     "perNight": "₾/ღამე",
     "view": "ნახვა",
+    "details": "დეტალები",
     "b2bPartner": "B2B პარტნიორი",
     "newlyBooked": "ახალი დაკავებული",
     "addToFavorites": "ფავორიტებში დამატება"
@@ -206,7 +227,9 @@
   "SmartMatchCard": {
     "guestRequests": "სტუმრების მოთხოვნები",
     "seeWhatTheySearch": "ნახე რას ეძებენ ახლა",
-    "ownersNote": "მესაკუთრეების კაბინეტში შეგიძლიათ იხილოთ შეუსრულებელი მოთხოვნები."
+    "ownersNote": "თქვენს თარიღებზე და ბიუჯეტზე სტუმრები ეძებენ ბინას.",
+    "newRequest": "ახალი მოთხოვნა",
+    "sendOffer": "შეთავაზების გაგზავნა"
   },
   "BookingSidebar": {
     "days": {
@@ -292,9 +315,11 @@
     "ru": "RU"
   },
   "RenterDashboard": {
-    "welcome": "გამარჯობა, {name}!",
+    "welcome": "გამარჯობა, {name}",
     "defaultName": "მესაკუთრე",
     "subtitle": "თქვენი ობიექტების მართვის პანელი",
+    "seasonActive": "თქვენი სეზონური სანქციო აქტიურია <b>{date}მდე</b>.",
+    "seasonEndDate": "15 მარტა",
     "monthlyIncome": "თვის შემოსავალი",
     "receivable": "მისაღები (ვალი)",
     "occupancy": "დატვირთულობა",
@@ -303,14 +328,51 @@
     "properties": "ობიექტები",
     "balance": "ბალანსი",
     "myProperties": "ჩემი ობიექტები",
+    "newProperty": "+ ახალი ბინა",
+    "adPromotion": "განცხადების დანიშნურება:",
+    "pay": "საჩევრო",
+    "edit": "რედაქტირება",
+    "idPrefix": "ID:",
+    "viewsLabel": "ნახვები:",
     "viewAll": "ყველა",
     "views": "{count} ნახვა",
     "statuses": {
       "active": "აქტიური",
-      "blocked": "დაბლოკილი",
+      "blocked": "დაბლოკილია",
       "pending": "მოლოდინში",
       "draft": "დრაფტი"
     }
+  },
+  "PaymentModal": {
+    "title": "საწევრო გადასახადი",
+    "feeAmount": "საწევროს თანხა",
+    "perMonth": "₾ / თვე",
+    "object": "ობიექტი",
+    "status": "სტატუსი",
+    "dueExpires": "ვადა გაუვიდა",
+    "paidUntil": "ვადა გასდის",
+    "badgeDue": "გადასახდელია",
+    "badgePaid": "გადახდილია",
+    "explanationPending": "განცხადების აქტიურობის შესანარჩუნებლად, გთხოვთ დაფაროთ მიმდინარე თვის საწევრო გადასახადი. საწევროს დაფარვამდე ობიექტი დროებით შეიზღუდება.",
+    "explanationPaid": "თქვენი ობიექტის საწევრო წარმატებით არის გადახდილი. განცხადება სრულად აქტიურად პლატფორმაზე და ჩანს ძიების შედეგებში.",
+    "payButton": "გადახდა"
+  },
+  "SmartMatchModal": {
+    "title": "შემომავალი მოთხოვნები",
+    "subtitle": "სტუმრები, რომლებიც ეძებენ ბინას",
+    "banner": "ალგორითმი პირველ რიგში გაჩვენებთ ყველაზე ზუსტ და ახალ მოთხოვნებს.",
+    "requestIdPrefix": "ID:",
+    "zone": "ზონა",
+    "dates": "თარიღები",
+    "guest": "სტუმარი",
+    "maxBudget": "მაქს. ბიუჯეტი",
+    "clientBudget": "კლიენტის ბიუჯეტი",
+    "offerPropertyLabel": "აირჩიეთ ბინა შესათავაზებლად:",
+    "seekingApartment": "{name} ექებს ბინას",
+    "matchLabel": "თანხვედრა",
+    "skipButton": "გამოტოვება",
+    "sendButton": "გაგზავნა",
+    "belowYourPrice": "დაბალია თქვენს ფასზე ({price})"
   },
   "ListingForm": {
     "back": "უკან",

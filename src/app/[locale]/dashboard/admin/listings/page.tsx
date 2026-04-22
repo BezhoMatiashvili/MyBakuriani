@@ -58,9 +58,16 @@ export default function ListingsPage() {
     const res = await fetch(`/api/admin/listings?category=${category}`, {
       cache: "no-store",
     });
-    const payload = await res.json();
-    if (!res.ok) {
-      toast.error(payload.error ?? "ჩატვირთვა ვერ მოხერხდა");
+    const text = await res.text();
+    const payload = text
+      ? (JSON.parse(text) as {
+          error?: string;
+          kind?: "property" | "service";
+          rows?: unknown[];
+        })
+      : {};
+    if (!res.ok || !payload.kind || !payload.rows) {
+      toast.error(payload.error ?? `ჩატვირთვა ვერ მოხერხდა (${res.status})`);
       setRows([]);
     } else {
       setKind(payload.kind);
@@ -112,7 +119,10 @@ export default function ListingsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, kind, status: nextStatus }),
       });
-      const payload = await res.json();
+      const text = await res.text();
+      const payload = text
+        ? (JSON.parse(text) as { error?: string })
+        : ({} as { error?: string });
       if (!res.ok) throw new Error(payload.error ?? "შეცდომა");
       setRows((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r)),

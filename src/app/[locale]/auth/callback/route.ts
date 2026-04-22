@@ -1,17 +1,25 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// Only allow same-origin, absolute paths. Reject protocol-relative (`//host`)
+// and backslash-prefixed forms (`/\\host`) that some browsers treat as external.
+function safeNextPath(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  return raw;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Check if user has a profile to determine redirect
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -21,14 +29,12 @@ export async function GET(request: Request) {
           .from("profiles")
           .select("role")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (!profile) {
-          // New user — send to registration
           return NextResponse.redirect(`${origin}/auth/register`);
         }
 
-        // Existing user — redirect based on role
         const rolePaths: Record<string, string> = {
           admin: "/dashboard/admin",
           renter: "/dashboard/renter",
@@ -41,13 +47,11 @@ export async function GET(request: Request) {
           handyman: "/dashboard/service",
         };
         const dashboardPath = rolePaths[profile.role] ?? "/dashboard/guest";
-        return NextResponse.redirect(
-          `${origin}${next === "/dashboard" ? dashboardPath : next}`,
-        );
+        const target = next ?? dashboardPath;
+        return NextResponse.redirect(`${origin}${target}`);
       }
     }
   }
 
-  // Auth error — redirect to login
   return NextResponse.redirect(`${origin}/auth/login`);
 }

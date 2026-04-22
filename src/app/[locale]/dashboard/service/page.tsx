@@ -2,23 +2,34 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
+import { Link } from "@/i18n/navigation";
+import Image from "next/image";
 import {
   Briefcase,
   Eye,
   MessageSquare,
   Star,
   Plus,
-  MoreVertical,
+  Pencil,
+  Trash2,
+  CheckCircle2,
 } from "lucide-react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import StatCard from "@/components/cards/StatCard";
-import StatusBadge from "@/components/shared/StatusBadge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
+
+const CATEGORY_LABEL: Record<string, string> = {
+  entertainment: "გართობა",
+  transport: "ტრანსპორტი",
+  employment: "დასაქმება",
+  handyman: "ხელოსანი",
+  cleaning: "დალაგება",
+  food: "კვება",
+};
 
 export default function ServiceDashboardPage() {
   const supabase = createClient();
@@ -26,9 +37,9 @@ export default function ServiceDashboardPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    activeListings: 0,
-    totalViews: 0,
-    inquiriesThisMonth: 0,
+    active: 0,
+    views: 0,
+    inquiries: 0,
     rating: 0,
   });
 
@@ -36,44 +47,40 @@ export default function ServiceDashboardPage() {
     if (!user) return;
     setLoading(true);
 
-    const { data: svcData } = await supabase
-      .from("services")
-      .select("*")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false });
+    const [svcRes, profRes, inqRes] = await Promise.all([
+      supabase
+        .from("services")
+        .select("*")
+        .eq("owner_id", user.id)
+        .neq("category", "food")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("rating")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("sms_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("to_user_id", user.id)
+        .gte(
+          "created_at",
+          new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            1,
+          ).toISOString(),
+        ),
+    ]);
 
-    const myServices = svcData ?? [];
-    setServices(myServices);
-
-    const activeCount = myServices.filter((s) => s.status === "active").length;
-    const totalViews = myServices.reduce(
-      (sum, s) => sum + (s.views_count ?? 0),
-      0,
-    );
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("rating")
-      .eq("id", user.id)
-      .single();
-
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    const { count: inquiryCount } = await supabase
-      .from("sms_messages")
-      .select("*", { count: "exact", head: true })
-      .eq("to_user_id", user.id)
-      .gte("created_at", startOfMonth.toISOString());
-
+    const mine = svcRes.data ?? [];
+    setServices(mine);
     setStats({
-      activeListings: activeCount,
-      totalViews: totalViews,
-      inquiriesThisMonth: inquiryCount ?? 0,
-      rating: profile?.rating ?? 0,
+      active: mine.filter((s) => s.status === "active").length,
+      views: mine.reduce((sum, s) => sum + (s.views_count ?? 0), 0),
+      inquiries: inqRes.count ?? 0,
+      rating: Number(profRes.data?.rating ?? 0),
     });
-
     setLoading(false);
   }, [user, supabase]);
 
@@ -81,306 +88,231 @@ export default function ServiceDashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel("service-inquiries")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "sms_messages",
-          filter: `to_user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchData();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase, fetchData]);
-
-  const statusMap = (
-    s: string,
-  ): "active" | "blocked" | "pending" | "verified" => {
-    if (s === "active") return "active";
-    if (s === "blocked") return "blocked";
-    if (s === "draft") return "pending";
-    return "pending";
-  };
-
-  const categoryLabels: Record<string, string> = {
-    entertainment: "\u10D2\u10D0\u10E0\u10D7\u10DD\u10D1\u10D0",
-    transport: "\u10E2\u10E0\u10D0\u10DC\u10E1\u10DE\u10DD\u10E0\u10E2\u10D8",
-    employment: "\u10D3\u10D0\u10E1\u10D0\u10E5\u10DB\u10D4\u10D1\u10D0",
-    handyman: "\u10EE\u10D4\u10DA\u10DD\u10E1\u10D0\u10DC\u10D8",
-    cleaning: "\u10D3\u10D0\u10DA\u10D0\u10D2\u10D4\u10D1\u10D0",
-  };
+  async function removeService(id: string) {
+    await supabase.from("services").update({ status: "blocked" }).eq("id", id);
+    setServices((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, status: "blocked" } : s)),
+    );
+  }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-          {
-            "\u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8\u10E1 \u10D9\u10D0\u10D1\u10D8\u10DC\u10D4\u10E2\u10D8"
-          }
-        </h1>
+    <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+            სერვისის კაბინეტი
+          </h1>
+          <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+            მართე განცხადებები, უპასუხე მოთხოვნებს და გაააქტიურე VIP.
+          </p>
+        </div>
         <Link
           href="/create/service"
-          className="inline-flex items-center gap-2 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent/90"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(37,99,235,0.35)] hover:bg-[#1E40AF]"
         >
           <Plus className="h-4 w-4" />
-          {
-            "\u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D8\u10E1 \u10D3\u10D0\u10DB\u10D0\u10E2\u10D4\u10D1\u10D0"
-          }
+          დამატება
         </Link>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <StatCard
-          icon={<Briefcase className="h-5 w-5" />}
-          label={
-            "\u10D0\u10E5\u10E2\u10D8\u10E3\u10E0\u10D8 \u10D2\u10D0\u10DC\u10EA\u10EE\u10D0\u10D3\u10D4\u10D1\u10D4\u10D1\u10D8"
-          }
-          value={stats.activeListings}
-          change={null}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4"
+      >
+        <StatTile
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="აქტიური"
+          value={stats.active}
+          color="text-[#10B981]"
+          bg="bg-[#ECFDF5]"
           loading={loading}
         />
-        <StatCard
-          icon={<Eye className="h-5 w-5" />}
-          label={
-            "\u10DC\u10D0\u10EE\u10D5\u10D4\u10D1\u10D8 \u10E1\u10E3\u10DA"
-          }
-          value={stats.totalViews}
-          change={null}
+        <StatTile
+          icon={<Eye className="h-4 w-4" />}
+          label="სულ ნახვა"
+          value={stats.views.toLocaleString()}
+          color="text-[#2563EB]"
+          bg="bg-[#EFF6FF]"
           loading={loading}
         />
-        <StatCard
-          icon={<MessageSquare className="h-5 w-5" />}
-          label={
-            "\u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8 \u10D0\u10DB \u10D7\u10D5\u10D4\u10E8\u10D8"
-          }
-          value={stats.inquiriesThisMonth}
-          change={null}
+        <StatTile
+          icon={<MessageSquare className="h-4 w-4" />}
+          label="მოთხოვნა (თვე)"
+          value={stats.inquiries}
+          color="text-[#F97316]"
+          bg="bg-[#FFF7ED]"
           loading={loading}
         />
-        <StatCard
-          icon={<Star className="h-5 w-5" />}
-          label={"\u10E0\u10D4\u10D8\u10E2\u10D8\u10DC\u10D2\u10D8"}
-          value={stats.rating ? stats.rating.toFixed(1) : "\u2014"}
-          change={null}
+        <StatTile
+          icon={<Star className="h-4 w-4" fill="currentColor" />}
+          label="რეიტინგი"
+          value={stats.rating > 0 ? stats.rating.toFixed(1) : "—"}
+          color="text-[#F59E0B]"
+          bg="bg-[#FFFBEB]"
           loading={loading}
         />
-      </div>
+      </motion.div>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
-            {
-              "\u10E9\u10D4\u10DB\u10D8 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8"
-            }
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[16px] font-black text-[#0F172A]">
+            ჩემი განცხადებები
           </h2>
-          <Link
-            href="/dashboard/service/orders"
-            className="text-sm font-medium text-brand-accent hover:underline"
-          >
-            {"\u10E8\u10D4\u10D9\u10D5\u10D4\u10D7\u10D4\u10D1\u10D8"} →
-          </Link>
+          <span className="text-[12px] font-bold text-[#64748B]">
+            {services.length} სულ
+          </span>
         </div>
 
         {loading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-20 animate-pulse rounded-xl bg-[#F8FAFC]"
-              />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-[96px] rounded-[20px]" />
             ))}
           </div>
         ) : services.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#64748B]/30 p-8 text-center">
-            <Briefcase className="mx-auto h-10 w-10 text-[#94A3B8]/50" />
-            <p className="mt-2 text-sm text-[#94A3B8]">
-              {
-                "\u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D2\u10D0\u10E5\u10D5\u10D7 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D4\u10D1\u10D8"
-              }
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[#CBD5E1] bg-white py-16 text-center">
+            <Briefcase className="h-10 w-10 text-[#CBD5E1]" />
+            <p className="mt-3 text-[13px] font-bold text-[#0F172A]">
+              ჯერ არ გაქვს განცხადებები
+            </p>
+            <p className="mt-1 text-[11px] text-[#94A3B8]">
+              დაამატე პირველი სერვისი და მიიღე მოთხოვნები.
             </p>
             <Link
               href="/create/service"
-              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-accent hover:underline"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E40AF]"
             >
-              <Plus className="h-3.5 w-3.5" />
-              {
-                "\u10D3\u10D0\u10D0\u10DB\u10D0\u10E2\u10D4\u10D7 \u10DE\u10D8\u10E0\u10D5\u10D4\u10DA\u10D8 \u10E1\u10D4\u10E0\u10D5\u10D8\u10E1\u10D8"
-              }
+              <Plus className="h-4 w-4" />
+              დაამატე სერვისი
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {services.map((service, idx) => (
-              <motion.div
-                key={service.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
+          <ul className="space-y-3">
+            {services.map((s) => (
+              <li
+                key={s.id}
                 className="flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC]">
-                  {(service.photos ?? [])[0] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={(service.photos ?? [])[0]}
-                      alt={service.title}
-                      className="h-full w-full object-cover"
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
+                  {(s.photos ?? [])[0] ? (
+                    <Image
+                      src={(s.photos ?? [])[0]}
+                      alt={s.title}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-[#94A3B8]">
                       <Briefcase className="h-5 w-5" />
                     </div>
                   )}
+                  {s.is_vip && (
+                    <span className="absolute left-1 top-1 rounded bg-[#F97316] px-1 py-0.5 text-[8px] font-black uppercase text-white">
+                      VIP
+                    </span>
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate text-sm font-semibold">
-                      {service.title}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate text-[14px] font-black text-[#0F172A]">
+                      {s.title}
                     </h3>
-                    <StatusBadge
-                      status={statusMap(service.status ?? "draft")}
-                    />
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        s.status === "active"
+                          ? "bg-[#DCFCE7] text-[#16A34A]"
+                          : "bg-[#F1F5F9] text-[#64748B]"
+                      }`}
+                    >
+                      {s.status === "active" ? "აქტიური" : "გაუქმებული"}
+                    </span>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-3 text-xs text-[#94A3B8]">
-                    <span>
-                      {categoryLabels[service.category] ?? service.category}
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-[#94A3B8]">
+                    <span>{CATEGORY_LABEL[s.category] ?? s.category}</span>
+                    <span>·</span>
+                    <span className="inline-flex items-center gap-0.5">
+                      <Eye className="h-3 w-3" />
+                      {s.views_count ?? 0}
                     </span>
-                    {service.price != null && (
-                      <span className="font-medium text-[#1E293B]">
-                        {formatPrice(service.price)}
-                        {service.price_unit && ` / ${service.price_unit}`}
-                      </span>
+                    {s.price != null && (
+                      <>
+                        <span>·</span>
+                        <span className="font-bold text-[#0F172A]">
+                          {formatPrice(Number(s.price))}
+                          {s.price_unit && ` / ${s.price_unit}`}
+                        </span>
+                      </>
                     )}
-                    <span>
-                      {service.views_count} {"\u10DC\u10D0\u10EE\u10D5\u10D0"}
-                    </span>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="shrink-0 rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-[#F8FAFC] hover:text-[#1E293B]"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-              </motion.div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Link
+                    href={`/services/${s.id}`}
+                    className="rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-[#F8FAFC] hover:text-[#2563EB]"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => removeService(s.id)}
+                    className="rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-[#FEE2E2] hover:text-[#DC2626]"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
-
-      <RecentInquiries userId={user?.id} />
+      </motion.section>
     </div>
   );
 }
 
-function RecentInquiries({ userId }: { userId: string | undefined }) {
-  const supabase = createClient();
-  const [messages, setMessages] = useState<
-    (Tables<"sms_messages"> & { sender?: { display_name: string } })[]
-  >([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    async function load() {
-      const { data } = await supabase
-        .from("sms_messages")
-        .select(
-          "*, sender:profiles!sms_messages_from_user_id_fkey(display_name)",
-        )
-        .eq("to_user_id", userId!)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      setMessages((data as typeof messages) ?? []);
-      setLoading(false);
-    }
-
-    load();
-  }, [userId, supabase]);
-
-  if (loading) {
-    return (
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">
-          {
-            "\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
-          }
-        </h2>
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse rounded-xl bg-[#F8FAFC]"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (messages.length === 0) {
-    return (
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">
-          {
-            "\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
-          }
-        </h2>
-        <p className="text-sm text-[#94A3B8]">
-          {
-            "\u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8 \u10EF\u10D4\u10E0 \u10D0\u10E0 \u10D0\u10E0\u10D8\u10E1"
-          }
-        </p>
-      </div>
-    );
-  }
-
+function StatTile({
+  icon,
+  label,
+  value,
+  color,
+  bg,
+  loading,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  color: string;
+  bg: string;
+  loading: boolean;
+}) {
   return (
-    <div>
-      <h2 className="mb-3 text-lg font-semibold">
-        {
-          "\u10D1\u10DD\u10DA\u10DD \u10E8\u10D4\u10D9\u10D8\u10D7\u10EE\u10D5\u10D4\u10D1\u10D8"
-        }
-      </h2>
-      <div className="space-y-2">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className="flex items-center gap-3 rounded-[20px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {(msg.sender as { display_name: string } | undefined)
-                  ?.display_name ??
-                  "\u10DB\u10DD\u10DB\u10EE\u10DB\u10D0\u10E0\u10D4\u10D1\u10D4\u10DA\u10D8"}
-              </p>
-              <p className="truncate text-xs text-[#94A3B8]">{msg.message}</p>
-            </div>
-            {!msg.is_read && (
-              <span className="h-2 w-2 shrink-0 rounded-full bg-brand-accent" />
-            )}
-          </div>
-        ))}
+    <div className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+      <div
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${bg} ${color}`}
+      >
+        {icon}
       </div>
+      <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-[#64748B]">
+        {label}
+      </p>
+      {loading ? (
+        <Skeleton className="mt-1 h-7 w-20" />
+      ) : (
+        <p className={`mt-1 text-[22px] font-black leading-[28px] ${color}`}>
+          {value}
+        </p>
+      )}
     </div>
   );
 }

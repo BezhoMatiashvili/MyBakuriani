@@ -1,312 +1,259 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import {
-  Sparkles,
-  Eye,
-  CalendarCheck,
-  Star,
-  ArrowRight,
-  Search,
-  MessageSquare,
-  User,
-} from "lucide-react";
+import { ArrowRight, Megaphone, Eye } from "lucide-react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import StatCard from "@/components/cards/StatCard";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import Image from "next/image";
 import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
-type SmartMatchRequest = Tables<"smart_match_requests">;
 type Property = Tables<"properties">;
-
-const quickActions = [
-  {
-    label: "ობიექტის ძებნა",
-    href: "/search",
-    icon: Search,
-    color: "bg-brand-accent-light text-brand-accent",
-  },
-  {
-    label: "Smart Match",
-    href: "/dashboard/guest/bookings",
-    icon: Sparkles,
-    color: "bg-purple-100 text-purple-600",
-  },
-  {
-    label: "შეტყობინებები",
-    href: "/dashboard/notifications",
-    icon: MessageSquare,
-    color: "bg-green-100 text-green-600",
-  },
-  {
-    label: "პროფილი",
-    href: "/dashboard/guest/profile",
-    icon: User,
-    color: "bg-orange-100 text-orange-600",
-  },
-];
 
 export default function GuestDashboardPage() {
   const { user } = useAuth();
   const supabase = createClient();
 
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
-  const [bookingsCount, setBookingsCount] = useState(0);
-  const [reviewsCount, setReviewsCount] = useState(0);
-  const [smartMatches, setSmartMatches] = useState<SmartMatchRequest[]>([]);
-  const [recentProperties, setRecentProperties] = useState<Property[]>([]);
+  const [recent, setRecent] = useState<Property[]>([]);
+  const [transportSvc, setTransportSvc] = useState<Tables<"services">[]>([]);
+  const [newOfferCount, setNewOfferCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-
     async function fetchData() {
-      const [profileRes, bookingsRes, reviewsRes, matchesRes, propertiesRes] =
-        await Promise.all([
-          supabase.from("profiles").select("*").eq("id", user!.id).single(),
-          supabase
-            .from("bookings")
-            .select("*", { count: "exact", head: true })
-            .eq("guest_id", user!.id),
-          supabase
-            .from("reviews")
-            .select("*", { count: "exact", head: true })
-            .eq("guest_id", user!.id),
-          supabase
-            .from("smart_match_requests")
-            .select("*")
-            .eq("guest_id", user!.id)
-            .eq("status", "active")
-            .order("created_at", { ascending: false })
-            .limit(3),
-          supabase
-            .from("properties")
-            .select("*")
-            .eq("status", "active")
-            .order("views_count", { ascending: false })
-            .limit(4),
-        ]);
+      const [profileRes, propsRes, svcRes, smRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user!.id).single(),
+        supabase
+          .from("properties")
+          .select("*")
+          .eq("status", "active")
+          .order("views_count", { ascending: false })
+          .limit(3),
+        supabase
+          .from("services")
+          .select("*")
+          .in("category", ["transport", "entertainment"])
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(3),
+        supabase
+          .from("smart_match_requests")
+          .select("matched_properties")
+          .eq("guest_id", user!.id)
+          .eq("status", "active"),
+      ]);
 
       if (profileRes.data) setProfile(profileRes.data);
-      setBookingsCount(bookingsRes.count ?? 0);
-      setReviewsCount(reviewsRes.count ?? 0);
-      if (matchesRes.data) setSmartMatches(matchesRes.data);
-      if (propertiesRes.data) setRecentProperties(propertiesRes.data);
+      if (propsRes.data) setRecent(propsRes.data);
+      if (svcRes.data) setTransportSvc(svcRes.data);
+      if (smRes.data) {
+        const total = smRes.data.reduce(
+          (n, r) =>
+            n + ((r.matched_properties as unknown as unknown[]) ?? []).length,
+          0,
+        );
+        setNewOfferCount(total);
+      }
       setLoading(false);
     }
-
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const firstName = profile?.display_name?.split(" ")[0] ?? "სტუმარი";
+
   return (
-    <div className="space-y-8 p-6 sm:p-8 lg:p-12">
-      {/* Welcome */}
+    <div className="space-y-8">
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="space-y-2"
       >
-        <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-          გამარჯობა, {profile?.display_name ?? "სტუმარი"}!
+        <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+          გამარჯობა, {firstName}, მზად ხარ დასვენებისთვის? 🏔️
         </h1>
-        <p className="text-sm font-medium text-[#64748B]">
-          კეთილი იყოს თქვენი მობრძანება MyBakuriani-ზე
+        <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+          აქ მოელის ახალი თავგადასავალი — ჯავშნები, შეთავაზებები და სერვისები
+          ერთ სივრცეში.
         </p>
       </motion.div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
-          icon={<CalendarCheck className="h-5 w-5" />}
-          label="ჯავშნები"
-          value={bookingsCount}
-          change={null}
-          loading={loading}
-        />
-        <StatCard
-          icon={<Star className="h-5 w-5" />}
-          label="შეფასებები"
-          value={reviewsCount}
-          change={null}
-          loading={loading}
-        />
-        <StatCard
-          icon={<Sparkles className="h-5 w-5" />}
-          label="Smart Match"
-          value={smartMatches.length}
-          change={null}
-          loading={loading}
-        />
-      </div>
-
-      {/* Smart Match Alerts */}
-      {smartMatches.length > 0 && (
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#1E293B]">
-              Smart Match შეტყობინებები
-            </h2>
-            <Link
-              href="/dashboard/guest/bookings"
-              className="flex items-center gap-1 text-sm text-brand-accent hover:underline"
-            >
-              ყველა
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="mt-3 space-y-3">
-            {smartMatches.map((match) => (
-              <div
-                key={match.id}
-                className="flex items-center justify-between rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-[#1E293B]">
-                      {match.check_in} - {match.check_out}
-                    </p>
-                    <p className="text-xs text-[#94A3B8]">
-                      {match.guests_count} სტუმარი
-                      {match.budget_max
-                        ? ` | ბიუჯეტი: ${formatPrice(Number(match.budget_max))}`
-                        : ""}
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="secondary">
-                  {(match.matched_properties ?? []).length} შესატყვისი
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </motion.section>
-      )}
-
-      {/* Quick Actions */}
-      <motion.section
+      <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
+        transition={{ delay: 0.05 }}
+        className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0F8F60] to-[#0B7A52] px-6 py-6 text-white shadow-[0px_10px_30px_-8px_rgba(15,143,96,0.35)] sm:px-8"
       >
-        <h2 className="text-lg font-semibold text-[#1E293B]">
-          სწრაფი მოქმედებები
+        <span className="inline-flex rounded-md bg-white/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide">
+          SMART MATCH
+        </span>
+        <h2 className="mt-3 text-[22px] font-black leading-[28px]">
+          {newOfferCount > 0
+            ? `თქვენ გაქვთ ${newOfferCount} ახალი შეთავაზება`
+            : "გაგზავნე მოთხოვნა და მიიღე საუკეთესო შეთავაზებები"}
         </h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Link
-                key={action.href}
-                href={action.href}
-                className="flex flex-col items-center gap-2 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-md"
-              >
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-full ${action.color}`}
-                >
-                  <Icon className="h-6 w-6" />
-                </div>
-                <span className="text-center text-xs font-medium text-[#1E293B]">
-                  {action.label}
-                </span>
-              </Link>
-            );
-          })}
+        <p className="mt-1.5 max-w-xl text-[13px] font-medium text-white/80">
+          დააფიქსირე სასურველი პირობები და მფლობელები პირდაპირ გამოგიგზავნიან
+          შეთავაზებებს.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            href="/dashboard/guest/bookings"
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-[13px] font-black text-[#0F172A] transition-transform hover:-translate-y-0.5"
+          >
+            მოთხოვნის გაგზავნა
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/dashboard/guest/bookings"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 text-[13px] font-bold text-white hover:bg-white/20"
+          >
+            <Megaphone className="h-4 w-4" />
+            მიღებული შეთავაზებები
+          </Link>
         </div>
-      </motion.section>
+      </motion.div>
 
-      {/* Recently Viewed / Popular Properties */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.3 }}
+        transition={{ delay: 0.1 }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#1E293B]">
-            პოპულარული ობიექტები
-          </h2>
+          <div>
+            <h2 className="text-[18px] font-black text-[#0F172A]">
+              ბოლოს ნანახი განცხადებები
+            </h2>
+            <p className="mt-0.5 text-[12px] font-medium text-[#64748B]">
+              გააგრძელე სადაც გაჩერდი.
+            </p>
+          </div>
           <Link
-            href="/search"
-            className="flex items-center gap-1 text-sm text-brand-accent hover:underline"
+            href="/apartments"
+            className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
           >
-            ყველა
+            ყველას ნახვა
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {loading
-            ? Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-                >
-                  <Skeleton className="h-32 w-full rounded-lg" />
-                  <Skeleton className="mt-3 h-4 w-3/4" />
-                  <Skeleton className="mt-2 h-3 w-1/2" />
-                </div>
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-[260px] rounded-[20px]" />
               ))
-            : recentProperties.map((property) => (
+            : recent.map((p) => (
                 <Link
-                  key={property.id}
+                  key={p.id}
                   href={
-                    property.is_for_sale
-                      ? `/sales/${property.id}`
-                      : `/apartments/${property.id}`
+                    p.is_for_sale ? `/sales/${p.id}` : `/apartments/${p.id}`
                   }
-                  className="group rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-md"
+                  className="group flex flex-col overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]"
                 >
-                  <div className="relative h-32 overflow-hidden rounded-lg bg-[#F8FAFC]">
-                    {(property.photos ?? [])[0] && (
+                  <div className="relative h-[150px] w-full overflow-hidden bg-[#F1F5F9]">
+                    {(p.photos ?? [])[0] && (
                       <Image
-                        src={(property.photos ?? [])[0]}
-                        alt={property.title}
+                        src={(p.photos ?? [])[0]}
+                        alt={p.title}
                         fill
-                        className="object-cover transition-transform group-hover:scale-105"
+                        sizes="400px"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     )}
-                    {property.is_vip && (
-                      <Badge className="absolute left-2 top-2 bg-amber-500 text-white">
+                    {p.is_vip && (
+                      <span className="absolute left-3 top-3 rounded-md bg-[#F97316] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
                         VIP
-                      </Badge>
+                      </span>
                     )}
                   </div>
-                  <h3 className="mt-3 truncate text-sm font-semibold text-[#1E293B]">
-                    {property.title}
-                  </h3>
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-xs text-[#94A3B8]">
-                      {property.location}
-                    </span>
-                    <span className="text-sm font-bold text-brand-accent">
-                      {formatPrice(Number(property.price_per_night ?? 0))}
-                      <span className="text-xs font-normal text-[#94A3B8]">
-                        {" "}
+                  <div className="flex flex-1 flex-col gap-1.5 p-4">
+                    <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
+                      {p.title}
+                    </h3>
+                    <p className="flex items-center gap-1 text-[12px] text-[#94A3B8]">
+                      <Eye className="h-3 w-3" />
+                      {p.views_count} ნახვა
+                    </p>
+                    <div className="mt-auto flex items-baseline gap-1 pt-2">
+                      <span className="text-[16px] font-black text-[#0F172A]">
+                        {formatPrice(Number(p.price_per_night ?? 0))}
+                      </span>
+                      <span className="text-[11px] font-medium text-[#94A3B8]">
                         /ღამე
                       </span>
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-[#94A3B8]">
-                    <Eye className="h-3 w-3" />
-                    {property.views_count} ნახვა
+                    </div>
                   </div>
                 </Link>
               ))}
         </div>
       </motion.section>
+
+      {transportSvc.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[18px] font-black text-[#0F172A]">
+                ტრანსპორტი და გართობა
+              </h2>
+              <p className="mt-0.5 text-[12px] font-medium text-[#64748B]">
+                დაიჯავშნე შესანიშნავი შთაბეჭდილებებისთვის.
+              </p>
+            </div>
+            <Link
+              href="/services"
+              className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
+            >
+              ყველას ნახვა
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {transportSvc.map((s) => (
+              <Link
+                key={s.id}
+                href={`/services/${s.id}`}
+                className="group flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]"
+              >
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
+                  {(s.photos ?? [])[0] && (
+                    <Image
+                      src={(s.photos ?? [])[0]}
+                      alt={s.title}
+                      width={64}
+                      height={64}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
+                    {s.title}
+                  </h3>
+                  {s.price != null && (
+                    <p className="mt-1 text-[13px] font-black text-[#0F172A]">
+                      {formatPrice(Number(s.price))}
+                      {s.price_unit && (
+                        <span className="text-[11px] font-medium text-[#94A3B8]">
+                          {" "}
+                          / {s.price_unit}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </motion.section>
+      )}
     </div>
   );
 }

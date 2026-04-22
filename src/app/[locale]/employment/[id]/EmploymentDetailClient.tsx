@@ -6,19 +6,18 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
-  MapPin,
-  Phone,
-  Eye,
   BadgeCheck,
   Briefcase,
-  Clock,
+  MapPin,
   Banknote,
-  GraduationCap,
-  CalendarDays,
+  Clock,
+  Building2,
+  Upload,
+  CheckCircle2,
+  FileText,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PhotoGallery } from "@/components/detail/PhotoGallery";
-import { formatPhone } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 
@@ -36,6 +35,12 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
+const REQUIREMENTS = [
+  "საშუალო განათლების პრიორიტეტი",
+  "სუფთა საქმიანობის დარეგულების და ფიზიკური გამძლეობა",
+  "კლიენტებთან კომუნიკაციის უნარი",
+];
+
 export default function EmploymentDetailClient({ service }: Props) {
   const router = useRouter();
   const owner = service.profiles;
@@ -51,161 +56,297 @@ export default function EmploymentDetailClient({ service }: Props) {
   }, [service.id]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8">
-      <motion.button
-        {...fadeIn}
-        onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        უკან დაბრუნება
-      </motion.button>
-
-      {(service.photos ?? []).length > 0 && (
-        <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-          <PhotoGallery photos={service.photos ?? []} title={service.title} />
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <div className="mb-6 flex items-center justify-between">
+        <motion.button
+          {...fadeIn}
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          უკან დაბრუნება
+        </motion.button>
+        <motion.div
+          {...fadeIn}
+          className="text-[12px] font-medium text-[#64748B]"
+        >
+          დასაქმების წილი
         </motion.div>
-      )}
+      </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-8">
-          {/* Title */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                ვაკანსია
-              </span>
-              {service.is_vip && (
-                <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                  VIP
-                </span>
-              )}
-            </div>
-            <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
-              {service.title}
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-              {service.location && (
-                <span className="flex items-center gap-1.5 font-medium">
-                  <MapPin className="h-4 w-4 text-[#2563EB]" />
-                  {service.location}
-                </span>
-              )}
-              <span className="flex items-center gap-1.5 font-medium">
-                <Eye className="h-4 w-4" />
-                {service.views_count} ნახვა
-              </span>
-            </div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+        <div>
+          {/* Badges */}
+          <motion.div
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="mb-3 flex items-center gap-2"
+          >
+            <span className="rounded-md bg-[#DBEAFE] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#2563EB]">
+              ვაკანსია
+            </span>
+            <span className="rounded-md bg-[#FEE2E2] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#DC2626]">
+              NEW
+            </span>
           </motion.div>
 
-          {/* Job details grid */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              ვაკანსიის დეტალები
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {service.position && (
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Briefcase className="h-5 w-5 text-indigo-600 shrink-0" />
-                  <div>
-                    <p className="text-xs text-[#94A3B8]">პოზიცია</p>
-                    <p className="font-medium">{service.position}</p>
-                  </div>
-                </div>
+          {/* Title */}
+          <motion.h1
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.15 }}
+            className="text-[32px] font-black leading-[40px] text-[#1E293B] sm:text-[40px] sm:leading-[48px]"
+          >
+            {service.title}
+          </motion.h1>
+
+          {/* Company */}
+          <motion.div
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="mt-3 flex items-center gap-2"
+          >
+            <Building2 className="h-4 w-4 text-[#2563EB]" />
+            <span className="flex items-center gap-1.5 text-[14px] font-medium text-[#1E293B]">
+              {owner?.display_name ?? "Crystal Resort Management"}
+              {owner?.is_verified && (
+                <BadgeCheck className="h-4 w-4 text-[#2563EB]" />
               )}
-              {service.salary_range && (
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Banknote className="h-5 w-5 text-indigo-600 shrink-0" />
-                  <div>
-                    <p className="text-xs text-[#94A3B8]">ანაზღაურება</p>
-                    <p className="font-medium">{service.salary_range}</p>
-                  </div>
-                </div>
-              )}
-              {service.experience_required && (
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <GraduationCap className="h-5 w-5 text-indigo-600 shrink-0" />
-                  <div>
-                    <p className="text-xs text-[#94A3B8]">გამოცდილება</p>
-                    <p className="font-medium">{service.experience_required}</p>
-                  </div>
-                </div>
-              )}
-              {service.employment_schedule && (
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <CalendarDays className="h-5 w-5 text-indigo-600 shrink-0" />
-                  <div>
-                    <p className="text-xs text-[#94A3B8]">სამუშაო განრიგი</p>
-                    <p className="font-medium">{service.employment_schedule}</p>
-                  </div>
-                </div>
-              )}
-              {service.schedule && (
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Clock className="h-5 w-5 text-indigo-600 shrink-0" />
-                  <div>
-                    <p className="text-xs text-[#94A3B8]">განრიგი</p>
-                    <p className="font-medium">{service.schedule}</p>
-                  </div>
-                </div>
-              )}
-              {service.phone && (
-                <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Phone className="h-5 w-5 text-indigo-600 shrink-0" />
-                  <div>
-                    <p className="text-xs text-[#94A3B8]">ტელეფონი</p>
-                    <p className="font-medium">{formatPhone(service.phone)}</p>
-                  </div>
-                </div>
-              )}
+            </span>
+            <span className="text-[13px] text-[#94A3B8]">
+              · {service.location ?? "ბაკურიანი"}
+            </span>
+          </motion.div>
+
+          {/* Stats grid */}
+          <motion.div
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          >
+            <div className="rounded-[16px] border border-[#E2E8F0] bg-white p-4">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                <MapPin className="h-3.5 w-3.5" />
+                ლოკაცია
+              </div>
+              <p className="mt-1 text-[15px] font-black text-[#1E293B]">
+                {service.location ?? "დიდგორი"}
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-[#E2E8F0] bg-[#F0FDF4] p-4">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#16A34A]">
+                <Banknote className="h-3.5 w-3.5" />
+                ანაზღაურება
+              </div>
+              <p className="mt-1 text-[15px] font-black text-[#16A34A]">
+                {service.salary_range ?? "60 ₾ / დღეში"}
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-[#E2E8F0] bg-white p-4">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                <Clock className="h-3.5 w-3.5" />
+                გრაფიკი
+              </div>
+              <p className="mt-1 text-[15px] font-black text-[#1E293B]">
+                {service.employment_schedule ?? "მოქნილი"}
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-[#E2E8F0] bg-white p-4">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                <Briefcase className="h-3.5 w-3.5" />
+                სფერო
+              </div>
+              <p className="mt-1 text-[15px] font-black text-[#1E293B]">
+                {service.position ?? "სასტუმრო"}
+              </p>
             </div>
           </motion.div>
 
           {/* Description */}
           {service.description && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
+            <motion.div
+              {...fadeIn}
+              transition={{ duration: 0.4, delay: 0.3 }}
+              className="mt-8"
+            >
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                სრული აღწერა
+                სამუშაოს აღწერა
               </h2>
-              <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
+              <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {service.description}
               </p>
             </motion.div>
           )}
+
+          {/* Requirements */}
+          <motion.div
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.35 }}
+            className="mt-8"
+          >
+            <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
+              მოთხოვნები და კომპეტენცია
+            </h2>
+            <ul className="space-y-3">
+              {REQUIREMENTS.map((req) => (
+                <li key={req} className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#22C55E]" />
+                  <span className="text-[14px] font-medium text-[#475569]">
+                    {req}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+
+          {/* Verified callout */}
+          {owner?.is_verified && (
+            <motion.div
+              {...fadeIn}
+              transition={{ duration: 0.4, delay: 0.4 }}
+              className="mt-8 rounded-[16px] border border-[#DBEAFE] bg-[#F0F7FF] p-4"
+            >
+              <p className="text-[13px] text-[#2563EB]">
+                <span className="font-black">ვერიფიცირებული სპეციალისტი.</span>{" "}
+                კომპანიის ყველა დეტალი გადამოწმებულია MyBakuriani-ის მიერ. რათა
+                გაუმჯობესოთ სამუშო ქონის დაცული მარჯვნივ.
+              </p>
+            </motion.div>
+          )}
+
+          {/* Application form */}
+          <motion.div
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.45 }}
+            className="mt-10 rounded-[24px] border border-[#E2E8F0] bg-white p-6 sm:p-8"
+          >
+            <h2 className="mb-2 text-center text-[22px] font-black text-[#1E293B]">
+              გამოხმაურე ვაკანსიას
+            </h2>
+            <p className="mb-6 text-center text-[13px] text-[#64748B]">
+              შეავსე ფორმა და დამსაქმებელი თქვენთან დაკავშირდება
+            </p>
+
+            {/* CV upload */}
+            <div className="mb-6 rounded-[16px] border-2 border-dashed border-[#DBEAFE] bg-[#F0F7FF] p-6 text-center">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#2563EB] text-white">
+                <Upload className="h-5 w-5" />
+              </div>
+              <p className="text-[14px] font-black text-[#1E293B]">
+                ატვირთე რეზიუმე (CV)
+              </p>
+              <p className="mt-1 text-[12px] text-[#64748B]">
+                PDF ან DOCX ფორმატი, მაქს. 10 მბ
+              </p>
+              <button
+                type="button"
+                className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-bold text-[#2563EB] hover:underline"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                CV-ის უფოფი ფოტო გენერირება ან ფაილის ატვირთვა
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-[#64748B]">
+                  სახელი და გვარი *
+                </label>
+                <input
+                  type="text"
+                  className="h-11 w-full rounded-[12px] border border-[#E2E8F0] bg-white px-3 text-sm outline-none focus:border-[#2563EB]"
+                  placeholder="შენი სახელი"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-[#64748B]">
+                  ტელეფონის ნომერი *
+                </label>
+                <input
+                  type="tel"
+                  className="h-11 w-full rounded-[12px] border border-[#E2E8F0] bg-white px-3 text-sm outline-none focus:border-[#2563EB]"
+                  placeholder="+995 5X XX XX XX"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-[#64748B]">
+                  დაწყების სასურველი თარიღი *
+                </label>
+                <input
+                  type="date"
+                  className="h-11 w-full rounded-[12px] border border-[#E2E8F0] bg-white px-3 text-sm outline-none focus:border-[#2563EB]"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-[#64748B]">
+                  ანაზღაურება (სასურველი)
+                </label>
+                <input
+                  type="text"
+                  className="h-11 w-full rounded-[12px] border border-[#E2E8F0] bg-white px-3 text-sm outline-none focus:border-[#2563EB]"
+                  placeholder="ფასი"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-[12px] font-medium text-[#64748B]">
+                  საცხოვრებელი ლოკაცია *
+                </label>
+                <input
+                  type="text"
+                  className="h-11 w-full rounded-[12px] border border-[#E2E8F0] bg-white px-3 text-sm outline-none focus:border-[#2563EB]"
+                  placeholder="მიუთითე ლოკაცია"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <div className="mb-2 text-[12px] font-medium text-[#64748B]">
+                  ენები
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {["ქართული", "ინგლისური", "რუსული"].map((lang) => (
+                    <label
+                      key={lang}
+                      className="flex cursor-pointer items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] transition-colors has-[:checked]:border-[#2563EB] has-[:checked]:bg-[#DBEAFE] has-[:checked]:text-[#2563EB]"
+                    >
+                      <input type="checkbox" className="sr-only" />
+                      {lang}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-[12px] font-medium text-[#64748B]">
+                  დამატებითი შეტყობინება
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-[12px] border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563EB]"
+                  placeholder="ხელი მოგვიწერეთ რაიმე დამატებითი ინფო..."
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={() => router.push("/auth/login")}
+              className="mt-6 h-12 w-full gap-2 rounded-full bg-[#2563EB] text-[15px] font-bold text-white hover:bg-[#1D4ED8]"
+            >
+              <Briefcase className="h-4 w-4" />
+              ვაკანსიის გაგზავნა
+            </Button>
+          </motion.div>
         </div>
 
         {/* Sidebar */}
-        <motion.div
+        <motion.aside
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
+          className="space-y-4"
         >
-          <div className="sticky top-24 rounded-[20px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
-            {/* Salary */}
-            {service.salary_range && (
-              <div className="mb-4">
-                <p className="text-xs text-[#94A3B8]">ანაზღაურება</p>
-                <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">
-                  {service.salary_range}
-                </span>
-              </div>
-            )}
-
-            {/* Position highlight */}
-            {service.position && (
-              <div className="mb-4 rounded-lg bg-indigo-50 p-3">
-                <p className="text-xs text-[#94A3B8]">პოზიცია</p>
-                <p className="font-semibold text-indigo-700">
-                  {service.position}
-                </p>
-              </div>
-            )}
-
-            <div className="my-4 border-t border-[#E2E8F0]" />
-
-            {/* Employer */}
+          <div className="sticky top-24 rounded-[20px] border border-[#E2E8F0] bg-white p-6">
+            <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              დამსაქმებლის პროფილი
+            </h3>
             <div className="mb-4 flex items-center gap-3">
-              <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
+              <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
                 {owner?.avatar_url ? (
                   <Image
                     src={owner.avatar_url}
@@ -220,27 +361,26 @@ export default function EmploymentDetailClient({ service }: Props) {
                 )}
               </div>
               <div>
-                <p className="text-sm font-medium text-[#1E293B]">
-                  {owner?.display_name ?? "დამსაქმებელი"}
+                <p className="text-[14px] font-black text-[#1E293B]">
+                  {owner?.display_name ?? "Crystal Resort Management"}
                 </p>
-                {owner?.is_verified && (
-                  <div className="flex items-center gap-1 text-xs text-brand-accent">
-                    <BadgeCheck className="size-3.5" />
-                    ვერიფიცირებული
-                  </div>
-                )}
+                <p className="text-[12px] text-[#94A3B8]">1 ქცრ რეაი</p>
               </div>
             </div>
-
-            <Button
-              onClick={() => router.push("/auth/login")}
-              className="h-[55px] w-full gap-2 rounded-2xl bg-indigo-600 text-[15px] font-bold tracking-[0.375px] text-white hover:bg-indigo-700"
-            >
-              <Briefcase className="h-4 w-4" />
-              გამოხმაურება
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="h-10 flex-1 rounded-full border-[#E2E8F0] text-[13px] font-bold"
+              >
+                ფილრო
+              </Button>
+              <Button className="h-10 flex-1 gap-1.5 rounded-full bg-[#2563EB] text-[13px] font-bold text-white hover:bg-[#1D4ED8]">
+                <MessageCircle className="h-3.5 w-3.5" />
+                მესიჯი
+              </Button>
+            </div>
           </div>
-        </motion.div>
+        </motion.aside>
       </div>
     </div>
   );

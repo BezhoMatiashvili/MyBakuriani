@@ -40,25 +40,19 @@ export function Footer() {
                 className="shrink-0"
               >
                 <path
+                  d="M12 10L20 24H4L12 10Z"
+                  fill="#3B82F6"
+                  stroke="#3B82F6"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <path
                   d="M20 2L32 22H8L20 2Z"
                   fill="white"
                   stroke="white"
                   strokeWidth="1.5"
                   strokeLinejoin="round"
                 />
-                <path
-                  d="M12 10L20 24H4L12 10Z"
-                  fill="#94A3B8"
-                  stroke="#94A3B8"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M20 2L24 8L20 10L16 8L20 2Z"
-                  fill="#0B1C2D"
-                  opacity="0.4"
-                />
-                <circle cx="30" cy="8" r="4" fill="#F97316" />
               </svg>
               <span className="text-xl font-bold">
                 <span className="text-[#F97316]">My</span>
@@ -155,7 +149,7 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-20 flex flex-col items-center justify-between gap-4 border-t border-white/[0.05] pt-8 text-[10px] font-bold uppercase tracking-[1px] text-white/60 sm:flex-row">
+        <div className="mt-20 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-8 text-[10px] font-bold uppercase tracking-[1px] text-white/60">
           <span>{t("copyright")}</span>
           <div className="flex gap-6">
             <Link
