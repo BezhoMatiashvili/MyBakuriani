@@ -25,6 +25,9 @@ export interface NewBookingRequestPayload {
   category: CategoryKey;
   checkIn: string;
   checkOut: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  guestsCount?: number;
 }
 
 interface Props {
@@ -45,6 +48,9 @@ export default function NewBookingRequestModal({
   const today = new Date().toISOString().slice(0, 10);
   const [checkIn, setCheckIn] = useState(today);
   const [checkOut, setCheckOut] = useState(today);
+  const [guestsCount, setGuestsCount] = useState<number>(2);
+  const [budgetMin, setBudgetMin] = useState<string>("");
+  const [budgetMax, setBudgetMax] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -68,7 +74,14 @@ export default function NewBookingRequestModal({
     e.preventDefault();
     setSubmitting(true);
     try {
-      await onSubmit({ category, checkIn, checkOut });
+      await onSubmit({
+        category,
+        checkIn,
+        checkOut,
+        guestsCount,
+        budgetMin: budgetMin ? Number(budgetMin) : undefined,
+        budgetMax: budgetMax ? Number(budgetMax) : undefined,
+      });
       onClose();
     } finally {
       setSubmitting(false);
@@ -196,6 +209,46 @@ export default function NewBookingRequestModal({
                         className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
                       />
                     </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+                    სტუმრების რაოდენობა
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={guestsCount}
+                    onChange={(e) =>
+                      setGuestsCount(Math.max(1, Number(e.target.value) || 1))
+                    }
+                    className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+                    ბიუჯეტი (₾ / ღამე)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="მინ."
+                      value={budgetMin}
+                      onChange={(e) => setBudgetMin(e.target.value)}
+                      className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="მაქს."
+                      value={budgetMax}
+                      onChange={(e) => setBudgetMax(e.target.value)}
+                      className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
+                    />
                   </div>
                 </div>
               </div>
