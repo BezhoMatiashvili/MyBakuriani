@@ -405,6 +405,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
                   amenityTags={
                     Array.isArray(p.amenities) ? (p.amenities as string[]) : []
                   }
+                  distanceToSlopeM={p.distance_to_slope_m}
                 />
               </ScrollReveal>
             ))}

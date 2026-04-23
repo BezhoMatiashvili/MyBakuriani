@@ -175,6 +175,8 @@ export default function ServicesPageClient({ services }: Props) {
                     discountPercent={s.discount_percent ?? 0}
                     isVip={s.is_vip ?? false}
                     variant="avatar"
+                    schedule={s.schedule}
+                    operatingHours={s.operating_hours}
                   />
                 </ScrollReveal>
               ))}

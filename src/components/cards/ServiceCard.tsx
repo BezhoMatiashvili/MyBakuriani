@@ -19,6 +19,8 @@ interface ServiceCardProps {
   discountPercent: number;
   isVip: boolean;
   variant?: "photo" | "avatar";
+  schedule?: string | null;
+  operatingHours?: string | null;
 }
 
 const categoryRouteMap: Record<string, string> = {
@@ -44,6 +46,8 @@ export default function ServiceCard({
   discountPercent,
   isVip,
   variant = "photo",
+  schedule,
+  operatingHours,
 }: ServiceCardProps) {
   const t = useTranslations("ServiceCard");
   const basePath = categoryRouteMap[category] ?? `/services/${category}`;
@@ -103,17 +107,26 @@ export default function ServiceCard({
                 {location}
               </p>
             )}
-            {price != null && (
+            {schedule || operatingHours ? (
               <p className="text-[12px] font-bold text-[#334155]">
-                <span className="text-[#94A3B8] font-medium">ფასი: </span>
-                <span className="text-[#1E293B]">{formatPrice(price)}</span>
-                {priceUnit && (
-                  <span className="text-[#94A3B8] font-medium">
-                    {" "}
-                    / {priceUnit}
-                  </span>
-                )}
+                <span className="text-[#94A3B8] font-medium">საათები: </span>
+                <span className="text-[#1E293B]">
+                  {schedule ?? operatingHours}
+                </span>
               </p>
+            ) : (
+              price != null && (
+                <p className="text-[12px] font-bold text-[#334155]">
+                  <span className="text-[#94A3B8] font-medium">ფასი: </span>
+                  <span className="text-[#1E293B]">{formatPrice(price)}</span>
+                  {priceUnit && (
+                    <span className="text-[#94A3B8] font-medium">
+                      {" "}
+                      / {priceUnit}
+                    </span>
+                  )}
+                </p>
+              )
             )}
           </div>
           <div className="mt-auto grid grid-cols-2 gap-2 pt-3">

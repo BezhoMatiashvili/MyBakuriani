@@ -381,6 +381,10 @@ export default function HotelsPageClient({ properties }: Props) {
                   discountPercent={p.discount_percent ?? 0}
                   isForSale={p.is_for_sale ?? false}
                   isHotel
+                  numericRating={p.numeric_rating ?? undefined}
+                  hotelStars={p.hotel_stars ?? undefined}
+                  roomType={p.room_type ?? undefined}
+                  isB2BPartner={p.is_b2b_partner ?? false}
                   amenityTags={
                     Array.isArray(p.amenities) ? (p.amenities as string[]) : []
                   }

@@ -647,6 +647,7 @@ export default function LandingPage({
         isSuperVip: p.is_super_vip ?? false,
         discountPercent: p.discount_percent ?? 0,
         isForSale: p.is_for_sale ?? false,
+        distanceToSlopeM: p.distance_to_slope_m,
       }))
     : MOCK_PROPERTIES;
 
@@ -667,10 +668,10 @@ export default function LandingPage({
           discountPercent: p.discount_percent ?? 0,
           isForSale: false,
           isHotel: true as const,
-          hotelStars: 4,
-          numericRating: 9.4,
-          isB2BPartner: p.is_vip ?? false,
-          roomType: "სტანდარტული ოთახი",
+          hotelStars: p.hotel_stars ?? undefined,
+          numericRating: p.numeric_rating ?? undefined,
+          isB2BPartner: p.is_b2b_partner ?? false,
+          roomType: p.room_type ?? undefined,
           amenities: p.location,
         }))
       : MOCK_HOTELS;
@@ -691,6 +692,8 @@ export default function LandingPage({
           priceUnit: s.price_unit,
           discountPercent: s.discount_percent ?? 0,
           isVip: s.is_vip ?? false,
+          schedule: s.schedule,
+          operatingHours: s.operating_hours,
         }));
     }
     return makeServiceCards(category, 4);
@@ -1173,6 +1176,8 @@ function ServiceSection({
     priceUnit: string | null;
     discountPercent: number;
     isVip: boolean;
+    schedule?: string | null;
+    operatingHours?: string | null;
   }>;
   href: string;
   muted?: boolean;
@@ -1271,6 +1276,7 @@ function PropertySection({
     hotelStars?: number;
     roomType?: string;
     amenities?: string;
+    distanceToSlopeM?: number | null;
   }>;
   href: string;
   muted?: boolean;

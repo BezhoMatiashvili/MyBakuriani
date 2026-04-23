@@ -605,8 +605,11 @@ export type Database = {
           description: string | null;
           developer: string | null;
           discount_percent: number | null;
+          distance_to_slope_m: number | null;
+          hotel_stars: number | null;
           house_rules: Json | null;
           id: string;
+          is_b2b_partner: boolean | null;
           is_for_sale: boolean | null;
           is_super_vip: boolean | null;
           is_vip: boolean | null;
@@ -614,6 +617,7 @@ export type Database = {
           location_lat: number | null;
           location_lng: number | null;
           min_booking_days: number | null;
+          numeric_rating: number | null;
           owner_id: string;
           photos: string[] | null;
           price_per_night: number | null;
@@ -621,6 +625,7 @@ export type Database = {
           progress_note_updated_at: string | null;
           renovation_status: string | null;
           roi_percent: number | null;
+          room_type: string | null;
           rooms: number | null;
           sale_price: number | null;
           status: Database["public"]["Enums"]["listing_status"] | null;
@@ -643,8 +648,11 @@ export type Database = {
           description?: string | null;
           developer?: string | null;
           discount_percent?: number | null;
+          distance_to_slope_m?: number | null;
+          hotel_stars?: number | null;
           house_rules?: Json | null;
           id?: string;
+          is_b2b_partner?: boolean | null;
           is_for_sale?: boolean | null;
           is_super_vip?: boolean | null;
           is_vip?: boolean | null;
@@ -652,6 +660,7 @@ export type Database = {
           location_lat?: number | null;
           location_lng?: number | null;
           min_booking_days?: number | null;
+          numeric_rating?: number | null;
           owner_id: string;
           photos?: string[] | null;
           price_per_night?: number | null;
@@ -659,6 +668,7 @@ export type Database = {
           progress_note_updated_at?: string | null;
           renovation_status?: string | null;
           roi_percent?: number | null;
+          room_type?: string | null;
           rooms?: number | null;
           sale_price?: number | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
@@ -681,8 +691,11 @@ export type Database = {
           description?: string | null;
           developer?: string | null;
           discount_percent?: number | null;
+          distance_to_slope_m?: number | null;
+          hotel_stars?: number | null;
           house_rules?: Json | null;
           id?: string;
+          is_b2b_partner?: boolean | null;
           is_for_sale?: boolean | null;
           is_super_vip?: boolean | null;
           is_vip?: boolean | null;
@@ -690,6 +703,7 @@ export type Database = {
           location_lat?: number | null;
           location_lng?: number | null;
           min_booking_days?: number | null;
+          numeric_rating?: number | null;
           owner_id?: string;
           photos?: string[] | null;
           price_per_night?: number | null;
@@ -697,6 +711,7 @@ export type Database = {
           progress_note_updated_at?: string | null;
           renovation_status?: string | null;
           roi_percent?: number | null;
+          room_type?: string | null;
           rooms?: number | null;
           sale_price?: number | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;

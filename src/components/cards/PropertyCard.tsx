@@ -32,6 +32,20 @@ interface PropertyCardProps {
   roomType?: string;
   amenities?: string;
   amenityTags?: string[];
+  distanceToSlopeM?: number | null;
+}
+
+function formatLocationWithDistance(
+  location: string,
+  distanceToSlopeM?: number | null,
+): string {
+  const zone = location.includes(",")
+    ? location.split(",").pop()?.trim() || location
+    : location;
+  if (distanceToSlopeM != null && distanceToSlopeM > 0) {
+    return `${zone} • ${distanceToSlopeM}მ ტრასამდე`;
+  }
+  return location;
 }
 
 export default function PropertyCard(props: PropertyCardProps) {
@@ -57,7 +71,11 @@ export default function PropertyCard(props: PropertyCardProps) {
     roomType,
     amenities,
     amenityTags,
+    distanceToSlopeM,
   } = props;
+  const displayLocation = isHotel
+    ? location
+    : formatLocationWithDistance(location, distanceToSlopeM);
   const href = isHotel
     ? `/hotels/${id}`
     : isForSale
@@ -158,13 +176,13 @@ export default function PropertyCard(props: PropertyCardProps) {
         <div className="flex flex-1 flex-col p-5">
           {isHotel ? (
             <div className="min-h-[44px]">
-              <div className="flex items-center gap-2">
-                <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="min-w-0 flex-1 truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
                   {title}
                 </h3>
                 {numericRating != null && (
-                  <span className="shrink-0 text-[14px] font-bold text-[#1E293B]">
-                    {numericRating}
+                  <span className="shrink-0 rounded-[6px] bg-[#DCFCE7] px-2 py-0.5 text-[12px] font-black text-[#15803D]">
+                    {numericRating.toFixed(1)}
                   </span>
                 )}
               </div>
@@ -176,7 +194,7 @@ export default function PropertyCard(props: PropertyCardProps) {
             <div className="min-h-[44px]">
               <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
                 <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
-                {location}
+                {displayLocation}
               </p>
               <div className="mt-1 flex items-center gap-2">
                 <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
