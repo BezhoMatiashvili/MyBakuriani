@@ -4,6 +4,8 @@ import { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 
+import { HomeListingModeProvider } from "@/components/layout/HomeListingModeContext";
+
 interface LocaleShellProps {
   children: ReactNode;
 }
@@ -49,10 +51,10 @@ export function LocaleShell({ children }: LocaleShellProps) {
   }
 
   return (
-    <>
+    <HomeListingModeProvider>
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
-    </>
+    </HomeListingModeProvider>
   );
 }

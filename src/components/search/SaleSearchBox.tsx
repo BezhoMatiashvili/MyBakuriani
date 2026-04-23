@@ -55,6 +55,7 @@ interface SaleSearchBoxProps {
   onSearch: (filters: SaleSearchFilters) => void;
   className?: string;
   isPending?: boolean;
+  showInvestmentFilters?: boolean;
 }
 
 // ─── Option constants ──────────────────────────────────────────────────
@@ -163,6 +164,7 @@ export function SaleSearchBox({
   onSearch,
   className,
   isPending = false,
+  showInvestmentFilters = true,
 }: SaleSearchBoxProps) {
   const router = useRouter();
 
@@ -589,83 +591,85 @@ export function SaleSearchBox({
           </div>
 
           {/* ═══ Investment quick-filter row (ROI / Area / Status / Renovation) ═══ */}
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
-            <QuickSelect
-              label="მინიმალური ROI (%)"
-              value={roiLabel}
-              active={activeDropdown === "roi"}
-              onToggle={() => toggleDropdown("roi")}
-            >
-              <OptionList
-                options={ROI_OPTIONS.map((o) => ({
-                  key: o.value == null ? "null" : String(o.value),
-                  label: o.label,
-                  selected: o.value === roiMin,
-                  onSelect: () => {
-                    setRoiMin(o.value);
-                    setActiveDropdown(null);
-                  },
-                }))}
-              />
-            </QuickSelect>
+          {showInvestmentFilters && (
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
+              <QuickSelect
+                label="მინიმალური ROI (%)"
+                value={roiLabel}
+                active={activeDropdown === "roi"}
+                onToggle={() => toggleDropdown("roi")}
+              >
+                <OptionList
+                  options={ROI_OPTIONS.map((o) => ({
+                    key: o.value == null ? "null" : String(o.value),
+                    label: o.label,
+                    selected: o.value === roiMin,
+                    onSelect: () => {
+                      setRoiMin(o.value);
+                      setActiveDropdown(null);
+                    },
+                  }))}
+                />
+              </QuickSelect>
 
-            <QuickSelect
-              label="ფართი (მ²)"
-              value={areaLabel}
-              active={activeDropdown === "area"}
-              onToggle={() => toggleDropdown("area")}
-            >
-              <OptionList
-                options={AREA_OPTIONS.map((o) => ({
-                  key: o.value ?? "any",
-                  label: o.label,
-                  selected: o.value === areaBucket,
-                  onSelect: () => {
-                    setAreaBucket(o.value);
-                    setActiveDropdown(null);
-                  },
-                }))}
-              />
-            </QuickSelect>
+              <QuickSelect
+                label="ფართი (მ²)"
+                value={areaLabel}
+                active={activeDropdown === "area"}
+                onToggle={() => toggleDropdown("area")}
+              >
+                <OptionList
+                  options={AREA_OPTIONS.map((o) => ({
+                    key: o.value ?? "any",
+                    label: o.label,
+                    selected: o.value === areaBucket,
+                    onSelect: () => {
+                      setAreaBucket(o.value);
+                      setActiveDropdown(null);
+                    },
+                  }))}
+                />
+              </QuickSelect>
 
-            <QuickSelect
-              label="სტატუსი"
-              value={constructionLabel}
-              active={activeDropdown === "status"}
-              onToggle={() => toggleDropdown("status")}
-            >
-              <OptionList
-                options={CONSTRUCTION_OPTIONS.map((o) => ({
-                  key: o.value ?? "any",
-                  label: o.label,
-                  selected: o.value === constructionStatus,
-                  onSelect: () => {
-                    setConstructionStatus(o.value);
-                    setActiveDropdown(null);
-                  },
-                }))}
-              />
-            </QuickSelect>
+              <QuickSelect
+                label="სტატუსი"
+                value={constructionLabel}
+                active={activeDropdown === "status"}
+                onToggle={() => toggleDropdown("status")}
+              >
+                <OptionList
+                  options={CONSTRUCTION_OPTIONS.map((o) => ({
+                    key: o.value ?? "any",
+                    label: o.label,
+                    selected: o.value === constructionStatus,
+                    onSelect: () => {
+                      setConstructionStatus(o.value);
+                      setActiveDropdown(null);
+                    },
+                  }))}
+                />
+              </QuickSelect>
 
-            <QuickSelect
-              label="რემონტი"
-              value={renovationLabel}
-              active={activeDropdown === "renovation"}
-              onToggle={() => toggleDropdown("renovation")}
-            >
-              <OptionList
-                options={RENOVATION_OPTIONS.map((o) => ({
-                  key: o.value ?? "any",
-                  label: o.label,
-                  selected: o.value === renovationStatus,
-                  onSelect: () => {
-                    setRenovationStatus(o.value);
-                    setActiveDropdown(null);
-                  },
-                }))}
-              />
-            </QuickSelect>
-          </div>
+              <QuickSelect
+                label="რემონტი"
+                value={renovationLabel}
+                active={activeDropdown === "renovation"}
+                onToggle={() => toggleDropdown("renovation")}
+              >
+                <OptionList
+                  options={RENOVATION_OPTIONS.map((o) => ({
+                    key: o.value ?? "any",
+                    label: o.label,
+                    selected: o.value === renovationStatus,
+                    onSelect: () => {
+                      setRenovationStatus(o.value);
+                      setActiveDropdown(null);
+                    },
+                  }))}
+                />
+              </QuickSelect>
+            </div>
+          )}
         </>
       ) : (
         <AppraisalPane

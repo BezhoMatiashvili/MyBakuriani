@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -25,6 +25,7 @@ import SalePropertyCard from "@/components/cards/SalePropertyCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
+import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
 interface SaleLandingBodyProps {
   mode: "rent" | "sale";
@@ -149,6 +150,11 @@ export default function SaleLandingBody({
   saleProperties,
 }: SaleLandingBodyProps) {
   const router = useRouter();
+  const { setListingMode } = useHomeListingMode();
+
+  useEffect(() => {
+    setListingMode(mode);
+  }, [mode, setListingMode]);
 
   const handleSearch = useCallback(
     (sf: SaleSearchFilters) => {
@@ -201,7 +207,7 @@ export default function SaleLandingBody({
     <div className="flex flex-col">
       {/* ═══ 1. Hero (green) ═══ */}
       <section
-        className="relative flex min-h-[620px] items-start justify-center overflow-hidden px-4 pb-24 pt-16"
+        className="relative flex min-h-[620px] items-start justify-center overflow-hidden px-4 pb-16 pt-16"
         style={{
           background:
             "linear-gradient(180deg, #0B3A2C 0%, #0F4C3A 55%, #134E3A 100%)",
@@ -221,7 +227,7 @@ export default function SaleLandingBody({
 
         <div className="relative z-10 mx-auto w-full max-w-[1180px] text-center">
           <ScrollReveal>
-            <h1 className="text-3xl font-black leading-[1.05] tracking-[-1.25px] text-white sm:text-4xl md:text-[52px] md:leading-[56px]">
+            <h1 className="text-4xl font-black leading-[1.05] tracking-[-1.25px] text-white sm:text-5xl md:text-[64px] md:leading-[68px]">
               აღმოაჩინე ბაკურიანში
               <br />
               <span className="text-[#6EE7B7]">შენი ახალი სახლი</span>
@@ -233,7 +239,10 @@ export default function SaleLandingBody({
           </div>
 
           <div className="mt-6">
-            <SaleSearchBox onSearch={handleSearch} />
+            <SaleSearchBox
+              onSearch={handleSearch}
+              showInvestmentFilters={false}
+            />
           </div>
 
           <p className="mt-5 text-[13px] font-medium text-[#CBD5E1]">
@@ -244,36 +253,38 @@ export default function SaleLandingBody({
             </span>{" "}
             და მოგვცეს რეკომენდაცია
           </p>
-
-          {/* Stat cards */}
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard
-              label="სამშენ. ROI"
-              value="10.4%"
-              icon={<TrendingUp className="size-[18px] text-[#16A34A]" />}
-            />
-            <StatCard
-              label="დასრულება"
-              value="142 დღე"
-              icon={<CalendarCheck2 className="size-[18px] text-[#16A34A]" />}
-            />
-            <StatCard
-              label="ფასის ზრდა"
-              value="+12%"
-              icon={<ArrowUpRight className="size-[18px] text-[#16A34A]" />}
-            />
-            <StatCard
-              label="გირაო გარიგებები"
-              value="$142,000"
-              sublabel="დადასტურებული"
-              highlight
-            />
-          </div>
         </div>
       </section>
 
+      {/* ═══ Stat cards — straddle the green→white boundary ═══ */}
+      <div className="relative z-10 mx-auto -mt-20 w-full max-w-[1180px] px-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard
+            label="სამშენ. ROI"
+            value="10.4%"
+            icon={<TrendingUp className="size-[18px] text-[#16A34A]" />}
+          />
+          <StatCard
+            label="დასრულება"
+            value="142 დღე"
+            icon={<CalendarCheck2 className="size-[18px] text-[#16A34A]" />}
+          />
+          <StatCard
+            label="ფასის ზრდა"
+            value="+12%"
+            icon={<ArrowUpRight className="size-[18px] text-[#16A34A]" />}
+          />
+          <StatCard
+            label="გირაო გარიგებები"
+            value="$142,000"
+            sublabel="დადასტურებული"
+            highlight
+          />
+        </div>
+      </div>
+
       {/* ═══ 2. Selected Inventory — featured full-width card ═══ */}
-      <section className="mx-auto w-full max-w-[1180px] px-4 py-16">
+      <section className="mx-auto w-full max-w-[1180px] px-4 pb-16 pt-12">
         <ScrollReveal>
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>

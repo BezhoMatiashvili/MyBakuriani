@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Plus, Car, Video } from "lucide-react";
 import Image from "next/image";
@@ -15,6 +15,7 @@ import {
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import SaleLandingBody from "./SaleLandingBody";
+import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -586,6 +587,11 @@ export default function LandingPage({
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
   const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { setListingMode } = useHomeListingMode();
+
+  useEffect(() => {
+    setListingMode(mode);
+  }, [mode, setListingMode]);
 
   const mapProperties = useMemo<MapProperty[]>(() => {
     const seen = new Set<string>();
@@ -735,7 +741,7 @@ export default function LandingPage({
       {/* ═══ 1. Hero Section ═══ */}
       <section
         className={cn(
-          "relative flex min-h-[470px] items-start justify-center px-4 pb-20 pt-16",
+          "relative flex min-h-[470px] items-start justify-center px-4 pb-20 pt-16 sm:min-h-0 sm:overflow-visible sm:pb-0",
           activeDropdown ? "overflow-visible" : "overflow-hidden",
         )}
         style={{
@@ -835,7 +841,7 @@ export default function LandingPage({
               (location dropdown floats from SearchBox as overlay) */}
           <div
             className={cn(
-              "mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4",
+              "mt-8 grid grid-cols-2 gap-4 sm:-mb-[42px] sm:grid-cols-4",
               activeDropdown && activeDropdown !== "location"
                 ? "md:hidden"
                 : "",
@@ -872,7 +878,7 @@ export default function LandingPage({
       </section>
 
       {/* ═══ 3. Hot Offers + Smart Match Side-by-Side ═══ */}
-      <section className="mx-auto w-full max-w-[1160px] px-4 py-16">
+      <section className="mx-auto w-full max-w-[1160px] px-4 py-16 sm:pt-[120px]">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
             <div>

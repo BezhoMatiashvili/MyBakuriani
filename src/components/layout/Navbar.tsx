@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -52,7 +53,9 @@ const navItemKeys = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const { listingMode } = useHomeListingMode();
   const t = useTranslations("Navbar");
+  const showCategoryNav = pathname === "/" && listingMode === "rent";
   const { user, loading: authLoading, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -330,24 +333,26 @@ export function Navbar() {
         </Button>
       </div>
 
-      {/* Category Navigation Bar (desktop only) */}
-      <nav className="hidden border-b border-[#EEF1F4] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
-        <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-[60px] px-4 lg:gap-[104px]">
-          {navItemKeys.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex flex-col items-center gap-2 text-[#64748B] transition-colors hover:text-[#1E293B]"
-              >
-                <Icon className="size-[26px]" strokeWidth={1.5} />
-                <span className="text-[14px] font-bold">{t(item.key)}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      {/* Category Navigation Bar (desktop only) — home + rent mode */}
+      {showCategoryNav ? (
+        <nav className="hidden border-b border-[#EEF1F4] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
+          <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-[60px] px-4 lg:gap-[104px]">
+            {navItemKeys.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex flex-col items-center gap-2 text-[#64748B] transition-colors hover:text-[#1E293B]"
+                >
+                  <Icon className="size-[26px]" strokeWidth={1.5} />
+                  <span className="text-[14px] font-bold">{t(item.key)}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      ) : null}
 
       {/* Mobile Menu */}
       {mobileOpen && (
