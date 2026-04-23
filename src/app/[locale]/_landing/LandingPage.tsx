@@ -877,8 +877,34 @@ export default function LandingPage({
         </div>
       </section>
 
+      {/* ═══ 2.5 Verified-listings info banner ═══ */}
+      <div className="mx-auto mt-[70px] w-full max-w-[1160px] px-4 sm:mt-[84px]">
+        <div className="flex flex-col items-start gap-3 rounded-2xl border border-[#FFEDD5] bg-[#FFF7ED] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden
+              className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#F97316] text-[13px] font-black text-white"
+            >
+              i
+            </span>
+            <p className="text-[13px] font-medium leading-[20px] text-[#9A3412]">
+              <span className="font-bold text-[#7C2D12]">
+                გადამოწმებულ განცხადებებს ენიჭება ოქროს ფერი
+              </span>{" "}
+              — აირჩიეთ სანდო მესაკუთრეები უსაფრთხო ჯავშნისთვის.
+            </p>
+          </div>
+          <Link
+            href="/faq"
+            className="shrink-0 rounded-full border border-[#FFEDD5] bg-white px-4 py-2 text-[12px] font-bold text-[#F97316] transition-colors hover:bg-[#FFF7ED]"
+          >
+            კიდევ ნახე
+          </Link>
+        </div>
+      </div>
+
       {/* ═══ 3. Hot Offers + Smart Match Side-by-Side ═══ */}
-      <section className="mx-auto w-full max-w-[1160px] px-4 py-16 sm:pt-[120px]">
+      <section className="mx-auto w-full max-w-[1160px] px-4 pb-16 pt-8 sm:pt-10">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -938,6 +964,45 @@ export default function LandingPage({
         showAddButton
       />
 
+      {/* ═══ 5.5 Favourite service promo ═══ */}
+      <section className="px-4 pb-8 pt-4">
+        <div className="mx-auto max-w-[1160px]">
+          <ScrollReveal>
+            <div className="relative flex flex-col overflow-hidden rounded-[24px] border border-[#FEF3C7] bg-[#FFFBEB] shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:h-[180px] md:flex-row">
+              <div className="relative h-[180px] w-full shrink-0 md:w-[320px]">
+                <Image
+                  src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=500&fit=crop"
+                  alt=""
+                  fill
+                  sizes="(max-width: 768px) 100vw, 320px"
+                  className="object-cover"
+                />
+                <span className="absolute left-4 top-4 rounded-md bg-[#F59E0B] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                  PROMO
+                </span>
+              </div>
+              <div className="flex flex-1 flex-col items-start justify-center gap-3 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-10">
+                <div className="max-w-[520px]">
+                  <h3 className="text-[22px] font-black leading-[28px] text-[#1E293B]">
+                    საყვარელი სერვისი
+                  </h3>
+                  <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                    მოძებნეთ დადასტურებული და რეკომენდაციით გამორჩეული სერვისები
+                    თქვენთვის ხელსაყრელ ფასად.
+                  </p>
+                </div>
+                <Link
+                  href="/services"
+                  className="shrink-0 rounded-full border-2 border-[#F97316] bg-white px-6 py-3 text-[13px] font-bold text-[#F97316] transition-colors hover:bg-[#FFF7ED]"
+                >
+                  კიდევ ნახე
+                </Link>
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
       {/* ═══ 6. Transport Section ═══ */}
       <ServiceSection
         title="ტრანსპორტი და ტრანსფერები"
@@ -955,6 +1020,7 @@ export default function LandingPage({
         cards={servicesByCategory("handyman")}
         href="/services"
         showAddButton
+        cardVariant="avatar"
       />
 
       {/* ═══ 8. Entertainment Section ═══ */}
@@ -975,47 +1041,6 @@ export default function LandingPage({
         href="/food"
         showAddButton
       />
-
-      {/* ═══ 10. Advertising Banner (DIDVELI) ═══ */}
-      <section className="px-4 py-8">
-        <div className="mx-auto max-w-[1160px]">
-          <ScrollReveal>
-            <div className="relative flex h-[266px] overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_1px_3px_rgba(0,0,0,0.1)]">
-              <div className="relative w-[386px] shrink-0">
-                <Image
-                  src="https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&h=500&fit=crop"
-                  alt="DIDVELI"
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 386px"
-                  className="object-cover"
-                />
-                <span className="absolute right-4 top-4 rounded bg-[#1E293B]/80 px-3 py-1 text-[11px] font-bold uppercase text-white">
-                  DIDVELI
-                </span>
-              </div>
-              <div className="flex flex-1 items-center justify-between px-10 py-6">
-                <div>
-                  <span className="rounded bg-orange-100 px-2 py-1 text-[11px] font-bold text-[#9A3412]">
-                    სექცია A
-                  </span>
-                  <h3 className="mt-3 text-2xl font-black leading-[32px] text-[#1E293B]">
-                    სარეკლამო სივრცე
-                  </h3>
-                  <p className="mt-2 max-w-[384px] text-sm font-medium leading-[23px] text-[#64748B]">
-                    მოხვდით დასაწყისში და რეკლამირება გაუწიეთ დიდველის ხედებს.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="shrink-0 rounded-full border-2 border-[#1E293B] px-6 py-3 text-sm font-bold text-[#1E293B] hover:bg-[#1E293B]/5"
-                >
-                  გაიგე მეტი
-                </Button>
-              </div>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
 
       {/* ═══ 11. Employment Section ═══ */}
       <ServiceSection
@@ -1044,35 +1069,58 @@ export default function LandingPage({
             </div>
           </ScrollReveal>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {blogItems.map((post, i) => (
-              <ScrollReveal key={post.id} delay={i * 0.1}>
-                <Link
-                  href={`/blog/${post.id}`}
-                  className="group block overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
-                >
-                  <div className="relative aspect-[8/5] overflow-hidden">
-                    <Image
-                      src={post.image}
-                      alt={post.title}
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <time className="text-[11px] font-medium text-[#94A3B8]">
-                      {post.date}
-                    </time>
-                    <h3 className="mt-1 text-[17px] font-black leading-[21px] text-[#1E293B]">
-                      {post.title}
-                    </h3>
-                    <p className="mt-2 text-[13px] leading-[21px] text-[#64748B] line-clamp-2">
-                      {post.excerpt}
-                    </p>
-                  </div>
-                </Link>
-              </ScrollReveal>
-            ))}
+            {blogItems.map((post, i) => {
+              const chipPalette = [
+                { bg: "#DBEAFE", fg: "#1D4ED8", label: "სიახლეები" },
+                { bg: "#DCFCE7", fg: "#166534", label: "გზამკვლევი" },
+                { bg: "#FFEDD5", fg: "#C2410C", label: "სეზონი" },
+              ];
+              const chip = chipPalette[i % chipPalette.length];
+              const fallbackPhotos = [
+                "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&h=600&fit=crop",
+                "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
+                "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=800&h=600&fit=crop",
+              ];
+              const imgSrc =
+                post.image && post.image !== "/placeholder-property.jpg"
+                  ? post.image
+                  : fallbackPhotos[i % fallbackPhotos.length];
+              return (
+                <ScrollReveal key={post.id} delay={i * 0.1}>
+                  <Link
+                    href={`/blog/${post.id}`}
+                    className="group block overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+                  >
+                    <div className="relative aspect-[8/5] overflow-hidden">
+                      <Image
+                        src={imgSrc}
+                        alt={post.title}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <span
+                        className="absolute left-4 top-4 rounded-md px-2.5 py-1 text-[10px] font-black uppercase tracking-wide"
+                        style={{ backgroundColor: chip.bg, color: chip.fg }}
+                      >
+                        {chip.label}
+                      </span>
+                    </div>
+                    <div className="p-6">
+                      <time className="text-[11px] font-medium text-[#94A3B8]">
+                        {post.date}
+                      </time>
+                      <h3 className="mt-1 text-[17px] font-black leading-[21px] text-[#1E293B]">
+                        {post.title}
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-[21px] text-[#64748B] line-clamp-2">
+                        {post.excerpt}
+                      </p>
+                    </div>
+                  </Link>
+                </ScrollReveal>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -1110,9 +1158,11 @@ function ServiceSection({
   muted,
   showDiscountToggle,
   showAddButton,
+  cardVariant,
 }: {
   title: string;
   subtitle?: string;
+  cardVariant?: "photo" | "avatar";
   cards: Array<{
     id: string;
     title: string;
@@ -1177,8 +1227,10 @@ function ServiceSection({
         <div className="scrollbar-hide -mx-4 flex gap-6 overflow-x-auto px-4 scroll-smooth snap-x">
           {cards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
-              <div className="h-full w-[340px] shrink-0 snap-start">
-                <ServiceCard {...card} />
+              <div
+                className={`h-full shrink-0 snap-start ${cardVariant === "avatar" ? "w-[280px]" : "w-[340px]"}`}
+              >
+                <ServiceCard {...card} variant={cardVariant} />
               </div>
             </ScrollReveal>
           ))}
