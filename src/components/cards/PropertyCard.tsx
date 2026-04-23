@@ -137,9 +137,9 @@ export default function PropertyCard(props: PropertyCardProps) {
           <button
             type="button"
             onClick={(e) => e.preventDefault()}
-            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:text-[#F97316]"
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#F97316] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:bg-[#F97316] hover:text-white"
           >
-            <Heart className="h-4 w-4" />
+            <Heart className="h-4 w-4 fill-current" />
           </button>
 
           {isHotel && isB2BPartner && (
