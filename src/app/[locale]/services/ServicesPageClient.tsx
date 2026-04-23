@@ -174,6 +174,7 @@ export default function ServicesPageClient({ services }: Props) {
                     priceUnit={s.price_unit}
                     discountPercent={s.discount_percent ?? 0}
                     isVip={s.is_vip ?? false}
+                    variant="avatar"
                   />
                 </ScrollReveal>
               ))}
