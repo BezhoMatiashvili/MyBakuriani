@@ -27,12 +27,22 @@ interface Props {
   initialAmenities?: string[];
   initialPayment?: string[];
   initialDevelopers?: string[];
+  initialRoiMin?: number;
+  initialConstruction?: string;
+  initialRenovation?: string;
 }
 
 const STATUS_MAP: Record<string, RegExp> = {
   new: /(ახალი|new)/i,
   progress: /(მიმდინარე|progress|under)/i,
   ready: /(მზად|ready|complete|დასრულ)/i,
+};
+
+// Sale-tab `construction` URL param uses the Figma-aligned values which map
+// onto the existing free-text `construction_status` column.
+const CONSTRUCTION_MAP: Record<string, RegExp> = {
+  completed: /(დასრულ|completed|complete|მზა|ready)/i,
+  under_construction: /(მშენებარე|under|progress|in_progress)/i,
 };
 
 export default function SalesGridClient({
@@ -50,6 +60,9 @@ export default function SalesGridClient({
   initialAmenities,
   initialPayment,
   initialDevelopers,
+  initialRoiMin,
+  initialConstruction,
+  initialRenovation,
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const [listingTab, setListingTab] = useState<ListingTab>("all");
@@ -133,6 +146,21 @@ export default function SalesGridClient({
         (p) => p.developer && initialDevelopers.includes(p.developer),
       );
     }
+    if (initialRoiMin != null) {
+      list = list.filter(
+        (p) => p.roi_percent != null && Number(p.roi_percent) >= initialRoiMin,
+      );
+    }
+    if (initialConstruction) {
+      const matcher = CONSTRUCTION_MAP[initialConstruction];
+      list = list.filter((p) => {
+        const status = p.construction_status ?? "";
+        return matcher ? matcher.test(status) : status === initialConstruction;
+      });
+    }
+    if (initialRenovation) {
+      list = list.filter((p) => p.renovation_status === initialRenovation);
+    }
 
     if (listingTab === "vip") {
       list = list.filter((p) => p.is_vip || p.is_super_vip);
@@ -158,6 +186,9 @@ export default function SalesGridClient({
     initialAmenities,
     initialPayment,
     initialDevelopers,
+    initialRoiMin,
+    initialConstruction,
+    initialRenovation,
   ]);
 
   const totalPages = Math.max(

@@ -23,13 +23,29 @@ function isCreateRoute(pathname: string) {
   return /(^|\/)create(\/|$)/.test(pathname);
 }
 
+function isSalesIndexRoute(pathname: string) {
+  // Matches /sales and /{locale}/sales exactly — not detail pages like /sales/[id]
+  return /(^|\/)sales\/?$/.test(pathname);
+}
+
 export function LocaleShell({ children }: LocaleShellProps) {
   const pathname = usePathname();
   const isDashboard = isDashboardRoute(pathname);
   const isCreate = isCreateRoute(pathname);
+  const isSalesIndex = isSalesIndexRoute(pathname);
 
   if (isDashboard || isCreate) {
     return <>{children}</>;
+  }
+
+  if (isSalesIndex) {
+    // Sales index renders its own simplified top bar; keep global footer.
+    return (
+      <>
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </>
+    );
   }
 
   return (

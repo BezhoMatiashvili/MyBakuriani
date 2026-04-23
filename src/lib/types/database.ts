@@ -619,6 +619,7 @@ export type Database = {
           price_per_night: number | null;
           progress_note: string | null;
           progress_note_updated_at: string | null;
+          renovation_status: string | null;
           roi_percent: number | null;
           rooms: number | null;
           sale_price: number | null;
@@ -656,6 +657,7 @@ export type Database = {
           price_per_night?: number | null;
           progress_note?: string | null;
           progress_note_updated_at?: string | null;
+          renovation_status?: string | null;
           roi_percent?: number | null;
           rooms?: number | null;
           sale_price?: number | null;
@@ -693,6 +695,7 @@ export type Database = {
           price_per_night?: number | null;
           progress_note?: string | null;
           progress_note_updated_at?: string | null;
+          renovation_status?: string | null;
           roi_percent?: number | null;
           rooms?: number | null;
           sale_price?: number | null;

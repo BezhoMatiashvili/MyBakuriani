@@ -30,6 +30,9 @@ serve(async (req) => {
       area_min,
       area_max,
       verified_only,
+      roi_min,
+      construction_status,
+      renovation_status,
       lat,
       lng,
       page = 1,
@@ -76,6 +79,20 @@ serve(async (req) => {
     if (area_min) dbQuery = dbQuery.gte("area_sqm", area_min);
     if (area_max) dbQuery = dbQuery.lte("area_sqm", area_max);
     if (verified_only) dbQuery = dbQuery.eq("profiles.is_verified", true);
+
+    // Investment-mode filters. ROI excludes nulls so "min 5%" means
+    // "listings whose ROI is known to be ≥ 5%" — not unknown-ROI listings.
+    if (typeof roi_min === "number" && roi_min > 0) {
+      dbQuery = dbQuery
+        .not("roi_percent", "is", null)
+        .gte("roi_percent", roi_min);
+    }
+    if (typeof construction_status === "string" && construction_status) {
+      dbQuery = dbQuery.eq("construction_status", construction_status);
+    }
+    if (typeof renovation_status === "string" && renovation_status) {
+      dbQuery = dbQuery.eq("renovation_status", renovation_status);
+    }
 
     // Amenities filter — check JSONB contains each amenity
     if (amenities && Array.isArray(amenities) && amenities.length > 0) {

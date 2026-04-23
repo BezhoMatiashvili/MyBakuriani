@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   ChevronDown,
@@ -9,9 +10,13 @@ import {
   Map as MapIcon,
   SlidersHorizontal,
   BedDouble,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+
+// ─── Types ─────────────────────────────────────────────────────────────
 
 export interface SaleSearchFilters {
   location: string;
@@ -27,7 +32,40 @@ export interface SaleSearchFilters {
   amenities: string[];
   payment: string[];
   developers: string[];
+  // Investment-mode quick filters (from the 4-dropdown row):
+  roiMin: number | null; // 5 | 8 | 10 | null
+  constructionStatus: string | null; // "completed" | "under_construction" | null
+  renovationStatus: string | null; // "black_frame" | "white_frame" | "furnished" | null
 }
+
+type SaleTab = "search" | "appraise";
+
+type SaleActiveDropdown =
+  | "type"
+  | "rooms"
+  | "filters"
+  | "roi"
+  | "area"
+  | "status"
+  | "renovation"
+  | "zone"
+  | null;
+
+interface SaleSearchBoxProps {
+  onSearch: (filters: SaleSearchFilters) => void;
+  className?: string;
+  isPending?: boolean;
+}
+
+// ─── Option constants ──────────────────────────────────────────────────
+
+const PROPERTY_TYPES = [
+  { value: "apartment", label: "საცხოვრებელი ბინა" },
+  { value: "studio", label: "სტუდიო" },
+  { value: "villa", label: "ვილა" },
+  { value: "cottage", label: "ქოხი" },
+  { value: "hotel", label: "სასტუმრო" },
+];
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "new", label: "ახალი" },
@@ -58,27 +96,49 @@ const DEVELOPER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "Bakuriani Invest", label: "Bakuriani Invest" },
 ];
 
-const AREA_MIN = 0;
-const AREA_MAX = 500;
-const AREA_STEP = 5;
-const DEFAULT_AREA_MIN = 0;
-const DEFAULT_AREA_MAX = 500;
+// Investment quick-filter options (from Figma)
+const ROI_OPTIONS: Array<{ value: number | null; label: string }> = [
+  { value: null, label: "მნიშვნელობა არ აქვს" },
+  { value: 5, label: "5% - დან" },
+  { value: 8, label: "8% - დან" },
+  { value: 10, label: "10% - დან" },
+];
 
-type SaleActiveDropdown = "type" | "rooms" | "filters" | null;
+type AreaBucket = "20-40" | "40-70" | "70+" | null;
+const AREA_OPTIONS: Array<{ value: AreaBucket; label: string }> = [
+  { value: null, label: "ნებისმიერი" },
+  { value: "20-40", label: "20-40 მ²" },
+  { value: "40-70", label: "40-70 მ²" },
+  { value: "70+", label: "70+ მ²" },
+];
 
-interface SaleSearchBoxProps {
-  onSearch: (filters: SaleSearchFilters) => void;
-  className?: string;
-  isPending?: boolean;
+function areaBucketToRange(b: AreaBucket): { min: number; max: number } {
+  switch (b) {
+    case "20-40":
+      return { min: 20, max: 40 };
+    case "40-70":
+      return { min: 40, max: 70 };
+    case "70+":
+      return { min: 70, max: 500 };
+    default:
+      return { min: 0, max: 500 };
+  }
 }
 
-const PROPERTY_TYPES = [
-  { value: "apartment", label: "საცხოვრებელი ბინა" },
-  { value: "studio", label: "სტუდიო" },
-  { value: "villa", label: "ვილა" },
-  { value: "cottage", label: "ქოხი" },
-  { value: "hotel", label: "სასტუმრო" },
+const CONSTRUCTION_OPTIONS: Array<{ value: string | null; label: string }> = [
+  { value: null, label: "ყველა" },
+  { value: "completed", label: "მზა (დასრულებული)" },
+  { value: "under_construction", label: "მშენებარე" },
 ];
+
+const RENOVATION_OPTIONS: Array<{ value: string | null; label: string }> = [
+  { value: null, label: "ნებისმიერი" },
+  { value: "black_frame", label: "შავი კარკასი" },
+  { value: "white_frame", label: "თეთრი/მწვანე კარკასი" },
+  { value: "furnished", label: "გარემონტებული ავეჯით" },
+];
+
+const APPRAISAL_ZONES = SEARCH_LOCATION_ZONES;
 
 const PRICE_MIN = 0;
 const PRICE_MAX = 1_000_000;
@@ -86,16 +146,30 @@ const PRICE_STEP = 5_000;
 const DEFAULT_PRICE_MIN = 30_000;
 const DEFAULT_PRICE_MAX = 500_000;
 
+const AREA_MIN = 0;
+const AREA_MAX_SLIDER = 500;
+const AREA_STEP = 5;
+const DEFAULT_AREA_MIN = 0;
+const DEFAULT_AREA_MAX = 500;
+
 function formatUsd(n: number): string {
   if (n >= 1000) return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
   return `$${n}`;
 }
+
+// ─── Component ─────────────────────────────────────────────────────────
 
 export function SaleSearchBox({
   onSearch,
   className,
   isPending = false,
 }: SaleSearchBoxProps) {
+  const router = useRouter();
+
+  // Tabs
+  const [tab, setTab] = useState<SaleTab>("search");
+
+  // Existing filter state
   const [propertyType, setPropertyType] = useState("");
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const [priceMin, setPriceMin] = useState<string>("");
@@ -109,6 +183,19 @@ export function SaleSearchBox({
   const [payment, setPayment] = useState<string[]>([]);
   const [developers, setDevelopers] = useState<string[]>([]);
   const [showMap, setShowMap] = useState(true);
+
+  // Investment quick filters
+  const [roiMin, setRoiMin] = useState<number | null>(null);
+  const [areaBucket, setAreaBucket] = useState<AreaBucket>(null);
+  const [constructionStatus, setConstructionStatus] = useState<string | null>(
+    null,
+  );
+  const [renovationStatus, setRenovationStatus] = useState<string | null>(null);
+
+  // Appraisal tab state
+  const [appraisalZone, setAppraisalZone] = useState("");
+  const [appraisalArea, setAppraisalArea] = useState("");
+
   const [activeDropdown, setActiveDropdown] =
     useState<SaleActiveDropdown>(null);
 
@@ -162,6 +249,21 @@ export function SaleSearchBox({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (tab === "appraise") {
+      // Appraisal CTA → send user to the appraisal placeholder route with
+      // their inputs so a future /sales/appraisal page can pick them up.
+      const params = new URLSearchParams();
+      if (appraisalZone) params.set("zone", appraisalZone);
+      if (appraisalArea) params.set("area", appraisalArea);
+      router.push(`/sales/appraisal?${params.toString()}`);
+      return;
+    }
+
+    // Translate the bucket into explicit min/max that the backend understands.
+    const bucketRange = areaBucketToRange(areaBucket);
+    const resolvedAreaMin = areaBucket ? bucketRange.min : areaMin;
+    const resolvedAreaMax = areaBucket ? bucketRange.max : areaMax;
+
     onSearch({
       location: "",
       propertyType,
@@ -171,11 +273,14 @@ export function SaleSearchBox({
       cadastralCode,
       statuses,
       rooms,
-      areaMin,
-      areaMax,
+      areaMin: resolvedAreaMin,
+      areaMax: resolvedAreaMax,
       amenities,
       payment,
       developers,
+      roiMin,
+      constructionStatus,
+      renovationStatus,
     });
   };
 
@@ -185,9 +290,21 @@ export function SaleSearchBox({
     rooms.length === 0
       ? "ყველა"
       : rooms
+          .slice()
           .sort((a, b) => a - b)
           .map((n) => (n === 4 ? "4+" : String(n)))
           .join(", ");
+
+  const roiLabel =
+    ROI_OPTIONS.find((o) => o.value === roiMin)?.label ?? "მნიშვნელობა არ აქვს";
+  const areaLabel =
+    AREA_OPTIONS.find((o) => o.value === areaBucket)?.label ?? "ნებისმიერი";
+  const constructionLabel =
+    CONSTRUCTION_OPTIONS.find((o) => o.value === constructionStatus)?.label ??
+    "ყველა";
+  const renovationLabel =
+    RENOVATION_OPTIONS.find((o) => o.value === renovationStatus)?.label ??
+    "ნებისმიერი";
 
   const activeFilterCount =
     propertyTypes.length +
@@ -200,245 +317,375 @@ export function SaleSearchBox({
     payment.length +
     developers.length;
 
+  const appraisalZoneLabel = appraisalZone || "აირჩიე ზონა";
+
   return (
     <form
       onSubmit={handleSubmit}
       ref={containerRef}
       className={cn(
-        "relative rounded-2xl border border-white/20 bg-white p-4 shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.2)]",
-        "md:flex md:h-[88px] md:items-center md:rounded-[20px] md:border-0 md:p-3",
+        "relative rounded-[24px] bg-white p-4 text-left shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.2)]",
+        "md:p-5",
         className,
       )}
     >
-      {/* ═══ Mobile: stacked ═══ */}
-      <div className="grid grid-cols-1 gap-3 md:hidden">
-        <MobileField
-          label="ტიპი"
-          value={propertyTypeLabel}
-          onClick={() => toggleDropdown("type")}
-          open={activeDropdown === "type"}
+      {/* ═══ Tab row ═══ */}
+      <div className="mb-4 flex items-center gap-6 border-b border-[#F1F5F9] px-2">
+        <TabButton
+          active={tab === "search"}
+          onClick={() => {
+            setTab("search");
+            setActiveDropdown(null);
+          }}
         >
-          <TypeList
-            value={propertyType}
-            onSelect={(v) => {
-              setPropertyType(v);
-              setActiveDropdown(null);
-            }}
-          />
-        </MobileField>
-
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-            ფასი
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="Min"
-              value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value.replace(/\D/g, ""))}
-              className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
-            />
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="Max"
-              value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value.replace(/\D/g, ""))}
-              className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
-            />
-          </div>
-        </div>
-
-        <MobileField
-          label="ოთახები"
-          value={roomsLabel}
-          onClick={() => toggleDropdown("rooms")}
-          open={activeDropdown === "rooms"}
+          ყიდვა / ძიება
+        </TabButton>
+        <TabButton
+          active={tab === "appraise"}
+          onClick={() => {
+            setTab("appraise");
+            setActiveDropdown(null);
+          }}
         >
-          <div className="flex flex-wrap gap-2 p-2">
-            {ROOM_OPTIONS.map((n) => {
-              const checked = rooms.includes(n);
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => toggleRoomQuick(n)}
-                  className={cn(
-                    "h-9 min-w-9 rounded-full border px-3 text-[12px] font-bold transition-colors",
-                    checked
-                      ? "border-[#16A34A] bg-[#16A34A] text-white"
-                      : "border-[#E2E8F0] bg-white text-[#1E293B]",
-                  )}
-                >
-                  {n === 4 ? "4+" : String(n)}
-                </button>
-              );
-            })}
-          </div>
-        </MobileField>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => toggleDropdown("filters")}
-            className={cn(
-              "flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#1E293B] transition-colors",
-              activeDropdown === "filters" && "border-[#16A34A] text-[#16A34A]",
-            )}
-          >
-            <SlidersHorizontal className="size-3.5" />
-            ფილტრები
-            {activeFilterCount > 0 && (
-              <span className="flex size-5 items-center justify-center rounded-full bg-[#16A34A] text-[10px] font-black text-white">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowMap((m) => !m)}
-            className={cn(
-              "flex h-10 items-center justify-center gap-1.5 rounded-lg border px-4 text-[13px] font-bold transition-colors",
-              showMap
-                ? "border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]"
-                : "border-[#E2E8F0] bg-white text-[#1E293B]",
-            )}
-          >
-            <span
-              className={cn(
-                "size-1.5 rounded-full",
-                showMap ? "bg-[#16A34A]" : "bg-[#CBD5E1]",
-              )}
-            />
-            <MapIcon className="size-3.5" />
-            რუკა
-          </button>
-        </div>
-
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="h-11 gap-2 bg-[#0A1F2E] px-6 text-white hover:bg-[#0F2A40] disabled:opacity-70"
-        >
-          <Search className="size-4" />
-          ძებნა
-        </Button>
+          გაყიდვა / შეფასება
+        </TabButton>
       </div>
 
-      {/* ═══ Desktop: horizontal pill ═══ */}
-      <div className="hidden flex-1 items-center gap-1 md:flex">
-        <DesktopField
-          label="ტიპი"
-          value={propertyTypeLabel}
-          icon={<Home className="size-4 text-[#94A3B8]" />}
-          active={activeDropdown === "type"}
-          onClick={() => toggleDropdown("type")}
-        />
+      {tab === "search" ? (
+        <>
+          {/* ═══ Mobile: stacked ═══ */}
+          <div className="grid grid-cols-1 gap-3 md:hidden">
+            <MobileField
+              label="ტიპი"
+              value={propertyTypeLabel}
+              onClick={() => toggleDropdown("type")}
+              open={activeDropdown === "type"}
+            >
+              <TypeList
+                value={propertyType}
+                onSelect={(v) => {
+                  setPropertyType(v);
+                  setActiveDropdown(null);
+                }}
+              />
+            </MobileField>
 
-        <div className="h-10 w-px bg-[#F1F5F9]" />
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                ფასი
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Min"
+                  value={priceMin}
+                  onChange={(e) =>
+                    setPriceMin(e.target.value.replace(/\D/g, ""))
+                  }
+                  className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Max"
+                  value={priceMax}
+                  onChange={(e) =>
+                    setPriceMax(e.target.value.replace(/\D/g, ""))
+                  }
+                  className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
+                />
+              </div>
+            </div>
 
-        <div className="flex h-[68px] flex-1 flex-col justify-center px-5">
-          <span
-            className={cn(
-              "text-[10px] font-bold uppercase tracking-[1px]",
-              priceMin || priceMax ? "text-[#16A34A]" : "text-[#94A3B8]",
-            )}
-          >
-            ფასი ($)
-          </span>
-          <div className="mt-1 flex items-center gap-2">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="Min"
-              value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value.replace(/\D/g, ""))}
-              className="h-8 w-full min-w-0 rounded-md border border-[#E2E8F0] bg-white px-2 text-[13px] font-bold text-[#1E293B] outline-none placeholder:font-medium placeholder:text-[#94A3B8] focus:border-[#16A34A]"
-            />
-            <span className="text-[13px] font-bold text-[#CBD5E1]">–</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="Max"
-              value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value.replace(/\D/g, ""))}
-              className="h-8 w-full min-w-0 rounded-md border border-[#E2E8F0] bg-white px-2 text-[13px] font-bold text-[#1E293B] outline-none placeholder:font-medium placeholder:text-[#94A3B8] focus:border-[#16A34A]"
-            />
-          </div>
-        </div>
+            <MobileField
+              label="ოთახები"
+              value={roomsLabel}
+              onClick={() => toggleDropdown("rooms")}
+              open={activeDropdown === "rooms"}
+            >
+              <div className="flex flex-wrap gap-2 p-2">
+                {ROOM_OPTIONS.map((n) => {
+                  const checked = rooms.includes(n);
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => toggleRoomQuick(n)}
+                      className={cn(
+                        "h-9 min-w-9 rounded-full border px-3 text-[12px] font-bold transition-colors",
+                        checked
+                          ? "border-[#16A34A] bg-[#16A34A] text-white"
+                          : "border-[#E2E8F0] bg-white text-[#1E293B]",
+                      )}
+                    >
+                      {n === 4 ? "4+" : String(n)}
+                    </button>
+                  );
+                })}
+              </div>
+            </MobileField>
 
-        <div className="h-10 w-px bg-[#F1F5F9]" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => toggleDropdown("filters")}
+                className={cn(
+                  "flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#1E293B] transition-colors",
+                  activeDropdown === "filters" &&
+                    "border-[#16A34A] text-[#16A34A]",
+                )}
+              >
+                <SlidersHorizontal className="size-3.5" />
+                დეტალურად
+                {activeFilterCount > 0 && (
+                  <span className="flex size-5 items-center justify-center rounded-full bg-[#16A34A] text-[10px] font-black text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMap((m) => !m)}
+                className={cn(
+                  "flex h-10 items-center justify-center gap-1.5 rounded-lg border px-4 text-[13px] font-bold transition-colors",
+                  showMap
+                    ? "border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]"
+                    : "border-[#E2E8F0] bg-white text-[#1E293B]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    showMap ? "bg-[#16A34A]" : "bg-[#CBD5E1]",
+                  )}
+                />
+                <MapIcon className="size-3.5" />
+                რუკა
+              </button>
+            </div>
 
-        <DesktopField
-          label="ოთახები"
-          value={roomsLabel}
-          icon={<BedDouble className="size-4 text-[#94A3B8]" />}
-          active={activeDropdown === "rooms"}
-          onClick={() => toggleDropdown("rooms")}
-        />
-
-        <button
-          type="button"
-          onClick={() => toggleDropdown("filters")}
-          className={cn(
-            "ml-2 flex h-[48px] shrink-0 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition-colors",
-            activeDropdown === "filters"
-              ? "border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]"
-              : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
-          )}
-        >
-          <SlidersHorizontal className="size-4" />
-          ფილტრები
-          {activeFilterCount > 0 && (
-            <span className="flex size-5 items-center justify-center rounded-full bg-[#16A34A] text-[10px] font-black text-white">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowMap((m) => !m)}
-          className={cn(
-            "flex h-[48px] shrink-0 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition-colors",
-            showMap
-              ? "border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]"
-              : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
-          )}
-          aria-pressed={showMap}
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              showMap ? "bg-[#16A34A]" : "bg-[#CBD5E1]",
-            )}
-          />
-          <MapIcon className="size-4" />
-          რუკა
-        </button>
-
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="ml-2 h-[52px] shrink-0 gap-2 rounded-full bg-[#0A1F2E] px-7 text-[14px] font-bold text-white hover:bg-[#0F2A40] disabled:opacity-70"
-          aria-label="ძებნა"
-        >
-          {isPending ? (
-            <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          ) : (
-            <>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="h-11 gap-2 bg-[#0A1F2E] px-6 text-white hover:bg-[#0F2A40] disabled:opacity-70"
+            >
               <Search className="size-4" />
               ძებნა
-            </>
-          )}
-        </Button>
-      </div>
+            </Button>
+          </div>
 
-      {/* ═══ Desktop dropdowns ═══ */}
-      {activeDropdown === "type" && (
-        <div className="absolute left-3 top-full z-50 mt-2 hidden w-[300px] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
+          {/* ═══ Desktop: horizontal pill ═══ */}
+          <div className="hidden items-center gap-1 md:flex">
+            <DesktopField
+              label="ტიპი"
+              value={propertyTypeLabel}
+              icon={<Home className="size-4 text-[#94A3B8]" />}
+              active={activeDropdown === "type"}
+              onClick={() => toggleDropdown("type")}
+            />
+
+            <div className="h-10 w-px bg-[#F1F5F9]" />
+
+            <div className="flex h-[68px] flex-1 flex-col justify-center px-5">
+              <span
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-[1px]",
+                  priceMin || priceMax ? "text-[#16A34A]" : "text-[#94A3B8]",
+                )}
+              >
+                ფასი ($) (დან-მდე)
+              </span>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Min"
+                  value={priceMin}
+                  onChange={(e) =>
+                    setPriceMin(e.target.value.replace(/\D/g, ""))
+                  }
+                  className="h-8 w-full min-w-0 rounded-md border border-[#E2E8F0] bg-white px-2 text-[13px] font-bold text-[#1E293B] outline-none placeholder:font-medium placeholder:text-[#94A3B8] focus:border-[#16A34A]"
+                />
+                <span className="text-[13px] font-bold text-[#CBD5E1]">–</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Max"
+                  value={priceMax}
+                  onChange={(e) =>
+                    setPriceMax(e.target.value.replace(/\D/g, ""))
+                  }
+                  className="h-8 w-full min-w-0 rounded-md border border-[#E2E8F0] bg-white px-2 text-[13px] font-bold text-[#1E293B] outline-none placeholder:font-medium placeholder:text-[#94A3B8] focus:border-[#16A34A]"
+                />
+              </div>
+            </div>
+
+            <div className="h-10 w-px bg-[#F1F5F9]" />
+
+            <DesktopField
+              label="ოთახები"
+              value={roomsLabel}
+              icon={<BedDouble className="size-4 text-[#94A3B8]" />}
+              active={activeDropdown === "rooms"}
+              onClick={() => toggleDropdown("rooms")}
+            />
+
+            <button
+              type="button"
+              onClick={() => toggleDropdown("filters")}
+              className={cn(
+                "ml-2 flex h-[48px] shrink-0 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition-colors",
+                activeDropdown === "filters"
+                  ? "border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]"
+                  : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
+              )}
+            >
+              <SlidersHorizontal className="size-4" />
+              დეტალურად
+              {activeFilterCount > 0 && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-[#16A34A] text-[10px] font-black text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowMap((m) => !m)}
+              className={cn(
+                "flex h-[48px] shrink-0 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition-colors",
+                showMap
+                  ? "border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]"
+                  : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
+              )}
+              aria-pressed={showMap}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  showMap ? "bg-[#16A34A]" : "bg-[#CBD5E1]",
+                )}
+              />
+              <MapIcon className="size-4" />
+              რუკაზე
+            </button>
+
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="ml-2 h-[52px] shrink-0 gap-2 rounded-full bg-[#0A1F2E] px-7 text-[14px] font-bold text-white hover:bg-[#0F2A40] disabled:opacity-70"
+              aria-label="ძიება"
+            >
+              {isPending ? (
+                <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <>
+                  <Search className="size-4" />
+                  ძიება
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* ═══ Investment quick-filter row (ROI / Area / Status / Renovation) ═══ */}
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
+            <QuickSelect
+              label="მინიმალური ROI (%)"
+              value={roiLabel}
+              active={activeDropdown === "roi"}
+              onToggle={() => toggleDropdown("roi")}
+            >
+              <OptionList
+                options={ROI_OPTIONS.map((o) => ({
+                  key: o.value == null ? "null" : String(o.value),
+                  label: o.label,
+                  selected: o.value === roiMin,
+                  onSelect: () => {
+                    setRoiMin(o.value);
+                    setActiveDropdown(null);
+                  },
+                }))}
+              />
+            </QuickSelect>
+
+            <QuickSelect
+              label="ფართი (მ²)"
+              value={areaLabel}
+              active={activeDropdown === "area"}
+              onToggle={() => toggleDropdown("area")}
+            >
+              <OptionList
+                options={AREA_OPTIONS.map((o) => ({
+                  key: o.value ?? "any",
+                  label: o.label,
+                  selected: o.value === areaBucket,
+                  onSelect: () => {
+                    setAreaBucket(o.value);
+                    setActiveDropdown(null);
+                  },
+                }))}
+              />
+            </QuickSelect>
+
+            <QuickSelect
+              label="სტატუსი"
+              value={constructionLabel}
+              active={activeDropdown === "status"}
+              onToggle={() => toggleDropdown("status")}
+            >
+              <OptionList
+                options={CONSTRUCTION_OPTIONS.map((o) => ({
+                  key: o.value ?? "any",
+                  label: o.label,
+                  selected: o.value === constructionStatus,
+                  onSelect: () => {
+                    setConstructionStatus(o.value);
+                    setActiveDropdown(null);
+                  },
+                }))}
+              />
+            </QuickSelect>
+
+            <QuickSelect
+              label="რემონტი"
+              value={renovationLabel}
+              active={activeDropdown === "renovation"}
+              onToggle={() => toggleDropdown("renovation")}
+            >
+              <OptionList
+                options={RENOVATION_OPTIONS.map((o) => ({
+                  key: o.value ?? "any",
+                  label: o.label,
+                  selected: o.value === renovationStatus,
+                  onSelect: () => {
+                    setRenovationStatus(o.value);
+                    setActiveDropdown(null);
+                  },
+                }))}
+              />
+            </QuickSelect>
+          </div>
+        </>
+      ) : (
+        <AppraisalPane
+          zone={appraisalZone}
+          zoneLabel={appraisalZoneLabel}
+          area={appraisalArea}
+          onChangeArea={setAppraisalArea}
+          zoneOpen={activeDropdown === "zone"}
+          onToggleZone={() => toggleDropdown("zone")}
+          onSelectZone={(v) => {
+            setAppraisalZone(v);
+            setActiveDropdown(null);
+          }}
+          isPending={isPending}
+        />
+      )}
+
+      {/* ═══ Pill-level popovers (type / rooms) — search tab only ═══ */}
+      {tab === "search" && activeDropdown === "type" && (
+        <div className="absolute left-4 top-full z-50 mt-2 hidden w-[300px] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
           <TypeList
             value={propertyType}
             onSelect={(v) => {
@@ -449,7 +696,7 @@ export function SaleSearchBox({
         </div>
       )}
 
-      {activeDropdown === "rooms" && (
+      {tab === "search" && activeDropdown === "rooms" && (
         <div className="absolute right-[260px] top-full z-50 mt-2 hidden w-[240px] rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
           <p className="mb-2 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
             ოთახების რაოდენობა
@@ -463,7 +710,7 @@ export function SaleSearchBox({
                   type="button"
                   onClick={() => toggleRoomQuick(n)}
                   className={cn(
-                    "h-9 min-w-9 rounded-full border px-3 text-[13px] font-bold transition-colors",
+                    "h-9 min-w-9 rounded-full border px-3 text-[12px] font-bold transition-colors",
                     checked
                       ? "border-[#16A34A] bg-[#16A34A] text-white"
                       : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
@@ -477,7 +724,7 @@ export function SaleSearchBox({
         </div>
       )}
 
-      {activeDropdown === "filters" && (
+      {tab === "search" && activeDropdown === "filters" && (
         <div className="absolute left-0 right-0 top-full z-50 mt-3 rounded-[24px] border border-[#E2E8F0] bg-white p-6 text-left shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
           <FiltersPanel
             propertyTypes={propertyTypes}
@@ -527,7 +774,32 @@ export function SaleSearchBox({
   );
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────
+// ─── Sub-components ────────────────────────────────────────────────────
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "-mb-px flex h-10 items-center border-b-2 text-[14px] font-bold transition-colors",
+        active
+          ? "border-[#0F172A] text-[#0F172A]"
+          : "border-transparent text-[#94A3B8] hover:text-[#1E293B]",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 function DesktopField({
   label,
@@ -608,6 +880,87 @@ function MobileField({
   );
 }
 
+function QuickSelect({
+  label,
+  value,
+  active,
+  onToggle,
+  children,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+        {label}
+      </span>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "flex h-11 w-full items-center justify-between rounded-lg border bg-white px-3 text-left text-[13px] font-bold transition-colors",
+          active
+            ? "border-[#16A34A] text-[#16A34A]"
+            : "border-[#E2E8F0] text-[#1E293B] hover:border-[#CBD5E1]",
+        )}
+      >
+        <span className="truncate">{value}</span>
+        <ChevronDown
+          className={cn(
+            "size-4 shrink-0",
+            active ? "text-[#16A34A]" : "text-[#94A3B8]",
+          )}
+        />
+      </button>
+      {active && (
+        <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-lg border border-[#E2E8F0] bg-white shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.15)]">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OptionList({
+  options,
+}: {
+  options: Array<{
+    key: string;
+    label: string;
+    selected: boolean;
+    onSelect: () => void;
+  }>;
+}) {
+  return (
+    <ul className="flex flex-col">
+      {options.map((o, idx) => (
+        <li key={o.key}>
+          <button
+            type="button"
+            onClick={o.onSelect}
+            className={cn(
+              "flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-bold transition-colors",
+              idx === 0
+                ? "bg-[#1E419A] text-white hover:bg-[#1E3A8A]"
+                : "text-[#1E293B] hover:bg-[#F8FAFC]",
+              o.selected && idx !== 0 && "bg-[#EFF6FF] text-[#1E419A]",
+            )}
+          >
+            <span className="truncate">{o.label}</span>
+            {o.selected && idx !== 0 && (
+              <Check className="size-4 text-[#1E419A]" />
+            )}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function TypeList({
   value,
   onSelect,
@@ -648,6 +1001,114 @@ function TypeList({
     </ul>
   );
 }
+
+// ─── Appraisal pane ────────────────────────────────────────────────────
+
+function AppraisalPane({
+  zone,
+  zoneLabel,
+  area,
+  onChangeArea,
+  zoneOpen,
+  onToggleZone,
+  onSelectZone,
+  isPending,
+}: {
+  zone: string;
+  zoneLabel: string;
+  area: string;
+  onChangeArea: (v: string) => void;
+  zoneOpen: boolean;
+  onToggleZone: () => void;
+  onSelectZone: (v: string) => void;
+  isPending: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:gap-6">
+      <div className="max-w-[520px]">
+        <h3 className="text-[20px] font-black leading-[26px] text-[#0F172A] md:text-[22px]">
+          გაიგეთ თქვენი ქონების რეალური ფასი
+        </h3>
+        <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
+          ჩვენი ალგორითმი დაგითვლით ბინის ღირებულებას და პოტენციურ ROI-ს.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-[minmax(160px,1fr)_minmax(140px,1fr)_auto]">
+        <div className="relative">
+          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+            ლოკაცია / ზონა
+          </label>
+          <button
+            type="button"
+            onClick={onToggleZone}
+            className={cn(
+              "flex h-11 w-full items-center justify-between rounded-lg border bg-white px-3 text-left text-[13px] font-bold transition-colors",
+              zoneOpen
+                ? "border-[#16A34A] text-[#16A34A]"
+                : "border-[#E2E8F0] text-[#1E293B] hover:border-[#CBD5E1]",
+            )}
+          >
+            <span className="truncate">{zoneLabel}</span>
+            <ChevronDown
+              className={cn(
+                "size-4 shrink-0",
+                zoneOpen ? "text-[#16A34A]" : "text-[#94A3B8]",
+              )}
+            />
+          </button>
+          {zoneOpen && (
+            <ul className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-lg border border-[#E2E8F0] bg-white shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.15)]">
+              {APPRAISAL_ZONES.map((z) => {
+                const selected = z === zone;
+                return (
+                  <li key={z}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectZone(z)}
+                      className={cn(
+                        "flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-bold transition-colors hover:bg-[#F8FAFC]",
+                        selected && "bg-[#F0FDF4] text-[#16A34A]",
+                      )}
+                    >
+                      {z}
+                      {selected && <Check className="size-4" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+            ფართი (მ²)
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="მაგ: 45"
+            value={area}
+            onChange={(e) => onChangeArea(e.target.value.replace(/\D/g, ""))}
+            className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-[13px] font-bold text-[#1E293B] outline-none placeholder:font-medium placeholder:text-[#94A3B8] focus:border-[#16A34A]"
+          />
+        </div>
+
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="h-11 shrink-0 gap-2 rounded-lg bg-[#F97316] px-6 text-[13px] font-black text-white hover:bg-[#EA580C] disabled:opacity-70"
+        >
+          <Sparkles className="size-4" />
+          AI შეფასება
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Advanced filters panel + range sliders ───────────────────────────
 
 function PriceRangePanel({
   priceMin,
@@ -1013,14 +1474,14 @@ function AreaRangePanel({
         <div
           className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#1E419A]"
           style={{
-            left: `${(areaMin / AREA_MAX) * 100}%`,
-            right: `${100 - (areaMax / AREA_MAX) * 100}%`,
+            left: `${(areaMin / AREA_MAX_SLIDER) * 100}%`,
+            right: `${100 - (areaMax / AREA_MAX_SLIDER) * 100}%`,
           }}
         />
         <input
           type="range"
           min={AREA_MIN}
-          max={AREA_MAX}
+          max={AREA_MAX_SLIDER}
           step={AREA_STEP}
           value={areaMin}
           onChange={(e) => {
@@ -1032,7 +1493,7 @@ function AreaRangePanel({
         <input
           type="range"
           min={AREA_MIN}
-          max={AREA_MAX}
+          max={AREA_MAX_SLIDER}
           step={AREA_STEP}
           value={areaMax}
           onChange={(e) => {
@@ -1052,7 +1513,7 @@ function AreaRangePanel({
         <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
           <span className="text-[11px] font-bold text-[#94A3B8]">MAX</span>
           <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {areaMax === AREA_MAX ? `${areaMax}+ მ²` : `${areaMax} მ²`}
+            {areaMax === AREA_MAX_SLIDER ? `${areaMax}+ მ²` : `${areaMax} მ²`}
           </span>
         </div>
       </div>

@@ -50,6 +50,12 @@ export default async function SalesGridPage({ searchParams }: Props) {
     typeof sp.area_max === "string" ? Number(sp.area_max) : undefined;
   const initialCadastral =
     typeof sp.cadastral === "string" ? sp.cadastral : undefined;
+  const initialRoiMin =
+    typeof sp.roi_min === "string" ? Number(sp.roi_min) : undefined;
+  const initialConstruction =
+    typeof sp.construction === "string" ? sp.construction : undefined;
+  const initialRenovation =
+    typeof sp.renovation === "string" ? sp.renovation : undefined;
 
   return (
     <SalesGridClient
@@ -69,6 +75,9 @@ export default async function SalesGridPage({ searchParams }: Props) {
       initialAmenities={toCsv(sp.amenities)}
       initialPayment={toCsv(sp.payment)}
       initialDevelopers={toCsv(sp.developer)}
+      initialRoiMin={initialRoiMin}
+      initialConstruction={initialConstruction}
+      initialRenovation={initialRenovation}
     />
   );
 }
