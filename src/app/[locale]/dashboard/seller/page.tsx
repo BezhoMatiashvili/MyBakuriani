@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Building2, Eye, Plus } from "lucide-react";
+import { Building2, Eye, Plus, Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
-import SalesBoard from "@/components/seller/SalesBoard";
 import type { Tables } from "@/lib/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -53,9 +52,71 @@ export default function SellerDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const activeCount = properties.filter((p) => p.status === "active").length;
+
   return (
     <div className="space-y-10">
-      <SalesBoard />
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="mb-5 flex items-center justify-between">
+          <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A]">
+            მთავარი მაჩვენებლები
+          </h1>
+          <span className="rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[12px] font-bold text-[#64748B]">
+            ბოლო 30 დღე
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <MetricCard
+            label="ახალი დაინტერესება"
+            value="54"
+            badge="+12%"
+            badgeColor="green"
+          />
+          <MetricCard
+            label="ახალი ლიდი (კლიენტი)"
+            value="14"
+            badge="დღეს"
+            badgeColor="slate"
+            valueColor="#2563EB"
+          />
+          <MetricCard
+            label="გაყიდული ობიექტი"
+            value="2"
+            badge="~85K $"
+            badgeColor="slate"
+          />
+          <MetricCard
+            label="რჩეულში დამატება"
+            value="342"
+            icon={<Heart className="h-5 w-5 fill-[#EF4444] text-[#EF4444]" />}
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MetricCard
+            label="ობიექტის ნახვები"
+            value="15.4K"
+            badge="8%"
+            badgeColor="green"
+          />
+          <MetricCard
+            label="კონტაქტამდე მისვლა"
+            value="40"
+            badge="კონვერსია"
+            badgeColor="slate"
+          />
+          <MetricCard
+            label="ნომრის / SMS ნახვა"
+            value="85"
+            badge="14 SMS/ჩატი"
+            badgeColor="green"
+          />
+        </div>
+      </motion.section>
 
       <motion.section
         initial={{ opacity: 0, y: 12 }}
@@ -68,7 +129,7 @@ export default function SellerDashboardPage() {
               ჩემი განცხადებები
             </h2>
             <p className="mt-1 text-sm font-medium text-[#64748B]">
-              {properties.length} აქტიური განცხადება
+              {activeCount} აქტიური განცხადება
             </p>
           </div>
           <Link
@@ -175,6 +236,49 @@ export default function SellerDashboardPage() {
           )}
         </div>
       </motion.section>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  badge,
+  badgeColor,
+  icon,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  badge?: string;
+  badgeColor?: "green" | "slate";
+  icon?: React.ReactNode;
+  valueColor?: string;
+}) {
+  const badgeClass =
+    badgeColor === "green"
+      ? "bg-[#DCFCE7] text-[#15803D]"
+      : "bg-[#F1F5F9] text-[#64748B]";
+  return (
+    <div className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
+      <p className="text-[12px] font-medium text-[#64748B]">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <span
+          className="text-[32px] font-black leading-none"
+          style={{ color: valueColor ?? "#0F172A" }}
+        >
+          {value}
+        </span>
+        {icon
+          ? icon
+          : badge && (
+              <span
+                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${badgeClass}`}
+              >
+                {badge}
+              </span>
+            )}
+      </div>
     </div>
   );
 }
