@@ -11,6 +11,7 @@ import {
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface CleanerSidebarProps {
   userName: string;
@@ -116,32 +117,34 @@ export function CleanerSidebar({
         </Link>
       </div>
 
-      <div className="mx-4">
-        <div className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-          <div className="relative shrink-0">
-            <Avatar className="h-11 w-11">
-              {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-              <AvatarFallback className="bg-[#1E3A8A] text-[14px] font-extrabold text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <span
-              className={cn(
-                "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0B1832]",
-                statusMeta.dot,
-              )}
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-extrabold text-white">
-              {userName}
-            </p>
-            <p className="mt-0.5 text-[11px] font-medium text-white/60">
-              {statusMeta.label}
-            </p>
-          </div>
+      <CabinetSwitcher
+        activeKey="cleaner"
+        triggerClassName="border-white/10 bg-white/5 hover:border-white/20"
+        openClassName="border-white/30 bg-white/10"
+      >
+        <div className="relative shrink-0">
+          <Avatar className="h-11 w-11">
+            {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
+            <AvatarFallback className="bg-[#1E3A8A] text-[14px] font-extrabold text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <span
+            className={cn(
+              "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0B1832]",
+              statusMeta.dot,
+            )}
+          />
         </div>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-extrabold text-white">
+            {userName}
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium text-white/60">
+            {statusMeta.label}
+          </p>
+        </div>
+      </CabinetSwitcher>
 
       <nav className="mt-5 flex-1 overflow-y-auto px-4">
         <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white/40">

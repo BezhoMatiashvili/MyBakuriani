@@ -15,6 +15,7 @@ import {
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface SellerSidebarProps {
   userName: string;
@@ -172,34 +173,32 @@ export function SellerSidebar({
         </Link>
       </div>
 
-      <div className="mx-4">
-        <div className="flex w-full items-center gap-3 rounded-2xl border border-[#EEF1F4] bg-white px-3 py-3">
-          <div className="relative shrink-0">
-            <Avatar className="h-11 w-11 bg-[#DCFCE7]">
-              {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-              <AvatarFallback className="bg-[#DCFCE7] text-[14px] font-extrabold text-[#059669]">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
-              {userName}
-            </p>
-            {isVerified && (
-              <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-[#10B981]">
-                <span className="flex h-3 w-3 items-center justify-center rounded-full bg-[#10B981] text-[8px] text-white">
-                  ✓
-                </span>
-                ვერიფიცირებული
-              </p>
-            )}
-            <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
-              {profileType}
-            </p>
-          </div>
+      <CabinetSwitcher activeKey="seller">
+        <div className="relative shrink-0">
+          <Avatar className="h-11 w-11 bg-[#DCFCE7]">
+            {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
+            <AvatarFallback className="bg-[#DCFCE7] text-[14px] font-extrabold text-[#059669]">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
         </div>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
+            {userName}
+          </p>
+          {isVerified && (
+            <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-[#10B981]">
+              <span className="flex h-3 w-3 items-center justify-center rounded-full bg-[#10B981] text-[8px] text-white">
+                ✓
+              </span>
+              ვერიფიცირებული
+            </p>
+          )}
+          <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
+            {profileType}
+          </p>
+        </div>
+      </CabinetSwitcher>
 
       <nav className="mt-5 flex-1 overflow-y-auto px-4">
         <ul className="space-y-5">

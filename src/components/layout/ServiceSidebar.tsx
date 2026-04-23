@@ -13,6 +13,7 @@ import {
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface ServiceSidebarProps {
   userName: string;
@@ -128,29 +129,27 @@ export function ServiceSidebar({
         </Link>
       </div>
 
-      <div className="mx-4">
-        <div className="flex w-full items-center gap-3 rounded-2xl border border-[#EEF1F4] bg-white px-3 py-3">
-          <div className="relative shrink-0">
-            <Avatar className="h-11 w-11">
-              {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-              <AvatarFallback className="bg-[#DBEAFE] text-[14px] font-extrabold text-[#2563EB]">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            {isVerified && (
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white bg-[#10B981]" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
-              {userName}
-            </p>
-            <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
-              {userSubtitle}
-            </p>
-          </div>
+      <CabinetSwitcher activeKey="service">
+        <div className="relative shrink-0">
+          <Avatar className="h-11 w-11">
+            {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
+            <AvatarFallback className="bg-[#DBEAFE] text-[14px] font-extrabold text-[#2563EB]">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          {isVerified && (
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white bg-[#10B981]" />
+          )}
         </div>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
+            {userName}
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
+            {userSubtitle}
+          </p>
+        </div>
+      </CabinetSwitcher>
 
       <div className="mx-6 mt-5 h-px bg-[#EEF1F4]" />
 

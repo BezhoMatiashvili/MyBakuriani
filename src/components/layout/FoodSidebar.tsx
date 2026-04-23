@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface FoodSidebarProps {
   restaurantName: string;
@@ -113,24 +114,22 @@ export function FoodSidebar({
         </Link>
       </div>
 
-      <div className="mx-4">
-        <div className="flex w-full items-center gap-3 rounded-2xl border border-[#EEF1F4] bg-white px-3 py-3">
-          <div className="relative shrink-0">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[15px] font-black text-white shadow-[0_6px_12px_-4px_rgba(249,115,22,0.45)]">
-              {displayBadge}
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white bg-[#10B981]" />
+      <CabinetSwitcher activeKey="food">
+        <div className="relative shrink-0">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[15px] font-black text-white shadow-[0_6px_12px_-4px_rgba(249,115,22,0.45)]">
+            {displayBadge}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
-              {restaurantName}
-            </p>
-            <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
-              {restaurantSubtitle}
-            </p>
-          </div>
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white bg-[#10B981]" />
         </div>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
+            {restaurantName}
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
+            {restaurantSubtitle}
+          </p>
+        </div>
+      </CabinetSwitcher>
 
       <div className="mx-6 mt-5 h-px bg-[#EEF1F4]" />
 
