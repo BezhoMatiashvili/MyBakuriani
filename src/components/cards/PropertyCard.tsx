@@ -233,11 +233,9 @@ export default function PropertyCard(props: PropertyCardProps) {
             </div>
             <span
               className={`rounded-[12px] px-5 py-2 text-[13px] font-bold text-white transition-colors ${
-                isHotel
-                  ? "bg-[#1E293B] hover:bg-[#334155]"
-                  : isForSale
-                    ? "bg-[#16A34A] hover:bg-[#15803D]"
-                    : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+                isForSale
+                  ? "bg-[#16A34A] hover:bg-[#15803D]"
+                  : "bg-[#1E293B] hover:bg-[#334155]"
               }`}
             >
               {isForSale ? t("details") : t("view")}

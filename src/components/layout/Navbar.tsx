@@ -55,7 +55,20 @@ export function Navbar() {
   const pathname = usePathname();
   const { listingMode } = useHomeListingMode();
   const t = useTranslations("Navbar");
-  const showCategoryNav = pathname === "/" && listingMode === "rent";
+  const categoryNavPaths = [
+    "/apartments",
+    "/hotels",
+    "/transport",
+    "/employment",
+    "/services",
+    "/food",
+    "/entertainment",
+  ];
+  const isCategoryPage = categoryNavPaths.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+  const showCategoryNav =
+    (pathname === "/" && listingMode === "rent") || isCategoryPage;
   const { user, loading: authLoading, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -339,13 +352,22 @@ export function Navbar() {
           <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-[60px] px-4 lg:gap-[104px]">
             {navItemKeys.map((item) => {
               const Icon = item.icon;
+              const isActive =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex flex-col items-center gap-2 text-[#64748B] transition-colors hover:text-[#1E293B]"
+                  className={`flex flex-col items-center gap-2 transition-colors ${
+                    isActive
+                      ? "text-[#1E293B]"
+                      : "text-[#64748B] hover:text-[#1E293B]"
+                  }`}
                 >
-                  <Icon className="size-[26px]" strokeWidth={1.5} />
+                  <Icon
+                    className={`size-[26px] ${isActive ? "text-[#2563EB]" : ""}`}
+                    strokeWidth={1.5}
+                  />
                   <span className="text-[14px] font-bold">{t(item.key)}</span>
                 </Link>
               );
