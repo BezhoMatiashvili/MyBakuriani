@@ -388,12 +388,18 @@ export default function SearchPageClient({
 
             {/* Results count — desktop */}
             <div className="mb-6 hidden items-center justify-between lg:flex">
-              <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                {mode === "sale" ? "გასაყიდი ობიექტები" : "ძებნის შედეგები"}
-              </h1>
-              <span className="text-[13px] font-medium leading-[20px] text-[#64748B]">
-                {totalCount} შედეგი
-              </span>
+              <div>
+                <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                  {mode === "sale"
+                    ? `ნაპოვნია ${totalCount} ობიექტი`
+                    : searchState.location
+                      ? `ნაპოვნია ${totalCount} შეთავაზება ${searchState.location}-ზე`
+                      : `ნაპოვნია ${totalCount} შეთავაზება`}
+                </h1>
+                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                  საუკეთესო საცხოვრებელი შენი დასვენებისთვის
+                </p>
+              </div>
             </div>
 
             {/* Loading state */}
