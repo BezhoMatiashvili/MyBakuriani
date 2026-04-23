@@ -43,7 +43,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
     );
   }
 
-  /* Ensure we always have 5 display slots; duplicate first photo as fallback */
+  /* 1 main + 4 in 2x2 grid on right — Figma layout */
   const displayPhotos = [
     photos[0],
     photos[1] ?? photos[0],
@@ -70,9 +70,9 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
         </button>
       </div>
 
-      {/* Gallery Grid — desktop: 3-column (1.5fr 1fr 1fr), 2 rows */}
+      {/* Gallery Grid — desktop: 3-col (1.5fr 1fr 1fr), 2 rows */}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.5fr_1fr_1fr] md:grid-rows-2">
-        {/* Main photo — spans both rows, left corners rounded */}
+        {/* Main photo — spans both rows */}
         <div
           className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-[24px] md:row-span-2 md:rounded-none md:rounded-l-[24px]"
           onClick={() => openLightbox(0)}
@@ -87,7 +87,6 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
           />
         </div>
 
-        {/* Top-left of right grid (row 1, col 2) */}
         <div
           className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden md:block"
           onClick={() => openLightbox(1)}
@@ -101,7 +100,6 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
           />
         </div>
 
-        {/* Top-right of right grid (row 1, col 3) — rounded-tr */}
         <div
           className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden rounded-tr-[24px] md:block"
           onClick={() => openLightbox(2)}
@@ -115,7 +113,6 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
           />
         </div>
 
-        {/* Bottom-left of right grid (row 2, col 2) */}
         <div
           className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden md:block"
           onClick={() => openLightbox(3)}
@@ -129,7 +126,6 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
           />
         </div>
 
-        {/* Bottom-right of right grid (row 2, col 3) — rounded-br + overlay */}
         <div
           className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden rounded-br-[24px] md:block"
           onClick={() => openLightbox(4)}
@@ -141,7 +137,6 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
             sizes="20vw"
             className="object-cover transition-transform duration-300 hover:scale-105"
           />
-          {/* Dark overlay with total photo count */}
           {photos.length > 5 && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span className="text-sm font-semibold text-white">
@@ -151,7 +146,6 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
           )}
         </div>
 
-        {/* Mobile: show photo count link */}
         {photos.length > 1 && (
           <button
             onClick={() => openLightbox(0)}

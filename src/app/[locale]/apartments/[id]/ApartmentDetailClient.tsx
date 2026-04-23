@@ -32,6 +32,7 @@ import dynamic from "next/dynamic";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import ReviewCard from "@/components/cards/ReviewCard";
+import { CalendarGrid } from "@/components/booking/CalendarGrid";
 import { createClient } from "@/lib/supabase/client";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
@@ -191,37 +192,41 @@ export default function ApartmentDetailClient({
             </span>
           )}
         </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {property.rooms != null && (
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-              <BedDouble className="h-4 w-4 text-brand-accent" />
-              {property.rooms} ოთახი
-            </span>
-          )}
-          {property.bathrooms != null && (
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-              <Bath className="h-4 w-4 text-brand-accent" />
-              {property.bathrooms} სააბაზანო
-            </span>
-          )}
-          {property.capacity != null && (
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-              <Users className="h-4 w-4 text-brand-accent" />
-              {property.capacity} სტუმარი
-            </span>
-          )}
-          {property.area_sqm != null && (
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-              <Maximize className="h-4 w-4 text-brand-accent" />
-              {property.area_sqm} მ²
-            </span>
-          )}
-        </div>
       </motion.div>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
         <PhotoGallery photos={property.photos ?? []} title={property.title} />
+      </motion.div>
+
+      <motion.div
+        {...fadeIn}
+        transition={{ duration: 0.4, delay: 0.18 }}
+        className="mt-6 flex flex-wrap gap-2"
+      >
+        {property.rooms != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+            <BedDouble className="h-4 w-4 text-brand-accent" />
+            {property.rooms} ოთახი
+          </span>
+        )}
+        {property.bathrooms != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+            <Bath className="h-4 w-4 text-brand-accent" />
+            {property.bathrooms} სააბაზანო
+          </span>
+        )}
+        {property.capacity != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+            <Users className="h-4 w-4 text-brand-accent" />
+            {property.capacity} სტუმარი
+          </span>
+        )}
+        {property.area_sqm != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+            <Maximize className="h-4 w-4 text-brand-accent" />
+            {property.area_sqm} მ²
+          </span>
+        )}
       </motion.div>
 
       <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
@@ -329,16 +334,59 @@ export default function ApartmentDetailClient({
             </motion.div>
           )}
 
+          {/* Available dates — inline calendar */}
+          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
+            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
+              თავისუფალი თარიღები
+            </h2>
+            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
+              <CalendarGrid
+                year={new Date().getFullYear()}
+                month={new Date().getMonth()}
+                dates={parsedCalendarDates}
+                onDateClick={() => {}}
+              />
+              <div className="mt-4 flex flex-wrap items-center gap-4 text-[12px] font-medium text-[#64748B]">
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3 w-3 rounded-full bg-green-100" />
+                  თავისუფალი
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3 w-3 rounded-full bg-red-100" />
+                  დაკავებული
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3 w-3 rounded-full bg-[#2563EB]" />
+                  არჩეული
+                </span>
+              </div>
+            </div>
+          </motion.div>
+
           {/* Reviews */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
-            <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              შეფასებები {reviews.length > 0 && `(${reviews.length})`}
-            </h2>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="flex shrink-0 items-center gap-1 rounded-[12px] bg-[#0F172A] px-3 py-2 text-[14px] font-black text-white">
+                <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
+                {avgRating !== null ? avgRating.toFixed(1) : "—"}
+              </span>
+              <div>
+                <h2 className="text-[20px] font-black leading-[24px] text-[#0F172A]">
+                  {reviews.length} მიმოხილვა
+                </h2>
+                <p className="mt-1 flex items-center gap-1 text-[12px] font-bold text-[#16A34A]">
+                  <span className="inline-flex h-3 w-3 items-center justify-center rounded-full border border-[#16A34A]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
+                  </span>
+                  დადასტურებული სტუმრების მიმოხილვები
+                </p>
+              </div>
+            </div>
             {reviews.length === 0 ? (
               <p className="text-sm text-[#94A3B8]">ჯერ არ არის შეფასებები</p>
             ) : (
-              <div className="space-y-8">
-                {reviews.map((review) => (
+              <div className="grid gap-6 sm:grid-cols-2">
+                {reviews.slice(0, 2).map((review) => (
                   <ReviewCard
                     key={review.id}
                     displayName={review.profiles?.display_name ?? "ანონიმური"}
@@ -348,6 +396,14 @@ export default function ApartmentDetailClient({
                   />
                 ))}
               </div>
+            )}
+            {reviews.length > 2 && (
+              <button
+                type="button"
+                className="mt-4 rounded-xl border border-[#E2E8F0] px-5 py-2.5 text-[13px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+              >
+                ყველა შეფასების ნახვა ({reviews.length})
+              </button>
             )}
           </motion.div>
         </div>
