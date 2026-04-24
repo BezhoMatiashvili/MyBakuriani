@@ -472,7 +472,7 @@ export default function CreateRentalPage() {
                         onClick={() => toggleLang(lang.key)}
                         className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-sm transition-colors ${
                           active
-                            ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                            ? "border-[#2563EB] bg-[#EFF6FF] text-[#0F172A]"
                             : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
                         }`}
                       >

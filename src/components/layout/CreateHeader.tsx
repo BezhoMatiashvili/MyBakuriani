@@ -98,21 +98,12 @@ export function CreateHeader() {
             </Link>
           ) : null}
 
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A]"
-            >
-              კაბინეტი
-            </Link>
-          ) : (
-            <Link
-              href="/auth/login"
-              className="text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A]"
-            >
-              შესვლა
-            </Link>
-          )}
+          <Link
+            href={user ? "/dashboard" : "/auth/login"}
+            className="inline-flex h-[40px] items-center rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#2563EB] transition-colors hover:border-[#CBD5E1] hover:bg-[#F8FAFC]"
+          >
+            {user ? "კაბინეტი" : "შესვლა"}
+          </Link>
         </div>
       </div>
     </header>

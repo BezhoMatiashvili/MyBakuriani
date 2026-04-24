@@ -165,7 +165,7 @@ export default function CreateFoodPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="ლოკაცია (ზონა)" required>
+          <Field label="ლოკაცია (ZONE)" required>
             <select
               value={zone}
               onChange={(e) => setZone(e.target.value)}

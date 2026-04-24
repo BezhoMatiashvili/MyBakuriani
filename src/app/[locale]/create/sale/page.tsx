@@ -15,17 +15,19 @@ import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
 
 const PROPERTY_TYPES: { value: Enums<"property_type">; label: string }[] = [
-  { value: "apartment", label: "აპარტამენტი" },
   { value: "studio", label: "სტუდიო" },
+  { value: "apartment", label: "აპარტამენტი" },
   { value: "cottage", label: "კოტეჯი" },
-  { value: "villa", label: "მინის ნაკვეთი" },
-  { value: "hotel", label: "სასუმრო ოთახი" },
+  { value: "villa", label: "მიწის ნაკვეთი" },
+  { value: "hotel", label: "სასტუმრო ოთახი" },
 ];
 
-const OWNERSHIP_STATUSES = [
-  { value: "owner", label: "მფლობელი" },
-  { value: "developer", label: "დეველოპერი" },
-  { value: "agent", label: "აგენტი" },
+const CONSTRUCTION_STATUSES: {
+  value: "completed" | "under_construction";
+  label: string;
+}[] = [
+  { value: "completed", label: "დასრულებული" },
+  { value: "under_construction", label: "მშენებარე" },
 ];
 
 const TITLE_MAX = 35;
@@ -52,7 +54,9 @@ export default function CreateSalePage() {
   const [propertyType, setPropertyType] =
     useState<Enums<"property_type">>("apartment");
   const [location, setLocation] = useState("");
-  const [ownershipStatus, setOwnershipStatus] = useState("owner");
+  const [constructionStatus, setConstructionStatus] = useState<
+    "completed" | "under_construction"
+  >("completed");
   const [handoverDate, setHandoverDate] = useState("");
   const [description, setDescription] = useState("");
   const [exactLocation, setExactLocation] = useState<{
@@ -68,7 +72,7 @@ export default function CreateSalePage() {
   const [developer, setDeveloper] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
-  const isUnderConstruction = ownershipStatus === "developer";
+  const isUnderConstruction = constructionStatus === "under_construction";
 
   async function handleSubmit() {
     if (!user) return;
@@ -116,12 +120,9 @@ export default function CreateSalePage() {
           photos,
           sale_price: priceNum,
           roi_percent: roiNum,
-          construction_status: isUnderConstruction
-            ? "under_construction"
-            : "completed",
+          construction_status: constructionStatus,
           developer: developer.trim() || null,
           house_rules: {
-            ownership_status: ownershipStatus,
             handover_date: handoverDate || null,
           },
           status: "pending" as Enums<"listing_status">,
@@ -176,7 +177,7 @@ export default function CreateSalePage() {
         </Field>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="ქონების ტიპი" required>
+          <Field label="ობიექტის ტიპი" required>
             <select
               value={propertyType}
               onChange={(e) =>
@@ -211,13 +212,17 @@ export default function CreateSalePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="მფლობელობის სტატუსი" required>
+          <Field label="მშენებლობის სტატუსი" required>
             <select
-              value={ownershipStatus}
-              onChange={(e) => setOwnershipStatus(e.target.value)}
+              value={constructionStatus}
+              onChange={(e) =>
+                setConstructionStatus(
+                  e.target.value as "completed" | "under_construction",
+                )
+              }
               className={inputClass}
             >
-              {OWNERSHIP_STATUSES.map((o) => (
+              {CONSTRUCTION_STATUSES.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
