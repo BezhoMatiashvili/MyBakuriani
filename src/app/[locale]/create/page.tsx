@@ -51,7 +51,7 @@ const CATEGORIES = [
 
 export default function CreatePage() {
   return (
-    <div className="mx-auto w-full max-w-[760px] px-4 py-10 sm:py-12">
+    <div className="mx-auto w-full max-w-[880px] px-4 py-10 sm:py-12">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -67,7 +67,7 @@ export default function CreatePage() {
           </p>
         </div>
 
-        <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CATEGORIES.map((cat, i) => (
             <motion.div
               key={cat.href}
@@ -77,7 +77,7 @@ export default function CreatePage() {
             >
               <Link
                 href={cat.href}
-                className="group flex h-full flex-col items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-7 text-center transition-all hover:border-[#CBD5E1] hover:shadow-md"
+                className="group flex h-full flex-col items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-10 text-center transition-all hover:border-[#CBD5E1] hover:shadow-md"
               >
                 <cat.icon className="size-7 text-[#94A3B8]" strokeWidth={1.5} />
                 <h2 className="text-[13px] font-semibold leading-snug text-[#334155]">

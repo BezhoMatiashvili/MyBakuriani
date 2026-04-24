@@ -78,7 +78,7 @@ export function WizardShell({
     : 100;
 
   return (
-    <div className="mx-auto w-full max-w-[760px] px-4 py-10 sm:py-12">
+    <div className="mx-auto w-full max-w-[980px] px-4 py-10 sm:py-12">
       <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)] sm:p-8">
         {hasSteps ? (
           <>
