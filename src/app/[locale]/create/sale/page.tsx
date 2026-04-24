@@ -9,6 +9,7 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +30,9 @@ const CONSTRUCTION_STATUSES: {
   { value: "completed", label: "დასრულებული" },
   { value: "under_construction", label: "მშენებარე" },
 ];
+
+const ZONE_OPTIONS: { value: string; label: string }[] =
+  SEARCH_LOCATION_ZONES.map((z) => ({ value: z, label: z }));
 
 const TITLE_MAX = 35;
 
@@ -178,62 +182,39 @@ export default function CreateSalePage() {
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="ობიექტის ტიპი" required>
-            <select
+            <StyledSelect
               value={propertyType}
-              onChange={(e) =>
-                setPropertyType(e.target.value as Enums<"property_type">)
-              }
-              className={inputClass}
-            >
-              {PROPERTY_TYPES.map((pt) => (
-                <option key={pt.value} value={pt.value}>
-                  {pt.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={setPropertyType}
+              options={PROPERTY_TYPES}
+              accent="blue"
+            />
           </Field>
 
           <Field label="ლოკაცია (ZONE)" required>
-            <select
+            <StyledSelect
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className={inputClass}
-            >
-              <option value="" disabled>
-                აირჩიე ზონა
-              </option>
-              {SEARCH_LOCATION_ZONES.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone}
-                </option>
-              ))}
-            </select>
+              onValueChange={setLocation}
+              options={ZONE_OPTIONS}
+              placeholder="აირჩიე ზონა"
+              accent="blue"
+            />
           </Field>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="მშენებლობის სტატუსი" required>
-            <select
+            <StyledSelect
               value={constructionStatus}
-              onChange={(e) =>
-                setConstructionStatus(
-                  e.target.value as "completed" | "under_construction",
-                )
-              }
-              className={inputClass}
-            >
-              {CONSTRUCTION_STATUSES.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={setConstructionStatus}
+              options={CONSTRUCTION_STATUSES}
+              accent="blue"
+            />
           </Field>
 
           <Field
             label="ჩაბარების დრო"
             chip={
-              isUnderConstruction ? { label: "მხოლოდ მშენებარე" } : undefined
+              isUnderConstruction ? { label: "მხოლოდ მშენებარეზე" } : undefined
             }
           >
             <input
