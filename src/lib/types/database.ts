@@ -505,7 +505,7 @@ export type Database = {
           display_name: string;
           id: string;
           is_verified: boolean | null;
-          phone: string;
+          phone: string | null;
           rating: number | null;
           response_time_minutes: number | null;
           role: Database["public"]["Enums"]["user_role"];
@@ -520,7 +520,7 @@ export type Database = {
           display_name: string;
           id: string;
           is_verified?: boolean | null;
-          phone: string;
+          phone?: string | null;
           rating?: number | null;
           response_time_minutes?: number | null;
           role?: Database["public"]["Enums"]["user_role"];
@@ -535,7 +535,7 @@ export type Database = {
           display_name?: string;
           id?: string;
           is_verified?: boolean | null;
-          phone?: string;
+          phone?: string | null;
           rating?: number | null;
           response_time_minutes?: number | null;
           role?: Database["public"]["Enums"]["user_role"];

@@ -38,7 +38,8 @@ export function formatDateRange(
   return `${format(s, "d MMMM, yyyy", { locale: ka })} – ${format(e, "d MMMM, yyyy", { locale: ka })}`;
 }
 
-export function formatPhone(phone: string): string {
+export function formatPhone(phone: string | null | undefined): string {
+  if (!phone) return "—";
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 12 && digits.startsWith("995")) {
     return `+${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;

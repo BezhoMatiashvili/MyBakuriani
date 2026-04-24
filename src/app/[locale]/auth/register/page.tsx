@@ -120,7 +120,7 @@ export default function RegisterPage() {
 
       const profilePayload = {
         id: user.id,
-        phone: user.phone || "",
+        phone: user.phone ?? null,
         display_name: displayName.trim(),
         bio: bio.trim() || null,
         avatar_url: uploadedAvatarUrl,
