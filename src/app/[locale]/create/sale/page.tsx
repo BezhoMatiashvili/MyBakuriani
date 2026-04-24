@@ -145,10 +145,18 @@ export default function CreateSalePage() {
     }
   }
 
+  const requiredFilled = [
+    title.trim().length > 0,
+    location.trim().length > 0,
+    salePrice.trim().length > 0,
+  ].filter(Boolean).length;
+  const progressPercent = Math.max(10, Math.round((requiredFilled / 3) * 100));
+
   return (
     <WizardShell
       title="ყიდვა / გაყიდვა"
       accent="green"
+      progressPercent={progressPercent}
       footer={
         <WizardFooter
           accent="green"

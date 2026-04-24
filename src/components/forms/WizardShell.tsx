@@ -53,6 +53,8 @@ interface WizardShellProps {
   stepLabel?: string;
   /** If stepped, the step-name shown next to the number circle */
   stepTitle?: string;
+  /** Non-stepped variant only: 0-100 completion percentage. Defaults to 100%. */
+  progressPercent?: number;
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -65,6 +67,7 @@ export function WizardShell({
   totalSteps,
   stepLabel = "ნაბიჯი",
   stepTitle,
+  progressPercent,
   children,
   footer,
 }: WizardShellProps) {
@@ -75,7 +78,9 @@ export function WizardShell({
     totalSteps > 0;
   const progress = hasSteps
     ? Math.round((currentStep / totalSteps) * 100)
-    : 100;
+    : typeof progressPercent === "number"
+      ? Math.max(0, Math.min(100, Math.round(progressPercent)))
+      : 100;
 
   return (
     <div className="mx-auto w-full max-w-[980px] px-4 py-10 sm:py-12">
@@ -130,9 +135,12 @@ export function WizardShell({
                 </p>
               )}
             </div>
-            {/* Accent bar under title */}
-            <div className="mt-4 h-[3px] w-full overflow-hidden rounded-full bg-[#E2E8F0]">
-              <div className={cn("h-full rounded-full", a.bar)} />
+            {/* Progress bar under title */}
+            <div className="mt-4 h-[5px] w-full overflow-hidden rounded-full bg-[#E2E8F0]">
+              <div
+                className={cn("h-full rounded-full transition-all", a.bar)}
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </>
         )}
