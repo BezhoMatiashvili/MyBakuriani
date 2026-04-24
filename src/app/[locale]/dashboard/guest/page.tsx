@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Megaphone, Eye } from "lucide-react";
+import { ArrowRight, Eye } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -105,15 +105,8 @@ export default function GuestDashboardPage() {
             href="/dashboard/guest/bookings"
             className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-[13px] font-black text-[#0F172A] transition-transform hover:-translate-y-0.5"
           >
-            მოთხოვნის გაგზავნა
+            {newOfferCount > 0 ? "შეთავაზების ნახვა" : "მოთხოვნის გაგზავნა"}
             <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/dashboard/guest/bookings"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 text-[13px] font-bold text-white hover:bg-white/20"
-          >
-            <Megaphone className="h-4 w-4" />
-            მიღებული შეთავაზებები
           </Link>
         </div>
       </motion.div>

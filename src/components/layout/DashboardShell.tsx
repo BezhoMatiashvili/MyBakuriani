@@ -224,14 +224,13 @@ export function DashboardShell({
       <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
         <GuestSidebar
           userName={displayName}
-          userId={shortUserId.replace("MB-", "")}
           avatarUrl={avatarUrl ?? undefined}
           isVerified
           currentPath={pathname}
           onSignOut={handleSignOut}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <GuestTopbar />
+          <GuestTopbar notificationCount={notificationCount} />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>

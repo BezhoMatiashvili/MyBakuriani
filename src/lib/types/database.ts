@@ -350,6 +350,45 @@ export type Database = {
           },
         ];
       };
+      favorites: {
+        Row: {
+          created_at: string;
+          id: string;
+          property_id: string | null;
+          service_id: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          property_id?: string | null;
+          service_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          property_id?: string | null;
+          service_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "favorites_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "favorites_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       leads: {
         Row: {
           budget_max: number | null;
@@ -1118,6 +1157,19 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_dashboard_stats: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          active_listings: number;
+          active_or_completed_bookings: number;
+          average_booking_price: number;
+          average_response_minutes: number;
+          completed_bookings: number;
+          total_bookings: number;
+          total_properties: number;
+          total_revenue: number;
+        }[];
+      };
       create_booking: {
         Args: {
           p_check_in: string;
@@ -1143,15 +1195,9 @@ export type Database = {
           total_price: number;
           updated_at: string | null;
         };
-        SetofOptions: {
-          from: "*";
-          to: "bookings";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
       };
       increment_views: { Args: { prop_id: string }; Returns: undefined };
-      is_admin_user: { Args: never; Returns: boolean };
+      is_admin_user: { Args: Record<PropertyKey, never>; Returns: boolean };
       purchase_vip: {
         Args: {
           p_days?: number;
@@ -1165,7 +1211,7 @@ export type Database = {
         Args: { p_booking_id: string };
         Returns: number;
       };
-      show_limit: { Args: never; Returns: number };
+      show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       topup_balance: {
         Args: { p_amount: number; p_description?: string; p_user_id: string };

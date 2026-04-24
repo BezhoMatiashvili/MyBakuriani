@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Heart, MapPin, Clock } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import { createClient } from "@/lib/supabase/client";
 
 function formatNum(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -50,6 +52,8 @@ function formatLocationWithDistance(
 
 export default function PropertyCard(props: PropertyCardProps) {
   const t = useTranslations("PropertyCard");
+  const [favoriteId, setFavoriteId] = useState<string | null>(null);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
   const {
     id,
     title,
@@ -89,6 +93,54 @@ export default function PropertyCard(props: PropertyCardProps) {
     if (capacity) tags.push(t("guests", { count: capacity }));
     if (amenityTags?.length) {
       tags.push(...amenityTags.slice(0, 2));
+    }
+  }
+
+  useEffect(() => {
+    const supabase = createClient();
+    let alive = true;
+    async function loadFavorite() {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user || !alive) return;
+      const { data } = await supabase
+        .from("favorites")
+        .select("id")
+        .eq("user_id", auth.user.id)
+        .eq("property_id", id)
+        .maybeSingle();
+      if (alive) setFavoriteId(data?.id ?? null);
+    }
+    loadFavorite();
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  async function toggleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    try {
+      const supabase = createClient();
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) {
+        window.location.href = "/auth/login";
+        return;
+      }
+      if (favoriteId) {
+        await supabase.from("favorites").delete().eq("id", favoriteId);
+        setFavoriteId(null);
+      } else {
+        const { data } = await supabase
+          .from("favorites")
+          .insert({ user_id: auth.user.id, property_id: id })
+          .select("id")
+          .single();
+        if (data) setFavoriteId(data.id);
+      }
+    } finally {
+      setFavoriteBusy(false);
     }
   }
 
@@ -154,10 +206,17 @@ export default function PropertyCard(props: PropertyCardProps) {
 
           <button
             type="button"
-            onClick={(e) => e.preventDefault()}
-            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#F97316] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:bg-[#F97316] hover:text-white"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
+            aria-label={favoriteId ? "რჩეულებიდან წაშლა" : "რჩეულებში დამატება"}
+            aria-pressed={favoriteId != null}
+            className={`absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors ${
+              favoriteId
+                ? "bg-[#F97316] text-white"
+                : "bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
+            } disabled:opacity-60`}
           >
-            <Heart className="h-4 w-4 fill-current" />
+            <Heart className={`h-4 w-4 ${favoriteId ? "fill-current" : ""}`} />
           </button>
 
           {isHotel && isB2BPartner && (

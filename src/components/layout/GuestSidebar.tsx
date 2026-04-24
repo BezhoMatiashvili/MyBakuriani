@@ -3,20 +3,18 @@
 import { Link } from "@/i18n/navigation";
 import {
   LayoutGrid,
-  Inbox,
-  History,
-  UserRound,
+  Heart,
+  MapPin,
+  Settings,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface GuestSidebarProps {
   userName: string;
-  userId: string;
   avatarUrl?: string;
   isVerified?: boolean;
   currentPath: string;
@@ -29,15 +27,35 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: "ჩემი რეზერვები", href: "/dashboard/guest", icon: LayoutGrid },
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
   {
-    label: "მიღებული შეთავაზებები",
-    href: "/dashboard/guest/bookings",
-    icon: Inbox,
+    title: "მთავარი",
+    items: [
+      { label: "მთავარი გვერდი", href: "/dashboard/guest", icon: LayoutGrid },
+      { label: "რჩეულები", href: "/dashboard/guest/favorites", icon: Heart },
+    ],
   },
-  { label: "ისტორია", href: "/dashboard/guest/reviews", icon: History },
-  { label: "პროფილი", href: "/dashboard/guest/profile", icon: UserRound },
+  {
+    title: "აქტივობა",
+    items: [
+      { label: "ისტორია", href: "/dashboard/guest/reviews", icon: MapPin },
+    ],
+  },
+  {
+    title: "პროფილი",
+    items: [
+      {
+        label: "პარამეტრები",
+        href: "/dashboard/guest/profile",
+        icon: Settings,
+      },
+    ],
+  },
 ];
 
 function BrandLogo() {
@@ -91,7 +109,6 @@ function isItemActive(href: string, current: string) {
 
 export function GuestSidebar({
   userName,
-  userId,
   avatarUrl,
   isVerified = true,
   currentPath,
@@ -101,7 +118,8 @@ export function GuestSidebar({
     .split(" ")
     .map((n) => n[0])
     .join("")
-    .slice(0, 2);
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
@@ -111,11 +129,11 @@ export function GuestSidebar({
         </Link>
       </div>
 
-      <CabinetSwitcher activeKey="guest">
+      <div className="mx-4 flex items-center gap-3 rounded-2xl px-2 py-2">
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-            <AvatarFallback className="bg-[#DBEAFE] text-[14px] font-extrabold text-[#2563EB]">
+            <AvatarFallback className="bg-[#DCFCE7] text-[14px] font-extrabold text-[#0F8F60]">
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -127,50 +145,57 @@ export function GuestSidebar({
           <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
             {userName}
           </p>
-          <p className="mt-0.5 text-[11px] font-bold tracking-wide text-[#2563EB]">
-            MB- {userId}
-          </p>
+          <span className="mt-1 inline-flex items-center rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] font-bold text-[#16A34A]">
+            დამსვენებელი
+          </span>
         </div>
-      </CabinetSwitcher>
+      </div>
 
       <div className="mx-6 mt-5 h-px bg-[#EEF1F4]" />
 
       <nav className="mt-4 flex-1 overflow-y-auto px-4">
-        <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const active = isItemActive(item.href, currentPath);
-            const Icon = item.icon;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "group relative flex items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-bold transition-colors",
-                    active
-                      ? "bg-[#EFF6FF] text-[#2563EB]"
-                      : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]",
-                  )}
-                >
-                  {active && (
-                    <span
-                      aria-hidden
-                      className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#2563EB]"
-                    />
-                  )}
-                  <Icon className="size-[18px] shrink-0" />
-                  <span className="flex-1 truncate">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        {NAV_GROUPS.map((group) => (
+          <div key={group.title} className="mb-5">
+            <p className="mb-2 px-4 text-[10px] font-bold uppercase tracking-[0.1em] text-[#94A3B8]">
+              {group.title}
+            </p>
+            <ul className="space-y-1">
+              {group.items.map((item) => {
+                const active = isItemActive(item.href, currentPath);
+                const Icon = item.icon;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "group relative flex items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-bold transition-colors",
+                        active
+                          ? "bg-[#ECFDF5] text-[#0F8F60]"
+                          : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]",
+                      )}
+                    >
+                      {active && (
+                        <span
+                          aria-hidden
+                          className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#0F8F60]"
+                        />
+                      )}
+                      <Icon className="size-[18px] shrink-0" />
+                      <span className="flex-1 truncate">{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-[#EEF1F4] px-4 py-3">
         <button
           type="button"
           onClick={onSignOut}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
         >
           <LogOut className="size-[18px]" />
           გამოსვლა

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
-import { Star, Phone, MapPin, History } from "lucide-react";
+import { Clock, Heart, History, Phone, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +21,54 @@ type ReviewRow = Tables<"reviews"> & {
   properties: Pick<Tables<"properties">, "title" | "photos"> | null;
 };
 
-export default function GuestReviewsPage() {
+const GE_MONTHS = [
+  "იანვარი",
+  "თებერვალი",
+  "მარტი",
+  "აპრილი",
+  "მაისი",
+  "ივნისი",
+  "ივლისი",
+  "აგვისტო",
+  "სექტემბერი",
+  "ოქტომბერი",
+  "ნოემბერი",
+  "დეკემბერი",
+];
+
+function formatReviewDate(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.getDate()} ${GE_MONTHS[d.getMonth()]}`;
+}
+
+function formatCallRelative(iso: string | null) {
+  if (!iso) return "დაუთარიღებელი";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "დაუთარიღებელი";
+
+  const now = new Date();
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+  const startOfDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayDiff = Math.round(
+    (startOfToday.getTime() - startOfDate.getTime()) / 86400000,
+  );
+
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+
+  if (dayDiff <= 0) return `დარეკეთ დღეს, ${hh}:${mm}`;
+  if (dayDiff === 1) return `დარეკეთ გუშინ, ${hh}:${mm}`;
+  if (dayDiff < 7) return `დარეკეთ ${dayDiff} დღის წინ`;
+  return `დარეკეთ ${formatReviewDate(iso)}`;
+}
+
+export default function GuestHistoryPage() {
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -59,12 +106,13 @@ export default function GuestReviewsPage() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:p-8"
       >
-        <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          ისტორია და შეფასებები
+        <h1 className="text-[30px] font-black leading-[38px] text-[#0F172A]">
+          კომუნიკაციის ისტორია
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          წარსული ჯავშნები და თქვენი შეფასებები.
+          ბოლო სერვისები და შეფასებები.
         </p>
       </motion.div>
 
@@ -72,62 +120,22 @@ export default function GuestReviewsPage() {
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
-          <h2 className="text-[15px] font-black text-[#0F172A]">
-            ჩემი ჯავშნები
-          </h2>
-
-          <div className="mt-4 space-y-3">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
+            ბოლო ზარები
+          </p>
+          <div className="space-y-3">
             {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 rounded-xl" />
+              Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-[72px] rounded-[16px]" />
               ))
             ) : bookings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <History className="h-8 w-8 text-[#CBD5E1]" />
-                <p className="mt-2 text-[12px] text-[#94A3B8]">
-                  ჯავშნები არ არის
-                </p>
-              </div>
+              <EmptyState
+                icon={<History className="h-6 w-6 text-[#CBD5E1]" />}
+                title="ზარები არ არის"
+              />
             ) : (
-              bookings.map((b) => (
-                <Link
-                  key={b.id}
-                  href={`/apartments/${b.properties?.id ?? ""}`}
-                  className="flex items-center gap-3 rounded-xl border border-[#EEF1F4] bg-white p-3 transition-colors hover:border-[#0F8F60]/40"
-                >
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
-                    {b.properties?.photos?.[0] && (
-                      <Image
-                        src={b.properties.photos[0]}
-                        alt={b.properties.title}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-bold text-[#0F172A]">
-                      {b.properties?.title ?? "ობიექტი"}
-                    </p>
-                    <p className="flex items-center gap-1 text-[11px] text-[#94A3B8]">
-                      <MapPin className="h-3 w-3" />
-                      {b.properties?.location ?? "—"}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full p-2 ${
-                      b.status === "confirmed" || b.status === "completed"
-                        ? "bg-[#DCFCE7] text-[#16A34A]"
-                        : "bg-[#FEF3C7] text-[#D97706]"
-                    }`}
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                  </span>
-                </Link>
-              ))
+              bookings.map((b) => <CallCard key={b.id} booking={b} />)
             )}
           </div>
         </motion.section>
@@ -136,58 +144,113 @@ export default function GuestReviewsPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
-          <h2 className="text-[15px] font-black text-[#0F172A]">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
             ჩემი შეფასებები
-          </h2>
-
-          <div className="mt-4 space-y-3">
+          </p>
+          <div className="space-y-3">
             {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 rounded-xl" />
+              Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-[72px] rounded-[16px]" />
               ))
             ) : reviews.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <Star className="h-8 w-8 text-[#CBD5E1]" />
-                <p className="mt-2 text-[12px] text-[#94A3B8]">
-                  შეფასებები არ გაქვთ
-                </p>
-              </div>
+              <EmptyState
+                icon={<Star className="h-6 w-6 text-[#CBD5E1]" />}
+                title="შეფასებები არ გაქვთ"
+              />
             ) : (
-              reviews.map((r) => (
-                <div
-                  key={r.id}
-                  className="rounded-xl border border-[#EEF1F4] bg-white p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="truncate text-[13px] font-bold text-[#0F172A]">
-                      {r.properties?.title ?? "ობიექტი"}
-                    </p>
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-3 w-3 ${
-                            i < (r.rating ?? 0)
-                              ? "text-[#F59E0B]"
-                              : "text-[#E2E8F0]"
-                          }`}
-                          fill="currentColor"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {r.comment && (
-                    <p className="mt-1 line-clamp-2 text-[12px] leading-[18px] text-[#64748B]">
-                      {r.comment}
-                    </p>
-                  )}
-                </div>
-              ))
+              reviews.map((r) => <ReviewCard key={r.id} review={r} />)
             )}
           </div>
         </motion.section>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-[16px] border border-dashed border-[#E2E8F0] bg-white py-10 text-center">
+      {icon}
+      <p className="mt-2 text-[12px] font-medium text-[#94A3B8]">{title}</p>
+    </div>
+  );
+}
+
+function CallCard({ booking }: { booking: BookingRow }) {
+  const confirmed =
+    booking.status === "confirmed" || booking.status === "completed";
+  const iconChipColors = confirmed
+    ? "bg-[#ECFDF5] text-[#0F8F60]"
+    : "bg-[#FEF3C7] text-[#D97706]";
+  const callChipColors = confirmed
+    ? "bg-[#ECFDF5] text-[#0F8F60]"
+    : "bg-[#FEF3C7] text-[#D97706]";
+
+  return (
+    <Link
+      href={`/apartments/${booking.properties?.id ?? ""}`}
+      className="flex items-center gap-3 rounded-[16px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-colors hover:border-[#0F8F60]/40"
+    >
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconChipColors}`}
+      >
+        {confirmed ? (
+          <Heart className="h-4 w-4" />
+        ) : (
+          <Clock className="h-4 w-4" />
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] font-bold text-[#0F172A]">
+          {booking.properties?.title ?? "ობიექტი"}
+        </p>
+        <p className="text-[11px] text-[#94A3B8]">
+          {formatCallRelative(booking.created_at)}
+        </p>
+      </div>
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${callChipColors}`}
+      >
+        <Phone className="h-4 w-4" />
+      </span>
+    </Link>
+  );
+}
+
+function ReviewCard({ review }: { review: ReviewRow }) {
+  const photo = review.properties?.photos?.[0] ?? null;
+  return (
+    <div className="flex items-center gap-3 rounded-[16px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
+        {photo && (
+          <Image
+            src={photo}
+            alt={review.properties?.title ?? ""}
+            fill
+            sizes="40px"
+            className="object-cover"
+          />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] font-bold text-[#0F172A]">
+          {review.properties?.title ?? "ობიექტი"}
+        </p>
+        <p className="text-[11px] text-[#94A3B8]">
+          {formatReviewDate(review.created_at)}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star
+            key={i}
+            className={`h-3.5 w-3.5 ${
+              i < (review.rating ?? 0) ? "text-[#F59E0B]" : "text-[#E2E8F0]"
+            }`}
+            fill="currentColor"
+          />
+        ))}
       </div>
     </div>
   );

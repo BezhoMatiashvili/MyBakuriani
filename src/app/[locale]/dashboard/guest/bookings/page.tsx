@@ -7,7 +7,7 @@ import { Link } from "@/i18n/navigation";
 import {
   Star,
   MapPin,
-  Check,
+  Phone,
   Megaphone,
   Sparkles,
   Calendar,
@@ -27,7 +27,7 @@ type Request = Tables<"smart_match_requests">;
 type Property = Tables<"properties">;
 type Owner = Pick<
   Tables<"profiles">,
-  "id" | "display_name" | "avatar_url" | "rating"
+  "id" | "display_name" | "avatar_url" | "rating" | "phone"
 >;
 
 interface OfferView {
@@ -92,7 +92,7 @@ export default function GuestBookingsPage() {
         ownerIds.length > 0
           ? await supabase
               .from("profiles")
-              .select("id, display_name, avatar_url, rating")
+              .select("id, display_name, avatar_url, rating, phone")
               .in("id", ownerIds)
           : { data: [] as Owner[] };
 
@@ -316,17 +316,27 @@ function OfferCard({ offer }: { offer: OfferView }) {
                 </span>
               </p>
             </div>
-            <Link
-              href={
-                offer.property.is_for_sale
-                  ? `/sales/${offer.property.id}`
-                  : `/apartments/${offer.property.id}`
-              }
-              className="inline-flex items-center gap-1 rounded-xl bg-[#0F8F60] px-4 py-2 text-[12px] font-bold text-white hover:bg-[#0B7A52]"
-            >
-              <Check className="h-3.5 w-3.5" />
-              დამატება ჩემთან
-            </Link>
+            {offer.owner?.phone ? (
+              <a
+                href={`tel:${offer.owner.phone}`}
+                className="inline-flex items-center gap-1 rounded-xl bg-[#0F8F60] px-4 py-2 text-[12px] font-bold text-white hover:bg-[#0B7A52]"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                დაკავშირების ფორმა
+              </a>
+            ) : (
+              <Link
+                href={
+                  offer.property.is_for_sale
+                    ? `/sales/${offer.property.id}`
+                    : `/apartments/${offer.property.id}`
+                }
+                className="inline-flex items-center gap-1 rounded-xl bg-[#0F8F60] px-4 py-2 text-[12px] font-bold text-white hover:bg-[#0B7A52]"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                დაკავშირების ფორმა
+              </Link>
+            )}
           </div>
         </div>
       </div>
