@@ -222,7 +222,14 @@
       "employment": "დასაქმება"
     },
     "details": "დეტალები",
-    "addToFavorites": "ფავორიტებში დამატება"
+    "addToFavorites": "ფავორიტებში დამატება",
+    "call": "დარეკვა",
+    "providerNameLabel": "სახელი",
+    "experienceLabel": "გამოცდილება",
+    "experienceYearsUnit": "წელი",
+    "workingHoursLabel": "სამუშაო საათები",
+    "statusActive": "აქტიური",
+    "statusBusy": "დაკავებულია"
   },
   "SmartMatchCard": {
     "guestRequests": "სტუმრების მოთხოვნები",

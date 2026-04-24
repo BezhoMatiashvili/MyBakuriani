@@ -222,7 +222,14 @@
       "employment": "Работа"
     },
     "details": "Подробнее",
-    "addToFavorites": "Добавить в избранное"
+    "addToFavorites": "Добавить в избранное",
+    "call": "Позвонить",
+    "providerNameLabel": "Имя",
+    "experienceLabel": "Опыт",
+    "experienceYearsUnit": "г.",
+    "workingHoursLabel": "Рабочие часы",
+    "statusActive": "Активен",
+    "statusBusy": "Занят"
   },
   "SmartMatchCard": {
     "guestRequests": "Запросы гостей",

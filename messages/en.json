@@ -222,7 +222,14 @@
       "employment": "Employment"
     },
     "details": "Details",
-    "addToFavorites": "Add to Favorites"
+    "addToFavorites": "Add to Favorites",
+    "call": "Call",
+    "providerNameLabel": "Name",
+    "experienceLabel": "Experience",
+    "experienceYearsUnit": "yr",
+    "workingHoursLabel": "Working hours",
+    "statusActive": "Active",
+    "statusBusy": "Busy"
   },
   "SmartMatchCard": {
     "guestRequests": "Guest requests",

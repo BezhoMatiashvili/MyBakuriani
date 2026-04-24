@@ -28,6 +28,7 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ServiceCard from "@/components/cards/ServiceCard";
+import EmploymentCard from "@/components/cards/EmploymentCard";
 import SmartMatchCard from "@/components/cards/SmartMatchCard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -358,6 +359,11 @@ function makeServiceCards(category: string, count: number) {
       unit: string;
       discount: number;
       vip: boolean;
+      hours?: string;
+      phone?: string;
+      providerName?: string;
+      experienceYears?: number;
+      availabilityStatus?: "active" | "busy";
     }>
   > = {
     transport: [
@@ -391,31 +397,56 @@ function makeServiceCards(category: string, count: number) {
     ],
     handyman: [
       {
-        title: "სანტექნიკი — გამოძახებით",
+        title: "პროფესიონალი დამლაგებელი",
         photo:
-          "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&h=600&fit=crop",
-        price: 50,
+          "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=400&fit=crop",
+        price: 80,
+        unit: "დღე",
+        discount: 0,
+        vip: false,
+        providerName: "ნინო",
+        experienceYears: 8,
+        availabilityStatus: "active",
+        hours: "10:00 - 18:00",
+      },
+      {
+        title: "გათბობის ქვაბის სპეციალისტი",
+        photo:
+          "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
+        price: 70,
         unit: "გამოძახება",
         discount: 0,
         vip: false,
+        providerName: "გიორგი",
+        experienceYears: 12,
+        availabilityStatus: "active",
+        hours: "10:00 - 23:00",
       },
       {
-        title: "ელექტრიკი — სწრაფი სერვისი",
+        title: "სანტექნიკოსი (გაყინული მილები)",
         photo:
-          "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=800&h=600&fit=crop",
+          "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&h=400&fit=crop",
         price: 60,
         unit: "გამოძახება",
         discount: 0,
-        vip: true,
+        vip: false,
+        providerName: "შოთა",
+        experienceYears: 10,
+        availabilityStatus: "busy",
+        hours: "09:00 - 22:00",
       },
       {
-        title: "დალაგება და გაწმენდა",
+        title: "თოვლის გაწმენდა (ტრაქტორი)",
         photo:
-          "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=600&fit=crop",
-        price: 80,
-        unit: "დალაგება",
+          "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=400&h=400&fit=crop",
+        price: 120,
+        unit: "სეანსი",
         discount: 0,
         vip: false,
+        providerName: "დავითი",
+        experienceYears: 1,
+        availabilityStatus: "active",
+        hours: "08:00 - 20:00",
       },
     ],
     entertainment: [
@@ -456,6 +487,8 @@ function makeServiceCards(category: string, count: number) {
         unit: "კერძი",
         discount: 0,
         vip: true,
+        hours: "10:00 - 23:00",
+        phone: "+995599123456",
       },
       {
         title: 'პიცერია „იტალიანო"',
@@ -465,6 +498,8 @@ function makeServiceCards(category: string, count: number) {
         unit: "კერძი",
         discount: 15,
         vip: false,
+        hours: "11:00 - 22:00",
+        phone: "+995599234567",
       },
       {
         title: 'კაფე-ბარი „თოვლის ბუნკერი"',
@@ -474,6 +509,8 @@ function makeServiceCards(category: string, count: number) {
         unit: "სასმელი",
         discount: 0,
         vip: false,
+        hours: "09:00 - 00:00",
+        phone: "+995599345678",
       },
     ],
     employment: [
@@ -517,6 +554,11 @@ function makeServiceCards(category: string, count: number) {
     priceUnit: item.unit,
     discountPercent: item.discount,
     isVip: item.vip,
+    operatingHours: item.hours ?? null,
+    phone: item.phone ?? null,
+    providerName: item.providerName ?? null,
+    experienceYears: item.experienceYears ?? null,
+    availabilityStatus: item.availabilityStatus ?? null,
   }));
 }
 
@@ -694,6 +736,10 @@ export default function LandingPage({
           isVip: s.is_vip ?? false,
           schedule: s.schedule,
           operatingHours: s.operating_hours,
+          phone: s.phone,
+          providerName: null,
+          experienceYears: null,
+          availabilityStatus: null,
         }));
     }
     return makeServiceCards(category, 4);
@@ -1046,13 +1092,9 @@ export default function LandingPage({
       />
 
       {/* ═══ 11. Employment Section ═══ */}
-      <ServiceSection
-        title="დასაქმება ბაკურიანში"
-        subtitle="იპოვე შენი სასურველი ვაკანსია და დასაქმდი ბაკურიანში მარტივად"
+      <EmploymentSection
         cards={servicesByCategory("employment")}
         href="/employment"
-        muted
-        showAddButton
       />
 
       {/* ═══ 12. Blog Section ═══ */}
@@ -1178,6 +1220,10 @@ function ServiceSection({
     isVip: boolean;
     schedule?: string | null;
     operatingHours?: string | null;
+    phone?: string | null;
+    providerName?: string | null;
+    experienceYears?: number | null;
+    availabilityStatus?: "active" | "busy" | null;
   }>;
   href: string;
   muted?: boolean;
@@ -1236,6 +1282,88 @@ function ServiceSection({
                 className={`h-full shrink-0 snap-start ${cardVariant === "avatar" ? "w-[280px]" : "w-[340px]"}`}
               >
                 <ServiceCard {...card} variant={cardVariant} />
+              </div>
+            </ScrollReveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EmploymentSection({
+  cards,
+  href,
+}: {
+  cards: Array<{
+    id: string;
+    title: string;
+    location: string | null;
+    price: number | null;
+    priceUnit: string | null;
+  }>;
+  href: string;
+}) {
+  const postedLabels = [
+    "დღეს",
+    "1 დღის წინ",
+    "3 დღის წინ",
+    "5 დღის წინ",
+    "1 კვირის წინ",
+  ];
+  const availabilities = [
+    "დღიური",
+    "სრული განაკვეთი",
+    "მოქნილი",
+    "ნახევარი განაკვეთი",
+    "სეზონური",
+  ];
+
+  return (
+    <section className="bg-brand-surface-muted px-4 py-16">
+      <div className="mx-auto max-w-[1160px]">
+        <ScrollReveal>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                დასაქმება ბაკურიანში
+              </h2>
+              <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                მოძებნე კადრი ან იპოვე სამსახური სეზონზე
+              </p>
+            </div>
+            <div className="hidden items-center gap-4 sm:flex">
+              <Link
+                href="/create"
+                className="inline-flex items-center gap-1 rounded-full bg-[#DBEAFE] px-4 py-2 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#BFDBFE]"
+              >
+                <Plus className="h-4 w-4" />
+                დამატება
+              </Link>
+              <Link
+                href={href}
+                className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
+              >
+                ნახე ყველა <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </ScrollReveal>
+        <div className="scrollbar-hide -mx-4 flex snap-x gap-6 overflow-x-auto scroll-smooth px-4">
+          {cards.map((card, i) => (
+            <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
+              <div className="h-full w-[300px] shrink-0 snap-start">
+                <EmploymentCard
+                  id={card.id}
+                  title={card.title}
+                  employer={card.location}
+                  price={card.price}
+                  priceUnit={card.priceUnit}
+                  badge={i === 0 ? "popular" : i <= 2 ? "new" : null}
+                  postedLabel={postedLabels[i % postedLabels.length]}
+                  availability={availabilities[i % availabilities.length]}
+                  highlighted={i === 0}
+                />
               </div>
             </ScrollReveal>
           ))}
