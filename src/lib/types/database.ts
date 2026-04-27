@@ -852,6 +852,8 @@ export type Database = {
       };
       services: {
         Row: {
+          accommodation: string | null;
+          avg_check: string | null;
           category: Database["public"]["Enums"]["service_category"];
           created_at: string | null;
           cuisine_type: string | null;
@@ -860,12 +862,20 @@ export type Database = {
           discount_percent: number | null;
           driver_name: string | null;
           employment_schedule: string | null;
+          employment_type: string | null;
+          equipment: string[] | null;
           experience_required: string | null;
           has_delivery: boolean | null;
+          has_kids_area: boolean;
+          has_live_music: boolean;
+          has_lounge: boolean;
           id: string;
           is_vip: boolean | null;
+          languages: string[] | null;
           location: string | null;
+          meals: string | null;
           menu: Json | null;
+          menu_url: string | null;
           operating_hours: string | null;
           owner_id: string;
           phone: string | null;
@@ -873,16 +883,27 @@ export type Database = {
           position: string | null;
           price: number | null;
           price_unit: string | null;
+          requirements: string | null;
           route: string | null;
+          routes: string[] | null;
+          salary_daily: number | null;
+          salary_max: number | null;
+          salary_min: number | null;
           salary_range: string | null;
+          salary_type: string | null;
           schedule: string | null;
           status: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
+          transport_type: string | null;
           updated_at: string | null;
           vehicle_capacity: number | null;
+          vehicle_make: string | null;
           views_count: number | null;
+          work_schedule: string | null;
         };
         Insert: {
+          accommodation?: string | null;
+          avg_check?: string | null;
           category: Database["public"]["Enums"]["service_category"];
           created_at?: string | null;
           cuisine_type?: string | null;
@@ -891,12 +912,20 @@ export type Database = {
           discount_percent?: number | null;
           driver_name?: string | null;
           employment_schedule?: string | null;
+          employment_type?: string | null;
+          equipment?: string[] | null;
           experience_required?: string | null;
           has_delivery?: boolean | null;
+          has_kids_area?: boolean;
+          has_live_music?: boolean;
+          has_lounge?: boolean;
           id?: string;
           is_vip?: boolean | null;
+          languages?: string[] | null;
           location?: string | null;
+          meals?: string | null;
           menu?: Json | null;
+          menu_url?: string | null;
           operating_hours?: string | null;
           owner_id: string;
           phone?: string | null;
@@ -904,16 +933,27 @@ export type Database = {
           position?: string | null;
           price?: number | null;
           price_unit?: string | null;
+          requirements?: string | null;
           route?: string | null;
+          routes?: string[] | null;
+          salary_daily?: number | null;
+          salary_max?: number | null;
+          salary_min?: number | null;
           salary_range?: string | null;
+          salary_type?: string | null;
           schedule?: string | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
+          transport_type?: string | null;
           updated_at?: string | null;
           vehicle_capacity?: number | null;
+          vehicle_make?: string | null;
           views_count?: number | null;
+          work_schedule?: string | null;
         };
         Update: {
+          accommodation?: string | null;
+          avg_check?: string | null;
           category?: Database["public"]["Enums"]["service_category"];
           created_at?: string | null;
           cuisine_type?: string | null;
@@ -922,12 +962,20 @@ export type Database = {
           discount_percent?: number | null;
           driver_name?: string | null;
           employment_schedule?: string | null;
+          employment_type?: string | null;
+          equipment?: string[] | null;
           experience_required?: string | null;
           has_delivery?: boolean | null;
+          has_kids_area?: boolean;
+          has_live_music?: boolean;
+          has_lounge?: boolean;
           id?: string;
           is_vip?: boolean | null;
+          languages?: string[] | null;
           location?: string | null;
+          meals?: string | null;
           menu?: Json | null;
+          menu_url?: string | null;
           operating_hours?: string | null;
           owner_id?: string;
           phone?: string | null;
@@ -935,14 +983,23 @@ export type Database = {
           position?: string | null;
           price?: number | null;
           price_unit?: string | null;
+          requirements?: string | null;
           route?: string | null;
+          routes?: string[] | null;
+          salary_daily?: number | null;
+          salary_max?: number | null;
+          salary_min?: number | null;
           salary_range?: string | null;
+          salary_type?: string | null;
           schedule?: string | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title?: string;
+          transport_type?: string | null;
           updated_at?: string | null;
           vehicle_capacity?: number | null;
+          vehicle_make?: string | null;
           views_count?: number | null;
+          work_schedule?: string | null;
         };
         Relationships: [
           {
@@ -1158,7 +1215,7 @@ export type Database = {
     };
     Functions: {
       admin_dashboard_stats: {
-        Args: Record<PropertyKey, never>;
+        Args: never;
         Returns: {
           active_listings: number;
           active_or_completed_bookings: number;
@@ -1195,9 +1252,15 @@ export type Database = {
           total_price: number;
           updated_at: string | null;
         };
+        SetofOptions: {
+          from: "*";
+          to: "bookings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       increment_views: { Args: { prop_id: string }; Returns: undefined };
-      is_admin_user: { Args: Record<PropertyKey, never>; Returns: boolean };
+      is_admin_user: { Args: never; Returns: boolean };
       purchase_vip: {
         Args: {
           p_days?: number;
@@ -1211,7 +1274,7 @@ export type Database = {
         Args: { p_booking_id: string };
         Returns: number;
       };
-      show_limit: { Args: Record<PropertyKey, never>; Returns: number };
+      show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       topup_balance: {
         Args: { p_amount: number; p_description?: string; p_user_id: string };

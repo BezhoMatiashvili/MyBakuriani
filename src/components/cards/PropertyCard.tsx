@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 function formatNum(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -52,6 +53,7 @@ function formatLocationWithDistance(
 
 export default function PropertyCard(props: PropertyCardProps) {
   const t = useTranslations("PropertyCard");
+  const { user } = useAuth();
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
   const {
@@ -97,15 +99,17 @@ export default function PropertyCard(props: PropertyCardProps) {
   }
 
   useEffect(() => {
+    if (!user) {
+      setFavoriteId(null);
+      return;
+    }
     const supabase = createClient();
     let alive = true;
     async function loadFavorite() {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user || !alive) return;
       const { data } = await supabase
         .from("favorites")
         .select("id")
-        .eq("user_id", auth.user.id)
+        .eq("user_id", user!.id)
         .eq("property_id", id)
         .maybeSingle();
       if (alive) setFavoriteId(data?.id ?? null);
@@ -114,27 +118,26 @@ export default function PropertyCard(props: PropertyCardProps) {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, user]);
 
   async function toggleFavorite(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (favoriteBusy) return;
+    if (!user) {
+      window.location.href = "/auth/login";
+      return;
+    }
     setFavoriteBusy(true);
     try {
       const supabase = createClient();
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) {
-        window.location.href = "/auth/login";
-        return;
-      }
       if (favoriteId) {
         await supabase.from("favorites").delete().eq("id", favoriteId);
         setFavoriteId(null);
       } else {
         const { data } = await supabase
           .from("favorites")
-          .insert({ user_id: auth.user.id, property_id: id })
+          .insert({ user_id: user.id, property_id: id })
           .select("id")
           .single();
         if (data) setFavoriteId(data.id);
