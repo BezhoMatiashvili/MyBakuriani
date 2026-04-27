@@ -55,14 +55,11 @@ export async function updateSession(request: NextRequest) {
       url.searchParams.set("next", getSafeNextPath(request));
       return NextResponse.redirect(url);
     }
-  } catch {
-    // If Supabase is unreachable, redirect protected routes to login
-    if (isProtected) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/auth/login";
-      url.searchParams.set("next", getSafeNextPath(request));
-      return NextResponse.redirect(url);
-    }
+  } catch (err) {
+    // A transient network/fetch error from Edge → Supabase must NOT log the user out.
+    // The browser client still has a valid session; let the request through and let
+    // client-side guards re-validate. Only confirmed "user === null" gates protected routes.
+    console.error("[middleware] supabase.auth.getUser threw:", err);
   }
 
   return supabaseResponse;

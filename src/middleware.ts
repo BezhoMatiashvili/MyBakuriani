@@ -32,9 +32,11 @@ export async function middleware(request: NextRequest) {
       return sessionResponse;
     }
 
-    // Otherwise, merge session cookies into the intl response
+    // Otherwise, merge session cookies into the intl response.
+    // Pass the full cookie object so httpOnly/secure/sameSite/path/maxAge are preserved —
+    // dropping these caused refreshed Supabase tokens to be unusable on the next request.
     sessionResponse.cookies.getAll().forEach((cookie) => {
-      intlResponse.cookies.set(cookie.name, cookie.value);
+      intlResponse.cookies.set(cookie);
     });
   }
 
