@@ -135,18 +135,25 @@ export function DashboardShell({
     }
   }
 
-  const isAdmin = role === "admin";
-  const isRenter = role === "renter";
-  const isSeller = role === "seller";
-  const isGuest = role === "guest";
-  const isCleaner = role === "cleaner";
-  const isFood = role === "food";
+  const cabinetFromPath = (() => {
+    const seg = pathname?.split("/").filter(Boolean) ?? [];
+    const dashIdx = seg.indexOf("dashboard");
+    return dashIdx >= 0 && seg[dashIdx + 1] ? seg[dashIdx + 1] : null;
+  })();
+  const activeRole = cabinetFromPath ?? role;
+
+  const isAdmin = activeRole === "admin";
+  const isRenter = activeRole === "renter";
+  const isSeller = activeRole === "seller";
+  const isGuest = activeRole === "guest";
+  const isCleaner = activeRole === "cleaner";
+  const isFood = activeRole === "food";
   const isService =
-    role === "entertainment" ||
-    role === "transport" ||
-    role === "employment" ||
-    role === "handyman" ||
-    role === "service";
+    activeRole === "entertainment" ||
+    activeRole === "transport" ||
+    activeRole === "employment" ||
+    activeRole === "handyman" ||
+    activeRole === "service";
   const shortUserId = `MB-${userId.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
 
   if (isAdmin) {
@@ -187,7 +194,7 @@ export function DashboardShell({
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={role} />
+        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
       </div>
     );
   }
@@ -214,7 +221,7 @@ export function DashboardShell({
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={role} />
+        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
       </div>
     );
   }
@@ -235,7 +242,7 @@ export function DashboardShell({
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={role} />
+        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
       </div>
     );
   }
@@ -255,7 +262,7 @@ export function DashboardShell({
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={role} />
+        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
       </div>
     );
   }
@@ -279,7 +286,7 @@ export function DashboardShell({
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={role} />
+        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
       </div>
     );
   }
@@ -305,7 +312,7 @@ export function DashboardShell({
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={role} />
+        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
       </div>
     );
   }
@@ -314,7 +321,7 @@ export function DashboardShell({
     <div className="flex min-h-screen bg-[#F8FAFC]/60">
       <DashboardSidebar
         userName={displayName}
-        userRole={role}
+        userRole={activeRole}
         avatarUrl={avatarUrl ?? undefined}
         smsCount={notificationCount}
         currentPath={pathname}
@@ -324,7 +331,7 @@ export function DashboardShell({
           {children}
         </div>
       </div>
-      <MobileBottomNav currentPath={pathname} userRole={role} />
+      <MobileBottomNav currentPath={pathname} userRole={activeRole} />
     </div>
   );
 }
