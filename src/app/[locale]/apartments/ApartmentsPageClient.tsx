@@ -359,7 +359,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
               {/* Add listing button */}
               <button
                 type="button"
-                onClick={() => router.push("/create/rental")}
+                onClick={() => router.push("/create")}
                 className="flex items-center gap-1.5 rounded-full border border-[#2563EB] px-4 py-2 text-[12px] font-bold text-[#2563EB] transition-colors hover:bg-[#EFF6FF]"
               >
                 <Plus className="size-3.5" />

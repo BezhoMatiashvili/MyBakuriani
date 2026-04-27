@@ -227,7 +227,7 @@ export function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           <LanguageSelector />
           <Link
-            href={user ? "/create/rental" : "/auth/login?next=/create/rental"}
+            href={user ? "/create" : "/auth/login?next=/create"}
           >
             <Button className="h-[39.5px] w-[222px] gap-1.5 rounded-xl bg-[#F97316] px-5 text-[13px] font-bold leading-5 text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]">
               <Plus className="size-4" />

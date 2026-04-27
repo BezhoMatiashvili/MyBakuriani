@@ -77,10 +77,13 @@ export default function CreatePage() {
             >
               <Link
                 href={cat.href}
-                className="group flex h-full flex-col items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-10 text-center transition-all hover:border-[#CBD5E1] hover:shadow-md"
+                className="group flex h-full flex-col items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-10 text-center transition-all hover:border-[#2563EB] hover:shadow-md"
               >
-                <cat.icon className="size-7 text-[#94A3B8]" strokeWidth={1.5} />
-                <h2 className="text-[13px] font-semibold leading-snug text-[#334155]">
+                <cat.icon
+                  className="size-7 text-[#94A3B8] transition-colors group-hover:text-[#2563EB]"
+                  strokeWidth={1.5}
+                />
+                <h2 className="text-[13px] font-semibold leading-snug text-[#334155] transition-colors group-hover:text-[#2563EB]">
                   {cat.title}
                 </h2>
               </Link>
