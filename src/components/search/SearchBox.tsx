@@ -651,6 +651,7 @@ export function SearchBox({
               selected={dateRange}
               onSelect={handleRangeSelect}
               numberOfMonths={2}
+              showOutsideDays={false}
               min={1}
               locale={calendarLocale}
               disabled={{ before: new Date() }}

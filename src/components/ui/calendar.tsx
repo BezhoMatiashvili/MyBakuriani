@@ -113,20 +113,17 @@ function Calendar({
           defaultClassNames.day,
         ),
         range_start: cn(
-          "relative isolate z-0 rounded-l-full bg-[#EFF6FF] after:absolute after:inset-y-0 after:right-0 after:w-4 after:bg-[#EFF6FF]",
+          "rounded-l-full bg-[#EFF6FF]",
           defaultClassNames.range_start,
         ),
-        range_middle: cn(
-          "rounded-none bg-[#EFF6FF]",
-          defaultClassNames.range_middle,
-        ),
+        range_middle: cn("bg-[#EFF6FF]", defaultClassNames.range_middle),
         range_end: cn(
-          "relative isolate z-0 rounded-r-full bg-[#EFF6FF] after:absolute after:inset-y-0 after:left-0 after:w-4 after:bg-[#EFF6FF]",
+          "rounded-r-full bg-[#EFF6FF]",
           defaultClassNames.range_end,
         ),
         today: cn("font-bold text-[#1E293B]", defaultClassNames.today),
         outside: cn(
-          "text-[#CBD5E1] aria-selected:text-[#CBD5E1]",
+          "text-[#CBD5E1] opacity-60 aria-selected:text-[#CBD5E1]",
           defaultClassNames.outside,
         ),
         disabled: cn("text-[#CBD5E1]", defaultClassNames.disabled),
@@ -218,7 +215,7 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 text-[13px] font-medium leading-[20px] text-[#1E293B] hover:bg-[#F1F5F9] hover:rounded-full group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-full data-[range-end=true]:bg-[#E8612D] data-[range-end=true]:text-white data-[range-end=true]:hover:bg-[#E8612D] data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-[#EFF6FF] data-[range-middle=true]:text-[#1E293B] data-[range-start=true]:rounded-full data-[range-start=true]:bg-[#2563EB] data-[range-start=true]:text-white data-[range-start=true]:hover:bg-[#2563EB] data-[selected-single=true]:rounded-full data-[selected-single=true]:bg-[#2563EB] data-[selected-single=true]:text-white data-[selected-single=true]:hover:bg-[#2563EB] dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
+        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 text-[13px] font-medium leading-[20px] text-[#1E293B] hover:bg-[#F1F5F9] hover:rounded-full group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-full data-[range-end=true]:bg-[#E8612D] data-[range-end=true]:text-white data-[range-end=true]:hover:bg-[#E8612D] data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#1E293B] data-[range-start=true]:rounded-full data-[range-start=true]:bg-[#2563EB] data-[range-start=true]:text-white data-[range-start=true]:hover:bg-[#2563EB] data-[selected-single=true]:rounded-full data-[selected-single=true]:bg-[#2563EB] data-[selected-single=true]:text-white data-[selected-single=true]:hover:bg-[#2563EB] dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
         defaultClassNames.day,
         className,
       )}
