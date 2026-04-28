@@ -155,8 +155,7 @@ export default function RegisterPage() {
         throw new Error("როლის განახლება ვერ მოხერხდა. სცადეთ თავიდან.");
       }
 
-      const dashPath = ROLE_DASHBOARD[selectedRole] ?? "/dashboard/guest";
-      router.push(dashPath);
+      router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {

@@ -12,6 +12,7 @@ import {
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface GuestSidebarProps {
   userName: string;
@@ -129,7 +130,7 @@ export function GuestSidebar({
         </Link>
       </div>
 
-      <div className="mx-4 flex items-center gap-3 rounded-2xl px-2 py-2">
+      <CabinetSwitcher activeKey="guest">
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
@@ -149,7 +150,7 @@ export function GuestSidebar({
             დამსვენებელი
           </span>
         </div>
-      </div>
+      </CabinetSwitcher>
 
       <div className="mx-6 mt-5 h-px bg-[#EEF1F4]" />
 
