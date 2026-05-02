@@ -26,6 +26,7 @@ type ServiceWithOwner = Tables<"services"> & {
 
 interface Props {
   service: ServiceWithOwner;
+  isMock?: boolean;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -43,12 +44,16 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-export default function ServiceDetailClient({ service }: Props) {
+export default function ServiceDetailClient({
+  service,
+  isMock = false,
+}: Props) {
   const router = useRouter();
   const owner = service.profiles;
   const categoryLabel = CATEGORY_LABELS[service.category] ?? service.category;
 
   useEffect(() => {
+    if (isMock) return;
     const supabase = createClient();
     supabase
       .from("services")
@@ -56,7 +61,7 @@ export default function ServiceDetailClient({ service }: Props) {
       .eq("id", service.id)
       .then();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service.id]);
+  }, [service.id, isMock]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">

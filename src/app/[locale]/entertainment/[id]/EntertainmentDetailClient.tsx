@@ -25,6 +25,7 @@ type ServiceWithOwner = Tables<"services"> & {
 
 interface Props {
   service: ServiceWithOwner;
+  isMock?: boolean;
 }
 
 const fadeIn = {
@@ -33,12 +34,16 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-export default function EntertainmentDetailClient({ service }: Props) {
+export default function EntertainmentDetailClient({
+  service,
+  isMock = false,
+}: Props) {
   const router = useRouter();
   const photos = service.photos ?? [];
   const mainPhoto = photos[0];
 
   useEffect(() => {
+    if (isMock) return;
     const supabase = createClient();
     supabase
       .from("services")
@@ -46,7 +51,7 @@ export default function EntertainmentDetailClient({ service }: Props) {
       .eq("id", service.id)
       .then();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service.id]);
+  }, [service.id, isMock]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">

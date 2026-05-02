@@ -33,6 +33,8 @@ import SmartMatchCard from "@/components/cards/SmartMatchCard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
+import { MOCK_PROPERTIES, MOCK_HOTELS } from "@/lib/mock/properties";
+import { makeServiceCards } from "@/lib/mock/services";
 
 interface LandingPageProps {
   hotOffers?: Tables<"properties">[];
@@ -40,526 +42,6 @@ interface LandingPageProps {
   saleProperties?: Tables<"properties">[];
   services?: Tables<"services">[];
   blogPosts?: Tables<"blog_posts">[];
-}
-
-// ─── Mock Data ───────────────────────────────────────────────────────────
-
-const MOCK_PROPERTIES = [
-  {
-    id: "prop-1",
-    title: "პრემიუმ აპარტამენტი დიდველთან",
-    location: "ბაკურიანი, დიდველი",
-    photos: [
-      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 250,
-    salePrice: null,
-    rating: 4.9,
-    capacity: 8,
-    rooms: 3,
-    isVip: true,
-    isSuperVip: true,
-    discountPercent: 0,
-    isForSale: false,
-  },
-  {
-    id: "prop-2",
-    title: "მყუდრო აპარტამენტი ცენტრში",
-    location: "ბაკურიანი, ცენტრი",
-    photos: [
-      "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 150,
-    salePrice: null,
-    rating: 4.5,
-    capacity: 4,
-    rooms: 2,
-    isVip: true,
-    isSuperVip: false,
-    discountPercent: 15,
-    isForSale: false,
-  },
-  {
-    id: "prop-3",
-    title: "ხის კოტეჯი ტყის პირას",
-    location: "ბაკურიანი, წყაროს უბანი",
-    photos: [
-      "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 350,
-    salePrice: null,
-    rating: 4.8,
-    capacity: 10,
-    rooms: 4,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: false,
-  },
-  {
-    id: "prop-4",
-    title: "ლუქს ვილა პანორამული ხედით",
-    location: "ბაკურიანი, მთის უბანი",
-    photos: [
-      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 500,
-    salePrice: null,
-    rating: 5.0,
-    capacity: 14,
-    rooms: 5,
-    isVip: true,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: false,
-  },
-  {
-    id: "prop-5",
-    title: "სტუდიო ახალ კორპუსში",
-    location: "ბაკურიანი, ახალი უბანი",
-    photos: [
-      "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 80,
-    salePrice: null,
-    rating: 4.2,
-    capacity: 2,
-    rooms: 1,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 10,
-    isForSale: false,
-  },
-  {
-    id: "prop-6",
-    title: "ოჯახური აპარტამენტი ბუხრით",
-    location: "ბაკურიანი, დიდველი",
-    photos: [
-      "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 200,
-    salePrice: null,
-    rating: 4.6,
-    capacity: 6,
-    rooms: 3,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: false,
-  },
-  {
-    id: "prop-7",
-    title: 'კოტეჯი „მთის სიჩუმე"',
-    location: "ბაკურიანი, ტაბაწყური",
-    photos: [
-      "https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 280,
-    salePrice: null,
-    rating: 4.7,
-    capacity: 8,
-    rooms: 3,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: false,
-  },
-  {
-    id: "prop-8",
-    title: 'აპარტამენტი „ალპური"',
-    location: "ბაკურიანი, ცენტრი",
-    photos: [
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 180,
-    salePrice: null,
-    rating: 4.4,
-    capacity: 5,
-    rooms: 2,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: false,
-  },
-];
-
-const MOCK_HOTELS = [
-  {
-    id: "hotel-1",
-    title: 'სასტუმრო „კრისტალი"',
-    location: "ბაკურიანი, ცენტრი",
-    photos: [
-      "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 200,
-    salePrice: null,
-    rating: 4.6,
-    capacity: 2,
-    rooms: 1,
-    isVip: true,
-    isSuperVip: false,
-    discountPercent: 20,
-    isForSale: false,
-    isHotel: true,
-    hotelStars: 4,
-    numericRating: 9.2,
-    isB2BPartner: true,
-    roomType: "სტანდარტული ოთახი",
-    amenities: "ცენტრი • აუზი / Ski-in/Ski-out",
-  },
-  {
-    id: "hotel-2",
-    title: 'სასტუმრო „მთის ხედი"',
-    location: "ბაკურიანი, დიდველი",
-    photos: [
-      "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 450,
-    salePrice: null,
-    rating: 4.7,
-    capacity: 3,
-    rooms: 2,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 25,
-    isForSale: false,
-    isHotel: true,
-    hotelStars: 5,
-    numericRating: 9.5,
-    isB2BPartner: false,
-    roomType: "KING ROOM",
-    amenities: "პრემიუმ ლოკაცია • ტერასა • რესტორანი",
-  },
-  {
-    id: "hotel-3",
-    title: 'სასტუმრო „ბაკურიანი პალასი"',
-    location: "ბაკურიანი, ცენტრი",
-    photos: [
-      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 280,
-    salePrice: null,
-    rating: 4.9,
-    capacity: 4,
-    rooms: 2,
-    isVip: true,
-    isSuperVip: true,
-    discountPercent: 25,
-    isForSale: false,
-    isHotel: true,
-    hotelStars: 4,
-    numericRating: 8.9,
-    isB2BPartner: true,
-    roomType: "ორადგილიანი ოთახი",
-    amenities: "ცენტრალური პარკი • სათამაშო ზონა • ბარი",
-  },
-  {
-    id: "hotel-4",
-    title: 'სასტუმრო „ალპური"',
-    location: "ბაკურიანი, წყაროს უბანი",
-    photos: [
-      "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: 380,
-    salePrice: null,
-    rating: 4.5,
-    capacity: 2,
-    rooms: 1,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: false,
-    isHotel: true,
-    hotelStars: 4,
-    numericRating: 9.1,
-    isB2BPartner: false,
-    roomType: "საოჯახო ნომერი",
-    amenities: "კოხტა • ტყე • მთის ხედი",
-  },
-];
-
-const MOCK_SALE_APARTMENTS = [
-  {
-    id: "apt-1",
-    title: 'აპარტამენტი „მზიური"',
-    location: "ბაკურიანი, ახალი უბანი",
-    photos: [
-      "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: null,
-    salePrice: 85000,
-    rating: null,
-    capacity: 4,
-    rooms: 2,
-    isVip: true,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: true,
-  },
-  {
-    id: "apt-2",
-    title: 'აპარტამენტი „თოვლიანი"',
-    location: "ბაკურიანი, დიდველი",
-    photos: [
-      "https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: null,
-    salePrice: 65000,
-    rating: null,
-    capacity: 2,
-    rooms: 1,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 0,
-    isForSale: true,
-  },
-  {
-    id: "apt-3",
-    title: 'ვილა „მწვანე ველი"',
-    location: "ბაკურიანი, ტაბაწყური",
-    photos: [
-      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: null,
-    salePrice: 250000,
-    rating: null,
-    capacity: 12,
-    rooms: 4,
-    isVip: true,
-    isSuperVip: true,
-    discountPercent: 0,
-    isForSale: true,
-  },
-  {
-    id: "apt-4",
-    title: 'აპარტამენტი „მთის ქარი"',
-    location: "ბაკურიანი, ახალი უბანი",
-    photos: [
-      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop",
-    ],
-    pricePerNight: null,
-    salePrice: 120000,
-    rating: null,
-    capacity: 6,
-    rooms: 3,
-    isVip: false,
-    isSuperVip: false,
-    discountPercent: 20,
-    isForSale: true,
-  },
-];
-
-function makeServiceCards(category: string, count: number) {
-  const data: Record<
-    string,
-    Array<{
-      title: string;
-      photo: string;
-      price: number;
-      unit: string;
-      discount: number;
-      vip: boolean;
-      hours?: string;
-      phone?: string;
-      providerName?: string;
-      experienceYears?: number;
-      availabilityStatus?: "active" | "busy";
-    }>
-  > = {
-    transport: [
-      {
-        title: "ტრანსფერი თბილისიდან ბაკურიანში",
-        photo:
-          "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&h=600&fit=crop",
-        price: 150,
-        unit: "მგზავრობა",
-        discount: 10,
-        vip: true,
-      },
-      {
-        title: "სათხილამურო ტრანსფერი დიდველზე",
-        photo:
-          "https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800&h=600&fit=crop",
-        price: 20,
-        unit: "მგზავრობა",
-        discount: 0,
-        vip: false,
-      },
-      {
-        title: "ჯიპ-ტური მთებში",
-        photo:
-          "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&h=600&fit=crop",
-        price: 200,
-        unit: "ტური",
-        discount: 0,
-        vip: false,
-      },
-    ],
-    handyman: [
-      {
-        title: "პროფესიონალი დამლაგებელი",
-        photo:
-          "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=400&fit=crop",
-        price: 80,
-        unit: "დღე",
-        discount: 0,
-        vip: false,
-        providerName: "ნინო",
-        experienceYears: 8,
-        availabilityStatus: "active",
-        hours: "10:00 - 18:00",
-      },
-      {
-        title: "გათბობის ქვაბის სპეციალისტი",
-        photo:
-          "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
-        price: 70,
-        unit: "გამოძახება",
-        discount: 0,
-        vip: false,
-        providerName: "გიორგი",
-        experienceYears: 12,
-        availabilityStatus: "active",
-        hours: "10:00 - 23:00",
-      },
-      {
-        title: "სანტექნიკოსი (გაყინული მილები)",
-        photo:
-          "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&h=400&fit=crop",
-        price: 60,
-        unit: "გამოძახება",
-        discount: 0,
-        vip: false,
-        providerName: "შოთა",
-        experienceYears: 10,
-        availabilityStatus: "busy",
-        hours: "09:00 - 22:00",
-      },
-      {
-        title: "თოვლის გაწმენდა (ტრაქტორი)",
-        photo:
-          "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=400&h=400&fit=crop",
-        price: 120,
-        unit: "სეანსი",
-        discount: 0,
-        vip: false,
-        providerName: "დავითი",
-        experienceYears: 1,
-        availabilityStatus: "active",
-        hours: "08:00 - 20:00",
-      },
-    ],
-    entertainment: [
-      {
-        title: "თხილამურის გაკვეთილი",
-        photo:
-          "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800&h=600&fit=crop",
-        price: 80,
-        unit: "გაკვეთილი",
-        discount: 10,
-        vip: true,
-      },
-      {
-        title: "ცხენებით სეირნობა",
-        photo:
-          "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=800&h=600&fit=crop",
-        price: 60,
-        unit: "სეირნობა",
-        discount: 0,
-        vip: false,
-      },
-      {
-        title: 'SPA & საუნა „რელაქსი"',
-        photo:
-          "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800&h=600&fit=crop",
-        price: 120,
-        unit: "ვიზიტი",
-        discount: 0,
-        vip: false,
-      },
-    ],
-    food: [
-      {
-        title: 'რესტორანი „მთის გემო"',
-        photo:
-          "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop",
-        price: 25,
-        unit: "კერძი",
-        discount: 0,
-        vip: true,
-        hours: "10:00 - 23:00",
-        phone: "+995599123456",
-      },
-      {
-        title: 'პიცერია „იტალიანო"',
-        photo:
-          "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=600&fit=crop",
-        price: 18,
-        unit: "კერძი",
-        discount: 15,
-        vip: false,
-        hours: "11:00 - 22:00",
-        phone: "+995599234567",
-      },
-      {
-        title: 'კაფე-ბარი „თოვლის ბუნკერი"',
-        photo:
-          "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&h=600&fit=crop",
-        price: 12,
-        unit: "სასმელი",
-        discount: 0,
-        vip: false,
-        hours: "09:00 - 00:00",
-        phone: "+995599345678",
-      },
-    ],
-    employment: [
-      {
-        title: "მზარეული — სასტუმროსთვის",
-        photo:
-          "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800&h=600&fit=crop",
-        price: 100,
-        unit: "დღე",
-        discount: 0,
-        vip: true,
-      },
-      {
-        title: "ადმინისტრატორი — რეცეფცია",
-        photo:
-          "https://images.unsplash.com/photo-1551836022-d5bbed6abbcd?w=800&h=600&fit=crop",
-        price: 80,
-        unit: "დღე",
-        discount: 0,
-        vip: false,
-      },
-      {
-        title: "დამლაგებელი — სეზონური",
-        photo:
-          "https://images.unsplash.com/photo-1585421514738-01798e348b17?w=800&h=600&fit=crop",
-        price: 60,
-        unit: "დღე",
-        discount: 0,
-        vip: false,
-      },
-    ],
-  };
-  const items = data[category] ?? [];
-  return items.slice(0, count).map((item, i) => ({
-    id: `${category}-${i + 1}`,
-    title: item.title,
-    category,
-    location: "ბაკურიანი",
-    photos: [item.photo],
-    price: item.price,
-    priceUnit: item.unit,
-    discountPercent: item.discount,
-    isVip: item.vip,
-    operatingHours: item.hours ?? null,
-    phone: item.phone ?? null,
-    providerName: item.providerName ?? null,
-    experienceYears: item.experienceYears ?? null,
-    availabilityStatus: item.availabilityStatus ?? null,
-  }));
 }
 
 const MOCK_BLOG_POSTS = [
@@ -1230,6 +712,12 @@ function ServiceSection({
   showDiscountToggle?: boolean;
   showAddButton?: boolean;
 }) {
+  const [discountOnly, setDiscountOnly] = useState(false);
+  const filteredCards = useMemo(
+    () =>
+      discountOnly ? cards.filter((c) => (c.discountPercent ?? 0) > 0) : cards,
+    [cards, discountOnly],
+  );
   return (
     <section className={`px-4 py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
       <div className="mx-auto max-w-[1160px]">
@@ -1276,7 +764,7 @@ function ServiceSection({
           </div>
         </ScrollReveal>
         <div className="scrollbar-hide -mx-4 flex gap-6 overflow-x-auto px-4 scroll-smooth snap-x">
-          {cards.map((card, i) => (
+          {filteredCards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
               <div
                 className={`h-full shrink-0 snap-start ${cardVariant === "avatar" ? "w-[280px]" : "w-[340px]"}`}
@@ -1411,6 +899,14 @@ function PropertySection({
   showDiscountToggle?: boolean;
   showAddButton?: boolean;
 }) {
+  const [discountOnly, setDiscountOnly] = useState(false);
+  const filteredProperties = useMemo(
+    () =>
+      discountOnly
+        ? properties.filter((p) => (p.discountPercent ?? 0) > 0)
+        : properties,
+    [properties, discountOnly],
+  );
   return (
     <section className={`px-4 py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
       <div className="mx-auto max-w-[1160px]">
@@ -1457,7 +953,7 @@ function PropertySection({
           </div>
         </ScrollReveal>
         <div className="scrollbar-hide -mx-4 flex gap-6 overflow-x-auto px-4 scroll-smooth snap-x">
-          {properties.map((prop, i) => (
+          {filteredProperties.map((prop, i) => (
             <ScrollReveal key={prop.id} delay={i * 0.08} className="h-full">
               <div className="h-full w-[340px] shrink-0 snap-start">
                 <PropertyCard {...prop} />

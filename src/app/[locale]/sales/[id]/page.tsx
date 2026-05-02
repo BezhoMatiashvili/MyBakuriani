@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
+import {
+  getPropertyById,
+  getPropertyMetadataById,
+} from "@/lib/data/getPropertyById";
 import SaleDetailClient from "./SaleDetailClient";
 
 interface Props {
@@ -9,12 +13,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("properties")
-    .select("title, location, description")
-    .eq("id", id)
-    .single();
+  const data = await getPropertyMetadataById(id);
 
   if (!data) {
     return { title: "ქონება ვერ მოიძებნა — MyBakuriani" };
@@ -30,29 +29,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SaleDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { data: property, isMock } = await getPropertyById(id);
 
-  try {
-    const { data: property } = await supabase
-      .from("properties")
-      .select("*, profiles!properties_owner_id_fkey(*)")
-      .eq("id", id)
-      .eq("status", "active")
-      .single();
-
-    if (!property) {
-      notFound();
-    }
-
-    const { data: reviews } = await supabase
-      .from("reviews")
-      .select("*, profiles!reviews_guest_id_fkey(display_name)")
-      .eq("property_id", id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    return <SaleDetailClient property={property} reviews={reviews ?? []} />;
-  } catch {
+  if (!property) {
     notFound();
   }
+
+  if (isMock) {
+    return <SaleDetailClient property={property} reviews={[]} />;
+  }
+
+  const supabase = createPublicClient();
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*, profiles!reviews_guest_id_fkey(display_name)")
+    .eq("property_id", id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  return <SaleDetailClient property={property} reviews={reviews ?? []} />;
 }

@@ -33,6 +33,7 @@ interface MenuItem {
 
 interface Props {
   service: ServiceWithOwner;
+  isMock?: boolean;
 }
 
 const fadeIn = {
@@ -41,11 +42,12 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-export default function FoodDetailClient({ service }: Props) {
+export default function FoodDetailClient({ service, isMock = false }: Props) {
   const router = useRouter();
   const owner = service.profiles;
 
   useEffect(() => {
+    if (isMock) return;
     const supabase = createClient();
     supabase
       .from("services")
@@ -53,7 +55,7 @@ export default function FoodDetailClient({ service }: Props) {
       .eq("id", service.id)
       .then();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service.id]);
+  }, [service.id, isMock]);
 
   // Parse menu items from JSON
   const menuItems: MenuItem[] = Array.isArray(service.menu)

@@ -26,6 +26,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
+import { MOCK_SALES } from "@/lib/mock/properties";
 
 interface SaleLandingBodyProps {
   mode: "rent" | "sale";
@@ -50,82 +51,7 @@ function estimatedRoi(id: string): number {
   return 9 + (hash % 9); // 9–17%
 }
 
-// ─── Mock sale properties (used when DB is empty) ──────────────────────
-
-const MOCK_SALES = [
-  {
-    id: "sale-1",
-    title: "სტუდიო აპარტამენტი",
-    location: "ცენტრი",
-    photos: [
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
-    ],
-    priceUsd: 32_000,
-    area: 28,
-    rooms: 1,
-    roi: 14,
-  },
-  {
-    id: "sale-2",
-    title: "თანამედროვე ლოფტი",
-    location: "ბაკურიანის ველი",
-    photos: [
-      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop",
-    ],
-    priceUsd: 52_000,
-    area: 42,
-    rooms: 2,
-    roi: 11,
-  },
-  {
-    id: "sale-3",
-    title: "მყუდრო საოჯახო ბინა",
-    location: "მზესოური",
-    photos: [
-      "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&h=600&fit=crop",
-    ],
-    priceUsd: 48_500,
-    area: 55,
-    rooms: 2,
-    roi: 13,
-  },
-  {
-    id: "sale-4",
-    title: "ოთხოთახიანი ბინა დიდველთან",
-    location: "დიდველი",
-    photos: [
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop",
-    ],
-    priceUsd: 88_000,
-    area: 96,
-    rooms: 3,
-    roi: 12,
-  },
-  {
-    id: "sale-5",
-    title: "ორსართულიანი კოტეჯი",
-    location: "კოხტა",
-    photos: [
-      "https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=800&h=600&fit=crop",
-    ],
-    priceUsd: 135_000,
-    area: 160,
-    rooms: 4,
-    roi: 10,
-  },
-  {
-    id: "sale-6",
-    title: "ოროთახიანი ბინა",
-    location: "25-იანები",
-    photos: [
-      "https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=800&h=600&fit=crop",
-    ],
-    priceUsd: 62_400,
-    area: 45,
-    rooms: 2,
-    roi: 11,
-  },
-];
+// Mock sale properties (used when DB is empty) sourced from @/lib/mock/properties
 
 // Hero featured inventory card
 const FEATURED_INVENTORY = {

@@ -27,6 +27,7 @@ type ServiceWithOwner = Tables<"services"> & {
 
 interface Props {
   service: ServiceWithOwner;
+  isMock?: boolean;
 }
 
 const fadeIn = {
@@ -41,11 +42,15 @@ const REQUIREMENTS = [
   "კლიენტებთან კომუნიკაციის უნარი",
 ];
 
-export default function EmploymentDetailClient({ service }: Props) {
+export default function EmploymentDetailClient({
+  service,
+  isMock = false,
+}: Props) {
   const router = useRouter();
   const owner = service.profiles;
 
   useEffect(() => {
+    if (isMock) return;
     const supabase = createClient();
     supabase
       .from("services")
@@ -53,7 +58,7 @@ export default function EmploymentDetailClient({ service }: Props) {
       .eq("id", service.id)
       .then();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service.id]);
+  }, [service.id, isMock]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">

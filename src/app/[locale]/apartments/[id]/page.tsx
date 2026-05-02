@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/server";
+import {
+  getPropertyById,
+  getPropertyMetadataById,
+} from "@/lib/data/getPropertyById";
 import ApartmentDetailClient from "./ApartmentDetailClient";
 
 interface Props {
@@ -10,28 +13,9 @@ interface Props {
 
 export const revalidate = 120;
 
-const getApartmentMetadata = cache(async (id: string) => {
-  const supabase = createPublicClient();
-  return supabase
-    .from("properties")
-    .select("title, location, description")
-    .eq("id", id)
-    .single();
-});
-
-const getApartmentDetail = cache(async (id: string) => {
-  const supabase = createPublicClient();
-  return supabase
-    .from("properties")
-    .select("*, profiles!properties_owner_id_fkey(*)")
-    .eq("id", id)
-    .eq("status", "active")
-    .single();
-});
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const { data } = await getApartmentMetadata(id);
+  const data = await getPropertyMetadataById(id);
 
   if (!data) {
     return { title: "ბინა ვერ მოიძებნა — MyBakuriani" };
@@ -47,43 +31,47 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ApartmentDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = createPublicClient();
+  const { data: property, isMock } = await getPropertyById(id);
 
-  try {
-    const { data: property } = await getApartmentDetail(id);
+  if (!property) {
+    notFound();
+  }
 
-    if (!property) {
-      notFound();
-    }
-
-    // Fetch reviews and calendar blocks in parallel to reduce detail page TTFB.
-    const today = new Date();
-    const threeMonthsLater = new Date(today);
-    threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
-
-    const [{ data: reviews }, { data: calendarBlocks }] = await Promise.all([
-      supabase
-        .from("reviews")
-        .select("*, profiles!reviews_guest_id_fkey(display_name)")
-        .eq("property_id", id)
-        .order("created_at", { ascending: false })
-        .limit(20),
-      supabase
-        .from("calendar_blocks")
-        .select("date, status")
-        .eq("property_id", id)
-        .gte("date", today.toISOString().split("T")[0])
-        .lte("date", threeMonthsLater.toISOString().split("T")[0]),
-    ]);
-
+  if (isMock) {
     return (
       <ApartmentDetailClient
         property={property}
-        reviews={reviews ?? []}
-        calendarBlocks={calendarBlocks ?? []}
+        reviews={[]}
+        calendarBlocks={[]}
       />
     );
-  } catch {
-    notFound();
   }
+
+  const supabase = createPublicClient();
+  const today = new Date();
+  const threeMonthsLater = new Date(today);
+  threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+
+  const [{ data: reviews }, { data: calendarBlocks }] = await Promise.all([
+    supabase
+      .from("reviews")
+      .select("*, profiles!reviews_guest_id_fkey(display_name)")
+      .eq("property_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("calendar_blocks")
+      .select("date, status")
+      .eq("property_id", id)
+      .gte("date", today.toISOString().split("T")[0])
+      .lte("date", threeMonthsLater.toISOString().split("T")[0]),
+  ]);
+
+  return (
+    <ApartmentDetailClient
+      property={property}
+      reviews={reviews ?? []}
+      calendarBlocks={calendarBlocks ?? []}
+    />
+  );
 }
