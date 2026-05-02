@@ -221,7 +221,7 @@ export function BookingSidebar({
   };
 
   return (
-    <div className="sticky top-24 space-y-4">
+    <div className="space-y-4">
       <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
         <div className="flex items-center justify-between">
           <div>

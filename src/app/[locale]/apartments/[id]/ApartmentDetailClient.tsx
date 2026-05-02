@@ -408,12 +408,12 @@ export default function ApartmentDetailClient({
           </motion.div>
         </div>
 
-        {/* Right sidebar */}
+        {/* Right sidebar — lg top/max-h mirror Navbar primary (91px) + category rail (94px) */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
-          className="lg:sticky lg:top-[100px] lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1"
+          className="lg:sticky lg:top-[calc(91px+94px+12px)] lg:self-start lg:max-h-[calc(100vh-(91px+94px)-24px)] lg:overflow-y-auto lg:pr-1"
         >
           {property.price_per_night != null && (
             <BookingSidebar

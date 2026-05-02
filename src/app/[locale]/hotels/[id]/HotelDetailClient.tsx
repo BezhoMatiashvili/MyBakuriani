@@ -385,11 +385,12 @@ export default function HotelDetailClient({
           </motion.div>
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar — lg sticky offsets mirror Navbar primary (91px) + category rail (94px) */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
+          className="lg:sticky lg:top-[calc(91px+94px+12px)] lg:self-start lg:max-h-[calc(100vh-(91px+94px)-24px)] lg:overflow-y-auto lg:pr-1"
         >
           {property.price_per_night != null && (
             <BookingSidebar
