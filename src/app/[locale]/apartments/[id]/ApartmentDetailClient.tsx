@@ -422,6 +422,7 @@ export default function ApartmentDetailClient({
               ownerName={owner?.display_name ?? "მესაკუთრე"}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
+              ownerPhone={owner?.phone ?? null}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}
               onBook={handleBook}

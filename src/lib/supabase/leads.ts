@@ -23,6 +23,8 @@ export interface LeadRow {
   currency: string;
   note: string | null;
   next_action_at: string | null;
+  interest_type: string | null;
+  desired_location: string | null;
   created_at: string;
   updated_at: string;
   property?: { title: string } | null;
@@ -37,6 +39,9 @@ export interface LeadInsert {
   priority: LeadPriorityValue;
   budget_min?: number | null;
   budget_max?: number | null;
+  note?: string | null;
+  interest_type?: string | null;
+  desired_location?: string | null;
 }
 
 // The `leads` table is optional — created by migration 013_leads.sql.

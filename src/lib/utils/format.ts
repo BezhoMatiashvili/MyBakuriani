@@ -49,3 +49,21 @@ export function formatPhone(phone: string | null | undefined): string {
   }
   return phone;
 }
+
+export function maskPhone(phone: string | null | undefined): string {
+  if (!phone) return "—";
+  const formatted = formatPhone(phone);
+  let remaining = 3;
+  return formatted
+    .split("")
+    .reverse()
+    .map((ch) => {
+      if (remaining > 0 && /\d/.test(ch)) {
+        remaining--;
+        return "*";
+      }
+      return ch;
+    })
+    .reverse()
+    .join("");
+}

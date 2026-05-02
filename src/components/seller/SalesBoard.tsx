@@ -129,9 +129,6 @@ export default function SalesBoard({
   const supabase = createClient();
 
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [properties, setProperties] = useState<{ id: string; title: string }[]>(
-    [],
-  );
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -141,18 +138,11 @@ export default function SalesBoard({
 
     async function fetchAll() {
       setLoading(true);
-      const [leadsRes, propsRes] = await Promise.all([
-        leadsClient(supabase)
-          .from("leads")
-          .select("*, property:properties(title)")
-          .eq("owner_id", user!.id)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("properties")
-          .select("id, title")
-          .eq("owner_id", user!.id)
-          .eq("is_for_sale", true),
-      ]);
+      const leadsRes = await leadsClient(supabase)
+        .from("leads")
+        .select("*, property:properties(title)")
+        .eq("owner_id", user!.id)
+        .order("created_at", { ascending: false });
 
       if (leadsRes.error) {
         setTableMissing(true);
@@ -182,7 +172,6 @@ export default function SalesBoard({
         );
       }
 
-      if (propsRes.data) setProperties(propsRes.data);
       setLoading(false);
     }
 
@@ -210,16 +199,15 @@ export default function SalesBoard({
           id: `local-${Date.now()}`,
           client_name: input.client_name,
           client_phone: input.client_phone ?? null,
-          property_id: input.property_id ?? null,
-          property_title:
-            properties.find((p) => p.id === input.property_id)?.title ?? null,
+          property_id: null,
+          property_title: null,
           source: "direct",
           stage: input.stage,
           priority: input.priority,
           budget_min: input.budget_min ?? null,
           budget_max: input.budget_max ?? null,
           currency: "USD",
-          note: null,
+          note: input.note ?? null,
           next_action_at: null,
           created_at: new Date().toISOString(),
         },
@@ -234,11 +222,13 @@ export default function SalesBoard({
         owner_id: user.id,
         client_name: input.client_name,
         client_phone: input.client_phone ?? null,
-        property_id: input.property_id ?? null,
         stage: input.stage,
         priority: input.priority,
         budget_min: input.budget_min ?? null,
         budget_max: input.budget_max ?? null,
+        note: input.note ?? null,
+        interest_type: input.interest_type ?? null,
+        desired_location: input.desired_location ?? null,
       })
       .select("*, property:properties(title)")
       .single();
@@ -418,7 +408,6 @@ export default function SalesBoard({
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleCreate}
-        properties={properties}
       />
     </div>
   );

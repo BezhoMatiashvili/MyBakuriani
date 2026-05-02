@@ -399,6 +399,7 @@ export default function HotelDetailClient({
               ownerName={owner?.display_name ?? "სასტუმრო"}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
+              ownerPhone={owner?.phone ?? null}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}
               onBook={handleBook}
