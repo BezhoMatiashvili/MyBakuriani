@@ -71,51 +71,54 @@ export default function FoodDetailClient({ service }: Props) {
         უკან დაბრუნება
       </motion.button>
 
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
+      <motion.div
+        {...fadeIn}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="mb-6"
+      >
+        <div className="mb-2 flex items-center gap-2">
+          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+            კვება
+          </span>
+          {service.cuisine_type && (
+            <span className="rounded-md bg-[#F8FAFC] px-2 py-0.5 text-xs font-medium text-[#1E293B]">
+              {service.cuisine_type}
+            </span>
+          )}
+          {service.has_delivery && (
+            <span className="rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+              მიტანის სერვისი
+            </span>
+          )}
+          {service.is_vip && (
+            <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
+              VIP
+            </span>
+          )}
+        </div>
+        <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
+          {service.title}
+        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
+          {service.location && (
+            <span className="flex items-center gap-1.5 font-medium">
+              <MapPin className="h-4 w-4 text-[#2563EB]" />
+              {service.location}
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 font-medium">
+            <Eye className="h-4 w-4" />
+            {service.views_count} ნახვა
+          </span>
+        </div>
+      </motion.div>
+
+      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
         <PhotoGallery photos={service.photos ?? []} title={service.title} />
       </motion.div>
 
       <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
-          {/* Title */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                კვება
-              </span>
-              {service.cuisine_type && (
-                <span className="rounded-md bg-[#F8FAFC] px-2 py-0.5 text-xs font-medium text-[#1E293B]">
-                  {service.cuisine_type}
-                </span>
-              )}
-              {service.has_delivery && (
-                <span className="rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                  მიტანის სერვისი
-                </span>
-              )}
-              {service.is_vip && (
-                <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                  VIP
-                </span>
-              )}
-            </div>
-            <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
-              {service.title}
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-              {service.location && (
-                <span className="flex items-center gap-1.5 font-medium">
-                  <MapPin className="h-4 w-4 text-[#2563EB]" />
-                  {service.location}
-                </span>
-              )}
-              <span className="flex items-center gap-1.5 font-medium">
-                <Eye className="h-4 w-4" />
-                {service.views_count} ნახვა
-              </span>
-            </div>
-          </motion.div>
-
           {/* Info cards */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

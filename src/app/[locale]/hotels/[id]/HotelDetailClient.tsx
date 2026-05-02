@@ -168,53 +168,58 @@ export default function HotelDetailClient({
         უკან დაბრუნება
       </motion.button>
 
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
+      <motion.div
+        {...fadeIn}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="mb-6"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="rounded-md bg-brand-accent-light px-2 py-0.5 text-xs font-medium text-brand-accent">
+                სასტუმრო
+              </span>
+              {property.is_super_vip && (
+                <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
+                  Super VIP
+                </span>
+              )}
+              {property.is_vip && !property.is_super_vip && (
+                <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
+                  VIP
+                </span>
+              )}
+            </div>
+            <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
+              {property.title}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
+              <span className="flex items-center gap-1.5 font-medium">
+                <MapPin className="h-4 w-4 text-[#2563EB]" />
+                {property.location}
+              </span>
+              {avgRating !== null && (
+                <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                  <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
+                  {avgRating.toFixed(1)} ({reviews.length} შეფასება)
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 font-medium">
+                <Eye className="h-4 w-4" />
+                {property.views_count} ნახვა
+              </span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
         <PhotoGallery photos={property.photos ?? []} title={property.title} />
       </motion.div>
 
       <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
-          {/* Title + meta */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="rounded-md bg-brand-accent-light px-2 py-0.5 text-xs font-medium text-brand-accent">
-                    სასტუმრო
-                  </span>
-                  {property.is_super_vip && (
-                    <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                      Super VIP
-                    </span>
-                  )}
-                  {property.is_vip && !property.is_super_vip && (
-                    <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                      VIP
-                    </span>
-                  )}
-                </div>
-                <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
-                  {property.title}
-                </h1>
-                <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <MapPin className="h-4 w-4 text-[#2563EB]" />
-                    {property.location}
-                  </span>
-                  {avgRating !== null && (
-                    <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-                      <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
-                      {avgRating.toFixed(1)} ({reviews.length} შეფასება)
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <Eye className="h-4 w-4" />
-                    {property.views_count} ნახვა
-                  </span>
-                </div>
-              </div>
-            </div>
-
+          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.18 }}>
             {/* Quick specs — pill badges per Figma */}
             <div className="mt-4 flex flex-wrap gap-2">
               {property.rooms != null && (
@@ -407,14 +412,6 @@ export default function HotelDetailClient({
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}
             />
-          )}
-
-          {(property.discount_percent ?? 0) > 0 && (
-            <div className="mt-4 rounded-xl bg-red-50 p-4 text-center">
-              <span className="text-lg font-bold text-red-600">
-                -{property.discount_percent}% ფასდაკლება
-              </span>
-            </div>
           )}
         </motion.div>
       </div>

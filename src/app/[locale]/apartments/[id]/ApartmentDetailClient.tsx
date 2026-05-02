@@ -431,13 +431,6 @@ export default function ApartmentDetailClient({
               maxGuests={property.capacity ?? 10}
             />
           )}
-          {(property.discount_percent ?? 0) > 0 && (
-            <div className="mt-4 rounded-xl bg-red-50 p-4 text-center">
-              <span className="text-lg font-bold text-red-600">
-                -{property.discount_percent}% ფასდაკლება
-              </span>
-            </div>
-          )}
         </motion.div>
       </div>
     </div>
