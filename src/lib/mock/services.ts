@@ -14,6 +14,11 @@ type ServiceMockData = {
   providerName?: string;
   experienceYears?: number;
   availabilityStatus?: "active" | "busy";
+  driverName?: string;
+  vehicleMake?: string;
+  vehicleCapacity?: number;
+  languages?: string[];
+  route?: string;
 };
 
 export type MockServiceCardItem = {
@@ -48,11 +53,17 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
     {
       title: "ტრანსფერი თბილისიდან ბაკურიანში",
       photo:
-        "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&h=600&fit=crop",
-      price: 150,
-      unit: "მგზავრობა",
+        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200&h=800&fit=crop",
+      price: 250,
+      unit: "მგზავრი",
       discount: 10,
       vip: true,
+      phone: "+995599100001",
+      driverName: "გოგა მ.",
+      vehicleMake: "Mercedes Vito (მინივენი)",
+      vehicleCapacity: 8,
+      languages: ["ქართული", "English", "Русский"],
+      route: "თბილისი - ბაკურიანი",
     },
     {
       title: "სათხილამურო ტრანსფერი დიდველზე",
@@ -62,6 +73,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       unit: "მგზავრობა",
       discount: 0,
       vip: false,
+      phone: "+995599100002",
     },
     {
       title: "ჯიპ-ტური მთებში",
@@ -71,6 +83,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       unit: "ტური",
       discount: 0,
       vip: false,
+      phone: "+995599100003",
     },
   ],
   handyman: [
@@ -86,6 +99,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       experienceYears: 8,
       availabilityStatus: "active",
       hours: "10:00 - 18:00",
+      phone: "+995599200001",
     },
     {
       title: "გათბობის ქვაბის სპეციალისტი",
@@ -99,6 +113,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       experienceYears: 12,
       availabilityStatus: "active",
       hours: "10:00 - 23:00",
+      phone: "+995599200002",
     },
     {
       title: "სანტექნიკოსი (გაყინული მილები)",
@@ -112,6 +127,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       experienceYears: 10,
       availabilityStatus: "busy",
       hours: "09:00 - 22:00",
+      phone: "+995599200003",
     },
     {
       title: "თოვლის გაწმენდა (ტრაქტორი)",
@@ -125,6 +141,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       experienceYears: 1,
       availabilityStatus: "active",
       hours: "08:00 - 20:00",
+      phone: "+995599200004",
     },
   ],
   entertainment: [
@@ -136,6 +153,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       unit: "გაკვეთილი",
       discount: 10,
       vip: true,
+      phone: "+995599300001",
     },
     {
       title: "ცხენებით სეირნობა",
@@ -145,6 +163,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       unit: "სეირნობა",
       discount: 0,
       vip: false,
+      phone: "+995599300002",
     },
     {
       title: 'SPA & საუნა „რელაქსი"',
@@ -154,6 +173,7 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       unit: "ვიზიტი",
       discount: 0,
       vip: false,
+      phone: "+995599300003",
     },
   ],
   food: [
@@ -276,7 +296,7 @@ export function getMockService(id: string): ServiceWithProfile | null {
     currency: "GEL",
     description: null,
     discount_percent: item.discount,
-    driver_name: null,
+    driver_name: item.driverName ?? null,
     employment_schedule: null,
     employment_type: null,
     equipment: null,
@@ -287,7 +307,7 @@ export function getMockService(id: string): ServiceWithProfile | null {
     has_lounge: false,
     id,
     is_vip: item.vip,
-    languages: null,
+    languages: item.languages ?? null,
     location: "ბაკურიანი",
     meals: null,
     menu: null,
@@ -300,7 +320,7 @@ export function getMockService(id: string): ServiceWithProfile | null {
     price: item.price,
     price_unit: item.unit,
     requirements: null,
-    route: null,
+    route: item.route ?? null,
     routes: null,
     salary_daily: null,
     salary_max: null,
@@ -312,8 +332,8 @@ export function getMockService(id: string): ServiceWithProfile | null {
     title: item.title,
     transport_type: null,
     updated_at: epoch,
-    vehicle_capacity: null,
-    vehicle_make: null,
+    vehicle_capacity: item.vehicleCapacity ?? null,
+    vehicle_make: item.vehicleMake ?? null,
     views_count: 0,
     work_schedule: null,
     profiles: null,

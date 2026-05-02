@@ -108,6 +108,7 @@ export default function LandingPage({
 }: LandingPageProps = {}) {
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
+  const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
   const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -174,6 +175,14 @@ export default function LandingPage({
         distanceToSlopeM: p.distance_to_slope_m,
       }))
     : MOCK_PROPERTIES;
+
+  const filteredHotOffers = useMemo(
+    () =>
+      hotOffersDiscountOnly
+        ? hotOfferCards.filter((p) => (p.discountPercent ?? 0) > 0)
+        : hotOfferCards,
+    [hotOfferCards, hotOffersDiscountOnly],
+  );
 
   const hotelCards =
     serverHotels && serverHotels.length > 0
@@ -446,21 +455,41 @@ export default function LandingPage({
                 მხოლოდ ვერიფიცირებული და სანდო მესაკუთრეები.
               </p>
             </div>
-            <div className="hidden items-center gap-3 rounded-full border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-2 sm:flex">
-              <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
+            <button
+              type="button"
+              onClick={() => setHotOffersDiscountOnly((v) => !v)}
+              aria-pressed={hotOffersDiscountOnly}
+              className={cn(
+                "hidden items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:inline-flex",
+                hotOffersDiscountOnly
+                  ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+                  : "border border-[#E2E8F0] bg-white text-[#64748B]",
+              )}
+            >
+              <span className="flex items-center gap-1.5">
                 <span className="text-[12px]">{"\uD83D\uDD25"}</span>
                 მხოლოდ ფასდაკლებები
               </span>
-              <div className="relative inline-flex h-[16px] w-[36px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                <span className="absolute right-0 size-[20px] -translate-y-0 rounded-full border-[4px] border-[#F97316] bg-white" />
-              </div>
-            </div>
+              <span
+                className={cn(
+                  "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+                  hotOffersDiscountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+                    hotOffersDiscountOnly ? "right-0.5" : "left-0.5",
+                  )}
+                />
+              </span>
+            </button>
           </div>
         </ScrollReveal>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {hotOfferCards.slice(0, 2).map((p) => (
+            {filteredHotOffers.slice(0, 2).map((p) => (
               <ScrollReveal key={p.id}>
                 <PropertyCard {...p} />
               </ScrollReveal>
@@ -735,15 +764,35 @@ function ServiceSection({
             </div>
             <div className="hidden items-center gap-4 sm:flex">
               {showDiscountToggle && (
-                <div className="flex items-center gap-3 rounded-full border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-2">
-                  <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
+                <button
+                  type="button"
+                  onClick={() => setDiscountOnly((v) => !v)}
+                  aria-pressed={discountOnly}
+                  className={cn(
+                    "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+                    discountOnly
+                      ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+                      : "border border-[#E2E8F0] bg-white text-[#64748B]",
+                  )}
+                >
+                  <span className="flex items-center gap-1.5">
                     <span className="text-[12px]">{"\uD83D\uDD25"}</span>
                     მხოლოდ ფასდაკლებები
                   </span>
-                  <div className="relative inline-flex h-[16px] w-[36px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                    <span className="absolute right-0 size-[20px] -translate-y-0 rounded-full border-[4px] border-[#F97316] bg-white" />
-                  </div>
-                </div>
+                  <span
+                    className={cn(
+                      "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+                      discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+                        discountOnly ? "right-0.5" : "left-0.5",
+                      )}
+                    />
+                  </span>
+                </button>
               )}
               {showAddButton && (
                 <Link
@@ -924,15 +973,35 @@ function PropertySection({
             </div>
             <div className="hidden items-center gap-4 sm:flex">
               {showDiscountToggle && (
-                <div className="flex items-center gap-3 rounded-full border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-2">
-                  <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
+                <button
+                  type="button"
+                  onClick={() => setDiscountOnly((v) => !v)}
+                  aria-pressed={discountOnly}
+                  className={cn(
+                    "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+                    discountOnly
+                      ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+                      : "border border-[#E2E8F0] bg-white text-[#64748B]",
+                  )}
+                >
+                  <span className="flex items-center gap-1.5">
                     <span className="text-[12px]">{"\uD83D\uDD25"}</span>
                     მხოლოდ ფასდაკლებები
                   </span>
-                  <div className="relative inline-flex h-[16px] w-[36px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                    <span className="absolute right-0 size-[20px] -translate-y-0 rounded-full border-[4px] border-[#F97316] bg-white" />
-                  </div>
-                </div>
+                  <span
+                    className={cn(
+                      "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+                      discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+                        discountOnly ? "right-0.5" : "left-0.5",
+                      )}
+                    />
+                  </span>
+                </button>
               )}
               {showAddButton && (
                 <Link

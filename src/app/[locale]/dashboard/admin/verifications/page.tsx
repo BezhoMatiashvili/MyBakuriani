@@ -66,6 +66,7 @@ export default function VerificationsPage() {
           .select(
             "*, user:profiles!verifications_user_id_fkey(*), property:properties!verifications_property_id_fkey(*)",
           )
+          .eq("status", "pending")
           .order("created_at", { ascending: false });
         setVerifications((data as VerificationWithRelations[]) ?? []);
       } finally {
