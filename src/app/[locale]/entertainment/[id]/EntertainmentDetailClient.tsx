@@ -16,6 +16,7 @@ import {
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
+import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 
@@ -54,7 +55,7 @@ export default function EntertainmentDetailClient({
   }, [service.id, isMock]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-5xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
       {/* Hero photo with floating back button */}
       <motion.div
         {...fadeIn}
@@ -191,6 +192,7 @@ export default function EntertainmentDetailClient({
 
       {/* Price + CTA row */}
       <motion.div
+        id="contact-sidebar"
         {...fadeIn}
         transition={{ duration: 0.4, delay: 0.35 }}
         className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center"
@@ -217,6 +219,20 @@ export default function EntertainmentDetailClient({
           />
         </div>
       </motion.div>
+
+      {service.price != null && (
+        <MobileStickyCTA
+          primary={`${formatPrice(service.price)} / ${service.price_unit ?? "1 საათი"}`}
+          secondary={service.location ?? undefined}
+          ctaLabel="დარეკე"
+          onClick={() =>
+            document
+              .getElementById("contact-sidebar")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+          ctaClassName="shrink-0 rounded-xl bg-[#1E293B] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#0F172A]"
+        />
+      )}
     </div>
   );
 }

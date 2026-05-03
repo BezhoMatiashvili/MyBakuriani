@@ -29,12 +29,14 @@ import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
+import { SkierLoader } from "@/components/shared/SkierLoader";
+import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
   loading: () => (
     <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-[20px] bg-[#F8FAFC]">
-      <div className="size-6 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-[#16A34A]" />
+      <SkierLoader variant="inline" />
     </div>
   ),
 });
@@ -127,7 +129,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
       : "/placeholder-property.jpg";
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <motion.button
           {...fadeIn}
@@ -501,6 +503,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
         </div>
 
         <motion.div
+          id="seller-sidebar"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
@@ -716,6 +719,18 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           </div>
         )}
       </AnimatePresence>
+
+      <MobileStickyCTA
+        primary={salePrice > 0 ? formatPrice(salePrice) : "შეთანხმებით"}
+        secondary={property.location ?? undefined}
+        ctaLabel="კონტაქტი"
+        onClick={() =>
+          document
+            .getElementById("seller-sidebar")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+        ctaClassName="shrink-0 rounded-xl bg-[#16A34A] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#15803D]"
+      />
     </div>
   );
 }

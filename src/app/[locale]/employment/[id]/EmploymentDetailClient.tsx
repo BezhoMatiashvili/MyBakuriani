@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
+import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -61,7 +62,7 @@ export default function EmploymentDetailClient({
   }, [service.id, isMock]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-6xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
       <div className="mb-6 flex items-center justify-between">
         <motion.button
           {...fadeIn}
@@ -341,6 +342,7 @@ export default function EmploymentDetailClient({
 
         {/* Sidebar */}
         <motion.aside
+          id="contact-sidebar"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
@@ -387,6 +389,18 @@ export default function EmploymentDetailClient({
           </div>
         </motion.aside>
       </div>
+
+      <MobileStickyCTA
+        primary={service.salary_range ?? service.title}
+        secondary={service.location ?? undefined}
+        ctaLabel="განაცხადი"
+        onClick={() =>
+          document
+            .getElementById("contact-sidebar")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+        ctaClassName="shrink-0 rounded-xl bg-[#2563EB] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+      />
     </div>
   );
 }

@@ -329,8 +329,8 @@ export default function ClientsPage() {
                     ტრანზაქციების ისტორია
                   </h3>
                 </div>
-                <div className="max-h-[195px] overflow-y-auto">
-                  <table className="w-full">
+                <div className="max-h-[195px] overflow-x-auto overflow-y-auto">
+                  <table className="w-full min-w-[640px] md:min-w-0">
                     <thead className="bg-[#F8FAFC]">
                       <tr className="border-y border-[#E2E8F0]">
                         <th className="px-6 py-3 text-left text-[11px] font-bold uppercase text-[#94A3B8]">

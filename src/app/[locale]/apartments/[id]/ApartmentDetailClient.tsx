@@ -34,11 +34,16 @@ import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { CalendarGrid } from "@/components/booking/CalendarGrid";
 import { createClient } from "@/lib/supabase/client";
+import { SkierLoader } from "@/components/shared/SkierLoader";
+import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { formatPrice } from "@/lib/utils/format";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
   loading: () => (
-    <div className="h-[300px] animate-pulse rounded-2xl bg-[#F1F5F9]" />
+    <div className="flex h-[300px] items-center justify-center rounded-2xl bg-[#F1F5F9]">
+      <SkierLoader variant="inline" />
+    </div>
   ),
 });
 import type { Tables } from "@/lib/types/database";
@@ -144,7 +149,7 @@ export default function ApartmentDetailClient({
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}
@@ -413,6 +418,7 @@ export default function ApartmentDetailClient({
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
+          id="booking-sidebar"
           className="lg:sticky lg:top-[calc(91px+94px+12px)] lg:self-start lg:max-h-[calc(100vh-(91px+94px)-24px)] lg:overflow-y-auto lg:pr-1"
         >
           {property.price_per_night != null && (
@@ -433,6 +439,19 @@ export default function ApartmentDetailClient({
           )}
         </motion.div>
       </div>
+
+      {property.price_per_night != null && (
+        <MobileStickyCTA
+          primary={`${formatPrice(property.price_per_night)} / ღამე`}
+          secondary={property.location ?? undefined}
+          ctaLabel="დაჯავშნა"
+          onClick={() =>
+            document
+              .getElementById("booking-sidebar")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        />
+      )}
     </div>
   );
 }
