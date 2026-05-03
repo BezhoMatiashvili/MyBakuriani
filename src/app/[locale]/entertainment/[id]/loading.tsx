@@ -1,5 +1,5 @@
-import { DetailSkeleton } from "@/components/detail/DetailSkeleton";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 
 export default function Loading() {
-  return <DetailSkeleton />;
+  return <SkierLoader />;
 }

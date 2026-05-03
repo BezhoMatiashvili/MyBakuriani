@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 
 const PROPERTY_TYPES: { value: Enums<"property_type">; label: string }[] = [
   { value: "apartment", label: "აპარტამენტი" },
@@ -95,7 +96,9 @@ const ExactLocationPicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[320px] w-full animate-pulse rounded-xl bg-[#E2E8F0]" />
+      <div className="flex h-[320px] w-full items-center justify-center rounded-xl bg-[#E2E8F0]">
+        <SkierLoader variant="inline" />
+      </div>
     ),
   },
 );

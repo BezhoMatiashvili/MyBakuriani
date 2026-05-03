@@ -1,13 +1,13 @@
 import { createPublicClient } from "@/lib/supabase/server";
-import { getMockService, isMockServiceId } from "@/lib/mock/services";
+import {
+  getMockService,
+  isMockServiceId,
+  type ServiceWithFoodExtras,
+} from "@/lib/mock/services";
 import type { Tables } from "@/lib/types/database";
 
-type ServiceWithProfile = Tables<"services"> & {
-  profiles: Tables<"profiles"> | null;
-};
-
 export async function getServiceById(id: string): Promise<{
-  data: ServiceWithProfile | null;
+  data: ServiceWithFoodExtras | null;
   isMock: boolean;
 }> {
   if (isMockServiceId(id)) {
@@ -23,7 +23,7 @@ export async function getServiceById(id: string): Promise<{
       .eq("status", "active")
       .single();
 
-    return { data: (data as ServiceWithProfile) ?? null, isMock: false };
+    return { data: (data as ServiceWithFoodExtras) ?? null, isMock: false };
   } catch {
     return { data: null, isMock: false };
   }

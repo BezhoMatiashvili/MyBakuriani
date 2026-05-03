@@ -12,6 +12,7 @@ import {
   type SearchFilters,
   type ActiveDropdown,
 } from "@/components/search/SearchBox";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import SaleLandingBody from "./SaleLandingBody";
@@ -21,7 +22,7 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <div className="size-6 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-[#2563EB]" />
+      <SkierLoader variant="inline" />
     </div>
   ),
 });

@@ -14,6 +14,7 @@ import PhoneInput from "@/components/forms/PhoneInput";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 import { cn } from "@/lib/utils";
 
 const ExactLocationPicker = dynamic(
@@ -21,7 +22,9 @@ const ExactLocationPicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[320px] w-full animate-pulse rounded-xl bg-[#E2E8F0]" />
+      <div className="flex h-[320px] w-full items-center justify-center rounded-xl bg-[#E2E8F0]">
+        <SkierLoader variant="inline" />
+      </div>
     ),
   },
 );

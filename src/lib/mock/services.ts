@@ -19,6 +19,16 @@ type ServiceMockData = {
   vehicleCapacity?: number;
   languages?: string[];
   route?: string;
+  zone?: string;
+  rating?: number;
+  establishmentType?: string;
+  isOpen?: boolean;
+  serviceTags?: string[];
+  extraPhotos?: string[];
+  avgCheck?: string;
+  cuisineType?: string;
+  menuUrl?: string;
+  description?: string;
 };
 
 export type MockServiceCardItem = {
@@ -178,15 +188,34 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
   ],
   food: [
     {
-      title: 'რესტორანი „მთის გემო"',
+      title: "კოსტას კაფე",
       photo:
-        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop",
+        "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1600&h=1200&fit=crop",
       price: 25,
       unit: "კერძი",
       discount: 0,
-      vip: true,
-      hours: "10:00 - 23:00",
+      vip: false,
+      hours: "09:00 - 21:00",
       phone: "+995599123456",
+      zone: "კოხტა",
+      rating: 4.7,
+      establishmentType: "კაფე / საკონდიტრო",
+      cuisineType: "ევროპული",
+      avgCheck: "10-30 ₾",
+      isOpen: true,
+      menuUrl: "https://example.com/menu.pdf",
+      description:
+        "კაფე კოსტაში ყავით, დესერტით და მსუბუქი ევროპული მენიუთი. იდეალური ადგილი დასვენებისთვის სრიალის შემდეგ. გთავაზობთ მყუდრო გარემოს, უმაღლესი ხარისხის მომსახურებას და ულამაზეს ხედებს.",
+      serviceTags: ["საბავშვო კუთხე / ანიმატორები", "მოსაწევი ზონა / ტერასა"],
+      extraPhotos: [
+        "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=1200&h=900&fit=crop",
+        "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?w=1200&h=900&fit=crop",
+        "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&h=900&fit=crop",
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=900&fit=crop",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&h=900&fit=crop",
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&h=900&fit=crop",
+        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200&h=900&fit=crop",
+      ],
     },
     {
       title: 'პიცერია „იტალიანო"',
@@ -276,7 +305,20 @@ type ServiceWithProfile = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
 };
 
-export function getMockService(id: string): ServiceWithProfile | null {
+export type FoodExtras = {
+  zone: string | null;
+  rating: number | null;
+  establishment_type: string | null;
+  is_open: boolean | null;
+  service_tags: string[] | null;
+  extra_photos: string[] | null;
+};
+
+export type ServiceWithFoodExtras = ServiceWithProfile & {
+  food_extras?: FoodExtras;
+};
+
+export function getMockService(id: string): ServiceWithFoodExtras | null {
   const match = MOCK_ID_PATTERN.exec(id);
   if (!match) return null;
 
@@ -289,12 +331,12 @@ export function getMockService(id: string): ServiceWithProfile | null {
 
   return {
     accommodation: null,
-    avg_check: null,
+    avg_check: item.avgCheck ?? null,
     category: category as ServiceCategory,
     created_at: epoch,
-    cuisine_type: null,
+    cuisine_type: item.cuisineType ?? null,
     currency: "GEL",
-    description: null,
+    description: item.description ?? null,
     discount_percent: item.discount,
     driver_name: item.driverName ?? null,
     employment_schedule: null,
@@ -311,11 +353,11 @@ export function getMockService(id: string): ServiceWithProfile | null {
     location: "ბაკურიანი",
     meals: null,
     menu: null,
-    menu_url: null,
+    menu_url: item.menuUrl ?? null,
     operating_hours: item.hours ?? null,
     owner_id: "mock-owner",
     phone: item.phone ?? null,
-    photos: [item.photo],
+    photos: [item.photo, ...(item.extraPhotos ?? [])],
     position: null,
     price: item.price,
     price_unit: item.unit,
@@ -337,5 +379,13 @@ export function getMockService(id: string): ServiceWithProfile | null {
     views_count: 0,
     work_schedule: null,
     profiles: null,
+    food_extras: {
+      zone: item.zone ?? null,
+      rating: item.rating ?? null,
+      establishment_type: item.establishmentType ?? null,
+      is_open: item.isOpen ?? null,
+      service_tags: item.serviceTags ?? null,
+      extra_photos: item.extraPhotos ?? null,
+    },
   };
 }

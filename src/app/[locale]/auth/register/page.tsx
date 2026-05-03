@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -164,11 +165,7 @@ export default function RegisterPage() {
   }
 
   if (authLoading || checkingProfile) {
-    return (
-      <div className="flex min-h-[calc(100vh-160px)] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-[#94A3B8]" />
-      </div>
-    );
+    return <SkierLoader />;
   }
 
   return (

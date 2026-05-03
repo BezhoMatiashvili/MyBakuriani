@@ -21,6 +21,7 @@ import dynamic from "next/dynamic";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 import {
   SearchBox,
   type SearchFilters,
@@ -34,7 +35,7 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <div className="size-6 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-[#2563EB]" />
+      <SkierLoader variant="inline" />
     </div>
   ),
 });

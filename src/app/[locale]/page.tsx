@@ -1,7 +1,19 @@
 import { createPublicClient } from "@/lib/supabase/server";
+import type { Tables } from "@/lib/types/database";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
+import { SkierLoader } from "@/components/shared/SkierLoader";
+
+const LANDING_DATA_TIMEOUT_MS = 15_000;
+
+const emptyLandingProps = {
+  hotOffers: [] as Tables<"properties">[],
+  hotels: [] as Tables<"properties">[],
+  saleProperties: [] as Tables<"properties">[],
+  services: [] as Tables<"services">[],
+  blogPosts: [] as Tables<"blog_posts">[],
+};
 
 export async function generateMetadata() {
   const t = await getTranslations("Metadata");
@@ -13,16 +25,17 @@ export async function generateMetadata() {
 
 export const revalidate = 120;
 
-export default async function Home() {
+async function fetchLandingProps() {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return emptyLandingProps;
+  }
+
   const supabase = createPublicClient();
 
-  const [
-    { data: hotOffers },
-    { data: hotels },
-    { data: saleProperties },
-    { data: services },
-    { data: blogPosts },
-  ] = await Promise.all([
+  const queries = Promise.all([
     supabase
       .from("properties")
       .select("*")
@@ -60,17 +73,51 @@ export default async function Home() {
       .limit(3),
   ]);
 
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(
+      () => reject(new Error("landing Supabase fetch timeout")),
+      LANDING_DATA_TIMEOUT_MS,
+    );
+  });
+
+  try {
+    const [
+      { data: hotOffers },
+      { data: hotels },
+      { data: saleProperties },
+      { data: services },
+      { data: blogPosts },
+    ] = await Promise.race([queries, timeout]);
+
+    return {
+      hotOffers: hotOffers ?? [],
+      hotels: hotels ?? [],
+      saleProperties: saleProperties ?? [],
+      services: services ?? [],
+      blogPosts: blogPosts ?? [],
+    };
+  } catch {
+    return emptyLandingProps;
+  }
+}
+
+async function LandingWithData() {
+  const props = await fetchLandingProps();
   return (
-    <Suspense
-      fallback={<div className="h-[60vh] animate-pulse bg-[#F8FAFC]" />}
-    >
-      <LandingPage
-        hotOffers={hotOffers ?? []}
-        hotels={hotels ?? []}
-        saleProperties={saleProperties ?? []}
-        services={services ?? []}
-        blogPosts={blogPosts ?? []}
-      />
+    <LandingPage
+      hotOffers={props.hotOffers}
+      hotels={props.hotels}
+      saleProperties={props.saleProperties}
+      services={props.services}
+      blogPosts={props.blogPosts}
+    />
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<SkierLoader />}>
+      <LandingWithData />
     </Suspense>
   );
 }

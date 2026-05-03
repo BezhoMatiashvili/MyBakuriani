@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GoogleMap, MarkerF } from "@react-google-maps/api";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 
 const BAKURIANI_CENTER = { lat: 41.7509, lng: 43.5294 };
 const containerStyle = { width: "100%", height: "100%" };
@@ -97,7 +98,9 @@ export default function ExactLocationPicker({
 
   if (!isLoaded) {
     return (
-      <div className="h-[240px] animate-pulse rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]" />
+      <div className="flex h-[240px] items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
     );
   }
 

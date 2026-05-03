@@ -14,6 +14,7 @@ import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import BottomSheet from "@/components/shared/BottomSheet";
 import ScrollReveal from "@/components/shared/ScrollReveal";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 import { Button } from "@/components/ui/button";
 
 const ITEMS_PER_PAGE = 12;
@@ -403,11 +404,7 @@ export default function SearchPageClient({
             </div>
 
             {/* Loading state */}
-            {loading && (
-              <div className="flex items-center justify-center py-20">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
-              </div>
-            )}
+            {loading && <SkierLoader variant="inline" />}
 
             {/* Empty state */}
             {!loading && properties.length === 0 && (

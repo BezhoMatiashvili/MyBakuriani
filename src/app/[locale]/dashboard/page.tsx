@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 
 const roleToDashboard: Record<string, string> = {
   guest: "/dashboard/guest",
@@ -42,9 +43,5 @@ export default function DashboardRedirect() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading]);
 
-  return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
-    </div>
-  );
+  return <SkierLoader />;
 }
