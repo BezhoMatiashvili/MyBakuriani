@@ -168,7 +168,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     >
       <Link
         href={href}
-        className="flex h-[440px] flex-col overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        className="flex h-auto min-h-[420px] md:h-[440px] flex-col overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
       >
         <div className="relative aspect-[4/3] overflow-hidden">
           <Image

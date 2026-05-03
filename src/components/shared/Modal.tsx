@@ -12,9 +12,9 @@ interface ModalProps {
   size?: "sm" | "md" | "lg";
 }
 const sizeClasses: Record<string, string> = {
-  sm: "max-w-sm",
-  md: "max-w-lg",
-  lg: "max-w-2xl",
+  sm: "max-w-[calc(100vw-2rem)] sm:max-w-sm",
+  md: "max-w-[calc(100vw-2rem)] sm:max-w-lg",
+  lg: "max-w-[calc(100vw-2rem)] sm:max-w-2xl",
 };
 
 export default function Modal({
@@ -61,7 +61,7 @@ export default function Modal({
               sizeClasses[size],
             )}
           >
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] px-8 py-5">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] px-5 py-4 sm:px-8 sm:py-5">
               <h2 className="text-[17px] font-bold text-[#0F172A]">{title}</h2>
               <button
                 onClick={onClose}
@@ -70,7 +70,9 @@ export default function Modal({
                 <X className="size-4" />
               </button>
             </div>
-            <div className="max-h-[70vh] overflow-y-auto p-8">{children}</div>
+            <div className="max-h-[70vh] overflow-y-auto p-5 sm:p-8">
+              {children}
+            </div>
           </motion.div>
         </div>
       )}

@@ -60,7 +60,7 @@ export default function SmartMatchCard({
               {t("guestRequests")}
             </span>
           </div>
-          <h3 className="mt-6 text-[30px] font-black leading-[38px]">
+          <h3 className="mt-4 md:mt-6 text-[22px] leading-[28px] md:text-[30px] md:leading-[38px] font-black">
             {t("seeWhatTheySearch")}
           </h3>
         </div>

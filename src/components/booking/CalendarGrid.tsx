@@ -19,6 +19,7 @@ export interface CalendarDate {
 }
 
 const DAY_HEADERS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
+const DAY_HEADERS_SHORT = ["ო", "ს", "ო", "ხ", "პ", "შ", "კ"];
 const statusClasses: Record<DateStatus, string> = {
   available:
     "bg-green-50 text-[#1E293B] hover:bg-green-200 cursor-pointer transition-colors",
@@ -50,12 +51,13 @@ export function CalendarGrid({
         {format(monthDate, "LLLL yyyy", { locale: ka })}
       </h3>
       <div className="grid grid-cols-7 gap-1">
-        {DAY_HEADERS.map((d) => (
+        {DAY_HEADERS.map((d, i) => (
           <div
             key={d}
             className="py-1 text-center text-[11px] font-bold uppercase text-[#94A3B8]"
           >
-            {d}
+            <span className="md:hidden">{DAY_HEADERS_SHORT[i]}</span>
+            <span className="hidden md:inline">{d}</span>
           </div>
         ))}
         {allDays.map((day) => {

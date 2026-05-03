@@ -54,6 +54,7 @@ interface BookingSidebarProps {
 
 /* ── Inline mini-calendar (rendered inside the sidebar dropdown) ── */
 const MINI_CAL_DAYS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
+const MINI_CAL_DAYS_SHORT = ["ო", "ს", "ო", "ხ", "პ", "შ", "კ"];
 
 function MiniCalendar({
   selectedRange,
@@ -121,12 +122,13 @@ function MiniCalendar({
         </button>
       </div>
       <div className="grid grid-cols-7 gap-0.5">
-        {MINI_CAL_DAYS.map((d) => (
+        {MINI_CAL_DAYS.map((d, i) => (
           <div
             key={d}
             className="py-1 text-center text-[10px] font-bold uppercase text-[#94A3B8]"
           >
-            {d}
+            <span className="md:hidden">{MINI_CAL_DAYS_SHORT[i]}</span>
+            <span className="hidden md:inline">{d}</span>
           </div>
         ))}
         {allDays.map((day) => {
