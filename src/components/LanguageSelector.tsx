@@ -10,7 +10,7 @@ export function LanguageSelector() {
   const pathname = usePathname();
   const t = useTranslations("LanguageSelector");
 
-  function switchLocale(newLocale: string) {
+  function switchLocale(newLocale: (typeof routing.locales)[number]) {
     router.replace(pathname, { locale: newLocale });
   }
 
