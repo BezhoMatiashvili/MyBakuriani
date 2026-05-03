@@ -226,9 +226,7 @@ export function Navbar() {
         {/* Right side action buttons — desktop */}
         <div className="hidden items-center gap-3 md:flex">
           <LanguageSelector />
-          <Link
-            href={user ? "/create" : "/auth/login?next=/create"}
-          >
+          <Link href={user ? "/create" : "/auth/login?next=/create"}>
             <Button className="h-[39.5px] w-[222px] gap-1.5 rounded-xl bg-[#F97316] px-5 text-[13px] font-bold leading-5 text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]">
               <Plus className="size-4" />
               {t("addListing")}
@@ -261,7 +259,7 @@ export function Navbar() {
             <div ref={profileRef} className="relative">
               <button
                 onClick={() => setProfileOpen((v) => !v)}
-                className="flex size-10 items-center justify-center rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF]"
+                className="flex size-11 md:size-10 items-center justify-center rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF]"
                 aria-label={t("profile")}
               >
                 {profile?.avatar_url ? (
@@ -383,7 +381,7 @@ export function Navbar() {
             className="fixed inset-0 z-50 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="fixed right-0 top-0 z-50 flex h-full w-[300px] flex-col bg-white shadow-2xl">
+          <div className="fixed right-0 top-0 z-50 flex h-full w-[88vw] max-w-[320px] md:w-[320px] flex-col bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#F1F5F9] p-4">
               <span className="text-lg font-bold text-[#1E293B]">
                 {t("menu")}
