@@ -38,6 +38,16 @@ export default function ListingForm({
         />
       </div>
 
+      {/* Mobile-only active step label */}
+      <div className="flex items-center justify-between gap-2 sm:hidden">
+        <span className="text-sm font-bold text-[#0F172A]">
+          {steps[currentStep]}
+        </span>
+        <span className="text-sm font-medium text-[#94A3B8]">
+          {currentStep + 1} / {totalSteps}
+        </span>
+      </div>
+
       {/* Step indicators */}
       <div className="flex items-center justify-center">
         {steps.map((label, index) => {

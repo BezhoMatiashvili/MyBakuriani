@@ -186,7 +186,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
                   e.stopPropagation();
                   goPrev();
                 }}
-                className="absolute left-4 rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+                className="absolute left-4 hidden rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:block"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
@@ -199,7 +199,14 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="relative h-[80vh] w-[90vw] max-w-5xl"
+              drag={photos.length > 1 ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.5}
+              onDragEnd={(_, info) => {
+                if (info.offset.x > 80) goPrev();
+                else if (info.offset.x < -80) goNext();
+              }}
+              className="relative h-[80vh] w-[90vw] max-w-5xl touch-pan-y"
               onClick={(e) => e.stopPropagation()}
             >
               <Image
@@ -208,6 +215,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
                 fill
                 sizes="90vw"
                 className="object-contain"
+                draggable={false}
               />
             </motion.div>
 
@@ -218,7 +226,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
                   e.stopPropagation();
                   goNext();
                 }}
-                className="absolute right-4 rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+                className="absolute right-4 hidden rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:block"
               >
                 <ChevronRight className="h-6 w-6" />
               </button>

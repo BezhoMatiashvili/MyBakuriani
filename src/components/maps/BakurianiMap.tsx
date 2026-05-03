@@ -364,7 +364,7 @@ export default function BakurianiMap({
   if (!apiKey || !isLoaded) {
     return (
       <div
-        className={`relative overflow-hidden bg-[#F8FAFC] ${embedded ? "" : "min-h-[200px] rounded-[16px] border border-[#E2E8F0]"} ${className ?? ""}`}
+        className={`relative overflow-hidden bg-[#F8FAFC] ${embedded ? "" : "min-h-[280px] md:min-h-[200px] rounded-[16px] border border-[#E2E8F0]"} ${className ?? ""}`}
       >
         <div
           className="absolute inset-0 opacity-[0.08]"
@@ -493,7 +493,7 @@ export default function BakurianiMap({
       {/* Expanded modal overlay */}
       {expanded && (
         <div
-          className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/50 px-4 pb-6 pt-[200px] backdrop-blur-sm md:px-10 md:pb-10 md:pt-[200px]"
+          className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/50 px-4 pb-6 pt-16 backdrop-blur-sm md:px-10 md:pb-10 md:pt-[200px]"
           onClick={() => setExpanded(false)}
         >
           <div

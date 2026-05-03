@@ -135,7 +135,7 @@ export default function PhotoUploader({
           className="hidden"
         />
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
           {/* Large drop zone — col-span 1, row-span 2 */}
           <div
             role="button"
@@ -148,7 +148,7 @@ export default function PhotoUploader({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative flex aspect-square cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed bg-[#F8FAFC] p-6 transition-colors md:aspect-auto md:row-span-2 ${
+            className={`relative col-span-2 flex h-[200px] cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed bg-[#F8FAFC] p-6 transition-colors md:col-span-1 md:h-auto md:aspect-auto md:row-span-2 ${
               isDragging
                 ? "border-[#2563EB] bg-[#EFF6FF]"
                 : "border-[#2563EB]/60 hover:border-[#2563EB]"

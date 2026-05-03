@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 
 export interface SearchFilters {
   location: string;
@@ -33,7 +34,9 @@ const Calendar = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[308px] w-full animate-pulse rounded-2xl bg-[#F1F5F9]" />
+      <div className="flex h-[308px] w-full items-center justify-center rounded-2xl bg-[#F1F5F9]">
+        <SkierLoader variant="inline" />
+      </div>
     ),
   },
 );
@@ -643,7 +646,7 @@ export function SearchBox({
             className={cn(
               usePortal
                 ? "w-full rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[var(--shadow-category-nav)]"
-                : "absolute left-0 top-full z-50 mt-2 w-[760px] rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[760px] rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
             )}
           >
             <Calendar
@@ -739,7 +742,9 @@ function LocationDropdown({
     <div
       className={cn(
         "rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-        inline ? "w-full" : "absolute left-0 top-full z-50 mt-2 w-[480px]",
+        inline
+          ? "w-full"
+          : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[480px]",
       )}
     >
       {ZONES.map((zone) => {

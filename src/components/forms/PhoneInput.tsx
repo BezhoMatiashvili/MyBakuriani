@@ -30,9 +30,9 @@ export default function PhoneInput({
   return (
     <div className="space-y-1.5">
       <div
-        className={`flex h-[50px] items-center overflow-hidden rounded-xl border bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[#DBEAFE] ${error ? "border-[#EF4444] focus-within:ring-[#EF4444]/20" : "border-[#E2E8F0]"}`}
+        className={`flex h-[52px] md:h-[50px] items-center overflow-hidden rounded-xl border bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[#DBEAFE] ${error ? "border-[#EF4444] focus-within:ring-[#EF4444]/20" : "border-[#E2E8F0]"}`}
       >
-        <span className="flex shrink-0 items-center gap-1.5 border-r border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm font-bold text-[#94A3B8]">
+        <span className="flex shrink-0 items-center gap-1.5 border-r border-[#E2E8F0] bg-[#F8FAFC] px-3 md:px-4 py-3 text-sm font-bold text-[#94A3B8]">
           <span>🇬🇪</span>
           <span>+995</span>
         </span>
