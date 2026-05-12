@@ -7,20 +7,25 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 
 const VEHICLE_TYPES = [
   { value: "all", label: "ყველა" },
-  { value: "sedan", label: "სედანი" },
-  { value: "suv", label: "SUV" },
-  { value: "minibus", label: "მინივანი" },
-  { value: "truck", label: "ფურგონი" },
-  { value: "premium", label: "პრემიუმ" },
+  { value: "minibus", label: "მინივენი" },
+  { value: "taxi", label: "ტაქსი" },
+  { value: "microbus", label: "მიკროავტობუსი" },
+  { value: "other", label: "სხვა" },
 ] as const;
 
 const ROUTE_FILTERS = [
   { value: "all", label: "ყველა" },
-  { value: "tbilisi", label: "თბილისი ბაკურიანი" },
-  { value: "kutaisi", label: "ქუთაისი ბაკურიანი" },
-  { value: "borjomi", label: "ბორჯომი ბაკურიანი" },
-  { value: "airport", label: "აეროპორტი" },
+  { value: "შიდა გადაადგილება (ტაქსი)", label: "შიდა გადაადგილება (ტაქსი)" },
+  { value: "თბილისი - ბაკურიანი", label: "თბილისი - ბაკურიანი" },
+  { value: "აეროპორტის ტრანსფერი", label: "აეროპორტის ტრანსფერი" },
+  { value: "other", label: "სხვა" },
 ] as const;
+
+const KNOWN_ROUTES = new Set([
+  "შიდა გადაადგილება (ტაქსი)",
+  "თბილისი - ბაკურიანი",
+  "აეროპორტის ტრანსფერი",
+]);
 
 const ITEMS_PER_PAGE = 9;
 
@@ -29,20 +34,23 @@ interface Props {
 }
 
 export default function TransportPageClient({ services }: Props) {
-  const [activeVehicle, setActiveVehicle] = useState("all");
-  const [activeRoute, setActiveRoute] = useState("all");
+  const [activeVehicle, setActiveVehicle] = useState<string>("all");
+  const [activeRoute, setActiveRoute] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const filtered = useMemo(() => {
     return services.filter((s) => {
       if (activeVehicle !== "all") {
-        const category = (s.category ?? "").toLowerCase();
-        if (!category.includes(activeVehicle)) return false;
+        if ((s.transport_type ?? "") !== activeVehicle) return false;
       }
       if (activeRoute !== "all") {
-        const location = (s.location ?? "").toLowerCase();
-        if (!location.includes(activeRoute)) return false;
+        const r = s.route ?? "";
+        if (activeRoute === "other") {
+          if (KNOWN_ROUTES.has(r)) return false;
+        } else if (r !== activeRoute) {
+          return false;
+        }
       }
       if (
         searchQuery &&
@@ -72,12 +80,14 @@ export default function TransportPageClient({ services }: Props) {
       >
         <div className="mx-auto max-w-3xl">
           <ScrollReveal>
-            <h1 className="text-[36px] font-black leading-[44px] text-white sm:text-[48px] sm:leading-[56px]">
-              ტრანსპორტი და ტრანსფერები
+            <h1 className="text-[36px] font-black leading-[44px] sm:text-[48px] sm:leading-[56px]">
+              <span className="text-[#60A5FA]">ტრანსპორტი</span>{" "}
+              <span className="text-white">და</span>{" "}
+              <span className="text-white">ტრანსფერები</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/70">
               უსაფრთხო და კომფორტული გადაადგილება ბაკურიანში და მის ფარგლებს
-              გარეთ
+              გარეთ.
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-8 flex max-w-[720px] items-center gap-2 rounded-full bg-white p-2 shadow-lg">
@@ -90,7 +100,7 @@ export default function TransportPageClient({ services }: Props) {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="რას ეძებთ?"
+                placeholder="რას ეძებთ?..."
                 className="h-10 w-full border-0 bg-transparent text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
               />
             </div>
@@ -104,51 +114,62 @@ export default function TransportPageClient({ services }: Props) {
         </div>
       </section>
 
-      {/* Filters */}
-      <section className="border-b border-[#E2E8F0] bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto px-4">
-            {VEHICLE_TYPES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => {
-                  setActiveVehicle(cat.value);
-                  setCurrentPage(1);
-                }}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                  activeVehicle === cat.value
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-[#F8FAFC] text-[#1E293B] hover:bg-[#F1F5F9]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+      {/* Filters card */}
+      <section className="px-4">
+        <div className="mx-auto -mt-8 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[160px]">
+              ტრანსპორტის ტიპი:
+            </span>
+            <div className="scrollbar-hide -mx-1 flex flex-1 flex-wrap gap-2 overflow-x-auto px-1">
+              {VEHICLE_TYPES.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    setActiveVehicle(cat.value);
+                    setCurrentPage(1);
+                  }}
+                  className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                    activeVehicle === cat.value
+                      ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
+                      : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="scrollbar-hide -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
-            {ROUTE_FILTERS.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => {
-                  setActiveRoute(cat.value);
-                  setCurrentPage(1);
-                }}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                  activeRoute === cat.value
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-transparent text-[#64748B] hover:bg-[#F8FAFC]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="my-5 h-px w-full bg-[#E2E8F0]" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[160px]">
+              მიმართულება:
+            </span>
+            <div className="scrollbar-hide -mx-1 flex flex-1 flex-wrap gap-2 overflow-x-auto px-1">
+              {ROUTE_FILTERS.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    setActiveRoute(cat.value);
+                    setCurrentPage(1);
+                  }}
+                  className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                    activeRoute === cat.value
+                      ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
+                      : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* Results */}
-      <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
-        <h2 className="mb-6 text-[20px] font-black text-[#1E293B]">
+      <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-12">
+        <h2 className="mb-6 text-[28px] font-black leading-[34px] text-[#1E293B]">
           შედეგები ({filtered.length})
         </h2>
         {filtered.length === 0 ? (
@@ -178,6 +199,13 @@ export default function TransportPageClient({ services }: Props) {
                     priceUnit={s.price_unit}
                     discountPercent={s.discount_percent ?? 0}
                     isVip={s.is_vip ?? false}
+                    phone={s.phone}
+                    driverName={s.driver_name}
+                    vehicleCapacity={s.vehicle_capacity}
+                    route={s.route}
+                    availabilityStatus={
+                      (s.discount_percent ?? 0) > 0 ? "busy" : "active"
+                    }
                   />
                 </ScrollReveal>
               ))}

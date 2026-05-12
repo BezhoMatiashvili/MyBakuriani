@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useEffect } from "react";
+import { useCallback, useMemo, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   ArrowLeft,
@@ -53,20 +54,50 @@ function estimatedRoi(id: string): number {
 
 // Mock sale properties (used when DB is empty) sourced from @/lib/mock/properties
 
-// Hero featured inventory card
-const FEATURED_INVENTORY = {
-  id: "featured-mziuri",
-  title: "Mziuri Gardens • პრემიუმ ვილა",
-  location: "ლოკაცია: ბაკურიანის ცენტრი",
-  area: 185,
-  rooms: 5,
-  description:
-    "სრულად გარემონტებული, ევროპული სტანდარტის ვილა და ჩართული ავეჯით. კომპლექსში მოქმედებს 5-ვარსკვლავიანი ინფრასტრუქტურა.",
-  priceUsd: 280_000,
-  roi: 12,
-  photo:
-    "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&h=900&fit=crop",
-};
+// Hero featured inventory cards (rotated in the carousel)
+const FEATURED_INVENTORY_ITEMS = [
+  {
+    id: "featured-mziuri",
+    title: "Mziuri Gardens • პრემიუმ ვილა",
+    location: "ლოკაცია: ბაკურიანის ცენტრი",
+    area: 185,
+    rooms: 5,
+    description:
+      "სრულად გარემონტებული, ევროპული სტანდარტის ვილა და ჩართული ავეჯით. კომპლექსში მოქმედებს 5-ვარსკვლავიანი ინფრასტრუქტურა.",
+    priceUsd: 280_000,
+    roi: 12,
+    photo:
+      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&h=900&fit=crop",
+  },
+  {
+    id: "featured-didveli",
+    title: "Didveli Heights • პრემიუმ აპარტამენტი",
+    location: "ლოკაცია: დიდველი, 80 მ ტრასამდე",
+    area: 120,
+    rooms: 3,
+    description:
+      "სათხილამურო ტრასასთან, პანორამული ხედით კოხტას მთაზე. გარემონტებული Smart-Home სისტემით და ცენტრალური გათბობით.",
+    priceUsd: 195_000,
+    roi: 14,
+    photo:
+      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1400&h=900&fit=crop",
+  },
+  {
+    id: "featured-kokhta",
+    title: "Kokhta Suites • A-Frame კომპლექსი",
+    location: "ლოკაცია: კოხტა, ტყის პირას",
+    area: 95,
+    rooms: 2,
+    description:
+      "მოდერნული A-Frame არქიტექტურა, ბუხრით და ფართო ტერასით. იდეალური მცირე-ოჯახური ან Airbnb ინვესტიციისთვის.",
+    priceUsd: 145_000,
+    roi: 16,
+    photo:
+      "https://images.unsplash.com/photo-1518602164578-cd0074062767?w=1400&h=900&fit=crop",
+  },
+];
+
+const INVENTORY_AUTO_ADVANCE_MS = 5000;
 
 // ─── Component ──────────────────────────────────────────────────────────
 
@@ -81,6 +112,41 @@ export default function SaleLandingBody({
   useEffect(() => {
     setListingMode(mode);
   }, [mode, setListingMode]);
+
+  // ─── Featured Inventory carousel state ──────────────────────────────
+  const [inventoryIdx, setInventoryIdx] = useState(0);
+  const [inventoryReduceMotion, setInventoryReduceMotion] = useState(false);
+  const inventoryPaused = useRef(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setInventoryReduceMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) =>
+      setInventoryReduceMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  useEffect(() => {
+    if (inventoryReduceMotion || FEATURED_INVENTORY_ITEMS.length <= 1) return;
+    const timer = setInterval(() => {
+      if (!inventoryPaused.current) {
+        setInventoryIdx(
+          (i) => (i + 1) % FEATURED_INVENTORY_ITEMS.length,
+        );
+      }
+    }, INVENTORY_AUTO_ADVANCE_MS);
+    return () => clearInterval(timer);
+  }, [inventoryReduceMotion]);
+
+  const nextInventory = () =>
+    setInventoryIdx((i) => (i + 1) % FEATURED_INVENTORY_ITEMS.length);
+  const prevInventory = () =>
+    setInventoryIdx(
+      (i) =>
+        (i - 1 + FEATURED_INVENTORY_ITEMS.length) %
+        FEATURED_INVENTORY_ITEMS.length,
+    );
 
   const handleSearch = useCallback(
     (sf: SaleSearchFilters) => {
@@ -224,6 +290,7 @@ export default function SaleLandingBody({
             <div className="hidden gap-2 sm:flex">
               <button
                 type="button"
+                onClick={prevInventory}
                 aria-label="წინა"
                 className="flex size-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#1E293B] transition-colors hover:border-[#16A34A] hover:text-[#16A34A]"
               >
@@ -231,6 +298,7 @@ export default function SaleLandingBody({
               </button>
               <button
                 type="button"
+                onClick={nextInventory}
                 aria-label="შემდეგი"
                 className="flex size-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#1E293B] transition-colors hover:border-[#16A34A] hover:text-[#16A34A]"
               >
@@ -240,7 +308,49 @@ export default function SaleLandingBody({
           </div>
         </ScrollReveal>
 
-        <FeaturedInventoryCard {...FEATURED_INVENTORY} />
+        <div
+          className="relative min-h-[640px] md:min-h-[440px]"
+          onMouseEnter={() => {
+            inventoryPaused.current = true;
+          }}
+          onMouseLeave={() => {
+            inventoryPaused.current = false;
+          }}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={inventoryIdx}
+              initial={{
+                opacity: 0,
+                y: 30,
+                scale: 0.96,
+                filter: "blur(8px)",
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                filter: "blur(0px)",
+              }}
+              exit={{
+                opacity: 0,
+                y: -30,
+                scale: 0.96,
+                filter: "blur(8px)",
+              }}
+              transition={{
+                duration: 0.6,
+                ease: [0.16, 1, 0.3, 1],
+                staggerChildren: 0.1,
+              }}
+              className="absolute inset-0 w-full"
+            >
+              <FeaturedInventoryCard
+                {...FEATURED_INVENTORY_ITEMS[inventoryIdx]}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </section>
 
       {/* ═══ 3. Sales grid ═══ */}

@@ -1,104 +1,121 @@
-import { Banknote, Calendar, Star } from "lucide-react";
+import { BadgeCheck, Banknote, MapPin, Star, Users } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 
 export interface EmploymentCardProps {
   id: string;
   title: string;
   employer?: string | null;
-  price: number | null;
-  priceUnit?: string | null;
-  availability?: string;
-  badge?: "popular" | "new" | null;
+  location?: string | null;
+  salaryLabel?: string | null;
+  scheduleLabel?: string | null;
+  description?: string | null;
+  applicationsCount?: number;
+  badge?: "urgent" | "vip" | "new" | null;
   postedLabel?: string;
   highlighted?: boolean;
 }
 
 export default function EmploymentCard({
+  id,
   title,
   employer,
-  price,
-  priceUnit,
-  availability,
+  location,
+  salaryLabel,
+  scheduleLabel,
+  description,
+  applicationsCount,
   badge,
   postedLabel,
   highlighted,
 }: EmploymentCardProps) {
   return (
     <div
-      className={`relative flex h-full flex-col overflow-hidden rounded-[24px] border p-5 ${
+      className={`relative flex h-full flex-col overflow-hidden rounded-[24px] border bg-white p-5 transition-shadow hover:shadow-[var(--shadow-card-hover)] ${
         highlighted
-          ? "border-[#F97316] bg-[#FFF7ED]"
-          : "border-[#E2E8F0] bg-white"
+          ? "border-[#F97316] shadow-[0px_4px_20px_-2px_rgba(249,115,22,0.15)]"
+          : "border-[#E2E8F0] shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)]"
       }`}
     >
-      {highlighted && (
-        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FED7AA]/70 blur-2xl" />
-      )}
-
-      <div className="relative flex items-start justify-between">
-        {badge === "popular" && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-[#F97316] px-2 py-1 text-[11px] font-black uppercase text-white">
-            <Star className="h-3 w-3 fill-white" />
-            პოპულარული
-          </span>
-        )}
-        {badge === "new" && (
-          <span className="inline-flex items-center rounded-md bg-[#DBEAFE] px-2 py-1 text-[11px] font-black text-[#1D4ED8]">
-            ახალი
-          </span>
-        )}
-        {!badge && <span />}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {badge === "urgent" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-[#DCFCE7] px-2 py-1 text-[11px] font-bold text-[#166534]">
+              <span className="inline-block size-1.5 rounded-full bg-[#16A34A]" />
+              სასწრაფო
+            </span>
+          )}
+          {badge === "vip" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-[#FEF3C7] px-2 py-1 text-[11px] font-bold text-[#92400E]">
+              <Star className="h-3 w-3 fill-[#F59E0B] text-[#F59E0B]" />
+              VIP
+            </span>
+          )}
+          {badge === "new" && (
+            <span className="inline-flex items-center rounded-md bg-[#DBEAFE] px-2 py-1 text-[11px] font-bold text-[#1D4ED8]">
+              ახალი
+            </span>
+          )}
+        </div>
         {postedLabel && (
-          <span className="text-[11px] font-medium text-[#94A3B8]">
+          <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">
             {postedLabel}
           </span>
         )}
       </div>
 
-      <h3 className="relative mt-4 text-[18px] font-black leading-[22px] text-[#1E293B]">
+      <h3 className="mt-4 text-[18px] font-black leading-[22px] text-[#1E293B] line-clamp-2">
         {title}
       </h3>
       {employer && (
-        <p className="relative mt-1 text-[13px] font-medium leading-[18px] text-[#64748B]">
-          {employer}
+        <p className="mt-1.5 inline-flex items-center gap-1 text-[13px] font-bold leading-[18px] text-[#2563EB]">
+          <span className="line-clamp-1">{employer}</span>
+          <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-[#22C55E] text-white" />
         </p>
       )}
 
-      <div className="relative mt-4 flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#FFF7ED] text-[#F97316]">
-          <Banknote className="h-4 w-4" />
-        </span>
-        <span className="text-[13px] font-bold text-[#1E293B]">
-          {price != null ? `${price} ₾` : "—"}
-          {priceUnit ? (
-            <span className="font-medium text-[#64748B]"> / {priceUnit}</span>
-          ) : null}
-        </span>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {location && (
+          <span className="inline-flex items-center gap-1 rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1.5 text-[12px] font-medium text-[#475569]">
+            <MapPin className="h-3.5 w-3.5 text-[#64748B]" />
+            {location}
+          </span>
+        )}
+        {salaryLabel && (
+          <span className="inline-flex items-center gap-1 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1.5 text-[12px] font-bold text-[#166534]">
+            <Banknote className="h-3.5 w-3.5" />
+            {salaryLabel}
+          </span>
+        )}
       </div>
 
-      <div className="relative mt-2 flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5">
-        <Calendar className="h-4 w-4 text-[#64748B]" />
-        <span className="text-[13px] font-medium text-[#64748B]">
-          {availability ?? "მოქნილი"}
-        </span>
-      </div>
+      {scheduleLabel && (
+        <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
+          <Users className="h-3.5 w-3.5" />
+          <span>{scheduleLabel}</span>
+        </div>
+      )}
 
-      <div className="relative mt-5 flex items-center gap-2">
-        <button
-          type="button"
-          className="flex h-11 flex-1 items-center justify-center rounded-xl bg-[#0F172A] text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
-        >
-          გამოხმაურება
-        </button>
-        <button
-          type="button"
-          className={`flex h-11 flex-1 items-center justify-center rounded-xl border bg-white text-[13px] font-bold transition-colors ${
-            highlighted
-              ? "border-[#F97316] text-[#F97316] hover:bg-[#FFF7ED]"
-              : "border-[#E2E8F0] text-[#1E293B] hover:bg-[#F8FAFC]"
-          }`}
+      {description && (
+        <p className="mt-3 text-[13px] leading-[19px] text-[#64748B] line-clamp-3">
+          {description}
+        </p>
+      )}
+
+      <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+        {applicationsCount != null ? (
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
+            <Users className="h-3.5 w-3.5 text-[#22C55E]" />
+            {applicationsCount} გამოხმაურება
+          </span>
+        ) : (
+          <span />
+        )}
+        <Link
+          href={`/employment/${id}`}
+          className="flex h-10 items-center justify-center rounded-xl bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
         >
           დეტალები
-        </button>
+        </Link>
       </div>
     </div>
   );

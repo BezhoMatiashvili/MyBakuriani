@@ -7,19 +7,21 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 
 const CATEGORIES = [
   { value: "all", label: "ყველა" },
-  { value: "handyman", label: "ხელოსანი" },
-  { value: "cleaning", label: "დასუფთავება" },
+  { value: "cleaning", label: "დასუფთავება / დამლაგებელი" },
   { value: "plumbing", label: "სანტექნიკა" },
-  { value: "electric", label: "ელექტრიკოსი" },
-  { value: "repair", label: "რემონტი" },
+  { value: "electric", label: "ელექტროობა" },
+  { value: "locks", label: "საკეტები" },
+  { value: "repair", label: "ტექნიკის შეკეთება" },
+  { value: "other", label: "სხვა" },
 ] as const;
 
-const SORT_FILTERS = [
-  { value: "recent", label: "ახალი" },
-  { value: "popular", label: "პოპულარული" },
-  { value: "rating", label: "რეიტინგით" },
-  { value: "cheap", label: "იაფი" },
-] as const;
+const KNOWN_POSITIONS = new Set([
+  "დამლაგებელი",
+  "სანტექნიკი",
+  "ელექტრიკოსი",
+  "საკეტების სპეციალისტი",
+  "ტექნიკის შემკეთებელი",
+]);
 
 const ITEMS_PER_PAGE = 9;
 
@@ -27,18 +29,36 @@ interface Props {
   services: Tables<"services">[];
 }
 
+function matchesCategory(s: Tables<"services">, value: string): boolean {
+  const pos = (s.position ?? "").toLowerCase();
+  const cat = (s.category ?? "").toLowerCase();
+  switch (value) {
+    case "cleaning":
+      return cat === "cleaning" || pos.includes("დამლაგებელ");
+    case "plumbing":
+      return pos.includes("სანტექნიკ") || pos.includes("ქვაბ");
+    case "electric":
+      return pos.includes("ელექტრიკოს");
+    case "locks":
+      return pos.includes("საკეტებ");
+    case "repair":
+      return pos.includes("შემკეთებელ") || pos.includes("რემონტ");
+    case "other":
+      return !KNOWN_POSITIONS.has(s.position ?? "") && cat !== "cleaning";
+    default:
+      return true;
+  }
+}
+
 export default function ServicesPageClient({ services }: Props) {
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [activeSort, setActiveSort] = useState("recent");
+  const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const filtered = useMemo(() => {
-    const result = services.filter((s) => {
-      if (activeCategory !== "all") {
-        const category = (s.category ?? "").toLowerCase();
-        if (!category.includes(activeCategory)) return false;
-      }
+    return services.filter((s) => {
+      if (activeCategory !== "all" && !matchesCategory(s, activeCategory))
+        return false;
       if (
         searchQuery &&
         !s.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -46,11 +66,7 @@ export default function ServicesPageClient({ services }: Props) {
         return false;
       return true;
     });
-    if (activeSort === "cheap") {
-      result.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-    }
-    return result;
-  }, [services, activeCategory, searchQuery, activeSort]);
+  }, [services, activeCategory, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = useMemo(() => {
@@ -71,12 +87,13 @@ export default function ServicesPageClient({ services }: Props) {
       >
         <div className="mx-auto max-w-3xl">
           <ScrollReveal>
-            <h1 className="text-[36px] font-black leading-[44px] text-white sm:text-[48px] sm:leading-[56px]">
-              სერვისი და ხელოსნები
+            <h1 className="text-[36px] font-black leading-[44px] sm:text-[48px] sm:leading-[56px]">
+              <span className="text-[#60A5FA]">სერვისი</span>{" "}
+              <span className="text-white">და ხელოსნები</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/70">
-              სწრაფი და სანდო სერვისი თქვენი კომფორტისთვის ბაკურიანში. ათასობით
-              სატისფაის სპეციალისტი მარჯვნივ.
+              სწრაფი და სანდო სერვისი თქვენი კომფორტისთვის ბაკურიანში. იპოვეთ
+              სასურველი სპეციალისტი მარტივად.
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-8 flex max-w-[720px] items-center gap-2 rounded-full bg-white p-2 shadow-lg">
@@ -89,7 +106,7 @@ export default function ServicesPageClient({ services }: Props) {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="რას ეძებთ?"
+                placeholder="რას ეძებთ?..."
                 className="h-10 w-full border-0 bg-transparent text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
               />
             </div>
@@ -103,48 +120,38 @@ export default function ServicesPageClient({ services }: Props) {
         </div>
       </section>
 
-      {/* Filters */}
-      <section className="border-b border-[#E2E8F0] bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto px-4">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => {
-                  setActiveCategory(cat.value);
-                  setCurrentPage(1);
-                }}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                  activeCategory === cat.value
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-[#F8FAFC] text-[#1E293B] hover:bg-[#F1F5F9]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-          <div className="scrollbar-hide -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
-            {SORT_FILTERS.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => setActiveSort(cat.value)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                  activeSort === cat.value
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-transparent text-[#64748B] hover:bg-[#F8FAFC]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+      {/* Filters card */}
+      <section className="px-4">
+        <div className="mx-auto -mt-8 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <span className="shrink-0 pt-2 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[180px]">
+              მომსახურების სფერო:
+            </span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    setActiveCategory(cat.value);
+                    setCurrentPage(1);
+                  }}
+                  className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                    activeCategory === cat.value
+                      ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
+                      : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* Results */}
-      <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
-        <h2 className="mb-6 text-[20px] font-black text-[#1E293B]">
+      <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-12">
+        <h2 className="mb-6 text-[28px] font-black leading-[34px] text-[#1E293B]">
           შედეგები ({filtered.length})
         </h2>
         {filtered.length === 0 ? (
@@ -177,6 +184,11 @@ export default function ServicesPageClient({ services }: Props) {
                     variant="avatar"
                     schedule={s.schedule}
                     operatingHours={s.operating_hours}
+                    phone={s.phone}
+                    providerName={s.position}
+                    availabilityStatus={
+                      (s.discount_percent ?? 0) > 0 ? "busy" : "active"
+                    }
                   />
                 </ScrollReveal>
               ))}

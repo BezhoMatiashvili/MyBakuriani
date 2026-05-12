@@ -229,7 +229,12 @@
     "experienceYearsUnit": "წელი",
     "workingHoursLabel": "სამუშაო საათები",
     "statusActive": "აქტიური",
-    "statusBusy": "დაკავებულია"
+    "statusBusy": "დაკავებულია",
+    "statusNew": "ახალი",
+    "partner": "პარტნიორი",
+    "driverLabel": "მძღოლი",
+    "capacityLabel": "მგზავრი",
+    "routeLabel": "მარშრუტი"
   },
   "SmartMatchCard": {
     "guestRequests": "სტუმრების მოთხოვნები",

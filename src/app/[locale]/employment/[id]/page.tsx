@@ -4,6 +4,7 @@ import {
   getServiceById,
   getServiceMetadataById,
 } from "@/lib/data/getServiceById";
+import { createPublicClient } from "@/lib/supabase/server";
 import EmploymentDetailClient from "./EmploymentDetailClient";
 
 interface Props {
@@ -32,5 +33,27 @@ export default async function EmploymentDetailPage({ params }: Props) {
     notFound();
   }
 
-  return <EmploymentDetailClient service={service} isMock={isMock} />;
+  let applicationsCount = 0;
+  if (isMock) {
+    applicationsCount = 12;
+  } else {
+    try {
+      const supabase = createPublicClient();
+      const { count } = await supabase
+        .from("job_applications")
+        .select("*", { count: "exact", head: true })
+        .eq("service_id", id);
+      applicationsCount = count ?? 0;
+    } catch {
+      applicationsCount = 0;
+    }
+  }
+
+  return (
+    <EmploymentDetailClient
+      service={service}
+      isMock={isMock}
+      applicationsCount={applicationsCount}
+    />
+  );
 }

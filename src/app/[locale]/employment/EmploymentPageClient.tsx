@@ -2,44 +2,83 @@
 import { useState, useMemo } from "react";
 import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Tables } from "@/lib/types/database";
-import ServiceCard from "@/components/cards/ServiceCard";
+import EmploymentCard from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 
-const JOB_CATEGORIES = [
+const POSITIONS = [
   { value: "all", label: "ყველა" },
-  { value: "hotel", label: "სასტუმრო" },
-  { value: "restaurant", label: "რესტორანი" },
-  { value: "driver", label: "მძღოლი" },
-  { value: "instructor", label: "ინსტრუქტორი" },
-  { value: "admin", label: "ადმინისტრატორი" },
-  { value: "other", label: "სხვა" },
+  { value: "დამლაგებელი", label: "დამლაგებელი" },
+  { value: "მიმტანი", label: "მიმტანი" },
+  { value: "ბარმენი", label: "ბარმენი" },
+  { value: "ადმინისტრატორი", label: "ადმინისტრატორი" },
+  { value: "სხვა", label: "სხვა" },
 ] as const;
 
-const WORK_TYPES = [
+const SCHEDULES = [
   { value: "all", label: "ყველა" },
   { value: "fulltime", label: "სრული განაკვეთი" },
   { value: "parttime", label: "ნახევარი განაკვეთი" },
   { value: "seasonal", label: "სეზონური" },
-  { value: "weekend", label: "შაბათ-კვირა" },
+  { value: "other", label: "სხვა" },
 ] as const;
 
 const ITEMS_PER_PAGE = 9;
+
+const POSTED_LABELS = [
+  "დღეს",
+  "3 დღის წინ",
+  "5 დღის წინ",
+  "1 კვირის წინ",
+  "2 კვირის წინ",
+];
 
 interface Props {
   services: Tables<"services">[];
 }
 
+function deriveBadge(
+  s: Tables<"services">,
+  index: number,
+): "urgent" | "vip" | "new" | null {
+  if (s.is_vip) return "vip";
+  if (s.discount_percent && s.discount_percent > 0) return "urgent";
+  if (index < 2) return "new";
+  return null;
+}
+
+function salaryLabel(s: Tables<"services">): string | null {
+  if (s.salary_daily != null) return `${s.salary_daily} ₾ / დღეში`;
+  if (s.salary_min != null && s.salary_max != null) {
+    return `${s.salary_min} - ${s.salary_max} ₾`;
+  }
+  if (s.price != null) {
+    return `${s.price} ₾${s.price_unit ? ` / ${s.price_unit}` : ""}`;
+  }
+  return null;
+}
+
 export default function EmploymentPageClient({ services }: Props) {
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [activeWorkType, setActiveWorkType] = useState("all");
+  const [activePosition, setActivePosition] = useState<string>("all");
+  const [activeSchedule, setActiveSchedule] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const filtered = useMemo(() => {
     return services.filter((s) => {
-      if (activeCategory !== "all") {
-        const category = (s.category ?? "").toLowerCase();
-        if (!category.includes(activeCategory)) return false;
+      if (activePosition !== "all") {
+        if ((s.position ?? "") !== activePosition) return false;
+      }
+      if (activeSchedule !== "all") {
+        if (activeSchedule === "other") {
+          if (
+            ["fulltime", "parttime", "seasonal"].includes(
+              s.employment_type ?? "",
+            )
+          )
+            return false;
+        } else if ((s.employment_type ?? "") !== activeSchedule) {
+          return false;
+        }
       }
       if (
         searchQuery &&
@@ -48,7 +87,7 @@ export default function EmploymentPageClient({ services }: Props) {
         return false;
       return true;
     });
-  }, [services, activeCategory, searchQuery]);
+  }, [services, activePosition, activeSchedule, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = useMemo(() => {
@@ -60,7 +99,6 @@ export default function EmploymentPageClient({ services }: Props) {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
-      {/* Hero */}
       <section
         className="relative px-4 pt-16 pb-20 text-center"
         style={{
@@ -69,8 +107,9 @@ export default function EmploymentPageClient({ services }: Props) {
       >
         <div className="mx-auto max-w-3xl">
           <ScrollReveal>
-            <h1 className="text-[36px] font-black leading-[44px] text-white sm:text-[48px] sm:leading-[56px]">
-              დასაქმება ბაკურიანში
+            <h1 className="text-[36px] font-black leading-[44px] sm:text-[48px] sm:leading-[56px]">
+              <span className="text-[#60A5FA]">დასაქმება</span>{" "}
+              <span className="text-white">ბაკურიანში</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/70">
               იპოვე შენი სასურველი ვაკანსია და დასაქმდი ბაკურიანში მარტივად
@@ -86,7 +125,7 @@ export default function EmploymentPageClient({ services }: Props) {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="რას ეძებთ?"
+                placeholder="რას ეძებთ?..."
                 className="h-10 w-full border-0 bg-transparent text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
               />
             </div>
@@ -100,48 +139,60 @@ export default function EmploymentPageClient({ services }: Props) {
         </div>
       </section>
 
-      {/* Filters */}
-      <section className="border-b border-[#E2E8F0] bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto px-4">
-            {JOB_CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => {
-                  setActiveCategory(cat.value);
-                  setCurrentPage(1);
-                }}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                  activeCategory === cat.value
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-[#F8FAFC] text-[#1E293B] hover:bg-[#F1F5F9]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+      <section className="px-4">
+        <div className="mx-auto -mt-8 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
+              პოზიცია:
+            </span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {POSITIONS.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    setActivePosition(cat.value);
+                    setCurrentPage(1);
+                  }}
+                  className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                    activePosition === cat.value
+                      ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
+                      : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="scrollbar-hide -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
-            {WORK_TYPES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => setActiveWorkType(cat.value)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                  activeWorkType === cat.value
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-transparent text-[#64748B] hover:bg-[#F8FAFC]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="my-5 h-px w-full bg-[#E2E8F0]" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
+              გრაფიკი:
+            </span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {SCHEDULES.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    setActiveSchedule(cat.value);
+                    setCurrentPage(1);
+                  }}
+                  className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                    activeSchedule === cat.value
+                      ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
+                      : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Results */}
-      <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
-        <h2 className="mb-6 text-[20px] font-black text-[#1E293B]">
+      <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-12">
+        <h2 className="mb-6 text-[28px] font-black leading-[34px] text-[#1E293B]">
           ვაკანსიები ({filtered.length})
         </h2>
         {filtered.length === 0 ? (
@@ -161,16 +212,20 @@ export default function EmploymentPageClient({ services }: Props) {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {paginated.map((s, i) => (
                 <ScrollReveal key={s.id} delay={i * 0.05}>
-                  <ServiceCard
+                  <EmploymentCard
                     id={s.id}
                     title={s.title}
-                    category={s.category}
                     location={s.location}
-                    photos={s.photos ?? []}
-                    price={s.price}
-                    priceUnit={s.price_unit}
-                    discountPercent={s.discount_percent ?? 0}
-                    isVip={s.is_vip ?? false}
+                    salaryLabel={salaryLabel(s)}
+                    scheduleLabel={s.work_schedule ?? s.employment_schedule}
+                    description={s.description}
+                    badge={deriveBadge(s, i)}
+                    postedLabel={POSTED_LABELS[i % POSTED_LABELS.length]}
+                    applicationsCount={Math.max(
+                      1,
+                      ((s.views_count ?? 0) % 30) + 1,
+                    )}
+                    highlighted={s.is_vip ?? false}
                   />
                 </ScrollReveal>
               ))}

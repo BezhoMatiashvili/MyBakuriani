@@ -11,6 +11,7 @@ const emptyLandingProps = {
   hotOffers: [] as Tables<"properties">[],
   hotels: [] as Tables<"properties">[],
   saleProperties: [] as Tables<"properties">[],
+  vipProperties: [] as Tables<"properties">[],
   services: [] as Tables<"services">[],
   blogPosts: [] as Tables<"blog_posts">[],
 };
@@ -60,6 +61,14 @@ async function fetchLandingProps() {
       .order("is_vip", { ascending: false })
       .limit(4),
     supabase
+      .from("properties")
+      .select("*")
+      .eq("status", "active")
+      .eq("is_for_sale", false)
+      .or("is_vip.eq.true,is_super_vip.eq.true")
+      .order("price_per_night", { ascending: true, nullsFirst: false })
+      .limit(12),
+    supabase
       .from("services")
       .select("*")
       .eq("status", "active")
@@ -85,6 +94,7 @@ async function fetchLandingProps() {
       { data: hotOffers },
       { data: hotels },
       { data: saleProperties },
+      { data: vipProperties },
       { data: services },
       { data: blogPosts },
     ] = await Promise.race([queries, timeout]);
@@ -93,6 +103,7 @@ async function fetchLandingProps() {
       hotOffers: hotOffers ?? [],
       hotels: hotels ?? [],
       saleProperties: saleProperties ?? [],
+      vipProperties: vipProperties ?? [],
       services: services ?? [],
       blogPosts: blogPosts ?? [],
     };
@@ -108,6 +119,7 @@ async function LandingWithData() {
       hotOffers={props.hotOffers}
       hotels={props.hotels}
       saleProperties={props.saleProperties}
+      vipProperties={props.vipProperties}
       services={props.services}
       blogPosts={props.blogPosts}
     />

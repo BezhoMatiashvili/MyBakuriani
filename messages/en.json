@@ -229,7 +229,12 @@
     "experienceYearsUnit": "yr",
     "workingHoursLabel": "Working hours",
     "statusActive": "Active",
-    "statusBusy": "Busy"
+    "statusBusy": "Busy",
+    "statusNew": "New",
+    "partner": "Partner",
+    "driverLabel": "Driver",
+    "capacityLabel": "Seats",
+    "routeLabel": "Route"
   },
   "SmartMatchCard": {
     "guestRequests": "Guest requests",

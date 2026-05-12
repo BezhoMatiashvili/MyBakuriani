@@ -11,6 +11,7 @@ import {
   Heart,
   Image as ImageIcon,
 } from "lucide-react";
+import { shareListing } from "@/lib/share";
 
 interface Props {
   photos: string[];
@@ -60,6 +61,7 @@ export function FoodPhotoGallery({ photos, title }: Props) {
       <div className="mb-3 flex items-center justify-end gap-2">
         <button
           type="button"
+          onClick={() => shareListing(title)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
           aria-label="გაზიარება"
         >

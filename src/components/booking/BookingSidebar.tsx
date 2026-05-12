@@ -47,9 +47,9 @@ interface BookingSidebarProps {
   onRangeChange?: (range: DateRange) => void;
   onBook: () => void;
   rating?: number | null;
-  cleaningFee?: number;
   calendarDates?: BlockedDate[];
   maxGuests?: number;
+  perPersonPricing?: boolean;
 }
 
 /* ── Inline mini-calendar (rendered inside the sidebar dropdown) ── */
@@ -176,18 +176,18 @@ export function BookingSidebar({
   onRangeChange,
   onBook,
   rating,
-  cleaningFee = 50,
   calendarDates = [],
   maxGuests = 10,
+  perPersonPricing = false,
 }: BookingSidebarProps) {
   const { start, end } = selectedRange;
   const nights = start && end ? differenceInDays(end, start) : 0;
-  const subtotal = nights > 0 ? nights * pricePerNight : 0;
-  const total = subtotal + (nights > 0 ? cleaningFee : 0);
-
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [guestCount, setGuestCount] = useState(1);
   const [guestDropdownOpen, setGuestDropdownOpen] = useState(false);
+  const guestMultiplier = perPersonPricing ? guestCount : 1;
+  const subtotal = nights > 0 ? nights * pricePerNight * guestMultiplier : 0;
+  const total = subtotal;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<HTMLDivElement>(null);
 
@@ -323,15 +323,10 @@ export function BookingSidebar({
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-[#64748B]">
                 {formatPrice(pricePerNight)} x {nights} ღამე
+                {perPersonPricing ? ` x ${guestCount} ადამიანი` : ""}
               </span>
               <span className="font-bold text-[#1E293B]">
                 {formatPrice(subtotal)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-[#64748B]">დასუფთავების საფასური</span>
-              <span className="font-bold text-[#1E293B]">
-                {formatPrice(cleaningFee)}
               </span>
             </div>
             <div className="border-t border-[#E2E8F0] pt-3">

@@ -30,7 +30,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ServiceCard from "@/components/cards/ServiceCard";
 import EmploymentCard from "@/components/cards/EmploymentCard";
-import SmartMatchCard from "@/components/cards/SmartMatchCard";
+import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
@@ -41,6 +41,7 @@ interface LandingPageProps {
   hotOffers?: Tables<"properties">[];
   hotels?: Tables<"properties">[];
   saleProperties?: Tables<"properties">[];
+  vipProperties?: Tables<"properties">[];
   services?: Tables<"services">[];
   blogPosts?: Tables<"blog_posts">[];
 }
@@ -104,6 +105,7 @@ export default function LandingPage({
   hotOffers: serverHotOffers,
   hotels: serverHotels,
   saleProperties: serverSaleProperties,
+  vipProperties: serverVipProperties,
   services: serverServices,
   blogPosts: serverBlogPosts,
 }: LandingPageProps = {}) {
@@ -177,12 +179,33 @@ export default function LandingPage({
       }))
     : MOCK_PROPERTIES;
 
-  const filteredHotOffers = useMemo(
+  const vipPropertyCards = useMemo(
+    () =>
+      (serverVipProperties ?? []).map((p) => ({
+        id: p.id,
+        title: p.title,
+        location: p.location,
+        photos: p.photos ?? [],
+        pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
+        salePrice: p.sale_price ? Number(p.sale_price) : null,
+        rating: null as number | null,
+        capacity: p.capacity,
+        rooms: p.rooms,
+        isVip: p.is_vip ?? false,
+        isSuperVip: p.is_super_vip ?? false,
+        discountPercent: p.discount_percent ?? 0,
+        isForSale: p.is_for_sale ?? false,
+        distanceToSlopeM: p.distance_to_slope_m,
+      })),
+    [serverVipProperties],
+  );
+
+  const filteredVipProperties = useMemo(
     () =>
       hotOffersDiscountOnly
-        ? hotOfferCards.filter((p) => (p.discountPercent ?? 0) > 0)
-        : hotOfferCards,
-    [hotOfferCards, hotOffersDiscountOnly],
+        ? vipPropertyCards.filter((p) => (p.discountPercent ?? 0) > 0)
+        : vipPropertyCards,
+    [vipPropertyCards, hotOffersDiscountOnly],
   );
 
   const hotelCards =
@@ -313,7 +336,7 @@ export default function LandingPage({
             <RentBuyToggle value={mode} onChange={setMode} />
           </div>
 
-          <div className="mt-6">
+          <div className="relative mt-6">
             <SearchBox
               onSearch={handleSearch}
               className="shadow-[var(--shadow-search)]"
@@ -321,73 +344,63 @@ export default function LandingPage({
               dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
             />
-          </div>
 
-          {/* Status Cards + Dropdown Panel Area */}
-          {activeDropdown === "filters" ? (
-            /* Filters: portal + map */
-            <div
-              ref={dropdownBoundaryRef}
-              className="mt-8 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex"
-            >
-              <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
-              <BakurianiMap
-                className="min-h-[400px] w-[280px] shrink-0 self-stretch"
-                embedded
-                expandable
-                properties={mapProperties}
-                onPropertyClick={(id) => router.push(`/apartments/${id}`)}
-              />
-            </div>
-          ) : activeDropdown === "calendar" ? (
-            /* Calendar: portal + camera card + coupon + discount toggle */
-            <div className="mt-8 hidden grid-cols-[1fr_auto] gap-4 md:grid">
-              <div ref={dropdownPortalRef} className="min-w-0" />
-              <div className="flex w-[240px] flex-col gap-3">
-                {/* Camera card */}
-                <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
-                  <div className="flex flex-col gap-1">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                      <span className="size-2 rounded-full bg-[#EF4444]" />
-                      კამერები
-                    </span>
-                    <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                      2 ლოკაცია
-                      <Video className="size-[18px] text-[#CBD5E1]" />
-                    </span>
+            {/* Floating dropdown panel — absolute so it doesn't expand the blue hero */}
+            {activeDropdown === "filters" ? (
+              <div
+                ref={dropdownBoundaryRef}
+                className="absolute left-0 right-0 top-full z-30 mt-2 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex"
+              >
+                <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
+                <BakurianiMap
+                  className="min-h-[400px] w-[280px] shrink-0 self-stretch"
+                  embedded
+                  expandable
+                  properties={mapProperties}
+                  onPropertyClick={(id) => router.push(`/apartments/${id}`)}
+                />
+              </div>
+            ) : activeDropdown === "calendar" ? (
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-[1fr_auto] gap-4 md:grid">
+                <div ref={dropdownPortalRef} className="min-w-0" />
+                <div className="flex w-[240px] flex-col gap-3">
+                  {/* Camera card */}
+                  <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
+                    <div className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                        <span className="size-2 rounded-full bg-[#EF4444]" />
+                        კამერები
+                      </span>
+                      <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
+                        2 ლოკაცია
+                        <Video className="size-[18px] text-[#CBD5E1]" />
+                      </span>
+                    </div>
                   </div>
-                </div>
-                {/* Coupon button */}
-                <button
-                  type="button"
-                  className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
-                >
-                  კუპონის აღება
-                </button>
-                {/* Discount toggle */}
-                <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
-                  <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                    <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                    მხოლოდ ფასდაკლებები
-                  </span>
-                  <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                    <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
+                  {/* Coupon button */}
+                  <button
+                    type="button"
+                    className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
+                  >
+                    კუპონის აღება
+                  </button>
+                  {/* Discount toggle */}
+                  <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
+                    <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
+                      <span className="text-[12px]">{"\uD83D\uDD25"}</span>
+                      მხოლოდ ფასდაკლებები
+                    </span>
+                    <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
+                      <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
-          {/* Status cards row — visible when collapsed OR when location dropdown is open
-              (location dropdown floats from SearchBox as overlay) */}
-          <div
-            className={cn(
-              "mt-8 grid grid-cols-2 gap-4 sm:-mb-[42px] sm:grid-cols-4",
-              activeDropdown && activeDropdown !== "location"
-                ? "md:hidden"
-                : "",
-            )}
-          >
+          {/* Status cards row — always visible; floating dropdown overlays them */}
+          <div className="mt-8 grid grid-cols-2 gap-4 sm:-mb-[42px] sm:grid-cols-4">
             {STATUS_CARDS.map((card) => (
               <div
                 key={card.label}
@@ -444,83 +457,83 @@ export default function LandingPage({
         </div>
       </div>
 
-      {/* ═══ 3. Hot Offers + Smart Match Side-by-Side ═══ */}
-      <section className="mx-auto w-full max-w-[1160px] px-4 pb-16 pt-8 sm:pt-10">
-        <ScrollReveal>
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                ცხელი შეთავაზებები
-              </h2>
-              <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                მხოლოდ ვერიფიცირებული და სანდო მესაკუთრეები.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setHotOffersDiscountOnly((v) => !v)}
-              aria-pressed={hotOffersDiscountOnly}
-              className={cn(
-                "hidden items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:inline-flex",
-                hotOffersDiscountOnly
-                  ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
-                  : "border border-[#E2E8F0] bg-white text-[#64748B]",
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                მხოლოდ ფასდაკლებები
-              </span>
-              <span
-                className={cn(
-                  "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
-                  hotOffersDiscountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
-                )}
-              >
-                <span
+      {/* ═══ 3. Hot Offers — VIP / Super VIP Carousel ═══ */}
+      {vipPropertyCards.length > 0 && (
+        <section className="mx-auto w-full max-w-[1160px] px-4 pb-16 pt-8 sm:pt-10">
+          <ScrollReveal>
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                  ცხელი შეთავაზებები
+                </h2>
+                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                  მხოლოდ ვერიფიცირებული და სანდო მესაკუთრეები.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/apartments"
+                  className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-black text-[#1E293B] transition-colors hover:text-[#F97316]"
+                >
+                  ნახე ყველა
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setHotOffersDiscountOnly((v) => !v)}
+                  aria-pressed={hotOffersDiscountOnly}
                   className={cn(
-                    "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
-                    hotOffersDiscountOnly ? "right-0.5" : "left-0.5",
+                    "hidden items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:inline-flex",
+                    hotOffersDiscountOnly
+                      ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+                      : "border border-[#E2E8F0] bg-white text-[#64748B]",
                   )}
-                />
-              </span>
-            </button>
-          </div>
-        </ScrollReveal>
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[12px]">{"\uD83D\uDD25"}</span>
+                    მხოლოდ ფასდაკლებები
+                  </span>
+                  <span
+                    className={cn(
+                      "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+                      hotOffersDiscountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+                        hotOffersDiscountOnly ? "right-0.5" : "left-0.5",
+                      )}
+                    />
+                  </span>
+                </button>
+              </div>
+            </div>
+          </ScrollReveal>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {filteredHotOffers.slice(0, 2).map((p) => (
-              <ScrollReveal key={p.id}>
-                <PropertyCard {...p} />
-              </ScrollReveal>
-            ))}
-          </div>
-          <div className="lg:col-span-1">
-            <ScrollReveal delay={0.1}>
-              <SmartMatchCard notificationCount={5} onClick={() => {}} />
-            </ScrollReveal>
-          </div>
-        </div>
-      </section>
+          <ScrollReveal>
+            <HotOffersCarousel properties={filteredVipProperties} />
+          </ScrollReveal>
+        </section>
+      )}
 
-      {/* ═══ 4. Hotels Section ═══ */}
+      {/* ═══ 4. Apartments Section ═══ */}
+      <PropertySection
+        title="აპარტამენტები და კოტეჯები"
+        subtitle="საუკეთესო არჩევანი თქვენი დასვენებისთვის"
+        properties={hotOfferCards.slice(0, 4)}
+        href="/apartments"
+        showDiscountToggle
+        showAddButton
+      />
+
+      {/* ═══ 5. Hotels Section ═══ */}
       <PropertySection
         title="სასტუმროები"
         subtitle="სრული სერვისი: საუზმე, აუზი, სპა"
         properties={hotelCards}
         href="/hotels"
         muted
-        showDiscountToggle
-        showAddButton
-      />
-
-      {/* ═══ 5. Apartments Section ═══ */}
-      <PropertySection
-        title="აპარტამენტები და კოტეჯები"
-        subtitle="საუკეთესო არჩევანი თქვენი დასვენებისთვის"
-        properties={hotOfferCards.slice(0, 4)}
-        href="/apartments"
         showDiscountToggle
         showAddButton
       />
@@ -895,11 +908,15 @@ function EmploymentSection({
                   id={card.id}
                   title={card.title}
                   employer={card.location}
-                  price={card.price}
-                  priceUnit={card.priceUnit}
-                  badge={i === 0 ? "popular" : i <= 2 ? "new" : null}
+                  location={card.location}
+                  salaryLabel={
+                    card.price != null
+                      ? `${card.price} ₾${card.priceUnit ? ` / ${card.priceUnit}` : ""}`
+                      : null
+                  }
+                  scheduleLabel={availabilities[i % availabilities.length]}
+                  badge={i === 0 ? "vip" : i <= 2 ? "new" : null}
                   postedLabel={postedLabels[i % postedLabels.length]}
-                  availability={availabilities[i % availabilities.length]}
                   highlighted={i === 0}
                 />
               </div>

@@ -417,6 +417,7 @@ export default function HotelDetailClient({
               rating={avgRating}
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}
+              perPersonPricing
             />
           )}
         </motion.div>
