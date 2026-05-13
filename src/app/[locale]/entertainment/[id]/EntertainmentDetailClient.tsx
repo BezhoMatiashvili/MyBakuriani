@@ -12,6 +12,7 @@ import {
   Users,
   Zap,
   ImageIcon,
+  Info,
 } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
@@ -84,7 +85,7 @@ export default function EntertainmentDetailClient({
             className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[13px] font-bold text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
           >
             <ImageIcon className="h-4 w-4" />
-            ყველა ფოტო ({photos.length})
+            ფოტო გალერია ({photos.length})
           </button>
         )}
       </motion.div>
@@ -129,7 +130,7 @@ export default function EntertainmentDetailClient({
           className="mt-8"
         >
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-            რას გიცაკების
+            რას გვთავაზობთ
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
@@ -137,39 +138,41 @@ export default function EntertainmentDetailClient({
         </motion.div>
       )}
 
-      {/* Stats grid */}
+      {/* Stats grid — four separate cards */}
       <motion.div
         {...fadeIn}
         transition={{ duration: 0.4, delay: 0.25 }}
-        className="mt-8 grid grid-cols-2 gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:grid-cols-4"
+        className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4"
       >
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             <Clock className="h-3.5 w-3.5" />
             ხანგრძლივობა
           </span>
-          <span className="text-[15px] font-black text-[#1E293B]">1 საათი</span>
+          <span className="text-[16px] font-black text-[#1E293B]">1 საათი</span>
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             <Users className="h-3.5 w-3.5" />
             ასაკი
           </span>
-          <span className="text-[15px] font-black text-[#1E293B]">16+</span>
+          <span className="text-[16px] font-black text-[#1E293B]">16+</span>
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             <Zap className="h-3.5 w-3.5" />
-            ექსტრემის მოდულება
+            ექსტრემის დონე
           </span>
-          <span className="text-[15px] font-black text-[#1E293B]">მაღალი</span>
+          <span className="text-[16px] font-black text-[#1E293B]">
+            ექსტრემის მოყვარულთა
+          </span>
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             <Clock className="h-3.5 w-3.5" />
             საათები
           </span>
-          <span className="text-[15px] font-black text-[#1E293B]">
+          <span className="text-[16px] font-black text-[#1E293B]">
             {service.operating_hours ?? "10:00 - 18:00"}
           </span>
         </div>
@@ -179,14 +182,14 @@ export default function EntertainmentDetailClient({
       <motion.div
         {...fadeIn}
         transition={{ duration: 0.4, delay: 0.3 }}
-        className="mt-6 rounded-[20px] border border-[#DBEAFE] bg-[#F0F7FF] p-6"
+        className="mt-6 rounded-[16px] border border-[#DBEAFE] bg-[#F0F7FF] p-5"
       >
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#2563EB]">
-          ვადცხოვრებულ და ბირნოდო
+        <h3 className="flex items-center gap-2 text-[13px] font-bold text-[#2563EB]">
+          <Info className="h-4 w-4" />
+          უსაფრთხოება და პირობები
         </h3>
         <p className="mt-2 text-[13px] leading-[20px] text-[#475569]">
-          ხალიხი შეკრული ცამი, მშრალი ინდივიდუალური ინსტრუქტორი. ტურის
-          განმავლობაში თქვენ უზრუნველყოფთ უსაფრთხოებას.
+          ჩაცმა შედის ფასში, მოყვება ინსტრუქტორი
         </p>
       </motion.div>
 
@@ -214,7 +217,7 @@ export default function EntertainmentDetailClient({
           <CallButton
             phone={service.phone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#1E293B] px-8 text-[15px] font-bold text-white hover:bg-[#0F172A] sm:flex-none"
-            label="დარეკე / დაჯავშნე"
+            label="დარეკვა / დაჯავშნა"
             onNoPhoneClick={() => router.push("/auth/login")}
           />
         </div>
@@ -224,7 +227,7 @@ export default function EntertainmentDetailClient({
         <MobileStickyCTA
           primary={`${formatPrice(service.price)} / ${service.price_unit ?? "1 საათი"}`}
           secondary={service.location ?? undefined}
-          ctaLabel="დარეკე"
+          ctaLabel="დარეკვა"
           onClick={() =>
             document
               .getElementById("contact-sidebar")

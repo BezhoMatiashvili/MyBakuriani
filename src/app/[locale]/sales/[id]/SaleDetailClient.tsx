@@ -13,15 +13,12 @@ import {
   Bath,
   Maximize,
   Eye,
-  TrendingUp,
-  Calculator,
   BadgeCheck,
   Phone,
   MessageSquare,
   Check,
   X,
   ArrowRight,
-  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
@@ -78,7 +75,6 @@ const CONSTRUCTION_MILESTONES: Array<{ label: string; pctThreshold: number }> =
 
 export default function SaleDetailClient({ property, reviews }: Props) {
   const router = useRouter();
-  const [roiYears, setRoiYears] = useState(5);
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
 
   useEffect(() => {
@@ -108,8 +104,15 @@ export default function SaleDetailClient({ property, reviews }: Props) {
   const salePrice = property.sale_price ?? 0;
   const roiPercent = property.roi_percent ?? 0;
   const annualReturn = salePrice * (roiPercent / 100);
-  const totalReturn = annualReturn * roiYears;
-  const totalValue = salePrice + totalReturn;
+
+  const postedAgo = (() => {
+    if (!property.created_at) return null;
+    const diffMs = Date.now() - new Date(property.created_at).getTime();
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (days <= 0) return "განთავსებულია დღეს";
+    if (days === 1) return "განთავსებულია 1 დღის წინ";
+    return `განთავსებულია ${days} დღის წინ`;
+  })();
 
   const constructionPct = (() => {
     const status = property.construction_status?.toLowerCase() ?? "";
@@ -130,29 +133,14 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <motion.button
-          {...fadeIn}
-          onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          უკან დაბრუნება
-        </motion.button>
-        <motion.nav
-          {...fadeIn}
-          aria-label="breadcrumb"
-          className="flex items-center gap-1 text-[12px] font-medium text-[#94A3B8]"
-        >
-          <span>გაყიდვა</span>
-          <ChevronRight className="size-3" />
-          <span className="truncate">{property.location}</span>
-          <ChevronRight className="size-3" />
-          <span className="max-w-[220px] truncate text-[#1E293B]">
-            {property.title}
-          </span>
-        </motion.nav>
-      </div>
+      <motion.button
+        {...fadeIn}
+        onClick={() => router.back()}
+        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        უკან დაბრუნება
+      </motion.button>
 
       <motion.div
         {...fadeIn}
@@ -161,21 +149,6 @@ export default function SaleDetailClient({ property, reviews }: Props) {
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                იყიდება
-              </span>
-              {property.is_super_vip && (
-                <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                  Super VIP
-                </span>
-              )}
-              {property.is_vip && !property.is_super_vip && (
-                <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
-                  VIP
-                </span>
-              )}
-            </div>
             <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
               {property.title}
             </h1>
@@ -184,6 +157,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 <MapPin className="h-4 w-4 text-orange-500" />
                 {property.location}
               </span>
+              {postedAgo && <span className="font-medium">{postedAgo}</span>}
               {avgRating !== null && (
                 <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
                   <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
@@ -196,6 +170,16 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               </span>
             </div>
           </div>
+          {property.is_super_vip && (
+            <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
+              Super VIP
+            </span>
+          )}
+          {property.is_vip && !property.is_super_vip && (
+            <span className="rounded bg-brand-vip px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
+              VIP
+            </span>
+          )}
         </div>
       </motion.div>
 
@@ -203,45 +187,36 @@ export default function SaleDetailClient({ property, reviews }: Props) {
         <PhotoGallery photos={property.photos ?? []} title={property.title} />
       </motion.div>
 
-      <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
-        <div className="space-y-8 lg:col-span-2">
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.18 }}>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {property.area_sqm != null && (
-                <div className="rounded-xl bg-[#F8FAFC] p-4 text-center">
-                  <Maximize className="mx-auto h-6 w-6 text-brand-accent" />
-                  <p className="mt-2 text-lg font-bold">
-                    {property.area_sqm} მ²
-                  </p>
-                  <p className="text-xs text-[#94A3B8]">ფართობი</p>
-                </div>
-              )}
-              {property.rooms != null && (
-                <div className="rounded-xl bg-[#F8FAFC] p-4 text-center">
-                  <BedDouble className="mx-auto h-6 w-6 text-brand-accent" />
-                  <p className="mt-2 text-lg font-bold">{property.rooms}</p>
-                  <p className="text-xs text-[#94A3B8]">ოთახი</p>
-                </div>
-              )}
-              {property.bathrooms != null && (
-                <div className="rounded-xl bg-[#F8FAFC] p-4 text-center">
-                  <Bath className="mx-auto h-6 w-6 text-brand-accent" />
-                  <p className="mt-2 text-lg font-bold">{property.bathrooms}</p>
-                  <p className="text-xs text-[#94A3B8]">სააბაზანო</p>
-                </div>
-              )}
-              {roiPercent > 0 && (
-                <div className="rounded-xl bg-emerald-50 p-4 text-center">
-                  <TrendingUp className="mx-auto h-6 w-6 text-emerald-600" />
-                  <p className="mt-2 text-lg font-bold text-emerald-700">
-                    {roiPercent}%
-                  </p>
-                  <p className="text-xs text-[#94A3B8]">ROI</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
+      <motion.div
+        {...fadeIn}
+        transition={{ duration: 0.4, delay: 0.18 }}
+        className="mt-6 flex flex-wrap items-center gap-2"
+      >
+        {property.area_sqm != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+            <Maximize className="h-4 w-4 text-brand-accent" />
+            {property.area_sqm} მ²
+          </span>
+        )}
+        {property.rooms != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+            <BedDouble className="h-4 w-4 text-brand-accent" />
+            {property.rooms} ოთახი
+          </span>
+        )}
+        {property.bathrooms != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+            <Bath className="h-4 w-4 text-brand-accent" />
+            {property.bathrooms} სააბაზანო
+          </span>
+        )}
+        <span className="ms-auto text-xs text-[#94A3B8]">
+          ID: {property.id.slice(0, 8)}
+        </span>
+      </motion.div>
 
+      <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
+        <div className="space-y-8 lg:col-span-2">
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.18 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               საინვესტიციო მეტრიკები და სტატუსი
@@ -323,7 +298,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                ქონების შესახებ
+                ბინის შესახებ
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {property.description}
@@ -334,7 +309,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {property.construction_status && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                მშენებლობის პროცენტი
+                მშენებლობის პროცესი
               </h2>
               <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white">
                 <div className="grid grid-cols-1 md:grid-cols-[180px_1fr]">
@@ -386,63 +361,9 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             </motion.div>
           )}
 
-          {roiPercent > 0 && salePrice > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-3 flex items-center gap-2 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                <Calculator className="h-5 w-5" />
-                ინვესტიციის კალკულატორი
-              </h2>
-              <div className="rounded-xl border border-[#E2E8F0] p-6">
-                <div className="mb-4">
-                  <label className="mb-2 block text-sm text-[#94A3B8]">
-                    ინვესტიციის ვადა (წელი)
-                  </label>
-                  <div className="flex items-center gap-3">
-                    {[1, 3, 5, 10].map((y) => (
-                      <button
-                        key={y}
-                        onClick={() => setRoiYears(y)}
-                        className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                          roiYears === y
-                            ? "bg-brand-accent text-white"
-                            : "bg-[#F8FAFC] text-[#1E293B] hover:bg-[#F8FAFC]"
-                        }`}
-                      >
-                        {y} წელი
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div className="rounded-lg bg-[#F8FAFC] p-4">
-                    <p className="text-xs text-[#94A3B8]">წლიური შემოსავალი</p>
-                    <p className="mt-1 text-lg font-bold text-[#1E293B]">
-                      {formatPrice(Math.round(annualReturn))}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-[#F8FAFC] p-4">
-                    <p className="text-xs text-[#94A3B8]">
-                      ჯამური შემოსავალი ({roiYears} წ.)
-                    </p>
-                    <p className="mt-1 text-lg font-bold text-[#1E293B]">
-                      {formatPrice(Math.round(totalReturn))}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-emerald-50 p-4">
-                    <p className="text-xs text-[#94A3B8]">საერთო ღირებულება</p>
-                    <p className="mt-1 text-lg font-bold text-emerald-700">
-                      {formatPrice(Math.round(totalValue))}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              შენი ლოკაცია
+              ზუსტი ლოკაცია
             </h2>
             <div className="mb-3 flex items-center gap-2 text-[14px] font-medium text-[#64748B]">
               <MapPin className="h-4 w-4 text-orange-500" />
@@ -507,8 +428,9 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
+          className="lg:sticky lg:top-[calc(91px+94px+12px)] lg:self-start lg:max-h-[calc(100vh-(91px+94px)-24px)] lg:overflow-y-auto lg:pr-1"
         >
-          <div className="sticky top-24 space-y-4">
+          <div className="space-y-4">
             <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
               <div className="mb-1 text-sm text-[#94A3B8]">ფასი</div>
               <div className="text-[32px] font-black leading-[32px] text-[#1E293B]">

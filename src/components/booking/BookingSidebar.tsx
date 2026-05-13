@@ -50,6 +50,7 @@ interface BookingSidebarProps {
   calendarDates?: BlockedDate[];
   maxGuests?: number;
   perPersonPricing?: boolean;
+  showGuestCount?: boolean;
 }
 
 /* ── Inline mini-calendar (rendered inside the sidebar dropdown) ── */
@@ -179,6 +180,7 @@ export function BookingSidebar({
   calendarDates = [],
   maxGuests = 10,
   perPersonPricing = false,
+  showGuestCount = true,
 }: BookingSidebarProps) {
   const { start, end } = selectedRange;
   const nights = start && end ? differenceInDays(end, start) : 0;
@@ -278,52 +280,56 @@ export function BookingSidebar({
             </div>
           )}
         </div>
-        <div className="relative" ref={guestRef}>
-          <button
-            type="button"
-            onClick={() => setGuestDropdownOpen(!guestDropdownOpen)}
-            className={`mt-3 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-colors ${guestDropdownOpen ? "border-[#F97316]" : "border-[#CBD5E1]"} cursor-pointer hover:border-[#F97316]`}
-          >
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-                რაოდენობა
-              </span>
-              <p className="mt-0.5 text-[13px] font-bold text-[#1E293B]">
-                {guestCount} ადამიანი
-              </p>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-[#94A3B8] transition-transform ${guestDropdownOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-          {guestDropdownOpen && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[200px] overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white py-1 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
-              {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => {
-                    setGuestCount(n);
-                    setGuestDropdownOpen(false);
-                  }}
-                  className={`flex w-full items-center px-4 py-2.5 text-[13px] font-medium transition-colors ${
-                    n === guestCount
-                      ? "bg-[#FFF7ED] font-bold text-[#F97316]"
-                      : "text-[#1E293B] hover:bg-[#F8FAFC]"
-                  }`}
-                >
-                  {n} ადამიანი
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {showGuestCount && (
+          <div className="relative" ref={guestRef}>
+            <button
+              type="button"
+              onClick={() => setGuestDropdownOpen(!guestDropdownOpen)}
+              className={`mt-3 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-colors ${guestDropdownOpen ? "border-[#F97316]" : "border-[#CBD5E1]"} cursor-pointer hover:border-[#F97316]`}
+            >
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                  რაოდენობა
+                </span>
+                <p className="mt-0.5 text-[13px] font-bold text-[#1E293B]">
+                  {guestCount} ადამიანი
+                </p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-[#94A3B8] transition-transform ${guestDropdownOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {guestDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[200px] overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white py-1 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
+                {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => {
+                      setGuestCount(n);
+                      setGuestDropdownOpen(false);
+                    }}
+                    className={`flex w-full items-center px-4 py-2.5 text-[13px] font-medium transition-colors ${
+                      n === guestCount
+                        ? "bg-[#FFF7ED] font-bold text-[#F97316]"
+                        : "text-[#1E293B] hover:bg-[#F8FAFC]"
+                    }`}
+                  >
+                    {n} ადამიანი
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {nights > 0 && (
           <div className="mt-5 space-y-2">
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-[#64748B]">
                 {formatPrice(pricePerNight)} x {nights} ღამე
-                {perPersonPricing ? ` x ${guestCount} ადამიანი` : ""}
+                {showGuestCount && perPersonPricing
+                  ? ` x ${guestCount} ადამიანი`
+                  : ""}
               </span>
               <span className="font-bold text-[#1E293B]">
                 {formatPrice(subtotal)}

@@ -12,7 +12,7 @@ interface SearchPageProps {
     check_in?: string;
     check_out?: string;
     guests?: string;
-    cadastral?: string;
+    q?: string;
     mode?: string;
     price_min?: string;
     price_max?: string;
@@ -77,7 +77,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       initialCheckIn={params.check_in ?? ""}
       initialCheckOut={params.check_out ?? ""}
       initialGuests={params.guests ? Number(params.guests) : ""}
-      initialCadastral={params.cadastral ?? ""}
+      initialKeyword={params.q ?? ""}
       initialMode={(params.mode as "rent" | "sale") ?? "rent"}
       initialFilters={{
         priceMin: parseNumeric(params.price_min),

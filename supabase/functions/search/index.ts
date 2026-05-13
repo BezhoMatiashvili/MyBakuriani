@@ -15,6 +15,8 @@ serve(async (req) => {
     const supabase = createServiceClient();
 
     const {
+      q,
+      entity_types,
       query,
       check_in,
       check_out,
@@ -38,6 +40,71 @@ serve(async (req) => {
       page = 1,
       per_page = 20,
     } = await req.json();
+
+    // Global keyword search path: when `q` is set, fan out across
+    // properties + services + blog_posts via the global_search RPC and
+    // return a bucketed payload. Property-specific filters do not apply
+    // to services/blog; we keep this fast path simple and unfiltered to
+    // honour the "search everything" intent.
+    const trimmedQ = typeof q === "string" ? q.trim() : "";
+    if (trimmedQ.length > 0) {
+      const types =
+        Array.isArray(entity_types) && entity_types.length > 0
+          ? entity_types
+          : ["properties", "services", "blog_posts"];
+
+      const { data: hits, error: rpcError } = await supabase.rpc(
+        "global_search",
+        {
+          q: trimmedQ,
+          entity_types: types,
+          result_limit: 120,
+        },
+      );
+
+      if (rpcError) throw rpcError;
+
+      type Hit = {
+        entity_type: "properties" | "services" | "blog_posts";
+        entity_id: string;
+        title: string;
+        snippet: string;
+        slug: string;
+        photo: string;
+        sim: number;
+        payload: Record<string, unknown>;
+      };
+
+      const rows = (hits ?? []) as Hit[];
+      const propertiesArr = rows
+        .filter((r) => r.entity_type === "properties")
+        .map((r) => r.payload);
+      const servicesArr = rows
+        .filter((r) => r.entity_type === "services")
+        .map((r) => r.payload);
+      const blogArr = rows
+        .filter((r) => r.entity_type === "blog_posts")
+        .map((r) => r.payload);
+
+      return jsonResponse(
+        {
+          data: {
+            properties: propertiesArr,
+            services: servicesArr,
+            blog: blogArr,
+          },
+          totals: {
+            properties: propertiesArr.length,
+            services: servicesArr.length,
+            blog: blogArr.length,
+            all: propertiesArr.length + servicesArr.length + blogArr.length,
+          },
+          page: 1,
+          per_page: rows.length,
+        },
+        200,
+      );
+    }
 
     const profileJoin = verified_only
       ? "profiles!owner_id!inner"

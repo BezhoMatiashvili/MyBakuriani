@@ -22,7 +22,7 @@ export interface SearchFilters {
   checkIn: string;
   checkOut: string;
   guests: number | "";
-  cadastralCode: string;
+  keyword: string;
   advancedFilters?: FilterState;
 }
 
@@ -46,7 +46,7 @@ interface SearchBoxProps {
   className?: string;
   defaultLocation?: string;
   defaultGuests?: number | "";
-  defaultCadastralCode?: string;
+  defaultKeyword?: string;
   defaultCheckIn?: string;
   defaultCheckOut?: string;
   dropdownPortalRef?: React.RefObject<HTMLDivElement | null>;
@@ -176,7 +176,7 @@ export function SearchBox({
   className,
   defaultLocation = "",
   defaultGuests = "",
-  defaultCadastralCode = "",
+  defaultKeyword = "",
   defaultCheckIn = "",
   defaultCheckOut = "",
   dropdownPortalRef,
@@ -196,7 +196,7 @@ export function SearchBox({
     return undefined;
   });
   const [guests, setGuests] = useState<number | "">(defaultGuests);
-  const [cadastralCode, setCadastralCode] = useState(defaultCadastralCode);
+  const [keyword, setKeyword] = useState(defaultKeyword);
 
   // Custom range handler: when a complete range exists and user clicks a new date,
   // use the OLD end as new start and clicked date as new end
@@ -340,7 +340,7 @@ export function SearchBox({
       checkIn: dateRange?.from ? toIsoDate(dateRange.from) : "",
       checkOut: dateRange?.to ? toIsoDate(dateRange.to) : "",
       guests,
-      cadastralCode,
+      keyword,
       advancedFilters: filters,
     });
   };
@@ -368,7 +368,7 @@ export function SearchBox({
       checkIn: dateRange?.from ? toIsoDate(dateRange.from) : "",
       checkOut: dateRange?.to ? toIsoDate(dateRange.to) : "",
       guests: capacityGuests || guests,
-      cadastralCode,
+      keyword,
       advancedFilters: {
         ...filters,
         amenities: normalizedAmenities,
@@ -388,6 +388,23 @@ export function SearchBox({
     >
       {/* ═══ Mobile: stacked grid layout ═══ */}
       <div className="grid grid-cols-1 gap-3 md:hidden">
+        {/* Keyword search */}
+        <div className="relative">
+          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+            სიტყვით ძიება
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
+            <input
+              type="text"
+              placeholder="მაგ. ბუხარი, კოხტა, რესტორანი..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+            />
+          </div>
+        </div>
+
         {/* Location */}
         <div className="relative">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
@@ -439,7 +456,7 @@ export function SearchBox({
                 min={1}
                 locale={calendarLocale}
                 disabled={{ before: new Date() }}
-                className="rounded-md [--cell-size:40px]"
+                className="rounded-md bg-white [--cell-size:40px]"
               />
               <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
                 <button
@@ -598,15 +615,18 @@ export function SearchBox({
           </button>
         </div>
 
-        {/* Cadastral field */}
+        {/* Keyword field (site-wide fuzzy search) */}
         <div className="flex h-[61.5px] items-center justify-center px-2">
-          <input
-            type="text"
-            placeholder="საკადასტრო კოდით..."
-            value={cadastralCode}
-            onChange={(e) => setCadastralCode(e.target.value)}
-            className="h-[45.5px] w-[260px] rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-5 text-[13px] font-medium text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
-          />
+          <div className="relative w-[260px]">
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
+            <input
+              type="text"
+              placeholder="სიტყვით ძიება..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="h-[45.5px] w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-5 text-[13px] font-medium text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white"
+            />
+          </div>
         </div>
 
         {/* Search button */}
@@ -658,7 +678,7 @@ export function SearchBox({
               min={1}
               locale={calendarLocale}
               disabled={{ before: new Date() }}
-              className="w-full rounded-md [--cell-size:40px]"
+              className="w-full rounded-md bg-white [--cell-size:40px]"
             />
             <div className="mt-6 flex items-center justify-between border-t border-[#E2E8F0] pt-6">
               <button

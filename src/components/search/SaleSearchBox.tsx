@@ -56,6 +56,9 @@ interface SaleSearchBoxProps {
   className?: string;
   isPending?: boolean;
   showInvestmentFilters?: boolean;
+  /** Controlled map-toggle state. If omitted, the component manages its own. */
+  showMap?: boolean;
+  onShowMapChange?: (next: boolean) => void;
 }
 
 // ─── Option constants ──────────────────────────────────────────────────
@@ -165,6 +168,8 @@ export function SaleSearchBox({
   className,
   isPending = false,
   showInvestmentFilters = true,
+  showMap: showMapProp,
+  onShowMapChange,
 }: SaleSearchBoxProps) {
   const router = useRouter();
 
@@ -184,7 +189,13 @@ export function SaleSearchBox({
   const [amenities, setAmenities] = useState<string[]>([]);
   const [payment, setPayment] = useState<string[]>([]);
   const [developers, setDevelopers] = useState<string[]>([]);
-  const [showMap, setShowMap] = useState(true);
+  const [internalShowMap, setInternalShowMap] = useState(false);
+  const showMap = showMapProp ?? internalShowMap;
+  const handleMapToggle = useCallback(() => {
+    const next = !showMap;
+    if (onShowMapChange) onShowMapChange(next);
+    if (showMapProp === undefined) setInternalShowMap(next);
+  }, [showMap, showMapProp, onShowMapChange]);
 
   // Investment quick filters
   const [roiMin, setRoiMin] = useState<number | null>(null);
@@ -448,7 +459,7 @@ export function SaleSearchBox({
               </button>
               <button
                 type="button"
-                onClick={() => setShowMap((m) => !m)}
+                onClick={handleMapToggle}
                 className={cn(
                   "flex h-10 items-center justify-center gap-1.5 rounded-lg border px-4 text-[13px] font-bold transition-colors",
                   showMap
@@ -554,7 +565,7 @@ export function SaleSearchBox({
 
             <button
               type="button"
-              onClick={() => setShowMap((m) => !m)}
+              onClick={handleMapToggle}
               className={cn(
                 "flex h-[48px] shrink-0 items-center gap-2 rounded-full border px-5 text-[13px] font-bold transition-colors",
                 showMap

@@ -38,10 +38,8 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
     </div>
   ),
 });
-import {
-  CalendarGrid,
-  type CalendarDate,
-} from "@/components/booking/CalendarGrid";
+import { type CalendarDate } from "@/components/booking/CalendarGrid";
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
@@ -132,7 +130,6 @@ export default function HotelDetailClient({
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
-  const now = new Date();
   const parsedCalendarDates = calendarBlocks.map((block) => ({
     date: new Date(block.date),
     status: block.status as "available" | "booked" | "blocked",
@@ -341,35 +338,13 @@ export default function HotelDetailClient({
           {/* Calendar */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              ხელმისაწვდომობა
+              თავისუფალი თარიღები
             </h2>
-            <div className="flex items-center gap-4 mb-4 text-xs text-[#94A3B8]">
-              <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-green-50 border border-green-200" />
-                თავისუფალი
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-red-50 border border-red-200" />
-                დაკავებული
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {[0, 1, 2].map((offset) => {
-                const monthDate = new Date(
-                  now.getFullYear(),
-                  now.getMonth() + offset,
-                );
-                return (
-                  <CalendarGrid
-                    key={offset}
-                    year={monthDate.getFullYear()}
-                    month={monthDate.getMonth()}
-                    dates={calendarDates}
-                    onDateClick={handleDateClick}
-                  />
-                );
-              })}
-            </div>
+            <AvailabilityCalendar
+              dates={calendarDates}
+              selectedRange={selectedRange}
+              onDateClick={handleDateClick}
+            />
           </motion.div>
 
           {/* Reviews */}

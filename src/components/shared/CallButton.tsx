@@ -10,9 +10,16 @@ interface Props {
   className: string;
   label: string;
   onNoPhoneClick?: () => void;
+  alwaysShowLabel?: boolean;
 }
 
-export function CallButton({ phone, className, label, onNoPhoneClick }: Props) {
+export function CallButton({
+  phone,
+  className,
+  label,
+  onNoPhoneClick,
+  alwaysShowLabel = false,
+}: Props) {
   const [revealed, setRevealed] = useState(false);
 
   if (!phone) {
@@ -21,6 +28,18 @@ export function CallButton({ phone, className, label, onNoPhoneClick }: Props) {
         <Phone className="h-4 w-4" />
         {label}
       </Button>
+    );
+  }
+
+  if (alwaysShowLabel) {
+    return (
+      <a
+        href={`tel:${phone.replace(/\s/g, "")}`}
+        className={cn("inline-flex items-center justify-center", className)}
+      >
+        <Phone className="h-4 w-4" />
+        {label}
+      </a>
     );
   }
 

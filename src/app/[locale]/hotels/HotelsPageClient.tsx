@@ -86,7 +86,7 @@ export default function HotelsPageClient({ properties }: Props) {
       if (sf.checkIn) params.set("check_in", sf.checkIn);
       if (sf.checkOut) params.set("check_out", sf.checkOut);
       if (sf.guests) params.set("guests", String(sf.guests));
-      if (sf.cadastralCode) params.set("cadastral", sf.cadastralCode);
+      if (sf.keyword) params.set("q", sf.keyword);
       params.set("mode", mode);
       startTransition(() => {
         router.push(`/search?${params.toString()}`);

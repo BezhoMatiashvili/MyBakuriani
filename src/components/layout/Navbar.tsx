@@ -64,11 +64,9 @@ export function Navbar() {
     "/food",
     "/entertainment",
   ];
-  const isCategoryPage = categoryNavPaths.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+  const isCategoryListingPage = categoryNavPaths.some((p) => pathname === p);
   const showCategoryNav =
-    (pathname === "/" && listingMode === "rent") || isCategoryPage;
+    (pathname === "/" && listingMode === "rent") || isCategoryListingPage;
   const { user, loading: authLoading, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);

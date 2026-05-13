@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Link } from "@/i18n/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
+import ServiceCard from "@/components/cards/ServiceCard";
 import {
   FilterPanel,
   DEFAULT_FILTERS,
@@ -16,8 +19,13 @@ import BottomSheet from "@/components/shared/BottomSheet";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 12;
+
+type ServiceRow = Tables<"services">;
+type BlogRow = Tables<"blog_posts">;
+type ActiveTab = "all" | "properties" | "services" | "blog";
 
 interface Props {
   initialProperties: Tables<"properties">[];
@@ -25,7 +33,7 @@ interface Props {
   initialCheckIn?: string;
   initialCheckOut?: string;
   initialGuests?: number | "";
-  initialCadastral?: string;
+  initialKeyword?: string;
   initialMode?: "rent" | "sale";
   initialFilters?: Filters;
 }
@@ -35,7 +43,7 @@ interface SearchState {
   checkIn: string;
   checkOut: string;
   guests: number | "";
-  cadastralCode: string;
+  keyword: string;
 }
 
 export default function SearchPageClient({
@@ -44,7 +52,7 @@ export default function SearchPageClient({
   initialCheckIn = "",
   initialCheckOut = "",
   initialGuests = "",
-  initialCadastral = "",
+  initialKeyword = "",
   initialMode = "rent",
   initialFilters = DEFAULT_FILTERS,
 }: Props) {
@@ -54,20 +62,31 @@ export default function SearchPageClient({
     checkIn: initialCheckIn,
     checkOut: initialCheckOut,
     guests: initialGuests,
-    cadastralCode: initialCadastral,
+    keyword: initialKeyword,
   });
   const [mode, setMode] = useState<"rent" | "sale">(initialMode);
   const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("all");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Property-only path state (used when no keyword)
   const [properties, setProperties] =
     useState<Tables<"properties">[]>(initialProperties);
   const [totalCount, setTotalCount] = useState(initialProperties.length);
+
+  // Keyword path state — three buckets returned by global_search
+  const [kwProperties, setKwProperties] = useState<Tables<"properties">[]>([]);
+  const [kwServices, setKwServices] = useState<ServiceRow[]>([]);
+  const [kwBlog, setKwBlog] = useState<BlogRow[]>([]);
+
   const [loading, setLoading] = useState(false);
   const isInitialMount = useRef(true);
   const isFirstUrlSync = useRef(true);
   const router = useRouter();
 
-  const fetchProperties = useCallback(
+  const hasKeyword = searchState.keyword.trim().length > 0;
+
+  const runSearch = useCallback(
     async (
       search: SearchState,
       currentFilters: Filters,
@@ -78,23 +97,21 @@ export default function SearchPageClient({
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const keyword = search.keyword.trim();
 
         const body: Record<string, unknown> = {
           page: currentPage,
           per_page: ITEMS_PER_PAGE,
         };
 
-        // Search query (location or cadastral)
+        if (keyword) body.q = keyword;
         if (search.location) body.query = search.location;
-        if (search.cadastralCode) body.cadastral_code = search.cadastralCode;
         if (search.checkIn) body.check_in = search.checkIn;
         if (search.checkOut) body.check_out = search.checkOut;
         if (search.guests) body.capacity = search.guests;
 
-        // Rent/Sale mode
         body.is_for_sale = currentMode === "sale";
 
-        // Filters
         if (currentFilters.priceMin !== "")
           body.price_min = currentFilters.priceMin;
         if (currentFilters.priceMax !== "")
@@ -122,124 +139,65 @@ export default function SearchPageClient({
           body: JSON.stringify(body),
         });
 
-        if (!response.ok) {
-          throw new Error("Search request failed");
-        }
-
+        if (!response.ok) throw new Error("Search request failed");
         const result = await response.json();
-        let data: Tables<"properties">[] = result.data || [];
 
-        // Client-side: multiple property types (edge function only supports single type)
-        if (currentFilters.types.length > 1) {
-          data = data.filter((p) => currentFilters.types.includes(p.type));
+        if (keyword) {
+          // Bucketed response from global_search RPC
+          const data = result.data as {
+            properties?: Tables<"properties">[];
+            services?: ServiceRow[];
+            blog?: BlogRow[];
+          };
+          setKwProperties(data?.properties ?? []);
+          setKwServices(data?.services ?? []);
+          setKwBlog(data?.blog ?? []);
+          setProperties([]);
+          setTotalCount(0);
+        } else {
+          let data: Tables<"properties">[] = result.data || [];
+          if (currentFilters.types.length > 1) {
+            data = data.filter((p) => currentFilters.types.includes(p.type));
+          }
+          setProperties(data);
+          setTotalCount(result.total ?? data.length);
+          setKwProperties([]);
+          setKwServices([]);
+          setKwBlog([]);
         }
-
-        setProperties(data);
-        setTotalCount(result.total ?? data.length);
       } catch {
-        // Fallback to client-side filtering of initial data
-        let filtered = initialProperties;
-
-        // Text search
-        if (search.location) {
-          const q = search.location.toLowerCase();
-          filtered = filtered.filter(
+        // Fallback: client-side filter the initial property data so the page
+        // never appears empty if the edge function is unreachable.
+        if (search.keyword.trim()) {
+          const q = search.keyword.trim().toLowerCase();
+          const filtered = initialProperties.filter(
             (p) =>
               p.title.toLowerCase().includes(q) ||
-              p.location?.toLowerCase().includes(q),
+              (p.description ?? "").toLowerCase().includes(q) ||
+              (p.location ?? "").toLowerCase().includes(q) ||
+              (p.cadastral_code ?? "").toLowerCase().includes(q),
           );
-        }
-        if (search.cadastralCode) {
-          filtered = filtered.filter((p) =>
-            p.cadastral_code
-              ?.toLowerCase()
-              .includes(search.cadastralCode.toLowerCase()),
-          );
-        }
-
-        // Rent/Sale mode
-        filtered = filtered.filter((p) =>
-          currentMode === "sale" ? p.is_for_sale : !p.is_for_sale,
-        );
-
-        // Price
-        const priceField =
-          currentMode === "sale" ? "sale_price" : "price_per_night";
-        if (currentFilters.priceMin !== "") {
-          filtered = filtered.filter(
-            (p) =>
-              Number(p[priceField] ?? 0) >= Number(currentFilters.priceMin),
-          );
-        }
-        if (currentFilters.priceMax !== "") {
-          filtered = filtered.filter(
-            (p) =>
-              Number(p[priceField] ?? 0) <= Number(currentFilters.priceMax),
-          );
-        }
-
-        // Rooms
-        if (currentFilters.rooms !== null) {
-          filtered = filtered.filter(
-            (p) => p.rooms !== null && p.rooms >= currentFilters.rooms!,
-          );
-        }
-        if (currentFilters.bathrooms !== null) {
-          filtered = filtered.filter(
-            (p) =>
-              p.bathrooms !== null && p.bathrooms >= currentFilters.bathrooms!,
-          );
-        }
-
-        // Area
-        if (currentFilters.areaMin !== "") {
-          filtered = filtered.filter(
-            (p) => (p.area_sqm ?? 0) >= Number(currentFilters.areaMin),
-          );
-        }
-        if (currentFilters.areaMax !== "") {
-          filtered = filtered.filter(
-            (p) => (p.area_sqm ?? 0) <= Number(currentFilters.areaMax),
-          );
-        }
-
-        // Property types
-        if (currentFilters.types.length > 0) {
-          filtered = filtered.filter((p) =>
-            currentFilters.types.includes(p.type),
-          );
-        }
-
-        // Amenities
-        if (currentFilters.amenities.length > 0) {
-          filtered = filtered.filter((p) => {
-            const propertyAmenities = Array.isArray(p.amenities)
-              ? p.amenities
-              : [];
-            return currentFilters.amenities.every((a) =>
-              propertyAmenities.includes(a),
+          setKwProperties(filtered);
+          setKwServices([]);
+          setKwBlog([]);
+          setProperties([]);
+          setTotalCount(0);
+        } else {
+          let filtered = initialProperties;
+          if (search.location) {
+            const q = search.location.toLowerCase();
+            filtered = filtered.filter(
+              (p) =>
+                p.title.toLowerCase().includes(q) ||
+                p.location?.toLowerCase().includes(q),
             );
-          });
-        }
-
-        // Verified owners (best-effort on fallback data shape)
-        if (currentFilters.verifiedOnly) {
-          filtered = filtered.filter(
-            (p) =>
-              (p as { profiles?: { is_verified?: boolean } }).profiles
-                ?.is_verified,
+          }
+          filtered = filtered.filter((p) =>
+            currentMode === "sale" ? p.is_for_sale : !p.is_for_sale,
           );
+          setProperties(filtered);
+          setTotalCount(filtered.length);
         }
-
-        // Guests
-        if (search.guests) {
-          filtered = filtered.filter(
-            (p) => p.capacity && p.capacity >= Number(search.guests),
-          );
-        }
-
-        setProperties(filtered);
-        setTotalCount(filtered.length);
       } finally {
         setLoading(false);
       }
@@ -247,15 +205,14 @@ export default function SearchPageClient({
     [initialProperties],
   );
 
-  // Re-fetch when filters change. On first render, fetch if URL has criteria
-  // that the server-side initial query does not fully apply.
   useEffect(() => {
     if (isInitialMount.current) {
-      const hasInitialCriteriaToFetch =
+      isInitialMount.current = false;
+      const needFetch =
+        !!searchState.keyword ||
         !!searchState.checkIn ||
         !!searchState.checkOut ||
         !!searchState.guests ||
-        !!searchState.cadastralCode ||
         filters.priceMin !== "" ||
         filters.priceMax !== "" ||
         filters.rooms !== null ||
@@ -265,13 +222,11 @@ export default function SearchPageClient({
         filters.types.length > 0 ||
         filters.amenities.length > 0 ||
         filters.verifiedOnly;
-      isInitialMount.current = false;
-      if (!hasInitialCriteriaToFetch) return;
+      if (!needFetch) return;
     }
-    fetchProperties(searchState, filters, mode, page);
-  }, [filters, mode, page, fetchProperties, searchState]);
+    runSearch(searchState, filters, mode, page);
+  }, [filters, mode, page, runSearch, searchState]);
 
-  // Sync URL with current search state (so refresh/share preserves filters)
   useEffect(() => {
     if (isFirstUrlSync.current) {
       isFirstUrlSync.current = false;
@@ -282,8 +237,7 @@ export default function SearchPageClient({
     if (searchState.checkIn) params.set("check_in", searchState.checkIn);
     if (searchState.checkOut) params.set("check_out", searchState.checkOut);
     if (searchState.guests) params.set("guests", String(searchState.guests));
-    if (searchState.cadastralCode)
-      params.set("cadastral", searchState.cadastralCode);
+    if (searchState.keyword) params.set("q", searchState.keyword);
     params.set("mode", mode);
     if (filters.priceMin !== "")
       params.set("price_min", String(filters.priceMin));
@@ -327,9 +281,10 @@ export default function SearchPageClient({
       checkIn: sf.checkIn,
       checkOut: sf.checkOut,
       guests: sf.guests,
-      cadastralCode: sf.cadastralCode,
+      keyword: sf.keyword,
     });
     setPage(1);
+    setActiveTab("all");
   }, []);
 
   const handleModeChange = useCallback((newMode: "rent" | "sale") => {
@@ -339,87 +294,151 @@ export default function SearchPageClient({
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
+  const tabCounts = useMemo(
+    () => ({
+      properties: kwProperties.length,
+      services: kwServices.length,
+      blog: kwBlog.length,
+      all: kwProperties.length + kwServices.length + kwBlog.length,
+    }),
+    [kwProperties.length, kwServices.length, kwBlog.length],
+  );
+
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
       <div className="mx-auto max-w-7xl px-4 py-8">
-        {/* Search bar + RentBuyToggle */}
         <ScrollReveal>
-          <div className="mb-4 flex justify-center">
-            <RentBuyToggle value={mode} onChange={handleModeChange} />
-          </div>
+          {!hasKeyword && (
+            <div className="mb-4 flex justify-center">
+              <RentBuyToggle value={mode} onChange={handleModeChange} />
+            </div>
+          )}
           <SearchBox
             onSearch={handleSearch}
             className="mb-8"
             defaultLocation={initialLocation}
             defaultGuests={initialGuests}
-            defaultCadastralCode={initialCadastral}
+            defaultKeyword={initialKeyword}
             defaultCheckIn={initialCheckIn}
             defaultCheckOut={initialCheckOut}
           />
         </ScrollReveal>
 
         <div className="flex gap-8">
-          {/* Desktop filter sidebar */}
-          <aside className="hidden w-[280px] shrink-0 lg:block">
-            <div className="sticky top-24">
-              <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
-                ფილტრები
-              </h2>
-              <FilterPanel filters={filters} onFilterChange={setFilters} />
-            </div>
-          </aside>
-
-          {/* Results area */}
-          <div className="min-w-0 flex-1">
-            {/* Mobile filter button */}
-            <div className="mb-4 flex items-center justify-between lg:hidden">
-              <span className="text-[13px] font-medium leading-[20px] text-[#64748B]">
-                {totalCount} შედეგი
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setMobileFiltersOpen(true)}
-                className="gap-2"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                ფილტრები
-              </Button>
-            </div>
-
-            {/* Results count — desktop */}
-            <div className="mb-6 hidden items-center justify-between lg:flex">
-              <div>
-                <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                  {mode === "sale"
-                    ? `ნაპოვნია ${totalCount} ობიექტი`
-                    : searchState.location
-                      ? `ნაპოვნია ${totalCount} შეთავაზება ${searchState.location}-ზე`
-                      : `ნაპოვნია ${totalCount} შეთავაზება`}
-                </h1>
-                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                  საუკეთესო საცხოვრებელი შენი დასვენებისთვის
-                </p>
+          {/* Filter sidebar — only meaningful without a keyword */}
+          {!hasKeyword && (
+            <aside className="hidden w-[280px] shrink-0 lg:block">
+              <div className="sticky top-24">
+                <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
+                  ფილტრები
+                </h2>
+                <FilterPanel filters={filters} onFilterChange={setFilters} />
               </div>
-            </div>
+            </aside>
+          )}
 
-            {/* Loading state */}
-            {loading && <SkierLoader variant="inline" />}
-
-            {/* Empty state */}
-            {!loading && properties.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <p className="text-[17px] font-black leading-[21px] text-[#1E293B]">
-                  შედეგი ვერ მოიძებნა
-                </p>
-                <p className="mt-2 text-[13px] leading-[20px] text-[#64748B]">
-                  სცადეთ სხვა საძიებო სიტყვა ან შეცვალეთ ფილტრები
-                </p>
+          <div className="min-w-0 flex-1">
+            {!hasKeyword && (
+              <div className="mb-4 flex items-center justify-between lg:hidden">
+                <span className="text-[13px] font-medium leading-[20px] text-[#64748B]">
+                  {totalCount} შედეგი
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMobileFiltersOpen(true)}
+                  className="gap-2"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  ფილტრები
+                </Button>
               </div>
             )}
 
-            {/* Property grid */}
-            {!loading && (
+            {/* Heading */}
+            {hasKeyword ? (
+              <div className="mb-6">
+                <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                  შედეგები: „{searchState.keyword}“
+                </h1>
+                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                  ნაპოვნია {tabCounts.all} შედეგი ბინების, სერვისებისა და ბლოგის
+                  გარშემო
+                </p>
+              </div>
+            ) : (
+              <div className="mb-6 hidden items-center justify-between lg:flex">
+                <div>
+                  <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                    {mode === "sale"
+                      ? `ნაპოვნია ${totalCount} ობიექტი`
+                      : searchState.location
+                        ? `ნაპოვნია ${totalCount} შეთავაზება ${searchState.location}-ზე`
+                        : `ნაპოვნია ${totalCount} შეთავაზება`}
+                  </h1>
+                  <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                    საუკეთესო საცხოვრებელი შენი დასვენებისთვის
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Tabs (keyword mode only) */}
+            {hasKeyword && (
+              <div className="mb-6 flex flex-wrap gap-2 border-b border-[#E2E8F0]">
+                {(
+                  [
+                    { id: "all", label: "ყველა", count: tabCounts.all },
+                    {
+                      id: "properties",
+                      label: "ბინები",
+                      count: tabCounts.properties,
+                    },
+                    {
+                      id: "services",
+                      label: "სერვისები",
+                      count: tabCounts.services,
+                    },
+                    { id: "blog", label: "ბლოგი", count: tabCounts.blog },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "relative -mb-px px-4 py-3 text-[14px] font-semibold transition-colors",
+                      activeTab === tab.id
+                        ? "border-b-2 border-[#2563EB] text-[#2563EB]"
+                        : "border-b-2 border-transparent text-[#64748B] hover:text-[#1E293B]",
+                    )}
+                  >
+                    {tab.label}{" "}
+                    <span
+                      className={cn(
+                        "ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                        activeTab === tab.id
+                          ? "bg-[#DBEAFE] text-[#2563EB]"
+                          : "bg-[#F1F5F9] text-[#64748B]",
+                      )}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {loading && <SkierLoader variant="inline" />}
+
+            {/* Empty state */}
+            {!loading && hasKeyword && tabCounts.all === 0 && <EmptyState />}
+            {!loading && !hasKeyword && properties.length === 0 && (
+              <EmptyState />
+            )}
+
+            {/* Property-only path (no keyword) */}
+            {!loading && !hasKeyword && properties.length > 0 && (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {properties.map((p, i) => (
                   <ScrollReveal key={p.id} delay={i * 0.05}>
@@ -445,8 +464,19 @@ export default function SearchPageClient({
               </div>
             )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
+            {/* Keyword path: tab-specific rendering */}
+            {!loading && hasKeyword && tabCounts.all > 0 && (
+              <KeywordResults
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                propertiesArr={kwProperties}
+                servicesArr={kwServices}
+                blogArr={kwBlog}
+              />
+            )}
+
+            {/* Pagination (only property-only path) */}
+            {!hasKeyword && totalPages > 1 && (
               <div className="mt-10 flex items-center justify-center gap-2">
                 <button
                   disabled={page <= 1}
@@ -480,7 +510,6 @@ export default function SearchPageClient({
           </div>
         </div>
 
-        {/* Mobile filter BottomSheet */}
         <BottomSheet
           isOpen={mobileFiltersOpen}
           onClose={() => setMobileFiltersOpen(false)}
@@ -495,6 +524,204 @@ export default function SearchPageClient({
           </Button>
         </BottomSheet>
       </div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <p className="text-[17px] font-black leading-[21px] text-[#1E293B]">
+        შედეგი ვერ მოიძებნა
+      </p>
+      <p className="mt-2 text-[13px] leading-[20px] text-[#64748B]">
+        სცადეთ სხვა საძიებო სიტყვა ან შეცვალეთ ფილტრები
+      </p>
+    </div>
+  );
+}
+
+function KeywordResults({
+  activeTab,
+  onTabChange,
+  propertiesArr,
+  servicesArr,
+  blogArr,
+}: {
+  activeTab: ActiveTab;
+  onTabChange: (t: ActiveTab) => void;
+  propertiesArr: Tables<"properties">[];
+  servicesArr: ServiceRow[];
+  blogArr: BlogRow[];
+}) {
+  if (activeTab === "properties") {
+    return <PropertiesGrid items={propertiesArr} />;
+  }
+  if (activeTab === "services") {
+    return <ServicesGrid items={servicesArr} />;
+  }
+  if (activeTab === "blog") {
+    return <BlogGrid items={blogArr} />;
+  }
+  // "all"
+  return (
+    <div className="flex flex-col gap-10">
+      {propertiesArr.length > 0 && (
+        <Section
+          title="ბინები"
+          count={propertiesArr.length}
+          onSeeAll={() => onTabChange("properties")}
+        >
+          <PropertiesGrid items={propertiesArr.slice(0, 6)} />
+        </Section>
+      )}
+      {servicesArr.length > 0 && (
+        <Section
+          title="სერვისები"
+          count={servicesArr.length}
+          onSeeAll={() => onTabChange("services")}
+        >
+          <ServicesGrid items={servicesArr.slice(0, 6)} />
+        </Section>
+      )}
+      {blogArr.length > 0 && (
+        <Section
+          title="ბლოგი"
+          count={blogArr.length}
+          onSeeAll={() => onTabChange("blog")}
+        >
+          <BlogGrid items={blogArr.slice(0, 4)} />
+        </Section>
+      )}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  count,
+  onSeeAll,
+  children,
+}: {
+  title: string;
+  count: number;
+  onSeeAll: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="mb-4 flex items-end justify-between">
+        <h2 className="text-[18px] font-black text-[#1E293B]">
+          {title}{" "}
+          <span className="ml-1 text-[13px] font-semibold text-[#64748B]">
+            ({count})
+          </span>
+        </h2>
+        {count > 6 && (
+          <button
+            type="button"
+            onClick={onSeeAll}
+            className="text-[13px] font-bold text-[#2563EB] hover:underline"
+          >
+            ყველას ნახვა →
+          </button>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+      {items.map((p, i) => (
+        <ScrollReveal key={p.id} delay={i * 0.05}>
+          <PropertyCard
+            id={p.id}
+            title={p.title}
+            location={p.location}
+            photos={p.photos ?? []}
+            pricePerNight={p.price_per_night ? Number(p.price_per_night) : null}
+            salePrice={p.sale_price ? Number(p.sale_price) : null}
+            rating={null}
+            capacity={p.capacity}
+            rooms={p.rooms}
+            isVip={p.is_vip ?? false}
+            isSuperVip={p.is_super_vip ?? false}
+            discountPercent={p.discount_percent ?? 0}
+            isForSale={p.is_for_sale ?? false}
+          />
+        </ScrollReveal>
+      ))}
+    </div>
+  );
+}
+
+function ServicesGrid({ items }: { items: ServiceRow[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+      {items.map((s, i) => (
+        <ScrollReveal key={s.id} delay={i * 0.05}>
+          <ServiceCard
+            id={s.id}
+            title={s.title}
+            category={s.category}
+            location={s.location}
+            photos={s.photos ?? []}
+            price={s.price ? Number(s.price) : null}
+            priceUnit={s.price_unit}
+            discountPercent={s.discount_percent ?? 0}
+            isVip={s.is_vip ?? false}
+            schedule={s.schedule}
+            operatingHours={s.operating_hours}
+            phone={s.phone}
+            driverName={s.driver_name}
+            vehicleCapacity={s.vehicle_capacity}
+            route={s.route}
+            description={s.description}
+          />
+        </ScrollReveal>
+      ))}
+    </div>
+  );
+}
+
+function BlogGrid({ items }: { items: BlogRow[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      {items.map((post, i) => (
+        <ScrollReveal key={post.id} delay={i * 0.05}>
+          <Link
+            href={`/blog/${post.slug}`}
+            className="group block overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-lg"
+          >
+            {post.image_url ? (
+              <div className="relative h-48 w-full">
+                <Image
+                  src={post.image_url}
+                  alt={post.title}
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                  sizes="(min-width: 640px) 50vw, 100vw"
+                />
+              </div>
+            ) : (
+              <div className="h-48 w-full bg-gradient-to-br from-[#DBEAFE] to-[#F1F5F9]" />
+            )}
+            <div className="p-5">
+              <h3 className="line-clamp-2 text-[16px] font-black text-[#1E293B]">
+                {post.title}
+              </h3>
+              {post.excerpt && (
+                <p className="mt-2 line-clamp-3 text-[13px] leading-5 text-[#64748B]">
+                  {post.excerpt}
+                </p>
+              )}
+            </div>
+          </Link>
+        </ScrollReveal>
+      ))}
     </div>
   );
 }

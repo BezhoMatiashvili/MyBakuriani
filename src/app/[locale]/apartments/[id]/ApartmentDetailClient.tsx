@@ -32,7 +32,7 @@ import dynamic from "next/dynamic";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import ReviewCard from "@/components/cards/ReviewCard";
-import { CalendarGrid } from "@/components/booking/CalendarGrid";
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import { createClient } from "@/lib/supabase/client";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -142,6 +142,16 @@ export default function ApartmentDetailClient({
     end: Date | null;
   }) => {
     setSelectedRange(range);
+  };
+
+  const handleDateClick = (date: Date) => {
+    if (!selectedRange.start || (selectedRange.start && selectedRange.end)) {
+      setSelectedRange({ start: date, end: null });
+    } else if (date > selectedRange.start) {
+      setSelectedRange({ start: selectedRange.start, end: date });
+    } else {
+      setSelectedRange({ start: date, end: null });
+    }
   };
 
   const handleBook = () => {
@@ -344,28 +354,11 @@ export default function ApartmentDetailClient({
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               თავისუფალი თარიღები
             </h2>
-            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-              <CalendarGrid
-                year={new Date().getFullYear()}
-                month={new Date().getMonth()}
-                dates={parsedCalendarDates}
-                onDateClick={() => {}}
-              />
-              <div className="mt-4 flex flex-wrap items-center gap-4 text-[12px] font-medium text-[#64748B]">
-                <span className="flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded-full bg-green-100" />
-                  თავისუფალი
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded-full bg-red-100" />
-                  დაკავებული
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded-full bg-[#2563EB]" />
-                  არჩეული
-                </span>
-              </div>
-            </div>
+            <AvailabilityCalendar
+              dates={parsedCalendarDates}
+              selectedRange={selectedRange}
+              onDateClick={handleDateClick}
+            />
           </motion.div>
 
           {/* Reviews */}
@@ -435,6 +428,7 @@ export default function ApartmentDetailClient({
               rating={avgRating}
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}
+              showGuestCount={false}
             />
           )}
         </motion.div>

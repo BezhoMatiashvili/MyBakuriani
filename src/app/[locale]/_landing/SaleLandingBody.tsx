@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
@@ -24,10 +25,21 @@ import {
 } from "@/components/search/SaleSearchBox";
 import SalePropertyCard from "@/components/cards/SalePropertyCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
+import { SkierLoader } from "@/components/shared/SkierLoader";
+import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { MOCK_SALES } from "@/lib/mock/properties";
+
+const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
+      <SkierLoader variant="inline" />
+    </div>
+  ),
+});
 
 interface SaleLandingBodyProps {
   mode: "rent" | "sale";
@@ -113,6 +125,8 @@ export default function SaleLandingBody({
     setListingMode(mode);
   }, [mode, setListingMode]);
 
+  const [showMap, setShowMap] = useState(false);
+
   // ─── Featured Inventory carousel state ──────────────────────────────
   const [inventoryIdx, setInventoryIdx] = useState(0);
   const [inventoryReduceMotion, setInventoryReduceMotion] = useState(false);
@@ -131,9 +145,7 @@ export default function SaleLandingBody({
     if (inventoryReduceMotion || FEATURED_INVENTORY_ITEMS.length <= 1) return;
     const timer = setInterval(() => {
       if (!inventoryPaused.current) {
-        setInventoryIdx(
-          (i) => (i + 1) % FEATURED_INVENTORY_ITEMS.length,
-        );
+        setInventoryIdx((i) => (i + 1) % FEATURED_INVENTORY_ITEMS.length);
       }
     }, INVENTORY_AUTO_ADVANCE_MS);
     return () => clearInterval(timer);
@@ -195,6 +207,23 @@ export default function SaleLandingBody({
 
   const gridCards = saleCards.slice(0, 3);
 
+  const mapProperties = useMemo<MapProperty[]>(
+    () =>
+      (saleProperties ?? [])
+        .filter((p) => p.location_lat && p.location_lng)
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          price: Number(p.sale_price ?? 0),
+          lat: Number(p.location_lat),
+          lng: Number(p.location_lng),
+          isVip: p.is_vip ?? false,
+          isSuperVip: p.is_super_vip ?? false,
+          photo: Array.isArray(p.photos) ? (p.photos[0] as string) : undefined,
+        })),
+    [saleProperties],
+  );
+
   return (
     <div className="flex flex-col">
       {/* ═══ 1. Hero (green) ═══ */}
@@ -233,7 +262,9 @@ export default function SaleLandingBody({
           <div className="mt-6">
             <SaleSearchBox
               onSearch={handleSearch}
-              showInvestmentFilters={false}
+              showInvestmentFilters={true}
+              showMap={showMap}
+              onShowMapChange={setShowMap}
             />
           </div>
 
@@ -248,8 +279,29 @@ export default function SaleLandingBody({
         </div>
       </section>
 
+      {/* ═══ Inline map (toggled by რუკაზე in SaleSearchBox) ═══ */}
+      {showMap && (
+        <div className="mx-auto w-full max-w-[1180px] px-4 pt-6">
+          <div className="overflow-hidden rounded-[24px] border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
+            <BakurianiMap
+              className="h-[420px] w-full"
+              embedded
+              expandable
+              isForSale
+              properties={mapProperties}
+              onPropertyClick={(id) => router.push(`/sales/${id}`)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ═══ Stat cards — straddle the green→white boundary ═══ */}
-      <div className="relative z-10 mx-auto -mt-20 w-full max-w-[1180px] px-4">
+      <div
+        className={cn(
+          "relative z-10 mx-auto w-full max-w-[1180px] px-4",
+          showMap ? "mt-8" : "-mt-20",
+        )}
+      >
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatCard
             label="სამშენ. ROI"
