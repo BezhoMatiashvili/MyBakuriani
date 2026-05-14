@@ -228,7 +228,7 @@ export default function SaleLandingBody({
     <div className="flex flex-col">
       {/* ═══ 1. Hero (green) ═══ */}
       <section
-        className="relative flex min-h-[620px] items-start justify-center overflow-hidden px-4 pb-16 pt-16"
+        className="relative flex min-h-[620px] items-start justify-center px-4 pb-16 pt-16"
         style={{
           background:
             "linear-gradient(180deg, #0B3A2C 0%, #0F4C3A 55%, #134E3A 100%)",
@@ -298,7 +298,7 @@ export default function SaleLandingBody({
       {/* ═══ Stat cards — straddle the green→white boundary ═══ */}
       <div
         className={cn(
-          "relative z-10 mx-auto w-full max-w-[1180px] px-4",
+          "relative mx-auto w-full max-w-[1180px] px-4",
           showMap ? "mt-8" : "-mt-20",
         )}
       >

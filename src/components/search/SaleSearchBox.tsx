@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   SEARCH_LOCATION_ZONES,
-  ZONE_CENTERS,
+  nearestZone,
   type SearchLocationZone,
 } from "@/lib/constants/locations";
 import { createClient } from "@/lib/supabase/client";
@@ -167,29 +167,6 @@ function formatUsd(n: number): string {
 // Format ₾ amounts with thousands separators (Georgian convention uses space).
 function formatGel(n: number): string {
   return `${Math.round(n).toLocaleString("ka-GE").replace(/,/g, " ")} ₾`;
-}
-
-// Haversine-equivalent squared-distance (sufficient for nearest-of-four).
-function squaredDistance(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
-  const dLat = a.lat - b.lat;
-  const dLng = a.lng - b.lng;
-  return dLat * dLat + dLng * dLng;
-}
-
-function nearestZone(lat: number, lng: number): SearchLocationZone {
-  let best: SearchLocationZone = SEARCH_LOCATION_ZONES[0];
-  let bestDist = Infinity;
-  for (const zone of SEARCH_LOCATION_ZONES) {
-    const d = squaredDistance({ lat, lng }, ZONE_CENTERS[zone]);
-    if (d < bestDist) {
-      bestDist = d;
-      best = zone;
-    }
-  }
-  return best;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────

@@ -19,3 +19,26 @@ export const ZONE_CENTERS: Record<
   "კოხტა / მიტარბი": { lat: 41.758, lng: 43.545 },
   "25-იანები": { lat: 41.746, lng: 43.538 },
 };
+
+// Haversine-equivalent squared-distance (sufficient for nearest-of-four).
+function squaredDistance(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const dLat = a.lat - b.lat;
+  const dLng = a.lng - b.lng;
+  return dLat * dLat + dLng * dLng;
+}
+
+export function nearestZone(lat: number, lng: number): SearchLocationZone {
+  let best: SearchLocationZone = SEARCH_LOCATION_ZONES[0];
+  let bestDist = Infinity;
+  for (const zone of SEARCH_LOCATION_ZONES) {
+    const d = squaredDistance({ lat, lng }, ZONE_CENTERS[zone]);
+    if (d < bestDist) {
+      bestDist = d;
+      best = zone;
+    }
+  }
+  return best;
+}
