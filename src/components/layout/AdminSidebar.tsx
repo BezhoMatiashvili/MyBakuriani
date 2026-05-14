@@ -72,6 +72,7 @@ const sections: { title: string; items: NavItem[] }[] = [
         label: "პრომო კოდები",
         href: "/dashboard/admin/promocodes",
       },
+      { label: "ბანერები", href: "/dashboard/admin/banners" },
       { label: "სიახლეები", href: "/dashboard/admin/seo" },
     ],
   },

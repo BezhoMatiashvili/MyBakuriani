@@ -8,7 +8,7 @@ import {
   CalendarDays,
   Users,
   Heart,
-  QrCode,
+  Star,
   Wallet,
   Bell,
   Settings,
@@ -26,7 +26,7 @@ interface RenterSidebarProps {
   avatarUrl?: string;
   isVerified?: boolean;
   notificationCount?: number;
-  qrAlert?: boolean;
+  pendingReviewsAlert?: boolean;
   smartMatchCount?: number;
   currentPath: string;
   onSignOut: () => void;
@@ -53,9 +53,9 @@ const NAV_ITEMS: NavItem[] = [
     icon: Heart,
   },
   {
-    labelKey: "qrReviews",
-    href: "/dashboard/renter/qr-reviews",
-    icon: QrCode,
+    labelKey: "reviews",
+    href: "/dashboard/renter/reviews",
+    icon: Star,
     badge: "dot",
   },
   {
@@ -134,7 +134,7 @@ export function RenterSidebar({
   avatarUrl,
   isVerified = true,
   notificationCount = 0,
-  qrAlert = false,
+  pendingReviewsAlert = false,
   smartMatchCount = 0,
   currentPath,
   onSignOut,
@@ -314,7 +314,7 @@ export function RenterSidebar({
                       {notificationCount > 99 ? "99+" : notificationCount}
                     </span>
                   )}
-                  {item.badge === "dot" && qrAlert && (
+                  {item.badge === "dot" && pendingReviewsAlert && (
                     <span className="h-2 w-2 rounded-full bg-[#EF4444]" />
                   )}
                 </Link>

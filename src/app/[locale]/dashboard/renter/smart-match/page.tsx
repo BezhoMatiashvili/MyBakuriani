@@ -1,23 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Sparkles,
-  CalendarDays,
-  Users,
-  Wallet,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Inbox,
-} from "lucide-react";
+import { Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import SmartMatchRequestsModal, {
+  type SmartMatchRequestItem,
+  type OwnerProperty,
+} from "@/components/renter/SmartMatchRequestsModal";
+import { nearestZone } from "@/lib/constants/locations";
 import type { Tables } from "@/lib/types/database";
 
 type SmartMatchRequest = Tables<"smart_match_requests"> & {
@@ -27,62 +20,134 @@ type SmartMatchRequest = Tables<"smart_match_requests"> & {
   > | null;
 };
 
-const statusConfig: Record<
-  string,
-  { label: string; color: string; icon: React.ElementType }
-> = {
-  active: {
-    label: "აქტიური",
-    color: "bg-green-100 text-green-700",
-    icon: Clock,
-  },
-  matched: {
-    label: "შესატყვისი",
-    color: "bg-brand-accent-light text-brand-accent",
-    icon: CheckCircle,
-  },
-  closed: {
-    label: "დახურული",
-    color: "bg-gray-100 text-gray-700",
-    icon: XCircle,
-  },
-};
+function shortRequestId(id: string) {
+  return `REQ-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+}
+
+function postedAgo(iso: string | null): string {
+  if (!iso) return "ახლახან";
+  const diff = Date.now() - new Date(iso).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return "ახლახან";
+  if (hours < 24) return `${hours} სთ-ის წინ`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "გუშინ";
+  return `${days} დღის წინ`;
+}
+
+function formatDates(checkIn: string | null, checkOut: string | null): string {
+  if (!checkIn && !checkOut) return "—";
+  const fmt = (d: string | null) => {
+    if (!d) return "?";
+    const [, m, day] = d.split("-");
+    return `${parseInt(day)} ${monthAbbr(parseInt(m))}`;
+  };
+  return `${fmt(checkIn)} – ${fmt(checkOut)}`;
+}
+
+function monthAbbr(m: number): string {
+  const months = [
+    "იან",
+    "თებ",
+    "მარ",
+    "აპრ",
+    "მაი",
+    "ივნ",
+    "ივლ",
+    "აგვ",
+    "სექ",
+    "ოქტ",
+    "ნოე",
+    "დეკ",
+  ];
+  return months[m - 1] ?? "";
+}
 
 export default function RenterSmartMatchPage() {
   const { user } = useAuth();
   const supabase = createClient();
 
   const [requests, setRequests] = useState<SmartMatchRequest[]>([]);
+  const [ownerProperties, setOwnerProperties] = useState<OwnerProperty[]>([]);
+  const [ownerZones, setOwnerZones] = useState<Set<string>>(new Set());
+  const [submittedRequestIds, setSubmittedRequestIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
 
-    async function fetchRequests() {
-      // Fetch smart match requests that might be relevant to this renter's properties
+    async function fetchData() {
       const { data: properties } = await supabase
         .from("properties")
-        .select("id")
-        .eq("owner_id", user!.id);
+        .select("id, title, price_per_night, location_lat, location_lng")
+        .eq("owner_id", user!.id)
+        .eq("status", "active")
+        .eq("is_for_sale", false);
 
       if (!properties || properties.length === 0) {
         setLoading(false);
         return;
       }
 
-      const { data } = await supabase
+      // Compute zones the renter covers
+      const zones = new Set<string>();
+      for (const p of properties) {
+        if (p.location_lat != null && p.location_lng != null) {
+          zones.add(
+            nearestZone(Number(p.location_lat), Number(p.location_lng)),
+          );
+        }
+      }
+      setOwnerZones(zones);
+
+      setOwnerProperties(
+        properties.map((p) => ({
+          id: p.id,
+          title: p.title,
+          price: Number(p.price_per_night ?? 0),
+        })),
+      );
+
+      // Fetch active requests matching one of renter's zones (or with no zone = "all")
+      const { data: reqData } = await supabase
         .from("smart_match_requests")
         .select("*, profiles(display_name, phone, avatar_url)")
+        .eq("status", "active")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(30);
 
-      if (data) setRequests(data as SmartMatchRequest[]);
+      if (reqData) {
+        const filtered = (reqData as SmartMatchRequest[]).filter(
+          (r) => !r.zone || zones.has(r.zone),
+        );
+        setRequests(filtered);
+
+        // Mark requests this renter has already submitted offers on
+        const propIds = properties.map((p) => p.id);
+        if (propIds.length > 0 && filtered.length > 0) {
+          const { data: existingOffers } = await supabase
+            .from("smart_match_offers")
+            .select("request_id")
+            .eq("renter_id", user!.id)
+            .in(
+              "request_id",
+              filtered.map((r) => r.id),
+            );
+          if (existingOffers) {
+            setSubmittedRequestIds(
+              new Set(existingOffers.map((o) => o.request_id)),
+            );
+          }
+        }
+      }
       setLoading(false);
     }
 
-    fetchRequests();
+    fetchData();
 
-    // Realtime updates
     const channel = supabase
       .channel("smart-match-inbox")
       .on(
@@ -93,7 +158,7 @@ export default function RenterSmartMatchPage() {
           table: "smart_match_requests",
         },
         () => {
-          fetchRequests();
+          fetchData();
         },
       )
       .subscribe();
@@ -103,6 +168,91 @@ export default function RenterSmartMatchPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  const modalRequests: SmartMatchRequestItem[] = useMemo(() => {
+    return requests
+      .filter((r) => !submittedRequestIds.has(r.id))
+      .map((r) => {
+        const guestName = r.profiles?.display_name ?? "სტუმარი";
+        const initials = guestName
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+        const inZone = !r.zone || ownerZones.has(r.zone);
+        const matchPercent = inZone ? 100 : 80;
+        const clientBudget = Number(r.budget_max ?? r.budget_min ?? 0);
+        const minOwnerPrice = ownerProperties.reduce(
+          (min, p) => (min === 0 ? p.price : Math.min(min, p.price)),
+          0,
+        );
+        const belowOwnerPrice =
+          clientBudget > 0 && clientBudget < minOwnerPrice
+            ? minOwnerPrice
+            : undefined;
+        return {
+          id: shortRequestId(r.id),
+          guestName,
+          initials: initials || "?",
+          postedAgo: postedAgo(r.created_at),
+          matchPercent,
+          zone: r.zone ?? "ყველა",
+          dates: formatDates(r.check_in, r.check_out),
+          guests: r.guests_count ? `${r.guests_count} სტუმარი` : "—",
+          clientBudget,
+          belowOwnerPrice,
+          // Keep real DB id for submission via a side channel
+          _dbId: r.id,
+        } as SmartMatchRequestItem & { _dbId: string };
+      });
+  }, [requests, submittedRequestIds, ownerZones, ownerProperties]);
+
+  async function handleSubmitOffer({
+    requestId,
+    propertyId,
+    offeredPrice,
+  }: {
+    requestId: string;
+    propertyId: string;
+    offeredPrice: number;
+  }) {
+    if (!user) return;
+    // Look up the real DB id by short id
+    const requestRow = modalRequests.find((r) => r.id === requestId) as
+      | (SmartMatchRequestItem & { _dbId: string })
+      | undefined;
+    const realRequestId = requestRow?._dbId ?? requestId;
+
+    const guestRequest = requests.find((r) => r.id === realRequestId);
+    if (!guestRequest) return;
+
+    const { error } = await supabase.from("smart_match_offers").insert({
+      request_id: realRequestId,
+      renter_id: user.id,
+      property_id: propertyId,
+      offered_price: offeredPrice,
+      status: "pending",
+    });
+
+    if (error) {
+      console.error("Failed to submit offer", error);
+      return;
+    }
+
+    // Notify the guest
+    await supabase.from("notifications").insert({
+      user_id: guestRequest.guest_id,
+      type: "smart_match_offer",
+      title: "ახალი შეთავაზება",
+      message: `მფლობელმა შემოგთავაზათ ობიექტი ფასით ${offeredPrice}₾`,
+      action_url: "/dashboard/guest",
+    });
+
+    setSubmittedRequestIds((prev) => new Set(prev).add(realRequestId));
+  }
+
+  const incomingCount = modalRequests.length;
 
   return (
     <div className="space-y-6">
@@ -118,22 +268,21 @@ export default function RenterSmartMatchPage() {
         </p>
       </motion.div>
 
-      {/* Summary */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           {
-            label: "აქტიური მოთხოვნები",
-            value: requests.filter((r) => r.status === "active").length,
+            label: "შემოსავალი მოთხოვნები",
+            value: incomingCount,
             color: "bg-green-100 text-green-600",
           },
           {
-            label: "შესატყვისი",
-            value: requests.filter((r) => r.status === "matched").length,
+            label: "გაგზავნილი შეთავაზებები",
+            value: submittedRequestIds.size,
             color: "bg-brand-accent-light text-brand-accent",
           },
           {
-            label: "სულ მოთხოვნები",
-            value: requests.length,
+            label: "თქვენი ზონები",
+            value: ownerZones.size,
             color: "bg-purple-100 text-purple-600",
           },
         ].map((stat, i) => (
@@ -152,116 +301,48 @@ export default function RenterSmartMatchPage() {
         ))}
       </div>
 
-      {/* Requests list */}
-      <div className="space-y-3">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-            >
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="h-3 w-32" />
-                <Skeleton className="h-3 w-64" />
-              </div>
-            </div>
-          ))
-        ) : requests.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-          >
-            <Inbox className="h-12 w-12 text-[#94A3B8]" />
-            <p className="mt-3 text-sm text-[#94A3B8]">
-              ახალი მოთხოვნები ჯერ არ არის
-            </p>
-          </motion.div>
-        ) : (
-          requests.map((request, index) => {
-            const config =
-              statusConfig[request.status ?? "active"] ?? statusConfig.active;
-            const StatusIcon = config.icon;
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-gradient-to-br from-[#0F204C] to-[#1E3A8A] p-6 text-white"
+      >
+        <span className="inline-block rounded-md bg-white/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+          SMART MATCH
+        </span>
+        <h2 className="mt-3 text-[24px] font-black leading-[30px]">
+          {incomingCount > 0
+            ? `${incomingCount} ახალი მოთხოვნა თქვენი ზონისთვის`
+            : "ჯერ არ არის შემოსავალი მოთხოვნები"}
+        </h2>
+        <p className="mt-2 max-w-xl text-[13px] font-medium text-white/80">
+          ნახეთ სტუმრების მოთხოვნები და გაუგზავნეთ პერსონალური შეთავაზებები.
+        </p>
+        <button
+          type="button"
+          disabled={incomingCount === 0}
+          onClick={() => setModalOpen(true)}
+          className="mt-5 rounded-xl bg-white px-5 py-2.5 text-[13px] font-black text-[#0F172A] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+        >
+          ნახე მოთხოვნები
+        </button>
+      </motion.div>
 
-            return (
-              <motion.div
-                key={request.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                      <Sparkles className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-[#1E293B]">
-                        {request.profiles?.display_name ?? "სტუმარი"}
-                      </h3>
-                      <p className="text-[10px] text-[#94A3B8]">
-                        {new Date(request.created_at ?? "").toLocaleDateString(
-                          "ka-GE",
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}
-                  >
-                    <StatusIcon className="h-3 w-3" />
-                    {config.label}
-                  </span>
-                </div>
+      {!loading && incomingCount === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+          <Inbox className="h-12 w-12 text-[#94A3B8]" />
+          <p className="mt-3 text-sm text-[#94A3B8]">
+            ახალი მოთხოვნები ჯერ არ არის
+          </p>
+        </div>
+      )}
 
-                <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#94A3B8]">
-                  {request.check_in && request.check_out && (
-                    <span className="flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {request.check_in} — {request.check_out}
-                    </span>
-                  )}
-                  {request.guests_count && (
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {request.guests_count} სტუმარი
-                    </span>
-                  )}
-                  {(request.budget_min || request.budget_max) && (
-                    <span className="flex items-center gap-1">
-                      <Wallet className="h-3.5 w-3.5" />
-                      {formatPrice(Number(request.budget_min ?? 0))} —{" "}
-                      {request.budget_max
-                        ? formatPrice(Number(request.budget_max))
-                        : "∞"}
-                    </span>
-                  )}
-                </div>
-
-                {(request.matched_properties ?? []).length > 0 && (
-                  <div className="mt-2">
-                    <Badge variant="secondary">
-                      {(request.matched_properties ?? []).length} შესატყვისი
-                      ობიექტი
-                    </Badge>
-                  </div>
-                )}
-
-                {request.status === "active" && (
-                  <div className="mt-3 flex gap-2">
-                    <Button size="sm">შეთავაზება</Button>
-                    <Button size="sm" variant="outline">
-                      გამოტოვება
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
-            );
-          })
-        )}
-      </div>
+      <SmartMatchRequestsModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        requests={modalRequests}
+        ownerProperties={ownerProperties}
+        onSubmitOffer={handleSubmitOffer}
+      />
     </div>
   );
 }

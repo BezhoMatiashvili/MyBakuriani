@@ -36,6 +36,9 @@ import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
 import { MOCK_PROPERTIES, MOCK_HOTELS } from "@/lib/mock/properties";
 import { makeServiceCards } from "@/lib/mock/services";
+import { InfoBanners } from "@/components/landing/InfoBanners";
+import { PromoBanners } from "@/components/landing/PromoBanners";
+import type { LandingBanner } from "@/lib/banners";
 
 interface LandingPageProps {
   hotOffers?: Tables<"properties">[];
@@ -44,6 +47,8 @@ interface LandingPageProps {
   vipProperties?: Tables<"properties">[];
   services?: Tables<"services">[];
   blogPosts?: Tables<"blog_posts">[];
+  infoBanners?: LandingBanner[];
+  promoBanners?: LandingBanner[];
 }
 
 const MOCK_BLOG_POSTS = [
@@ -85,6 +90,8 @@ export default function LandingPage({
   vipProperties: serverVipProperties,
   services: serverServices,
   blogPosts: serverBlogPosts,
+  infoBanners = [],
+  promoBanners = [],
 }: LandingPageProps = {}) {
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
@@ -426,31 +433,35 @@ export default function LandingPage({
         </div>
       </section>
 
-      {/* ═══ 2.5 Verified-listings info banner ═══ */}
-      <div className="mx-auto mt-[70px] w-full max-w-[1160px] px-4 sm:mt-[84px]">
-        <div className="flex flex-col items-start gap-3 rounded-2xl border border-[#FFEDD5] bg-[#FFF7ED] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span
-              aria-hidden
-              className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#F97316] text-[13px] font-black text-white"
+      {/* ═══ 2.5 Verified-listings info banner (admin-managed) ═══ */}
+      <InfoBanners banners={infoBanners} />
+      {/* legacy inline banner kept as fallback when no DB rows exist */}
+      {infoBanners.length === 0 ? (
+        <div className="mx-auto mt-[70px] w-full max-w-[1160px] px-4 sm:mt-[84px]">
+          <div className="flex flex-col items-start gap-3 rounded-2xl border border-[#FFEDD5] bg-[#FFF7ED] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#F97316] text-[13px] font-black text-white"
+              >
+                i
+              </span>
+              <p className="text-[13px] font-medium leading-[20px] text-[#9A3412]">
+                <span className="font-bold text-[#7C2D12]">
+                  გადამოწმებულ განცხადებებს ენიჭება ოქროს ფერი
+                </span>{" "}
+                — აირჩიეთ სანდო მესაკუთრეები უსაფრთხო ჯავშნისთვის.
+              </p>
+            </div>
+            <Link
+              href="/faq"
+              className="shrink-0 rounded-full border border-[#FFEDD5] bg-white px-4 py-2 text-[12px] font-bold text-[#F97316] transition-colors hover:bg-[#FFF7ED]"
             >
-              i
-            </span>
-            <p className="text-[13px] font-medium leading-[20px] text-[#9A3412]">
-              <span className="font-bold text-[#7C2D12]">
-                გადამოწმებულ განცხადებებს ენიჭება ოქროს ფერი
-              </span>{" "}
-              — აირჩიეთ სანდო მესაკუთრეები უსაფრთხო ჯავშნისთვის.
-            </p>
+              კიდევ ნახე
+            </Link>
           </div>
-          <Link
-            href="/faq"
-            className="shrink-0 rounded-full border border-[#FFEDD5] bg-white px-4 py-2 text-[12px] font-bold text-[#F97316] transition-colors hover:bg-[#FFF7ED]"
-          >
-            კიდევ ნახე
-          </Link>
         </div>
-      </div>
+      ) : null}
 
       {/* ═══ 3. Hot Offers — VIP / Super VIP Carousel ═══ */}
       {vipPropertyCards.length > 0 && (
@@ -533,44 +544,47 @@ export default function LandingPage({
         showAddButton
       />
 
-      {/* ═══ 5.5 Favourite service promo ═══ */}
-      <section className="px-4 pb-8 pt-4">
-        <div className="mx-auto max-w-[1160px]">
-          <ScrollReveal>
-            <div className="relative flex flex-col overflow-hidden rounded-[24px] border border-[#FEF3C7] bg-[#FFFBEB] shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:h-[180px] md:flex-row">
-              <div className="relative h-[180px] w-full shrink-0 md:w-[320px]">
-                <Image
-                  src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=500&fit=crop"
-                  alt=""
-                  fill
-                  sizes="(max-width: 768px) 100vw, 320px"
-                  className="object-cover"
-                />
-                <span className="absolute left-4 top-4 rounded-md bg-[#F59E0B] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-                  PROMO
-                </span>
-              </div>
-              <div className="flex flex-1 flex-col items-start justify-center gap-3 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-10">
-                <div className="max-w-[520px]">
-                  <h3 className="text-[22px] font-black leading-[28px] text-[#1E293B]">
-                    საყვარელი სერვისი
-                  </h3>
-                  <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                    მოძებნეთ დადასტურებული და რეკომენდაციით გამორჩეული სერვისები
-                    თქვენთვის ხელსაყრელ ფასად.
-                  </p>
+      {/* ═══ 5.5 Promo banners (admin-managed) ═══ */}
+      <PromoBanners banners={promoBanners} />
+      {promoBanners.length === 0 ? (
+        <section className="px-4 pb-8 pt-4">
+          <div className="mx-auto max-w-[1160px]">
+            <ScrollReveal>
+              <div className="relative flex flex-col overflow-hidden rounded-[24px] border border-[#FEF3C7] bg-[#FFFBEB] shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:h-[180px] md:flex-row">
+                <div className="relative h-[180px] w-full shrink-0 md:w-[320px]">
+                  <Image
+                    src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=500&fit=crop"
+                    alt=""
+                    fill
+                    sizes="(max-width: 768px) 100vw, 320px"
+                    className="object-cover"
+                  />
+                  <span className="absolute left-4 top-4 rounded-md bg-[#F59E0B] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                    PROMO
+                  </span>
                 </div>
-                <Link
-                  href="/services"
-                  className="shrink-0 rounded-full border-2 border-[#F97316] bg-white px-6 py-3 text-[13px] font-bold text-[#F97316] transition-colors hover:bg-[#FFF7ED]"
-                >
-                  კიდევ ნახე
-                </Link>
+                <div className="flex flex-1 flex-col items-start justify-center gap-3 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-10">
+                  <div className="max-w-[520px]">
+                    <h3 className="text-[22px] font-black leading-[28px] text-[#1E293B]">
+                      საყვარელი სერვისი
+                    </h3>
+                    <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                      მოძებნეთ დადასტურებული და რეკომენდაციით გამორჩეული
+                      სერვისები თქვენთვის ხელსაყრელ ფასად.
+                    </p>
+                  </div>
+                  <Link
+                    href="/services"
+                    className="shrink-0 rounded-full border-2 border-[#F97316] bg-white px-6 py-3 text-[13px] font-bold text-[#F97316] transition-colors hover:bg-[#FFF7ED]"
+                  >
+                    კიდევ ნახე
+                  </Link>
+                </div>
               </div>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
+            </ScrollReveal>
+          </div>
+        </section>
+      ) : null}
 
       {/* ═══ 6. Transport Section ═══ */}
       <ServiceSection

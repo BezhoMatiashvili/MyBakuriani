@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import { fetchActiveBanners } from "@/lib/banners-server";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 
@@ -113,7 +114,11 @@ async function fetchLandingProps() {
 }
 
 async function LandingWithData() {
-  const props = await fetchLandingProps();
+  const [props, infoBanners, promoBanners] = await Promise.all([
+    fetchLandingProps(),
+    fetchActiveBanners("info").catch(() => []),
+    fetchActiveBanners("promo").catch(() => []),
+  ]);
   return (
     <LandingPage
       hotOffers={props.hotOffers}
@@ -122,6 +127,8 @@ async function LandingWithData() {
       vipProperties={props.vipProperties}
       services={props.services}
       blogPosts={props.blogPosts}
+      infoBanners={infoBanners}
+      promoBanners={promoBanners}
     />
   );
 }

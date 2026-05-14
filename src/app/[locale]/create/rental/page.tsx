@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { CigaretteOff, PawPrint } from "lucide-react";
@@ -105,13 +105,31 @@ const ExactLocationPicker = dynamic(
 );
 
 export default function CreateRentalPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
+        </div>
+      }
+    >
+      <CreateRentalPageInner />
+    </Suspense>
+  );
+}
+
+function CreateRentalPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(isEditMode);
 
   // Step 1: basics
   const [propertyType, setPropertyType] =
@@ -140,6 +158,74 @@ export default function CreateRentalPage() {
   const [minBookingDays, setMinBookingDays] = useState("3");
   const [hostingLangs, setHostingLangs] = useState<string[]>(["ka"]);
   const [photos, setPhotos] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!editId || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", editId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        setError("ბინა ვერ მოიძებნა");
+        setHydrating(false);
+        return;
+      }
+
+      setPropertyType((data.type ?? "apartment") as Enums<"property_type">);
+      setLocation(data.location ?? "");
+      setCadastralCode(data.cadastral_code ?? "");
+      setDescription(data.description ?? "");
+      setTitle(data.title ?? "");
+      if (data.location_lat != null && data.location_lng != null) {
+        setExactLocation({
+          lat: Number(data.location_lat),
+          lng: Number(data.location_lng),
+        });
+      }
+      setAreaSqm(data.area_sqm != null ? String(data.area_sqm) : "");
+      setSelectedAmenities(
+        Array.isArray(data.amenities)
+          ? (data.amenities as unknown[]).filter(
+              (v): v is string => typeof v === "string",
+            )
+          : [],
+      );
+      setPricePerNight(
+        data.price_per_night != null ? String(data.price_per_night) : "",
+      );
+      setMinBookingDays(
+        data.min_booking_days != null ? String(data.min_booking_days) : "3",
+      );
+      const rules =
+        data.house_rules && typeof data.house_rules === "object"
+          ? (data.house_rules as Record<string, unknown>)
+          : {};
+      if (Array.isArray(rules.hosting_langs)) {
+        setHostingLangs(
+          (rules.hosting_langs as unknown[]).filter(
+            (v): v is string => typeof v === "string",
+          ),
+        );
+      }
+      if (typeof rules.smoking === "boolean") setSmokingAllowed(rules.smoking);
+      if (typeof rules.pets === "boolean") setPetsAllowed(rules.pets);
+      setPhotos(Array.isArray(data.photos) ? data.photos : []);
+
+      setHydrating(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, user, supabase]);
 
   function toggleAmenity(key: string) {
     setSelectedAmenities((prev) =>
@@ -195,36 +281,51 @@ export default function CreateRentalPage() {
       const areaNum = parseOptionalPositive(areaSqm);
       const minBookingNum = Number(minBookingDays) || 1;
 
-      const { data: inserted, error: insertError } = await supabase
-        .from("properties")
-        .insert({
-          owner_id: user.id,
-          type: propertyType,
-          title: titleTrimmed,
-          description: description.trim() || null,
-          location: locationTrimmed,
-          location_lat: exactLocation?.lat ?? null,
-          location_lng: exactLocation?.lng ?? null,
-          cadastral_code: cadastralCode.trim() || null,
-          area_sqm: areaNum,
-          photos,
-          amenities: selectedAmenities,
-          house_rules: {
-            hosting_langs: hostingLangs,
-            smoking: smokingAllowed,
-            pets: petsAllowed,
-          },
-          price_per_night: priceNum,
-          min_booking_days: minBookingNum,
-          status: "pending" as Enums<"listing_status">,
-          is_for_sale: false,
-        })
-        .select("id")
-        .single();
+      const payload = {
+        type: propertyType,
+        title: titleTrimmed,
+        description: description.trim() || null,
+        location: locationTrimmed,
+        location_lat: exactLocation?.lat ?? null,
+        location_lng: exactLocation?.lng ?? null,
+        cadastral_code: cadastralCode.trim() || null,
+        area_sqm: areaNum,
+        photos,
+        amenities: selectedAmenities,
+        house_rules: {
+          hosting_langs: hostingLangs,
+          smoking: smokingAllowed,
+          pets: petsAllowed,
+        },
+        price_per_night: priceNum,
+        min_booking_days: minBookingNum,
+      };
 
-      if (insertError) throw insertError;
-      if (!inserted) throw new Error("შეცდომა. სცადეთ თავიდან.");
-      router.push("/dashboard");
+      if (editId) {
+        const { error: updateError } = await supabase
+          .from("properties")
+          .update(payload)
+          .eq("id", editId)
+          .eq("owner_id", user.id);
+
+        if (updateError) throw updateError;
+        router.push("/dashboard/renter");
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("properties")
+          .insert({
+            ...payload,
+            owner_id: user.id,
+            status: "pending" as Enums<"listing_status">,
+            is_for_sale: false,
+          })
+          .select("id")
+          .single();
+
+        if (insertError) throw insertError;
+        if (!inserted) throw new Error("შეცდომა. სცადეთ თავიდან.");
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
@@ -258,308 +359,320 @@ export default function CreateRentalPage() {
           submitDisabled={!isStepValid(step)}
           loading={loading}
           finalStep={isFinalStep}
-          submitLabel={isFinalStep ? "გამოქვეყნება" : "გაგრძელება"}
+          submitLabel={
+            isFinalStep
+              ? isEditMode
+                ? "შენახვა"
+                : "გამოქვეყნება"
+              : "გაგრძელება"
+          }
           error={error}
         />
       }
     >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={step}
-          initial={{ opacity: 0, x: 18 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -18 }}
-          transition={{ duration: 0.22 }}
-        >
-          {step === 0 && (
-            <WizardSection>
-              <Field label="ბინის ტიპი" required>
-                <select
-                  value={propertyType}
-                  onChange={(e) =>
-                    setPropertyType(e.target.value as Enums<"property_type">)
-                  }
-                  className={inputClass}
-                >
-                  {PROPERTY_TYPES.map((pt) => (
-                    <option key={pt.value} value={pt.value}>
-                      {pt.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="ლოკაცია" required>
-                <select
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="" disabled>
-                    აირჩიე ზონა
-                  </option>
-                  {SEARCH_LOCATION_ZONES.map((zone) => (
-                    <option key={zone} value={zone}>
-                      {zone}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="საკადასტრო კოდი">
-                <input
-                  type="text"
-                  value={cadastralCode}
-                  onChange={(e) => setCadastralCode(e.target.value)}
-                  placeholder="XX.XX.XX.XXX.XXX"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="აღწერა">
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="დეტალური აღწერა..."
-                  rows={4}
-                  className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
-                />
-              </Field>
-            </WizardSection>
-          )}
-
-          {step === 1 && (
-            <WizardSection>
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="space-y-5">
-                  <Field
-                    label="სათაური"
-                    helper={`მაქსიმუმ ${TITLE_MAX} სიმბოლო`}
-                  >
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) =>
-                        setTitle(e.target.value.slice(0, TITLE_MAX))
-                      }
-                      placeholder="მაგ: მეორე კატეგორიის დიდველზე"
-                      className={inputClass}
-                    />
-                  </Field>
-
-                  <Field label="ბინის ტიპი">
-                    <select
-                      value={propertyType}
-                      onChange={(e) =>
-                        setPropertyType(
-                          e.target.value as Enums<"property_type">,
-                        )
-                      }
-                      className={inputClass}
-                    >
-                      {PROPERTY_TYPES.map((pt) => (
-                        <option key={pt.value} value={pt.value}>
-                          {pt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-
-                  <Field label="ლოკაცია">
-                    <select
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="" disabled>
-                        აირჩიე ზონა
-                      </option>
-                      {SEARCH_LOCATION_ZONES.map((zone) => (
-                        <option key={zone} value={zone}>
-                          {zone}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-                <div className="space-y-5">
-                  <Field label="ზუსტი მდებარეობა რუკაზე">
-                    <ExactLocationPicker
-                      value={exactLocation}
-                      onChange={setExactLocation}
-                    />
-                  </Field>
-                </div>
-              </div>
-            </WizardSection>
-          )}
-
-          {step === 2 && (
-            <WizardSection title="კეთილმოწყობა და დეტალები">
-              <Field label="ბინის საერთო ფართობი (მ²)">
-                <input
-                  type="number"
-                  value={areaSqm}
-                  onChange={(e) => setAreaSqm(e.target.value)}
-                  placeholder="მაგ: 55"
-                  min="0"
-                  className={inputClass}
-                />
-              </Field>
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {AMENITY_GROUPS.map((group) => (
-                  <div key={group.key} className="space-y-3">
-                    <label className="text-[13px] font-bold text-[#334155]">
-                      {group.label}
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {group.options.map((opt) => {
-                        const active = selectedAmenities.includes(opt.key);
-                        return (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => toggleAmenity(opt.key)}
-                            className={`h-9 rounded-[10px] border px-3 text-sm transition-colors ${
-                              active
-                                ? "border-[#2563EB] bg-[#2563EB] font-semibold text-white"
-                                : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <label className="text-[13px] font-bold text-[#334155]">
-                  სახლის წესები
-                  <span className="ml-0.5 text-[#EF4444]">*</span>
-                </label>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <HouseRuleField
-                    icon={<CigaretteOff className="h-5 w-5 text-[#EF4444]" />}
-                    label="მოწევა"
-                    value={smokingAllowed}
-                    onChange={setSmokingAllowed}
-                  />
-                  <HouseRuleField
-                    icon={<PawPrint className="h-5 w-5 text-[#16A34A]" />}
-                    label="ცხოველები"
-                    value={petsAllowed}
-                    onChange={setPetsAllowed}
-                  />
-                </div>
-              </div>
-            </WizardSection>
-          )}
-
-          {step === 3 && (
-            <WizardSection>
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field label="ფასი 1 ღამეზე (GEL)">
-                  <input
-                    type="number"
-                    value={pricePerNight}
-                    onChange={(e) => setPricePerNight(e.target.value)}
-                    placeholder="150"
-                    min="1"
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="მინიმალური დღეები">
+      {hydrating ? (
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
+        </div>
+      ) : (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 18 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -18 }}
+            transition={{ duration: 0.22 }}
+          >
+            {step === 0 && (
+              <WizardSection>
+                <Field label="ბინის ტიპი" required>
                   <select
-                    value={minBookingDays}
-                    onChange={(e) => setMinBookingDays(e.target.value)}
+                    value={propertyType}
+                    onChange={(e) =>
+                      setPropertyType(e.target.value as Enums<"property_type">)
+                    }
                     className={inputClass}
                   >
-                    <option value="" disabled>
-                      აირჩიე რაოდენობა
-                    </option>
-                    {["1", "2", "3", "4", "5"].map((v) => (
-                      <option key={v} value={v}>
-                        {v === "5" ? "5+ დღე" : `${v} დღე`}
+                    {PROPERTY_TYPES.map((pt) => (
+                      <option key={pt.value} value={pt.value}>
+                        {pt.label}
                       </option>
                     ))}
                   </select>
                 </Field>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[13px] font-bold text-[#334155]">
-                  მასპინძლობის ენა
-                </label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {HOSTING_LANGS.map((lang) => {
-                    const active = hostingLangs.includes(lang.key);
-                    return (
-                      <button
-                        key={lang.key}
-                        type="button"
-                        onClick={() => toggleLang(lang.key)}
-                        className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-sm transition-colors ${
-                          active
-                            ? "border-[#2563EB] bg-[#EFF6FF] text-[#0F172A]"
-                            : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
-                        }`}
+                <Field label="ლოკაცია" required>
+                  <select
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="" disabled>
+                      აირჩიე ზონა
+                    </option>
+                    {SEARCH_LOCATION_ZONES.map((zone) => (
+                      <option key={zone} value={zone}>
+                        {zone}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="საკადასტრო კოდი">
+                  <input
+                    type="text"
+                    value={cadastralCode}
+                    onChange={(e) => setCadastralCode(e.target.value)}
+                    placeholder="XX.XX.XX.XXX.XXX"
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="აღწერა">
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="დეტალური აღწერა..."
+                    rows={4}
+                    className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+                  />
+                </Field>
+              </WizardSection>
+            )}
+
+            {step === 1 && (
+              <WizardSection>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <div className="space-y-5">
+                    <Field
+                      label="სათაური"
+                      helper={`მაქსიმუმ ${TITLE_MAX} სიმბოლო`}
+                    >
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={(e) =>
+                          setTitle(e.target.value.slice(0, TITLE_MAX))
+                        }
+                        placeholder="მაგ: მეორე კატეგორიის დიდველზე"
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="ბინის ტიპი">
+                      <select
+                        value={propertyType}
+                        onChange={(e) =>
+                          setPropertyType(
+                            e.target.value as Enums<"property_type">,
+                          )
+                        }
+                        className={inputClass}
                       >
-                        <span
-                          className={`flex size-4 items-center justify-center rounded-[4px] border ${
+                        {PROPERTY_TYPES.map((pt) => (
+                          <option key={pt.value} value={pt.value}>
+                            {pt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="ლოკაცია">
+                      <select
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="" disabled>
+                          აირჩიე ზონა
+                        </option>
+                        {SEARCH_LOCATION_ZONES.map((zone) => (
+                          <option key={zone} value={zone}>
+                            {zone}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                  <div className="space-y-5">
+                    <Field label="ზუსტი მდებარეობა რუკაზე">
+                      <ExactLocationPicker
+                        value={exactLocation}
+                        onChange={setExactLocation}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </WizardSection>
+            )}
+
+            {step === 2 && (
+              <WizardSection title="კეთილმოწყობა და დეტალები">
+                <Field label="ბინის საერთო ფართობი (მ²)">
+                  <input
+                    type="number"
+                    value={areaSqm}
+                    onChange={(e) => setAreaSqm(e.target.value)}
+                    placeholder="მაგ: 55"
+                    min="0"
+                    className={inputClass}
+                  />
+                </Field>
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {AMENITY_GROUPS.map((group) => (
+                    <div key={group.key} className="space-y-3">
+                      <label className="text-[13px] font-bold text-[#334155]">
+                        {group.label}
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {group.options.map((opt) => {
+                          const active = selectedAmenities.includes(opt.key);
+                          return (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              onClick={() => toggleAmenity(opt.key)}
+                              className={`h-9 rounded-[10px] border px-3 text-sm transition-colors ${
+                                active
+                                  ? "border-[#2563EB] bg-[#2563EB] font-semibold text-white"
+                                  : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <label className="text-[13px] font-bold text-[#334155]">
+                    სახლის წესები
+                    <span className="ml-0.5 text-[#EF4444]">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <HouseRuleField
+                      icon={<CigaretteOff className="h-5 w-5 text-[#EF4444]" />}
+                      label="მოწევა"
+                      value={smokingAllowed}
+                      onChange={setSmokingAllowed}
+                    />
+                    <HouseRuleField
+                      icon={<PawPrint className="h-5 w-5 text-[#16A34A]" />}
+                      label="ცხოველები"
+                      value={petsAllowed}
+                      onChange={setPetsAllowed}
+                    />
+                  </div>
+                </div>
+              </WizardSection>
+            )}
+
+            {step === 3 && (
+              <WizardSection>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <Field label="ფასი 1 ღამეზე (GEL)">
+                    <input
+                      type="number"
+                      value={pricePerNight}
+                      onChange={(e) => setPricePerNight(e.target.value)}
+                      placeholder="150"
+                      min="1"
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="მინიმალური დღეები">
+                    <select
+                      value={minBookingDays}
+                      onChange={(e) => setMinBookingDays(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="" disabled>
+                        აირჩიე რაოდენობა
+                      </option>
+                      {["1", "2", "3", "4", "5"].map((v) => (
+                        <option key={v} value={v}>
+                          {v === "5" ? "5+ დღე" : `${v} დღე`}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-[#334155]">
+                    მასპინძლობის ენა
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {HOSTING_LANGS.map((lang) => {
+                      const active = hostingLangs.includes(lang.key);
+                      return (
+                        <button
+                          key={lang.key}
+                          type="button"
+                          onClick={() => toggleLang(lang.key)}
+                          className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-sm transition-colors ${
                             active
-                              ? "border-[#2563EB] bg-[#2563EB]"
-                              : "border-[#CBD5E1] bg-white"
+                              ? "border-[#2563EB] bg-[#EFF6FF] text-[#0F172A]"
+                              : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
                           }`}
                         >
-                          {active && (
-                            <svg
-                              width="10"
-                              height="10"
-                              viewBox="0 0 10 10"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M1.5 5L4 7.5L8.5 3"
-                                stroke="white"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </span>
-                        {lang.label}
-                      </button>
-                    );
-                  })}
+                          <span
+                            className={`flex size-4 items-center justify-center rounded-[4px] border ${
+                              active
+                                ? "border-[#2563EB] bg-[#2563EB]"
+                                : "border-[#CBD5E1] bg-white"
+                            }`}
+                          >
+                            {active && (
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 10 10"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M1.5 5L4 7.5L8.5 3"
+                                  stroke="white"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            )}
+                          </span>
+                          {lang.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[13px] font-bold text-[#334155]">
-                    ფოტოების ატვირთვა
-                  </label>
-                  <span className="text-xs font-medium text-[#EF4444]">
-                    ⚠ გამოიყენეთ Landscape ფოტოები
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[13px] font-bold text-[#334155]">
+                      ფოტოების ატვირთვა
+                    </label>
+                    <span className="text-xs font-medium text-[#EF4444]">
+                      ⚠ გამოიყენეთ Landscape ფოტოები
+                    </span>
+                  </div>
+                  <PhotoUploader
+                    photos={photos}
+                    onPhotosChange={setPhotos}
+                    maxPhotos={10}
+                  />
                 </div>
-                <PhotoUploader
-                  photos={photos}
-                  onPhotosChange={setPhotos}
-                  maxPhotos={10}
-                />
-              </div>
-            </WizardSection>
-          )}
-        </motion.div>
-      </AnimatePresence>
+              </WizardSection>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      )}
     </WizardShell>
   );
 }

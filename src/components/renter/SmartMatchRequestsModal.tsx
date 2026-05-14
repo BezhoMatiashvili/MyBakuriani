@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Info, Send, ChevronDown, X } from "lucide-react";
-import { useEffect } from "react";
 
 export interface SmartMatchRequestItem {
   id: string;
@@ -18,11 +18,22 @@ export interface SmartMatchRequestItem {
   belowOwnerPrice?: number;
 }
 
+export interface OwnerProperty {
+  id: string;
+  title: string;
+  price: number;
+}
+
 interface SmartMatchRequestsModalProps {
   isOpen: boolean;
   onClose: () => void;
   requests: SmartMatchRequestItem[];
-  ownerProperties: Array<{ id: string; title: string; price: number }>;
+  ownerProperties: OwnerProperty[];
+  onSubmitOffer: (params: {
+    requestId: string;
+    propertyId: string;
+    offeredPrice: number;
+  }) => Promise<void> | void;
 }
 
 export default function SmartMatchRequestsModal({
@@ -30,6 +41,7 @@ export default function SmartMatchRequestsModal({
   onClose,
   requests,
   ownerProperties,
+  onSubmitOffer,
 }: SmartMatchRequestsModalProps) {
   const t = useTranslations("SmartMatchModal");
 
@@ -96,13 +108,22 @@ export default function SmartMatchRequestsModal({
               </div>
 
               {/* Request cards */}
-              {requests.map((req) => (
-                <RequestCard
-                  key={req.id}
-                  request={req}
-                  ownerProperties={ownerProperties}
-                />
-              ))}
+              {requests.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#FAFBFC] py-12 text-center">
+                  <p className="text-[13px] font-bold text-[#64748B]">
+                    ჯერ არ არის ახალი მოთხოვნები
+                  </p>
+                </div>
+              ) : (
+                requests.map((req) => (
+                  <RequestCard
+                    key={req.id}
+                    request={req}
+                    ownerProperties={ownerProperties}
+                    onSubmitOffer={onSubmitOffer}
+                  />
+                ))
+              )}
             </div>
           </motion.div>
         </div>
@@ -114,13 +135,62 @@ export default function SmartMatchRequestsModal({
 function RequestCard({
   request,
   ownerProperties,
+  onSubmitOffer,
 }: {
   request: SmartMatchRequestItem;
-  ownerProperties: Array<{ id: string; title: string; price: number }>;
+  ownerProperties: OwnerProperty[];
+  onSubmitOffer: SmartMatchRequestsModalProps["onSubmitOffer"];
 }) {
   const t = useTranslations("SmartMatchModal");
   const isHighMatch = request.matchPercent >= 90;
   const borderColor = isHighMatch ? "border-[#BBF7D0]" : "border-[#FED7AA]";
+
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(
+    ownerProperties[0]?.id ?? "",
+  );
+  const [customPrice, setCustomPrice] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const selectedProperty = ownerProperties.find(
+    (p) => p.id === selectedPropertyId,
+  );
+
+  // Reset custom price when property changes
+  useEffect(() => {
+    setCustomPrice("");
+  }, [selectedPropertyId]);
+
+  async function handleSubmit() {
+    if (!selectedProperty || submitting) return;
+    setSubmitting(true);
+    try {
+      const finalPrice = customPrice
+        ? Number(customPrice)
+        : selectedProperty.price;
+      await onSubmitOffer({
+        requestId: request.id,
+        propertyId: selectedProperty.id,
+        offeredPrice: finalPrice,
+      });
+      setSubmitted(true);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-5 text-center">
+        <p className="text-[14px] font-extrabold text-[#16A34A]">
+          ✓ შეთავაზება გაგზავნილია
+        </p>
+        <p className="mt-1 text-[12px] text-[#64748B]">
+          სტუმარი ნახავს თქვენს შეთავაზებას თავის კაბინეტში.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -175,36 +245,71 @@ function RequestCard({
         />
       </div>
 
-      <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <select
-            defaultValue=""
-            className="h-11 w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white pl-4 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-          >
-            <option value="" disabled>
-              {t("offerPropertyLabel")}
-            </option>
-            {ownerProperties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title} ({p.price}₾)
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+      {/* Custom price (always visible) */}
+      {selectedProperty && (
+        <div className="mt-4">
+          <label className="mb-1.5 block text-[11px] font-bold text-[#64748B]">
+            თქვენი ფასი (კონფიდენ-მფარული):
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              value={customPrice}
+              onChange={(e) => setCustomPrice(e.target.value)}
+              placeholder={String(selectedProperty.price)}
+              className="h-11 w-32 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[14px] font-extrabold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#0F8F60] focus:outline-none"
+            />
+            <span className="text-[12px] font-medium text-[#94A3B8]">
+              ₾ /ღამე
+            </span>
+          </div>
         </div>
-        <button
-          type="button"
-          className="h-11 rounded-xl border border-[#E2E8F0] px-5 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
-        >
-          {t("skipButton")}
-        </button>
-        <button
-          type="button"
-          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
-        >
-          <Send className="h-3.5 w-3.5" />
-          {t("sendButton")}
-        </button>
+      )}
+
+      {/* Property picker + send */}
+      <div className="mt-4">
+        <p className="mb-1.5 text-[11px] font-bold text-[#64748B]">
+          აირჩიეთ ბინა შესათავაზებლად:
+        </p>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <select
+              value={selectedPropertyId}
+              onChange={(e) => setSelectedPropertyId(e.target.value)}
+              className="h-11 w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white pl-4 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+            >
+              {ownerProperties.length === 0 && (
+                <option value="">— ჯერ არ გაქვთ ობიექტი —</option>
+              )}
+              {ownerProperties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title} ({p.price}₾)
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+          </div>
+          <button
+            type="button"
+            className="h-11 rounded-xl border border-[#E2E8F0] px-4 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+          >
+            {t("skipButton")}
+          </button>
+          <button
+            type="button"
+            disabled={!selectedProperty || submitting}
+            onClick={handleSubmit}
+            className={`flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-[13px] font-bold text-white transition-colors disabled:opacity-50 ${
+              isHighMatch
+                ? "bg-[#0F8F60] hover:bg-[#0B7A52]"
+                : "bg-[#F97316] hover:bg-[#EA680C]"
+            }`}
+          >
+            <Send className="h-3.5 w-3.5" />
+            {submitting ? "გაგზავნა..." : "გავუგზავნე"}
+          </button>
+        </div>
       </div>
     </div>
   );

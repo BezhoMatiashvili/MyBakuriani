@@ -16,6 +16,9 @@ const Navbar = dynamic(() =>
 const Footer = dynamic(() =>
   import("@/components/layout/Footer").then((mod) => mod.Footer),
 );
+const StickyNewsBar = dynamic(() =>
+  import("@/components/layout/StickyNewsBar").then((mod) => mod.StickyNewsBar),
+);
 
 function isDashboardRoute(pathname: string) {
   return /(^|\/)dashboard(\/|$)/.test(pathname);
@@ -46,6 +49,7 @@ export function LocaleShell({ children }: LocaleShellProps) {
       <>
         <main className="flex-1">{children}</main>
         <Footer />
+        <StickyNewsBar />
       </>
     );
   }
@@ -55,6 +59,7 @@ export function LocaleShell({ children }: LocaleShellProps) {
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
+      <StickyNewsBar />
     </HomeListingModeProvider>
   );
 }

@@ -268,15 +268,6 @@ export default function SaleLandingBody({
               onShowMapChange={setShowMap}
             />
           </div>
-
-          <p className="mt-5 text-[13px] font-medium text-[#CBD5E1]">
-            ან ვაცადოთ{" "}
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.5px] text-[#FDBA74]">
-              <Sparkles className="size-3" />
-              AI Smart Match
-            </span>{" "}
-            და მოგვცეს რეკომენდაცია
-          </p>
         </div>
       </section>
 

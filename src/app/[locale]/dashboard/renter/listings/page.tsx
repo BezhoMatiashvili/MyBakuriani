@@ -248,9 +248,11 @@ export default function RenterListingsPage() {
                       <Eye className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Button variant="outline" size="icon-sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <Link href={`/create/rental?edit=${property.id}`}>
+                    <Button variant="outline" size="icon-sm">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </motion.div>

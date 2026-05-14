@@ -425,13 +425,13 @@ function PropertyRow({
               საწევრო
             </button>
           )}
-          <button
-            type="button"
+          <Link
+            href={`/create/rental?edit=${property.id}`}
             className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[12px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
           >
             <Pencil className="h-3.5 w-3.5" />
             რედაქტირება
-          </button>
+          </Link>
         </div>
       </div>
 

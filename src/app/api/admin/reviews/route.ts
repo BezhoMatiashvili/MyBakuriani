@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   let query = db
     .from("reviews")
     .select(
-      "*, guest:profiles!reviews_guest_id_fkey(display_name, phone), property:properties!reviews_property_id_fkey(title)",
+      "*, guest:profiles!reviews_guest_id_fkey(display_name, phone), property:properties!reviews_property_id_fkey(title), booking:bookings!reviews_booking_id_fkey(id, check_in, check_out)",
     )
     .order("created_at", { ascending: false });
 

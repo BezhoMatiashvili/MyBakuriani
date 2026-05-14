@@ -1,12 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { EyeOff, Loader2, Sparkles, Trash2, Check } from "lucide-react";
+import {
+  EyeOff,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Check,
+  Link as LinkIcon,
+  Hand,
+  Calendar,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface AdminReview {
   id: string;
+  booking_id: string | null;
   rating: number;
   comment: string | null;
   created_at: string | null;
@@ -17,6 +27,7 @@ interface AdminReview {
   moderation_notes: string | null;
   guest: { display_name: string; phone: string } | null;
   property: { title: string } | null;
+  booking: { id: string; check_in: string; check_out: string } | null;
 }
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
@@ -112,10 +123,10 @@ export default function ReviewsPage() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
-            QR შეფასებების მოდერაცია
+            შეფასებების მოდერაცია
           </h1>
           <p className="text-[14px] font-medium leading-[21px] text-[#64748B]">
-            კომენტარების სემანტიკური აუდიტი (AI) •{" "}
+            სტუმრების ბმულით მიღებული შეფასებების მოდერაცია •{" "}
             {pendingCount > 0
               ? `${pendingCount} მოლოდინში`
               : "ახალი შეფასება არ არის"}
@@ -179,8 +190,25 @@ export default function ReviewsPage() {
                     <p className="text-[13px] font-semibold text-[#1E293B]">
                       {review.rating}/5 ★
                     </p>
+                    {review.booking && (
+                      <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#64748B]">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {review.booking.check_in} – {review.booking.check_out}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    {review.booking_id ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.8px] text-[#C2410C]">
+                        <LinkIcon className="h-3 w-3" />
+                        ბმულით
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.8px] text-[#64748B]">
+                        <Hand className="h-3 w-3" />
+                        ხელით
+                      </span>
+                    )}
                     <span
                       className={`rounded-lg px-3 py-1 text-xs font-extrabold uppercase tracking-[1.2px] ${
                         STATUS_BADGES[review.status] ?? STATUS_BADGES.pending

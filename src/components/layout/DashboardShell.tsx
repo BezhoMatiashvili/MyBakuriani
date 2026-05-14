@@ -179,7 +179,7 @@ export function DashboardShell({
           avatarUrl={avatarUrl ?? undefined}
           isVerified
           notificationCount={notificationCount}
-          qrAlert
+          pendingReviewsAlert={false}
           smartMatchCount={smartMatchCount}
           currentPath={pathname}
           onSignOut={handleSignOut}
