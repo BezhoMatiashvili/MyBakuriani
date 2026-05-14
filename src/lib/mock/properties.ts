@@ -384,7 +384,54 @@ export const MOCK_SALES: MockSaleCard[] = [
 
 const USD_TO_GEL = 2.7;
 
-const MOCK_PROPERTY_PATTERN = /^(prop|hotel|apt|sale)-\d+$/;
+export type MockFeaturedCard = MockSaleCard & { description: string };
+
+export const MOCK_FEATURED_SALES: MockFeaturedCard[] = [
+  {
+    id: "featured-mziuri",
+    title: "Mziuri Gardens • პრემიუმ ვილა",
+    location: "ბაკურიანის ცენტრი",
+    photos: [
+      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&h=900&fit=crop",
+    ],
+    priceUsd: 280_000,
+    area: 185,
+    rooms: 5,
+    roi: 12,
+    description:
+      "სრულად გარემონტებული, ევროპული სტანდარტის ვილა და ჩართული ავეჯით. კომპლექსში მოქმედებს 5-ვარსკვლავიანი ინფრასტრუქტურა.",
+  },
+  {
+    id: "featured-didveli",
+    title: "Didveli Heights • პრემიუმ აპარტამენტი",
+    location: "დიდველი, 80 მ ტრასამდე",
+    photos: [
+      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1400&h=900&fit=crop",
+    ],
+    priceUsd: 195_000,
+    area: 120,
+    rooms: 3,
+    roi: 14,
+    description:
+      "სათხილამურო ტრასასთან, პანორამული ხედით კოხტას მთაზე. გარემონტებული Smart-Home სისტემით და ცენტრალური გათბობით.",
+  },
+  {
+    id: "featured-kokhta",
+    title: "Kokhta Suites • A-Frame კომპლექსი",
+    location: "კოხტა, ტყის პირას",
+    photos: [
+      "https://images.unsplash.com/photo-1518602164578-cd0074062767?w=1400&h=900&fit=crop",
+    ],
+    priceUsd: 145_000,
+    area: 95,
+    rooms: 2,
+    roi: 16,
+    description:
+      "მოდერნული A-Frame არქიტექტურა, ბუხრით და ფართო ტერასით. იდეალური მცირე-ოჯახური ან Airbnb ინვესტიციისთვის.",
+  },
+];
+
+const MOCK_PROPERTY_PATTERN = /^(prop|hotel|apt|sale)-\d+$|^featured-[a-z]+$/;
 
 export function isMockPropertyId(id: string): boolean {
   return MOCK_PROPERTY_PATTERN.test(id);
@@ -448,7 +495,10 @@ function buildMockProperty(
   };
 }
 
-function buildMockSaleProperty(source: MockSaleCard): PropertyWithProfile {
+function buildMockSaleProperty(
+  source: MockSaleCard,
+  description: string | null = null,
+): PropertyWithProfile {
   const epoch = new Date(0).toISOString();
   return {
     amenities: null,
@@ -460,7 +510,7 @@ function buildMockSaleProperty(source: MockSaleCard): PropertyWithProfile {
     construction_status: null,
     created_at: epoch,
     currency: "GEL",
-    description: null,
+    description,
     developer: null,
     discount_percent: 0,
     distance_to_slope_m: null,
@@ -508,6 +558,10 @@ export function getMockProperty(id: string): PropertyWithProfile | null {
   if (id.startsWith("sale-")) {
     const item = MOCK_SALES.find((s) => s.id === id);
     return item ? buildMockSaleProperty(item) : null;
+  }
+  if (id.startsWith("featured-")) {
+    const item = MOCK_FEATURED_SALES.find((s) => s.id === id);
+    return item ? buildMockSaleProperty(item, item.description) : null;
   }
   if (id.startsWith("prop-")) {
     const item = MOCK_PROPERTIES.find((p) => p.id === id);

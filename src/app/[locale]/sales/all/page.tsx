@@ -75,6 +75,7 @@ export default async function SalesGridPage({ searchParams }: Props) {
       initialAmenities={toCsv(sp.amenities)}
       initialPayment={toCsv(sp.payment)}
       initialDevelopers={toCsv(sp.developer)}
+      initialSellerTypes={toCsv(sp.seller)}
       initialRoiMin={initialRoiMin}
       initialConstruction={initialConstruction}
       initialRenovation={initialRenovation}

@@ -35,6 +35,7 @@ export interface SaleSearchFilters {
   amenities: string[];
   payment: string[];
   developers: string[];
+  sellerTypes: string[];
   // Investment-mode quick filters (from the 4-dropdown row):
   roiMin: number | null; // 5 | 8 | 10 | null
   constructionStatus: string | null; // "completed" | "under_construction" | null
@@ -101,6 +102,14 @@ const DEVELOPER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "Crystal Resort", label: "Crystal Resort" },
   { value: "Mountain Dev Group", label: "Mountain Dev Group" },
   { value: "Bakuriani Invest", label: "Bakuriani Invest" },
+];
+
+const SELLER_TYPE_OPTIONS: Array<{
+  value: "developer" | "individual";
+  label: string;
+}> = [
+  { value: "developer", label: "დეველოპერი" },
+  { value: "individual", label: "ფიზიკური პირი" },
 ];
 
 // Investment quick-filter options (from Figma)
@@ -195,6 +204,7 @@ export function SaleSearchBox({
   const [amenities, setAmenities] = useState<string[]>([]);
   const [payment, setPayment] = useState<string[]>([]);
   const [developers, setDevelopers] = useState<string[]>([]);
+  const [sellerTypes, setSellerTypes] = useState<string[]>([]);
   const [internalShowMap, setInternalShowMap] = useState(false);
   const showMap = showMapProp ?? internalShowMap;
   const handleMapToggle = useCallback(() => {
@@ -274,6 +284,7 @@ export function SaleSearchBox({
     setAmenities([]);
     setPayment([]);
     setDevelopers([]);
+    setSellerTypes([]);
   }, []);
 
   const priceMinNum = priceMin ? Number(priceMin) || DEFAULT_PRICE_MIN : 0;
@@ -390,6 +401,7 @@ export function SaleSearchBox({
       amenities,
       payment,
       developers,
+      sellerTypes,
       roiMin,
       constructionStatus,
       renovationStatus,
@@ -427,7 +439,8 @@ export function SaleSearchBox({
     (areaMin !== DEFAULT_AREA_MIN || areaMax !== DEFAULT_AREA_MAX ? 1 : 0) +
     amenities.length +
     payment.length +
-    developers.length;
+    developers.length +
+    sellerTypes.length;
 
   const appraisalZoneLabel = appraisalZone || "აირჩიე ზონა";
 
@@ -887,6 +900,12 @@ export function SaleSearchBox({
             onToggleDeveloper={(v) =>
               setDevelopers((prev) =>
                 prev.includes(v) ? prev.filter((d) => d !== v) : [...prev, v],
+              )
+            }
+            sellerTypes={sellerTypes}
+            onToggleSellerType={(v) =>
+              setSellerTypes((prev) =>
+                prev.includes(v) ? prev.filter((s) => s !== v) : [...prev, v],
               )
             }
             onReset={resetFilters}
@@ -1396,6 +1415,8 @@ function FiltersPanel({
   onTogglePayment,
   developers,
   onToggleDeveloper,
+  sellerTypes,
+  onToggleSellerType,
   onReset,
   onApply,
 }: {
@@ -1421,11 +1442,37 @@ function FiltersPanel({
   onTogglePayment: (v: string) => void;
   developers: string[];
   onToggleDeveloper: (v: string) => void;
+  sellerTypes: string[];
+  onToggleSellerType: (v: string) => void;
   onReset: () => void;
   onApply: () => void;
 }) {
   return (
     <div className="text-left">
+      <p className="mb-3 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
+        გამყიდველი
+      </p>
+      <div className="mb-6 flex flex-wrap gap-2">
+        {SELLER_TYPE_OPTIONS.map((s) => {
+          const checked = sellerTypes.includes(s.value);
+          return (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => onToggleSellerType(s.value)}
+              className={cn(
+                "h-9 rounded-full px-4 text-[13px] font-bold transition-colors",
+                checked
+                  ? "bg-[#1E419A] text-white"
+                  : "border border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#1E419A] hover:text-[#1E419A]",
+              )}
+            >
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+
       <p className="mb-3 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
         სტატუსი
       </p>

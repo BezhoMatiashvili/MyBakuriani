@@ -110,10 +110,13 @@ export default function RenterCalendarPage() {
   }>({ checkIn: "", checkOut: "" });
   const [rangeModalOpen, setRangeModalOpen] = useState(false);
 
-  // Multi-day selection state
-  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
-  const [selectionHover, setSelectionHover] = useState<string | null>(null);
+  // Multi-day selection — non-contiguous committed set + transient drag preview
+  const [selectedSet, setSelectedSet] = useState<Set<string>>(new Set());
+  const [dragAnchor, setDragAnchor] = useState<string | null>(null);
+  const [dragHover, setDragHover] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragMoved, setDragMoved] = useState(false);
+  const suppressClickRef = useRef(false);
   const [priceInput, setPriceInput] = useState("");
   const [savingPrice, setSavingPrice] = useState(false);
 
@@ -234,18 +237,6 @@ export default function RenterCalendarPage() {
     return () => document.removeEventListener("mousedown", handle);
   }, [propertyOpen]);
 
-  // End drag on mouseup anywhere
-  useEffect(() => {
-    if (!isDragging) return;
-    const handler = () => setIsDragging(false);
-    document.addEventListener("mouseup", handler);
-    document.addEventListener("touchend", handler);
-    return () => {
-      document.removeEventListener("mouseup", handler);
-      document.removeEventListener("touchend", handler);
-    };
-  }, [isDragging]);
-
   const blocksByDate = useMemo(() => {
     const map = new Map<string, CalendarBlock>();
     calendarBlocks.forEach((b) => map.set(b.date, b));
@@ -257,6 +248,38 @@ export default function RenterCalendarPage() {
     priceOverrides.forEach((o) => map.set(o.date, Number(o.price)));
     return map;
   }, [priceOverrides]);
+
+  // Commit drag on mouseup/touchend anywhere. A drag (cursor moved between cells)
+  // adds the whole range to `selectedSet` and suppresses the trailing click; a
+  // pure click without movement falls through to `handleCellClick` for toggling.
+  useEffect(() => {
+    if (!isDragging) return;
+    const handler = () => {
+      if (dragAnchor && dragMoved) {
+        const range = datesInRange(dragAnchor, dragHover ?? dragAnchor);
+        setSelectedSet((prev) => {
+          const next = new Set(prev);
+          for (const d of range) {
+            const b = blocksByDate.get(d);
+            if (b?.status === "booked" || b?.status === "blocked") continue;
+            next.add(d);
+          }
+          return next;
+        });
+        suppressClickRef.current = true;
+      }
+      setIsDragging(false);
+      setDragAnchor(null);
+      setDragHover(null);
+      setDragMoved(false);
+    };
+    document.addEventListener("mouseup", handler);
+    document.addEventListener("touchend", handler);
+    return () => {
+      document.removeEventListener("mouseup", handler);
+      document.removeEventListener("touchend", handler);
+    };
+  }, [isDragging, dragAnchor, dragHover, dragMoved, blocksByDate]);
 
   const selectedProperty = properties.find((p) => p.id === selectedPropertyId);
   const basePrice = selectedProperty?.price_per_night ?? 0;
@@ -318,21 +341,29 @@ export default function RenterCalendarPage() {
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
   // ── Selection helpers ────────────────────────────────────────────────
-  const selectedDates = useMemo<string[]>(() => {
-    if (!selectionAnchor) return [];
-    if (!selectionHover) return [selectionAnchor];
-    return datesInRange(selectionAnchor, selectionHover);
-  }, [selectionAnchor, selectionHover]);
 
-  const selectedSet = useMemo(() => new Set(selectedDates), [selectedDates]);
+  // Live preview of the in-flight drag range (inclusive, no booked/blocked filter yet).
+  const dragRange = useMemo<string[]>(() => {
+    if (!isDragging || !dragAnchor) return [];
+    return datesInRange(dragAnchor, dragHover ?? dragAnchor);
+  }, [isDragging, dragAnchor, dragHover]);
 
+  // What the calendar should render as "selected": committed set ∪ drag preview.
+  const displaySet = useMemo(() => {
+    if (dragRange.length === 0) return selectedSet;
+    const merged = new Set(selectedSet);
+    for (const d of dragRange) merged.add(d);
+    return merged;
+  }, [selectedSet, dragRange]);
+
+  // Dates the user can act on — strip booked/blocked from the merged set.
   const selectableDates = useMemo(
     () =>
-      selectedDates.filter((dateStr) => {
+      Array.from(displaySet).filter((dateStr) => {
         const b = blocksByDate.get(dateStr);
         return !(b?.status === "booked" || b?.status === "blocked");
       }),
-    [selectedDates, blocksByDate],
+    [displaySet, blocksByDate],
   );
 
   const avgCurrentPrice = useMemo(() => {
@@ -345,37 +376,44 @@ export default function RenterCalendarPage() {
   }, [selectableDates, overridesByDate, basePrice]);
 
   const clearSelection = () => {
-    setSelectionAnchor(null);
-    setSelectionHover(null);
+    setSelectedSet(new Set());
+    setDragAnchor(null);
+    setDragHover(null);
+    setIsDragging(false);
+    setDragMoved(false);
+    suppressClickRef.current = false;
     setPriceInput("");
   };
 
   const handleCellMouseDown = (dateStr: string, status: DayMeta["status"]) => {
     if (status !== "free") return;
+    // Reset any stale suppress flag from a drag that ended outside the grid.
+    suppressClickRef.current = false;
     setIsDragging(true);
-    setSelectionAnchor(dateStr);
-    setSelectionHover(dateStr);
-    setPriceInput("");
+    setDragAnchor(dateStr);
+    setDragHover(dateStr);
+    setDragMoved(false);
   };
 
   const handleCellMouseEnter = (dateStr: string) => {
-    if (!isDragging || !selectionAnchor) return;
-    setSelectionHover(dateStr);
+    if (!isDragging || !dragAnchor) return;
+    if (dateStr !== dragAnchor) setDragMoved(true);
+    setDragHover(dateStr);
   };
 
   const handleCellClick = (dateStr: string, status: DayMeta["status"]) => {
-    if (status !== "free") return;
-    // On touch / non-drag environments: tap-start, tap-end fallback
-    if (isDragging) return;
-    if (!selectionAnchor) {
-      setSelectionAnchor(dateStr);
-      setSelectionHover(dateStr);
-    } else if (!selectionHover || selectionAnchor === selectionHover) {
-      setSelectionHover(dateStr);
-    } else {
-      setSelectionAnchor(dateStr);
-      setSelectionHover(dateStr);
+    // A real drag already committed via mouseup; swallow the trailing click.
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
     }
+    if (status !== "free") return;
+    setSelectedSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) next.delete(dateStr);
+      else next.add(dateStr);
+      return next;
+    });
   };
 
   const applyPrice = async () => {
@@ -579,7 +617,7 @@ export default function RenterCalendarPage() {
             meta={d}
             isBottomRow={i >= 35}
             isRightCol={d.weekendIndex === 6}
-            isSelected={selectedSet.has(d.date) && d.inMonth}
+            isSelected={displaySet.has(d.date) && d.inMonth}
             onMouseDown={() => handleCellMouseDown(d.date, d.status)}
             onMouseEnter={() => handleCellMouseEnter(d.date)}
             onClick={() => {
@@ -597,8 +635,8 @@ export default function RenterCalendarPage() {
       </motion.div>
 
       <p className="text-[11px] text-[#94A3B8] md:text-[12px]">
-        💡 დღეების ფასის შესაცვლელად დააჭირეთ და გადაიტანეთ მაუსი ან აირჩიეთ
-        პირველი და ბოლო დღე. ჯავშნის დასამატებლად — ორმაგი დაკლიკება.
+        💡 აირჩიეთ დღეები დაკლიკით (შეიძლება არამიმდევრობით) ან გადაიტანეთ მაუსი
+        დიაპაზონისთვის. ჯავშნის დასამატებლად — ორმაგი დაკლიკება.
       </p>
 
       {/* Selection action bar */}

@@ -27,6 +27,7 @@ interface Props {
   initialAmenities?: string[];
   initialPayment?: string[];
   initialDevelopers?: string[];
+  initialSellerTypes?: string[];
   initialRoiMin?: number;
   initialConstruction?: string;
   initialRenovation?: string;
@@ -60,6 +61,7 @@ export default function SalesGridClient({
   initialAmenities,
   initialPayment,
   initialDevelopers,
+  initialSellerTypes,
   initialRoiMin,
   initialConstruction,
   initialRenovation,
@@ -146,6 +148,17 @@ export default function SalesGridClient({
         (p) => p.developer && initialDevelopers.includes(p.developer),
       );
     }
+    if (initialSellerTypes && initialSellerTypes.length > 0) {
+      const wantsDeveloper = initialSellerTypes.includes("developer");
+      const wantsIndividual = initialSellerTypes.includes("individual");
+      if (wantsDeveloper !== wantsIndividual) {
+        list = list.filter((p) =>
+          wantsDeveloper
+            ? p.developer != null && p.developer !== ""
+            : !p.developer,
+        );
+      }
+    }
     if (initialRoiMin != null) {
       list = list.filter(
         (p) => p.roi_percent != null && Number(p.roi_percent) >= initialRoiMin,
@@ -186,6 +199,7 @@ export default function SalesGridClient({
     initialAmenities,
     initialPayment,
     initialDevelopers,
+    initialSellerTypes,
     initialRoiMin,
     initialConstruction,
     initialRenovation,

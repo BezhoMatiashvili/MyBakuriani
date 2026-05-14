@@ -179,6 +179,7 @@ export default function SaleLandingBody({
       if (sf.payment.length) params.set("payment", sf.payment.join(","));
       if (sf.developers.length)
         params.set("developer", sf.developers.join(","));
+      if (sf.sellerTypes.length) params.set("seller", sf.sellerTypes.join(","));
       if (sf.roiMin != null) params.set("roi_min", String(sf.roiMin));
       if (sf.constructionStatus)
         params.set("construction", sf.constructionStatus);

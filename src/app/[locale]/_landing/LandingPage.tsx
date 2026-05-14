@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Plus, Video } from "lucide-react";
+import { ArrowRight, Car, Mountain, Plus, Video } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -17,10 +17,6 @@ import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import SaleLandingBody from "./SaleLandingBody";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
-import {
-  SEARCH_LOCATION_ZONES,
-  type SearchLocationZone,
-} from "@/lib/constants/locations";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -48,7 +44,6 @@ interface LandingPageProps {
   vipProperties?: Tables<"properties">[];
   services?: Tables<"services">[];
   blogPosts?: Tables<"blog_posts">[];
-  pricePerSqmByZone?: Partial<Record<SearchLocationZone, number | null>>;
 }
 
 const MOCK_BLOG_POSTS = [
@@ -81,11 +76,6 @@ const MOCK_BLOG_POSTS = [
   },
 ];
 
-function formatPricePerSqm(avg: number | null | undefined): string {
-  if (avg == null || !Number.isFinite(avg)) return "—";
-  return `${Math.round(avg).toLocaleString("en-US")} ₾/მ²`;
-}
-
 // ─── Component ───────────────────────────────────────────────────────────
 
 export default function LandingPage({
@@ -95,12 +85,7 @@ export default function LandingPage({
   vipProperties: serverVipProperties,
   services: serverServices,
   blogPosts: serverBlogPosts,
-  pricePerSqmByZone,
 }: LandingPageProps = {}) {
-  const districtCards = SEARCH_LOCATION_ZONES.map((zone) => ({
-    label: zone,
-    value: formatPricePerSqm(pricePerSqmByZone?.[zone]),
-  }));
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
@@ -391,23 +376,52 @@ export default function LandingPage({
             ) : null}
           </div>
 
-          {/* District avg ₾/m² cards — always visible; floating dropdown overlays them */}
+          {/* Rental status cards — weather / lifts / road / cameras */}
           <div className="mt-8 grid grid-cols-2 gap-4 sm:-mb-[42px] sm:grid-cols-4">
-            {districtCards.map((card) => (
-              <div
-                key={card.label}
-                className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]"
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                    {card.label}
-                  </span>
-                  <span className="text-[20px] font-black leading-[28px] text-white">
-                    {card.value}
-                  </span>
-                </div>
+            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                  ამინდი
+                </span>
+                <span className="text-[20px] font-black leading-[28px] text-white">
+                  -4°C
+                </span>
               </div>
-            ))}
+            </div>
+            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                  საბაგიროები
+                </span>
+                <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
+                  3/5 ღია
+                  <Mountain className="size-[18px] text-[#CBD5E1]" />
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                  გზა თბილისიდან
+                </span>
+                <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
+                  თავისუფალი
+                  <Car className="size-[18px] text-[#CBD5E1]" />
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
+              <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                  <span className="size-2 rounded-full bg-[#EF4444]" />
+                  კამერები
+                </span>
+                <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
+                  2 ლოკაცია
+                  <Video className="size-[18px] text-[#CBD5E1]" />
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
