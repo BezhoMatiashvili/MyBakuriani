@@ -10,6 +10,7 @@ import {
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
+import { sumNightlyPrice, type PriceOverride } from "@/lib/utils/pricing";
 import {
   differenceInDays,
   format,
@@ -51,6 +52,7 @@ interface BookingSidebarProps {
   maxGuests?: number;
   perPersonPricing?: boolean;
   showGuestCount?: boolean;
+  priceOverrides?: PriceOverride[];
 }
 
 /* ── Inline mini-calendar (rendered inside the sidebar dropdown) ── */
@@ -181,6 +183,7 @@ export function BookingSidebar({
   maxGuests = 10,
   perPersonPricing = false,
   showGuestCount = true,
+  priceOverrides,
 }: BookingSidebarProps) {
   const { start, end } = selectedRange;
   const nights = start && end ? differenceInDays(end, start) : 0;
@@ -188,8 +191,15 @@ export function BookingSidebar({
   const [guestCount, setGuestCount] = useState(1);
   const [guestDropdownOpen, setGuestDropdownOpen] = useState(false);
   const guestMultiplier = perPersonPricing ? guestCount : 1;
-  const subtotal = nights > 0 ? nights * pricePerNight * guestMultiplier : 0;
+  const nightlySum =
+    nights > 0 && start && end
+      ? sumNightlyPrice(start, end, pricePerNight, priceOverrides)
+      : 0;
+  const subtotal = nightlySum * guestMultiplier;
   const total = subtotal;
+  const avgNightly =
+    nights > 0 ? Math.round(nightlySum / nights) : pricePerNight;
+  const hasMixedPricing = nights > 0 && nightlySum !== nights * pricePerNight;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<HTMLDivElement>(null);
 
@@ -326,7 +336,9 @@ export function BookingSidebar({
           <div className="mt-5 space-y-2">
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-[#64748B]">
-                {formatPrice(pricePerNight)} x {nights} ღამე
+                {hasMixedPricing
+                  ? `≈${formatPrice(avgNightly)} x ${nights} ღამე`
+                  : `${formatPrice(pricePerNight)} x ${nights} ღამე`}
                 {showGuestCount && perPersonPricing
                   ? ` x ${guestCount} ადამიანი`
                   : ""}
@@ -335,6 +347,11 @@ export function BookingSidebar({
                 {formatPrice(subtotal)}
               </span>
             </div>
+            {hasMixedPricing && (
+              <p className="text-[11px] font-medium text-[#94A3B8]">
+                ფასი იცვლება დღეების მიხედვით
+              </p>
+            )}
             <div className="border-t border-[#E2E8F0] pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-black italic text-[#1E293B]">

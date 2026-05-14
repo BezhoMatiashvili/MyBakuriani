@@ -27,6 +27,8 @@ import {
   Hotel,
   ChevronDown,
   ChevronUp,
+  CigaretteOff,
+  PawPrint,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
@@ -83,10 +85,16 @@ interface CalendarBlock {
   status: string;
 }
 
+interface PriceOverrideRow {
+  date: string;
+  price: number;
+}
+
 interface Props {
   property: PropertyWithOwner;
   reviews: ReviewWithGuest[];
   calendarBlocks: CalendarBlock[];
+  priceOverrides?: PriceOverrideRow[];
 }
 
 const fadeIn = {
@@ -99,6 +107,7 @@ export default function ApartmentDetailClient({
   property,
   reviews,
   calendarBlocks,
+  priceOverrides = [],
 }: Props) {
   const router = useRouter();
   const [selectedRange, setSelectedRange] = useState<{
@@ -115,18 +124,28 @@ export default function ApartmentDetailClient({
   const owner = property.profiles;
   const amenities = (property.amenities ?? []) as string[];
   const houseRulesObj = (property.house_rules ?? {}) as Record<string, unknown>;
+  const smokingRule =
+    typeof houseRulesObj.smoking === "boolean"
+      ? (houseRulesObj.smoking as boolean)
+      : null;
+  const petsRule =
+    typeof houseRulesObj.pets === "boolean"
+      ? (houseRulesObj.pets as boolean)
+      : null;
   const houseRulesLabels: Record<string, string> = {
-    smoking: "მოწევა",
-    pets: "შინაური ცხოველები",
     check_in: "შესვლა",
     check_out: "გასვლა",
   };
-  const houseRules = Object.entries(houseRulesObj).map(([key, value]) => {
-    const label = houseRulesLabels[key] ?? key;
-    if (typeof value === "boolean")
-      return `${label}: ${value ? "დიახ" : "არა"}`;
-    return `${label}: ${value}`;
-  });
+  const extraHouseRules = Object.entries(houseRulesObj)
+    .filter(([key]) => key in houseRulesLabels)
+    .map(([key, value]) => {
+      const label = houseRulesLabels[key] ?? key;
+      if (typeof value === "boolean")
+        return `${label}: ${value ? "დიახ" : "არა"}`;
+      return `${label}: ${value}`;
+    });
+  const showHouseRules =
+    smokingRule !== null || petsRule !== null || extraHouseRules.length > 0;
   const avgRating =
     reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
@@ -330,22 +349,42 @@ export default function ApartmentDetailClient({
           </motion.div>
 
           {/* House Rules */}
-          {houseRules.length > 0 && (
+          {showHouseRules && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 სახლის წესები
               </h2>
-              <ul className="space-y-2">
-                {houseRules.map((rule, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-[14px] text-[#64748B]"
-                  >
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-accent" />
-                    {String(rule)}
-                  </li>
-                ))}
-              </ul>
+              {(smokingRule !== null || petsRule !== null) && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {smokingRule !== null && (
+                    <HouseRuleCard
+                      icon={<CigaretteOff className="h-5 w-5 text-[#EF4444]" />}
+                      label="მოწევა"
+                      value={smokingRule}
+                    />
+                  )}
+                  {petsRule !== null && (
+                    <HouseRuleCard
+                      icon={<PawPrint className="h-5 w-5 text-[#16A34A]" />}
+                      label="ცხოველები"
+                      value={petsRule}
+                    />
+                  )}
+                </div>
+              )}
+              {extraHouseRules.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {extraHouseRules.map((rule, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-[14px] text-[#64748B]"
+                    >
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-accent" />
+                      {String(rule)}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </motion.div>
           )}
 
@@ -429,6 +468,7 @@ export default function ApartmentDetailClient({
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}
               showGuestCount={false}
+              priceOverrides={priceOverrides}
             />
           )}
         </motion.div>
@@ -446,6 +486,32 @@ export default function ApartmentDetailClient({
           }
         />
       )}
+    </div>
+  );
+}
+
+function HouseRuleCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
+        {icon}
+      </div>
+      <div className="flex flex-col">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+          {label}
+        </span>
+        <span className="text-[15px] font-bold leading-snug text-[#0F172A]">
+          {value ? "დაშვებულია" : "აკრძალულია"}
+        </span>
+      </div>
     </div>
   );
 }

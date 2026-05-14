@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
+import { CigaretteOff, PawPrint } from "lucide-react";
 import {
   WizardShell,
   WizardSection,
@@ -126,11 +127,13 @@ export default function CreateRentalPage() {
     lng: number;
   } | null>(null);
 
-  // Step 3: amenities + dimensions
+  // Step 3: amenities + dimensions + house rules
   const [areaSqm, setAreaSqm] = useState("");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
     "ski_storage",
   ]);
+  const [smokingAllowed, setSmokingAllowed] = useState<boolean | null>(null);
+  const [petsAllowed, setPetsAllowed] = useState<boolean | null>(null);
 
   // Step 4: pricing + photos
   const [pricePerNight, setPricePerNight] = useState("150");
@@ -153,7 +156,7 @@ export default function CreateRentalPage() {
   const isStepValid = (s: number): boolean => {
     if (s === 0) return !!propertyType && !!location;
     if (s === 1) return !!title.trim();
-    if (s === 2) return true;
+    if (s === 2) return smokingAllowed !== null && petsAllowed !== null;
     if (s === 3) {
       const priceNum = Number(pricePerNight);
       return Number.isFinite(priceNum) && priceNum > 0;
@@ -175,6 +178,10 @@ export default function CreateRentalPage() {
       const priceNum = Number(pricePerNight);
       if (!Number.isFinite(priceNum) || priceNum <= 0 || priceNum > 100000) {
         throw new Error("არასწორი ფასი");
+      }
+
+      if (smokingAllowed === null || petsAllowed === null) {
+        throw new Error("აირჩიეთ სახლის წესები");
       }
 
       const parseOptionalPositive = (v: string): number | null => {
@@ -204,6 +211,8 @@ export default function CreateRentalPage() {
           amenities: selectedAmenities,
           house_rules: {
             hosting_langs: hostingLangs,
+            smoking: smokingAllowed,
+            pets: petsAllowed,
           },
           price_per_night: priceNum,
           min_booking_days: minBookingNum,
@@ -426,6 +435,27 @@ export default function CreateRentalPage() {
                   </div>
                 ))}
               </div>
+
+              <div className="space-y-4 pt-2">
+                <label className="text-[13px] font-bold text-[#334155]">
+                  სახლის წესები
+                  <span className="ml-0.5 text-[#EF4444]">*</span>
+                </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <HouseRuleField
+                    icon={<CigaretteOff className="h-5 w-5 text-[#EF4444]" />}
+                    label="მოწევა"
+                    value={smokingAllowed}
+                    onChange={setSmokingAllowed}
+                  />
+                  <HouseRuleField
+                    icon={<PawPrint className="h-5 w-5 text-[#16A34A]" />}
+                    label="ცხოველები"
+                    value={petsAllowed}
+                    onChange={setPetsAllowed}
+                  />
+                </div>
+              </div>
             </WizardSection>
           )}
 
@@ -560,6 +590,55 @@ function Field({
           {helper}
         </p>
       )}
+    </div>
+  );
+}
+
+function HouseRuleField({
+  icon,
+  label,
+  value,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: boolean | null;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
+        {icon}
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+          {label}
+        </span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onChange(true)}
+            className={`h-8 rounded-[10px] border px-3 text-xs font-semibold transition-colors ${
+              value === true
+                ? "border-[#16A34A] bg-[#16A34A] text-white"
+                : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
+            }`}
+          >
+            დაშვებულია
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange(false)}
+            className={`h-8 rounded-[10px] border px-3 text-xs font-semibold transition-colors ${
+              value === false
+                ? "border-[#EF4444] bg-[#EF4444] text-white"
+                : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
+            }`}
+          >
+            აკრძალულია
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

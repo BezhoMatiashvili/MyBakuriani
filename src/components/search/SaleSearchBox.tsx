@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   Search,
   ChevronDown,
@@ -10,11 +9,15 @@ import {
   Map as MapIcon,
   SlidersHorizontal,
   BedDouble,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+import {
+  SEARCH_LOCATION_ZONES,
+  ZONE_CENTERS,
+  type SearchLocationZone,
+} from "@/lib/constants/locations";
+import { createClient } from "@/lib/supabase/client";
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
@@ -161,6 +164,34 @@ function formatUsd(n: number): string {
   return `$${n}`;
 }
 
+// Format ₾ amounts with thousands separators (Georgian convention uses space).
+function formatGel(n: number): string {
+  return `${Math.round(n).toLocaleString("ka-GE").replace(/,/g, " ")} ₾`;
+}
+
+// Haversine-equivalent squared-distance (sufficient for nearest-of-four).
+function squaredDistance(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const dLat = a.lat - b.lat;
+  const dLng = a.lng - b.lng;
+  return dLat * dLat + dLng * dLng;
+}
+
+function nearestZone(lat: number, lng: number): SearchLocationZone {
+  let best: SearchLocationZone = SEARCH_LOCATION_ZONES[0];
+  let bestDist = Infinity;
+  for (const zone of SEARCH_LOCATION_ZONES) {
+    const d = squaredDistance({ lat, lng }, ZONE_CENTERS[zone]);
+    if (d < bestDist) {
+      bestDist = d;
+      best = zone;
+    }
+  }
+  return best;
+}
+
 // ─── Component ─────────────────────────────────────────────────────────
 
 export function SaleSearchBox({
@@ -171,8 +202,6 @@ export function SaleSearchBox({
   showMap: showMapProp,
   onShowMapChange,
 }: SaleSearchBoxProps) {
-  const router = useRouter();
-
   // Tabs
   const [tab, setTab] = useState<SaleTab>("search");
 
@@ -208,6 +237,21 @@ export function SaleSearchBox({
   // Appraisal tab state
   const [appraisalZone, setAppraisalZone] = useState("");
   const [appraisalArea, setAppraisalArea] = useState("");
+  const [appraisalResult, setAppraisalResult] = useState<{
+    avgPrice: number;
+    avgPricePerSqm: number;
+    count: number;
+    estimatedValue: number | null;
+    zone: string;
+  } | null>(null);
+  const [appraisalLoading, setAppraisalLoading] = useState(false);
+  const [appraisalError, setAppraisalError] = useState<string | null>(null);
+
+  // Clear result when inputs change so a stale estimate doesn't linger.
+  useEffect(() => {
+    setAppraisalResult(null);
+    setAppraisalError(null);
+  }, [appraisalZone, appraisalArea]);
 
   const [activeDropdown, setActiveDropdown] =
     useState<SaleActiveDropdown>(null);
@@ -260,15 +304,93 @@ export function SaleSearchBox({
     ? Number(priceMax) || DEFAULT_PRICE_MAX
     : PRICE_MAX;
 
+  const runAppraisal = useCallback(
+    async (zone: SearchLocationZone, areaInput: string) => {
+      setAppraisalLoading(true);
+      setAppraisalError(null);
+      setAppraisalResult(null);
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("properties")
+          .select("sale_price, area_sqm, location_lat, location_lng")
+          .eq("status", "active")
+          .eq("is_for_sale", true)
+          .not("sale_price", "is", null);
+
+        if (error) {
+          setAppraisalError("მონაცემების ჩატვირთვა ვერ მოხერხდა");
+          return;
+        }
+
+        const rows = (data ?? []).filter(
+          (
+            r,
+          ): r is {
+            sale_price: number;
+            area_sqm: number | null;
+            location_lat: number;
+            location_lng: number;
+          } =>
+            r.sale_price != null &&
+            r.location_lat != null &&
+            r.location_lng != null,
+        );
+
+        const inZone = rows.filter(
+          (r) => nearestZone(r.location_lat, r.location_lng) === zone,
+        );
+
+        if (inZone.length === 0) {
+          setAppraisalResult({
+            avgPrice: 0,
+            avgPricePerSqm: 0,
+            count: 0,
+            estimatedValue: null,
+            zone,
+          });
+          return;
+        }
+
+        const avgPrice =
+          inZone.reduce((sum, r) => sum + Number(r.sale_price), 0) /
+          inZone.length;
+
+        const withArea = inZone.filter(
+          (r) => r.area_sqm != null && Number(r.area_sqm) > 0,
+        );
+        const avgPricePerSqm = withArea.length
+          ? withArea.reduce(
+              (sum, r) => sum + Number(r.sale_price) / Number(r.area_sqm),
+              0,
+            ) / withArea.length
+          : 0;
+
+        const areaNum = Number(areaInput);
+        const estimatedValue =
+          avgPricePerSqm > 0 && Number.isFinite(areaNum) && areaNum > 0
+            ? avgPricePerSqm * areaNum
+            : null;
+
+        setAppraisalResult({
+          avgPrice,
+          avgPricePerSqm,
+          count: inZone.length,
+          estimatedValue,
+          zone,
+        });
+      } finally {
+        setAppraisalLoading(false);
+      }
+    },
+    [],
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (tab === "appraise") {
-      // Appraisal CTA → send user to the appraisal placeholder route with
-      // their inputs so a future /sales/appraisal page can pick them up.
-      const params = new URLSearchParams();
-      if (appraisalZone) params.set("zone", appraisalZone);
-      if (appraisalArea) params.set("area", appraisalArea);
-      router.push(`/sales/appraisal?${params.toString()}`);
+      if (!appraisalZone) return;
+      void runAppraisal(appraisalZone as SearchLocationZone, appraisalArea);
       return;
     }
 
@@ -683,19 +805,29 @@ export function SaleSearchBox({
           )}
         </>
       ) : (
-        <AppraisalPane
-          zone={appraisalZone}
-          zoneLabel={appraisalZoneLabel}
-          area={appraisalArea}
-          onChangeArea={setAppraisalArea}
-          zoneOpen={activeDropdown === "zone"}
-          onToggleZone={() => toggleDropdown("zone")}
-          onSelectZone={(v) => {
-            setAppraisalZone(v);
-            setActiveDropdown(null);
-          }}
-          isPending={isPending}
-        />
+        <>
+          <AppraisalPane
+            zone={appraisalZone}
+            zoneLabel={appraisalZoneLabel}
+            area={appraisalArea}
+            onChangeArea={setAppraisalArea}
+            zoneOpen={activeDropdown === "zone"}
+            onToggleZone={() => toggleDropdown("zone")}
+            onSelectZone={(v) => {
+              setAppraisalZone(v);
+              setActiveDropdown(null);
+            }}
+            isPending={isPending || appraisalLoading}
+            disabled={!appraisalZone}
+          />
+          {(appraisalLoading || appraisalResult || appraisalError) && (
+            <AppraisalResults
+              result={appraisalResult}
+              loading={appraisalLoading}
+              error={appraisalError}
+            />
+          )}
+        </>
       )}
 
       {/* ═══ Pill-level popovers (type / rooms) — search tab only ═══ */}
@@ -1028,6 +1160,7 @@ function AppraisalPane({
   onToggleZone,
   onSelectZone,
   isPending,
+  disabled,
 }: {
   zone: string;
   zoneLabel: string;
@@ -1037,6 +1170,7 @@ function AppraisalPane({
   onToggleZone: () => void;
   onSelectZone: (v: string) => void;
   isPending: boolean;
+  disabled: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:gap-6">
@@ -1112,13 +1246,85 @@ function AppraisalPane({
 
         <Button
           type="submit"
-          disabled={isPending}
-          className="h-11 shrink-0 gap-2 rounded-lg bg-[#F97316] px-6 text-[13px] font-black text-white hover:bg-[#EA580C] disabled:opacity-70"
+          disabled={isPending || disabled}
+          className="h-11 shrink-0 rounded-lg bg-[#F97316] px-6 text-[13px] font-black text-white hover:bg-[#EA580C] disabled:opacity-70"
         >
-          <Sparkles className="size-4" />
-          AI შეფასება
+          შეფასება
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ─── Appraisal results panel ──────────────────────────────────────────
+
+function AppraisalResults({
+  result,
+  loading,
+  error,
+}: {
+  result: {
+    avgPrice: number;
+    avgPricePerSqm: number;
+    count: number;
+    estimatedValue: number | null;
+    zone: string;
+  } | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 md:p-5">
+      {loading && (
+        <p className="text-[13px] font-bold text-[#64748B]">იტვირთება…</p>
+      )}
+
+      {!loading && error && (
+        <p className="text-[13px] font-bold text-[#DC2626]">{error}</p>
+      )}
+
+      {!loading && !error && result && result.count === 0 && (
+        <p className="text-[13px] font-bold text-[#64748B]">
+          ამ ზონაში მონაცემები არ მოიძებნა
+        </p>
+      )}
+
+      {!loading && !error && result && result.count > 0 && (
+        <>
+          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.55px] text-[#94A3B8]">
+            ზონა: {result.zone}
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <Stat label="საშუალო ფასი" value={formatGel(result.avgPrice)} />
+            <Stat
+              label="საშუალო ფასი / მ²"
+              value={`${formatGel(result.avgPricePerSqm)}/მ²`}
+            />
+            {result.estimatedValue != null && (
+              <Stat
+                label="შენი ფართის სავარაუდო ღირებულება"
+                value={formatGel(result.estimatedValue)}
+              />
+            )}
+          </div>
+          <p className="mt-3 text-[11px] font-medium text-[#94A3B8]">
+            დაფუძნებულია {result.count} განცხადებაზე
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-2.5">
+      <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+        {label}
+      </p>
+      <p className="mt-1 text-[16px] font-black leading-tight text-[#16A34A]">
+        {value}
+      </p>
     </div>
   );
 }

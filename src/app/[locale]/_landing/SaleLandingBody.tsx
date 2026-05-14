@@ -259,7 +259,7 @@ export default function SaleLandingBody({
             <RentBuyToggle value={mode} onChange={onModeChange} />
           </div>
 
-          <div className="mt-6">
+          <div className="relative z-20 mt-6">
             <SaleSearchBox
               onSearch={handleSearch}
               showInvestmentFilters={true}
