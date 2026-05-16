@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 
 function formatNum(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -36,6 +37,11 @@ interface PropertyCardProps {
   amenities?: string;
   amenityTags?: string[];
   distanceToSlopeM?: number | null;
+  constructionStatus?: string | null;
+  constructionProgressPercent?: number | null;
+  // Set on the first 1–2 cards of the first visible section so Next/Image
+  // preloads them — improves landing LCP. Default false (lazy).
+  priority?: boolean;
 }
 
 function formatLocationWithDistance(
@@ -63,7 +69,6 @@ export default function PropertyCard(props: PropertyCardProps) {
     photos,
     pricePerNight,
     salePrice,
-    rating,
     capacity,
     rooms,
     isVip,
@@ -78,7 +83,14 @@ export default function PropertyCard(props: PropertyCardProps) {
     amenities,
     amenityTags,
     distanceToSlopeM,
+    constructionStatus,
+    constructionProgressPercent,
+    priority,
   } = props;
+  const showConstructionBar =
+    isForSale &&
+    constructionStatus === "under_construction" &&
+    constructionProgressPercent != null;
   const displayLocation = isHotel
     ? location
     : formatLocationWithDistance(location, distanceToSlopeM);
@@ -177,6 +189,7 @@ export default function PropertyCard(props: PropertyCardProps) {
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-300 group-hover:scale-110"
+            priority={priority}
           />
 
           {showHotelStars && (
@@ -285,6 +298,16 @@ export default function PropertyCard(props: PropertyCardProps) {
             <p className="mt-3 min-h-[16px] truncate text-[11px] uppercase tracking-wider text-[#94A3B8]">
               {roomType ?? ""}
             </p>
+          )}
+
+          {showConstructionBar && (
+            <div className="mt-3">
+              <ConstructionProgressBar
+                percent={constructionProgressPercent!}
+                label="მშენებლობა"
+                size="sm"
+              />
+            </div>
           )}
 
           <div className="mt-auto flex items-end justify-between pt-4">

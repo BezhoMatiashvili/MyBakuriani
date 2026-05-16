@@ -1,12 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Reflect the request origin only if it is in the allowlist, else fall back
-// to the first configured origin (or "*" if none configured). Allowlist is
-// taken from the ALLOWED_ORIGINS env var, comma-separated.
+// to the first configured origin (or the hardcoded production origin if none
+// configured). Allowlist is taken from the ALLOWED_ORIGINS env var,
+// comma-separated.
 //
 // Note: these endpoints rely on Bearer tokens, not cookies, so CORS is a
 // defense-in-depth measure against browser-driven token abuse rather than the
-// primary auth boundary.
+// primary auth boundary. The fallback is the production origin (not "*") so
+// a missing env never silently opens CORS to the world.
+const PRODUCTION_ORIGIN = "https://mybakuriani.ge";
+
 function parseAllowedOrigins(): string[] {
   const raw = Deno.env.get("ALLOWED_ORIGINS") ?? Deno.env.get("APP_ORIGIN");
   if (!raw) return [];
@@ -22,8 +26,7 @@ export function buildCorsHeaders(req: Request): Record<string, string> {
 
   let allowOrigin: string;
   if (allowed.length === 0) {
-    // No allowlist configured — permissive default (dev only)
-    allowOrigin = "*";
+    allowOrigin = PRODUCTION_ORIGIN;
   } else if (allowed.includes(requestOrigin)) {
     allowOrigin = requestOrigin;
   } else {

@@ -52,8 +52,8 @@ function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
   if (pages.length === 1 || reduceMotion) {
     return (
       <div className={`grid gap-6 ${gridClassName}`}>
-        {pages[0].map((p) => (
-          <PropertyCard key={p.id} {...p} />
+        {pages[0].map((p, i) => (
+          <PropertyCard key={p.id} {...p} priority={i < 2} />
         ))}
       </div>
     );
@@ -85,17 +85,19 @@ function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
             }}
             className={`absolute inset-0 grid gap-6 ${gridClassName}`}
           >
-            {pages[safePage].map((p) => (
-              <PropertyCard key={p.id} {...p} />
+            {pages[safePage].map((p, i) => (
+              <PropertyCard
+                key={p.id}
+                {...p}
+                priority={safePage === 0 && i < 2}
+              />
             ))}
           </motion.div>
         </AnimatePresence>
 
         <button
           type="button"
-          onClick={() =>
-            setPage((p) => (p - 1 + pages.length) % pages.length)
-          }
+          onClick={() => setPage((p) => (p - 1 + pages.length) % pages.length)}
           aria-label="წინა"
           className="absolute -left-5 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1A202C] shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 active:scale-95 md:-left-10"
         >
