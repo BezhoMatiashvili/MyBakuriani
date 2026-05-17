@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isBannerKind, isBannerTone } from "@/lib/banners";
@@ -79,5 +80,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  revalidatePath("/", "layout");
   return Response.json({ banner: data });
 }

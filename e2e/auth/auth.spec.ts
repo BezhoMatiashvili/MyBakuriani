@@ -161,15 +161,19 @@ test.describe("Login form interactions", () => {
 
   test("shows validation on empty submit", async ({ page }) => {
     await page.goto("/auth/login");
-    const submitButton = page.locator(
-      "button[type='submit'], button:has-text('შესვლა'), button:has-text('გაგრძელება')",
-    );
-    if ((await submitButton.count()) > 0) {
-      await submitButton.first().click();
-      // Either browser native validation or custom error should appear
-      await page.waitForTimeout(500);
-      await expect(page.locator("main")).toBeVisible();
-    }
+    const submitButton = page
+      .locator(
+        "button[type='submit'], button:has-text('შესვლა'), button:has-text('გაგრძელება')",
+      )
+      .first();
+    await expect(submitButton).toBeVisible({ timeout: 10_000 });
+    // When email + password are empty, the submit button is disabled — that's
+    // the validation. Force-click to confirm nothing changes (still on /auth/login).
+    await submitButton.click({ force: true, timeout: 5_000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    await expect(page.locator("main")).toBeVisible();
+    // We should still be on the login page (no navigation occurred).
+    expect(page.url()).toContain("/auth/login");
   });
 
   test("phone input accepts numeric input", async ({ page }) => {

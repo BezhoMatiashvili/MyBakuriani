@@ -496,14 +496,18 @@ test.describe("Listing creation (renter/seller/food simulating /create/* forms)"
     expect(data?.status).toBe("active");
   });
 
-  test("rejecting a property WITH admin_notes fails (BUG: missing column)", async () => {
-    const { error } = await supabaseAdmin
+  test("admin can reject a property with notes (verifies Bug 4 fix)", async () => {
+    const { data, error } = await supabaseAdmin
       .from("properties")
       .update({ status: "blocked", admin_notes: "ფასი არასწორია" } as never)
-      .eq("id", ID.saleListing);
-    // We expect this to error because admin_notes column does not exist
-    expect(error).not.toBeNull();
-    expect(error?.message).toMatch(/admin_notes/);
+      .eq("id", ID.saleListing)
+      .select("status, admin_notes")
+      .single();
+    expect(error).toBeNull();
+    expect(data?.status).toBe("blocked");
+    expect((data as { admin_notes?: string })?.admin_notes).toBe(
+      "ფასი არასწორია",
+    );
   });
 
   test("approved property is publicly visible", async ({ page }) => {
@@ -513,13 +517,18 @@ test.describe("Listing creation (renter/seller/food simulating /create/* forms)"
 });
 
 test.describe("Public API surface (no auth required)", () => {
-  test("GET /api/banners?kind=landing_top returns 200 or documented 500", async ({
+  test("GET /api/banners?kind=info returns 200 (Bug 3 fixed)", async ({
     page,
   }) => {
-    const res = await page.request.get("/api/banners?kind=landing_top");
-    // We tolerate the documented Bug 3 (env-loading 500) as long as the route
-    // is not crashing the rest of the server.
-    expect([200, 500]).toContain(res.status());
+    const res = await page.request.get("/api/banners?kind=info");
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.banners)).toBe(true);
+  });
+
+  test("GET /api/banners?kind=invalid_kind returns 400", async ({ page }) => {
+    const res = await page.request.get("/api/banners?kind=not_a_real_kind");
+    expect(res.status()).toBe(400);
   });
 
   test("admin endpoints are protected (return 401 when unauthenticated)", async ({

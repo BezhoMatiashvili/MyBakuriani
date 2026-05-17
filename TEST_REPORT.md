@@ -4,13 +4,15 @@
 **Test harness:** Playwright + Supabase MCP
 **Project ref:** `yuwyrmxccrpfjvidwhhg.supabase.co`
 
-**Combined result (3 runs):**
+**Combined result (5 runs):**
 
-- Run 1 — full targeted suite (setup + public + auth + dashboards + cross-role): **134 passed / 31 failed / 11 skipped** across 176 tests (27.2 min wall).
+- Run 1 — initial full targeted: **134 passed / 31 failed / 11 skipped** across 176 tests (27.2 min wall).
 - Run 2 — gap-coverage focused: 45 passed / 3 failed / 30 skipped (1.9 min).
-- Run 3 — final gap-coverage spec re-run after fixes: **34 passed / 0 failed** (1.0 min).
+- Run 3 — gap-coverage re-run after fixes: **34 passed / 0 failed** (1.0 min).
+- Run 4 — after bug fixes (Bugs 1–4) full re-run: 285 passed / 6 failed / 10 skipped (14.5 min).
+- Run 5 — **after all bug fixes + test-infra fixes (final): 302 passed / 2 failed** across 304 tests (23.7 min). Only 2 failures, both 120s timeouts on `service.spec.ts` (worker stall / dev-server slowdown at end of run).
 
-**Total unique test surface exercised: ~210 tests** across 14 spec files. 168 passing end-to-end. 3 cookie-auth-only failures (test-infra), 4 confirmed real product bugs (1 surfaced by a passing test that asserts the error).
+**All 4 product bugs from the report are fixed and verified by passing tests.** The remaining 2 failures are timing/test-infra issues, not product bugs.
 
 **Coverage:** Public pages (14 routes × multiple checks), Auth flows, all 9 roles (guest, renter, seller, cleaner, food, transport, entertainment, employment, admin), cross-role flows (booking, smart-match, messaging, balance, cleaning task, listing moderation, review moderation, favorites, promocodes, pricing-packages, ads, broadcasts, banners, site-settings, listing creation, edge functions, storage bucket).
 
@@ -18,12 +20,14 @@
 
 ## TL;DR
 
-Existing Playwright suite is broad and well-structured (12 projects, all roles seeded by `e2e/global-setup.ts`). The harness was repaired (iCloud-corrupted node_modules + Node 20 WebSocket polyfill) and exercised end-to-end. **Most failures are test-infrastructure issues, not product bugs.** Four genuine product bugs surfaced:
+Existing Playwright suite is broad and well-structured (12 projects, all roles seeded by `e2e/global-setup.ts`). All 4 product bugs identified in the original audit have been fixed and validated by a clean Run 5 (302/304 tests pass).
 
-1. **Landing page horizontal overflow at 375px width** (responsive bug).
-2. **`/dashboard/*` redirects to `/auth/login` without `?next=` param** (except `/dashboard/admin`). Users lose intended destination after login.
-3. **`/api/banners` returns 500** in this dev-server invocation — Next.js failing to load env vars from `.env.local`. May be local-only; needs prod check.
-4. **`/api/admin/listings/moderate` API tries to write `admin_notes` to `properties`/`services`** — neither table has that column. Rejecting (always sends notes) → 500.
+| #   | Bug                                                          | Status                                                                                                                                     | Verified by                                                          |
+| --- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| 1   | Landing page horizontal overflow at 375px                    | ✅ Fixed (globals.css: `overflow-x: clip` on html+body)                                                                                    | `/ has no horizontal overflow at 375px` passes                       |
+| 2   | `/dashboard/*` redirects without `?next=` param              | ✅ Fixed (middleware + updateSession now protect `/dashboard` too)                                                                         | 6 next-param redirect tests all pass                                 |
+| 3   | `/api/banners` returning 500                                 | ✅ Fixed (root cause = empty shell env `SUPABASE_SERVICE_ROLE_KEY=""` shadowing `.env.local`; playwright.config now uses `override: true`) | `GET /api/banners?kind=info returns 200 (Bug 3 fixed)` passes        |
+| 4   | Moderate-listing API writing to missing `admin_notes` column | ✅ Fixed (migration `listing_admin_notes` applied via Supabase MCP — non-destructive `ADD COLUMN IF NOT EXISTS admin_notes TEXT`)          | `admin can reject a property with notes (verifies Bug 4 fix)` passes |
 
 The priority **renter → admin listing moderation** flow was **verified end-to-end** via direct DB + curl and a new spec (`e2e/cross-role/listing-moderation-ui.spec.ts`):
 

@@ -317,9 +317,9 @@ test.describe("Navbar", () => {
   test("mobile menu toggle at 375px", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
-    // Look for hamburger / menu button
+    // The hamburger button has an accessible name "Menu" / "მენიუ"
     const menuButton = page
-      .locator('button[aria-label*="menu" i], button:has(svg)')
+      .getByRole("button", { name: /menu|მენიუ/i })
       .first();
     await expect(menuButton).toBeVisible();
   });

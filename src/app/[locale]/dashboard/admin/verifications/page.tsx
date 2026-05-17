@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPhone } from "@/lib/utils/format";
 import type { PendingListing } from "@/app/api/admin/listings/pending/route";
+import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
 
 const PAGE_SIZE = 8;
 
@@ -83,6 +85,7 @@ export default function VerificationsPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [page, setPage] = useState(1);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -109,9 +112,13 @@ export default function VerificationsPage() {
     };
   }, []);
 
-  async function moderate(item: PendingListing, action: "approve" | "reject") {
-    let notes: string | undefined;
-    if (action === "reject") {
+  async function moderate(
+    item: PendingListing,
+    action: "approve" | "reject",
+    presetNotes?: string,
+  ) {
+    let notes: string | undefined = presetNotes?.trim() || undefined;
+    if (action === "reject" && presetNotes === undefined) {
       const input = window.prompt("მიუთითეთ უარყოფის მიზეზი (არასავალდებულო):");
       if (input === null) return;
       notes = input.trim() || undefined;
@@ -137,6 +144,7 @@ export default function VerificationsPage() {
       setItems((prev) =>
         prev.filter((it) => !(it.kind === item.kind && it.id === item.id)),
       );
+      setExpandedKey((cur) => (cur === key ? null : cur));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
     } finally {
@@ -263,12 +271,13 @@ export default function VerificationsPage() {
       )}
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
-        <div className="grid grid-cols-[1.2fr_140px_1.6fr_140px_160px] items-center gap-3 border-b border-[#EDF2F7] px-6 py-4 text-sm font-semibold text-[#64748B]">
+        <div className="grid grid-cols-[1.2fr_140px_1.6fr_140px_160px_32px] items-center gap-3 border-b border-[#EDF2F7] px-6 py-4 text-sm font-semibold text-[#64748B]">
           <span>მესაკუთრე</span>
           <span>კატეგორია</span>
           <span>განცხადება</span>
           <span>გადახედვა</span>
           <span className="text-center">მოქმედება</span>
+          <span />
         </div>
 
         {loading ? (
@@ -286,83 +295,137 @@ export default function VerificationsPage() {
           paginated.map((item) => {
             const key = `${item.kind}:${item.id}`;
             const badge = CATEGORY_BADGE[item.category];
+            const isExpanded = expandedKey === key;
             return (
               <motion.div
                 key={key}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-[1.2fr_140px_1.6fr_140px_160px] items-center gap-3 border-b border-[#F1F5F9] px-6 py-5 last:border-b-0"
+                className="border-b border-[#F1F5F9] last:border-b-0"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EEF2F7] text-sm font-black text-[#475569]">
-                    {initialsOf(item.owner?.display_name)}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setExpandedKey(isExpanded ? null : key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setExpandedKey(isExpanded ? null : key);
+                    }
+                  }}
+                  aria-expanded={isExpanded}
+                  className={`grid cursor-pointer grid-cols-[1.2fr_140px_1.6fr_140px_160px_32px] items-center gap-3 px-6 py-5 transition-colors hover:bg-[#F8FAFC] ${
+                    isExpanded ? "bg-[#F8FAFC]" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EEF2F7] text-sm font-black text-[#475569]">
+                      {initialsOf(item.owner?.display_name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-[16px] font-black leading-6 text-[#0F172A]">
+                        {item.owner?.display_name ?? "—"}
+                      </p>
+                      <p className="truncate text-sm font-medium text-[#94A3B8]">
+                        {item.owner?.phone
+                          ? formatPhone(item.owner.phone)
+                          : "—"}
+                      </p>
+                    </div>
                   </div>
+
+                  <div>
+                    <span
+                      className={`inline-flex rounded-lg border px-3 py-1.5 text-[12px] font-extrabold tracking-[0.6px] ${badge.cls}`}
+                    >
+                      {badge.label}
+                    </span>
+                  </div>
+
                   <div className="min-w-0">
-                    <p className="truncate text-[16px] font-black leading-6 text-[#0F172A]">
-                      {item.owner?.display_name ?? "—"}
+                    <p className="truncate text-[15px] font-bold leading-[22px] text-[#0F172A]">
+                      {item.title}
                     </p>
-                    <p className="truncate text-sm font-medium text-[#94A3B8]">
-                      {item.owner?.phone ? formatPhone(item.owner.phone) : "—"}
+                    <p className="mt-1 text-xs text-[#94A3B8]">
+                      {formatDate(item.created_at)} •{" "}
+                      {item.elapsedHours > 0
+                        ? `${item.elapsedHours}h რიგში`
+                        : "ახალი"}
                     </p>
                   </div>
+
+                  <div>
+                    <a
+                      href={item.preview_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#EFF6FF]"
+                    >
+                      <Eye className="h-4 w-4" />
+                      ნახე საიტზე
+                    </a>
+                  </div>
+
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moderate(item, "approve");
+                      }}
+                      disabled={busyKey === key}
+                      aria-label="დადასტურება"
+                      className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_8px_20px_rgba(5,150,105,0.25)] transition-colors hover:bg-[#047857] disabled:opacity-50"
+                    >
+                      {busyKey === key ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Check className="h-5 w-5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moderate(item, "reject");
+                      }}
+                      disabled={busyKey === key}
+                      aria-label="უარყოფა"
+                      className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <ChevronDown
+                    className={`h-5 w-5 text-[#94A3B8] transition-transform ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
                 </div>
 
-                <div>
-                  <span
-                    className={`inline-flex rounded-lg border px-3 py-1.5 text-[12px] font-extrabold tracking-[0.6px] ${badge.cls}`}
-                  >
-                    {badge.label}
-                  </span>
-                </div>
-
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-bold leading-[22px] text-[#0F172A]">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-xs text-[#94A3B8]">
-                    {formatDate(item.created_at)} •{" "}
-                    {item.elapsedHours > 0
-                      ? `${item.elapsedHours}h რიგში`
-                      : "ახალი"}
-                  </p>
-                </div>
-
-                <div>
-                  <a
-                    href={item.preview_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#EFF6FF]"
-                  >
-                    <Eye className="h-4 w-4" />
-                    ნახე საიტზე
-                  </a>
-                </div>
-
-                <div className="flex justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => moderate(item, "approve")}
-                    disabled={busyKey === key}
-                    aria-label="დადასტურება"
-                    className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_8px_20px_rgba(5,150,105,0.25)] transition-colors hover:bg-[#047857] disabled:opacity-50"
-                  >
-                    {busyKey === key ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Check className="h-5 w-5" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moderate(item, "reject")}
-                    disabled={busyKey === key}
-                    aria-label="უარყოფა"
-                    className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.section
+                      key="panel"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <ListingAuditPanel
+                        kind={item.kind}
+                        id={item.id}
+                        busy={busyKey === key}
+                        onAction={(action, notes) =>
+                          moderate(item, action, notes)
+                        }
+                      />
+                    </motion.section>
+                  )}
+                </AnimatePresence>
               </motion.div>
             );
           })

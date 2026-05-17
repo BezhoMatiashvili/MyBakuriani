@@ -2,7 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 import dotenv from "dotenv";
 import path from "path";
 
-dotenv.config({ path: path.resolve(__dirname, ".env.local") });
+// override: true so that empty/stale shell env (e.g. SUPABASE_SERVICE_ROLE_KEY="")
+// does not shadow values from .env.local in the spawned `next dev` process.
+dotenv.config({ path: path.resolve(__dirname, ".env.local"), override: true });
 
 export default defineConfig({
   testDir: "./e2e",

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isBannerKind, isBannerTone } from "@/lib/banners";
@@ -84,6 +85,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     .single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  revalidatePath("/", "layout");
   return Response.json({ banner: data });
 }
 
@@ -98,5 +100,6 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext) {
   const { error } = await db.from("landing_banners").delete().eq("id", id);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  revalidatePath("/", "layout");
   return Response.json({ ok: true });
 }

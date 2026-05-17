@@ -35,6 +35,10 @@ async function loginAs(page: Page, email: string) {
   ]).catch(() => {
     // If redirect didn't fire, fall through — caller will assert.
   });
+  // After login redirect, wait for the auth cookies to be fully set before
+  // returning. Without this, subsequent goto() calls can race the cookie write
+  // and end up redirected to /auth/login by the middleware.
+  await page.waitForLoadState("networkidle").catch(() => {});
 }
 
 test.describe("Real-browser login (email + password)", () => {
@@ -110,7 +114,10 @@ test.describe("Real-browser login (email + password)", () => {
       "header button:has(svg), header button:has(img)",
     );
     if ((await profileButtons.count()) > 0) {
-      await profileButtons.first().click().catch(() => {});
+      await profileButtons
+        .first()
+        .click()
+        .catch(() => {});
     }
     const logoutButton = page
       .getByRole("button", { name: /გასვლა|გამოსვლა|Sign Out|Log out/i })
@@ -267,20 +274,18 @@ test.describe("Supabase Realtime subscription", () => {
     });
 
     let received: unknown = null;
-    const channel = client
-      .channel(`e2e-notif-${Date.now()}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${guestId}`,
-        },
-        (payload) => {
-          received = payload.new;
-        },
-      );
+    const channel = client.channel(`e2e-notif-${Date.now()}`).on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "notifications",
+        filter: `user_id=eq.${guestId}`,
+      },
+      (payload) => {
+        received = payload.new;
+      },
+    );
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(
         () => reject(new Error("subscribe timeout")),
@@ -339,7 +344,8 @@ test.describe("Supabase Realtime subscription", () => {
       // succeeded (or we'd have thrown earlier).
       test.info().annotations.push({
         type: "skip",
-        description: "Realtime event did not arrive within 10s (table may not be in publication)",
+        description:
+          "Realtime event did not arrive within 10s (table may not be in publication)",
       });
     }
   });
