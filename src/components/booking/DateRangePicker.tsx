@@ -4,7 +4,6 @@ import {
   addMonths,
   subMonths,
   isSameDay,
-  isAfter,
   isBefore,
   eachDayOfInterval,
   startOfMonth,

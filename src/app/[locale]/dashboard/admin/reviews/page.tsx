@@ -45,6 +45,14 @@ const STATUS_BADGES: Record<string, string> = {
   removed: "bg-[#FEE2E2] text-[#B91C1C]",
 };
 
+const STATUS_LABELS: Record<string, string> = STATUS_FILTERS.reduce(
+  (acc, { value, label }) => {
+    if (value !== "all") acc[value] = label;
+    return acc;
+  },
+  {} as Record<string, string>,
+);
+
 const SENTIMENT_TONES: Record<string, string> = {
   positive: "border-[#10B981] bg-[#ECFDF5] text-[#059669]",
   negative: "border-[#EF4444] bg-[#FEF2F2] text-[#B91C1C]",
@@ -214,7 +222,7 @@ export default function ReviewsPage() {
                         STATUS_BADGES[review.status] ?? STATUS_BADGES.pending
                       }`}
                     >
-                      {review.status}
+                      {STATUS_LABELS[review.status] ?? review.status}
                     </span>
                     {review.ai_sentiment ? (
                       <span
@@ -258,33 +266,39 @@ export default function ReviewsPage() {
                       )}
                       AI აუდიტი
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => moderate(review.id, "approve")}
-                      disabled={isBusy}
-                      className="inline-flex h-[48px] min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#059669] text-sm font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] disabled:opacity-50"
-                    >
-                      <Check className="h-4 w-4" />
-                      დადასტურება
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moderate(review.id, "hide")}
-                      disabled={isBusy}
-                      className="inline-flex h-[48px] min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-sm font-bold text-[#475569] disabled:opacity-50"
-                    >
-                      <EyeOff className="h-4 w-4" />
-                      დამალვა
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moderate(review.id, "remove")}
-                      disabled={isBusy}
-                      className="inline-flex h-[48px] min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-sm font-bold text-[#DC2626] disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      წაშლა
-                    </button>
+                    {review.status !== "approved" && (
+                      <button
+                        type="button"
+                        onClick={() => moderate(review.id, "approve")}
+                        disabled={isBusy}
+                        className="inline-flex h-[48px] min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#059669] text-sm font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] disabled:opacity-50"
+                      >
+                        <Check className="h-4 w-4" />
+                        დადასტურება
+                      </button>
+                    )}
+                    {review.status !== "hidden" && (
+                      <button
+                        type="button"
+                        onClick={() => moderate(review.id, "hide")}
+                        disabled={isBusy}
+                        className="inline-flex h-[48px] min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-sm font-bold text-[#475569] disabled:opacity-50"
+                      >
+                        <EyeOff className="h-4 w-4" />
+                        დამალვა
+                      </button>
+                    )}
+                    {review.status !== "removed" && (
+                      <button
+                        type="button"
+                        onClick={() => moderate(review.id, "remove")}
+                        disabled={isBusy}
+                        className="inline-flex h-[48px] min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-sm font-bold text-[#DC2626] disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        წაშლა
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>

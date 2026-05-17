@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Heart, MapPin } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 
 interface SalePropertyCardProps {
   id: string;
@@ -15,6 +16,8 @@ interface SalePropertyCardProps {
   rooms?: number | null;
   isVip?: boolean;
   roi?: number;
+  constructionStatus?: string | null;
+  constructionProgressPercent?: number | null;
 }
 
 function formatUsd(n: number): string {
@@ -31,7 +34,12 @@ export default function SalePropertyCard({
   rooms,
   isVip,
   roi,
+  constructionStatus,
+  constructionProgressPercent,
 }: SalePropertyCardProps) {
+  const showProgress =
+    constructionStatus === "under_construction" &&
+    constructionProgressPercent != null;
   const href = `/sales/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-property.jpg";
 
@@ -105,6 +113,16 @@ export default function SalePropertyCard({
             <p className="mt-2 text-[12px] font-medium text-[#64748B]">
               {sizePill}
             </p>
+          )}
+
+          {showProgress && (
+            <div className="mt-3">
+              <ConstructionProgressBar
+                percent={constructionProgressPercent!}
+                label="მშენებლობა"
+                size="sm"
+              />
+            </div>
           )}
 
           <div className="mt-auto flex items-end justify-between gap-3 pt-4">

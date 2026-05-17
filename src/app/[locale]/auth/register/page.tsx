@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Users, Loader2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";

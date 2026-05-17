@@ -31,7 +31,6 @@ import PropertyCard from "@/components/cards/PropertyCard";
 import ServiceCard from "@/components/cards/ServiceCard";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
 import { MOCK_PROPERTIES, MOCK_HOTELS } from "@/lib/mock/properties";
@@ -39,6 +38,7 @@ import { makeServiceCards } from "@/lib/mock/services";
 import { InfoBanners } from "@/components/landing/InfoBanners";
 import { PromoBanners } from "@/components/landing/PromoBanners";
 import type { LandingBanner } from "@/lib/banners";
+import type { SearchLocationZone } from "@/lib/constants/locations";
 
 interface LandingPageProps {
   hotOffers?: Tables<"properties">[];
@@ -49,6 +49,7 @@ interface LandingPageProps {
   blogPosts?: Tables<"blog_posts">[];
   infoBanners?: LandingBanner[];
   promoBanners?: LandingBanner[];
+  pricePerSqmByZone?: Partial<Record<SearchLocationZone, number | null>>;
 }
 
 const MOCK_BLOG_POSTS = [
@@ -92,6 +93,7 @@ export default function LandingPage({
   blogPosts: serverBlogPosts,
   infoBanners = [],
   promoBanners = [],
+  pricePerSqmByZone,
 }: LandingPageProps = {}) {
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
@@ -124,7 +126,6 @@ export default function LandingPage({
         isSuperVip: p.is_super_vip ?? false,
         photo: Array.isArray(p.photos) ? (p.photos[0] as string) : undefined,
       }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverHotOffers, serverHotels]);
 
   const handleSearch = useCallback(
@@ -280,6 +281,7 @@ export default function LandingPage({
         mode={mode}
         onModeChange={setMode}
         saleProperties={serverSaleProperties}
+        pricePerSqmByZone={pricePerSqmByZone}
       />
     );
   }

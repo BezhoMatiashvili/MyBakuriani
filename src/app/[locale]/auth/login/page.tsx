@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import PhoneInput from "@/components/forms/PhoneInput";

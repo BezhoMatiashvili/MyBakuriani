@@ -9,28 +9,15 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
+import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
+import ProgressUpdateModal from "@/components/seller/ProgressUpdateModal";
+import { formatRelativeGe } from "@/lib/utils/format";
 
 const constructionStatusLabel: Record<string, string> = {
   under_construction: "მშენებარე",
   completed: "დასრულებული",
   ready: "მზა",
 };
-
-function formatRelativeGe(iso: string | null | undefined) {
-  if (!iso) return "";
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diffMs = now - then;
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "ახლახან";
-  if (diffMin < 60) return `${diffMin} წთ წინ`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} სთ წინ`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 30) return `${diffDay} დღის წინ`;
-  const diffMo = Math.floor(diffDay / 30);
-  return `${diffMo} თვის წინ`;
-}
 
 export default function SellerListingsPage() {
   const { user } = useAuth();
@@ -39,6 +26,8 @@ export default function SellerListingsPage() {
   const [properties, setProperties] = useState<Tables<"properties">[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingProperty, setEditingProperty] =
+    useState<Tables<"properties"> | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -130,23 +119,9 @@ export default function SellerListingsPage() {
           filteredProperties.map((property, index) => {
             const photos = property.photos ?? [];
             const coverPhoto = photos[0];
-            const totalUnits = property.capacity ?? 60;
-            const soldUnits = Math.min(
-              Math.round((property.views_count ?? 0) / 300),
-              totalUnits,
-            );
-            const reserveUnits = Math.min(
-              Math.round(totalUnits * 0.13),
-              totalUnits - soldUnits,
-            );
-            const freeUnits = Math.max(
-              totalUnits - soldUnits - reserveUnits,
-              0,
-            );
-            const soldPercent = Math.round((soldUnits / totalUnits) * 100) || 0;
-            const reservePercent =
-              Math.round((reserveUnits / totalUnits) * 100) || 0;
-            const freePercent = Math.max(100 - soldPercent - reservePercent, 0);
+            const isUnderConstruction =
+              property.construction_status === "under_construction";
+            const progressPercent = property.construction_progress_percent ?? 0;
             const constrLabel = property.construction_status
               ? (constructionStatusLabel[property.construction_status] ??
                 property.construction_status)
@@ -159,8 +134,7 @@ export default function SellerListingsPage() {
               property.progress_note_updated_at ??
               property.updated_at ??
               property.created_at;
-            const lastNote =
-              property.progress_note ?? property.description ?? "";
+            const lastNote = property.progress_note ?? "";
 
             return (
               <motion.div
@@ -209,44 +183,20 @@ export default function SellerListingsPage() {
                 </div>
 
                 <div className="p-5">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[12px] font-bold">
-                      <span className="text-[#64748B]">
-                        გაყიდვების პროგრესი
-                      </span>
-                      <span className="text-[#0F172A]">
-                        {soldPercent}% ({soldUnits}/{totalUnits})
-                      </span>
+                  {isUnderConstruction ? (
+                    <ConstructionProgressBar
+                      percent={progressPercent}
+                      hint={
+                        property.completion_year
+                          ? `მზადყოფნა • ${property.completion_year}`
+                          : undefined
+                      }
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-[#DCFCE7] bg-[#F0FDF4] px-3 py-2.5 text-center text-[12px] font-bold text-[#15803D]">
+                      ობიექტი დასრულებულია
                     </div>
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
-                      <div
-                        className="h-full bg-[#10B981]"
-                        style={{ width: `${soldPercent}%` }}
-                      />
-                      <div
-                        className="h-full bg-[#F59E0B]"
-                        style={{ width: `${reservePercent}%` }}
-                      />
-                      <div
-                        className="h-full bg-[#CBD5E1]"
-                        style={{ width: `${freePercent}%` }}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold">
-                      <span className="flex items-center gap-1 text-[#10B981]">
-                        <span className="h-2 w-2 rounded-full bg-[#10B981]" />
-                        {soldUnits} გაყიდული
-                      </span>
-                      <span className="flex items-center gap-1 text-[#F59E0B]">
-                        <span className="h-2 w-2 rounded-full bg-[#F59E0B]" />
-                        {reserveUnits} რეზერვი
-                      </span>
-                      <span className="flex items-center gap-1 text-[#64748B]">
-                        <span className="h-2 w-2 rounded-full bg-[#94A3B8]" />
-                        {freeUnits} თავისუფალი
-                      </span>
-                    </div>
-                  </div>
+                  )}
 
                   {lastNote && (
                     <div className="mt-4 rounded-xl border border-[#EEF1F4] bg-[#F8FAFC] p-3">
@@ -267,6 +217,7 @@ export default function SellerListingsPage() {
 
                   <button
                     type="button"
+                    onClick={() => setEditingProperty(property)}
                     className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0F172A] py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,23,42,0.3)] hover:bg-[#1E293B]"
                   >
                     <Edit className="h-3.5 w-3.5" />
@@ -278,6 +229,16 @@ export default function SellerListingsPage() {
           })
         )}
       </div>
+
+      <ProgressUpdateModal
+        property={editingProperty}
+        onClose={() => setEditingProperty(null)}
+        onSaved={(updated) =>
+          setProperties((prev) =>
+            prev.map((p) => (p.id === updated.id ? updated : p)),
+          )
+        }
+      />
     </div>
   );
 }

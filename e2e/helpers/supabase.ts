@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import path from "path";
+import WebSocket from "ws";
 import type {
   Database,
   Tables,
@@ -19,7 +20,12 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 export const supabaseAdmin: SupabaseClient<Database> = createClient<Database>(
   supabaseUrl,
   serviceRoleKey,
-  { auth: { autoRefreshToken: false, persistSession: false } },
+  {
+    auth: { autoRefreshToken: false, persistSession: false },
+    realtime: {
+      transport: WebSocket as unknown as typeof globalThis.WebSocket,
+    },
+  },
 );
 
 type TableName = keyof Database["public"]["Tables"];

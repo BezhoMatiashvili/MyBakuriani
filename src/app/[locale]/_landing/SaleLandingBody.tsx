@@ -8,12 +8,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   ArrowLeft,
-  ArrowUpRight,
-  TrendingUp,
-  CalendarCheck2,
   Sparkles,
   CheckCircle2,
   MapPin,
+  Mountain,
+  TreePine,
   Plus,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -31,6 +30,10 @@ import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { MOCK_SALES } from "@/lib/mock/properties";
+import {
+  SEARCH_LOCATION_ZONES,
+  type SearchLocationZone,
+} from "@/lib/constants/locations";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -45,7 +48,20 @@ interface SaleLandingBodyProps {
   mode: "rent" | "sale";
   onModeChange: (mode: "rent" | "sale") => void;
   saleProperties?: Tables<"properties">[];
+  pricePerSqmByZone?: Partial<Record<SearchLocationZone, number | null>>;
 }
+
+function formatPricePerSqm(avg: number | null | undefined): string {
+  if (avg == null || !Number.isFinite(avg)) return "—";
+  return `${Math.round(avg).toLocaleString("en-US")} ₾/მ²`;
+}
+
+const ZONE_ICONS: Record<SearchLocationZone, React.ReactNode> = {
+  "დიდველი / კრისტალი": <Mountain className="size-[18px] text-[#16A34A]" />,
+  "ცენტრი / პარკი": <TreePine className="size-[18px] text-[#16A34A]" />,
+  "კოხტა / მიტარბი": <Mountain className="size-[18px] text-[#16A34A]" />,
+  "25-იანები": <MapPin className="size-[18px] text-[#94A3B8]" />,
+};
 
 // Convert GEL → USD for display (rough conversion; backend stores GEL).
 const GEL_TO_USD = 1 / 2.7;
@@ -117,6 +133,7 @@ export default function SaleLandingBody({
   mode,
   onModeChange,
   saleProperties,
+  pricePerSqmByZone,
 }: SaleLandingBodyProps) {
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
@@ -201,6 +218,8 @@ export default function SaleLandingBody({
         area: p.area_sqm ?? null,
         rooms: p.rooms,
         roi: estimatedRoi(p.id),
+        constructionStatus: p.construction_status ?? null,
+        constructionProgressPercent: p.construction_progress_percent ?? null,
       }));
     }
     return MOCK_SALES;
@@ -268,6 +287,18 @@ export default function SaleLandingBody({
               onShowMapChange={setShowMap}
             />
           </div>
+
+          <p className="mt-4 text-center text-[13px] font-medium text-white/70">
+            ან გამოიყენე{" "}
+            <Link
+              href="/dashboard/renter/smart-match"
+              className="inline-flex items-center gap-1 font-bold text-[#6EE7B7] transition-colors hover:text-[#A7F3D0]"
+            >
+              <Sparkles className="size-3.5" />
+              AI SMART MATCH
+            </Link>{" "}
+            და მიიღე შემოთავაზებები
+          </p>
         </div>
       </section>
 
@@ -295,27 +326,15 @@ export default function SaleLandingBody({
         )}
       >
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard
-            label="სამშენ. ROI"
-            value="10.4%"
-            icon={<TrendingUp className="size-[18px] text-[#16A34A]" />}
-          />
-          <StatCard
-            label="დასრულება"
-            value="142 დღე"
-            icon={<CalendarCheck2 className="size-[18px] text-[#16A34A]" />}
-          />
-          <StatCard
-            label="ფასის ზრდა"
-            value="+12%"
-            icon={<ArrowUpRight className="size-[18px] text-[#16A34A]" />}
-          />
-          <StatCard
-            label="გირაო გარიგებები"
-            value="$142,000"
-            sublabel="დადასტურებული"
-            highlight
-          />
+          {SEARCH_LOCATION_ZONES.map((zone, i) => (
+            <StatCard
+              key={zone}
+              label={zone}
+              value={formatPricePerSqm(pricePerSqmByZone?.[zone])}
+              icon={ZONE_ICONS[zone]}
+              highlight={i === SEARCH_LOCATION_ZONES.length - 1}
+            />
+          ))}
         </div>
       </div>
 

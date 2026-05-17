@@ -143,9 +143,15 @@ export async function createTestUser(opts: {
     password: "test-password-e2e-12345",
   });
   const { createClient } = await import("@supabase/supabase-js");
+  const WebSocket = (await import("ws")).default;
   const anonClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      realtime: {
+        transport: WebSocket as unknown as typeof globalThis.WebSocket,
+      },
+    },
   );
   const {
     data: { session },

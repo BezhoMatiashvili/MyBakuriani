@@ -302,6 +302,10 @@ export default function SalesGridClient({
                   amenityTags={
                     Array.isArray(p.amenities) ? (p.amenities as string[]) : []
                   }
+                  constructionStatus={p.construction_status ?? null}
+                  constructionProgressPercent={
+                    p.construction_progress_percent ?? null
+                  }
                 />
               </ScrollReveal>
             ))}

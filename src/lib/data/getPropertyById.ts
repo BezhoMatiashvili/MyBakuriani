@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/server";
+import { isAdminViewer } from "@/lib/auth/is-admin-viewer";
 import { getMockProperty, isMockPropertyId } from "@/lib/mock/properties";
 import type { Tables } from "@/lib/types/database";
 
@@ -16,12 +17,15 @@ export async function getPropertyById(id: string): Promise<{
 
   try {
     const supabase = createPublicClient();
-    const { data } = await supabase
+    const adminViewer = await isAdminViewer();
+    let query = supabase
       .from("properties")
       .select("*, profiles!properties_owner_id_fkey(*)")
-      .eq("id", id)
-      .eq("status", "active")
-      .single();
+      .eq("id", id);
+    if (!adminViewer) {
+      query = query.eq("status", "active");
+    }
+    const { data } = await query.single();
 
     return { data: (data as PropertyWithProfile) ?? null, isMock: false };
   } catch {

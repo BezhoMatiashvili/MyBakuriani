@@ -5,8 +5,23 @@ import { Suspense } from "react";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { fetchActiveBanners } from "@/lib/banners-server";
+import {
+  SEARCH_LOCATION_ZONES,
+  nearestZone,
+  type SearchLocationZone,
+} from "@/lib/constants/locations";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
+
+type PricePerSqmByZone = Record<SearchLocationZone, number | null>;
+
+const emptyPricePerSqmByZone: PricePerSqmByZone = SEARCH_LOCATION_ZONES.reduce(
+  (acc, zone) => {
+    acc[zone] = null;
+    return acc;
+  },
+  {} as PricePerSqmByZone,
+);
 
 const emptyLandingProps = {
   hotOffers: [] as Tables<"properties">[],
@@ -15,6 +30,7 @@ const emptyLandingProps = {
   vipProperties: [] as Tables<"properties">[],
   services: [] as Tables<"services">[],
   blogPosts: [] as Tables<"blog_posts">[],
+  pricePerSqmByZone: emptyPricePerSqmByZone,
 };
 
 export async function generateMetadata() {
@@ -81,6 +97,16 @@ async function fetchLandingProps() {
       .eq("published", true)
       .order("published_at", { ascending: false })
       .limit(3),
+    supabase
+      .from("properties")
+      .select("sale_price, area_sqm, location_lat, location_lng")
+      .eq("status", "active")
+      .eq("is_for_sale", true)
+      .not("sale_price", "is", null)
+      .not("area_sqm", "is", null)
+      .gt("area_sqm", 0)
+      .not("location_lat", "is", null)
+      .not("location_lng", "is", null),
   ]);
 
   const timeout = new Promise<never>((_, reject) => {
@@ -98,6 +124,7 @@ async function fetchLandingProps() {
       { data: vipProperties },
       { data: services },
       { data: blogPosts },
+      { data: saleAggregateRows },
     ] = await Promise.race([queries, timeout]);
 
     return {
@@ -107,10 +134,56 @@ async function fetchLandingProps() {
       vipProperties: vipProperties ?? [],
       services: services ?? [],
       blogPosts: blogPosts ?? [],
+      pricePerSqmByZone: aggregatePricePerSqm(saleAggregateRows ?? []),
     };
   } catch {
     return emptyLandingProps;
   }
+}
+
+function aggregatePricePerSqm(
+  rows: Array<{
+    sale_price: number | null;
+    area_sqm: number | null;
+    location_lat: number | null;
+    location_lng: number | null;
+  }>,
+): PricePerSqmByZone {
+  const sums: Record<SearchLocationZone, number> = SEARCH_LOCATION_ZONES.reduce(
+    (acc, zone) => {
+      acc[zone] = 0;
+      return acc;
+    },
+    {} as Record<SearchLocationZone, number>,
+  );
+  const counts: Record<SearchLocationZone, number> =
+    SEARCH_LOCATION_ZONES.reduce(
+      (acc, zone) => {
+        acc[zone] = 0;
+        return acc;
+      },
+      {} as Record<SearchLocationZone, number>,
+    );
+
+  for (const row of rows) {
+    if (
+      row.sale_price == null ||
+      row.area_sqm == null ||
+      row.area_sqm <= 0 ||
+      row.location_lat == null ||
+      row.location_lng == null
+    ) {
+      continue;
+    }
+    const zone = nearestZone(row.location_lat, row.location_lng);
+    sums[zone] += row.sale_price / row.area_sqm;
+    counts[zone] += 1;
+  }
+
+  return SEARCH_LOCATION_ZONES.reduce((acc, zone) => {
+    acc[zone] = counts[zone] > 0 ? sums[zone] / counts[zone] : null;
+    return acc;
+  }, {} as PricePerSqmByZone);
 }
 
 async function LandingWithData() {
@@ -129,6 +202,7 @@ async function LandingWithData() {
       blogPosts={props.blogPosts}
       infoBanners={infoBanners}
       promoBanners={promoBanners}
+      pricePerSqmByZone={props.pricePerSqmByZone}
     />
   );
 }

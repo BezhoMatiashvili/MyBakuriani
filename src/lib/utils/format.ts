@@ -50,6 +50,21 @@ export function formatPhone(phone: string | null | undefined): string {
   return phone;
 }
 
+export function formatRelativeGe(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  const diffMs = Date.now() - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "ახლახან";
+  if (diffMin < 60) return `${diffMin} წთ წინ`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} სთ წინ`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay} დღის წინ`;
+  const diffMo = Math.floor(diffDay / 30);
+  return `${diffMo} თვის წინ`;
+}
+
 export function maskPhone(phone: string | null | undefined): string {
   if (!phone) return "—";
   const formatted = formatPhone(phone);
