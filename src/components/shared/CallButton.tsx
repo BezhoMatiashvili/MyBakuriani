@@ -4,6 +4,7 @@ import { Phone } from "lucide-react";
 import { formatPhone, maskPhone } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trackContactClick } from "@/lib/contact-tracking";
 
 interface Props {
   phone: string | null | undefined;
@@ -11,6 +12,8 @@ interface Props {
   label: string;
   onNoPhoneClick?: () => void;
   alwaysShowLabel?: boolean;
+  propertyId?: string | null;
+  serviceId?: string | null;
 }
 
 export function CallButton({
@@ -19,6 +22,8 @@ export function CallButton({
   label,
   onNoPhoneClick,
   alwaysShowLabel = false,
+  propertyId,
+  serviceId,
 }: Props) {
   const [revealed, setRevealed] = useState(false);
 
@@ -31,10 +36,18 @@ export function CallButton({
     );
   }
 
+  const fireTracking = () =>
+    trackContactClick({
+      channel: "call",
+      propertyId,
+      serviceId,
+    });
+
   if (alwaysShowLabel) {
     return (
       <a
         href={`tel:${phone.replace(/\s/g, "")}`}
+        onClick={fireTracking}
         className={cn("inline-flex items-center justify-center", className)}
       >
         <Phone className="h-4 w-4" />
@@ -50,7 +63,9 @@ export function CallButton({
         if (window.matchMedia("(min-width: 768px)").matches && !revealed) {
           e.preventDefault();
           setRevealed(true);
+          return;
         }
+        fireTracking();
       }}
       className={cn("inline-flex items-center justify-center", className)}
     >

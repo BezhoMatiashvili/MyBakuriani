@@ -50,6 +50,16 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     update.image_url =
       typeof body.image_url === "string" ? body.image_url.trim() || null : null;
   }
+  if ("video_url" in body) {
+    update.video_url =
+      typeof body.video_url === "string" ? body.video_url.trim() || null : null;
+  }
+  if ("video_poster_url" in body) {
+    update.video_poster_url =
+      typeof body.video_poster_url === "string"
+        ? body.video_poster_url.trim() || null
+        : null;
+  }
   if (typeof body.tone === "string") {
     if (!isBannerTone(body.tone)) {
       return Response.json({ error: "invalid tone" }, { status: 400 });

@@ -12,6 +12,9 @@ import {
 import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import MediaUploader, {
+  type MediaValue,
+} from "@/components/forms/MediaUploader";
 import {
   BANNER_KIND_LABELS,
   BANNER_KINDS,
@@ -31,6 +34,8 @@ type FormState = {
   cta_label: string;
   cta_href: string;
   image_url: string;
+  video_url: string;
+  video_poster_url: string;
   tone: BannerTone;
   active: boolean;
   start_at: string;
@@ -46,6 +51,8 @@ const EMPTY_FORM: FormState = {
   cta_label: "",
   cta_href: "",
   image_url: "",
+  video_url: "",
+  video_poster_url: "",
   tone: "orange",
   active: true,
   start_at: "",
@@ -135,6 +142,8 @@ export default function AdminBannersPage() {
       cta_label: b.cta_label ?? "",
       cta_href: b.cta_href ?? "",
       image_url: b.image_url ?? "",
+      video_url: b.video_url ?? "",
+      video_poster_url: b.video_poster_url ?? "",
       tone: b.tone,
       active: b.active,
       start_at: toLocalInput(b.start_at),
@@ -143,6 +152,38 @@ export default function AdminBannersPage() {
     });
     setError("");
     setOpen(true);
+  }
+
+  const mediaValue: MediaValue = form.video_url
+    ? { url: form.video_url, type: "video" }
+    : form.image_url
+      ? { url: form.image_url, type: "image" }
+      : null;
+
+  function handleMediaChange(v: MediaValue) {
+    if (!v) {
+      setForm((p) => ({
+        ...p,
+        image_url: "",
+        video_url: "",
+        video_poster_url: "",
+      }));
+      return;
+    }
+    if (v.type === "video") {
+      setForm((p) => ({ ...p, video_url: v.url, image_url: "" }));
+    } else {
+      setForm((p) => ({
+        ...p,
+        image_url: v.url,
+        video_url: "",
+        video_poster_url: "",
+      }));
+    }
+  }
+
+  function handlePosterChange(url: string | null) {
+    setForm((p) => ({ ...p, video_poster_url: url ?? "" }));
   }
 
   function close() {
@@ -194,6 +235,8 @@ export default function AdminBannersPage() {
       cta_label: form.cta_label.trim() || null,
       cta_href: form.cta_href.trim() || null,
       image_url: form.image_url.trim() || null,
+      video_url: form.video_url.trim() || null,
+      video_poster_url: form.video_poster_url.trim() || null,
       tone: form.tone,
       active: form.active,
       start_at: fromLocalInput(form.start_at),
@@ -418,17 +461,13 @@ export default function AdminBannersPage() {
                 </Field>
               </div>
 
-              {form.kind === "promo" && (
-                <Field label="სურათის URL">
-                  <input
-                    name="image_url"
-                    value={form.image_url}
-                    onChange={onField}
-                    className={inputCls}
-                    placeholder="https://.../image.jpg"
-                  />
-                </Field>
-              )}
+              <MediaUploader
+                value={mediaValue}
+                onChange={handleMediaChange}
+                kind="banner"
+                poster={form.video_poster_url || null}
+                onPosterChange={handlePosterChange}
+              />
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Field label="დაწყება (სურვილისამებრ)">
@@ -554,7 +593,17 @@ function BannerRow({
         style={{ backgroundColor: tone.bg }}
       >
         <div className="flex items-start gap-3">
-          {banner.image_url ? (
+          {banner.video_url ? (
+            <video
+              src={banner.video_url}
+              poster={banner.video_poster_url ?? banner.image_url ?? undefined}
+              muted
+              loop
+              autoPlay
+              playsInline
+              className="h-12 w-12 shrink-0 rounded-lg object-cover"
+            />
+          ) : banner.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={banner.image_url}

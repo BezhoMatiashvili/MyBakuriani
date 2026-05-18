@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, Heart, MapPin, Phone, Star } from "lucide-react";
+import { Check, Clock, Heart, MapPin, Phone, Star } from "lucide-react";
 import Image from "next/image";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { Badge } from "@/components/ui/badge";
+import { trackContactClick } from "@/lib/contact-tracking";
 
 interface ServiceCardProps {
   id: string;
@@ -28,7 +29,21 @@ interface ServiceCardProps {
   driverName?: string | null;
   vehicleCapacity?: number | null;
   route?: string | null;
+  transportType?: string | null;
+  isNew?: boolean;
+  isVerified?: boolean;
   description?: string | null;
+}
+
+const TRANSPORT_TYPE_LABELS: Record<string, string> = {
+  minibus: "მინივენი",
+  taxi: "ტაქსი",
+  microbus: "მიკროავტობუსი",
+  other: "სხვა",
+};
+
+function translateTransportType(value: string) {
+  return TRANSPORT_TYPE_LABELS[value] ?? value;
 }
 
 const categoryRouteMap: Record<string, string> = {
@@ -58,9 +73,11 @@ export default function ServiceCard({
   providerName,
   experienceYears,
   availabilityStatus,
-  driverName,
   vehicleCapacity,
   route,
+  transportType,
+  isNew = false,
+  isVerified = false,
   description,
 }: ServiceCardProps) {
   const isFood = category === "food";
@@ -84,6 +101,14 @@ export default function ServiceCard({
     }
   };
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const onCallClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    trackContactClick({ channel: "call", serviceId: id });
+  };
+  const onWhatsappClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    trackContactClick({ channel: "whatsapp", serviceId: id });
+  };
 
   if (variant === "avatar") {
     const isBusy = availabilityStatus === "busy";
@@ -178,7 +203,7 @@ export default function ServiceCard({
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={stop}
+                onClick={onWhatsappClick}
                 aria-label="WhatsApp"
                 className={`flex items-center justify-center whitespace-nowrap rounded-[12px] px-2 py-2.5 text-[12px] font-bold transition-colors ${
                   isBusy
@@ -274,7 +299,7 @@ export default function ServiceCard({
                 {telHref ? (
                   <a
                     href={telHref}
-                    onClick={stop}
+                    onClick={onCallClick}
                     className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#16A34A]"
                   >
                     <Phone className="h-3.5 w-3.5" />
@@ -300,7 +325,6 @@ export default function ServiceCard({
 
   // variant === "photo" (default)
   const isBusy = availabilityStatus === "busy";
-  const showStatusBadge = isTransport && availabilityStatus != null;
 
   return (
     <motion.div
@@ -326,21 +350,21 @@ export default function ServiceCard({
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
-          <div className="absolute top-3 left-3 flex gap-2">
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
             {isVip && (
-              <span className="rounded-[4px] bg-[#FEE2E2] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <span className="rounded-[4px] bg-[#DC2626] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
                 VIP
               </span>
             )}
-            {showStatusBadge && (
-              <span
-                className={`rounded-[4px] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] ${
-                  isBusy
-                    ? "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
-                    : "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
-                }`}
-              >
-                {isBusy ? t("statusBusy") : t("statusActive")}
+            {isVerified && (
+              <span className="inline-flex items-center gap-1 rounded-[4px] bg-[#2563EB] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                <Check className="h-3 w-3" strokeWidth={3} />
+                {t("verifiedBadge")}
+              </span>
+            )}
+            {isNew && (
+              <span className="rounded-[4px] bg-[#FCD34D] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#78350F] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                {t("statusNew")}
               </span>
             )}
             {discountPercent > 0 && (
@@ -349,14 +373,16 @@ export default function ServiceCard({
               </span>
             )}
           </div>
-          <button
-            type="button"
-            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
-            onClick={stop}
-            aria-label={t("addToFavorites")}
-          >
-            <Heart className="h-4 w-4 text-[#1E293B]" />
-          </button>
+          {!isTransport && (
+            <button
+              type="button"
+              className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
+              onClick={stop}
+              aria-label={t("addToFavorites")}
+            >
+              <Heart className="h-4 w-4 text-[#1E293B]" />
+            </button>
+          )}
           {!isFood && !isTransport && (
             <Badge
               variant="secondary"
@@ -380,31 +406,43 @@ export default function ServiceCard({
           </div>
           {isTransport ? (
             <div className="mt-2 space-y-1">
-              {driverName && (
-                <p className="flex items-center gap-1 text-[13px] font-bold text-[#334155]">
-                  <span className="inline-block size-1.5 rounded-full bg-[#CBD5E1]" />
-                  <span className="text-[#94A3B8] font-medium">
-                    {t("driverLabel")}:{" "}
+              {transportType && (
+                <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
+                  <span aria-hidden className="text-[14px] leading-none">
+                    🚗
                   </span>
-                  <span className="text-[#1E293B]">{driverName}</span>
+                  <span className="text-[#94A3B8] font-medium">
+                    {t("typeLabel")}:{" "}
+                  </span>
+                  <span className="text-[#1E293B] font-bold">
+                    {translateTransportType(transportType)}
+                  </span>
                 </p>
               )}
               {vehicleCapacity != null && (
-                <p className="flex items-center gap-1 text-[13px] font-bold text-[#334155]">
-                  <span className="inline-block size-1.5 rounded-full bg-[#CBD5E1]" />
-                  <span className="text-[#94A3B8] font-medium">
-                    {t("capacityLabel")}:{" "}
+                <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
+                  <span aria-hidden className="text-[14px] leading-none">
+                    💺
                   </span>
-                  <span className="text-[#1E293B]">{vehicleCapacity}</span>
+                  <span className="text-[#94A3B8] font-medium">
+                    {t("seatsLabel")}:{" "}
+                  </span>
+                  <span className="text-[#1E293B] font-bold">
+                    {vehicleCapacity}
+                  </span>
                 </p>
               )}
               {route && (
-                <p className="flex items-center gap-1 text-[13px] font-bold text-[#334155]">
-                  <span className="inline-block size-1.5 rounded-full bg-[#CBD5E1]" />
+                <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
+                  <span aria-hidden className="text-[14px] leading-none">
+                    📍
+                  </span>
                   <span className="text-[#94A3B8] font-medium">
                     {t("routeLabel")}:{" "}
                   </span>
-                  <span className="text-[#1E293B] line-clamp-1">{route}</span>
+                  <span className="text-[#1E293B] font-bold line-clamp-1">
+                    {route}
+                  </span>
                 </p>
               )}
             </div>
@@ -453,7 +491,7 @@ export default function ServiceCard({
               telHref ? (
                 <a
                   href={telHref}
-                  onClick={stop}
+                  onClick={onCallClick}
                   className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[12px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)] transition-colors hover:bg-[#16A34A]"
                 >
                   <Phone className="h-3.5 w-3.5" />
@@ -483,7 +521,7 @@ export default function ServiceCard({
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={stop}
+                onClick={onWhatsappClick}
                 aria-label="WhatsApp"
                 className="flex min-w-0 items-center justify-center whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[12px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)] transition-colors hover:bg-[#16A34A]"
               >

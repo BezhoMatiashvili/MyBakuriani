@@ -1,9 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, ChevronDown, Loader2, Pause, Play, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  Pause,
+  Play,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
 import { formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
@@ -18,6 +28,7 @@ type ListingRow = {
   type?: string;
   category?: string;
   location?: string | null;
+  is_new?: boolean | null;
 };
 
 const CATEGORY_OPTIONS: {
@@ -52,6 +63,7 @@ export default function ListingsPage() {
   const [rows, setRows] = useState<ListingRow[]>([]);
   const [kind, setKind] = useState<"property" | "service">("property");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,6 +108,8 @@ export default function ListingsPage() {
               category:
                 payload.kind === "service" ? asService.category : undefined,
               location: r.location ?? null,
+              is_new:
+                payload.kind === "service" ? (asService.is_new ?? false) : null,
             } satisfies ListingRow;
           },
         ),
@@ -106,6 +120,7 @@ export default function ListingsPage() {
 
   useEffect(() => {
     load();
+    setExpandedId(null);
   }, [load]);
 
   async function setStatus(
@@ -128,6 +143,30 @@ export default function ListingsPage() {
         prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r)),
       );
       toast.success("სტატუსი განახლდა");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "შეცდომა");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function toggleIsNew(id: string, nextValue: boolean) {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/admin/listings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, kind: "service", is_new: nextValue }),
+      });
+      const text = await res.text();
+      const payload = text
+        ? (JSON.parse(text) as { error?: string })
+        : ({} as { error?: string });
+      if (!res.ok) throw new Error(payload.error ?? "შეცდომა");
+      setRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, is_new: nextValue } : r)),
+      );
+      toast.success(nextValue ? "მონიშნა „ახალი“-დ" : "მოშორდა „ახალი“ ნიშანი");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
     } finally {
@@ -235,62 +274,128 @@ export default function ListingsPage() {
                 STATUS_LABELS[row.status ?? "pending"] ?? row.status ?? "—";
               const statusBadge =
                 STATUS_BADGES[row.status ?? "pending"] ?? STATUS_BADGES.pending;
+              const isExpanded = expandedId === row.id;
               return (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-[#F1F5F9] px-6 py-5 last:border-b-0"
+                  className="border-b border-[#F1F5F9] last:border-b-0"
                 >
-                  <div>
-                    <p className="text-sm font-black leading-[19px] text-[#1E293B]">
-                      {row.title}
-                    </p>
-                    <p className="mt-1 text-[11px] font-bold text-[#94A3B8]">
-                      {row.type ?? row.category ?? ""} • {row.views_count ?? 0}{" "}
-                      ნახვა • {row.location ?? "—"}
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold text-[#334155]">
-                    {row.owner?.display_name ?? "—"}
-                  </p>
-                  <p className="text-sm font-bold text-[#0F172A]">{price}</p>
-                  <span
-                    className={`inline-flex w-fit rounded-md border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.5px] ${statusBadge}`}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setExpandedId(isExpanded ? null : row.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setExpandedId(isExpanded ? null : row.id);
+                      }
+                    }}
+                    aria-expanded={isExpanded}
+                    className={`grid cursor-pointer grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 px-6 py-5 transition-colors hover:bg-[#F8FAFC] ${
+                      isExpanded ? "bg-[#F8FAFC]" : ""
+                    }`}
                   >
-                    {statusLabel}
-                  </span>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setStatus(
-                          row.id,
-                          row.status === "active" ? "blocked" : "active",
-                        )
-                      }
-                      disabled={isBusy}
-                      className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] disabled:opacity-50"
-                      aria-label={
-                        row.status === "active" ? "გაჩერება" : "აქტივაცია"
-                      }
+                    <div>
+                      <p className="text-sm font-black leading-[19px] text-[#1E293B]">
+                        {row.title}
+                      </p>
+                      <p className="mt-1 text-[11px] font-bold text-[#94A3B8]">
+                        {row.type ?? row.category ?? ""} •{" "}
+                        {row.views_count ?? 0} ნახვა • {row.location ?? "—"}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-[#334155]">
+                      {row.owner?.display_name ?? "—"}
+                    </p>
+                    <p className="text-sm font-bold text-[#0F172A]">{price}</p>
+                    <span
+                      className={`inline-flex w-fit rounded-md border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.5px] ${statusBadge}`}
                     >
-                      {isBusy ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : row.status === "active" ? (
-                        <Pause className="h-3 w-3" />
-                      ) : (
-                        <Play className="h-3 w-3" />
+                      {statusLabel}
+                    </span>
+                    <div className="flex justify-end gap-2">
+                      {kind === "service" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleIsNew(row.id, !row.is_new);
+                          }}
+                          disabled={isBusy}
+                          className={`inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border disabled:opacity-50 ${
+                            row.is_new
+                              ? "border-[#FCD34D] bg-[#FEF3C7] text-[#B45309]"
+                              : "border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8]"
+                          }`}
+                          aria-label={
+                            row.is_new
+                              ? "„ახალი“ ნიშნის მოშორება"
+                              : "„ახალი“-დ მონიშვნა"
+                          }
+                          title={row.is_new ? "ახალი (ჩართული)" : "ახალი"}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                        </button>
                       )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStatus(row.id, "draft")}
-                      disabled={isBusy}
-                      className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] disabled:opacity-50"
-                      aria-label="Draft-ში გადატანა"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStatus(
+                            row.id,
+                            row.status === "active" ? "blocked" : "active",
+                          );
+                        }}
+                        disabled={isBusy}
+                        className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] disabled:opacity-50"
+                        aria-label={
+                          row.status === "active" ? "გაჩერება" : "აქტივაცია"
+                        }
+                      >
+                        {isBusy ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : row.status === "active" ? (
+                          <Pause className="h-3 w-3" />
+                        ) : (
+                          <Play className="h-3 w-3" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStatus(row.id, "draft");
+                        }}
+                        disabled={isBusy}
+                        className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] disabled:opacity-50"
+                        aria-label="Draft-ში გადატანა"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.section
+                        key="panel"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <ListingAuditPanel
+                          kind={kind}
+                          id={row.id}
+                          onModerated={() => {
+                            setExpandedId(null);
+                            load();
+                          }}
+                          onChange={() => load()}
+                        />
+                      </motion.section>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })

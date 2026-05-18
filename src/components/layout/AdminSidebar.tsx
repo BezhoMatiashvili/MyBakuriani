@@ -1,6 +1,6 @@
 "use client";
 
-import { Mountain } from "lucide-react";
+import { Mountain, Home } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,10 @@ const sections: { title: string; items: NavItem[] }[] = [
         label: "ტარიფები და პაკეტები",
         href: "/dashboard/admin/settings",
       },
+      {
+        label: "ლოკაციის ზონები",
+        href: "/dashboard/admin/zones",
+      },
     ],
   },
   {
@@ -58,6 +62,10 @@ const sections: { title: string; items: NavItem[] }[] = [
       {
         label: "რეკლამები",
         href: "/dashboard/admin/moderation",
+      },
+      {
+        label: "SMS დადასტურება",
+        href: "/dashboard/admin/sms-approvals",
       },
     ],
   },
@@ -144,7 +152,17 @@ export function AdminSidebar({
         ))}
       </nav>
 
-      <div className="flex h-[88px] shrink-0 items-center border-t border-white/10 bg-[#020B29] p-4">
+      <div className="shrink-0 border-t border-white/10 bg-[#020B29] px-4 pt-4">
+        <Link
+          href="/"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.55)] transition-colors hover:bg-[#1D4ED8]"
+        >
+          <Home className="size-[18px]" />
+          მთავარზე დაბრუნება
+        </Link>
+      </div>
+
+      <div className="flex h-[88px] shrink-0 items-center bg-[#020B29] p-4">
         <button
           type="button"
           onClick={onSignOut}

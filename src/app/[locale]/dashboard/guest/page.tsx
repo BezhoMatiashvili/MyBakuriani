@@ -15,7 +15,8 @@ import NewRequestModal, {
 import GuestOffersModal, {
   type GuestOffer,
 } from "@/components/guest/GuestOffersModal";
-import { nearestZone } from "@/lib/constants/locations";
+import { nearestZoneName } from "@/lib/zones/types";
+import { useActiveZones } from "@/lib/zones/client";
 import type { Tables } from "@/lib/types/database";
 
 type Property = Tables<"properties">;
@@ -27,6 +28,7 @@ function requestShortId(id: string) {
 export default function GuestDashboardPage() {
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones } = useActiveZones();
 
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [recent, setRecent] = useState<Property[]>([]);
@@ -200,8 +202,11 @@ export default function GuestDashboardPage() {
       if (!zoneValue) return true;
       if (p.location_lat == null || p.location_lng == null) return false;
       return (
-        nearestZone(Number(p.location_lat), Number(p.location_lng)) ===
-        zoneValue
+        nearestZoneName(
+          zones,
+          Number(p.location_lat),
+          Number(p.location_lng),
+        ) === zoneValue
       );
     });
 

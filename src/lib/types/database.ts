@@ -108,6 +108,8 @@ export type Database = {
           published_at: string | null
           slug: string
           title: string
+          video_poster_url: string | null
+          video_url: string | null
         }
         Insert: {
           author_id?: string | null
@@ -120,6 +122,8 @@ export type Database = {
           published_at?: string | null
           slug: string
           title: string
+          video_poster_url?: string | null
+          video_url?: string | null
         }
         Update: {
           author_id?: string | null
@@ -132,6 +136,8 @@ export type Database = {
           published_at?: string | null
           slug?: string
           title?: string
+          video_poster_url?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -225,7 +231,11 @@ export type Database = {
           recipient_count: number
           sent_at: string
           sent_by: string | null
+          severity: string
           subject: string | null
+          target_roles: string[] | null
+          target_user_ids: string[] | null
+          title: string | null
         }
         Insert: {
           audience_filter: string
@@ -235,7 +245,11 @@ export type Database = {
           recipient_count?: number
           sent_at?: string
           sent_by?: string | null
+          severity?: string
           subject?: string | null
+          target_roles?: string[] | null
+          target_user_ids?: string[] | null
+          title?: string | null
         }
         Update: {
           audience_filter?: string
@@ -245,7 +259,11 @@ export type Database = {
           recipient_count?: number
           sent_at?: string
           sent_by?: string | null
+          severity?: string
           subject?: string | null
+          target_roles?: string[] | null
+          target_user_ids?: string[] | null
+          title?: string | null
         }
         Relationships: [
           {
@@ -349,6 +367,74 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_events: {
+        Row: {
+          channel: Database["public"]["Enums"]["contact_channel"]
+          created_at: string
+          expires_at: string
+          id: string
+          owner_id: string
+          property_id: string | null
+          service_id: string | null
+          sms_sent_count: number
+          visitor_id: string
+          visitor_phone: string | null
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["contact_channel"]
+          created_at?: string
+          expires_at?: string
+          id?: string
+          owner_id: string
+          property_id?: string | null
+          service_id?: string | null
+          sms_sent_count?: number
+          visitor_id: string
+          visitor_phone?: string | null
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["contact_channel"]
+          created_at?: string
+          expires_at?: string
+          id?: string
+          owner_id?: string
+          property_id?: string | null
+          service_id?: string | null
+          sms_sent_count?: number
+          visitor_id?: string
+          visitor_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_events_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_events_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_events_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -484,6 +570,8 @@ export type Database = {
           title: string
           tone: string
           updated_at: string
+          video_poster_url: string | null
+          video_url: string | null
         }
         Insert: {
           active?: boolean
@@ -501,6 +589,8 @@ export type Database = {
           title: string
           tone?: string
           updated_at?: string
+          video_poster_url?: string | null
+          video_url?: string | null
         }
         Update: {
           active?: boolean
@@ -518,6 +608,8 @@ export type Database = {
           title?: string
           tone?: string
           updated_at?: string
+          video_poster_url?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -607,35 +699,48 @@ export type Database = {
       notifications: {
         Row: {
           action_url: string | null
+          broadcast_id: string | null
           created_at: string | null
           id: string
           is_read: boolean | null
           message: string | null
+          severity: string
           title: string
           type: string
           user_id: string
         }
         Insert: {
           action_url?: string | null
+          broadcast_id?: string | null
           created_at?: string | null
           id?: string
           is_read?: boolean | null
           message?: string | null
+          severity?: string
           title: string
           type: string
           user_id: string
         }
         Update: {
           action_url?: string | null
+          broadcast_id?: string | null
           created_at?: string | null
           id?: string
           is_read?: boolean | null
           message?: string | null
+          severity?: string
           title?: string
           type?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "broadcasts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
@@ -685,9 +790,11 @@ export type Database = {
           amount_gel: number
           category: string
           code: string
+          description: string | null
           id: string
           is_enabled: boolean
           label: string | null
+          meta: Json
           name: string
           sort_order: number
           updated_at: string
@@ -696,9 +803,11 @@ export type Database = {
           amount_gel: number
           category: string
           code: string
+          description?: string | null
           id?: string
           is_enabled?: boolean
           label?: string | null
+          meta?: Json
           name: string
           sort_order?: number
           updated_at?: string
@@ -707,9 +816,11 @@ export type Database = {
           amount_gel?: number
           category?: string
           code?: string
+          description?: string | null
           id?: string
           is_enabled?: boolean
           label?: string | null
+          meta?: Json
           name?: string
           sort_order?: number
           updated_at?: string
@@ -825,6 +936,7 @@ export type Database = {
       }
       properties: {
         Row: {
+          admin_notes: string | null
           amenities: Json | null
           area_sqm: number | null
           bathrooms: number | null
@@ -853,10 +965,12 @@ export type Database = {
           min_booking_days: number | null
           numeric_rating: number | null
           owner_id: string
+          phone: string | null
           photos: string[] | null
           price_per_night: number | null
           progress_note: string | null
           progress_note_updated_at: string | null
+          registration_readiness: string | null
           renovation_status: string | null
           roi_percent: number | null
           room_type: string | null
@@ -868,8 +982,10 @@ export type Database = {
           updated_at: string | null
           views_count: number | null
           vip_expires_at: string | null
+          whatsapp: string | null
         }
         Insert: {
+          admin_notes?: string | null
           amenities?: Json | null
           area_sqm?: number | null
           bathrooms?: number | null
@@ -898,10 +1014,12 @@ export type Database = {
           min_booking_days?: number | null
           numeric_rating?: number | null
           owner_id: string
+          phone?: string | null
           photos?: string[] | null
           price_per_night?: number | null
           progress_note?: string | null
           progress_note_updated_at?: string | null
+          registration_readiness?: string | null
           renovation_status?: string | null
           roi_percent?: number | null
           room_type?: string | null
@@ -913,8 +1031,10 @@ export type Database = {
           updated_at?: string | null
           views_count?: number | null
           vip_expires_at?: string | null
+          whatsapp?: string | null
         }
         Update: {
+          admin_notes?: string | null
           amenities?: Json | null
           area_sqm?: number | null
           bathrooms?: number | null
@@ -943,10 +1063,12 @@ export type Database = {
           min_booking_days?: number | null
           numeric_rating?: number | null
           owner_id?: string
+          phone?: string | null
           photos?: string[] | null
           price_per_night?: number | null
           progress_note?: string | null
           progress_note_updated_at?: string | null
+          registration_readiness?: string | null
           renovation_status?: string | null
           roi_percent?: number | null
           room_type?: string | null
@@ -958,6 +1080,7 @@ export type Database = {
           updated_at?: string | null
           views_count?: number | null
           vip_expires_at?: string | null
+          whatsapp?: string | null
         }
         Relationships: [
           {
@@ -1052,6 +1175,7 @@ export type Database = {
       services: {
         Row: {
           accommodation: string | null
+          admin_notes: string | null
           avg_check: string | null
           category: Database["public"]["Enums"]["service_category"]
           created_at: string | null
@@ -1069,6 +1193,7 @@ export type Database = {
           has_live_music: boolean
           has_lounge: boolean
           id: string
+          is_new: boolean
           is_vip: boolean | null
           languages: string[] | null
           location: string | null
@@ -1102,6 +1227,7 @@ export type Database = {
         }
         Insert: {
           accommodation?: string | null
+          admin_notes?: string | null
           avg_check?: string | null
           category: Database["public"]["Enums"]["service_category"]
           created_at?: string | null
@@ -1119,6 +1245,7 @@ export type Database = {
           has_live_music?: boolean
           has_lounge?: boolean
           id?: string
+          is_new?: boolean
           is_vip?: boolean | null
           languages?: string[] | null
           location?: string | null
@@ -1152,6 +1279,7 @@ export type Database = {
         }
         Update: {
           accommodation?: string | null
+          admin_notes?: string | null
           avg_check?: string | null
           category?: Database["public"]["Enums"]["service_category"]
           created_at?: string | null
@@ -1169,6 +1297,7 @@ export type Database = {
           has_live_music?: boolean
           has_lounge?: boolean
           id?: string
+          is_new?: boolean
           is_vip?: boolean | null
           languages?: string[] | null
           location?: string | null
@@ -1347,6 +1476,107 @@ export type Database = {
           },
         ]
       }
+      sms_automation_rules: {
+        Row: {
+          check_in_reminder_enabled: boolean
+          check_in_reminder_hours_before: number
+          created_at: string
+          review_request_enabled: boolean
+          review_request_hours_after: number
+          updated_at: string
+          user_id: string
+          win_back_days_after: number
+          win_back_enabled: boolean
+        }
+        Insert: {
+          check_in_reminder_enabled?: boolean
+          check_in_reminder_hours_before?: number
+          created_at?: string
+          review_request_enabled?: boolean
+          review_request_hours_after?: number
+          updated_at?: string
+          user_id: string
+          win_back_days_after?: number
+          win_back_enabled?: boolean
+        }
+        Update: {
+          check_in_reminder_enabled?: boolean
+          check_in_reminder_hours_before?: number
+          created_at?: string
+          review_request_enabled?: boolean
+          review_request_hours_after?: number
+          updated_at?: string
+          user_id?: string
+          win_back_days_after?: number
+          win_back_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_automation_rules_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_broadcasts: {
+        Row: {
+          admin_notes: string | null
+          audience: Database["public"]["Enums"]["sms_broadcast_audience"]
+          audience_snapshot: Json
+          created_at: string
+          id: string
+          message: string
+          recipient_count: number
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sender_id: string
+          status: Database["public"]["Enums"]["sms_broadcast_status"]
+        }
+        Insert: {
+          admin_notes?: string | null
+          audience: Database["public"]["Enums"]["sms_broadcast_audience"]
+          audience_snapshot?: Json
+          created_at?: string
+          id?: string
+          message: string
+          recipient_count?: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_id: string
+          status?: Database["public"]["Enums"]["sms_broadcast_status"]
+        }
+        Update: {
+          admin_notes?: string | null
+          audience?: Database["public"]["Enums"]["sms_broadcast_audience"]
+          audience_snapshot?: Json
+          created_at?: string
+          id?: string
+          message?: string
+          recipient_count?: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_id?: string
+          status?: Database["public"]["Enums"]["sms_broadcast_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_broadcasts_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_broadcasts_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_messages: {
         Row: {
           created_at: string | null
@@ -1395,6 +1625,106 @@ export type Database = {
             columns: ["to_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_outbound: {
+        Row: {
+          admin_notes: string | null
+          automation_kind: string | null
+          broadcast_id: string | null
+          contact_event_id: string | null
+          created_at: string
+          id: string
+          message: string
+          provider_response: Json | null
+          recipient_id: string
+          recipient_phone: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sender_id: string
+          sent_at: string | null
+          source_booking_id: string | null
+          status: Database["public"]["Enums"]["sms_outbound_status"]
+        }
+        Insert: {
+          admin_notes?: string | null
+          automation_kind?: string | null
+          broadcast_id?: string | null
+          contact_event_id?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          provider_response?: Json | null
+          recipient_id: string
+          recipient_phone: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_id: string
+          sent_at?: string | null
+          source_booking_id?: string | null
+          status?: Database["public"]["Enums"]["sms_outbound_status"]
+        }
+        Update: {
+          admin_notes?: string | null
+          automation_kind?: string | null
+          broadcast_id?: string | null
+          contact_event_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          provider_response?: Json | null
+          recipient_id?: string
+          recipient_phone?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_id?: string
+          sent_at?: string | null
+          source_booking_id?: string | null
+          status?: Database["public"]["Enums"]["sms_outbound_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_outbound_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "sms_broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_outbound_contact_event_id_fkey"
+            columns: ["contact_event_id"]
+            isOneToOne: false
+            referencedRelation: "contact_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_outbound_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_outbound_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_outbound_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_outbound_source_booking_id_fkey"
+            columns: ["source_booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
         ]
@@ -1495,6 +1825,48 @@ export type Database = {
           },
         ]
       }
+      zones: {
+        Row: {
+          created_at: string
+          description_ka: string
+          icon: string
+          id: string
+          is_active: boolean
+          lat: number
+          lng: number
+          name_ka: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description_ka?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          lat: number
+          lng: number
+          name_ka: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description_ka?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          lat?: number
+          lng?: number
+          name_ka?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1569,12 +1941,45 @@ export type Database = {
         }
         Returns: Json
       }
+      record_contact_event: {
+        Args: {
+          p_channel: string
+          p_owner_id: string
+          p_property_id: string
+          p_service_id: string
+          p_visitor_id: string
+        }
+        Returns: string
+      }
       release_booking_calendar: {
         Args: { p_booking_id: string }
         Returns: number
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sms_audience_count: {
+        Args: {
+          p_audience: Database["public"]["Enums"]["sms_broadcast_audience"]
+          p_sender_id: string
+        }
+        Returns: number
+      }
+      sms_consume_credit: {
+        Args: { p_sender_id: string; p_sms_id: string }
+        Returns: undefined
+      }
+      sms_consume_credits_bulk: {
+        Args: { p_sender_id: string; p_sms_ids: string[] }
+        Returns: number
+      }
+      sms_send_broadcast: {
+        Args: {
+          p_audience: Database["public"]["Enums"]["sms_broadcast_audience"]
+          p_message: string
+          p_sender_id: string
+        }
+        Returns: Json
+      }
       topup_balance: {
         Args: { p_amount: number; p_description?: string; p_user_id: string }
         Returns: number
@@ -1583,6 +1988,7 @@ export type Database = {
     Enums: {
       booking_status: "pending" | "confirmed" | "cancelled" | "completed"
       calendar_status: "available" | "booked" | "blocked"
+      contact_channel: "call" | "whatsapp"
       landing_banner_kind: "info" | "promo" | "sticky_news"
       lead_priority: "low" | "medium" | "high"
       lead_source:
@@ -1602,6 +2008,29 @@ export type Database = {
         | "entertainment"
         | "employment"
         | "handyman"
+      sms_broadcast_audience:
+        | "renter_past_guests"
+        | "renter_upcoming_guests"
+        | "renter_all_contacts"
+        | "food_recent_customers"
+        | "food_all_contacts"
+        | "service_recent_clients"
+        | "service_all_contacts"
+        | "seller_active_leads"
+        | "seller_new_leads"
+      sms_broadcast_status:
+        | "pending"
+        | "partial_approved"
+        | "approved"
+        | "rejected"
+        | "sent"
+        | "failed"
+      sms_outbound_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "sent"
+        | "failed"
       transaction_type:
         | "topup"
         | "vip_boost"
@@ -1610,6 +2039,7 @@ export type Database = {
         | "discount_badge"
         | "withdrawal"
         | "commission"
+        | "sms_send"
       user_role:
         | "guest"
         | "renter"
@@ -1751,6 +2181,7 @@ export const Constants = {
     Enums: {
       booking_status: ["pending", "confirmed", "cancelled", "completed"],
       calendar_status: ["available", "booked", "blocked"],
+      contact_channel: ["call", "whatsapp"],
       landing_banner_kind: ["info", "promo", "sticky_news"],
       lead_priority: ["low", "medium", "high"],
       lead_source: [
@@ -1772,6 +2203,32 @@ export const Constants = {
         "employment",
         "handyman",
       ],
+      sms_broadcast_audience: [
+        "renter_past_guests",
+        "renter_upcoming_guests",
+        "renter_all_contacts",
+        "food_recent_customers",
+        "food_all_contacts",
+        "service_recent_clients",
+        "service_all_contacts",
+        "seller_active_leads",
+        "seller_new_leads",
+      ],
+      sms_broadcast_status: [
+        "pending",
+        "partial_approved",
+        "approved",
+        "rejected",
+        "sent",
+        "failed",
+      ],
+      sms_outbound_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "sent",
+        "failed",
+      ],
       transaction_type: [
         "topup",
         "vip_boost",
@@ -1780,6 +2237,7 @@ export const Constants = {
         "discount_badge",
         "withdrawal",
         "commission",
+        "sms_send",
       ],
       user_role: [
         "guest",

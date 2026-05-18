@@ -29,8 +29,12 @@ const KNOWN_ROUTES = new Set([
 
 const ITEMS_PER_PAGE = 9;
 
+type TransportService = Tables<"services"> & {
+  owner: { is_verified: boolean | null } | null;
+};
+
 interface Props {
-  services: Tables<"services">[];
+  services: TransportService[];
 }
 
 export default function TransportPageClient({ services }: Props) {
@@ -199,13 +203,12 @@ export default function TransportPageClient({ services }: Props) {
                     priceUnit={s.price_unit}
                     discountPercent={s.discount_percent ?? 0}
                     isVip={s.is_vip ?? false}
+                    isNew={s.is_new ?? false}
+                    isVerified={s.owner?.is_verified ?? false}
                     phone={s.phone}
-                    driverName={s.driver_name}
+                    transportType={s.transport_type}
                     vehicleCapacity={s.vehicle_capacity}
                     route={s.route}
-                    availabilityStatus={
-                      (s.discount_percent ?? 0) > 0 ? "busy" : "active"
-                    }
                   />
                 </ScrollReveal>
               ))}

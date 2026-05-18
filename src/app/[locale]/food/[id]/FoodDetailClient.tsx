@@ -178,6 +178,7 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
               phone={service.phone}
               menuUrl={service.menu_url}
               location={service.location}
+              serviceId={service.id}
             />
           </div>
         </motion.aside>

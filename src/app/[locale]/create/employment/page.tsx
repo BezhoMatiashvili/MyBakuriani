@@ -10,14 +10,9 @@ import {
 import PhoneInput from "@/components/forms/PhoneInput";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-
-const LOCATION_OPTIONS = SEARCH_LOCATION_ZONES.map((z) => ({
-  value: z,
-  label: z,
-}));
 
 const EMPLOYMENT_TYPE_OPTIONS = [
   { value: "სრული განაკვეთი", label: "სრული განაკვეთი" },
@@ -53,16 +48,21 @@ export default function CreateEmploymentPage() {
   const router = useRouter();
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones } = useActiveZones();
+  const locationOptions = zones.map((z) => ({
+    value: z.name_ka,
+    label: z.name_ka,
+  }));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Section 1
   const [title, setTitle] = useState("");
-  const [location, setLocation] = useState<string>(SEARCH_LOCATION_ZONES[1]);
+  const [location, setLocation] = useState<string>("");
   const [position, setPosition] = useState("");
-  const [description, setDescription] = useState("");
   const [phone, setPhone] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
 
   // Section 2
   const [employmentType, setEmploymentType] =
@@ -85,6 +85,7 @@ export default function CreateEmploymentPage() {
     title.trim().length > 0,
     location.trim().length > 0,
     position.trim().length > 0,
+    phone.trim().length > 0,
     salaryMin.trim().length > 0,
     salaryMax.trim().length > 0,
     workDescription.trim().length > 0,
@@ -108,14 +109,18 @@ export default function CreateEmploymentPage() {
     setError(null);
 
     try {
+      if (!phone.trim()) {
+        throw new Error("მიუთითეთ ტელეფონის ნომერი");
+      }
       const { error: insertError } = await supabase.from("services").insert({
         owner_id: user.id,
         category: "employment",
         title: title.trim() || position.trim(),
-        description: description.trim() || null,
+        description: workDescription.trim() || null,
         position: position.trim() || null,
         location: location || null,
         phone: phone ? `+995${phone}` : null,
+        whatsapp: whatsapp ? `+995${whatsapp}` : null,
         employment_type: employmentType || null,
         work_schedule: workSchedule || null,
         salary_type: salaryType || null,
@@ -176,7 +181,7 @@ export default function CreateEmploymentPage() {
             <StyledSelect
               value={location}
               onValueChange={setLocation}
-              options={LOCATION_OPTIONS}
+              options={locationOptions}
               accent="blue"
             />
           </Field>
@@ -192,19 +197,14 @@ export default function CreateEmploymentPage() {
           />
         </Field>
 
-        <Field label="აღწერა">
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="სამუშაოს დეტალური აღწერა..."
-            rows={4}
-            className={textareaClass}
-          />
-        </Field>
-
-        <Field label="საკონტაქტო ტელეფონი">
-          <PhoneInput value={phone} onChange={setPhone} />
-        </Field>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="საკონტაქტო ტელეფონი" required>
+            <PhoneInput value={phone} onChange={setPhone} />
+          </Field>
+          <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
+            <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+          </Field>
+        </div>
       </WizardInnerCard>
 
       {/* SECTION 2 */}

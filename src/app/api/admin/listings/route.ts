@@ -58,19 +58,29 @@ export async function PATCH(req: NextRequest) {
     id?: string;
     kind?: "property" | "service";
     status?: "active" | "blocked" | "pending" | "draft";
+    is_new?: boolean;
   } | null;
-  if (!body?.id || !body.status || !body.kind) {
+  if (!body?.id || !body.kind) {
+    return Response.json({ error: "id and kind required" }, { status: 400 });
+  }
+  if (body.status === undefined && body.is_new === undefined) {
     return Response.json(
-      { error: "id, kind, status required" },
+      { error: "status or is_new required" },
+      { status: 400 },
+    );
+  }
+  if (body.is_new !== undefined && body.kind !== "service") {
+    return Response.json(
+      { error: "is_new only applies to services" },
       { status: 400 },
     );
   }
   const db = createServiceClient();
   const table = body.kind === "property" ? "properties" : "services";
-  const { error } = await db
-    .from(table)
-    .update({ status: body.status })
-    .eq("id", body.id);
+  const patch: Record<string, unknown> = {};
+  if (body.status !== undefined) patch.status = body.status;
+  if (body.is_new !== undefined) patch.is_new = body.is_new;
+  const { error } = await db.from(table).update(patch).eq("id", body.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true });
 }

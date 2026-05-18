@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Tables } from "@/lib/types/database";
+import { watermarkFile } from "@/lib/utils/watermark";
 
 export default function GuestProfilePage() {
   const { user } = useAuth();
@@ -95,11 +96,15 @@ export default function GuestProfilePage() {
 
     setUploadingAvatar(true);
     try {
-      const ext = file.type === "image/png" ? "png" : "jpg";
+      const watermarked = await watermarkFile(file);
+      const ext = watermarked.type === "image/png" ? "png" : "jpg";
       const path = `${user.id}/avatar-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, watermarked, {
+          upsert: true,
+          contentType: watermarked.type,
+        });
       if (upErr) throw upErr;
 
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);

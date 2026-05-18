@@ -12,12 +12,28 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  SEARCH_LOCATION_ZONES,
-  nearestZone,
-  type SearchLocationZone,
-} from "@/lib/constants/locations";
+import type { Zone } from "@/lib/zones/types";
 import { createClient } from "@/lib/supabase/client";
+
+function nearestZoneNameFrom(
+  zones: Zone[],
+  lat: number,
+  lng: number,
+): string | null {
+  if (zones.length === 0) return null;
+  let best = zones[0];
+  let bestDist = Infinity;
+  for (const z of zones) {
+    const dLat = lat - z.lat;
+    const dLng = lng - z.lng;
+    const d = dLat * dLat + dLng * dLng;
+    if (d < bestDist) {
+      bestDist = d;
+      best = z;
+    }
+  }
+  return best.name_ka;
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
@@ -63,6 +79,7 @@ interface SaleSearchBoxProps {
   /** Controlled map-toggle state. If omitted, the component manages its own. */
   showMap?: boolean;
   onShowMapChange?: (next: boolean) => void;
+  zones: Zone[];
 }
 
 // ─── Option constants ──────────────────────────────────────────────────
@@ -154,8 +171,6 @@ const RENOVATION_OPTIONS: Array<{ value: string | null; label: string }> = [
   { value: "furnished", label: "გარემონტებული ავეჯით" },
 ];
 
-const APPRAISAL_ZONES = SEARCH_LOCATION_ZONES;
-
 const PRICE_MIN = 0;
 const PRICE_MAX = 1_000_000;
 const PRICE_STEP = 5_000;
@@ -187,6 +202,7 @@ export function SaleSearchBox({
   showInvestmentFilters = true,
   showMap: showMapProp,
   onShowMapChange,
+  zones,
 }: SaleSearchBoxProps) {
   // Tabs
   const [tab, setTab] = useState<SaleTab>("search");
@@ -293,7 +309,7 @@ export function SaleSearchBox({
     : PRICE_MAX;
 
   const runAppraisal = useCallback(
-    async (zone: SearchLocationZone, areaInput: string) => {
+    async (zone: string, areaInput: string) => {
       setAppraisalLoading(true);
       setAppraisalError(null);
       setAppraisalResult(null);
@@ -326,7 +342,8 @@ export function SaleSearchBox({
         );
 
         const inZone = rows.filter(
-          (r) => nearestZone(r.location_lat, r.location_lng) === zone,
+          (r) =>
+            nearestZoneNameFrom(zones, r.location_lat, r.location_lng) === zone,
         );
 
         if (inZone.length === 0) {
@@ -371,14 +388,14 @@ export function SaleSearchBox({
         setAppraisalLoading(false);
       }
     },
-    [],
+    [zones],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (tab === "appraise") {
       if (!appraisalZone) return;
-      void runAppraisal(appraisalZone as SearchLocationZone, appraisalArea);
+      void runAppraisal(appraisalZone, appraisalArea);
       return;
     }
 
@@ -809,6 +826,7 @@ export function SaleSearchBox({
             }}
             isPending={isPending || appraisalLoading}
             disabled={!appraisalZone}
+            zones={zones}
           />
           {(appraisalLoading || appraisalResult || appraisalError) && (
             <AppraisalResults
@@ -1157,6 +1175,7 @@ function AppraisalPane({
   onSelectZone,
   isPending,
   disabled,
+  zones,
 }: {
   zone: string;
   zoneLabel: string;
@@ -1167,6 +1186,7 @@ function AppraisalPane({
   onSelectZone: (v: string) => void;
   isPending: boolean;
   disabled: boolean;
+  zones: Zone[];
 }) {
   return (
     <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:gap-6">
@@ -1204,19 +1224,19 @@ function AppraisalPane({
           </button>
           {zoneOpen && (
             <ul className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-lg border border-[#E2E8F0] bg-white shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.15)]">
-              {APPRAISAL_ZONES.map((z) => {
-                const selected = z === zone;
+              {zones.map((z) => {
+                const selected = z.name_ka === zone;
                 return (
-                  <li key={z}>
+                  <li key={z.id}>
                     <button
                       type="button"
-                      onClick={() => onSelectZone(z)}
+                      onClick={() => onSelectZone(z.name_ka)}
                       className={cn(
                         "flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-bold transition-colors hover:bg-[#F8FAFC]",
                         selected && "bg-[#F0FDF4] text-[#16A34A]",
                       )}
                     >
-                      {z}
+                      {z.name_ka}
                       {selected && <Check className="size-4" />}
                     </button>
                   </li>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import {
   PieChart,
@@ -10,6 +11,8 @@ import {
   Bell,
   Settings,
   LogOut,
+  MessageSquare,
+  Home,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -71,6 +74,11 @@ const SECTIONS: NavSection[] = [
         href: "/dashboard/seller/balance",
         icon: Wallet,
       },
+      {
+        label: "SMS ცენტრი",
+        href: "/dashboard/sms",
+        icon: MessageSquare,
+      },
     ],
   },
   {
@@ -93,44 +101,13 @@ const SECTIONS: NavSection[] = [
 
 function BrandLogo() {
   return (
-    <div className="flex items-center gap-2">
-      <svg
-        width="44"
-        height="32"
-        viewBox="0 0 44 32"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="shrink-0"
-        aria-hidden
-      >
-        <path
-          d="M4 28 L18 6 L26 18 L32 10 L40 28 Z"
-          fill="#0E2150"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M15 12 L18 6 L21 12 L19.5 13.5 L18 12.5 L16.5 13.5 Z"
-          fill="white"
-        />
-        <path
-          d="M29.5 12.5 L32 10 L34.5 12.5 L33 13.5 L32 12.8 L31 13.5 Z"
-          fill="white"
-        />
-        <path
-          d="M0 30 L10 14 L18 28 L22 22 L28 30 Z"
-          fill="#1E419A"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M7 19 L10 14 L13 19 L11.5 20 L10 19.2 L8.5 20 Z"
-          fill="white"
-        />
-      </svg>
-      <span className="text-xl font-extrabold leading-none">
-        <span className="text-[#F97316]">My</span>
-        <span className="text-[#0E2150]">Bakuriani</span>
-      </span>
-    </div>
+    <Image
+      src="/logo.png"
+      alt="MyBakuriani"
+      width={300}
+      height={199}
+      className="h-10 w-auto"
+    />
   );
 }
 
@@ -260,6 +237,16 @@ export function SellerSidebar({
           ))}
         </ul>
       </nav>
+
+      <div className="border-t border-[#EEF1F4] px-4 py-3">
+        <Link
+          href="/"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8]"
+        >
+          <Home className="size-[18px]" />
+          მთავარზე დაბრუნება
+        </Link>
+      </div>
 
       <div className="border-t border-[#EEF1F4] px-4 py-3">
         <button

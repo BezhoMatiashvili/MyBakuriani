@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   let query = db
     .from("landing_banners")
     .select(
-      "id, kind, title, body, cta_label, cta_href, image_url, tone, sort_order, start_at, end_at",
+      "id, kind, title, body, cta_label, cta_href, image_url, video_url, video_poster_url, tone, sort_order, start_at, end_at",
     )
     .eq("active", true)
     .order("sort_order", { ascending: true })

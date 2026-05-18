@@ -2,68 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Info, Star, AlertTriangle, BellRing } from "lucide-react";
+import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ICON_STYLES,
+  iconForType,
+  relativeTime,
+} from "@/lib/utils/notifications";
 import type { Tables } from "@/lib/types/database";
 
 type DBNotification = Tables<"notifications">;
-
-const ICON_STYLES = {
-  info: {
-    bg: "bg-[#DBEAFE]",
-    color: "text-[#2563EB]",
-    Icon: Info,
-  },
-  star: {
-    bg: "bg-[#FEF3C7]",
-    color: "text-[#F59E0B]",
-    Icon: Star,
-  },
-  warning: {
-    bg: "bg-[#FFEDD5]",
-    color: "text-[#F97316]",
-    Icon: AlertTriangle,
-  },
-  lead: {
-    bg: "bg-[#DCFCE7]",
-    color: "text-[#16A34A]",
-    Icon: BellRing,
-  },
-} as const;
-
-type IconKey = keyof typeof ICON_STYLES;
-
-function iconForType(type: string): IconKey {
-  switch (type) {
-    case "smart_match_request":
-    case "smart_match":
-      return "lead";
-    case "smart_match_offer":
-      return "info";
-    case "warning":
-    case "balance_low":
-      return "warning";
-    case "favorite":
-    case "review":
-    case "review_request":
-      return "star";
-    default:
-      return "info";
-  }
-}
-
-function relativeTime(iso: string | null): string {
-  if (!iso) return "ახლახან";
-  const diff = Date.now() - new Date(iso).getTime();
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 1) return "ახლახან";
-  if (hours < 24) return `${hours} სთ-ის წინ`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "გუშინ";
-  return `${days} დღის წინ`;
-}
 
 export default function RenterNotificationsPage() {
   const { user } = useAuth();

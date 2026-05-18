@@ -4,17 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import type { Locale } from "date-fns";
-import {
-  Search,
-  MapPin,
-  ChevronDown,
-  Mountain,
-  TreePine,
-  Check,
-} from "lucide-react";
+import { Search, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+import type { Zone } from "@/lib/zones/types";
+import { ZoneIcon } from "@/lib/zones/icon";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 
 export interface SearchFilters {
@@ -53,35 +47,8 @@ interface SearchBoxProps {
   dropdownBoundaryRef?: React.RefObject<HTMLElement | null>;
   onActiveDropdownChange?: (active: ActiveDropdown) => void;
   isPending?: boolean;
+  zones: Zone[];
 }
-
-// ─── Location zones ──────────────────────────────────────────────────
-const ZONES = [
-  {
-    value: SEARCH_LOCATION_ZONES[0],
-    title: "დიდველი / კრისტალი",
-    description: "ტრასასთან ახლოს, საბაგირეს ხედვით",
-    icon: Mountain,
-  },
-  {
-    value: SEARCH_LOCATION_ZONES[1],
-    title: "ცენტრი / პარკი",
-    description: "გართობა, რესტორნები და ცენტრალური პარკი",
-    icon: TreePine,
-  },
-  {
-    value: SEARCH_LOCATION_ZONES[2],
-    title: "კოხტა / მიტარბი",
-    description: "პრემიუმ ფარეხი და ახალი საბაგიროები",
-    icon: Mountain,
-  },
-  {
-    value: SEARCH_LOCATION_ZONES[3],
-    title: "25-იანები",
-    description: "იაფფასიანი ბინები და დამწყებთათვის",
-    icon: MapPin,
-  },
-];
 
 // ─── Filter constants ────────────────────────────────────────────────
 const CAPACITY_OPTIONS = ["2 სტუმარი", "4 სტუმარი", "6 სტუმარი", "8+ სტუმარი"];
@@ -183,6 +150,7 @@ export function SearchBox({
   dropdownBoundaryRef,
   onActiveDropdownChange,
   isPending = false,
+  zones,
 }: SearchBoxProps) {
   const [location, setLocation] = useState(defaultLocation);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -427,6 +395,7 @@ export function SearchBox({
                 setLocation(val);
                 setActiveDropdown(null);
               }}
+              zones={zones}
             />
           )}
         </div>
@@ -707,6 +676,7 @@ export function SearchBox({
               setLocation(val);
               setActiveDropdown(null);
             }}
+            zones={zones}
           />
         );
 
@@ -753,10 +723,12 @@ function LocationDropdown({
   location,
   onSelect,
   inline,
+  zones,
 }: {
   location: string;
   onSelect: (val: string) => void;
   inline?: boolean;
+  zones: Zone[];
 }) {
   return (
     <div
@@ -767,28 +739,27 @@ function LocationDropdown({
           : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[480px]",
       )}
     >
-      {ZONES.map((zone) => {
-        const Icon = zone.icon;
-        const isSelected = location === zone.value;
+      {zones.map((zone) => {
+        const isSelected = location === zone.name_ka;
         return (
           <button
-            key={zone.value}
+            key={zone.id}
             type="button"
-            onClick={() => onSelect(zone.value)}
+            onClick={() => onSelect(zone.name_ka)}
             className={cn(
               "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors",
               isSelected ? "bg-[#F1F5F9]" : "hover:bg-[#F8FAFC]",
             )}
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9]">
-              <Icon className="size-5 text-[#64748B]" />
+              <ZoneIcon icon={zone.icon} className="size-5 text-[#64748B]" />
             </div>
             <div className="flex-1">
               <div className="text-[14px] font-bold leading-5 text-[#1E293B]">
-                {zone.title}
+                {zone.name_ka}
               </div>
               <div className="text-[12px] leading-4 text-[#64748B]">
-                {zone.description}
+                {zone.description_ka}
               </div>
             </div>
             {isSelected && <Check className="size-5 text-[#2563EB]" />}

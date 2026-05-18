@@ -2,88 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Rocket,
-  Star,
-  Percent,
-  MessageSquare,
-  History,
-  ArrowDownLeft,
-  ArrowUpRight,
-} from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  fetchPricingPackages,
+  getPackageDisplay,
+  type PricingPackage,
+} from "@/lib/pricing-packages";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
-
-interface Tier {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  unit: string;
-  icon: typeof Rocket;
-  iconBg: string;
-  iconColor: string;
-  cta: string;
-  ctaActive: string;
-  active?: boolean;
-}
-
-const TIERS: Tier[] = [
-  {
-    id: "super_vip",
-    title: "SUPER VIP",
-    description:
-      "რესტორანი მოექცევა ძიების სათავეში და მთავარ გვერდზე 24 საათით.",
-    price: 5.0,
-    unit: "₾ / 24სთ",
-    icon: Rocket,
-    iconBg: "bg-[#DCFCE7]",
-    iconColor: "text-[#16A34A]",
-    cta: "bg-[#F97316] hover:bg-[#EA580C] text-white",
-    ctaActive: "bg-[#EF4444] text-white",
-  },
-  {
-    id: "vip",
-    title: "VIP სტატუსი",
-    description: "ყურადღების მიმქცევი ბეჯი და მოწინავე პოზიცია კატეგორიაში.",
-    price: 1.5,
-    unit: "₾ / დღე",
-    icon: Star,
-    iconBg: "bg-[#FFEDD5]",
-    iconColor: "text-[#F97316]",
-    cta: "bg-[#EC4899] hover:bg-[#DB2777] text-white",
-    ctaActive: "bg-[#EF4444] text-white",
-  },
-  {
-    id: "discount",
-    title: "ფასდაკლება",
-    description: "ფასდაკლების ნიშანი რესტორანზე — მეტი ყურადღება.",
-    price: 1.0,
-    unit: "₾ / დღე",
-    icon: Percent,
-    iconBg: "bg-[#DCFCE7]",
-    iconColor: "text-[#16A34A]",
-    cta: "bg-[#22C55E] hover:bg-[#16A34A] text-white",
-    ctaActive: "bg-[#EF4444] text-white",
-  },
-  {
-    id: "sms",
-    title: "SMS პაკეტი",
-    description: "200 SMS შეტყობინების პაკეტი სტუმრებთან კომუნიკაციისთვის.",
-    price: 10.0,
-    unit: "₾ / 200 SMS",
-    icon: MessageSquare,
-    iconBg: "bg-[#DBEAFE]",
-    iconColor: "text-[#2563EB]",
-    cta: "bg-[#2563EB] hover:bg-[#1E40AF] text-white",
-    ctaActive: "bg-[#EF4444] text-white",
-  },
-];
 
 const TX_LABEL: Record<string, string> = {
   topup: "შევსება",
@@ -101,8 +32,13 @@ export default function FoodBalancePage() {
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchPricingPackages(["vip", "sms"]).then(setPackages);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -128,12 +64,12 @@ export default function FoodBalancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  async function handlePurchase(tier: Tier) {
+  async function handlePurchase(pkg: PricingPackage) {
     if (!user || !balance) return;
-    setPurchasing(tier.id);
+    setPurchasing(pkg.id);
     try {
       await supabase.functions.invoke("purchase-vip", {
-        body: { purchase_type: tier.id, days: 1 },
+        body: { package_id: pkg.id, quantity: 1 },
       });
       const { data: txData } = await supabase
         .from("transactions")
@@ -193,55 +129,58 @@ export default function FoodBalancePage() {
         transition={{ delay: 0.05 }}
         className="grid grid-cols-1 gap-4 md:grid-cols-2"
       >
-        {TIERS.map((t) => {
-          const Icon = t.icon;
-          const canAfford = (balance?.amount ?? 0) >= t.price;
-          const isActive = t.active;
-          return (
-            <div
-              key={t.id}
-              className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
-            >
+        {packages.length === 0 ? (
+          <p className="col-span-full text-center text-sm text-[#94A3B8]">
+            პაკეტი ჯერ არ არის ხელმისაწვდომი
+          </p>
+        ) : (
+          packages.map((pkg) => {
+            const display = getPackageDisplay(pkg);
+            const Icon = display.icon;
+            const canAfford = (balance?.amount ?? 0) >= pkg.amount_gel;
+            return (
               <div
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.iconBg}`}
+                key={pkg.id}
+                className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
               >
-                <Icon className={`h-5 w-5 ${t.iconColor}`} strokeWidth={2.2} />
-              </div>
-
-              <h3 className="mt-4 text-[18px] font-black text-[#0F172A]">
-                {t.title}
-              </h3>
-              <p className="mt-1.5 text-[13px] leading-[19px] text-[#64748B]">
-                {t.description}
-              </p>
-
-              <div className="mt-6 flex items-end justify-between">
-                <div>
-                  <p className="text-[28px] font-black leading-[32px] text-[#0F172A]">
-                    {t.price.toFixed(2)}
-                  </p>
-                  <p className="mt-1 text-[11px] font-bold text-[#64748B]">
-                    {t.unit}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={!canAfford || purchasing === t.id}
-                  onClick={() => handlePurchase(t)}
-                  className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${
-                    isActive ? t.ctaActive : t.cta
-                  }`}
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${display.iconBg}`}
                 >
-                  {purchasing === t.id
-                    ? "..."
-                    : isActive
-                      ? "ჩართულია"
-                      : "გააქტიურება"}
-                </button>
+                  <Icon
+                    className={`h-5 w-5 ${display.iconColor}`}
+                    strokeWidth={2.2}
+                  />
+                </div>
+
+                <h3 className="mt-4 text-[18px] font-black text-[#0F172A]">
+                  {pkg.name}
+                </h3>
+                <p className="mt-1.5 text-[13px] leading-[19px] text-[#64748B]">
+                  {pkg.description ?? pkg.label ?? ""}
+                </p>
+
+                <div className="mt-6 flex items-end justify-between">
+                  <div>
+                    <p className="text-[28px] font-black leading-[32px] text-[#0F172A]">
+                      {pkg.amount_gel.toFixed(2)}
+                    </p>
+                    <p className="mt-1 text-[11px] font-bold text-[#64748B]">
+                      {display.unit}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!canAfford || purchasing === pkg.id}
+                    onClick={() => handlePurchase(pkg)}
+                    className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${display.ctaColor}`}
+                  >
+                    {purchasing === pkg.id ? "..." : "გააქტიურება"}
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </motion.section>
 
       <motion.section

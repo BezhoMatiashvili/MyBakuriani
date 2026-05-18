@@ -9,9 +9,10 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import PhoneInput from "@/components/forms/PhoneInput";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 
 const RESTAURANT_TYPES = [
@@ -36,8 +37,6 @@ const AVG_CHECK_OPTIONS = [
   { value: "100+", label: "100 ₾+" },
 ];
 
-const ZONE_OPTIONS = SEARCH_LOCATION_ZONES.map((z) => ({ value: z, label: z }));
-
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 10;
 
@@ -45,6 +44,11 @@ export default function CreateFoodPage() {
   const router = useRouter();
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones } = useActiveZones();
+  const zoneOptions = zones.map((z) => ({
+    value: z.name_ka,
+    label: z.name_ka,
+  }));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +66,9 @@ export default function CreateFoodPage() {
   const [hasLiveMusic, setHasLiveMusic] = useState(false);
   const [menuFile, setMenuFile] = useState<File | null>(null);
   const [menuUrlInput, setMenuUrlInput] = useState("");
+  const [description, setDescription] = useState("");
+  const [phone, setPhone] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
   const menuFileRef = useRef<HTMLInputElement>(null);
@@ -102,6 +109,7 @@ export default function CreateFoodPage() {
       if (!zone) throw new Error("აირჩიეთ ლოკაცია");
       if (!avgCheck) throw new Error("აირჩიეთ საშუალო ჩეკი");
       if (!operatingHours.trim()) throw new Error("მიუთითეთ სამუშაო საათები");
+      if (!phone.trim()) throw new Error("მიუთითეთ ტელეფონის ნომერი");
       if (photos.length < MIN_PHOTOS) {
         throw new Error(`მინიმუმ ${MIN_PHOTOS} ფოტო აუცილებელია`);
       }
@@ -117,6 +125,7 @@ export default function CreateFoodPage() {
         owner_id: user.id,
         category: "food",
         title: title.trim(),
+        description: description.trim() || null,
         cuisine_type: cuisineType || null,
         avg_check: avgCheck,
         menu_url: menuUrl,
@@ -126,6 +135,8 @@ export default function CreateFoodPage() {
         has_live_music: hasLiveMusic,
         operating_hours: operatingHours.trim() || null,
         location: zone || exactLocation.trim() || null,
+        phone: phone ? `+995${phone}` : null,
+        whatsapp: whatsapp ? `+995${whatsapp}` : null,
         photos,
         status: "pending",
       });
@@ -145,15 +156,17 @@ export default function CreateFoodPage() {
     avgCheck.length > 0,
     operatingHours.trim().length > 0,
     photos.length >= MIN_PHOTOS,
+    phone.trim().length > 0,
   ].filter(Boolean).length;
-  const progressPercent = Math.max(10, Math.round((requiredFilled / 5) * 100));
+  const progressPercent = Math.max(10, Math.round((requiredFilled / 6) * 100));
 
   const submitDisabled =
     !title.trim() ||
     !zone ||
     !avgCheck ||
     !operatingHours.trim() ||
-    photos.length < MIN_PHOTOS;
+    photos.length < MIN_PHOTOS ||
+    !phone.trim();
 
   return (
     <WizardShell
@@ -210,7 +223,7 @@ export default function CreateFoodPage() {
               <StyledSelect
                 value={zone}
                 onValueChange={setZone}
-                options={ZONE_OPTIONS}
+                options={zoneOptions}
                 placeholder="აირჩიეთ ზონა"
                 accent="orange"
               />
@@ -234,6 +247,16 @@ export default function CreateFoodPage() {
               </div>
             </Field>
           </div>
+
+          <Field label="აღწერა">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="დეტალური აღწერა რესტორნის შესახებ..."
+              rows={4}
+              className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#F97316] focus:ring-2 focus:ring-[#FFEDD5]"
+            />
+          </Field>
         </WizardInnerCard>
 
         {/* Section 2 — Details & services */}
@@ -359,6 +382,22 @@ export default function CreateFoodPage() {
               variant="figma"
             />
           </Field>
+        </WizardInnerCard>
+
+        {/* Section 4 — Contact */}
+        <WizardInnerCard
+          number={4}
+          title="საკონტაქტო ინფორმაცია"
+          accent="orange"
+        >
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Field label="ტელეფონის ნომერი" required>
+              <PhoneInput value={phone} onChange={setPhone} />
+            </Field>
+            <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
+              <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+            </Field>
+          </div>
         </WizardInnerCard>
       </div>
     </WizardShell>

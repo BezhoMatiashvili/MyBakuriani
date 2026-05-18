@@ -34,7 +34,12 @@
     "reviews": "Reviews",
     "logout": "Sign Out",
     "menu": "Menu",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet",
+    "markAllRead": "Mark all as read",
+    "viewAll": "View all",
+    "notificationsAria": "Notifications, {count} unread"
   },
   "Footer": {
     "brandDescription": "Premium real estate and rental platform in Bakuriani. We take care of your safe vacation.",
@@ -89,10 +94,12 @@
       "guests": "Guests",
       "cleaners": "Cleaners",
       "balanceAndVip": "Balance & VIP",
+      "smsCenter": "SMS Center",
       "notificationsItem": "Notifications"
     },
     "notifications": "{count} notifications",
     "logout": "Log out",
+    "backToHome": "Back to Home",
     "userIdPrefix": "ID:",
     "expand": "Expand",
     "collapse": "Collapse",
@@ -233,7 +240,10 @@
     "partner": "Partner",
     "driverLabel": "Driver",
     "capacityLabel": "Seats",
-    "routeLabel": "Route"
+    "routeLabel": "Route",
+    "typeLabel": "Type",
+    "seatsLabel": "Seats",
+    "verifiedBadge": "Verified"
   },
   "SmartMatchCard": {
     "guestRequests": "Guest requests",
@@ -443,5 +453,101 @@
     "discountLabel": "-{percent}% discount",
     "submitError": "Error. Please try again.",
     "publish": "Publish Listing"
+  },
+  "CriticalNotification": {
+    "severityCritical": "Critical",
+    "acknowledge": "Got it",
+    "learnMore": "Learn more",
+    "more": "more pending"
+  },
+  "SMSCenter": {
+    "pageTitle": "SMS Center",
+    "pageSubtitle": "Automated and broadcast SMS",
+    "balance": {
+      "label": "SMS balance",
+      "unit": "messages",
+      "lastBroadcast": "Last broadcast",
+      "buyPackage": "Buy package",
+      "buyingPackage": "Loading..."
+    },
+    "automation": {
+      "title": "Automation",
+      "checkInTitle": "Check-in reminders",
+      "checkInDesc": "Send guest an SMS {hours} hours before check-in",
+      "reviewTitle": "Review requests",
+      "reviewDesc": "Ask guests for a review {hours} hours after check-out",
+      "winBackTitle": "Win-back campaign",
+      "winBackDesc": "Re-engage past guests {days} days after their last stay",
+      "saving": "Saving...",
+      "saveSuccess": "Saved",
+      "saveError": "Failed to save"
+    },
+    "broadcast": {
+      "title": "Broadcast",
+      "subtitle": "(BROADCAST)",
+      "audienceLabel": "Target audience",
+      "audiencePlaceholder": "Pick an audience",
+      "compliance": "Effective April 18: marketing SMS requires PDPA opt-out compliance — 12₾ fee, opt-out only.",
+      "messageLabel": "Message",
+      "messagePlaceholder": "e.g. 15% discount when you rebook this season — valid for past guests only...",
+      "complianceFooter": "Marketing message — 1 SMS up to 70 chars",
+      "sendButton": "Send",
+      "sendCount": "({count} SMS)",
+      "sending": "Sending...",
+      "sentSuccess": "{count} SMS queued for review",
+      "errors": {
+        "no_credit": "Not enough SMS credit. Buy a package first.",
+        "empty_audience": "No recipients in the selected audience.",
+        "message_length": "Message must be 1-320 characters.",
+        "invalid_audience": "Invalid audience.",
+        "role_not_allowed": "Your role cannot send SMS.",
+        "unknown": "Failed to send."
+      }
+    },
+    "preview": {
+      "deviceLabel": "MyBakuriani",
+      "emptyText": "Your message will appear here..."
+    },
+    "audiences": {
+      "renter_past_guests": "Past guests",
+      "renter_upcoming_guests": "Upcoming guests",
+      "renter_all_contacts": "All contacts (this season)",
+      "food_recent_customers": "Customers — last 30 days",
+      "food_all_contacts": "All customers",
+      "service_recent_clients": "Clients — last 30 days",
+      "service_all_contacts": "All contacts",
+      "seller_active_leads": "Active leads",
+      "seller_new_leads": "New leads"
+    },
+    "history": {
+      "title": "Recently sent",
+      "viewAll": "Full history",
+      "empty": "No SMS sent yet",
+      "headers": {
+        "type": "Type / channel",
+        "message": "Message",
+        "date": "Date",
+        "status": "Status"
+      },
+      "kind": {
+        "broadcast": "BROADCAST",
+        "automation": "Automation",
+        "contact": "Contact"
+      },
+      "automationKind": {
+        "check_in": "Check-in reminder",
+        "review_request": "Review request",
+        "win_back": "Win-back"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "sent": "Delivered",
+        "failed": "Failed",
+        "partial_approved": "Partial"
+      },
+      "recipients": "{count} recipients"
+    }
   }
 }

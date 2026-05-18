@@ -7,7 +7,6 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Star,
-  MapPin,
   Clock,
   Users,
   Zap,
@@ -18,6 +17,7 @@ import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 
@@ -114,10 +114,10 @@ export default function EntertainmentDetailClient({
             <span>| 12 შეფასება</span>
           </span>
           {service.location && (
-            <span className="flex items-center gap-1.5 font-medium">
-              <MapPin className="h-4 w-4" />
-              {service.location}
-            </span>
+            <ZoneLocationLink
+              location={service.location}
+              className="font-medium"
+            />
           )}
         </div>
       </motion.div>
@@ -213,12 +213,16 @@ export default function EntertainmentDetailClient({
           )}
         </div>
         <div className="flex items-center gap-3">
-          <WhatsAppButton phone={service.phone} />
+          <WhatsAppButton
+            phone={service.whatsapp ?? service.phone}
+            serviceId={service.id}
+          />
           <CallButton
             phone={service.phone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#1E293B] px-8 text-[15px] font-bold text-white hover:bg-[#0F172A] sm:flex-none"
             label="დარეკვა / დაჯავშნა"
             onNoPhoneClick={() => router.push("/auth/login")}
+            serviceId={service.id}
           />
         </div>
       </motion.div>

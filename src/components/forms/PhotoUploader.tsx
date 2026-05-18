@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
 import Image from "next/image";
 import { Camera, Upload, X } from "lucide-react";
+import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -55,22 +56,10 @@ export default function PhotoUploader({
       }
 
       const encoded = await Promise.all(
-        filesToProcess.map(
-          (file) =>
-            new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                const result = e.target?.result as string;
-                if (result) {
-                  resolve(result);
-                  return;
-                }
-                reject(new Error("Failed to read image"));
-              };
-              reader.onerror = () => reject(new Error("Failed to read image"));
-              reader.readAsDataURL(file);
-            }),
-        ),
+        filesToProcess.map(async (file) => {
+          const watermarked = await watermarkFile(file);
+          return fileToDataUrl(watermarked);
+        }),
       ).catch(() => []);
 
       if (encoded.length > 0) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -14,6 +15,7 @@ import {
   Settings,
   LogOut,
   Check,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -64,6 +66,11 @@ const NAV_ITEMS: NavItem[] = [
     icon: Wallet,
   },
   {
+    labelKey: "smsCenter",
+    href: "/dashboard/sms",
+    icon: MessageSquare,
+  },
+  {
     labelKey: "notificationsItem",
     href: "/dashboard/renter/notifications",
     icon: Bell,
@@ -94,37 +101,13 @@ const SWITCHER_ITEMS: SwitcherItem[] = [
 
 function BrandLogo() {
   return (
-    <div className="flex items-center gap-2">
-      <svg
-        width="40"
-        height="32"
-        viewBox="0 0 40 32"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="shrink-0"
-      >
-        <path
-          d="M20 2L32 22H8L20 2Z"
-          fill="#0E2150"
-          stroke="#0E2150"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M12 10L20 24H4L12 10Z"
-          fill="#1E419A"
-          stroke="#1E419A"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-        <path d="M20 2L24 8L20 10L16 8L20 2Z" fill="white" opacity="0.6" />
-        <circle cx="30" cy="8" r="4" fill="#F97316" />
-      </svg>
-      <span className="text-xl font-extrabold leading-none">
-        <span className="text-[#F97316]">My</span>
-        <span className="text-[#0E2150]">Bakuriani</span>
-      </span>
-    </div>
+    <Image
+      src="/logo.png"
+      alt="MyBakuriani"
+      width={300}
+      height={199}
+      className="h-10 w-auto"
+    />
   );
 }
 
@@ -346,6 +329,17 @@ export function RenterSidebar({
           </Link>
         </div>
       </nav>
+
+      {/* Back to public site */}
+      <div className="border-t border-[#EEF1F4] px-4 py-3">
+        <Link
+          href="/"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8]"
+        >
+          <Home className="size-[18px]" />
+          {t("backToHome")}
+        </Link>
+      </div>
 
       {/* Logout */}
       <div className="border-t border-[#EEF1F4] px-4 py-3">

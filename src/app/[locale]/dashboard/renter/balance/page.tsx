@@ -1,17 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Rocket,
-  Ticket,
-  Percent,
-  MessageSquare,
-  ArrowDownLeft,
-  ArrowUpRight,
-  History,
-  Info,
-} from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, History, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,78 +10,16 @@ import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
 import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import {
+  fetchPricingPackages,
+  getPackageDisplay,
+  type PricingPackage,
+} from "@/lib/pricing-packages";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
 type Property = Tables<"properties">;
-
-interface Package {
-  id: string;
-  tier: VipInfoTier;
-  icon: typeof Rocket;
-  iconBg: string;
-  iconColor: string;
-  title: string;
-  description: string;
-  price: string;
-  unit: string;
-  ctaColor: string;
-}
-
-const PACKAGES: Package[] = [
-  {
-    id: "super_vip",
-    tier: "super-vip",
-    icon: Rocket,
-    iconBg: "bg-[#DCFCE7]",
-    iconColor: "text-[#16A34A]",
-    title: "SUPER VIP",
-    description:
-      "ობიექტი მოექცევა ძიების სათავეში და მთავარ გვერდზე 24 საათით.",
-    price: "5.00",
-    unit: "₾ / 24სთ",
-    ctaColor: "bg-[#F97316] hover:bg-[#EA580C] text-white",
-  },
-  {
-    id: "vip_boost",
-    tier: "vip",
-    icon: Ticket,
-    iconBg: "bg-[#FFEDD5]",
-    iconColor: "text-[#F97316]",
-    title: "VIP სტატუსი",
-    description:
-      "მიანიჭეთ ყურადღების მისაქცევი ბეჯი და დაიკავეთ მოწინავე პოზიცია.",
-    price: "1.50",
-    unit: "₾ / დღე",
-    ctaColor: "bg-[#EC4899] hover:bg-[#DB2777] text-white",
-  },
-  {
-    id: "discount_badge",
-    tier: "discount",
-    icon: Percent,
-    iconBg: "bg-[#DCFCE7]",
-    iconColor: "text-[#16A34A]",
-    title: "ფასდაკლება",
-    description: "ფასდაკლების ნიშანი ობიექტზე — მეტი ყურადღება და ჯავშნები.",
-    price: "1.00",
-    unit: "₾ / დღე",
-    ctaColor: "bg-[#22C55E] hover:bg-[#16A34A] text-white",
-  },
-  {
-    id: "sms_package",
-    tier: "sms",
-    icon: MessageSquare,
-    iconBg: "bg-[#DBEAFE]",
-    iconColor: "text-[#2563EB]",
-    title: "SMS პაკეტი",
-    description:
-      "200 SMS შეტყობინების პაკეტი თქვენი სტუმრების ინფორმირებისთვის.",
-    price: "10.00",
-    unit: "₾ / 200 SMS",
-    ctaColor: "bg-[#2563EB] hover:bg-[#1E40AF] text-white",
-  },
-];
 
 const transactionLabels: Record<string, string> = {
   topup: "შევსება",
@@ -102,6 +31,14 @@ const transactionLabels: Record<string, string> = {
   commission: "საკომისიო",
 };
 
+function inferTier(pkg: PricingPackage): VipInfoTier {
+  if (pkg.category === "sms") return "sms";
+  const tier = (pkg.meta?.tier as string | undefined) ?? "standard";
+  if (tier === "super") return "super-vip";
+  if (tier === "discount") return "discount";
+  return "vip";
+}
+
 export default function RenterBalancePage() {
   const { user } = useAuth();
   const supabase = createClient();
@@ -109,6 +46,7 @@ export default function RenterBalancePage() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [vipModal, setVipModal] = useState<{
@@ -119,7 +57,11 @@ export default function RenterBalancePage() {
     open: boolean;
     tier: VipInfoTier;
     packageId: string;
-  }>({ open: false, tier: "super-vip", packageId: "super_vip" });
+  }>({ open: false, tier: "super-vip", packageId: "" });
+
+  useEffect(() => {
+    fetchPricingPackages(["vip", "sms"]).then(setPackages);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -174,6 +116,41 @@ export default function RenterBalancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const sortedPackages = useMemo(() => {
+    // Show VIP first, then SMS, each sorted by sort_order
+    return [...packages].sort((a, b) => {
+      if (a.category !== b.category) {
+        return a.category === "vip" ? -1 : 1;
+      }
+      return a.sort_order - b.sort_order;
+    });
+  }, [packages]);
+
+  const handlePurchaseClick = async (pkg: PricingPackage) => {
+    const tier = inferTier(pkg);
+    if (pkg.category === "sms") {
+      // SMS doesn't need property picker — invoke directly
+      if (!user || !balance) return;
+      setPurchasing(pkg.id);
+      try {
+        await supabase.functions.invoke("purchase-vip", {
+          body: { package_id: pkg.id, quantity: 1 },
+        });
+        const { data: txData } = await supabase
+          .from("transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (txData) setTransactions(txData);
+      } finally {
+        setPurchasing(null);
+      }
+      return;
+    }
+    setPickerModal({ open: true, tier, packageId: pkg.id });
+  };
+
   const handleConfirmPurchase = async (propertyId: string) => {
     if (!user || !balance) return;
     const packageId = pickerModal.packageId;
@@ -182,9 +159,9 @@ export default function RenterBalancePage() {
     try {
       const { error } = await supabase.functions.invoke("purchase-vip", {
         body: {
-          purchase_type: packageId,
-          days: 1,
+          package_id: packageId,
           property_id: propertyId,
+          quantity: 1,
         },
       });
 
@@ -204,7 +181,6 @@ export default function RenterBalancePage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -217,7 +193,6 @@ export default function RenterBalancePage() {
         </p>
       </motion.div>
 
-      {/* Balance card */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -245,76 +220,75 @@ export default function RenterBalancePage() {
         </button>
       </motion.div>
 
-      {/* Packages grid */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         className="grid grid-cols-1 gap-4 md:grid-cols-2"
       >
-        {PACKAGES.map((pkg) => {
-          const Icon = pkg.icon;
-          const price = parseFloat(pkg.price);
-          const canAfford = (balance?.amount ?? 0) >= price;
-          return (
-            <div
-              key={pkg.id}
-              className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
-            >
+        {sortedPackages.length === 0 ? (
+          <p className="col-span-full text-center text-sm text-[#94A3B8]">
+            პაკეტი ჯერ არ არის ხელმისაწვდომი
+          </p>
+        ) : (
+          sortedPackages.map((pkg) => {
+            const display = getPackageDisplay(pkg);
+            const Icon = display.icon;
+            const canAfford = (balance?.amount ?? 0) >= pkg.amount_gel;
+            const tier = inferTier(pkg);
+            return (
               <div
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${pkg.iconBg}`}
+                key={pkg.id}
+                className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
               >
-                <Icon
-                  className={`h-5 w-5 ${pkg.iconColor}`}
-                  strokeWidth={2.2}
-                />
-              </div>
-
-              <h3 className="mt-4 text-[18px] font-black text-[#0F172A]">
-                {pkg.title}
-              </h3>
-              <p className="mt-1.5 text-[13px] leading-[19px] text-[#64748B]">
-                {pkg.description}
-              </p>
-              <button
-                type="button"
-                onClick={() => setVipModal({ open: true, tier: pkg.tier })}
-                className="mt-3 inline-flex items-center gap-1 self-start text-[12px] font-bold text-[#2563EB] hover:underline"
-              >
-                როგორ მუშაობს?
-                <Info className="h-3 w-3" />
-              </button>
-
-              <div className="mt-6 flex items-end justify-between">
-                <div>
-                  <p className="text-[28px] font-black leading-[32px] text-[#0F172A]">
-                    {pkg.price}
-                  </p>
-                  <p className="mt-1 text-[11px] font-bold text-[#64748B]">
-                    {pkg.unit}
-                  </p>
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${display.iconBg}`}
+                >
+                  <Icon
+                    className={`h-5 w-5 ${display.iconColor}`}
+                    strokeWidth={2.2}
+                  />
                 </div>
+
+                <h3 className="mt-4 text-[18px] font-black text-[#0F172A]">
+                  {pkg.name}
+                </h3>
+                <p className="mt-1.5 text-[13px] leading-[19px] text-[#64748B]">
+                  {pkg.description ?? pkg.label ?? ""}
+                </p>
                 <button
                   type="button"
-                  disabled={!canAfford || purchasing === pkg.id}
-                  onClick={() =>
-                    setPickerModal({
-                      open: true,
-                      tier: pkg.tier,
-                      packageId: pkg.id,
-                    })
-                  }
-                  className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${pkg.ctaColor}`}
+                  onClick={() => setVipModal({ open: true, tier })}
+                  className="mt-3 inline-flex items-center gap-1 self-start text-[12px] font-bold text-[#2563EB] hover:underline"
                 >
-                  {purchasing === pkg.id ? "..." : "გააქტიურება"}
+                  როგორ მუშაობს?
+                  <Info className="h-3 w-3" />
                 </button>
+
+                <div className="mt-6 flex items-end justify-between">
+                  <div>
+                    <p className="text-[28px] font-black leading-[32px] text-[#0F172A]">
+                      {pkg.amount_gel.toFixed(2)}
+                    </p>
+                    <p className="mt-1 text-[11px] font-bold text-[#64748B]">
+                      {display.unit}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!canAfford || purchasing === pkg.id}
+                    onClick={() => handlePurchaseClick(pkg)}
+                    className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${display.ctaColor}`}
+                  >
+                    {purchasing === pkg.id ? "..." : "გააქტიურება"}
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </motion.section>
 
-      {/* Transaction history */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

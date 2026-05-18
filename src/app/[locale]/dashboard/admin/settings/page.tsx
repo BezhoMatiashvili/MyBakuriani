@@ -7,11 +7,15 @@ import {
   Crown,
   Loader2,
   Megaphone,
+  Plus,
   Rocket,
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import CreatePackageModal, {
+  type PackageCategory,
+} from "@/components/admin/CreatePackageModal";
 
 interface PricingPackage {
   id: string;
@@ -19,31 +23,56 @@ interface PricingPackage {
   code: string;
   name: string;
   label: string | null;
+  description: string | null;
   amount_gel: number;
   is_enabled: boolean;
   sort_order: number;
+  meta: Record<string, unknown> | null;
 }
 
 const CATEGORY_META: Record<
   string,
-  { label: string; icon: typeof Rocket; accent: string }
+  { label: string; icon: typeof Rocket; accent: string; tint: string }
 > = {
-  sms: { label: "SMS პაკეტები", icon: Rocket, accent: "text-[#2563EB]" },
-  ad: { label: "რეკლამის სლოტები", icon: Megaphone, accent: "text-[#0F172A]" },
-  vip: { label: "VIP ამოწევა", icon: Crown, accent: "text-[#F97316]" },
+  sms: {
+    label: "SMS პაკეტები",
+    icon: Rocket,
+    accent: "text-[#2563EB]",
+    tint: "bg-[#DBEAFE] text-[#2563EB] hover:bg-[#BFDBFE]",
+  },
+  ad: {
+    label: "რეკლამის სლოტები",
+    icon: Megaphone,
+    accent: "text-[#0F172A]",
+    tint: "bg-[#E2E8F0] text-[#0F172A] hover:bg-[#CBD5E1]",
+  },
+  vip: {
+    label: "VIP ამოწევა",
+    icon: Crown,
+    accent: "text-[#F97316]",
+    tint: "bg-[#FFEDD5] text-[#F97316] hover:bg-[#FED7AA]",
+  },
   verification: {
     label: "ვერიფიკაციის პაკეტები",
     icon: ShieldCheck,
     accent: "text-[#059669]",
+    tint: "bg-[#DCFCE7] text-[#059669] hover:bg-[#BBF7D0]",
   },
   subscription: {
     label: "საწევრო / Subscription",
     icon: BadgeCheck,
     accent: "text-[#8B5CF6]",
+    tint: "bg-[#EDE9FE] text-[#8B5CF6] hover:bg-[#DDD6FE]",
   },
 };
 
-const CATEGORY_ORDER = ["sms", "ad", "vip", "verification", "subscription"];
+const CATEGORY_ORDER: PackageCategory[] = [
+  "sms",
+  "ad",
+  "vip",
+  "verification",
+  "subscription",
+];
 
 async function readJsonSafely(
   res: Response,
@@ -71,6 +100,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [drafts, setDrafts] = useState<Record<string, number>>({});
+  const [createModal, setCreateModal] = useState<{
+    open: boolean;
+    category: PackageCategory;
+  }>({ open: false, category: "sms" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,8 +201,8 @@ export default function SettingsPage() {
       <div className="rounded-xl border border-[#FEF08A] bg-[#ECFDF5] px-4 py-4 text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
         <p className="flex items-center gap-3 text-[13px] font-bold leading-5">
           <AlertTriangle className="h-5 w-5 text-[#F97316]" />
-          ფასების ცვლილება ძალაში შევა მყისიერად და იმოქმედებს მხოლოდ ახალ
-          ტრანზაქციებზე.
+          ფასების ცვლილება ძალაში შევა მყისიერად. პაკეტის გამორთვა მთლიანად
+          მალავს მას მომხმარებლებისგან.
         </p>
       </div>
 
@@ -211,6 +244,15 @@ export default function SettingsPage() {
                   <Icon className={`h-[15px] w-[15px] ${meta.accent}`} />
                   {meta.label}
                 </h2>
+                <button
+                  type="button"
+                  onClick={() => setCreateModal({ open: true, category })}
+                  className={`inline-flex h-8 items-center gap-1 rounded-lg px-3 text-[12px] font-bold transition-colors ${meta.tint}`}
+                  aria-label={`დაამატე ახალი ${meta.label}`}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  დამატება
+                </button>
               </div>
               <div className="space-y-4 p-6">
                 {loading ? (
@@ -274,6 +316,11 @@ export default function SettingsPage() {
                               })
                             }
                             disabled={isSaving}
+                            title={
+                              pkg.is_enabled
+                                ? "გამორთვით პაკეტი იმალება მომხმარებლებისგან"
+                                : "ჩართეთ რომ მომხმარებლებმა დაინახონ"
+                            }
                             className={`relative h-5 w-10 rounded-full transition-colors ${
                               pkg.is_enabled ? "bg-[#10B981]" : "bg-[#CBD5E1]"
                             } disabled:opacity-50`}
@@ -300,6 +347,16 @@ export default function SettingsPage() {
           );
         })}
       </div>
+
+      <CreatePackageModal
+        isOpen={createModal.open}
+        onClose={() => setCreateModal((p) => ({ ...p, open: false }))}
+        category={createModal.category}
+        categoryLabel={
+          CATEGORY_META[createModal.category]?.label ?? createModal.category
+        }
+        onCreated={load}
+      />
     </div>
   );
 }

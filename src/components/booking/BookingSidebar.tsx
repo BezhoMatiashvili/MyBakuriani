@@ -44,6 +44,9 @@ interface BookingSidebarProps {
   ownerAvatar: string | null;
   isOwnerVerified: boolean;
   ownerPhone?: string | null;
+  ownerWhatsapp?: string | null;
+  ownerId?: string | null;
+  propertyId?: string | null;
   selectedRange: DateRange;
   onRangeChange?: (range: DateRange) => void;
   onBook: () => void;
@@ -175,6 +178,8 @@ export function BookingSidebar({
   ownerAvatar,
   isOwnerVerified,
   ownerPhone,
+  ownerWhatsapp,
+  propertyId,
   selectedRange,
   onRangeChange,
   onBook,
@@ -373,8 +378,12 @@ export function BookingSidebar({
             className="h-12 flex-1 gap-2 rounded-full bg-[#F97316] text-[14px] font-bold text-white shadow-[0px_8px_20px_rgba(249,115,22,0.25)] hover:bg-[#EA580C]"
             label="დარეკვა მესაკუთრეთან"
             onNoPhoneClick={onBook}
+            propertyId={propertyId}
           />
-          <WhatsAppButton phone={ownerPhone} />
+          <WhatsAppButton
+            phone={ownerWhatsapp ?? ownerPhone}
+            propertyId={propertyId}
+          />
         </div>
       </div>
       <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">

@@ -34,7 +34,12 @@
     "reviews": "Отзывы",
     "logout": "Выйти",
     "menu": "Меню",
-    "dashboard": "Кабинет"
+    "dashboard": "Кабинет",
+    "notifications": "Уведомления",
+    "noNotifications": "Пока нет уведомлений",
+    "markAllRead": "Отметить все как прочитанное",
+    "viewAll": "Посмотреть все",
+    "notificationsAria": "Уведомления, {count} непрочитанных"
   },
   "Footer": {
     "brandDescription": "Премиум платформа недвижимости и аренды в Бакуриани. Мы заботимся о вашем безопасном отдыхе.",
@@ -89,10 +94,12 @@
       "guests": "Гости",
       "cleaners": "Уборщики",
       "balanceAndVip": "Баланс и VIP",
+      "smsCenter": "SMS центр",
       "notificationsItem": "Уведомления"
     },
     "notifications": "{count} уведомлений",
     "logout": "Выход",
+    "backToHome": "Вернуться на главную",
     "userIdPrefix": "ID:",
     "expand": "Развернуть",
     "collapse": "Свернуть",
@@ -233,7 +240,10 @@
     "partner": "Партнёр",
     "driverLabel": "Водитель",
     "capacityLabel": "Мест",
-    "routeLabel": "Маршрут"
+    "routeLabel": "Маршрут",
+    "typeLabel": "Тип",
+    "seatsLabel": "Мест",
+    "verifiedBadge": "Проверен"
   },
   "SmartMatchCard": {
     "guestRequests": "Запросы гостей",
@@ -443,5 +453,101 @@
     "discountLabel": "-{percent}% скидка",
     "submitError": "Ошибка. Попробуйте снова.",
     "publish": "Опубликовать объявление"
+  },
+  "CriticalNotification": {
+    "severityCritical": "Критическое",
+    "acknowledge": "Понятно",
+    "learnMore": "Подробнее",
+    "more": "ещё ожидают"
+  },
+  "SMSCenter": {
+    "pageTitle": "SMS-центр",
+    "pageSubtitle": "Автоматические и массовые SMS",
+    "balance": {
+      "label": "Баланс SMS",
+      "unit": "сообщений",
+      "lastBroadcast": "Последняя рассылка",
+      "buyPackage": "Купить пакет",
+      "buyingPackage": "Загрузка..."
+    },
+    "automation": {
+      "title": "Автоматизация",
+      "checkInTitle": "Напоминания о заезде",
+      "checkInDesc": "Автоматическое SMS гостю за {hours} часов до заезда",
+      "reviewTitle": "Запрос отзыва",
+      "reviewDesc": "Просим оставить отзыв через {hours} часов после выезда",
+      "winBackTitle": "Возврат клиентов",
+      "winBackDesc": "Возвращаем гостей через {days} дней после последнего бронирования",
+      "saving": "Сохранение...",
+      "saveSuccess": "Сохранено",
+      "saveError": "Не удалось сохранить"
+    },
+    "broadcast": {
+      "title": "Рассылка",
+      "subtitle": "(BROADCAST)",
+      "audienceLabel": "Целевая аудитория",
+      "audiencePlaceholder": "Выберите аудиторию",
+      "compliance": "С 18 апреля: маркетинговые SMS требуют согласия (PDPA) — 12₾ сбор, только opt-out.",
+      "messageLabel": "Сообщение",
+      "messagePlaceholder": "напр. 15% скидка при повторном бронировании — только для прошлых гостей...",
+      "complianceFooter": "Маркетинговое сообщение — 1 SMS до 70 символов",
+      "sendButton": "Отправить",
+      "sendCount": "({count} SMS)",
+      "sending": "Отправка...",
+      "sentSuccess": "{count} SMS поставлено в очередь на проверку",
+      "errors": {
+        "no_credit": "Недостаточно SMS-кредитов. Купите пакет.",
+        "empty_audience": "В выбранной аудитории нет получателей.",
+        "message_length": "Сообщение должно быть 1-320 символов.",
+        "invalid_audience": "Неверная аудитория.",
+        "role_not_allowed": "Ваша роль не может отправлять SMS.",
+        "unknown": "Не удалось отправить."
+      }
+    },
+    "preview": {
+      "deviceLabel": "MyBakuriani",
+      "emptyText": "Ваше сообщение появится здесь..."
+    },
+    "audiences": {
+      "renter_past_guests": "Прошлые гости",
+      "renter_upcoming_guests": "Предстоящие гости",
+      "renter_all_contacts": "Все контакты (сезон)",
+      "food_recent_customers": "Клиенты — последние 30 дней",
+      "food_all_contacts": "Все клиенты",
+      "service_recent_clients": "Клиенты — последние 30 дней",
+      "service_all_contacts": "Все контакты",
+      "seller_active_leads": "Активные лиды",
+      "seller_new_leads": "Новые лиды"
+    },
+    "history": {
+      "title": "Последние отправленные",
+      "viewAll": "Вся история",
+      "empty": "Ещё не было отправлено SMS",
+      "headers": {
+        "type": "Тип / канал",
+        "message": "Сообщение",
+        "date": "Дата",
+        "status": "Статус"
+      },
+      "kind": {
+        "broadcast": "BROADCAST",
+        "automation": "Автоматическое",
+        "contact": "Контакт"
+      },
+      "automationKind": {
+        "check_in": "Напоминание о заезде",
+        "review_request": "Запрос отзыва",
+        "win_back": "Возврат"
+      },
+      "status": {
+        "pending": "В ожидании",
+        "approved": "Одобрено",
+        "rejected": "Отклонено",
+        "sent": "Доставлено",
+        "failed": "Ошибка",
+        "partial_approved": "Частично"
+      },
+      "recipients": "{count} получателей"
+    }
   }
 }

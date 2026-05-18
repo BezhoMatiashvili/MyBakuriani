@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, PencilLine, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import MediaUploader, {
+  type MediaValue,
+} from "@/components/forms/MediaUploader";
 
 type BlogPost = {
   id: string;
@@ -11,6 +14,9 @@ type BlogPost = {
   slug: string;
   content: string;
   excerpt: string | null;
+  image_url: string | null;
+  video_url: string | null;
+  video_poster_url: string | null;
   published: boolean | null;
   published_at: string | null;
   created_at: string | null;
@@ -20,8 +26,34 @@ export default function SeoPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [excerpt, setExcerpt] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoPosterUrl, setVideoPosterUrl] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [drafting, setDrafting] = useState(false);
+
+  const mediaValue: MediaValue = videoUrl
+    ? { url: videoUrl, type: "video" }
+    : imageUrl
+      ? { url: imageUrl, type: "image" }
+      : null;
+
+  function handleMediaChange(v: MediaValue) {
+    if (!v) {
+      setImageUrl("");
+      setVideoUrl("");
+      setVideoPosterUrl("");
+      return;
+    }
+    if (v.type === "video") {
+      setVideoUrl(v.url);
+      setImageUrl("");
+    } else {
+      setImageUrl(v.url);
+      setVideoUrl("");
+      setVideoPosterUrl("");
+    }
+  }
 
   const [topic, setTopic] = useState("ბაკურიანში ზამთრის დასვენება");
   const [keywords, setKeywords] = useState(
@@ -93,6 +125,9 @@ export default function SeoPage() {
           title,
           content,
           excerpt: excerpt || undefined,
+          image_url: imageUrl || undefined,
+          video_url: videoUrl || undefined,
+          video_poster_url: videoPosterUrl || undefined,
           publish: options.publish,
         }),
       });
@@ -103,6 +138,9 @@ export default function SeoPage() {
       setTitle("");
       setExcerpt("");
       setContent("");
+      setImageUrl("");
+      setVideoUrl("");
+      setVideoPosterUrl("");
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
@@ -129,6 +167,14 @@ export default function SeoPage() {
             სტატიის დაწერა
           </h2>
           <div className="space-y-4">
+            <MediaUploader
+              value={mediaValue}
+              onChange={handleMediaChange}
+              kind="blog"
+              label="ჰერო მედია (სურათი ან ვიდეო)"
+              poster={videoPosterUrl || null}
+              onPosterChange={(url) => setVideoPosterUrl(url ?? "")}
+            />
             <input
               placeholder="სტატიის სათაური..."
               value={title}
@@ -237,14 +283,35 @@ export default function SeoPage() {
                 key={post.id}
                 className="flex items-center justify-between rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] px-4 py-4"
               >
-                <div className="min-w-0 pr-3">
-                  <p className="truncate text-sm font-bold text-[#1E293B]">
-                    {post.title}
-                  </p>
-                  <p className="truncate text-[11px] font-medium text-[#64748B]">
-                    /{post.slug} •{" "}
-                    {post.published ? "გამოქვეყნებული" : "შავი ვარიანტი"}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3 pr-3">
+                  {post.video_url ? (
+                    <video
+                      src={post.video_url}
+                      poster={
+                        post.video_poster_url ?? post.image_url ?? undefined
+                      }
+                      muted
+                      loop
+                      playsInline
+                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : post.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={post.image_url}
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : null}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-[#1E293B]">
+                      {post.title}
+                    </p>
+                    <p className="truncate text-[11px] font-medium text-[#64748B]">
+                      /{post.slug} •{" "}
+                      {post.published ? "გამოქვეყნებული" : "შავი ვარიანტი"}
+                    </p>
+                  </div>
                 </div>
                 <span
                   className={`rounded-md border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.5px] ${

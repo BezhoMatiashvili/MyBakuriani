@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
     cta_label?: string | null;
     cta_href?: string | null;
     image_url?: string | null;
+    video_url?: string | null;
+    video_poster_url?: string | null;
     tone?: string;
     active?: boolean;
     start_at?: string | null;
@@ -69,6 +71,8 @@ export async function POST(req: NextRequest) {
       cta_label: body.cta_label?.trim() || null,
       cta_href: body.cta_href?.trim() || null,
       image_url: body.image_url?.trim() || null,
+      video_url: body.video_url?.trim() || null,
+      video_poster_url: body.video_poster_url?.trim() || null,
       tone,
       active: body.active ?? true,
       start_at: body.start_at || null,

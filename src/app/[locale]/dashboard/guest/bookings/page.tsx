@@ -21,7 +21,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NewRequestModal, {
   type NewRequestPayload,
 } from "@/components/guest/NewRequestModal";
-import { nearestZone } from "@/lib/constants/locations";
+import { nearestZoneName } from "@/lib/zones/types";
+import { useActiveZones } from "@/lib/zones/client";
 import type { Tables } from "@/lib/types/database";
 
 type Property = Tables<"properties">;
@@ -48,6 +49,7 @@ type TabKey = "all" | "new";
 export default function GuestBookingsPage() {
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones } = useActiveZones();
   const [offers, setOffers] = useState<OfferView[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("all");
@@ -188,8 +190,11 @@ export default function GuestBookingsPage() {
       if (!zoneValue) return true;
       if (prop.location_lat == null || prop.location_lng == null) return false;
       return (
-        nearestZone(Number(prop.location_lat), Number(prop.location_lng)) ===
-        zoneValue
+        nearestZoneName(
+          zones,
+          Number(prop.location_lat),
+          Number(prop.location_lng),
+        ) === zoneValue
       );
     });
 

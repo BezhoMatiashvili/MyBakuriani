@@ -237,6 +237,18 @@ export function DashboardSidebar({
           </span>
         </div>
       )}
+      <div className="border-t border-[#E2E8F0] px-3 py-3">
+        <Link
+          href="/"
+          className={cn(
+            "flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8]",
+            collapsed ? "px-0" : "px-4",
+          )}
+        >
+          <Home className="size-[18px] shrink-0" />
+          {!collapsed && <span>{t("backToHome")}</span>}
+        </Link>
+      </div>
       <div className="border-t border-[#E2E8F0] p-2">
         <Button
           variant="ghost"

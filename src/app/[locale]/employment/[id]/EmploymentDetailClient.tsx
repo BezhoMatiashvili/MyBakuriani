@@ -32,6 +32,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables, TablesInsert } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -52,7 +53,7 @@ function StatCard({
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
   subtext?: string;
   accent?: boolean;
 }) {
@@ -98,14 +99,7 @@ function SidebarRow({ label, value }: { label: string; value: string }) {
 }
 
 function salaryModelLabel(salaryType: string | null): string {
-  if (!salaryType) return "ფიქსირებული დღიური";
-  const map: Record<string, string> = {
-    fixed_daily: "ფიქსირებული დღიური",
-    fixed_monthly: "ფიქსირებული თვიური",
-    hourly: "საათობრივი",
-    negotiable: "შეთანხმებითი",
-  };
-  return map[salaryType] ?? salaryType;
+  return salaryType?.trim() || "ფიქსირებული";
 }
 
 const fadeIn = {
@@ -358,7 +352,7 @@ export default function EmploymentDetailClient({
             transition={{ duration: 0.4, delay: 0.15 }}
             className="text-[36px] font-black leading-[44px] text-[#0F172A] sm:text-[44px] sm:leading-[52px]"
           >
-            {service.title}
+            {service.position ?? service.title}
           </motion.h1>
 
           <motion.div
@@ -368,7 +362,7 @@ export default function EmploymentDetailClient({
           >
             <span className="inline-flex items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-3 py-2 text-[14px] font-bold text-[#1E293B]">
               <Building2 className="h-4 w-4 text-[#2563EB]" />
-              {owner?.display_name ?? "Crystal Resort Management"}
+              {service.title ?? "Crystal Resort Management"}
               {(owner?.is_verified ?? true) && (
                 <BadgeCheck className="h-4 w-4 fill-[#22C55E] text-white" />
               )}
@@ -388,7 +382,13 @@ export default function EmploymentDetailClient({
             <StatCard
               icon={<MapPin />}
               label="ლოკაცია"
-              value={service.location ?? "დიდველი"}
+              value={
+                <ZoneLocationLink
+                  location={service.location ?? "დიდველი"}
+                  prefix=""
+                  showIcon={false}
+                />
+              }
             />
             <StatCard
               icon={<Banknote />}

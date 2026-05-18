@@ -10,7 +10,8 @@ import SmartMatchRequestsModal, {
   type SmartMatchRequestItem,
   type OwnerProperty,
 } from "@/components/renter/SmartMatchRequestsModal";
-import { nearestZone } from "@/lib/constants/locations";
+import { nearestZoneName } from "@/lib/zones/types";
+import { useActiveZones } from "@/lib/zones/client";
 import type { Tables } from "@/lib/types/database";
 
 type SmartMatchRequest = Tables<"smart_match_requests"> & {
@@ -66,6 +67,7 @@ function monthAbbr(m: number): string {
 export default function RenterSmartMatchPage() {
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones: activeZones } = useActiveZones();
 
   const [requests, setRequests] = useState<SmartMatchRequest[]>([]);
   const [ownerProperties, setOwnerProperties] = useState<OwnerProperty[]>([]);
@@ -93,15 +95,18 @@ export default function RenterSmartMatchPage() {
       }
 
       // Compute zones the renter covers
-      const zones = new Set<string>();
+      const zoneSet = new Set<string>();
       for (const p of properties) {
         if (p.location_lat != null && p.location_lng != null) {
-          zones.add(
-            nearestZone(Number(p.location_lat), Number(p.location_lng)),
+          const name = nearestZoneName(
+            activeZones,
+            Number(p.location_lat),
+            Number(p.location_lng),
           );
+          if (name) zoneSet.add(name);
         }
       }
-      setOwnerZones(zones);
+      setOwnerZones(zoneSet);
 
       setOwnerProperties(
         properties.map((p) => ({

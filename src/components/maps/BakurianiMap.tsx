@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GoogleMap, OverlayViewF, MarkerF } from "@react-google-maps/api";
+import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 
 const BAKURIANI_CENTER = { lat: 41.7509, lng: 43.5294 };
 
@@ -58,31 +59,9 @@ interface BakurianiMapProps {
   zoom?: number;
   /** Show an expand button that opens a larger map overlay */
   expandable?: boolean;
+  /** Admin-managed zone list. Falls back to the 4 seeded zones if omitted. */
+  zones?: Zone[];
 }
-
-// ── Zone data (backward compat fallback) ──
-const ZONES = [
-  {
-    id: "didveli",
-    label: "დიდველი / კრისტალი",
-    position: { lat: 41.7385, lng: 43.5175 },
-  },
-  {
-    id: "centri",
-    label: "ცენტრი / პარკი",
-    position: { lat: 41.7509, lng: 43.5294 },
-  },
-  {
-    id: "kokhta",
-    label: "კოხტა / მიტარბი",
-    position: { lat: 41.758, lng: 43.545 },
-  },
-  {
-    id: "25",
-    label: "25-იანები",
-    position: { lat: 41.746, lng: 43.538 },
-  },
-];
 
 // ── Clean light Airbnb-style map theme ──
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
@@ -304,6 +283,7 @@ export default function BakurianiMap({
   center,
   zoom,
   expandable,
+  zones = FALLBACK_ZONES,
 }: BakurianiMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
 
@@ -348,11 +328,13 @@ export default function BakurianiMap({
   const hasProperties = properties && properties.length > 0;
 
   // ── Fallback static UI (zone dots) ──
+  // Only the 4 seeded zones have known positions on the static SVG. Custom
+  // admin-added zones render only on the real Google map.
   const ZONE_POSITIONS: Record<string, { left: string; top: string }> = {
     didveli: { left: "28%", top: "18%" },
     centri: { left: "42%", top: "50%" },
     kokhta: { left: "52%", top: "32%" },
-    "25": { left: "40%", top: "75%" },
+    "25ianebi": { left: "40%", top: "75%" },
   };
 
   const DECORATIVE_DOTS = [
@@ -384,17 +366,17 @@ export default function BakurianiMap({
             transform: "translate(-50%, -50%) rotate(-15deg)",
           }}
         />
-        {ZONES.map((zone) => {
-          const pos = ZONE_POSITIONS[zone.id];
+        {zones.map((zone) => {
+          const pos = ZONE_POSITIONS[zone.slug];
           if (!pos) return null;
           return (
             <button
               key={zone.id}
               type="button"
-              onClick={() => onZoneClick?.(zone.label)}
+              onClick={() => onZoneClick?.(zone.name_ka)}
               className="absolute size-3 rounded-full border-[2px] border-white bg-[#A855F7] shadow-[0px_2px_6px_rgba(168,85,247,0.4)] transition-transform hover:scale-150"
               style={{ left: pos.left, top: pos.top }}
-              title={zone.label}
+              title={zone.name_ka}
             />
           );
         })}
@@ -450,12 +432,12 @@ export default function BakurianiMap({
               onNavigate={onPropertyClick}
             />
           ))
-        : ZONES.map((zone) => (
+        : zones.map((zone) => (
             <MarkerF
               key={zone.id}
-              position={zone.position}
-              title={zone.label}
-              onClick={() => onZoneClick?.(zone.label)}
+              position={{ lat: zone.lat, lng: zone.lng }}
+              title={zone.name_ka}
+              onClick={() => onZoneClick?.(zone.name_ka)}
               icon={{
                 path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
                 fillColor: "#2563EB",

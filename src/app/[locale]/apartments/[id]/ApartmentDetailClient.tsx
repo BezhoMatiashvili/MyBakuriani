@@ -38,6 +38,7 @@ import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar"
 import { createClient } from "@/lib/supabase/client";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { formatPrice } from "@/lib/utils/format";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
@@ -199,10 +200,13 @@ export default function ApartmentDetailClient({
               {property.title}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-              <span className="flex items-center gap-1.5 font-medium">
-                <MapPin className="h-4 w-4 text-orange-500" />
-                {property.location}
-              </span>
+              <ZoneLocationLink
+                location={property.location}
+                lat={property.location_lat}
+                lng={property.location_lng}
+                className="font-medium"
+                iconClassName="text-orange-500"
+              />
               {avgRating !== null && (
                 <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
                   <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
@@ -243,12 +247,6 @@ export default function ApartmentDetailClient({
             {property.rooms} ოთახი
           </span>
         )}
-        {property.bathrooms != null && (
-          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-            <Bath className="h-4 w-4 text-brand-accent" />
-            {property.bathrooms} სააბაზანო
-          </span>
-        )}
         {property.capacity != null && (
           <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
             <Users className="h-4 w-4 text-brand-accent" />
@@ -278,12 +276,18 @@ export default function ApartmentDetailClient({
           )}
 
           {/* Amenities */}
-          {amenities.length > 0 && (
+          {(amenities.length > 0 || property.bathrooms != null) && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 კეთილმოწყობა
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {property.bathrooms != null && (
+                  <div className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+                    <Bath className="h-5 w-5 text-brand-accent shrink-0" />
+                    <span>{property.bathrooms} სააბაზანო</span>
+                  </div>
+                )}
                 {(amenitiesExpanded ? amenities : amenities.slice(0, 3)).map(
                   (key) => {
                     const amenity = AMENITY_MAP[key];
@@ -460,7 +464,11 @@ export default function ApartmentDetailClient({
               ownerName={owner?.display_name ?? "მესაკუთრე"}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
-              ownerPhone={owner?.phone ?? null}
+              ownerPhone={property.phone ?? owner?.phone ?? null}
+              ownerWhatsapp={
+                property.whatsapp ?? property.phone ?? owner?.phone ?? null
+              }
+              propertyId={property.id}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}
               onBook={handleBook}

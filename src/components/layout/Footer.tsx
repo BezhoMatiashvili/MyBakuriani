@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
@@ -30,34 +31,18 @@ export function Footer() {
         <div className="grid gap-20 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand column */}
           <div className="flex flex-col gap-[23px]">
-            <Link href="/" className="flex items-center gap-2">
-              <svg
-                width="40"
-                height="32"
-                viewBox="0 0 40 32"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="shrink-0"
-              >
-                <path
-                  d="M12 10L20 24H4L12 10Z"
-                  fill="#3B82F6"
-                  stroke="#3B82F6"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M20 2L32 22H8L20 2Z"
-                  fill="white"
-                  stroke="white"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className="text-xl font-bold">
-                <span className="text-[#F97316]">My</span>
-                <span className="text-white">Bakuriani</span>
-              </span>
+            <Link
+              href="/"
+              aria-label="MyBakuriani"
+              className="flex shrink-0 items-center"
+            >
+              <Image
+                src="/logo-dark.png"
+                alt="MyBakuriani"
+                width={300}
+                height={199}
+                className="h-12 w-auto"
+              />
             </Link>
             <p className="max-w-[252px] text-sm leading-[23px] text-white/60">
               {t("brandDescription")}

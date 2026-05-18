@@ -11,8 +11,6 @@ import {
   Sparkles,
   CheckCircle2,
   MapPin,
-  Mountain,
-  TreePine,
   Plus,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -30,10 +28,8 @@ import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { MOCK_SALES } from "@/lib/mock/properties";
-import {
-  SEARCH_LOCATION_ZONES,
-  type SearchLocationZone,
-} from "@/lib/constants/locations";
+import type { Zone } from "@/lib/zones/types";
+import { ZoneIcon } from "@/lib/zones/icon";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -48,7 +44,8 @@ interface SaleLandingBodyProps {
   mode: "rent" | "sale";
   onModeChange: (mode: "rent" | "sale") => void;
   saleProperties?: Tables<"properties">[];
-  pricePerSqmByZone?: Partial<Record<SearchLocationZone, number | null>>;
+  pricePerSqmByZone?: Record<string, number | null>;
+  zones: Zone[];
 }
 
 function formatPricePerSqm(avg: number | null | undefined): string {
@@ -56,12 +53,14 @@ function formatPricePerSqm(avg: number | null | undefined): string {
   return `${Math.round(avg).toLocaleString("en-US")} ₾/მ²`;
 }
 
-const ZONE_ICONS: Record<SearchLocationZone, React.ReactNode> = {
-  "დიდველი / კრისტალი": <Mountain className="size-[18px] text-[#16A34A]" />,
-  "ცენტრი / პარკი": <TreePine className="size-[18px] text-[#16A34A]" />,
-  "კოხტა / მიტარბი": <Mountain className="size-[18px] text-[#16A34A]" />,
-  "25-იანები": <MapPin className="size-[18px] text-[#94A3B8]" />,
-};
+function renderZoneIcon(icon: string, isLast: boolean) {
+  return (
+    <ZoneIcon
+      icon={icon}
+      className={`size-[18px] ${isLast ? "text-[#94A3B8]" : "text-[#16A34A]"}`}
+    />
+  );
+}
 
 // Convert GEL → USD for display (rough conversion; backend stores GEL).
 const GEL_TO_USD = 1 / 2.7;
@@ -134,6 +133,7 @@ export default function SaleLandingBody({
   onModeChange,
   saleProperties,
   pricePerSqmByZone,
+  zones,
 }: SaleLandingBodyProps) {
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
@@ -285,20 +285,9 @@ export default function SaleLandingBody({
               showInvestmentFilters={true}
               showMap={showMap}
               onShowMapChange={setShowMap}
+              zones={zones}
             />
           </div>
-
-          <p className="mt-4 text-center text-[13px] font-medium text-white/70">
-            ან გამოიყენე{" "}
-            <Link
-              href="/dashboard/renter/smart-match"
-              className="inline-flex items-center gap-1 font-bold text-[#6EE7B7] transition-colors hover:text-[#A7F3D0]"
-            >
-              <Sparkles className="size-3.5" />
-              AI SMART MATCH
-            </Link>{" "}
-            და მიიღე შემოთავაზებები
-          </p>
         </div>
       </section>
 
@@ -313,6 +302,7 @@ export default function SaleLandingBody({
               isForSale
               properties={mapProperties}
               onPropertyClick={(id) => router.push(`/sales/${id}`)}
+              zones={zones}
             />
           </div>
         </div>
@@ -326,13 +316,13 @@ export default function SaleLandingBody({
         )}
       >
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {SEARCH_LOCATION_ZONES.map((zone, i) => (
+          {zones.map((zone, i) => (
             <StatCard
-              key={zone}
-              label={zone}
-              value={formatPricePerSqm(pricePerSqmByZone?.[zone])}
-              icon={ZONE_ICONS[zone]}
-              highlight={i === SEARCH_LOCATION_ZONES.length - 1}
+              key={zone.id}
+              label={zone.name_ka}
+              value={formatPricePerSqm(pricePerSqmByZone?.[zone.name_ka])}
+              icon={renderZoneIcon(zone.icon, i === zones.length - 1)}
+              highlight={i === zones.length - 1}
             />
           ))}
         </div>

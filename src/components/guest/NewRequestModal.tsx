@@ -3,13 +3,10 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Send, X, MapPin, ChevronDown, Calendar, Plus } from "lucide-react";
-import {
-  SEARCH_LOCATION_ZONES,
-  type SearchLocationZone,
-} from "@/lib/constants/locations";
+import { useActiveZones } from "@/lib/zones/client";
 
 export interface NewRequestPayload {
-  zone: SearchLocationZone | "all";
+  zone: string | "all";
   checkIn: string;
   checkOut: string;
   guestsCount?: number;
@@ -23,14 +20,15 @@ interface Props {
   onSubmit: (payload: NewRequestPayload) => Promise<void> | void;
 }
 
-const ZONE_OPTIONS: { value: NewRequestPayload["zone"]; label: string }[] = [
-  { value: "all", label: "ყველა ზონა (ბაკურიანი)" },
-  ...SEARCH_LOCATION_ZONES.map((z) => ({ value: z, label: z })),
-];
-
 export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+  const { zones } = useActiveZones();
+  const ZONE_OPTIONS: { value: NewRequestPayload["zone"]; label: string }[] = [
+    { value: "all", label: "ყველა ზონა (ბაკურიანი)" },
+    ...zones.map((z) => ({ value: z.name_ka, label: z.name_ka })),
+  ];
 
   const [zone, setZone] = useState<NewRequestPayload["zone"]>("all");
   const [zoneOpen, setZoneOpen] = useState(false);

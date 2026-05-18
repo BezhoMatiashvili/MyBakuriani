@@ -13,7 +13,7 @@ export default async function TransportPage() {
 
   const { data: services, error } = await supabase
     .from("services")
-    .select("*")
+    .select("*, owner:profiles!services_owner_id_fkey(is_verified)")
     .eq("status", "active")
     .eq("category", "transport")
     .order("is_vip", { ascending: false })

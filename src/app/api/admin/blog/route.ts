@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
     content?: string;
     excerpt?: string;
     image_url?: string;
+    video_url?: string;
+    video_poster_url?: string;
     publish?: boolean;
   } | null;
   if (!body?.title?.trim() || !body.content?.trim()) {
@@ -52,6 +54,8 @@ export async function POST(req: NextRequest) {
       content: body.content,
       excerpt: body.excerpt ?? null,
       image_url: body.image_url ?? null,
+      video_url: body.video_url ?? null,
+      video_poster_url: body.video_poster_url ?? null,
       author_id: guard.admin.userId,
       published: body.publish ?? false,
       published_at: body.publish ? new Date().toISOString() : null,

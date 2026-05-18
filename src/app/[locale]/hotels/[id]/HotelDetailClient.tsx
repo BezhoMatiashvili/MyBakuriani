@@ -31,6 +31,7 @@ import dynamic from "next/dynamic";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -208,10 +209,13 @@ export default function HotelDetailClient({
               {property.title}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-              <span className="flex items-center gap-1.5 font-medium">
-                <MapPin className="h-4 w-4 text-[#2563EB]" />
-                {property.location}
-              </span>
+              <ZoneLocationLink
+                location={property.location}
+                lat={property.location_lat}
+                lng={property.location_lng}
+                className="font-medium"
+                iconClassName="text-[#2563EB]"
+              />
               {avgRating !== null && (
                 <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
                   <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
@@ -418,6 +422,7 @@ export default function HotelDetailClient({
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
               ownerPhone={owner?.phone ?? null}
+              propertyId={property.id}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}
               onBook={handleBook}

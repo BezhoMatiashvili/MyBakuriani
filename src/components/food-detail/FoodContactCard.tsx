@@ -8,9 +8,15 @@ interface Props {
   phone: string | null;
   menuUrl: string | null;
   location: string | null;
+  serviceId?: string | null;
 }
 
-export function FoodContactCard({ phone, menuUrl, location }: Props) {
+export function FoodContactCard({
+  phone,
+  menuUrl,
+  location,
+  serviceId,
+}: Props) {
   const router = useRouter();
 
   const mapsHref = location
@@ -55,6 +61,7 @@ export function FoodContactCard({ phone, menuUrl, location }: Props) {
           label="დაკავშირება"
           className="h-[55px] w-full gap-2 rounded-2xl bg-[#10B981] text-[15px] font-bold text-white hover:bg-[#059669]"
           onNoPhoneClick={() => router.push("/auth/login")}
+          serviceId={serviceId}
         />
       </div>
     </div>

@@ -112,13 +112,12 @@ export default function VerificationsPage() {
     };
   }, []);
 
-  async function moderate(
+  async function quickModerate(
     item: PendingListing,
     action: "approve" | "reject",
-    presetNotes?: string,
   ) {
-    let notes: string | undefined = presetNotes?.trim() || undefined;
-    if (action === "reject" && presetNotes === undefined) {
+    let notes: string | undefined;
+    if (action === "reject") {
       const input = window.prompt("მიუთითეთ უარყოფის მიზეზი (არასავალდებულო):");
       if (input === null) return;
       notes = input.trim() || undefined;
@@ -141,15 +140,20 @@ export default function VerificationsPage() {
       toast.success(
         action === "approve" ? "განცხადება დამტკიცდა" : "განცხადება უარყოფილია",
       );
-      setItems((prev) =>
-        prev.filter((it) => !(it.kind === item.kind && it.id === item.id)),
-      );
-      setExpandedKey((cur) => (cur === key ? null : cur));
+      removeItem(item);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
     } finally {
       setBusyKey(null);
     }
+  }
+
+  function removeItem(item: PendingListing) {
+    const key = `${item.kind}:${item.id}`;
+    setItems((prev) =>
+      prev.filter((it) => !(it.kind === item.kind && it.id === item.id)),
+    );
+    setExpandedKey((cur) => (cur === key ? null : cur));
   }
 
   const counts = useMemo(() => {
@@ -372,7 +376,7 @@ export default function VerificationsPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        moderate(item, "approve");
+                        quickModerate(item, "approve");
                       }}
                       disabled={busyKey === key}
                       aria-label="დადასტურება"
@@ -388,7 +392,7 @@ export default function VerificationsPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        moderate(item, "reject");
+                        quickModerate(item, "reject");
                       }}
                       disabled={busyKey === key}
                       aria-label="უარყოფა"
@@ -418,10 +422,7 @@ export default function VerificationsPage() {
                       <ListingAuditPanel
                         kind={item.kind}
                         id={item.id}
-                        busy={busyKey === key}
-                        onAction={(action, notes) =>
-                          moderate(item, action, notes)
-                        }
+                        onModerated={() => removeItem(item)}
                       />
                     </motion.section>
                   )}

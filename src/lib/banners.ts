@@ -16,6 +16,8 @@ export type LandingBanner = {
   cta_label: string | null;
   cta_href: string | null;
   image_url: string | null;
+  video_url: string | null;
+  video_poster_url: string | null;
   tone: BannerTone;
   active: boolean;
   start_at: string | null;

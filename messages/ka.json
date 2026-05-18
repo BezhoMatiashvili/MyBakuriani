@@ -34,7 +34,12 @@
     "reviews": "შეფასებები",
     "logout": "გასვლა",
     "menu": "მენიუ",
-    "dashboard": "კაბინეტი"
+    "dashboard": "კაბინეტი",
+    "notifications": "შეტყობინებები",
+    "noNotifications": "ჯერ არ გაქვთ შეტყობინებები",
+    "markAllRead": "ყველას წაკითხულად მონიშვნა",
+    "viewAll": "ყველას ნახვა",
+    "notificationsAria": "შეტყობინებები, {count} წაუკითხავი"
   },
   "Footer": {
     "brandDescription": "პრემიუმ უძრავი ქონების და გაქირავების პლატფორმა ბაკურიანში. ჩვენ ვზრუნავთ თქვენს დაცულ დასვენებაზე.",
@@ -89,10 +94,12 @@
       "guests": "სტუმრები",
       "cleaners": "დამლაგებლები",
       "balanceAndVip": "ბალანსი და VIP",
+      "smsCenter": "SMS ცენტრი",
       "notificationsItem": "შეტყობინებები"
     },
     "notifications": "{count} შეტყობინება",
     "logout": "გამოსვლა",
+    "backToHome": "მთავარზე დაბრუნება",
     "userIdPrefix": "ID:",
     "expand": "გაშლა",
     "collapse": "ჩაკეცვა",
@@ -233,7 +240,10 @@
     "partner": "პარტნიორი",
     "driverLabel": "მძღოლი",
     "capacityLabel": "მგზავრი",
-    "routeLabel": "მარშრუტი"
+    "routeLabel": "მარშრუტი",
+    "typeLabel": "ტიპი",
+    "seatsLabel": "ადგილი",
+    "verifiedBadge": "გადამოწმებული"
   },
   "SmartMatchCard": {
     "guestRequests": "სტუმრების მოთხოვნები",
@@ -443,5 +453,101 @@
     "discountLabel": "-{percent}% ფასდაკლება",
     "submitError": "შეცდომა. სცადეთ თავიდან.",
     "publish": "განცხადების გამოქვეყნება"
+  },
+  "CriticalNotification": {
+    "severityCritical": "კრიტიკული",
+    "acknowledge": "გავიგე",
+    "learnMore": "გაიგე მეტი",
+    "more": "სხვა შეტყობინება"
+  },
+  "SMSCenter": {
+    "pageTitle": "SMS ცენტრი",
+    "pageSubtitle": "ავტომატური და მასობრივი SMS",
+    "balance": {
+      "label": "SMS ბალანსი",
+      "unit": "შეტყობინება",
+      "lastBroadcast": "ბოლო SMS დაგზავნა",
+      "buyPackage": "პაკეტის ყიდვა",
+      "buyingPackage": "იტვირთება..."
+    },
+    "automation": {
+      "title": "ავტომატიზაცია",
+      "checkInTitle": "Check-in შემახსენებლები",
+      "checkInDesc": "ავტომატური SMS სტუმარს მოსვლამდე {hours} საათით ადრე",
+      "reviewTitle": "შეფასების მოთხოვნა",
+      "reviewDesc": "გადებიდან {hours} საათში ვთხოვთ სტუმარს დატოვოს შეფასება",
+      "winBackTitle": "დაბრუნებების გამოწვევა",
+      "winBackDesc": "{days} დღის შემდეგ ვუგზავნით ძველ სტუმარს დაბრუნების მოწვევას",
+      "saving": "ინახება...",
+      "saveSuccess": "შენახულია",
+      "saveError": "ვერ შენახულდა"
+    },
+    "broadcast": {
+      "title": "საჩუქარო დაგზავნა",
+      "subtitle": "(BROADCAST)",
+      "audienceLabel": "მიზნობრივი აუდიტორია",
+      "audiencePlaceholder": "აირჩიე აუდიტორია",
+      "compliance": "მიწერეთ 18 აპრილიდან, თქვენ ხელი მიუწერავთ (PDPA) რეგულაციას — გადასახდელია 12 ლარი, ფასდაკლება არის Opt-out",
+      "messageLabel": "ტექსტი",
+      "messagePlaceholder": "მაგ. დაგროვილი ბონუს ქულების გამოყენებით ფასდაკლება — 15% დაჯავშნისას ლოგისტიკურ-სანახაობის სტუმრებისთვის...",
+      "complianceFooter": "ფარული შეტყობინება — 1 SMS-ის ფასი 70 სიმბოლომდე",
+      "sendButton": "გაგზავნა",
+      "sendCount": "({count} SMS)",
+      "sending": "იგზავნება...",
+      "sentSuccess": "SMS გაგზავნილია {count} ადამიანთან მოლოდინში",
+      "errors": {
+        "no_credit": "ბალანსზე არ გაქვთ საკმარისი SMS კრედიტი. შეიძინეთ პაკეტი.",
+        "empty_audience": "აუდიტორიაში არცერთი მიმღები არ მოიძებნა.",
+        "message_length": "შეტყობინება უნდა იყოს 1-320 სიმბოლო.",
+        "invalid_audience": "არასწორი აუდიტორია არჩეული.",
+        "role_not_allowed": "თქვენი როლი არ შეუძლია SMS-ის გაგზავნა.",
+        "unknown": "ვერ მოხერხდა გაგზავნა."
+      }
+    },
+    "preview": {
+      "deviceLabel": "MyBakuriani",
+      "emptyText": "თქვენი მესიჯი აქ გამოჩნდება..."
+    },
+    "audiences": {
+      "renter_past_guests": "წინა სტუმრები",
+      "renter_upcoming_guests": "მომავალი სტუმრები",
+      "renter_all_contacts": "ბინა სეზონის (ნახულობს) სტუმრები",
+      "food_recent_customers": "ბოლო 30 დღის კლიენტები",
+      "food_all_contacts": "ყველა კლიენტი",
+      "service_recent_clients": "ბოლო 30 დღის კლიენტები",
+      "service_all_contacts": "ყველა კონტაქტი",
+      "seller_active_leads": "აქტიური ლიდები",
+      "seller_new_leads": "ახალი ლიდები"
+    },
+    "history": {
+      "title": "ბოლო გაგზავნილი შეტყობინებები",
+      "viewAll": "სრულად ისტორია",
+      "empty": "ჯერ არცერთი SMS არ გაგიგზავნიათ",
+      "headers": {
+        "type": "ტიპი / არხი",
+        "message": "მესიჯი",
+        "date": "თარიღი",
+        "status": "სტატუსი"
+      },
+      "kind": {
+        "broadcast": "BROADCAST",
+        "automation": "ავტომატური",
+        "contact": "კონტაქტი"
+      },
+      "automationKind": {
+        "check_in": "Check-in შემახსენებელი",
+        "review_request": "შეფასების მოთხოვნა",
+        "win_back": "დაბრუნების მოწვევა"
+      },
+      "status": {
+        "pending": "მოლოდინში",
+        "approved": "დადასტურდა",
+        "rejected": "უარყოფილია",
+        "sent": "მიწოდებული",
+        "failed": "ვერ გაიგზავნა",
+        "partial_approved": "ნაწილობრივ"
+      },
+      "recipients": "{count} მიმღები"
+    }
   }
 }

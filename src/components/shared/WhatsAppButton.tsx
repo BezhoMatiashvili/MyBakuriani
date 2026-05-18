@@ -1,11 +1,20 @@
+"use client";
 import { cn } from "@/lib/utils";
+import { trackContactClick } from "@/lib/contact-tracking";
 
 interface Props {
   phone: string | null | undefined;
   className?: string;
+  propertyId?: string | null;
+  serviceId?: string | null;
 }
 
-export function WhatsAppButton({ phone, className }: Props) {
+export function WhatsAppButton({
+  phone,
+  className,
+  propertyId,
+  serviceId,
+}: Props) {
   const wrapper = cn(
     "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white transition-colors hover:bg-[#1EB453]",
     className,
@@ -29,6 +38,13 @@ export function WhatsAppButton({ phone, className }: Props) {
       rel="noreferrer"
       aria-label="WhatsApp"
       className={wrapper}
+      onClick={() =>
+        trackContactClick({
+          channel: "whatsapp",
+          propertyId,
+          serviceId,
+        })
+      }
     >
       {icon}
     </a>

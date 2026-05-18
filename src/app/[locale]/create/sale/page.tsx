@@ -8,9 +8,10 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import PhoneInput from "@/components/forms/PhoneInput";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
 
@@ -30,9 +31,6 @@ const CONSTRUCTION_STATUSES: {
   { value: "under_construction", label: "მშენებარე" },
 ];
 
-const ZONE_OPTIONS: { value: string; label: string }[] =
-  SEARCH_LOCATION_ZONES.map((z) => ({ value: z, label: z }));
-
 const TITLE_MAX = 35;
 const MIN_PHOTOS = 3;
 const MAX_PHOTOS = 15;
@@ -41,6 +39,11 @@ export default function CreateSalePage() {
   const router = useRouter();
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones } = useActiveZones();
+  const zoneOptions = zones.map((z) => ({
+    value: z.name_ka,
+    label: z.name_ka,
+  }));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +57,14 @@ export default function CreateSalePage() {
   >("completed");
   const [handoverDate, setHandoverDate] = useState("");
   const [areaSqm, setAreaSqm] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
+  const [description, setDescription] = useState("");
+  const [developer, setDeveloper] = useState("");
+  const [roiPercent, setRoiPercent] = useState("");
+  const [phone, setPhone] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [constructionPercent, setConstructionPercent] = useState(0);
   const [completionYear, setCompletionYear] = useState<string>(
@@ -88,11 +98,25 @@ export default function CreateSalePage() {
         throw new Error(`მინიმუმ ${MIN_PHOTOS} ფოტო აუცილებელია`);
       }
 
+      if (!phone.trim()) {
+        throw new Error("მიუთითეთ ტელეფონის ნომერი");
+      }
+
       const yearNum =
         isUnderConstruction && completionYear.trim()
           ? Number(completionYear)
           : null;
       const progressNum = isUnderConstruction ? constructionPercent : null;
+
+      const parseOptionalNonNegative = (v: string): number | null => {
+        if (!v.trim()) return null;
+        const n = Number(v);
+        if (!Number.isFinite(n) || n < 0) return null;
+        return n;
+      };
+      const roomsNum = parseOptionalNonNegative(rooms);
+      const bathroomsNum = parseOptionalNonNegative(bathrooms);
+      const roiNum = parseOptionalNonNegative(roiPercent);
 
       const { data: inserted, error: insertError } = await supabase
         .from("properties")
@@ -100,8 +124,13 @@ export default function CreateSalePage() {
           owner_id: user.id,
           type: propertyType,
           title: titleTrimmed,
+          description: description.trim() || null,
           location: locationTrimmed,
           area_sqm: areaNum,
+          rooms: roomsNum,
+          bathrooms: bathroomsNum,
+          developer: developer.trim() || null,
+          roi_percent: roiNum,
           photos,
           sale_price: priceNum,
           construction_status: constructionStatus,
@@ -111,6 +140,8 @@ export default function CreateSalePage() {
             handover_date: handoverDate || null,
             price_currency: "USD",
           },
+          phone: phone ? `+995${phone}` : null,
+          whatsapp: whatsapp ? `+995${whatsapp}` : null,
           status: "pending" as Enums<"listing_status">,
           is_for_sale: true,
         })
@@ -133,15 +164,17 @@ export default function CreateSalePage() {
     areaSqm.trim().length > 0,
     priceUsd.trim().length > 0,
     photos.length >= MIN_PHOTOS,
+    phone.trim().length > 0,
   ].filter(Boolean).length;
-  const progressPercent = Math.max(10, Math.round((requiredFilled / 5) * 100));
+  const progressPercent = Math.max(10, Math.round((requiredFilled / 6) * 100));
 
   const submitDisabled =
     !title.trim() ||
     !location.trim() ||
     !areaSqm ||
     !priceUsd ||
-    photos.length < MIN_PHOTOS;
+    photos.length < MIN_PHOTOS ||
+    !phone.trim();
 
   return (
     <WizardShell
@@ -160,157 +193,229 @@ export default function CreateSalePage() {
         />
       }
     >
-      <WizardInnerCard
-        number={1}
-        title="იდენტიფიკაცია და სტატუსი"
-        accent="green"
-      >
-        <Field
-          label="სათაური"
-          required
-          helper={`მაქსიმუმ ${TITLE_MAX} სიმბოლო`}
+      <div className="space-y-8">
+        <WizardInnerCard
+          number={1}
+          title="იდენტიფიკაცია და სტატუსი"
+          accent="green"
         >
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
-            placeholder="მაგ: საინვესტიციო აპარტამენტი დიდველზე..."
-            className={inputClass}
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="ობიექტის ტიპი" required>
-            <StyledSelect
-              value={propertyType}
-              onValueChange={setPropertyType}
-              options={PROPERTY_TYPES}
-              accent="blue"
-            />
-          </Field>
-
-          <Field label="ლოკაცია (ZONE)" required>
-            <StyledSelect
-              value={location}
-              onValueChange={setLocation}
-              options={ZONE_OPTIONS}
-              placeholder="აირჩიე ზონა"
-              accent="blue"
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="მშენებლობის სტატუსი" required>
-            <StyledSelect
-              value={constructionStatus}
-              onValueChange={setConstructionStatus}
-              options={CONSTRUCTION_STATUSES}
-              accent="blue"
-            />
-          </Field>
-
           <Field
-            label="ჩაბარების დრო"
-            chip={
-              isUnderConstruction ? { label: "მხოლოდ მშენებარეზე" } : undefined
-            }
+            label="სათაური"
+            required
+            helper={`მაქსიმუმ ${TITLE_MAX} სიმბოლო`}
           >
             <input
-              type="month"
-              value={handoverDate}
-              onChange={(e) => setHandoverDate(e.target.value)}
-              disabled={!isUnderConstruction}
-              className={`${inputClass} ${!isUnderConstruction ? "cursor-not-allowed bg-[#F8FAFC] text-[#94A3B8]" : ""}`}
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
+              placeholder="მაგ: საინვესტიციო აპარტამენტი დიდველზე..."
+              className={inputClass}
             />
           </Field>
-        </div>
 
-        {isUnderConstruction && (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field
-              label="მზადყოფნა"
-              chip={{
-                label: `${constructionPercent}%`,
-                variant: "green",
-              }}
-            >
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={constructionPercent}
-                onChange={(e) => setConstructionPercent(Number(e.target.value))}
-                className="h-[48px] w-full accent-[#16A34A]"
+            <Field label="ობიექტის ტიპი" required>
+              <StyledSelect
+                value={propertyType}
+                onValueChange={setPropertyType}
+                options={PROPERTY_TYPES}
+                accent="blue"
               />
             </Field>
-            <Field label="დასრულების წელი">
+
+            <Field label="ლოკაცია (ZONE)" required>
+              <StyledSelect
+                value={location}
+                onValueChange={setLocation}
+                options={zoneOptions}
+                placeholder="აირჩიე ზონა"
+                accent="blue"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Field label="მშენებლობის სტატუსი" required>
+              <StyledSelect
+                value={constructionStatus}
+                onValueChange={setConstructionStatus}
+                options={CONSTRUCTION_STATUSES}
+                accent="blue"
+              />
+            </Field>
+
+            <Field
+              label="ჩაბარების დრო"
+              chip={
+                isUnderConstruction
+                  ? { label: "მხოლოდ მშენებარეზე" }
+                  : undefined
+              }
+            >
+              <input
+                type="month"
+                value={handoverDate}
+                onChange={(e) => setHandoverDate(e.target.value)}
+                disabled={!isUnderConstruction}
+                className={`${inputClass} ${!isUnderConstruction ? "cursor-not-allowed bg-[#F8FAFC] text-[#94A3B8]" : ""}`}
+              />
+            </Field>
+          </div>
+
+          {isUnderConstruction && (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field
+                label="მზადყოფნა"
+                chip={{
+                  label: `${constructionPercent}%`,
+                  variant: "green",
+                }}
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={constructionPercent}
+                  onChange={(e) =>
+                    setConstructionPercent(Number(e.target.value))
+                  }
+                  className="h-[48px] w-full accent-[#16A34A]"
+                />
+              </Field>
+              <Field label="დასრულების წელი">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={new Date().getFullYear() - 5}
+                  max={new Date().getFullYear() + 15}
+                  value={completionYear}
+                  onChange={(e) => setCompletionYear(e.target.value)}
+                  placeholder={String(new Date().getFullYear() + 1)}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Field label="საერთო ფართობი (კვ.მ)" required>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={areaSqm}
+                  onChange={(e) => setAreaSqm(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step="0.1"
+                  className={`${inputClass} pr-16`}
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#F1F5F9] px-2 py-1 text-xs font-bold text-[#475569]">
+                  კვ.მ
+                </span>
+              </div>
+            </Field>
+
+            <Field label="ფასი (USD)" required>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#94A3B8]">
+                  $
+                </span>
+                <input
+                  type="number"
+                  value={priceUsd}
+                  onChange={(e) => setPriceUsd(e.target.value)}
+                  placeholder="0"
+                  min="1"
+                  className={`${inputClass} pl-8`}
+                />
+              </div>
+            </Field>
+          </div>
+
+          <Field
+            label="ფოტოები / რენდერები"
+            required
+            chip={{ label: `მინ. ${MIN_PHOTOS} ფოტო`, variant: "blue" }}
+            chipPosition="end"
+          >
+            <PhotoUploader
+              photos={photos}
+              onPhotosChange={setPhotos}
+              maxPhotos={MAX_PHOTOS}
+            />
+            <p className="mt-2 text-xs font-medium text-[#94A3B8]">
+              მაქს. {MAX_PHOTOS} ფოტო
+            </p>
+          </Field>
+        </WizardInnerCard>
+
+        <WizardInnerCard number={2} title="დეტალები და კონტაქტი" accent="green">
+          <Field label="აღწერა">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="დეტალური აღწერა ობიექტის შესახებ..."
+              rows={5}
+              className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
+            />
+          </Field>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            <Field label="ოთახების რაოდენობა">
               <input
                 type="number"
-                inputMode="numeric"
-                min={new Date().getFullYear() - 5}
-                max={new Date().getFullYear() + 15}
-                value={completionYear}
-                onChange={(e) => setCompletionYear(e.target.value)}
-                placeholder={String(new Date().getFullYear() + 1)}
+                value={rooms}
+                onChange={(e) => setRooms(e.target.value)}
+                placeholder="მაგ: 2"
+                min="0"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="სააბაზანოები">
+              <input
+                type="number"
+                value={bathrooms}
+                onChange={(e) => setBathrooms(e.target.value)}
+                placeholder="მაგ: 1"
+                min="0"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="წლიური ROI (%)" helper="სურვილისამებრ">
+              <input
+                type="number"
+                value={roiPercent}
+                onChange={(e) => setRoiPercent(e.target.value)}
+                placeholder="მაგ: 8"
+                min="0"
+                max="100"
+                step="0.1"
                 className={inputClass}
               />
             </Field>
           </div>
-        )}
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="საერთო ფართობი (კვ.მ)" required>
-            <div className="relative">
-              <input
-                type="number"
-                value={areaSqm}
-                onChange={(e) => setAreaSqm(e.target.value)}
-                placeholder="0"
-                min="0"
-                step="0.1"
-                className={`${inputClass} pr-16`}
-              />
-              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#F1F5F9] px-2 py-1 text-xs font-bold text-[#475569]">
-                კვ.მ
-              </span>
-            </div>
+          <Field label="დეველოპერი / გამყიდველი" helper="სურვილისამებრ">
+            <input
+              type="text"
+              value={developer}
+              onChange={(e) => setDeveloper(e.target.value)}
+              placeholder="მაგ: My Bakuriani Group"
+              className={inputClass}
+            />
           </Field>
 
-          <Field label="ფასი (USD)" required>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#94A3B8]">
-                $
-              </span>
-              <input
-                type="number"
-                value={priceUsd}
-                onChange={(e) => setPriceUsd(e.target.value)}
-                placeholder="0"
-                min="1"
-                className={`${inputClass} pl-8`}
-              />
-            </div>
-          </Field>
-        </div>
-
-        <Field
-          label="ფოტოები / რენდერები"
-          required
-          chip={{ label: `მინ. ${MIN_PHOTOS} ფოტო`, variant: "blue" }}
-          chipPosition="end"
-        >
-          <PhotoUploader
-            photos={photos}
-            onPhotosChange={setPhotos}
-            maxPhotos={MAX_PHOTOS}
-          />
-          <p className="mt-2 text-xs font-medium text-[#94A3B8]">
-            მაქს. {MAX_PHOTOS} ფოტო
-          </p>
-        </Field>
-      </WizardInnerCard>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Field label="ტელეფონის ნომერი" required>
+              <PhoneInput value={phone} onChange={setPhone} />
+            </Field>
+            <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
+              <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+            </Field>
+          </div>
+        </WizardInnerCard>
+      </div>
     </WizardShell>
   );
 }

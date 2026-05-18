@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
@@ -11,84 +11,38 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import PhoneInput from "@/components/forms/PhoneInput";
+import AvailabilityWizardStep from "@/components/forms/AvailabilityWizardStep";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { SEARCH_LOCATION_ZONES } from "@/lib/constants/locations";
+import { useActiveZones } from "@/lib/zones/client";
+import {
+  AMENITY_GROUPS,
+  HOSTING_LANGS,
+  PROPERTY_TYPE_LABELS,
+} from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import { AvailabilityStatus, buildNext30Days } from "@/lib/utils/availability";
 
-const PROPERTY_TYPES: { value: Enums<"property_type">; label: string }[] = [
-  { value: "apartment", label: "აპარტამენტი" },
-  { value: "studio", label: "სტუდიო" },
-  { value: "cottage", label: "კოტეჯი" },
-  { value: "hotel", label: "სასტუმრო ოთახი" },
-  { value: "villa", label: "ვილა" },
-];
-
-// Figma groups amenities into 4 buckets
-type AmenityGroup = {
-  key: string;
-  label: string;
-  options: { key: string; label: string }[];
-};
-
-const AMENITY_GROUPS: AmenityGroup[] = [
-  {
-    key: "winter",
-    label: "ზამთრის ინფრასტრუქტურა",
-    options: [
-      { key: "ski_in_out", label: "Ski-in / Ski-out" },
-      { key: "ski_storage", label: "თხილამურების სათავსო" },
-      { key: "backup_generator", label: "სარეზერვო გენერატორი" },
-      { key: "fireplace", label: "ბუხარი" },
-    ],
-  },
-  {
-    key: "comfort",
-    label: "საბაზისო კომფორტი",
-    options: [
-      { key: "parking", label: "პარკინგი" },
-      { key: "wifi", label: "უფასო Wi-Fi" },
-      { key: "central_heating", label: "ცენტრალური გათბობა" },
-      { key: "tv", label: "ტელევიზორი" },
-    ],
-  },
-  {
-    key: "kitchen",
-    label: "სამზარეულო და საყოფაცხოვრებო",
-    options: [
-      { key: "washing_machine", label: "სარეცხი მანქანა" },
-      { key: "dishwasher", label: "ჭურჭლის სარეცხი მანქანა" },
-      { key: "full_kitchen", label: "სრულად აღჭურვილი სამზარეულო" },
-      { key: "coffee_maker", label: "ყავის აპარატი" },
-    ],
-  },
-  {
-    key: "outdoor",
-    label: "აივანი / გარე სივრცე",
-    options: [
-      { key: "no_balcony", label: "არ აქვს" },
-      { key: "french_balcony", label: "ფრანგული აივანი" },
-      { key: "standard_balcony", label: "სტანდარტული აივანი" },
-      { key: "large_terrace", label: "დიდი ტერასა" },
-      { key: "yard", label: "ეზო" },
-    ],
-  },
-];
-
-const HOSTING_LANGS = [
-  { key: "ka", label: "ქართული" },
-  { key: "en", label: "English" },
-  { key: "ru", label: "Русский" },
-  { key: "ar", label: "Arabic" },
-];
+const PROPERTY_TYPES: { value: Enums<"property_type">; label: string }[] = (
+  ["apartment", "studio", "cottage", "hotel", "villa"] as const
+).map((value) => ({ value, label: PROPERTY_TYPE_LABELS[value] ?? value }));
 
 const STEP_TITLES = [
   "ძირითადი ინფორმაცია",
   "ბინის დეტალები და მდებარეობა",
   "კეთილმოწყობა და დეტალები",
-  "ფოტოები",
+  "ხელმისაწვდომობა",
+  "ფასი, ფოტოები და კონტაქტი",
 ];
+
+function buildDefaultAvailability(): Map<string, AvailabilityStatus> {
+  return buildNext30Days().reduce((acc, d) => {
+    acc.set(d, "available");
+    return acc;
+  }, new Map<string, AvailabilityStatus>());
+}
 
 const TITLE_MAX = 35;
 
@@ -125,6 +79,7 @@ function CreateRentalPageInner() {
   const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones } = useActiveZones();
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -146,17 +101,36 @@ function CreateRentalPageInner() {
   } | null>(null);
 
   // Step 3: amenities + dimensions + house rules
+  const [rooms, setRooms] = useState("");
+  const [capacity, setCapacity] = useState("");
   const [areaSqm, setAreaSqm] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
     "ski_storage",
   ]);
   const [smokingAllowed, setSmokingAllowed] = useState<boolean | null>(null);
   const [petsAllowed, setPetsAllowed] = useState<boolean | null>(null);
+  const [checkInTime, setCheckInTime] = useState("15:00");
+  const [checkOutTime, setCheckOutTime] = useState("12:00");
 
-  // Step 4: pricing + photos
+  // Step 4: availability (next 30 days)
+  const [availability, setAvailability] = useState<
+    Map<string, AvailabilityStatus>
+  >(buildDefaultAvailability);
+  const [bookedDates, setBookedDates] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+  // Baseline captured at hydration so edit-mode only writes changed days.
+  const availabilityBaselineRef = useRef<Map<string, AvailabilityStatus>>(
+    new Map(),
+  );
+
+  // Step 5: pricing + contact + photos
   const [pricePerNight, setPricePerNight] = useState("150");
   const [minBookingDays, setMinBookingDays] = useState("3");
   const [hostingLangs, setHostingLangs] = useState<string[]>(["ka"]);
+  const [phone, setPhone] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
   useEffect(() => {
@@ -190,7 +164,10 @@ function CreateRentalPageInner() {
           lng: Number(data.location_lng),
         });
       }
+      setRooms(data.rooms != null ? String(data.rooms) : "");
+      setCapacity(data.capacity != null ? String(data.capacity) : "");
       setAreaSqm(data.area_sqm != null ? String(data.area_sqm) : "");
+      setBathrooms(data.bathrooms != null ? String(data.bathrooms) : "");
       setSelectedAmenities(
         Array.isArray(data.amenities)
           ? (data.amenities as unknown[]).filter(
@@ -217,7 +194,43 @@ function CreateRentalPageInner() {
       }
       if (typeof rules.smoking === "boolean") setSmokingAllowed(rules.smoking);
       if (typeof rules.pets === "boolean") setPetsAllowed(rules.pets);
+      if (typeof rules.check_in === "string") setCheckInTime(rules.check_in);
+      if (typeof rules.check_out === "string") setCheckOutTime(rules.check_out);
+      const stripPrefix = (v: string | null) =>
+        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
+      setPhone(stripPrefix(data.phone));
+      setWhatsapp(stripPrefix(data.whatsapp));
       setPhotos(Array.isArray(data.photos) ? data.photos : []);
+
+      // Hydrate availability for the next-30-day window from existing rows
+      const windowDates = buildNext30Days();
+      const startIso = windowDates[0];
+      const endIso = windowDates[windowDates.length - 1];
+      const { data: blocks } = await supabase
+        .from("calendar_blocks")
+        .select("date, status")
+        .eq("property_id", editId)
+        .gte("date", startIso)
+        .lte("date", endIso);
+
+      if (cancelled) return;
+
+      const hydrated = buildDefaultAvailability();
+      const booked = new Set<string>();
+      for (const row of blocks ?? []) {
+        if (row.status === "booked") {
+          booked.add(row.date);
+          // Bookings never change in the wizard — keep value map in a safe state
+          hydrated.set(row.date, "blocked");
+        } else if (row.status === "blocked") {
+          hydrated.set(row.date, "blocked");
+        } else if (row.status === "available") {
+          hydrated.set(row.date, "available");
+        }
+      }
+      availabilityBaselineRef.current = new Map(hydrated);
+      setAvailability(hydrated);
+      setBookedDates(booked);
 
       setHydrating(false);
     })();
@@ -243,9 +256,13 @@ function CreateRentalPageInner() {
     if (s === 0) return !!propertyType && !!location;
     if (s === 1) return !!title.trim();
     if (s === 2) return smokingAllowed !== null && petsAllowed !== null;
-    if (s === 3) {
+    // Step 3 (availability) defaults to all-available, so it's always satisfied
+    if (s === 3) return availability.size >= 30;
+    if (s === 4) {
       const priceNum = Number(pricePerNight);
-      return Number.isFinite(priceNum) && priceNum > 0;
+      return (
+        Number.isFinite(priceNum) && priceNum > 0 && phone.trim().length > 0
+      );
     }
     return false;
   };
@@ -270,6 +287,10 @@ function CreateRentalPageInner() {
         throw new Error("აირჩიეთ სახლის წესები");
       }
 
+      if (!phone.trim()) {
+        throw new Error("მიუთითეთ ტელეფონის ნომერი");
+      }
+
       const parseOptionalPositive = (v: string): number | null => {
         if (!v) return null;
         const n = Number(v);
@@ -279,6 +300,9 @@ function CreateRentalPageInner() {
       };
 
       const areaNum = parseOptionalPositive(areaSqm);
+      const roomsNum = parseOptionalPositive(rooms);
+      const bathroomsNum = parseOptionalPositive(bathrooms);
+      const capacityNum = parseOptionalPositive(capacity);
       const minBookingNum = Number(minBookingDays) || 1;
 
       const payload = {
@@ -290,17 +314,25 @@ function CreateRentalPageInner() {
         location_lng: exactLocation?.lng ?? null,
         cadastral_code: cadastralCode.trim() || null,
         area_sqm: areaNum,
+        rooms: roomsNum,
+        bathrooms: bathroomsNum,
+        capacity: capacityNum,
         photos,
         amenities: selectedAmenities,
         house_rules: {
           hosting_langs: hostingLangs,
           smoking: smokingAllowed,
           pets: petsAllowed,
+          check_in: checkInTime || null,
+          check_out: checkOutTime || null,
         },
         price_per_night: priceNum,
         min_booking_days: minBookingNum,
+        phone: phone ? `+995${phone}` : null,
+        whatsapp: whatsapp ? `+995${whatsapp}` : null,
       };
 
+      let propertyId: string;
       if (editId) {
         const { error: updateError } = await supabase
           .from("properties")
@@ -309,7 +341,7 @@ function CreateRentalPageInner() {
           .eq("owner_id", user.id);
 
         if (updateError) throw updateError;
-        router.push("/dashboard/renter");
+        propertyId = editId;
       } else {
         const { data: inserted, error: insertError } = await supabase
           .from("properties")
@@ -324,8 +356,39 @@ function CreateRentalPageInner() {
 
         if (insertError) throw insertError;
         if (!inserted) throw new Error("შეცდომა. სცადეთ თავიდან.");
-        router.push("/dashboard");
+        propertyId = inserted.id;
       }
+
+      // Persist the availability declaration. In edit mode we only write the
+      // days the renter actually changed — leaves any booked rows / manual_price
+      // overrides untouched on dates they didn't touch.
+      const baseline = availabilityBaselineRef.current;
+      const rowsToUpsert = Array.from(availability.entries())
+        .filter(([date, status]) => {
+          if (bookedDates.has(date)) return false; // never overwrite bookings
+          if (!editId) return true;
+          return baseline.get(date) !== status;
+        })
+        .map(([date, status]) => ({
+          property_id: propertyId,
+          date,
+          status,
+          booking_id: null,
+        }));
+
+      if (rowsToUpsert.length > 0) {
+        const { error: availabilityError } = await supabase
+          .from("calendar_blocks")
+          .upsert(rowsToUpsert, { onConflict: "property_id,date" });
+
+        if (availabilityError) {
+          throw new Error(
+            "ხელმისაწვდომობის შენახვა ვერ მოხერხდა, სცადეთ თავიდან",
+          );
+        }
+      }
+
+      router.push(editId ? "/dashboard/renter" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
@@ -410,9 +473,9 @@ function CreateRentalPageInner() {
                     <option value="" disabled>
                       აირჩიე ზონა
                     </option>
-                    {SEARCH_LOCATION_ZONES.map((zone) => (
-                      <option key={zone} value={zone}>
-                        {zone}
+                    {zones.map((zone) => (
+                      <option key={zone.id} value={zone.name_ka}>
+                        {zone.name_ka}
                       </option>
                     ))}
                   </select>
@@ -486,9 +549,9 @@ function CreateRentalPageInner() {
                         <option value="" disabled>
                           აირჩიე ზონა
                         </option>
-                        {SEARCH_LOCATION_ZONES.map((zone) => (
-                          <option key={zone} value={zone}>
-                            {zone}
+                        {zones.map((zone) => (
+                          <option key={zone.id} value={zone.name_ka}>
+                            {zone.name_ka}
                           </option>
                         ))}
                       </select>
@@ -508,44 +571,87 @@ function CreateRentalPageInner() {
 
             {step === 2 && (
               <WizardSection title="კეთილმოწყობა და დეტალები">
-                <Field label="ბინის საერთო ფართობი (მ²)">
-                  <input
-                    type="number"
-                    value={areaSqm}
-                    onChange={(e) => setAreaSqm(e.target.value)}
-                    placeholder="მაგ: 55"
-                    min="0"
-                    className={inputClass}
-                  />
-                </Field>
+                <div className="space-y-3">
+                  <label className="text-[13px] font-bold text-[#334155]">
+                    ბინის ზომა
+                  </label>
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                    <Field label="ოთახების რაოდენობა">
+                      <input
+                        type="number"
+                        value={rooms}
+                        onChange={(e) => setRooms(e.target.value)}
+                        placeholder="მაგ: 2"
+                        min="0"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="მაქს. სტუმრების რაოდენობა">
+                      <input
+                        type="number"
+                        value={capacity}
+                        onChange={(e) => setCapacity(e.target.value)}
+                        placeholder="მაგ: 4"
+                        min="0"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="ბინის საერთო ფართობი (მ²)">
+                      <input
+                        type="number"
+                        value={areaSqm}
+                        onChange={(e) => setAreaSqm(e.target.value)}
+                        placeholder="მაგ: 55"
+                        min="0"
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  {AMENITY_GROUPS.map((group) => (
-                    <div key={group.key} className="space-y-3">
-                      <label className="text-[13px] font-bold text-[#334155]">
-                        {group.label}
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {group.options.map((opt) => {
-                          const active = selectedAmenities.includes(opt.key);
-                          return (
-                            <button
-                              key={opt.key}
-                              type="button"
-                              onClick={() => toggleAmenity(opt.key)}
-                              className={`h-9 rounded-[10px] border px-3 text-sm transition-colors ${
-                                active
-                                  ? "border-[#2563EB] bg-[#2563EB] font-semibold text-white"
-                                  : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
+                <div className="space-y-4 pt-2">
+                  <label className="text-[13px] font-bold text-[#334155]">
+                    კეთილმოწყობა
+                  </label>
+                  <Field label="სააბაზანოების რაოდენობა">
+                    <input
+                      type="number"
+                      value={bathrooms}
+                      onChange={(e) => setBathrooms(e.target.value)}
+                      placeholder="მაგ: 1"
+                      min="0"
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    {AMENITY_GROUPS.map((group) => (
+                      <div key={group.key} className="space-y-3">
+                        <label className="text-[13px] font-bold text-[#334155]">
+                          {group.label}
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {group.options.map((opt) => {
+                            const active = selectedAmenities.includes(opt.key);
+                            return (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                onClick={() => toggleAmenity(opt.key)}
+                                className={`h-9 rounded-[10px] border px-3 text-sm transition-colors ${
+                                  active
+                                    ? "border-[#2563EB] bg-[#2563EB] font-semibold text-white"
+                                    : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-4 pt-2">
@@ -568,10 +674,44 @@ function CreateRentalPageInner() {
                     />
                   </div>
                 </div>
+
+                <div className="space-y-3 pt-2">
+                  <label className="text-[13px] font-bold text-[#334155]">
+                    შესვლა / გასვლა
+                  </label>
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <Field label="შესვლის დრო">
+                      <input
+                        type="time"
+                        value={checkInTime}
+                        onChange={(e) => setCheckInTime(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="გასვლის დრო">
+                      <input
+                        type="time"
+                        value={checkOutTime}
+                        onChange={(e) => setCheckOutTime(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </div>
               </WizardSection>
             )}
 
             {step === 3 && (
+              <WizardSection>
+                <AvailabilityWizardStep
+                  value={availability}
+                  onChange={setAvailability}
+                  bookedDates={bookedDates}
+                />
+              </WizardSection>
+            )}
+
+            {step === 4 && (
               <WizardSection>
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <Field label="ფასი 1 ღამეზე (GEL)">
@@ -650,6 +790,20 @@ function CreateRentalPageInner() {
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <label className="text-[13px] font-bold text-[#334155]">
+                    საკონტაქტო ინფორმაცია
+                  </label>
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <Field label="ტელეფონის ნომერი" required>
+                      <PhoneInput value={phone} onChange={setPhone} />
+                    </Field>
+                    <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
+                      <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+                    </Field>
                   </div>
                 </div>
 

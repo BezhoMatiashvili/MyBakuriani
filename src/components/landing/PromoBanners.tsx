@@ -20,7 +20,27 @@ export function PromoBanners({ banners }: PromoBannersProps) {
                 className="relative flex flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:h-[180px] md:flex-row"
                 style={{ backgroundColor: tone.bg, borderColor: tone.border }}
               >
-                {banner.image_url ? (
+                {banner.video_url ? (
+                  <div className="relative h-[180px] w-full shrink-0 md:w-[320px]">
+                    <video
+                      src={banner.video_url}
+                      poster={
+                        banner.video_poster_url ?? banner.image_url ?? undefined
+                      }
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="h-full w-full object-cover"
+                    />
+                    <span
+                      className="absolute left-4 top-4 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
+                      style={{ backgroundColor: tone.badgeBg }}
+                    >
+                      PROMO
+                    </span>
+                  </div>
+                ) : banner.image_url ? (
                   <div className="relative h-[180px] w-full shrink-0 md:w-[320px]">
                     <Image
                       src={banner.image_url}

@@ -13,6 +13,7 @@ import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { cn } from "@/lib/utils";
@@ -45,12 +46,6 @@ const ACTIVITY_CATEGORIES = [
   { value: "other", label: "სხვა" },
 ] as const;
 
-const ZONES = [
-  { value: "დიდველი", label: "დიდველი" },
-  { value: "კოხტა", label: "კოხტა" },
-  { value: "25-იანები", label: "25-იანები" },
-] as const;
-
 const DURATIONS = [
   { value: "15min", label: "15 წუთი" },
   { value: "30min", label: "30 წუთი" },
@@ -77,7 +72,6 @@ const PRICE_UNITS = [
 
 type ActivityType = (typeof ACTIVITY_TYPES)[number]["value"];
 type ActivityCategory = (typeof ACTIVITY_CATEGORIES)[number]["value"];
-type Zone = (typeof ZONES)[number]["value"];
 type Duration = (typeof DURATIONS)[number]["value"];
 type Age = (typeof AGES)[number]["value"];
 type GoodFor = (typeof GOOD_FOR)[number]["value"];
@@ -89,6 +83,11 @@ export default function CreateEntertainmentPage() {
   const router = useRouter();
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones: activeZones } = useActiveZones();
+  const zoneOptions = activeZones.map((z) => ({
+    value: z.name_ka,
+    label: z.name_ka,
+  }));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +95,7 @@ export default function CreateEntertainmentPage() {
   const [title, setTitle] = useState("");
   const [activityType, setActivityType] = useState<ActivityType>("extreme");
   const [category, setCategory] = useState<ActivityCategory>("buggies");
-  const [zone, setZone] = useState<Zone>("დიდველი");
+  const [zone, setZone] = useState<string>("");
   const [exactLocation, setExactLocation] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     null,
@@ -248,8 +247,8 @@ export default function CreateEntertainmentPage() {
           <Field label="ზონა / ტრასა" required>
             <StyledSelect
               value={zone}
-              onValueChange={(v) => setZone(v as Zone)}
-              options={ZONES}
+              onValueChange={(v) => setZone(v)}
+              options={zoneOptions}
               accent="blue"
             />
           </Field>

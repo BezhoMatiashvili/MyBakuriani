@@ -19,6 +19,9 @@ const VALID_TYPES: readonly PurchaseType[] = [
   "discount_badge",
 ];
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
 
@@ -30,8 +33,36 @@ serve(async (req) => {
     const { supabase, user } = await requireUser(req);
 
     const body = await req.json().catch(() => ({}));
-    const purchase_type = body.purchase_type as string | undefined;
+    const package_id = body.package_id as string | undefined;
     const property_id = body.property_id as string | null | undefined;
+
+    // New path: caller specifies a pricing_packages.id. The RPC reads price
+    // and category-specific behavior from the row, so admin-managed prices
+    // and admin-added packages flow through without function changes.
+    if (package_id) {
+      if (!UUID_RE.test(package_id)) {
+        throw new Error("არასწორი package_id");
+      }
+      const quantity = Number.isFinite(Number(body.quantity))
+        ? Number(body.quantity)
+        : 1;
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 365) {
+        throw new Error("არასწორი რაოდენობა");
+      }
+
+      const { data, error } = await supabase.rpc("purchase_package", {
+        p_user_id: user.id,
+        p_package_id: package_id,
+        p_property_id: property_id ?? null,
+        p_quantity: quantity,
+      });
+      if (error) throw error;
+      return jsonResponse({ data }, 200, cors);
+    }
+
+    // Legacy path: fall back to the original hardcoded-type RPC so any
+    // unmigrated callers keep working during rollout.
+    const purchase_type = body.purchase_type as string | undefined;
     const days = Number.isFinite(Number(body.days)) ? Number(body.days) : 1;
 
     if (

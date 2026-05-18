@@ -19,6 +19,13 @@ const Footer = dynamic(() =>
 const StickyNewsBar = dynamic(() =>
   import("@/components/layout/StickyNewsBar").then((mod) => mod.StickyNewsBar),
 );
+const CriticalNotificationGate = dynamic(
+  () =>
+    import("@/components/notifications/CriticalNotificationGate").then(
+      (mod) => mod.CriticalNotificationGate,
+    ),
+  { ssr: false },
+);
 
 function isDashboardRoute(pathname: string) {
   return /(^|\/)dashboard(\/|$)/.test(pathname);
@@ -39,27 +46,32 @@ export function LocaleShell({ children }: LocaleShellProps) {
   const isCreate = isCreateRoute(pathname);
   const isSalesIndex = isSalesIndexRoute(pathname);
 
-  if (isDashboard || isCreate) {
-    return <>{children}</>;
-  }
-
-  if (isSalesIndex) {
-    // Sales index renders its own simplified top bar; keep global footer.
+  const content = (() => {
+    if (isDashboard || isCreate) return <>{children}</>;
+    if (isSalesIndex) {
+      // Sales index renders its own simplified top bar; keep global footer.
+      return (
+        <>
+          <main className="flex-1">{children}</main>
+          <Footer />
+          <StickyNewsBar />
+        </>
+      );
+    }
     return (
-      <>
+      <HomeListingModeProvider>
+        <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
         <StickyNewsBar />
-      </>
+      </HomeListingModeProvider>
     );
-  }
+  })();
 
   return (
-    <HomeListingModeProvider>
-      <Navbar />
-      <main className="flex-1">{children}</main>
-      <Footer />
-      <StickyNewsBar />
-    </HomeListingModeProvider>
+    <>
+      <CriticalNotificationGate />
+      {content}
+    </>
   );
 }

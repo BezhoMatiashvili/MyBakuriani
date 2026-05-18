@@ -35,7 +35,7 @@ function getTabs(role: string): TabItem[] {
   switch (role) {
     case "admin":
       return [
-        { labelKey: "home", href: "/dashboard/admin", icon: Home },
+        { labelKey: "home", href: "/", icon: Home },
         {
           labelKey: "verifications",
           href: "/dashboard/admin/verifications",
@@ -50,7 +50,7 @@ function getTabs(role: string): TabItem[] {
       ];
     case "renter":
       return [
-        { labelKey: "home", href: "/dashboard/renter", icon: Home },
+        { labelKey: "home", href: "/", icon: Home },
         {
           labelKey: "myProperties",
           href: "/dashboard/renter/listings",
@@ -74,7 +74,7 @@ function getTabs(role: string): TabItem[] {
       ];
     case "seller":
       return [
-        { labelKey: "home", href: "/dashboard/seller", icon: Home },
+        { labelKey: "home", href: "/", icon: Home },
         {
           labelKey: "myListings",
           href: "/dashboard/seller/listings",
@@ -84,7 +84,7 @@ function getTabs(role: string): TabItem[] {
       ];
     case "cleaner":
       return [
-        { labelKey: "home", href: "/dashboard/cleaner", icon: Home },
+        { labelKey: "home", href: "/", icon: Home },
         {
           labelKey: "schedule",
           href: "/dashboard/cleaner/schedule",
@@ -98,7 +98,7 @@ function getTabs(role: string): TabItem[] {
       ];
     case "food":
       return [
-        { labelKey: "home", href: "/dashboard/food", icon: Home },
+        { labelKey: "home", href: "/", icon: Home },
         {
           labelKey: "orders",
           href: "/dashboard/food/orders",
@@ -110,7 +110,7 @@ function getTabs(role: string): TabItem[] {
     case "employment":
     case "handyman":
       return [
-        { labelKey: "home", href: "/dashboard/service", icon: Home },
+        { labelKey: "home", href: "/", icon: Home },
         {
           labelKey: "orders",
           href: "/dashboard/service/orders",
@@ -120,7 +120,7 @@ function getTabs(role: string): TabItem[] {
     case "guest":
     default:
       return [
-        { labelKey: "home", href: "/dashboard/guest", icon: Home },
+        { labelKey: "home", href: "/", icon: Home },
         {
           labelKey: "bookings",
           href: "/dashboard/guest/bookings",

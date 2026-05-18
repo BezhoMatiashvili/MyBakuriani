@@ -38,9 +38,10 @@ import { makeServiceCards } from "@/lib/mock/services";
 import { InfoBanners } from "@/components/landing/InfoBanners";
 import { PromoBanners } from "@/components/landing/PromoBanners";
 import type { LandingBanner } from "@/lib/banners";
-import type { SearchLocationZone } from "@/lib/constants/locations";
+import type { Zone } from "@/lib/zones/types";
 
 interface LandingPageProps {
+  zones: Zone[];
   hotOffers?: Tables<"properties">[];
   hotels?: Tables<"properties">[];
   saleProperties?: Tables<"properties">[];
@@ -49,7 +50,7 @@ interface LandingPageProps {
   blogPosts?: Tables<"blog_posts">[];
   infoBanners?: LandingBanner[];
   promoBanners?: LandingBanner[];
-  pricePerSqmByZone?: Partial<Record<SearchLocationZone, number | null>>;
+  pricePerSqmByZone?: Record<string, number | null>;
 }
 
 const MOCK_BLOG_POSTS = [
@@ -85,6 +86,7 @@ const MOCK_BLOG_POSTS = [
 // ─── Component ───────────────────────────────────────────────────────────
 
 export default function LandingPage({
+  zones,
   hotOffers: serverHotOffers,
   hotels: serverHotels,
   saleProperties: serverSaleProperties,
@@ -94,7 +96,7 @@ export default function LandingPage({
   infoBanners = [],
   promoBanners = [],
   pricePerSqmByZone,
-}: LandingPageProps = {}) {
+}: LandingPageProps) {
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
@@ -282,6 +284,7 @@ export default function LandingPage({
         onModeChange={setMode}
         saleProperties={serverSaleProperties}
         pricePerSqmByZone={pricePerSqmByZone}
+        zones={zones}
       />
     );
   }
@@ -329,6 +332,7 @@ export default function LandingPage({
               dropdownPortalRef={dropdownPortalRef}
               dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
+              zones={zones}
             />
 
             {/* Floating dropdown panel — absolute so it doesn't expand the blue hero */}
@@ -344,6 +348,7 @@ export default function LandingPage({
                   expandable
                   properties={mapProperties}
                   onPropertyClick={(id) => router.push(`/apartments/${id}`)}
+                  zones={zones}
                 />
               </div>
             ) : activeDropdown === "calendar" ? (

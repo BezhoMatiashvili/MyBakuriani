@@ -18,6 +18,7 @@ import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 
@@ -149,9 +150,12 @@ export default function ServiceDetailClient({
             <MapPin className="h-3.5 w-3.5" />
             მუშაობის ზონა
           </span>
-          <span className="text-[15px] font-black text-[#1E293B]">
-            {service.location ?? "ბაკურიანი"}
-          </span>
+          <ZoneLocationLink
+            location={service.location ?? "ბაკურიანი"}
+            className="text-[15px] font-black text-[#1E293B]"
+            prefix=""
+            showIcon={false}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
@@ -223,13 +227,17 @@ export default function ServiceDetailClient({
           </div>
         )}
         <div className="flex items-center gap-3">
-          <WhatsAppButton phone={service.phone} />
+          <WhatsAppButton
+            phone={service.whatsapp ?? service.phone}
+            serviceId={service.id}
+          />
           <CallButton
             phone={service.phone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#22C55E] px-8 text-[15px] font-bold text-white hover:bg-[#16A34A] sm:flex-none"
             label="დარეკვა"
             alwaysShowLabel
             onNoPhoneClick={() => router.push("/auth/login")}
+            serviceId={service.id}
           />
         </div>
       </motion.div>

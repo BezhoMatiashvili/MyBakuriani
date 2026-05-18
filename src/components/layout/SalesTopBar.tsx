@@ -1,19 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
-import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  User,
-  Plus,
-  ChevronRight,
-  LogOut,
-  Wallet,
-  ClipboardList,
-  Star,
-} from "lucide-react";
+import { User, Plus, ChevronRight, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
@@ -31,17 +22,14 @@ const ROLE_DASHBOARD: Record<string, string> = {
 };
 
 export function SalesTopBar() {
-  const pathname = usePathname();
   const t = useTranslations("Navbar");
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<{
     display_name: string;
     role: string;
     avatar_url: string | null;
   } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) {
@@ -95,67 +83,21 @@ export function SalesTopBar() {
     ? (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest")
     : "/dashboard/guest";
 
-  async function handleLogout() {
-    try {
-      await signOut();
-    } catch {
-      // signOut may fail if session already expired
-    }
-    window.location.href = "/";
-  }
-
-  useEffect(() => {
-    setProfileOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(e.target as Node)
-      ) {
-        setProfileOpen(false);
-      }
-    }
-    if (profileOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [profileOpen]);
-
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
       <div className="mx-auto flex h-[91px] max-w-[1160px] items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
-          <svg
-            width="40"
-            height="32"
-            viewBox="0 0 40 32"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="shrink-0"
-          >
-            <path
-              d="M20 2L32 22H8L20 2Z"
-              fill="#0E2150"
-              stroke="#0E2150"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M12 10L20 24H4L12 10Z"
-              fill="#1E419A"
-              stroke="#1E419A"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-            <path d="M20 2L24 8L20 10L16 8L20 2Z" fill="white" opacity="0.6" />
-            <circle cx="30" cy="8" r="4" fill="#F97316" />
-          </svg>
-          <span className="text-xl font-bold">
-            <span className="text-[#F97316]">My</span>
-            <span className="text-[#0E2150]">Bakuriani</span>
-          </span>
+        <Link
+          href="/"
+          aria-label="MyBakuriani"
+          className="flex shrink-0 items-center"
+        >
+          <Image
+            src="/logo.png"
+            alt="MyBakuriani"
+            width={300}
+            height={199}
+            className="h-12 w-auto"
+          />
         </Link>
 
         <div className="flex items-center gap-3">
@@ -191,79 +133,25 @@ export function SalesTopBar() {
             </Link>
           )}
           {user && (
-            <div ref={profileRef} className="relative">
-              <button
-                onClick={() => setProfileOpen((v) => !v)}
-                className="flex size-10 items-center justify-center rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF]"
-                aria-label={t("profile")}
-              >
-                {profile?.avatar_url ? (
-                  <span className="relative block size-full overflow-hidden rounded-full">
-                    <Image
-                      src={profile.avatar_url}
-                      alt=""
-                      fill
-                      sizes="40px"
-                      className="object-cover"
-                    />
-                  </span>
-                ) : (
-                  <User className="size-5 text-[#2563EB]" />
-                )}
-              </button>
-              {profileOpen && (
-                <div className="absolute right-0 top-12 z-50 w-[220px] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white py-2 shadow-lg">
-                  {[
-                    {
-                      href: `${dashboardPath}/bookings`,
-                      icon: ClipboardList,
-                      label: t("bookings"),
-                    },
-                    {
-                      href: `${dashboardPath}/reviews`,
-                      icon: Star,
-                      label: t("reviews"),
-                    },
-                    {
-                      href: `${dashboardPath}/profile`,
-                      icon: User,
-                      label: t("profile"),
-                    },
-                  ].map((item) => {
-                    const isActive = pathname === item.href;
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setProfileOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-3 text-[14px] font-bold transition-colors ${
-                          isActive
-                            ? "border-l-[3px] border-l-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
-                            : "text-[#334155] hover:bg-[#EFF6FF]"
-                        }`}
-                      >
-                        <Icon
-                          className={`size-5 ${isActive ? "text-[#2563EB]" : "text-[#64748B]"}`}
-                        />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                  <div className="my-1 border-t border-[#F1F5F9]" />
-                  <button
-                    onClick={() => {
-                      setProfileOpen(false);
-                      handleLogout();
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-[14px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
-                  >
-                    <LogOut className="size-5" />
-                    {t("logout")}
-                  </button>
-                </div>
+            <Link
+              href={dashboardPath}
+              aria-label={t("profile")}
+              className="flex size-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF]"
+            >
+              {profile?.avatar_url ? (
+                <span className="relative block size-full overflow-hidden rounded-full">
+                  <Image
+                    src={profile.avatar_url}
+                    alt=""
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </span>
+              ) : (
+                <User className="size-5 text-[#2563EB]" />
               )}
-            </div>
+            </Link>
           )}
         </div>
       </div>

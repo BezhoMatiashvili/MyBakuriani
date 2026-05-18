@@ -9,6 +9,7 @@ import {
 } from "@/components/forms/WizardShell";
 import { StyledSelect } from "@/components/ui/styled-select";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import PhoneInput from "@/components/forms/PhoneInput";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 
@@ -75,6 +76,9 @@ export default function CreateTransportPage() {
     useState<(typeof PRICE_UNITS)[number]["value"]>("whole_car");
   const [equipment, setEquipment] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
+  const [phone, setPhone] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
   function toggle(arr: string[], value: string): string[] {
@@ -93,6 +97,7 @@ export default function CreateTransportPage() {
       if (!vehicleCapacity) throw new Error("მიუთითეთ ადგილების რაოდენობა");
       if (routes.length === 0) throw new Error("აირჩიეთ მინიმუმ ერთი მარშრუტი");
       if (!price) throw new Error("მიუთითეთ საწყისი ფასი");
+      if (!phone.trim()) throw new Error("მიუთითეთ ტელეფონის ნომერი");
       if (photos.length < MIN_PHOTOS)
         throw new Error("ატვირთეთ მინიმუმ ერთი ფოტო");
 
@@ -100,6 +105,7 @@ export default function CreateTransportPage() {
         owner_id: user.id,
         category: "transport",
         title: driverName.trim(),
+        description: description.trim() || null,
         driver_name: driverName.trim(),
         vehicle_make: vehicleMake,
         transport_type: transportType,
@@ -109,6 +115,8 @@ export default function CreateTransportPage() {
         price_unit: priceUnit,
         equipment,
         languages,
+        phone: phone ? `+995${phone}` : null,
+        whatsapp: whatsapp ? `+995${whatsapp}` : null,
         photos,
         status: "pending",
       });
@@ -128,15 +136,17 @@ export default function CreateTransportPage() {
     routes.length > 0,
     price.length > 0,
     photos.length >= MIN_PHOTOS,
+    phone.trim().length > 0,
   ].filter(Boolean).length;
-  const progressPercent = Math.max(10, Math.round((requiredFilled / 5) * 100));
+  const progressPercent = Math.max(10, Math.round((requiredFilled / 6) * 100));
 
   const submitDisabled =
     !driverName.trim() ||
     !vehicleCapacity ||
     routes.length === 0 ||
     !price ||
-    photos.length < MIN_PHOTOS;
+    photos.length < MIN_PHOTOS ||
+    !phone.trim();
 
   return (
     <WizardShell
@@ -198,6 +208,16 @@ export default function CreateTransportPage() {
               />
             </Field>
           </div>
+
+          <Field label="აღწერა">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="დეტალები სერვისის შესახებ..."
+              rows={4}
+              className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+            />
+          </Field>
         </WizardInnerCard>
 
         {/* Section 2 — Route & price */}
@@ -276,6 +296,21 @@ export default function CreateTransportPage() {
               variant="figma"
             />
           </Field>
+        </WizardInnerCard>
+
+        {/* Section 4 — Contact */}
+        <WizardInnerCard number={4} title="საკონტაქტო ინფორმაცია" accent="blue">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Field label="ტელეფონის ნომერი" required>
+              <PhoneInput value={phone} onChange={setPhone} />
+            </Field>
+            <Field label="WhatsApp ნომერი">
+              <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+            </Field>
+          </div>
+          <p className="text-xs font-medium text-[#94A3B8]">
+            WhatsApp სურვილისამებრ
+          </p>
         </WizardInnerCard>
       </div>
     </WizardShell>

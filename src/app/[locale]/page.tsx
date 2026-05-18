@@ -5,23 +5,11 @@ import { Suspense } from "react";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { fetchActiveBanners } from "@/lib/banners-server";
-import {
-  SEARCH_LOCATION_ZONES,
-  nearestZone,
-  type SearchLocationZone,
-} from "@/lib/constants/locations";
+import { getActiveZones, nearestZoneFrom, type Zone } from "@/lib/zones/server";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 
-type PricePerSqmByZone = Record<SearchLocationZone, number | null>;
-
-const emptyPricePerSqmByZone: PricePerSqmByZone = SEARCH_LOCATION_ZONES.reduce(
-  (acc, zone) => {
-    acc[zone] = null;
-    return acc;
-  },
-  {} as PricePerSqmByZone,
-);
+export type PricePerSqmByZone = Record<string, number | null>;
 
 const emptyLandingProps = {
   hotOffers: [] as Tables<"properties">[],
@@ -30,7 +18,7 @@ const emptyLandingProps = {
   vipProperties: [] as Tables<"properties">[],
   services: [] as Tables<"services">[],
   blogPosts: [] as Tables<"blog_posts">[],
-  pricePerSqmByZone: emptyPricePerSqmByZone,
+  pricePerSqmByZone: {} as PricePerSqmByZone,
 };
 
 export async function generateMetadata() {
@@ -43,12 +31,12 @@ export async function generateMetadata() {
 
 export const revalidate = 120;
 
-async function fetchLandingProps() {
+async function fetchLandingProps(zones: Zone[]) {
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
-    return emptyLandingProps;
+    return { ...emptyLandingProps, pricePerSqmByZone: emptyAggregate(zones) };
   }
 
   const supabase = createPublicClient();
@@ -134,14 +122,22 @@ async function fetchLandingProps() {
       vipProperties: vipProperties ?? [],
       services: services ?? [],
       blogPosts: blogPosts ?? [],
-      pricePerSqmByZone: aggregatePricePerSqm(saleAggregateRows ?? []),
+      pricePerSqmByZone: aggregatePricePerSqm(zones, saleAggregateRows ?? []),
     };
   } catch {
-    return emptyLandingProps;
+    return { ...emptyLandingProps, pricePerSqmByZone: emptyAggregate(zones) };
   }
 }
 
+function emptyAggregate(zones: Zone[]): PricePerSqmByZone {
+  return zones.reduce((acc, zone) => {
+    acc[zone.name_ka] = null;
+    return acc;
+  }, {} as PricePerSqmByZone);
+}
+
 function aggregatePricePerSqm(
+  zones: Zone[],
   rows: Array<{
     sale_price: number | null;
     area_sqm: number | null;
@@ -149,21 +145,12 @@ function aggregatePricePerSqm(
     location_lng: number | null;
   }>,
 ): PricePerSqmByZone {
-  const sums: Record<SearchLocationZone, number> = SEARCH_LOCATION_ZONES.reduce(
-    (acc, zone) => {
-      acc[zone] = 0;
-      return acc;
-    },
-    {} as Record<SearchLocationZone, number>,
-  );
-  const counts: Record<SearchLocationZone, number> =
-    SEARCH_LOCATION_ZONES.reduce(
-      (acc, zone) => {
-        acc[zone] = 0;
-        return acc;
-      },
-      {} as Record<SearchLocationZone, number>,
-    );
+  const sums: Record<string, number> = {};
+  const counts: Record<string, number> = {};
+  for (const zone of zones) {
+    sums[zone.name_ka] = 0;
+    counts[zone.name_ka] = 0;
+  }
 
   for (const row of rows) {
     if (
@@ -175,25 +162,31 @@ function aggregatePricePerSqm(
     ) {
       continue;
     }
-    const zone = nearestZone(row.location_lat, row.location_lng);
-    sums[zone] += row.sale_price / row.area_sqm;
-    counts[zone] += 1;
+    const zone = nearestZoneFrom(zones, row.location_lat, row.location_lng);
+    if (!zone) continue;
+    sums[zone.name_ka] += row.sale_price / row.area_sqm;
+    counts[zone.name_ka] += 1;
   }
 
-  return SEARCH_LOCATION_ZONES.reduce((acc, zone) => {
-    acc[zone] = counts[zone] > 0 ? sums[zone] / counts[zone] : null;
+  return zones.reduce((acc, zone) => {
+    acc[zone.name_ka] =
+      counts[zone.name_ka] > 0
+        ? sums[zone.name_ka] / counts[zone.name_ka]
+        : null;
     return acc;
   }, {} as PricePerSqmByZone);
 }
 
 async function LandingWithData() {
+  const zones = await getActiveZones();
   const [props, infoBanners, promoBanners] = await Promise.all([
-    fetchLandingProps(),
+    fetchLandingProps(zones),
     fetchActiveBanners("info").catch(() => []),
     fetchActiveBanners("promo").catch(() => []),
   ]);
   return (
     <LandingPage
+      zones={zones}
       hotOffers={props.hotOffers}
       hotels={props.hotels}
       saleProperties={props.saleProperties}

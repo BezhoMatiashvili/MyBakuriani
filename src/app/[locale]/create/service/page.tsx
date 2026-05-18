@@ -14,6 +14,7 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
 
 const SERVICE_SPHERES = [
   { value: "cleaning", label: "დასუფთავება / დამლაგებელი" },
@@ -410,14 +411,12 @@ function ProfilePhotoUpload({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleFile(file: File | undefined) {
+  async function handleFile(file: File | undefined) {
     if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") onChange(reader.result);
-    };
-    reader.readAsDataURL(file);
+    const watermarked = await watermarkFile(file);
+    const dataUrl = await fileToDataUrl(watermarked);
+    onChange(dataUrl);
   }
 
   return (

@@ -11,6 +11,8 @@ import {
   CalendarRange,
   X,
   RotateCcw,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -18,6 +20,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import AddBookingModal from "@/components/renter/AddBookingModal";
 import PriceRangeModal from "@/components/renter/PriceRangeModal";
+import BulkActionBar, {
+  BulkApplyChanges,
+} from "@/components/calendar/BulkActionBar";
 import type { Tables } from "@/lib/types/database";
 
 type CalendarBlock = Tables<"calendar_blocks">;
@@ -119,6 +124,7 @@ export default function RenterCalendarPage() {
   const suppressClickRef = useRef(false);
   const [priceInput, setPriceInput] = useState("");
   const [savingPrice, setSavingPrice] = useState(false);
+  const [savingBlocks, setSavingBlocks] = useState(false);
 
   const propertyDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -261,7 +267,7 @@ export default function RenterCalendarPage() {
           const next = new Set(prev);
           for (const d of range) {
             const b = blocksByDate.get(d);
-            if (b?.status === "booked" || b?.status === "blocked") continue;
+            if (b?.status === "booked") continue;
             next.add(d);
           }
           return next;
@@ -356,24 +362,35 @@ export default function RenterCalendarPage() {
     return merged;
   }, [selectedSet, dragRange]);
 
-  // Dates the user can act on — strip booked/blocked from the merged set.
-  const selectableDates = useMemo(
+  // Free days in the selection — price actions operate on these.
+  const freeSelected = useMemo(
     () =>
       Array.from(displaySet).filter((dateStr) => {
         const b = blocksByDate.get(dateStr);
-        return !(b?.status === "booked" || b?.status === "blocked");
+        return b?.status !== "booked" && b?.status !== "blocked";
       }),
     [displaySet, blocksByDate],
   );
 
+  // Already-blocked days in the selection — "turn on" operates on these.
+  const blockedSelected = useMemo(
+    () =>
+      Array.from(displaySet).filter(
+        (dateStr) => blocksByDate.get(dateStr)?.status === "blocked",
+      ),
+    [displaySet, blocksByDate],
+  );
+
+  const hasActionable = freeSelected.length + blockedSelected.length > 0;
+
   const avgCurrentPrice = useMemo(() => {
-    if (selectableDates.length === 0) return basePrice;
-    const sum = selectableDates.reduce(
+    if (freeSelected.length === 0) return basePrice;
+    const sum = freeSelected.reduce(
       (acc, d) => acc + (overridesByDate.get(d) ?? basePrice),
       0,
     );
-    return Math.round(sum / selectableDates.length);
-  }, [selectableDates, overridesByDate, basePrice]);
+    return Math.round(sum / freeSelected.length);
+  }, [freeSelected, overridesByDate, basePrice]);
 
   const clearSelection = () => {
     setSelectedSet(new Set());
@@ -386,7 +403,7 @@ export default function RenterCalendarPage() {
   };
 
   const handleCellMouseDown = (dateStr: string, status: DayMeta["status"]) => {
-    if (status !== "free") return;
+    if (status === "booked") return;
     // Reset any stale suppress flag from a drag that ended outside the grid.
     suppressClickRef.current = false;
     setIsDragging(true);
@@ -407,7 +424,7 @@ export default function RenterCalendarPage() {
       suppressClickRef.current = false;
       return;
     }
-    if (status !== "free") return;
+    if (status === "booked") return;
     setSelectedSet((prev) => {
       const next = new Set(prev);
       if (next.has(dateStr)) next.delete(dateStr);
@@ -417,11 +434,11 @@ export default function RenterCalendarPage() {
   };
 
   const applyPrice = async () => {
-    if (!selectedPropertyId || selectableDates.length === 0) return;
+    if (!selectedPropertyId || freeSelected.length === 0) return;
     const value = Number(priceInput);
     if (!Number.isFinite(value) || value < 0) return;
     setSavingPrice(true);
-    const rows = selectableDates.map((d) => ({
+    const rows = freeSelected.map((d) => ({
       property_id: selectedPropertyId,
       date: d,
       price: value,
@@ -437,17 +454,103 @@ export default function RenterCalendarPage() {
   };
 
   const resetToDefault = async () => {
-    if (!selectedPropertyId || selectableDates.length === 0) return;
+    if (!selectedPropertyId || freeSelected.length === 0) return;
     setSavingPrice(true);
     const { error } = await supabase
       .from("price_overrides")
       .delete()
       .eq("property_id", selectedPropertyId)
-      .in("date", selectableDates);
+      .in("date", freeSelected);
     setSavingPrice(false);
     if (!error) {
       await fetchOverrides();
       clearSelection();
+    }
+  };
+
+  // Mark the selected free days as blocked so guests can't book them.
+  // Booked days are filtered out by `freeSelected` so they can never be touched.
+  const turnOffDays = async () => {
+    if (!selectedPropertyId || freeSelected.length === 0) return;
+    setSavingBlocks(true);
+    const rows = freeSelected.map((d) => ({
+      property_id: selectedPropertyId,
+      date: d,
+      status: "blocked" as const,
+      booking_id: null,
+    }));
+    const { error } = await supabase
+      .from("calendar_blocks")
+      .upsert(rows, { onConflict: "property_id,date" });
+    setSavingBlocks(false);
+    if (!error) clearSelection();
+  };
+
+  // Clear an owner-set block. The extra status='blocked' guard prevents
+  // ever deleting a booking-derived row if state shifts mid-flight.
+  const turnOnDays = async () => {
+    if (!selectedPropertyId || blockedSelected.length === 0) return;
+    setSavingBlocks(true);
+    const { error } = await supabase
+      .from("calendar_blocks")
+      .delete()
+      .eq("property_id", selectedPropertyId)
+      .eq("status", "blocked")
+      .in("date", blockedSelected);
+    setSavingBlocks(false);
+    if (!error) clearSelection();
+  };
+
+  // Dates of the currently visible month, restricted to today or later — past
+  // days can never be re-blocked, and the bulk bar shouldn't act on them.
+  const visibleMonthDates = useMemo(() => {
+    const todayIso = (() => {
+      const t = new Date();
+      return fmtDate(t.getFullYear(), t.getMonth(), t.getDate());
+    })();
+    const days = getDaysInMonth(year, month);
+    const out: string[] = [];
+    for (let d = 1; d <= days; d++) {
+      const iso = fmtDate(year, month, d);
+      if (iso >= todayIso) out.push(iso);
+    }
+    return out;
+  }, [year, month]);
+
+  const bookedDateSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const b of calendarBlocks) {
+      if (b.status === "booked") s.add(b.date);
+    }
+    return s;
+  }, [calendarBlocks]);
+
+  const handleBulkApply = async ({ available, blocked }: BulkApplyChanges) => {
+    if (!selectedPropertyId) return;
+    setSavingBlocks(true);
+    try {
+      if (available.length > 0) {
+        await supabase
+          .from("calendar_blocks")
+          .delete()
+          .eq("property_id", selectedPropertyId)
+          .eq("status", "blocked")
+          .in("date", available);
+      }
+      if (blocked.length > 0) {
+        const rows = blocked.map((d) => ({
+          property_id: selectedPropertyId,
+          date: d,
+          status: "blocked" as const,
+          booking_id: null,
+        }));
+        await supabase
+          .from("calendar_blocks")
+          .upsert(rows, { onConflict: "property_id,date" });
+      }
+      clearSelection();
+    } finally {
+      setSavingBlocks(false);
     }
   };
 
@@ -529,7 +632,7 @@ export default function RenterCalendarPage() {
               swatch={
                 <span className="h-3.5 w-3.5 rounded-[3px] bg-[#FEF3C7]" />
               }
-              label="ხელით დამატებული"
+              label="გათიშული"
             />
             <LegendItem
               swatch={
@@ -587,6 +690,15 @@ export default function RenterCalendarPage() {
         </div>
       </div>
 
+      {/* Bulk-action bar — wired to the currently visible month (today-onwards only) */}
+      {selectedPropertyId && visibleMonthDates.length > 0 && (
+        <BulkActionBar
+          windowDates={visibleMonthDates}
+          skipDates={bookedDateSet}
+          onApply={handleBulkApply}
+        />
+      )}
+
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 border-b border-[#EEF1F4]">
         {DAY_NAMES.map((name, i) => (
@@ -636,12 +748,13 @@ export default function RenterCalendarPage() {
 
       <p className="text-[11px] text-[#94A3B8] md:text-[12px]">
         💡 აირჩიეთ დღეები დაკლიკით (შეიძლება არამიმდევრობით) ან გადაიტანეთ მაუსი
-        დიაპაზონისთვის. ჯავშნის დასამატებლად — ორმაგი დაკლიკება.
+        დიაპაზონისთვის. გათიშეთ დღეები, რომ სტუმრებმა ვერ დაჯავშნონ. ჯავშნის
+        დასამატებლად — ორმაგი დაკლიკება.
       </p>
 
       {/* Selection action bar */}
       <AnimatePresence>
-        {selectableDates.length > 0 && (
+        {hasActionable && (
           <motion.div
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -661,53 +774,83 @@ export default function RenterCalendarPage() {
                 </button>
                 <div className="text-[13px]">
                   <div className="font-black text-[#0F172A]">
-                    {selectableDates.length} დღე არჩეული
+                    {freeSelected.length > 0 && blockedSelected.length > 0
+                      ? `${freeSelected.length} თავისუფალი • ${blockedSelected.length} გათიშული`
+                      : freeSelected.length > 0
+                        ? `${freeSelected.length} დღე არჩეული`
+                        : `${blockedSelected.length} გათიშული არჩეული`}
                   </div>
-                  <div className="text-[11px] font-semibold text-[#64748B]">
-                    საშუალო ფასი: {avgCurrentPrice}₾
-                  </div>
+                  {freeSelected.length > 0 && (
+                    <div className="text-[11px] font-semibold text-[#64748B]">
+                      საშუალო ფასი: {avgCurrentPrice}₾
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex flex-1 items-center gap-2 md:justify-end">
-                <div className="relative flex-1 md:max-w-[180px]">
-                  <input
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={priceInput}
-                    onChange={(e) => setPriceInput(e.target.value)}
-                    placeholder="ახალი ფასი"
-                    className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-3 pr-8 text-[14px] font-semibold text-[#0F172A] outline-none focus:border-[#F97316]"
-                  />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
-                    ₾
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  disabled={
-                    savingPrice ||
-                    !priceInput ||
-                    Number(priceInput) < 0 ||
-                    !Number.isFinite(Number(priceInput))
-                  }
-                  onClick={applyPrice}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#F97316] px-4 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
-                >
-                  <Check className="h-4 w-4" strokeWidth={2.6} />
-                  გადატარება
-                </button>
-                <button
-                  type="button"
-                  disabled={savingPrice}
-                  onClick={resetToDefault}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9] disabled:opacity-50"
-                  title="ფასი ნაგულისხმევზე დაბრუნება"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  ნაგულისხმევზე
-                </button>
+              <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">
+                {blockedSelected.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={savingBlocks}
+                    onClick={turnOnDays}
+                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#16A34A] bg-white px-4 text-[13px] font-black text-[#16A34A] transition-colors hover:bg-[#F0FDF4] disabled:opacity-50"
+                  >
+                    <Unlock className="h-4 w-4" strokeWidth={2.4} />
+                    ჩართვა ({blockedSelected.length})
+                  </button>
+                )}
+                {freeSelected.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={savingBlocks}
+                      onClick={turnOffDays}
+                      className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#D97706] px-4 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(217,119,6,0.3)] transition-colors hover:bg-[#B45309] disabled:opacity-50"
+                    >
+                      <Lock className="h-4 w-4" strokeWidth={2.4} />
+                      გათიშვა ({freeSelected.length})
+                    </button>
+                    <div className="relative flex-1 md:max-w-[180px]">
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={priceInput}
+                        onChange={(e) => setPriceInput(e.target.value)}
+                        placeholder="ახალი ფასი"
+                        className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-3 pr-8 text-[14px] font-semibold text-[#0F172A] outline-none focus:border-[#F97316]"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
+                        ₾
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={
+                        savingPrice ||
+                        !priceInput ||
+                        Number(priceInput) < 0 ||
+                        !Number.isFinite(Number(priceInput))
+                      }
+                      onClick={applyPrice}
+                      className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#F97316] px-4 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
+                    >
+                      <Check className="h-4 w-4" strokeWidth={2.6} />
+                      გადატარება
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingPrice}
+                      onClick={resetToDefault}
+                      className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9] disabled:opacity-50"
+                      title="ფასი ნაგულისხმევზე დაბრუნება"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      ნაგულისხმევზე
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
@@ -769,7 +912,7 @@ function DayCell({
   onDoubleClick: () => void;
 }) {
   const isWeekend = WEEKEND_INDICES.includes(meta.weekendIndex);
-  const isSelectable = meta.inMonth && meta.status === "free";
+  const isSelectable = meta.inMonth && meta.status !== "booked";
 
   let bg = "bg-white";
   let numberColor = isWeekend ? "text-[#EF4444]" : "text-[#0F172A]";
