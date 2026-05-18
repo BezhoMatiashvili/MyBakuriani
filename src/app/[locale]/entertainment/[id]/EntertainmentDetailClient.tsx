@@ -213,10 +213,7 @@ export default function EntertainmentDetailClient({
           )}
         </div>
         <div className="flex items-center gap-3">
-          <WhatsAppButton
-            phone={service.whatsapp ?? service.phone}
-            serviceId={service.id}
-          />
+          <WhatsAppButton phone={service.phone} serviceId={service.id} />
           <CallButton
             phone={service.phone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#1E293B] px-8 text-[15px] font-bold text-white hover:bg-[#0F172A] sm:flex-none"

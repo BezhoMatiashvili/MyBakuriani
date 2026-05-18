@@ -29,6 +29,7 @@ import {
 } from "@/components/search/SearchBox";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import { cn } from "@/lib/utils";
+import { useActiveZones } from "@/lib/zones/client";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
@@ -78,6 +79,7 @@ export default function HotelsPageClient({ properties }: Props) {
   const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { zones } = useActiveZones();
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
@@ -197,6 +199,7 @@ export default function HotelsPageClient({ properties }: Props) {
               dropdownPortalRef={dropdownPortalRef}
               dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
+              zones={zones}
             />
           </div>
 

@@ -450,6 +450,7 @@ function buildMockProperty(
   const hotel = isHotel ? (source as MockHotelCard) : null;
 
   return {
+    admin_notes: null,
     amenities: hotel ? { description: hotel.amenities } : null,
     area_sqm: null,
     bathrooms: null,
@@ -478,10 +479,12 @@ function buildMockProperty(
     min_booking_days: null,
     numeric_rating: hotel?.numericRating ?? null,
     owner_id: "mock-owner",
+    phone: null,
     photos: source.photos,
     price_per_night: source.pricePerNight,
     progress_note: null,
     progress_note_updated_at: null,
+    registration_readiness: null,
     renovation_status: null,
     roi_percent: null,
     room_type: hotel?.roomType ?? null,
@@ -493,6 +496,7 @@ function buildMockProperty(
     updated_at: epoch,
     views_count: 0,
     vip_expires_at: null,
+    whatsapp: null,
     profiles: null,
   };
 }
@@ -508,6 +512,7 @@ function buildMockSaleProperty(
     description ??
     `${source.title} — საინვესტიციო შესაძლებლობა ბაკურიანის ${source.location}-ში. ${source.area} მ² ფართობი, ${source.rooms} ოთახი, თანამედროვე გეგმარება და ხარისხიანი მასალები.\n\nობიექტი ემსახურება სტუმარის ბაზრის ფართო სეგმენტს და უზრუნველყოფს მდგრად შემოსავალს მთელი წლის განმავლობაში. მოსალოდნელი ROI ${source.roi}% წლიური, რაც კატეგორიულად აღემატება ბანკის სადეპოზიტო განაკვეთს.`;
   return {
+    admin_notes: null,
     amenities: ["complex_management", "concierge", "security"],
     area_sqm: source.area,
     bathrooms: source.rooms,

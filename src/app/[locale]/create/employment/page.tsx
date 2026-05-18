@@ -361,10 +361,12 @@ function pillClass(active: boolean) {
 function Field({
   label,
   required,
+  helper,
   children,
 }: {
   label: string;
   required?: boolean;
+  helper?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -372,6 +374,11 @@ function Field({
       <label className="text-[13px] font-bold text-[#334155]">
         {label}
         {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
+        {helper && (
+          <span className="ml-1.5 text-[11px] font-medium text-[#94A3B8]">
+            {helper}
+          </span>
+        )}
       </label>
       {children}
     </div>

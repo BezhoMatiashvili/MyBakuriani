@@ -29,6 +29,7 @@ import {
 } from "@/components/search/SearchBox";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import { cn } from "@/lib/utils";
+import { useActiveZones } from "@/lib/zones/client";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
@@ -78,6 +79,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
   const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { zones } = useActiveZones();
 
   const handleModeChange = useCallback(
     (next: "rent" | "sale") => {
@@ -212,6 +214,7 @@ export default function ApartmentsPageClient({ properties }: Props) {
               dropdownPortalRef={dropdownPortalRef}
               dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
+              zones={zones}
             />
           </div>
 

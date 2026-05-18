@@ -14,6 +14,7 @@ import {
   type Filters,
 } from "@/components/search/FilterPanel";
 import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
+import { useActiveZones } from "@/lib/zones/client";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import BottomSheet from "@/components/shared/BottomSheet";
 import ScrollReveal from "@/components/shared/ScrollReveal";
@@ -83,6 +84,7 @@ export default function SearchPageClient({
   const isInitialMount = useRef(true);
   const isFirstUrlSync = useRef(true);
   const router = useRouter();
+  const { zones } = useActiveZones();
 
   const hasKeyword = searchState.keyword.trim().length > 0;
 
@@ -321,6 +323,7 @@ export default function SearchPageClient({
             defaultKeyword={initialKeyword}
             defaultCheckIn={initialCheckIn}
             defaultCheckOut={initialCheckOut}
+            zones={zones}
           />
         </ScrollReveal>
 

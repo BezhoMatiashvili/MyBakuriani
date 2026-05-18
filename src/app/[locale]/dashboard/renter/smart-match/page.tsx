@@ -126,7 +126,7 @@ export default function RenterSmartMatchPage() {
 
       if (reqData) {
         const filtered = (reqData as SmartMatchRequest[]).filter(
-          (r) => !r.zone || zones.has(r.zone),
+          (r) => !r.zone || zoneSet.has(r.zone),
         );
         setRequests(filtered);
 

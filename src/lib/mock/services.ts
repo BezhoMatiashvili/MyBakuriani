@@ -331,6 +331,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
 
   return {
     accommodation: null,
+    admin_notes: null,
     avg_check: item.avgCheck ?? null,
     category: category as ServiceCategory,
     created_at: epoch,
@@ -348,6 +349,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     has_live_music: false,
     has_lounge: false,
     id,
+    is_new: false,
     is_vip: item.vip,
     languages: item.languages ?? null,
     location: "ბაკურიანი",

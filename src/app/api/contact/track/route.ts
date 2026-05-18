@@ -67,11 +67,14 @@ export async function POST(req: NextRequest) {
     return Response.json({ tracked: false, reason: "self" }, { status: 200 });
   }
 
+  // record_contact_event accepts NULL for whichever listing id is unused
+  // (validated above and inside the function). Generated types incorrectly
+  // mark both as non-nullable, so we cast through unknown.
   const { data: eventId, error } = await db.rpc("record_contact_event", {
     p_visitor_id: user.id,
     p_owner_id: ownerId,
-    p_property_id: body.property_id ?? null,
-    p_service_id: body.service_id ?? null,
+    p_property_id: (body.property_id ?? null) as unknown as string,
+    p_service_id: (body.service_id ?? null) as unknown as string,
     p_channel: body.channel,
   });
 

@@ -4,11 +4,13 @@ import { useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
+import { useActiveZones } from "@/lib/zones/client";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 
 export function HeroSection() {
   const router = useRouter();
   const t = useTranslations("HeroSection");
+  const { zones } = useActiveZones();
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
@@ -40,7 +42,7 @@ export function HeroSection() {
         </ScrollReveal>
 
         <div className="mt-8">
-          <SearchBox onSearch={handleSearch} />
+          <SearchBox onSearch={handleSearch} zones={zones} />
         </div>
       </div>
     </section>
