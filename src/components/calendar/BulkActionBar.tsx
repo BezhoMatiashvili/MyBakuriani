@@ -8,7 +8,11 @@ import {
   Sun,
   CalendarClock,
 } from "lucide-react";
-import { isWeekend, parseIsoDate } from "@/lib/utils/availability";
+import {
+  isWeekend,
+  parseIsoDate,
+  buildNextNDays,
+} from "@/lib/utils/availability";
 
 /**
  * Bulk action result: which dates should become available vs. blocked.
@@ -64,7 +68,7 @@ const ACTIONS: Action[] = [
   },
   {
     key: "weekends-only",
-    label: "მხოლოდ შაბათ-კვირა",
+    label: "მხოლოდ პარ.–კვ.",
     icon: <Sun className="size-4" />,
     compute: (dates) => {
       const available: string[] = [];
@@ -78,9 +82,12 @@ const ACTIONS: Action[] = [
   },
   {
     key: "block-next-7",
-    label: "შემდეგი 7 დღე დაკავებული",
+    label: "მომდევნო 7 დღის დაკავება",
     icon: <CalendarClock className="size-4" />,
-    compute: (dates) => ({ available: [], blocked: dates.slice(0, 7) }),
+    compute: (dates) => {
+      const next7 = new Set(buildNextNDays(7));
+      return { available: [], blocked: dates.filter((d) => next7.has(d)) };
+    },
   },
 ];
 

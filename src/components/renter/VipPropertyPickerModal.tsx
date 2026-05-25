@@ -11,6 +11,7 @@ export interface PickerProperty {
   title: string;
   subtitle?: string;
   photoUrl?: string | null;
+  isForSale: boolean;
 }
 
 const TIER_META: Record<
@@ -113,57 +114,94 @@ export default function VipPropertyPickerModal({
                   აქტიური ობიექტი ვერ მოიძებნა
                 </div>
               )}
-              {properties.map((p) => {
-                const isSelected = selectedId === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedId(p.id)}
-                    className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
-                      isSelected
-                        ? "border-[#2563EB] bg-[#EFF6FF]"
-                        : "border-[#EEF1F4] bg-white hover:border-[#CBD5E1]"
-                    }`}
-                  >
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
-                      {p.photoUrl ? (
-                        <Image
-                          src={p.photoUrl}
-                          alt={p.title}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Home className="h-5 w-5 text-[#94A3B8]" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-extrabold text-[#0F172A]">
-                        {p.title}
-                      </p>
-                      {p.subtitle && (
-                        <p className="mt-0.5 truncate text-[11px] font-medium text-[#94A3B8]">
-                          {p.subtitle}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+              {(() => {
+                const rentals = properties.filter((p) => !p.isForSale);
+                const sales = properties.filter((p) => p.isForSale);
+
+                const renderRow = (p: PickerProperty) => {
+                  const isSelected = selectedId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedId(p.id)}
+                      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
                         isSelected
-                          ? "border-[#2563EB] bg-[#2563EB]"
-                          : "border-[#CBD5E1] bg-white"
+                          ? "border-[#2563EB] bg-[#EFF6FF]"
+                          : "border-[#EEF1F4] bg-white hover:border-[#CBD5E1]"
                       }`}
                     >
-                      {isSelected && (
-                        <span className="h-2 w-2 rounded-full bg-white" />
-                      )}
-                    </span>
-                  </button>
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
+                        {p.photoUrl ? (
+                          <Image
+                            src={p.photoUrl}
+                            alt={p.title}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Home className="h-5 w-5 text-[#94A3B8]" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-[13px] font-extrabold text-[#0F172A]">
+                            {p.title}
+                          </p>
+                          <span
+                            className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                              p.isForSale
+                                ? "bg-[#FFEDD5] text-[#EA580C]"
+                                : "bg-[#DBEAFE] text-[#2563EB]"
+                            }`}
+                          >
+                            {p.isForSale ? "გაყიდვა" : "გაქირავება"}
+                          </span>
+                        </div>
+                        {p.subtitle && (
+                          <p className="mt-0.5 truncate text-[11px] font-medium text-[#94A3B8]">
+                            {p.subtitle}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                          isSelected
+                            ? "border-[#2563EB] bg-[#2563EB]"
+                            : "border-[#CBD5E1] bg-white"
+                        }`}
+                      >
+                        {isSelected && (
+                          <span className="h-2 w-2 rounded-full bg-white" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                };
+
+                return (
+                  <>
+                    {rentals.length > 0 && (
+                      <>
+                        <p className="px-1 pb-1 pt-0 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                          გასაქირავებელი
+                        </p>
+                        {rentals.map(renderRow)}
+                      </>
+                    )}
+                    {sales.length > 0 && (
+                      <>
+                        <p className="px-1 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                          გასაყიდი
+                        </p>
+                        {sales.map(renderRow)}
+                      </>
+                    )}
+                  </>
                 );
-              })}
+              })()}
             </div>
 
             <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#EEF1F4] pt-5">

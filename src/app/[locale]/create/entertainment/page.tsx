@@ -150,30 +150,22 @@ export default function CreateEntertainmentPage() {
         (p) => p.value === priceUnit,
       )?.label;
 
-      const attrLine = [
-        activityTypeLabel && `ტიპი: ${activityTypeLabel}`,
-        categoryLabel && `კატეგორია: ${categoryLabel}`,
-        durationLabel && `ხანგრძლივობა: ${durationLabel}`,
-        ageLabel && `ასაკი: ${ageLabel}`,
-        goodForLabel && `ვისთვის: ${goodForLabel}`,
-      ]
-        .filter(Boolean)
-        .join(" • ");
-
-      const fullDescription = [attrLine, description.trim()]
-        .filter(Boolean)
-        .join("\n\n");
-
       const insertPayload: Record<string, unknown> = {
         owner_id: user.id,
         category: "entertainment",
         title: title.trim(),
-        description: fullDescription || null,
+        description: description.trim() || null,
+        activity_type: activityTypeLabel || null,
+        activity_category: categoryLabel || null,
+        duration: durationLabel || null,
+        age_min: ageLabel || null,
+        good_for: goodForLabel || null,
         price: price ? Number(price) : null,
         price_unit: priceUnitLabel || null,
         schedule: workingHours.trim() || null,
         operating_hours: workingHours.trim() || null,
         location: [zone, exactLocation.trim()].filter(Boolean).join(" • "),
+        coords: coords ?? null,
         photos,
         phone: phone ? `+995${phone}` : null,
         whatsapp: whatsapp ? `+995${whatsapp}` : null,

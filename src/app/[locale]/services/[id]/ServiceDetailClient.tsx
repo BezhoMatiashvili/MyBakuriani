@@ -7,9 +7,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Clock,
-  MessageCircle,
   BadgeCheck,
-  Star,
   ChevronRight,
   Languages,
   MapPin,
@@ -112,14 +110,6 @@ export default function ServiceDetailClient({
               <BadgeCheck className="h-4 w-4 text-[#2563EB]" />
             )}
           </span>
-          <span className="flex items-center gap-1.5 font-medium">
-            <Star className="h-4 w-4 fill-[#FBBF24] text-[#FBBF24]" />
-            4.9 (34 შეფასება)
-          </span>
-          <span className="flex items-center gap-1.5 font-medium">
-            <MessageCircle className="h-4 w-4" />
-            {service.views_count ?? 0} მესიჯიერებით შეფასება
-          </span>
         </div>
       </motion.div>
 
@@ -157,31 +147,39 @@ export default function ServiceDetailClient({
             showIcon={false}
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Languages className="h-3.5 w-3.5" />
-            ენები
-          </span>
-          <span className="text-[15px] font-black text-[#1E293B]">
-            ქართული, Русский
-          </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Clock className="h-3.5 w-3.5" />
-            სამუშაო საათები
-          </span>
-          <span className="text-[15px] font-black text-[#1E293B]">
-            {service.schedule ?? "09:00 - 19:00"}
-          </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <BadgeCheck className="h-3.5 w-3.5" />
-            გამოცდილება
-          </span>
-          <span className="text-[15px] font-black text-[#1E293B]">8 წელი</span>
-        </div>
+        {service.languages && service.languages.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Languages className="h-3.5 w-3.5" />
+              ენები
+            </span>
+            <span className="text-[15px] font-black text-[#1E293B]">
+              {service.languages.join(", ")}
+            </span>
+          </div>
+        )}
+        {service.schedule && (
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Clock className="h-3.5 w-3.5" />
+              სამუშაო საათები
+            </span>
+            <span className="text-[15px] font-black text-[#1E293B]">
+              {service.schedule}
+            </span>
+          </div>
+        )}
+        {service.experience_required && (
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <BadgeCheck className="h-3.5 w-3.5" />
+              გამოცდილება
+            </span>
+            <span className="text-[15px] font-black text-[#1E293B]">
+              {service.experience_required}
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Verified specialist callout */}

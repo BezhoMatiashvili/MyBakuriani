@@ -525,6 +525,66 @@ export default function RenterCalendarPage() {
     return s;
   }, [calendarBlocks]);
 
+  // Persist a manually-added booking: one row in manual_bookings, then block the
+  // inclusive check-in → (check-out − 1) nights in calendar_blocks so the grid reflects it.
+  const handleAddBooking = async (payload: {
+    checkIn: string;
+    checkOut: string;
+    source: string;
+    guestName: string;
+    status: "booked" | "manual";
+    clientList: string;
+  }) => {
+    if (!selectedPropertyId || !user) return;
+    if (!payload.checkIn || !payload.checkOut) return;
+    try {
+      const { data: booking, error: insertError } = await supabase
+        .from("manual_bookings")
+        .insert({
+          owner_id: user.id,
+          property_id: selectedPropertyId,
+          check_in: payload.checkIn,
+          check_out: payload.checkOut,
+          source: payload.source,
+          guest_name: payload.guestName,
+          status: payload.status === "booked" ? "booked" : "manual",
+          client_list: payload.clientList,
+        })
+        .select()
+        .single();
+      if (insertError) throw insertError;
+
+      // Nights span check-in up to (but excluding) check-out.
+      const nights = datesInRange(payload.checkIn, payload.checkOut).filter(
+        (d) => d !== payload.checkOut,
+      );
+      if (nights.length > 0) {
+        const rows = nights.map((d) => ({
+          property_id: selectedPropertyId,
+          date: d,
+          status: "booked" as const,
+          booking_id: booking.id,
+        }));
+        const { error: blockError } = await supabase
+          .from("calendar_blocks")
+          .upsert(rows, { onConflict: "property_id,date" });
+        if (blockError) throw blockError;
+      }
+
+      const startDate = `${year}-${pad(month + 1)}-01`;
+      const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
+      const { data } = await supabase
+        .from("calendar_blocks")
+        .select("*")
+        .eq("property_id", selectedPropertyId)
+        .gte("date", startDate)
+        .lte("date", endDate);
+      if (data) setCalendarBlocks(data);
+    } catch (err) {
+      console.error("Failed to add manual booking", err);
+    }
+  };
+
   const handleBulkApply = async ({ available, blocked }: BulkApplyChanges) => {
     if (!selectedPropertyId) return;
     setSavingBlocks(true);
@@ -678,11 +738,12 @@ export default function RenterCalendarPage() {
 
           <button
             type="button"
+            disabled={!selectedPropertyId}
             onClick={() => {
               setAddBookingInitial({ checkIn: "", checkOut: "" });
               setAddBookingOpen(true);
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A]"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50"
           >
             <Plus className="h-4 w-4" strokeWidth={2.6} />
             დამატება
@@ -860,6 +921,7 @@ export default function RenterCalendarPage() {
       <AddBookingModal
         isOpen={addBookingOpen}
         onClose={() => setAddBookingOpen(false)}
+        onSubmit={handleAddBooking}
         initialCheckIn={addBookingInitial.checkIn}
         initialCheckOut={addBookingInitial.checkOut}
       />

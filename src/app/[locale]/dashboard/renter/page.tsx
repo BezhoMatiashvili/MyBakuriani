@@ -93,6 +93,7 @@ export default function RenterDashboardPage() {
           .from("properties")
           .select("*")
           .eq("owner_id", user!.id)
+          .eq("is_for_sale", false)
           .order("created_at", { ascending: false }),
         supabase.from("bookings").select("*").eq("owner_id", user!.id),
       ]);
@@ -317,6 +318,7 @@ export default function RenterDashboardPage() {
           title: p.title,
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
+          isForSale: p.is_for_sale ?? false,
         }))}
         onConfirm={async (propertyId) => {
           await supabase.functions.invoke("purchase-vip", {
@@ -394,6 +396,15 @@ function PropertyRow({
             {property.title}
           </h3>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[#94A3B8]">
+            {property.is_for_sale ? (
+              <span className="rounded-md bg-[#FFEDD5] px-2 py-0.5 font-bold text-[#EA580C]">
+                გაყიდვა
+              </span>
+            ) : (
+              <span className="rounded-md bg-[#DBEAFE] px-2 py-0.5 font-bold text-[#2563EB]">
+                გაქირავება
+              </span>
+            )}
             <span className="rounded-md bg-[#DCFCE7] px-2 py-0.5 font-bold text-[#16A34A]">
               ID: {propertyShortId(property.id)}
             </span>

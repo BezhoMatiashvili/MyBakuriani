@@ -31,6 +31,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables, TablesInsert } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
+import { formatDate } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 
@@ -107,12 +108,6 @@ const fadeIn = {
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.4 },
 };
-
-const REQUIREMENTS = [
-  "სისწრაფე და დეტალებზე ორიენტირებულობა.",
-  "სისუფთავის მაღალი სტანდარტის დაცვა.",
-  "პასუხისმგებლობის მაღალი გრძნობა და პუნქტუალურობა.",
-];
 
 const LOCATION_OPTIONS = ["ბაკურიანი", "თბილისი", "სხვა"];
 const LANGUAGE_OPTIONS = ["ქართული", "ინგლისური", "რუსული"];
@@ -309,6 +304,16 @@ export default function EmploymentDetailClient({
   const inputClass = (key: keyof FormState) =>
     `${inputBase} ${errors[key as string] ? "border-[#EF4444]" : "border-[#E2E8F0]"}`;
 
+  const salaryDisplay =
+    service.salary_range ??
+    (service.salary_min != null && service.salary_max != null
+      ? `${service.salary_min} - ${service.salary_max} ₾`
+      : service.salary_min != null
+        ? `${service.salary_min} ₾`
+        : service.salary_daily != null
+          ? `${service.salary_daily} ₾ / დღეში`
+          : null);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
       <div className="mb-6 flex items-center justify-between">
@@ -320,13 +325,15 @@ export default function EmploymentDetailClient({
           <ArrowLeft className="h-4 w-4" />
           უკან ძიებაზე
         </motion.button>
-        <motion.div
-          {...fadeIn}
-          className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
-        >
-          <ClockIcon className="h-3.5 w-3.5" />
-          გამოქვეყნდა: დღეს
-        </motion.div>
+        {service.created_at && (
+          <motion.div
+            {...fadeIn}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
+          >
+            <ClockIcon className="h-3.5 w-3.5" />
+            გამოქვეყნდა: {formatDate(service.created_at)}
+          </motion.div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
@@ -393,19 +400,17 @@ export default function EmploymentDetailClient({
             <StatCard
               icon={<Banknote />}
               label="ანაზღაურება"
-              value={
-                service.salary_range ??
-                (service.salary_daily
-                  ? `${service.salary_daily} ₾ / დღეში`
-                  : "60 ₾ / დღეში")
-              }
+              value={salaryDisplay ?? "შეთანხმებით"}
               accent
             />
             <StatCard
               icon={<ClockIcon />}
               label="გრაფიკი"
-              value={service.employment_schedule ?? "მოქნილი"}
-              subtext="(გამოდახებით)"
+              value={
+                service.work_schedule ??
+                service.employment_schedule ??
+                "მოქნილი"
+              }
             />
             <StatCard
               icon={<Briefcase />}
@@ -429,25 +434,31 @@ export default function EmploymentDetailClient({
             </motion.div>
           )}
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.35 }}
-            className="mt-8"
-          >
-            <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              მოთხოვნები და კომპეტენციები
-            </h2>
-            <ul className="space-y-3">
-              {REQUIREMENTS.map((req) => (
-                <li key={req} className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#22C55E]" />
-                  <span className="text-[14px] font-medium text-[#475569]">
-                    {req}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
+          {service.requirements?.trim() && (
+            <motion.div
+              {...fadeIn}
+              transition={{ duration: 0.4, delay: 0.35 }}
+              className="mt-8"
+            >
+              <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
+                მოთხოვნები და კომპეტენციები
+              </h2>
+              <ul className="space-y-3">
+                {service.requirements
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .filter(Boolean)
+                  .map((req) => (
+                    <li key={req} className="flex items-start gap-3">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#22C55E]" />
+                      <span className="text-[14px] font-medium text-[#475569]">
+                        {req}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </motion.div>
+          )}
 
           {(owner?.is_verified ?? true) && (
             <motion.div
@@ -837,39 +848,39 @@ export default function EmploymentDetailClient({
                 label="ანაზღაურების მოდელი"
                 value={salaryModelLabel(service.salary_type)}
               />
-              <SidebarRow
-                label="საცხოვრებელი"
-                value={service.accommodation ?? "კი"}
-              />
-              <SidebarRow
-                label="კვება"
-                value={service.meals ?? "1-ჯერადი კვება"}
-              />
-              <div className="pt-4">
-                <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-                  სასურველი ენები
-                </dt>
-                <dd className="mt-2 flex flex-wrap gap-2">
-                  {(service.languages?.length
-                    ? service.languages
-                    : ["ქართული", "რუსული"]
-                  ).map((lang) => (
-                    <span
-                      key={lang}
-                      className="rounded-[8px] border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-bold text-[#475569]"
-                    >
-                      {lang}
-                    </span>
-                  ))}
-                </dd>
-              </div>
+              {service.accommodation && (
+                <SidebarRow
+                  label="საცხოვრებელი"
+                  value={service.accommodation}
+                />
+              )}
+              {service.meals && (
+                <SidebarRow label="კვება" value={service.meals} />
+              )}
+              {service.languages?.length ? (
+                <div className="pt-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                    სასურველი ენები
+                  </dt>
+                  <dd className="mt-2 flex flex-wrap gap-2">
+                    {service.languages.map((lang) => (
+                      <span
+                        key={lang}
+                        className="rounded-[8px] border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-bold text-[#475569]"
+                      >
+                        {lang}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </div>
         </motion.aside>
       </div>
 
       <MobileStickyCTA
-        primary={service.salary_range ?? service.title}
+        primary={salaryDisplay ?? service.title}
         secondary={service.location ?? undefined}
         ctaLabel="განაცხადი"
         onClick={() =>

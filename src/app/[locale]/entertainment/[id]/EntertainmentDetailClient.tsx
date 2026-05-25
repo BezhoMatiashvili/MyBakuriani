@@ -4,15 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Star,
-  Clock,
-  Users,
-  Zap,
-  ImageIcon,
-  Info,
-} from "lucide-react";
+import { ArrowLeft, Clock, Users, Zap, ImageIcon } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
@@ -97,22 +89,27 @@ export default function EntertainmentDetailClient({
         className="mt-6"
       >
         <div className="mb-2 flex items-center gap-2">
-          <span className="rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#EA580C]">
-            გართობა
-          </span>
-          <span className="rounded-md bg-[#F1F5F9] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
-            ტური
-          </span>
+          {service.activity_type ? (
+            <span className="rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#EA580C]">
+              {service.activity_type}
+            </span>
+          ) : (
+            !service.activity_category && (
+              <span className="rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#EA580C]">
+                გართობა
+              </span>
+            )
+          )}
+          {service.activity_category && (
+            <span className="rounded-md bg-[#F1F5F9] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
+              {service.activity_category}
+            </span>
+          )}
         </div>
         <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[36px] sm:leading-[44px]">
           {service.title}
         </h1>
         <div className="mt-3 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-          <span className="flex items-center gap-1.5 font-medium">
-            <Star className="h-4 w-4 fill-[#FBBF24] text-[#FBBF24]" />
-            <span className="font-black text-[#1E293B]">5.0</span>
-            <span>| 12 შეფასება</span>
-          </span>
           {service.location && (
             <ZoneLocationLink
               location={service.location}
@@ -144,53 +141,50 @@ export default function EntertainmentDetailClient({
         transition={{ duration: 0.4, delay: 0.25 }}
         className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4"
       >
-        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Clock className="h-3.5 w-3.5" />
-            ხანგრძლივობა
-          </span>
-          <span className="text-[16px] font-black text-[#1E293B]">1 საათი</span>
-        </div>
-        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Users className="h-3.5 w-3.5" />
-            ასაკი
-          </span>
-          <span className="text-[16px] font-black text-[#1E293B]">16+</span>
-        </div>
-        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Zap className="h-3.5 w-3.5" />
-            ექსტრემის დონე
-          </span>
-          <span className="text-[16px] font-black text-[#1E293B]">
-            ექსტრემის მოყვარულთა
-          </span>
-        </div>
-        <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Clock className="h-3.5 w-3.5" />
-            საათები
-          </span>
-          <span className="text-[16px] font-black text-[#1E293B]">
-            {service.operating_hours ?? "10:00 - 18:00"}
-          </span>
-        </div>
-      </motion.div>
-
-      {/* Safety callout */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.3 }}
-        className="mt-6 rounded-[16px] border border-[#DBEAFE] bg-[#F0F7FF] p-5"
-      >
-        <h3 className="flex items-center gap-2 text-[13px] font-bold text-[#2563EB]">
-          <Info className="h-4 w-4" />
-          უსაფრთხოება და პირობები
-        </h3>
-        <p className="mt-2 text-[13px] leading-[20px] text-[#475569]">
-          ჩაცმა შედის ფასში, მოყვება ინსტრუქტორი
-        </p>
+        {service.duration && (
+          <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Clock className="h-3.5 w-3.5" />
+              ხანგრძლივობა
+            </span>
+            <span className="text-[16px] font-black text-[#1E293B]">
+              {service.duration}
+            </span>
+          </div>
+        )}
+        {service.age_min && (
+          <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Users className="h-3.5 w-3.5" />
+              ასაკი
+            </span>
+            <span className="text-[16px] font-black text-[#1E293B]">
+              {service.age_min}
+            </span>
+          </div>
+        )}
+        {service.good_for && (
+          <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Zap className="h-3.5 w-3.5" />
+              ექსტრემის დონე
+            </span>
+            <span className="text-[16px] font-black text-[#1E293B]">
+              {service.good_for}
+            </span>
+          </div>
+        )}
+        {service.operating_hours && (
+          <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Clock className="h-3.5 w-3.5" />
+              საათები
+            </span>
+            <span className="text-[16px] font-black text-[#1E293B]">
+              {service.operating_hours}
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Price + CTA row */}

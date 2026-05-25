@@ -4,18 +4,12 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  BadgeCheck,
-  Star,
-  Users,
-  Gauge,
-  Languages,
-} from "lucide-react";
+import { ArrowLeft, BadgeCheck, Users, Gauge, Languages } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 
@@ -34,16 +28,6 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-const FEATURE_PILLS = [
-  "ხალით სახელდი",
-  "მოგროვების უანი",
-  "ორიენტირებული სახელიდან",
-  "დაუშვებიდის სახელიდან",
-  "სამრიე ხაზინახილი",
-];
-
-const STATUS_LABEL = "სტატუსი: ხელმისაწვდომი";
-
 export default function TransportDetailClient({
   service,
   isMock = false,
@@ -57,7 +41,13 @@ export default function TransportDetailClient({
   const languagesText =
     service.languages && service.languages.length > 0
       ? service.languages.join(", ")
-      : "ქართული, English, Русский";
+      : null;
+  const routes =
+    service.routes && service.routes.length > 0
+      ? service.routes
+      : service.route
+        ? [service.route]
+        : [];
 
   useEffect(() => {
     if (isMock) return;
@@ -110,9 +100,6 @@ export default function TransportDetailClient({
           <ArrowLeft className="h-4 w-4" />
           უკან დაბრუნება
         </button>
-        <span className="absolute right-4 top-4 rounded-full bg-[#2563EB] px-4 py-2 text-[13px] font-bold text-white shadow-sm">
-          {STATUS_LABEL}
-        </span>
       </motion.div>
 
       {/* Driver + vehicle header (avatar overlaps hero) */}
@@ -146,16 +133,13 @@ export default function TransportDetailClient({
             <p className="mt-0.5 text-[14px] text-[#64748B]">
               {vehicleSubtitle}
             </p>
+            {service.location && (
+              <ZoneLocationLink
+                location={service.location}
+                className="mt-1 text-[13px] font-medium text-[#64748B]"
+              />
+            )}
           </div>
-        </div>
-        <div className="pb-1 text-right">
-          <p className="flex items-center justify-end gap-1.5 text-[16px] font-black text-[#1E293B]">
-            <Star className="h-4 w-4 fill-[#FBBF24] text-[#FBBF24]" />
-            5.0
-          </p>
-          <p className="mt-0.5 text-[12px] text-[#94A3B8]">
-            34 შეფასებული მძღოლი
-          </p>
         </div>
       </motion.div>
 
@@ -174,46 +158,52 @@ export default function TransportDetailClient({
             {service.vehicle_capacity ?? 8} ადგილი
           </span>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Gauge className="h-3.5 w-3.5" />
-            ტიპი
-          </span>
-          <span className="text-[15px] font-black text-[#1E293B]">
-            {service.transport_type ?? "კლიმატ კონტროლი"}
-          </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Languages className="h-3.5 w-3.5" />
-            ენები
-          </span>
-          <span className="text-[15px] font-black text-[#1E293B]">
-            {languagesText}
-          </span>
-        </div>
+        {service.transport_type && (
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Gauge className="h-3.5 w-3.5" />
+              ტიპი
+            </span>
+            <span className="text-[15px] font-black text-[#1E293B]">
+              {service.transport_type}
+            </span>
+          </div>
+        )}
+        {languagesText && (
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Languages className="h-3.5 w-3.5" />
+              ენები
+            </span>
+            <span className="text-[15px] font-black text-[#1E293B]">
+              {languagesText}
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Services and features */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.25 }}
-        className="mt-6"
-      >
-        <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-          სერვისები და შესაძლებლობები
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {FEATURE_PILLS.map((pill) => (
-            <span
-              key={pill}
-              className="rounded-full bg-[#F0F7FF] px-4 py-1.5 text-[13px] font-medium text-[#2563EB]"
-            >
-              {pill}
-            </span>
-          ))}
-        </div>
-      </motion.div>
+      {service.equipment && service.equipment.length > 0 && (
+        <motion.div
+          {...fadeIn}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="mt-6"
+        >
+          <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+            სერვისები და შესაძლებლობები
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {service.equipment.map((item) => (
+              <span
+                key={item}
+                className="rounded-full bg-[#F0F7FF] px-4 py-1.5 text-[13px] font-medium text-[#2563EB]"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Description */}
       {service.description && (
@@ -231,8 +221,8 @@ export default function TransportDetailClient({
         </motion.div>
       )}
 
-      {/* Route with price */}
-      {service.route && (
+      {/* Routes with price */}
+      {routes.length > 0 && (
         <motion.div
           {...fadeIn}
           transition={{ duration: 0.4, delay: 0.35 }}
@@ -241,15 +231,16 @@ export default function TransportDetailClient({
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             მარშრუტი და ფასი
           </h2>
-          <div className="flex items-center justify-between rounded-[20px] border border-[#E2E8F0] bg-white p-6">
-            <div>
-              <p className="text-[16px] font-black text-[#1E293B]">
-                {service.route}
-              </p>
-              <p className="text-[13px] text-[#94A3B8]">საშუალო დრო</p>
-            </div>
+          <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6">
+            <ul className="flex flex-col gap-2">
+              {routes.map((r) => (
+                <li key={r} className="text-[16px] font-black text-[#1E293B]">
+                  {r}
+                </li>
+              ))}
+            </ul>
             {service.price != null && (
-              <div className="text-right">
+              <div className="mt-4 border-t border-[#E2E8F0] pt-4">
                 <p className="text-[24px] font-black text-[#1E293B]">
                   {formatPrice(service.price)}
                 </p>

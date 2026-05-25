@@ -373,6 +373,7 @@ export default function RenterBalancePage() {
           title: p.title,
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
+          isForSale: p.is_for_sale ?? false,
         }))}
         onConfirm={handleConfirmPurchase}
       />

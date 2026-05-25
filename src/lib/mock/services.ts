@@ -331,8 +331,14 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
 
   return {
     accommodation: null,
+    activity_category: null,
+    activity_type: null,
     admin_notes: null,
+    age_min: null,
     avg_check: item.avgCheck ?? null,
+    coords: null,
+    duration: null,
+    good_for: null,
     category: category as ServiceCategory,
     created_at: epoch,
     cuisine_type: item.cuisineType ?? null,
@@ -364,6 +370,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     price: item.price,
     price_unit: item.unit,
     requirements: null,
+    restaurant_type: item.establishmentType ?? null,
     route: item.route ?? null,
     routes: null,
     salary_daily: null,

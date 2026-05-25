@@ -126,7 +126,11 @@ export default function CreateFoodPage() {
         category: "food",
         title: title.trim(),
         description: description.trim() || null,
-        cuisine_type: cuisineType || null,
+        restaurant_type:
+          RESTAURANT_TYPES.find((t) => t.value === restaurantType)?.label ||
+          null,
+        cuisine_type:
+          CUISINE_TYPES.find((t) => t.value === cuisineType)?.label || null,
         avg_check: avgCheck,
         menu_url: menuUrl,
         has_kids_area: hasKidsArea,
