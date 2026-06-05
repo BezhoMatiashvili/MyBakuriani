@@ -105,11 +105,18 @@ export default function ServiceDetailClient({
                 </span>
               )}
             </span>
-            {owner?.display_name ?? "სერვისის მომწოდებელი"}
+            {service.provider_name ??
+              owner?.display_name ??
+              "სერვისის მომწოდებელი"}
             {owner?.is_verified && (
               <BadgeCheck className="h-4 w-4 text-[#2563EB]" />
             )}
           </span>
+          {service.service_field && (
+            <span className="rounded-full bg-[#EFF6FF] px-3 py-1 text-[13px] font-semibold text-[#2563EB]">
+              {service.service_field}
+            </span>
+          )}
         </div>
       </motion.div>
 

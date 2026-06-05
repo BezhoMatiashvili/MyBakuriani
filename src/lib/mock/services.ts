@@ -369,6 +369,8 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     position: null,
     price: item.price,
     price_unit: item.unit,
+    provider_name: item.providerName ?? null,
+    service_field: null,
     requirements: null,
     restaurant_type: item.establishmentType ?? null,
     route: item.route ?? null,
