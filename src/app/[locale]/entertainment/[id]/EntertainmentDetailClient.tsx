@@ -4,7 +4,15 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowLeft, Clock, Users, Zap, ImageIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock,
+  Users,
+  CheckCircle2,
+  ImageIcon,
+  Star,
+  ShieldCheck,
+} from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
@@ -88,28 +96,24 @@ export default function EntertainmentDetailClient({
         transition={{ duration: 0.4, delay: 0.15 }}
         className="mt-6"
       >
-        <div className="mb-2 flex items-center gap-2">
-          {service.activity_type ? (
-            <span className="rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#EA580C]">
-              {service.activity_type}
-            </span>
-          ) : (
-            !service.activity_category && (
-              <span className="rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#EA580C]">
-                გართობა
-              </span>
-            )
-          )}
-          {service.activity_category && (
-            <span className="rounded-md bg-[#F1F5F9] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
-              {service.activity_category}
-            </span>
-          )}
+        <div className="mb-2 text-[12px] font-bold uppercase tracking-[1px] text-[#2563EB]">
+          {[service.activity_type, service.activity_category]
+            .filter(Boolean)
+            .join(" / ") || "გართობა"}
         </div>
         <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[36px] sm:leading-[44px]">
           {service.title}
         </h1>
-        <div className="mt-3 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[14px] text-[#64748B]">
+          {service.rating != null && (
+            <span className="inline-flex items-center gap-1.5 font-bold text-[#1E293B]">
+              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              {service.rating.toFixed(1)}
+              <span className="font-medium text-[#94A3B8]">
+                ({service.reviews_count ?? 0} შეფასება)
+              </span>
+            </span>
+          )}
           {service.location && (
             <ZoneLocationLink
               location={service.location}
@@ -127,7 +131,7 @@ export default function EntertainmentDetailClient({
           className="mt-8"
         >
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-            რას გვთავაზობთ
+            რას გთავაზობთ
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
@@ -166,8 +170,8 @@ export default function EntertainmentDetailClient({
         {service.good_for && (
           <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-              <Zap className="h-3.5 w-3.5" />
-              ექსტრემის დონე
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              ხელმისაწვდომობა
             </span>
             <span className="text-[16px] font-black text-[#1E293B]">
               {service.good_for}
@@ -186,6 +190,27 @@ export default function EntertainmentDetailClient({
           </div>
         )}
       </motion.div>
+
+      {/* Safety & conditions */}
+      {service.safety_notes && (
+        <motion.div
+          {...fadeIn}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="mt-6 flex items-start gap-3 rounded-[16px] border border-[#DBEAFE] bg-[#EFF6FF] p-5"
+        >
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB]">
+            <ShieldCheck className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="text-[15px] font-black text-[#1E293B]">
+              უსაფრთხოება და პირობები
+            </h3>
+            <p className="mt-1 whitespace-pre-line text-[14px] font-medium leading-[22px] text-[#475569]">
+              {service.safety_notes}
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Price + CTA row */}
       <motion.div

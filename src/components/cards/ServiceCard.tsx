@@ -29,6 +29,7 @@ interface ServiceCardProps {
   driverName?: string | null;
   vehicleCapacity?: number | null;
   route?: string | null;
+  routes?: string[] | null;
   transportType?: string | null;
   isNew?: boolean;
   isVerified?: boolean;
@@ -36,6 +37,7 @@ interface ServiceCardProps {
 }
 
 const TRANSPORT_TYPE_LABELS: Record<string, string> = {
+  minivan: "მინივენი",
   minibus: "მინივენი",
   taxi: "ტაქსი",
   microbus: "მიკროავტობუსი",
@@ -75,6 +77,7 @@ export default function ServiceCard({
   availabilityStatus,
   vehicleCapacity,
   route,
+  routes,
   transportType,
   isNew = false,
   isVerified = false,
@@ -432,19 +435,30 @@ export default function ServiceCard({
                   </span>
                 </p>
               )}
-              {route && (
-                <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
-                  <span aria-hidden className="text-[14px] leading-none">
-                    📍
-                  </span>
-                  <span className="text-[#94A3B8] font-medium">
-                    {t("routeLabel")}:{" "}
-                  </span>
-                  <span className="text-[#1E293B] font-bold line-clamp-1">
-                    {route}
-                  </span>
-                </p>
-              )}
+              {(() => {
+                const displayRoute = routes?.[0] ?? route ?? null;
+                if (!displayRoute) return null;
+                const extra =
+                  routes && routes.length > 1 ? routes.length - 1 : 0;
+                return (
+                  <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
+                    <span aria-hidden className="text-[14px] leading-none">
+                      📍
+                    </span>
+                    <span className="text-[#94A3B8] font-medium">
+                      {t("routeLabel")}:{" "}
+                    </span>
+                    <span className="text-[#1E293B] font-bold line-clamp-1">
+                      {displayRoute}
+                    </span>
+                    {extra > 0 && (
+                      <span className="shrink-0 rounded-full bg-[#F0F7FF] px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
+                        +{extra}
+                      </span>
+                    )}
+                  </p>
+                );
+              })()}
             </div>
           ) : (
             <>

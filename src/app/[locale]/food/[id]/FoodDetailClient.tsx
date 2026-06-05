@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
@@ -12,12 +12,12 @@ import { formatPrice } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
-
-interface MenuItem {
-  name: string;
-  price: number;
-  description?: string;
-}
+import {
+  FOOD_AMENITIES,
+  SERVICE_CATEGORY_LABELS,
+  labelForRestaurantType,
+  labelForCuisineType,
+} from "@/lib/constants/listing-options";
 
 interface Props {
   service: ServiceWithFoodExtras;
@@ -29,6 +29,14 @@ const fadeIn = {
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.4 },
 };
+
+// "10:30 - 21:00" → "10:30-დან 21:00-მდე"; falls back to the raw string.
+function formatHoursRange(hours: string | null): string | null {
+  if (!hours) return null;
+  const match = hours.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  if (match) return `${match[1]}-დან ${match[2]}-მდე`;
+  return hours;
+}
 
 export default function FoodDetailClient({ service, isMock = false }: Props) {
   const router = useRouter();
@@ -44,12 +52,10 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service.id, isMock]);
 
-  const menuItems: MenuItem[] = Array.isArray(service.menu)
-    ? (service.menu as unknown as MenuItem[])
-    : [];
+  const categoryLabel = SERVICE_CATEGORY_LABELS[service.category] ?? null;
 
   const subtitleZone = service.location ?? null;
-  const subtitleHours = service.operating_hours ?? null;
+  const subtitleHours = formatHoursRange(service.operating_hours);
 
   const formatAvgCheck = (value: string | null): string | null => {
     if (!value) return null;
@@ -66,12 +72,9 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
         }`
       : null);
 
-  const amenityTags = [
-    service.has_kids_area && "საბავშვო სივრცე",
-    service.has_lounge && "ლაუნჯ ზონა",
-    service.has_live_music && "ცოცხალი მუსიკა",
-    service.has_delivery && "მიტანის სერვისი",
-  ].filter((tag): tag is string => Boolean(tag));
+  const amenityTags = FOOD_AMENITIES.filter(
+    (a) => (service as unknown as Record<string, unknown>)[a.key] === true,
+  ).map((a) => a.label);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
@@ -91,6 +94,11 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+            {categoryLabel && (
+              <span className="mb-3 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700">
+                {categoryLabel}
+              </span>
+            )}
             <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
               {service.title}
             </h1>
@@ -133,35 +141,6 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
               </div>
             </motion.div>
           )}
-
-          {menuItems.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
-              <h2 className="mb-4 flex items-center gap-2 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                <UtensilsCrossed className="h-5 w-5" />
-                მენიუ
-              </h2>
-              <div className="divide-y divide-[#E2E8F0] overflow-hidden rounded-xl border border-[#E2E8F0]">
-                {menuItems.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-[#F8FAFC]/60"
-                  >
-                    <div>
-                      <p className="font-medium text-[#1E293B]">{item.name}</p>
-                      {item.description && (
-                        <p className="mt-0.5 text-xs text-[#94A3B8]">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-                    <span className="shrink-0 font-semibold text-[#1E293B]">
-                      {formatPrice(item.price)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
         </div>
 
         <motion.aside
@@ -173,10 +152,10 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
         >
           <div className="sticky top-24 space-y-4">
             <FoodInfoCard
-              establishmentType={
-                service.restaurant_type ?? service.cuisine_type
-              }
-              cuisineType={service.cuisine_type}
+              establishmentType={labelForRestaurantType(
+                service.restaurant_type,
+              )}
+              cuisineType={labelForCuisineType(service.cuisine_type)}
               zone={service.location}
               rating={null}
               avgCheck={avgCheckLabel}

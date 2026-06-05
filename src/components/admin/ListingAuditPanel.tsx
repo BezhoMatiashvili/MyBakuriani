@@ -23,6 +23,7 @@ import PhotoUploader from "@/components/forms/PhotoUploader";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import {
   AMENITY_GROUPS,
+  FOOD_AMENITIES,
   HOSTING_LANGS,
   LISTING_STATUS_LABELS,
   PROPERTY_TYPE_LABELS,
@@ -880,26 +881,14 @@ function ServiceForm({
             />
           </Grid2>
           <Grid2>
-            <ToggleField
-              label="მიტანის სერვისი"
-              value={effective<boolean | null>("has_delivery", null) === true}
-              onChange={(v) => setField("has_delivery", v)}
-            />
-            <ToggleField
-              label="ბავშვთა სივრცე"
-              value={effective<boolean | null>("has_kids_area", null) === true}
-              onChange={(v) => setField("has_kids_area", v)}
-            />
-            <ToggleField
-              label="ცოცხალი მუსიკა"
-              value={effective<boolean | null>("has_live_music", null) === true}
-              onChange={(v) => setField("has_live_music", v)}
-            />
-            <ToggleField
-              label="ლაუნჯი"
-              value={effective<boolean | null>("has_lounge", null) === true}
-              onChange={(v) => setField("has_lounge", v)}
-            />
+            {FOOD_AMENITIES.map((a) => (
+              <ToggleField
+                key={a.key}
+                label={a.label}
+                value={effective<boolean | null>(a.key, null) === true}
+                onChange={(v) => setField(a.key, v)}
+              />
+            ))}
           </Grid2>
         </Section>
       )}

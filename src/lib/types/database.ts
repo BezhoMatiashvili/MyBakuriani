@@ -1326,6 +1326,9 @@ export type Database = {
           duration: string | null;
           good_for: string | null;
           restaurant_type: string | null;
+          rating: number | null;
+          reviews_count: number | null;
+          safety_notes: string | null;
           category: Database["public"]["Enums"]["service_category"];
           created_at: string | null;
           cuisine_type: string | null;
@@ -1387,6 +1390,9 @@ export type Database = {
           duration?: string | null;
           good_for?: string | null;
           restaurant_type?: string | null;
+          rating?: number | null;
+          reviews_count?: number | null;
+          safety_notes?: string | null;
           category: Database["public"]["Enums"]["service_category"];
           created_at?: string | null;
           cuisine_type?: string | null;
@@ -1448,6 +1454,9 @@ export type Database = {
           duration?: string | null;
           good_for?: string | null;
           restaurant_type?: string | null;
+          rating?: number | null;
+          reviews_count?: number | null;
+          safety_notes?: string | null;
           category?: Database["public"]["Enums"]["service_category"];
           created_at?: string | null;
           cuisine_type?: string | null;

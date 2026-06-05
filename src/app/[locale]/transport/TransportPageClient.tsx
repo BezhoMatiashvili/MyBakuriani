@@ -7,7 +7,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 
 const VEHICLE_TYPES = [
   { value: "all", label: "ყველა" },
-  { value: "minibus", label: "მინივენი" },
+  { value: "minivan", label: "მინივენი" },
   { value: "taxi", label: "ტაქსი" },
   { value: "microbus", label: "მიკროავტობუსი" },
   { value: "other", label: "სხვა" },
@@ -16,14 +16,17 @@ const VEHICLE_TYPES = [
 const ROUTE_FILTERS = [
   { value: "all", label: "ყველა" },
   { value: "შიდა გადაადგილება (ტაქსი)", label: "შიდა გადაადგილება (ტაქსი)" },
-  { value: "თბილისი - ბაკურიანი", label: "თბილისი - ბაკურიანი" },
+  {
+    value: "თბილისი - ბაკურიანი - თბილისი",
+    label: "თბილისი - ბაკურიანი",
+  },
   { value: "აეროპორტის ტრანსფერი", label: "აეროპორტის ტრანსფერი" },
   { value: "other", label: "სხვა" },
 ] as const;
 
 const KNOWN_ROUTES = new Set([
   "შიდა გადაადგილება (ტაქსი)",
-  "თბილისი - ბაკურიანი",
+  "თბილისი - ბაკურიანი - თბილისი",
   "აეროპორტის ტრანსფერი",
 ]);
 
@@ -49,10 +52,15 @@ export default function TransportPageClient({ services }: Props) {
         if ((s.transport_type ?? "") !== activeVehicle) return false;
       }
       if (activeRoute !== "all") {
-        const r = s.route ?? "";
+        const routesForListing =
+          s.routes && s.routes.length > 0
+            ? s.routes
+            : s.route
+              ? [s.route]
+              : [];
         if (activeRoute === "other") {
-          if (KNOWN_ROUTES.has(r)) return false;
-        } else if (r !== activeRoute) {
+          if (routesForListing.some((r) => KNOWN_ROUTES.has(r))) return false;
+        } else if (!routesForListing.includes(activeRoute)) {
           return false;
         }
       }
@@ -209,6 +217,7 @@ export default function TransportPageClient({ services }: Props) {
                     transportType={s.transport_type}
                     vehicleCapacity={s.vehicle_capacity}
                     route={s.route}
+                    routes={s.routes}
                   />
                 </ScrollReveal>
               ))}

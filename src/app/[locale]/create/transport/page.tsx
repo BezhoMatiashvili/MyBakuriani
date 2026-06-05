@@ -8,20 +8,12 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import { StyledSelect } from "@/components/ui/styled-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
-
-const VEHICLE_MAKES = [
-  { value: "Toyota", label: "Toyota" },
-  { value: "Mercedes-Benz", label: "Mercedes-Benz" },
-  { value: "Ford", label: "Ford" },
-  { value: "Mitsubishi", label: "Mitsubishi" },
-  { value: "Honda", label: "Honda" },
-  { value: "Volkswagen", label: "Volkswagen" },
-  { value: "სხვა", label: "სხვა" },
-] as const;
+import { VEHICLE_MAKES } from "@/lib/constants/listing-options";
 
 const TRANSPORT_TYPES = [
   { value: "minivan", label: "მინივენი" },
@@ -65,8 +57,7 @@ export default function CreateTransportPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [driverName, setDriverName] = useState("");
-  const [vehicleMake, setVehicleMake] =
-    useState<(typeof VEHICLE_MAKES)[number]["value"]>("Mercedes-Benz");
+  const [vehicleMake, setVehicleMake] = useState("Mercedes-Benz");
   const [transportType, setTransportType] =
     useState<(typeof TRANSPORT_TYPES)[number]["value"]>("minivan");
   const [vehicleCapacity, setVehicleCapacity] = useState("");
@@ -179,11 +170,13 @@ export default function CreateTransportPage() {
               />
             </Field>
             <Field label="მანქანის მარკა" required>
-              <StyledSelect
+              <SearchableSelect
                 value={vehicleMake}
                 onValueChange={setVehicleMake}
                 options={VEHICLE_MAKES}
                 accent="blue"
+                placeholder="აირჩიე მარკა"
+                searchPlaceholder="მოძებნე მარკა..."
               />
             </Field>
           </div>

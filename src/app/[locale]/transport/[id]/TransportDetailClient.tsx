@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -12,6 +12,28 @@ import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
+
+const TRANSPORT_TYPE_LABELS: Record<string, string> = {
+  minivan: "მინივენი",
+  minibus: "მინივენი",
+  taxi: "ტაქსი",
+  microbus: "მიკროავტობუსი",
+  other: "სხვა",
+};
+
+const PRICE_UNIT_LABELS: Record<string, string> = {
+  whole_car: "მთლიანი მანქანა",
+  on_demand: "გამოძახება",
+  per_person: "ერთ კაცზე",
+};
+
+function labelFor(
+  map: Record<string, string>,
+  value: string | null | undefined,
+) {
+  if (!value) return null;
+  return map[value] ?? value;
+}
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -165,7 +187,7 @@ export default function TransportDetailClient({
               ტიპი
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
-              {service.transport_type}
+              {labelFor(TRANSPORT_TYPE_LABELS, service.transport_type)}
             </span>
           </div>
         )}
@@ -190,13 +212,13 @@ export default function TransportDetailClient({
           className="mt-6"
         >
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            სერვისები და შესაძლებლობები
+            აღჭურვილობა და უსაფრთხოება
           </h2>
           <div className="flex flex-wrap gap-2">
             {service.equipment.map((item) => (
               <span
                 key={item}
-                className="rounded-full bg-[#F0F7FF] px-4 py-1.5 text-[13px] font-medium text-[#2563EB]"
+                className="rounded-[14px] border border-[#DBEAFE] bg-[#EFF6FF] px-4 py-2 text-[13px] font-semibold text-[#2563EB]"
               >
                 {item}
               </span>
@@ -231,20 +253,32 @@ export default function TransportDetailClient({
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             მარშრუტი და ფასი
           </h2>
-          <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6">
-            <ul className="flex flex-col gap-2">
-              {routes.map((r) => (
-                <li key={r} className="text-[16px] font-black text-[#1E293B]">
-                  {r}
-                </li>
-              ))}
-            </ul>
+          <div className="flex flex-col gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <ul className="flex flex-col gap-1">
+                {routes.map((r) => (
+                  <li
+                    key={r}
+                    className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]"
+                  >
+                    {r}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[12px] font-medium text-[#94A3B8]">
+                საწყისი ფასი
+              </p>
+            </div>
             {service.price != null && (
-              <div className="mt-4 border-t border-[#E2E8F0] pt-4">
-                <p className="text-[24px] font-black text-[#1E293B]">
+              <div className="shrink-0 sm:text-right">
+                <p className="text-[26px] font-black leading-tight text-[#1E293B] sm:text-[28px]">
                   {formatPrice(service.price)}
                 </p>
-                <p className="text-[12px] text-[#94A3B8]">(მთლიანი მანძილი)</p>
+                {service.price_unit && (
+                  <p className="mt-0.5 text-[12px] text-[#94A3B8]">
+                    ({labelFor(PRICE_UNIT_LABELS, service.price_unit)})
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -264,11 +298,9 @@ export default function TransportDetailClient({
               <span className="text-[28px] font-black leading-[32px] text-[#1E293B] sm:text-[32px]">
                 {formatPrice(service.price)}
               </span>
-              {service.price_unit && (
-                <span className="ml-1 text-sm text-[#94A3B8]">
-                  / {service.price_unit} ფასი
-                </span>
-              )}
+              <span className="ml-1 text-sm text-[#94A3B8]">
+                / საწყისი ფასი
+              </span>
             </div>
           )}
         </div>
@@ -286,7 +318,7 @@ export default function TransportDetailClient({
 
       {service.price != null && (
         <MobileStickyCTA
-          primary={`${formatPrice(service.price)}${service.price_unit ? ` / ${service.price_unit}` : ""}`}
+          primary={`${formatPrice(service.price)} / საწყისი ფასი`}
           secondary={service.location ?? undefined}
           ctaLabel="დარეკვა"
           onClick={() =>
