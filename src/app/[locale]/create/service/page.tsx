@@ -17,12 +17,11 @@ import { cn } from "@/lib/utils";
 import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
 
 const SERVICE_SPHERES = [
-  { value: "cleaning", label: "დასუფთავება / დამლაგებელი" },
-  { value: "plumbing", label: "სანტექნიკა / გათბობის ქვები" },
-  { value: "electrical", label: "ელექტრობა" },
-  { value: "locksmith", label: "საკეტები" },
-  { value: "appliance_repair", label: "ტექნიკის შეკეთება" },
-  { value: "handyman", label: "ხელოსანი" },
+  { value: "cleaning", label: "დასუფთავება/დამლაგებელი" },
+  { value: "handymen", label: "ხელოსნები" },
+  { value: "staff", label: "მომსახურე პერსონალი" },
+  { value: "tourism", label: "ტურიზმი" },
+  { value: "sales", label: "გაყიდვები/ვაჭრობა" },
   { value: "other", label: "სხვა" },
 ] as const;
 
@@ -40,6 +39,7 @@ export default function CreateServicePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const [serviceTitle, setServiceTitle] = useState("");
   const [experienceYears, setExperienceYears] = useState("");
   const [sphere, setSphere] = useState<SphereValue>("cleaning");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
@@ -57,6 +57,7 @@ export default function CreateServicePage() {
 
   const requiredFilled = [
     name.trim().length > 0,
+    serviceTitle.trim().length > 0,
     experienceYears.trim().length > 0,
     !!sphere,
     !!profilePhoto,
@@ -66,7 +67,7 @@ export default function CreateServicePage() {
     price.trim().length > 0,
     phone.trim().length > 0,
   ].filter(Boolean).length;
-  const progressPercent = Math.max(10, Math.round((requiredFilled / 9) * 100));
+  const progressPercent = Math.max(10, Math.round((requiredFilled / 10) * 100));
 
   function toggleZone(zone: string) {
     setCoverageZones((prev) =>
@@ -88,11 +89,15 @@ export default function CreateServicePage() {
     try {
       const categoryValue: "cleaning" | "handyman" =
         sphere === "cleaning" ? "cleaning" : "handyman";
+      const sphereLabel =
+        SERVICE_SPHERES.find((s) => s.value === sphere)?.label ?? null;
 
       const insertPayload: Record<string, unknown> = {
         owner_id: user.id,
         category: categoryValue,
-        title: name.trim(),
+        title: serviceTitle.trim(),
+        provider_name: name.trim(),
+        service_field: sphereLabel,
         description: description.trim() || null,
         price: price ? Number(price) : null,
         price_unit: "საათი",
@@ -122,6 +127,7 @@ export default function CreateServicePage() {
 
   const submitDisabled =
     !name.trim() ||
+    !serviceTitle.trim() ||
     !experienceYears.trim() ||
     !profilePhoto ||
     coverageZones.length === 0 ||
@@ -176,6 +182,16 @@ export default function CreateServicePage() {
             onValueChange={(v) => setSphere(v as SphereValue)}
             options={SERVICE_SPHERES}
             accent="blue"
+          />
+        </Field>
+
+        <Field label="სათაური" required>
+          <input
+            type="text"
+            value={serviceTitle}
+            onChange={(e) => setServiceTitle(e.target.value)}
+            placeholder="პროფესიონალი დამლაგებელი"
+            className={inputClass}
           />
         </Field>
 

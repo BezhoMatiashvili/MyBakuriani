@@ -1356,6 +1356,8 @@ export type Database = {
           position: string | null;
           price: number | null;
           price_unit: string | null;
+          provider_name: string | null;
+          service_field: string | null;
           requirements: string | null;
           route: string | null;
           routes: string[] | null;
@@ -1415,6 +1417,8 @@ export type Database = {
           position?: string | null;
           price?: number | null;
           price_unit?: string | null;
+          provider_name?: string | null;
+          service_field?: string | null;
           requirements?: string | null;
           route?: string | null;
           routes?: string[] | null;
@@ -1474,6 +1478,8 @@ export type Database = {
           position?: string | null;
           price?: number | null;
           price_unit?: string | null;
+          provider_name?: string | null;
+          service_field?: string | null;
           requirements?: string | null;
           route?: string | null;
           routes?: string[] | null;
