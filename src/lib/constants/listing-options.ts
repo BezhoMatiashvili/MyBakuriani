@@ -78,3 +78,151 @@ export const LISTING_STATUS_LABELS: Record<string, string> = {
   pending: "მოლოდინში",
   draft: "შავი ვარიანტი",
 };
+
+export const FOOD_AMENITIES = [
+  { key: "has_kids_area", label: "საბავშვო სივრცე" },
+  { key: "has_lounge", label: "მოწევის ზონა" },
+  { key: "has_delivery", label: "მიტანის სერვისი" },
+  { key: "has_live_music", label: "ცოცხალი მუსიკა" },
+] as const;
+
+export type FoodAmenityKey = (typeof FOOD_AMENITIES)[number]["key"];
+
+// Shared food option lists — single source of truth for the /create/food form
+// and the /food/[id] detail page.
+export const RESTAURANT_TYPES = [
+  { value: "restaurant", label: "რესტორანი" },
+  { value: "cafe", label: "კაფე / საკონდიტრო" },
+  { value: "bar", label: "ბარი / პაბი" },
+  { value: "fast_food", label: "სწრაფი კვება" },
+  { value: "other", label: "სხვა" },
+];
+
+export const CUISINE_TYPES = [
+  { value: "georgian", label: "ქართული" },
+  { value: "european", label: "ევროპული" },
+  { value: "asian", label: "აზიური" },
+  { value: "mixed", label: "შერეული" },
+];
+
+export const AVG_CHECK_OPTIONS = [
+  { value: "10-30", label: "10-30 ₾" },
+  { value: "30-60", label: "30-60 ₾" },
+  { value: "60-100", label: "60-100 ₾" },
+  { value: "100+", label: "100 ₾+" },
+];
+
+// Resolve a stored value to its Georgian label. The create form saves labels,
+// while seed/legacy rows store raw codes (e.g. "georgian"). Handles both, and
+// passes through any unknown custom value unchanged.
+function resolveLabel(
+  options: ReadonlyArray<{ value: string; label: string }>,
+  value: string | null,
+): string | null {
+  if (!value) return null;
+  return (
+    options.find((o) => o.value === value)?.label ??
+    options.find((o) => o.label === value)?.label ??
+    value
+  );
+}
+
+export function labelForRestaurantType(value: string | null): string | null {
+  return resolveLabel(RESTAURANT_TYPES, value);
+}
+
+export function labelForCuisineType(value: string | null): string | null {
+  return resolveLabel(CUISINE_TYPES, value);
+}
+
+// Comprehensive car-brand list for the /create/transport form (alphabetical,
+// Latin names), with "სხვა" (Other) always last so owners can pick anything
+// not listed.
+const VEHICLE_MAKE_NAMES = [
+  "Acura",
+  "Alfa Romeo",
+  "Aston Martin",
+  "Audi",
+  "Bentley",
+  "BMW",
+  "Buick",
+  "BYD",
+  "Cadillac",
+  "Changan",
+  "Chery",
+  "Chevrolet",
+  "Chrysler",
+  "Citroen",
+  "Dacia",
+  "Daewoo",
+  "Daihatsu",
+  "Dodge",
+  "DS",
+  "Ferrari",
+  "Fiat",
+  "Ford",
+  "GAZ",
+  "Geely",
+  "Genesis",
+  "GMC",
+  "Great Wall",
+  "Haval",
+  "Honda",
+  "Hummer",
+  "Hyundai",
+  "Infiniti",
+  "Isuzu",
+  "Iveco",
+  "Jaguar",
+  "Jeep",
+  "Kia",
+  "Lada",
+  "Lamborghini",
+  "Lancia",
+  "Land Rover",
+  "Lexus",
+  "Lincoln",
+  "Lotus",
+  "Maserati",
+  "Maybach",
+  "Mazda",
+  "McLaren",
+  "Mercedes-Benz",
+  "Mercury",
+  "MG",
+  "Mini",
+  "Mitsubishi",
+  "Nissan",
+  "Opel",
+  "Peugeot",
+  "Polestar",
+  "Pontiac",
+  "Porsche",
+  "RAM",
+  "Renault",
+  "Rolls-Royce",
+  "Rover",
+  "Saab",
+  "SEAT",
+  "Skoda",
+  "Smart",
+  "SsangYong",
+  "Subaru",
+  "Suzuki",
+  "Tank",
+  "Tata",
+  "Tesla",
+  "Toyota",
+  "UAZ",
+  "Volkswagen",
+  "Volvo",
+  "Wuling",
+  "Xpeng",
+  "Zeekr",
+  "ZAZ",
+] as const;
+
+export const VEHICLE_MAKES: { value: string; label: string }[] = [
+  ...VEHICLE_MAKE_NAMES.map((m) => ({ value: m, label: m })),
+  { value: "სხვა", label: "სხვა" },
+];

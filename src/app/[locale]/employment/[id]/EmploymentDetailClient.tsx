@@ -99,8 +99,16 @@ function SidebarRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+const SALARY_MODEL_VALUES = [
+  "ფიქსირებული",
+  "ფიქსირებული + ბონუსი/Tips",
+  "გამომუშავებით (%)",
+  "შეთანხმებით",
+];
+
 function salaryModelLabel(salaryType: string | null): string {
-  return salaryType?.trim() || "ფიქსირებული";
+  const v = salaryType?.trim();
+  return v && SALARY_MODEL_VALUES.includes(v) ? v : "ფიქსირებული";
 }
 
 const fadeIn = {

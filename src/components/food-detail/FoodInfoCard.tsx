@@ -39,7 +39,7 @@ export function FoodInfoCard({
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 rounded-[20px] bg-[#F8FAFC] p-6">
       <Cell label="ტიპი">{establishmentType ?? "—"}</Cell>
-      <Cell label="სამზარეული">{cuisineType ?? "—"}</Cell>
+      <Cell label="სამზარეულო">{cuisineType ?? "—"}</Cell>
 
       <Cell label="ზონა">{zone ?? "—"}</Cell>
       <Cell label="რეიტინგი">

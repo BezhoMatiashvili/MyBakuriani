@@ -20,6 +20,7 @@ const SUB_CATEGORIES = [
   { value: "horses", label: "ცხენები" },
   { value: "snowmobiles", label: "ბურანები" },
   { value: "quadbikes", label: "კვადროციკლები" },
+  { value: "buggy", label: "ბაგი" },
   { value: "other", label: "სხვა" },
 ] as const;
 
@@ -81,6 +82,8 @@ function matchesSubCategory(s: Tables<"services">, value: string): boolean {
       return title.includes("ბურან");
     case "quadbikes":
       return title.includes("კვადროცი");
+    case "buggy":
+      return title.includes("ბაგ") || s.activity_category === "ბაგი";
     case "other":
       return true;
     default:

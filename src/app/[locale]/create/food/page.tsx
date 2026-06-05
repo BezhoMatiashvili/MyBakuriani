@@ -14,28 +14,13 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
-
-const RESTAURANT_TYPES = [
-  { value: "restaurant", label: "რესტორანი" },
-  { value: "cafe", label: "კაფე / საკონდიტრო" },
-  { value: "bar", label: "ბარი / პაბი" },
-  { value: "fast_food", label: "სწრაფი კვება" },
-  { value: "other", label: "სხვა" },
-];
-
-const CUISINE_TYPES = [
-  { value: "georgian", label: "ქართული" },
-  { value: "european", label: "ევროპული" },
-  { value: "asian", label: "აზიური" },
-  { value: "mixed", label: "შერეული" },
-];
-
-const AVG_CHECK_OPTIONS = [
-  { value: "10-30", label: "10-30 ₾" },
-  { value: "30-60", label: "30-60 ₾" },
-  { value: "60-100", label: "60-100 ₾" },
-  { value: "100+", label: "100 ₾+" },
-];
+import {
+  FOOD_AMENITIES,
+  type FoodAmenityKey,
+  RESTAURANT_TYPES,
+  CUISINE_TYPES,
+  AVG_CHECK_OPTIONS,
+} from "@/lib/constants/listing-options";
 
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 10;
@@ -60,10 +45,16 @@ export default function CreateFoodPage() {
   const [exactLocation, setExactLocation] = useState("");
   const [avgCheck, setAvgCheck] = useState("");
   const [operatingHours, setOperatingHours] = useState("");
-  const [hasKidsArea, setHasKidsArea] = useState(false);
-  const [hasLounge, setHasLounge] = useState(false);
-  const [hasDelivery, setHasDelivery] = useState(false);
-  const [hasLiveMusic, setHasLiveMusic] = useState(false);
+  const [amenities, setAmenities] = useState<Record<FoodAmenityKey, boolean>>(
+    () =>
+      FOOD_AMENITIES.reduce(
+        (acc, a) => {
+          acc[a.key] = false;
+          return acc;
+        },
+        {} as Record<FoodAmenityKey, boolean>,
+      ),
+  );
   const [menuFile, setMenuFile] = useState<File | null>(null);
   const [menuUrlInput, setMenuUrlInput] = useState("");
   const [description, setDescription] = useState("");
@@ -87,14 +78,14 @@ export default function CreateFoodPage() {
 
   async function uploadMenuPdf(): Promise<string | null> {
     if (!menuFile || !user) return null;
-    const ext = "pdf";
-    const path = `menus/${user.id}/${crypto.randomUUID()}.${ext}`;
+    const path = `${user.id}/${crypto.randomUUID()}.pdf`;
     const { error: upErr } = await supabase.storage
-      .from("property-photos")
+      .from("restaurant-menus")
       .upload(path, menuFile, { contentType: "application/pdf" });
-    if (upErr) throw upErr;
+    if (upErr)
+      throw new Error(`მენიუს ატვირთვა ვერ მოხერხდა: ${upErr.message}`);
     const { data } = supabase.storage
-      .from("property-photos")
+      .from("restaurant-menus")
       .getPublicUrl(path);
     return data.publicUrl;
   }
@@ -133,10 +124,7 @@ export default function CreateFoodPage() {
           CUISINE_TYPES.find((t) => t.value === cuisineType)?.label || null,
         avg_check: avgCheck,
         menu_url: menuUrl,
-        has_kids_area: hasKidsArea,
-        has_lounge: hasLounge,
-        has_delivery: hasDelivery,
-        has_live_music: hasLiveMusic,
+        ...amenities,
         operating_hours: operatingHours.trim() || null,
         location: zone || exactLocation.trim() || null,
         phone: phone ? `+995${phone}` : null,
@@ -295,26 +283,16 @@ export default function CreateFoodPage() {
               დამატებითი დეტალები
             </label>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <ServiceCheckbox
-                label="საბავშვო სივრცე"
-                checked={hasKidsArea}
-                onChange={setHasKidsArea}
-              />
-              <ServiceCheckbox
-                label="მოსაწვევი ზონა"
-                checked={hasLounge}
-                onChange={setHasLounge}
-              />
-              <ServiceCheckbox
-                label="მიტანის სერვისი"
-                checked={hasDelivery}
-                onChange={setHasDelivery}
-              />
-              <ServiceCheckbox
-                label="ცოცხალი მუსიკა"
-                checked={hasLiveMusic}
-                onChange={setHasLiveMusic}
-              />
+              {FOOD_AMENITIES.map((a) => (
+                <ServiceCheckbox
+                  key={a.key}
+                  label={a.label}
+                  checked={amenities[a.key]}
+                  onChange={(v) =>
+                    setAmenities((prev) => ({ ...prev, [a.key]: v }))
+                  }
+                />
+              ))}
             </div>
           </div>
         </WizardInnerCard>

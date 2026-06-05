@@ -7,7 +7,6 @@ import {
   WizardInnerCard,
   WizardFooter,
 } from "@/components/forms/WizardShell";
-import PhoneInput from "@/components/forms/PhoneInput";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
@@ -18,12 +17,6 @@ const EMPLOYMENT_TYPE_OPTIONS = [
   { value: "სრული განაკვეთი", label: "სრული განაკვეთი" },
   { value: "ნახევარი განაკვეთი", label: "ნახევარი განაკვეთი" },
   { value: "მოქნილი", label: "მოქნილი" },
-] as const;
-
-const WORK_SCHEDULE_OPTIONS = [
-  { value: "დილის ცვლა", label: "დილის ცვლა" },
-  { value: "საღამოს ცვლა", label: "საღამოს ცვლა" },
-  { value: "ცვლებში", label: "ცვლებში" },
 ] as const;
 
 const SALARY_TYPE_OPTIONS = [
@@ -61,13 +54,10 @@ export default function CreateEmploymentPage() {
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState<string>("");
   const [position, setPosition] = useState("");
-  const [phone, setPhone] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
 
   // Section 2
   const [employmentType, setEmploymentType] =
     useState<string>("სრული განაკვეთი");
-  const [workSchedule, setWorkSchedule] = useState<string>("ცვლებში");
   const [salaryType, setSalaryType] = useState<string>("ფიქსირებული");
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
@@ -85,7 +75,6 @@ export default function CreateEmploymentPage() {
     title.trim().length > 0,
     location.trim().length > 0,
     position.trim().length > 0,
-    phone.trim().length > 0,
     salaryMin.trim().length > 0,
     salaryMax.trim().length > 0,
     workDescription.trim().length > 0,
@@ -109,9 +98,6 @@ export default function CreateEmploymentPage() {
     setError(null);
 
     try {
-      if (!phone.trim()) {
-        throw new Error("მიუთითეთ ტელეფონის ნომერი");
-      }
       const { error: insertError } = await supabase.from("services").insert({
         owner_id: user.id,
         category: "employment",
@@ -119,10 +105,7 @@ export default function CreateEmploymentPage() {
         description: workDescription.trim() || null,
         position: position.trim() || null,
         location: location || null,
-        phone: phone ? `+995${phone}` : null,
-        whatsapp: whatsapp ? `+995${whatsapp}` : null,
         employment_type: employmentType || null,
-        work_schedule: workSchedule || null,
         salary_type: salaryType || null,
         salary_min: salaryMin ? Number(salaryMin) : null,
         salary_max: salaryMax ? Number(salaryMax) : null,
@@ -135,7 +118,6 @@ export default function CreateEmploymentPage() {
         // legacy compatibility
         salary_range:
           salaryMin && salaryMax ? `${salaryMin}-${salaryMax} ₾` : null,
-        employment_schedule: workSchedule || null,
         status: "pending",
       });
 
@@ -196,15 +178,6 @@ export default function CreateEmploymentPage() {
             className={inputClass}
           />
         </Field>
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="საკონტაქტო ტელეფონი" required>
-            <PhoneInput value={phone} onChange={setPhone} />
-          </Field>
-          <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
-            <PhoneInput value={whatsapp} onChange={setWhatsapp} />
-          </Field>
-        </div>
       </WizardInnerCard>
 
       {/* SECTION 2 */}
@@ -218,17 +191,6 @@ export default function CreateEmploymentPage() {
               accent="blue"
             />
           </Field>
-          <Field label="სამუშაო გრაფიკი">
-            <StyledSelect
-              value={workSchedule}
-              onValueChange={setWorkSchedule}
-              options={WORK_SCHEDULE_OPTIONS}
-              accent="blue"
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="ანაზღაურების ტიპი">
             <StyledSelect
               value={salaryType}
@@ -237,34 +199,35 @@ export default function CreateEmploymentPage() {
               accent="blue"
             />
           </Field>
-          <Field label="ანაზღაურება (₾)" required>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <CurrencyInput
-                  value={salaryMin}
-                  onChange={setSalaryMin}
-                  placeholder="1200"
-                />
-                <span className="text-sm font-medium text-[#94A3B8]">–</span>
-                <CurrencyInput
-                  value={salaryMax}
-                  onChange={setSalaryMax}
-                  placeholder="1500"
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 text-xs font-medium text-[#94A3B8]">
-                  ან
-                </span>
-                <CurrencyInput
-                  value={salaryDaily}
-                  onChange={setSalaryDaily}
-                  placeholder="დღიური ანაზღაურება"
-                />
-              </div>
-            </div>
-          </Field>
         </div>
+
+        <Field label="ანაზღაურება (₾)" required>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <CurrencyInput
+                value={salaryMin}
+                onChange={setSalaryMin}
+                placeholder="1200"
+              />
+              <span className="text-sm font-medium text-[#94A3B8]">–</span>
+              <CurrencyInput
+                value={salaryMax}
+                onChange={setSalaryMax}
+                placeholder="1500"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="shrink-0 text-xs font-medium text-[#94A3B8]">
+                ან
+              </span>
+              <CurrencyInput
+                value={salaryDaily}
+                onChange={setSalaryDaily}
+                placeholder="დღიური ანაზღაურება"
+              />
+            </div>
+          </div>
+        </Field>
       </WizardInnerCard>
 
       {/* SECTION 3 */}

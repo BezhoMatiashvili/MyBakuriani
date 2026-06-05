@@ -43,6 +43,7 @@ const ACTIVITY_CATEGORIES = [
   { value: "horses", label: "ცხენები" },
   { value: "buggies", label: "ბურანები" },
   { value: "quad_bikes", label: "კვადროციკლები" },
+  { value: "buggy", label: "ბაგი" },
   { value: "other", label: "სხვა" },
 ] as const;
 
@@ -107,6 +108,7 @@ export default function CreateEntertainmentPage() {
   const [ageMin, setAgeMin] = useState<Age>("16+");
   const [goodFor, setGoodFor] = useState<GoodFor>("extreme_lovers");
   const [workingHours, setWorkingHours] = useState("10:00 - 18:00");
+  const [safetyNotes, setSafetyNotes] = useState("");
 
   const [price, setPrice] = useState("");
   const [priceUnit, setPriceUnit] = useState<PriceUnit>("1h");
@@ -160,6 +162,7 @@ export default function CreateEntertainmentPage() {
         duration: durationLabel || null,
         age_min: ageLabel || null,
         good_for: goodForLabel || null,
+        safety_notes: safetyNotes.trim() || null,
         price: price ? Number(price) : null,
         price_unit: priceUnitLabel || null,
         schedule: workingHours.trim() || null,
@@ -316,6 +319,16 @@ export default function CreateEntertainmentPage() {
             />
           </Field>
         </div>
+
+        <Field label="უსაფრთხოება და პირობები">
+          <textarea
+            value={safetyNotes}
+            onChange={(e) => setSafetyNotes(e.target.value)}
+            placeholder="მაგ: ჩაიცვით შესაბამისი დასაცავი აღჭურვილობა, ტურს ახლავს პროფესიონალი ინსტრუქტორი"
+            rows={3}
+            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+          />
+        </Field>
       </WizardInnerCard>
 
       {/* Section 3 — Tariff */}
