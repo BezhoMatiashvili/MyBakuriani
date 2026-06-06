@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { leadsClient } from "@/lib/supabase/leads";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatNumber } from "@/lib/utils/format";
 
 interface FunnelStage {
   label: string;
@@ -198,7 +199,7 @@ export default function SellerAnalyticsPage() {
                       <span
                         className={`text-[13px] font-black ${stage.textColor}`}
                       >
-                        {stage.value.toLocaleString("ka-GE")}
+                        {formatNumber(stage.value)}
                       </span>
                     </motion.div>
                   </div>

@@ -17,7 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatNumber } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
@@ -135,7 +135,7 @@ export default function ServiceDashboardPage() {
         <StatTile
           icon={<Eye className="h-4 w-4" />}
           label="სულ ნახვა"
-          value={stats.views.toLocaleString()}
+          value={formatNumber(stats.views)}
           color="text-[#2563EB]"
           bg="bg-[#EFF6FF]"
           loading={loading}

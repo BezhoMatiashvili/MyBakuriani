@@ -174,7 +174,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-160px)] items-center justify-center px-4 py-12">
+    <div className="flex min-h-[calc(100dvh-160px)] items-center justify-center px-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

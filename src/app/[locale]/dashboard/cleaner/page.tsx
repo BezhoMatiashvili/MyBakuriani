@@ -6,7 +6,7 @@ import { MapPin, Calendar, Sparkles, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatDateShort, formatTime } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type TaskRow = Tables<"cleaning_tasks"> & {
@@ -236,12 +236,7 @@ function TaskCard({
   onDone: () => void;
 }) {
   const dateLabel = task.scheduled_at
-    ? new Date(task.scheduled_at).toLocaleDateString("ka-GE", {
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+    ? formatDateShort(task.scheduled_at)
     : "—";
 
   return (

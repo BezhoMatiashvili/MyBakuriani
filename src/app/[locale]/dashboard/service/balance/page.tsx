@@ -14,6 +14,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
@@ -275,15 +276,7 @@ export default function ServiceBalancePage() {
                       {TX_LABEL[tx.type] ?? tx.type}
                     </p>
                     <p className="text-[11px] text-[#94A3B8]">
-                      {new Date(tx.created_at ?? "").toLocaleDateString(
-                        "ka-GE",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
+                      {formatDate(tx.created_at)}
                     </p>
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import { Plus, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { leadsClient } from "@/lib/supabase/leads";
+import { formatNumber } from "@/lib/utils/format";
 import AddLeadModal, {
   type LeadInput,
   type LeadStage,
@@ -108,9 +109,9 @@ function formatBudget(
 ) {
   const sym = currency === "USD" ? "$" : currency === "EUR" ? "€" : "₾";
   if (min && max)
-    return `${sym}${min.toLocaleString()}–${sym}${max.toLocaleString()}`;
-  if (min) return `${sym}${min.toLocaleString()}+`;
-  if (max) return `<${sym}${max.toLocaleString()}`;
+    return `${sym}${formatNumber(min)}–${sym}${formatNumber(max)}`;
+  if (min) return `${sym}${formatNumber(min)}+`;
+  if (max) return `<${sym}${formatNumber(max)}`;
   return null;
 }
 

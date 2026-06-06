@@ -11,6 +11,7 @@ import {
 import { Flame, Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatNumber } from "@/lib/utils/format";
 
 type Ad = {
   id: string;
@@ -236,9 +237,9 @@ export default function ModerationPage() {
                   {[
                     {
                       label: "ნახვები",
-                      value: ad.views_count.toLocaleString(),
+                      value: formatNumber(ad.views_count),
                     },
-                    { label: "კლიკი", value: ad.clicks_count.toLocaleString() },
+                    { label: "კლიკი", value: formatNumber(ad.clicks_count) },
                     { label: "კლიკების %", value: `${ctr}%` },
                     {
                       label: "დარჩენილია",

@@ -941,6 +941,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      project_updates: {
+        Row: {
+          created_at: string;
+          id: string;
+          note: string | null;
+          owner_id: string;
+          photos: string[];
+          property_id: string;
+          status: string | null;
+          update_date: string;
+          video_url: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          note?: string | null;
+          owner_id: string;
+          photos?: string[];
+          property_id: string;
+          status?: string | null;
+          update_date?: string;
+          video_url?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          note?: string | null;
+          owner_id?: string;
+          photos?: string[];
+          property_id?: string;
+          status?: string | null;
+          update_date?: string;
+          video_url?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_updates_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_updates_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       promocodes: {
         Row: {
           code: string;
@@ -998,7 +1049,9 @@ export type Database = {
           capacity: number | null;
           cleaning_fee: number | null;
           completion_year: number | null;
+          construction_image_url: string | null;
           construction_progress_percent: number | null;
+          construction_stages: string[];
           construction_status: string | null;
           created_at: string | null;
           currency: string | null;
@@ -1027,12 +1080,16 @@ export type Database = {
           registration_readiness: string | null;
           renovation_status: string | null;
           roi_percent: number | null;
+          roi_percent_max: number | null;
           room_type: string | null;
           rooms: number | null;
           sale_price: number | null;
           status: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
           type: Database["public"]["Enums"]["property_type"];
+          units_reserved: number;
+          units_sold: number;
+          units_total: number | null;
           updated_at: string | null;
           views_count: number | null;
           vip_expires_at: string | null;
@@ -1047,7 +1104,9 @@ export type Database = {
           capacity?: number | null;
           cleaning_fee?: number | null;
           completion_year?: number | null;
+          construction_image_url?: string | null;
           construction_progress_percent?: number | null;
+          construction_stages?: string[];
           construction_status?: string | null;
           created_at?: string | null;
           currency?: string | null;
@@ -1076,12 +1135,16 @@ export type Database = {
           registration_readiness?: string | null;
           renovation_status?: string | null;
           roi_percent?: number | null;
+          roi_percent_max?: number | null;
           room_type?: string | null;
           rooms?: number | null;
           sale_price?: number | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
           type: Database["public"]["Enums"]["property_type"];
+          units_reserved?: number;
+          units_sold?: number;
+          units_total?: number | null;
           updated_at?: string | null;
           views_count?: number | null;
           vip_expires_at?: string | null;
@@ -1096,7 +1159,9 @@ export type Database = {
           capacity?: number | null;
           cleaning_fee?: number | null;
           completion_year?: number | null;
+          construction_image_url?: string | null;
           construction_progress_percent?: number | null;
+          construction_stages?: string[];
           construction_status?: string | null;
           created_at?: string | null;
           currency?: string | null;
@@ -1125,12 +1190,16 @@ export type Database = {
           registration_readiness?: string | null;
           renovation_status?: string | null;
           roi_percent?: number | null;
+          roi_percent_max?: number | null;
           room_type?: string | null;
           rooms?: number | null;
           sale_price?: number | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title?: string;
           type?: Database["public"]["Enums"]["property_type"];
+          units_reserved?: number;
+          units_sold?: number;
+          units_total?: number | null;
           updated_at?: string | null;
           views_count?: number | null;
           vip_expires_at?: string | null;

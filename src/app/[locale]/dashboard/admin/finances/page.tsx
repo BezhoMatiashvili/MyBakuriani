@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import {
+  formatPrice,
+  formatDateTime as formatDateTimeGe,
+} from "@/lib/utils/format";
 
 type Tx = {
   id: string;
@@ -27,12 +30,7 @@ function formatDateTime(input: string | null) {
   if (!input) return "—";
   const d = new Date(input);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("ka-GE", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeGe(d);
 }
 
 export default function AdminFinancesPage() {

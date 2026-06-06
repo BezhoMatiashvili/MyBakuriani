@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { maskPhone } from "@/lib/utils/format";
+import { maskPhone, formatDate } from "@/lib/utils/format";
 import type { AdminPendingSms } from "@/app/api/admin/sms/pending/route";
 
 const STATUS_TABS = [
@@ -151,10 +151,7 @@ export default function AdminSmsApprovalsPage() {
                   {row.channel === "whatsapp" ? "WhatsApp" : "ზარი"}
                   {row.contact_event_created_at && (
                     <span className="ml-1 text-[#94A3B8]">
-                      ·{" "}
-                      {new Date(
-                        row.contact_event_created_at,
-                      ).toLocaleDateString("ka-GE")}
+                      · {formatDate(row.contact_event_created_at)}
                     </span>
                   )}
                 </span>

@@ -10,7 +10,9 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
-import ProgressUpdateModal from "@/components/seller/ProgressUpdateModal";
+import MultiSegmentBar from "@/components/shared/MultiSegmentBar";
+import ConstructionManagementModal from "@/components/seller/ConstructionManagementModal";
+import { getUnitsBreakdown } from "@/lib/constants/construction";
 import { formatRelativeGe } from "@/lib/utils/format";
 
 const constructionStatusLabel: Record<string, string> = {
@@ -135,6 +137,7 @@ export default function SellerListingsPage() {
               property.updated_at ??
               property.created_at;
             const lastNote = property.progress_note ?? "";
+            const units = getUnitsBreakdown(property);
 
             return (
               <motion.div
@@ -183,7 +186,29 @@ export default function SellerListingsPage() {
                 </div>
 
                 <div className="p-5">
-                  {isUnderConstruction ? (
+                  {units.total > 0 ? (
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between gap-2 text-[12px]">
+                        <span className="font-bold text-[#64748B]">
+                          გაყიდვების პროგრესი
+                        </span>
+                        <span className="font-black text-[#0F172A]">
+                          {units.soldPct}% ({units.sold + units.reserved}/
+                          {units.total})
+                        </span>
+                      </div>
+                      <MultiSegmentBar
+                        total={units.total}
+                        sold={units.sold}
+                        reserved={units.reserved}
+                      />
+                      <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                        <LegendDot color="#16A34A" label="გაყიდული" />
+                        <LegendDot color="#F59E0B" label="ჯავშანი" />
+                        <LegendDot color="#E2E8F0" label="თავისუფალი" />
+                      </div>
+                    </div>
+                  ) : isUnderConstruction ? (
                     <ConstructionProgressBar
                       percent={progressPercent}
                       hint={
@@ -230,7 +255,7 @@ export default function SellerListingsPage() {
         )}
       </div>
 
-      <ProgressUpdateModal
+      <ConstructionManagementModal
         property={editingProperty}
         onClose={() => setEditingProperty(null)}
         onSaved={(updated) =>
@@ -240,5 +265,17 @@ export default function SellerListingsPage() {
         }
       />
     </div>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className="size-2 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-[12px] font-medium text-[#475569]">{label}</span>
+    </span>
   );
 }

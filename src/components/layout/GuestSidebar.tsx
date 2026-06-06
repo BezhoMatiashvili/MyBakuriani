@@ -22,6 +22,7 @@ interface GuestSidebarProps {
   isVerified?: boolean;
   currentPath: string;
   onSignOut: () => void;
+  availableCabinets: string[];
 }
 
 interface NavItem {
@@ -92,6 +93,7 @@ export function GuestSidebar({
   isVerified = true,
   currentPath,
   onSignOut,
+  availableCabinets,
 }: GuestSidebarProps) {
   const initials = userName
     .split(" ")
@@ -108,7 +110,7 @@ export function GuestSidebar({
         </Link>
       </div>
 
-      <CabinetSwitcher activeKey="guest">
+      <CabinetSwitcher activeKey="guest" availableKeys={availableCabinets}>
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}

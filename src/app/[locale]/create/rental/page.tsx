@@ -33,8 +33,8 @@ const STEP_TITLES = [
   "ძირითადი ინფორმაცია",
   "ბინის დეტალები და მდებარეობა",
   "კეთილმოწყობა და დეტალები",
-  "ხელმისაწვდომობა",
-  "ფასი, ფოტოები და კონტაქტი",
+  "ფასი და ხელმისაწვდომობა",
+  "ფოტოები და კონტაქტი",
 ];
 
 function buildDefaultAvailability(): Map<string, AvailabilityStatus> {
@@ -124,6 +124,11 @@ function CreateRentalPageInner() {
   const availabilityBaselineRef = useRef<Map<string, AvailabilityStatus>>(
     new Map(),
   );
+  // Per-day price overrides (date → absolute price). Absent = base price.
+  const [priceOverrides, setPriceOverrides] = useState<Map<string, number>>(
+    () => new Map(),
+  );
+  const priceOverridesBaselineRef = useRef<Map<string, number>>(new Map());
 
   // Step 5: pricing + contact + photos
   const [pricePerNight, setPricePerNight] = useState("150");
@@ -232,6 +237,23 @@ function CreateRentalPageInner() {
       setAvailability(hydrated);
       setBookedDates(booked);
 
+      // Hydrate per-day price overrides for the same window
+      const { data: overrides } = await supabase
+        .from("price_overrides")
+        .select("date, price")
+        .eq("property_id", editId)
+        .gte("date", startIso)
+        .lte("date", endIso);
+
+      if (cancelled) return;
+
+      const hydratedOverrides = new Map<string, number>();
+      for (const row of overrides ?? []) {
+        hydratedOverrides.set(row.date, Number(row.price));
+      }
+      priceOverridesBaselineRef.current = new Map(hydratedOverrides);
+      setPriceOverrides(hydratedOverrides);
+
       setHydrating(false);
     })();
 
@@ -256,14 +278,14 @@ function CreateRentalPageInner() {
     if (s === 0) return !!propertyType && !!location;
     if (s === 1) return !!title.trim();
     if (s === 2) return smokingAllowed !== null && petsAllowed !== null;
-    // Step 3 (availability) defaults to all-available, so it's always satisfied
-    if (s === 3) return availability.size >= 30;
-    if (s === 4) {
+    // Step 3: base price + availability (defaults to all-available next 30 days)
+    if (s === 3) {
       const priceNum = Number(pricePerNight);
       return (
-        Number.isFinite(priceNum) && priceNum > 0 && phone.trim().length > 0
+        availability.size >= 30 && Number.isFinite(priceNum) && priceNum > 0
       );
     }
+    if (s === 4) return phone.trim().length > 0;
     return false;
   };
 
@@ -385,6 +407,47 @@ function CreateRentalPageInner() {
           throw new Error(
             "ხელმისაწვდომობის შენახვა ვერ მოხერხდა, სცადეთ თავიდან",
           );
+        }
+      }
+
+      // Persist per-day price overrides. On create we write every override;
+      // on edit we write only new/changed days and delete cleared ones, so
+      // booked days and untouched dates keep their existing prices.
+      const overrideBaseline = priceOverridesBaselineRef.current;
+      const overrideRowsToUpsert = Array.from(priceOverrides.entries())
+        .filter(([date, price]) => {
+          if (bookedDates.has(date)) return false;
+          if (!editId) return true;
+          const prev = overrideBaseline.get(date);
+          return prev === undefined || prev !== price;
+        })
+        .map(([date, price]) => ({ property_id: propertyId, date, price }));
+
+      const overrideDatesToDelete = editId
+        ? Array.from(overrideBaseline.keys()).filter(
+            (date) => !priceOverrides.has(date) && !bookedDates.has(date),
+          )
+        : [];
+
+      if (overrideRowsToUpsert.length > 0) {
+        const { error: overrideError } = await supabase
+          .from("price_overrides")
+          .upsert(overrideRowsToUpsert, { onConflict: "property_id,date" });
+
+        if (overrideError) {
+          throw new Error("ფასების შენახვა ვერ მოხერხდა, სცადეთ თავიდან");
+        }
+      }
+
+      if (overrideDatesToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("price_overrides")
+          .delete()
+          .eq("property_id", propertyId)
+          .in("date", overrideDatesToDelete);
+
+        if (deleteError) {
+          throw new Error("ფასების განახლება ვერ მოხერხდა, სცადეთ თავიდან");
         }
       }
 
@@ -703,18 +766,8 @@ function CreateRentalPageInner() {
 
             {step === 3 && (
               <WizardSection>
-                <AvailabilityWizardStep
-                  value={availability}
-                  onChange={setAvailability}
-                  bookedDates={bookedDates}
-                />
-              </WizardSection>
-            )}
-
-            {step === 4 && (
-              <WizardSection>
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <Field label="ფასი 1 ღამეზე (GEL)">
+                  <Field label="ფასი 1 ღამეზე (GEL)" required>
                     <input
                       type="number"
                       value={pricePerNight}
@@ -743,6 +796,19 @@ function CreateRentalPageInner() {
                   </Field>
                 </div>
 
+                <AvailabilityWizardStep
+                  value={availability}
+                  onChange={setAvailability}
+                  bookedDates={bookedDates}
+                  basePrice={Number(pricePerNight) || 0}
+                  priceOverrides={priceOverrides}
+                  onPriceOverridesChange={setPriceOverrides}
+                />
+              </WizardSection>
+            )}
+
+            {step === 4 && (
+              <WizardSection>
                 <div className="space-y-2">
                   <label className="text-[13px] font-bold text-[#334155]">
                     მასპინძლობის ენა

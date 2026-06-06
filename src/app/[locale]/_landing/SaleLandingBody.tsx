@@ -25,6 +25,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { MOCK_SALES } from "@/lib/mock/properties";
@@ -50,7 +51,7 @@ interface SaleLandingBodyProps {
 
 function formatPricePerSqm(avg: number | null | undefined): string {
   if (avg == null || !Number.isFinite(avg)) return "—";
-  return `${Math.round(avg).toLocaleString("en-US")} ₾/მ²`;
+  return `${formatNumber(avg)} ₾/მ²`;
 }
 
 function renderZoneIcon(icon: string, isLast: boolean) {
@@ -652,7 +653,7 @@ function FeaturedInventoryCard({
                 დასაბუთი ფასი
               </span>
               <span className="block text-[28px] font-black leading-[34px] text-[#16A34A]">
-                ${priceUsd.toLocaleString("en-US")}
+                ${formatNumber(priceUsd)}
               </span>
             </div>
             <Link

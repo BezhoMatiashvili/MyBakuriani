@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -14,13 +13,13 @@ import {
   Bell,
   Settings,
   LogOut,
-  Check,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface RenterSidebarProps {
   userName: string;
@@ -32,6 +31,7 @@ interface RenterSidebarProps {
   smartMatchCount?: number;
   currentPath: string;
   onSignOut: () => void;
+  availableCabinets: string[];
 }
 
 interface NavItem {
@@ -83,22 +83,6 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-interface SwitcherItem {
-  key: string;
-  href: string;
-  current?: boolean;
-}
-
-const SWITCHER_ITEMS: SwitcherItem[] = [
-  { key: "rentalsRent", href: "/dashboard/renter", current: true },
-  { key: "employment", href: "/dashboard/service" },
-  { key: "services", href: "/dashboard/service" },
-  { key: "rentalsSale", href: "/dashboard/seller" },
-  { key: "food", href: "/dashboard/food" },
-  { key: "guest", href: "/dashboard/guest" },
-  { key: "cleaner", href: "/dashboard/cleaner" },
-];
-
 function BrandLogo() {
   return (
     <Image
@@ -121,38 +105,16 @@ export function RenterSidebar({
   smartMatchCount = 0,
   currentPath,
   onSignOut,
+  availableCabinets,
 }: RenterSidebarProps) {
   const t = useTranslations("DashboardSidebar");
   const tSmart = useTranslations("SmartMatchCard");
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-  const switcherRef = useRef<HTMLDivElement>(null);
 
   const initials = userName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
-
-  useEffect(() => {
-    if (!switcherOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        switcherRef.current &&
-        !switcherRef.current.contains(e.target as Node)
-      ) {
-        setSwitcherOpen(false);
-      }
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setSwitcherOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [switcherOpen]);
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
@@ -164,96 +126,27 @@ export function RenterSidebar({
       </div>
 
       {/* User chip with role switcher */}
-      <div ref={switcherRef} className="relative mx-4">
-        <button
-          type="button"
-          onClick={() => setSwitcherOpen((v) => !v)}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
-            switcherOpen
-              ? "border-[#2563EB] bg-[#EFF6FF]"
-              : "border-[#EEF1F4] bg-white hover:border-[#CBD5E1]",
+      <CabinetSwitcher activeKey="renter" availableKeys={availableCabinets}>
+        <div className="relative shrink-0">
+          <Avatar className="h-11 w-11">
+            {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
+            <AvatarFallback className="bg-[#2563EB] text-[14px] font-extrabold text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          {isVerified && (
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white bg-[#10B981]" />
           )}
-        >
-          <div className="relative shrink-0">
-            <Avatar className="h-11 w-11">
-              {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-              <AvatarFallback className="bg-[#2563EB] text-[14px] font-extrabold text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            {isVerified && (
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white bg-[#10B981]" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
-              {userName}
-            </p>
-            <p className="mt-0.5 text-[11px] font-bold tracking-wide text-[#2563EB]">
-              {t("userIdPrefix")} {userId}
-            </p>
-          </div>
-        </button>
-
-        <AnimatePresence>
-          {switcherOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15 }}
-              className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-[0px_16px_40px_-12px_rgba(15,23,42,0.18)]"
-            >
-              <ul className="py-2">
-                {SWITCHER_ITEMS.map((item) => (
-                  <li key={`${item.key}-${item.href}`}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setSwitcherOpen(false)}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold transition-colors",
-                        item.current
-                          ? "text-[#2563EB]"
-                          : "text-[#0F172A] hover:bg-[#F8FAFC]",
-                      )}
-                    >
-                      <span className="flex-1 truncate">
-                        {t(`switcher.${item.key}`)}
-                      </span>
-                      {item.current && (
-                        <Check className="h-4 w-4 text-[#10B981]" />
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5">
-                <Settings className="h-3.5 w-3.5 text-[#94A3B8]" />
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                  {t("nav.settings")}
-                </span>
-              </div>
-
-              <div className="px-3 pb-3 pt-1">
-                <Link
-                  href="/dashboard/guest"
-                  onClick={() => setSwitcherOpen(false)}
-                  className="block rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2.5 text-center"
-                >
-                  <p className="text-[13px] font-bold text-[#2563EB]">
-                    {t("switcher.guestMode")}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-medium text-[#64748B]">
-                    {t("switcher.guestModeDesc")}
-                  </p>
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
+            {userName}
+          </p>
+          <p className="mt-0.5 text-[11px] font-bold tracking-wide text-[#2563EB]">
+            {t("userIdPrefix")} {userId}
+          </p>
+        </div>
+      </CabinetSwitcher>
 
       {/* Separator */}
       <div className="mx-6 mt-5 h-px bg-[#EEF1F4]" />

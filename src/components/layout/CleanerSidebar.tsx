@@ -22,6 +22,7 @@ interface CleanerSidebarProps {
   status?: "available" | "busy" | "offline";
   currentPath: string;
   onSignOut: () => void;
+  availableCabinets: string[];
 }
 
 interface NavItem {
@@ -81,6 +82,7 @@ export function CleanerSidebar({
   status = "available",
   currentPath,
   onSignOut,
+  availableCabinets,
 }: CleanerSidebarProps) {
   const initials = userName
     .split(" ")
@@ -99,6 +101,7 @@ export function CleanerSidebar({
 
       <CabinetSwitcher
         activeKey="cleaner"
+        availableKeys={availableCabinets}
         triggerClassName="border-white/10 bg-white/5 hover:border-white/20"
         openClassName="border-white/30 bg-white/10"
       >

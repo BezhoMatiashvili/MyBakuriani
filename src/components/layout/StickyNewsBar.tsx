@@ -56,7 +56,7 @@ export function StickyNewsBar() {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-3 sm:pb-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4">
       <div
         className="pointer-events-auto flex w-full max-w-[1160px] flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] sm:px-5"
         style={{ backgroundColor: tone.bg, borderColor: tone.border }}

@@ -38,7 +38,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className={cn("font-sans", notoSansGeorgian.variable)}>
-      <body className="flex min-h-screen flex-col bg-white text-[#1E293B] antialiased">
+      <body className="flex min-h-dvh flex-col bg-white text-[#1E293B] antialiased">
         {children}
         <Toaster richColors position="top-right" />
       </body>

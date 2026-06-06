@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { GoogleMap, OverlayViewF, MarkerF } from "@react-google-maps/api";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
+import { formatNumber } from "@/lib/utils/format";
 
 const BAKURIANI_CENTER = { lat: 41.7509, lng: 43.5294 };
 
@@ -143,7 +144,7 @@ const containerStyle = { width: "100%", height: "100%" };
 // ── Price formatting ──
 function formatPrice(price: number, isForSale?: boolean): string {
   if (isForSale && price >= 1000) {
-    return `${price.toLocaleString("ka-GE")} ₾`;
+    return `${formatNumber(price)} ₾`;
   }
   return `${price} ₾`;
 }
