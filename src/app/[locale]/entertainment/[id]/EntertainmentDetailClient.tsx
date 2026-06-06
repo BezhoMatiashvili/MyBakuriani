@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ImageIcon,
   Star,
+  ShieldCheck,
 } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
@@ -189,6 +190,27 @@ export default function EntertainmentDetailClient({
           </div>
         )}
       </motion.div>
+
+      {/* Safety & conditions */}
+      {service.safety_notes && (
+        <motion.div
+          {...fadeIn}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="mt-6 flex items-start gap-3 rounded-[16px] border border-[#DBEAFE] bg-[#EFF6FF] p-5"
+        >
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB]">
+            <ShieldCheck className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="text-[15px] font-black text-[#1E293B]">
+              უსაფრთხოება და პირობები
+            </h3>
+            <p className="mt-1 whitespace-pre-line text-[14px] font-medium leading-[22px] text-[#475569]">
+              {service.safety_notes}
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Price + CTA row */}
       <motion.div
