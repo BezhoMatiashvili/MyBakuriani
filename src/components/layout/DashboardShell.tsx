@@ -73,6 +73,7 @@ interface DashboardShellProps {
   balance: number;
   smsRemaining: number;
   smartMatchCount: number;
+  availableCabinets: string[];
   children: React.ReactNode;
 }
 
@@ -85,6 +86,7 @@ export function DashboardShell({
   balance,
   smsRemaining,
   smartMatchCount,
+  availableCabinets,
   children,
 }: DashboardShellProps) {
   const pathname = usePathname();
@@ -138,7 +140,9 @@ export function DashboardShell({
   const cabinetFromPath = (() => {
     const seg = pathname?.split("/").filter(Boolean) ?? [];
     const dashIdx = seg.indexOf("dashboard");
-    return dashIdx >= 0 && seg[dashIdx + 1] ? seg[dashIdx + 1] : null;
+    const cabinet = dashIdx >= 0 && seg[dashIdx + 1] ? seg[dashIdx + 1] : null;
+    // /dashboard/sms is a shared (non-role) cabinet — keep the user's own sidebar
+    return cabinet === "sms" ? null : cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;
 
@@ -183,6 +187,7 @@ export function DashboardShell({
           smartMatchCount={smartMatchCount}
           currentPath={pathname}
           onSignOut={handleSignOut}
+          availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <RenterTopbar
@@ -210,6 +215,7 @@ export function DashboardShell({
           notificationCount={notificationCount}
           currentPath={pathname}
           onSignOut={handleSignOut}
+          availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <SellerTopbar
@@ -235,6 +241,7 @@ export function DashboardShell({
           isVerified
           currentPath={pathname}
           onSignOut={handleSignOut}
+          availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <GuestTopbar notificationCount={notificationCount} />
@@ -255,6 +262,7 @@ export function DashboardShell({
           avatarUrl={avatarUrl ?? undefined}
           currentPath={pathname}
           onSignOut={handleSignOut}
+          availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <CleanerTopbar notificationCount={notificationCount} available />
@@ -275,6 +283,7 @@ export function DashboardShell({
           currentPath={pathname}
           notificationCount={notificationCount}
           onSignOut={handleSignOut}
+          availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <FoodTopbar
@@ -301,6 +310,7 @@ export function DashboardShell({
           currentPath={pathname}
           notificationCount={notificationCount}
           onSignOut={handleSignOut}
+          availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <ServiceTopbar

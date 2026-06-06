@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { Check, Settings } from "lucide-react";
+import { Check, Plus, Settings } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,8 @@ const ALL_ITEMS: SwitcherItem[] = [
 
 interface CabinetSwitcherProps {
   activeKey: string;
+  /** Canonical cabinet keys the user may switch into. Omit to show all. */
+  availableKeys?: string[];
   children: React.ReactNode;
   triggerClassName?: string;
   openClassName?: string;
@@ -39,10 +41,14 @@ interface CabinetSwitcherProps {
 
 export function CabinetSwitcher({
   activeKey,
+  availableKeys,
   children,
   triggerClassName,
   openClassName,
 }: CabinetSwitcherProps) {
+  const items = availableKeys
+    ? ALL_ITEMS.filter((item) => availableKeys.includes(item.key))
+    : ALL_ITEMS;
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +97,7 @@ export function CabinetSwitcher({
               </p>
             </div>
             <ul className="py-2">
-              {ALL_ITEMS.map((item) => {
+              {items.map((item) => {
                 const isActive = item.key === activeKey;
                 return (
                   <li key={item.key}>
@@ -112,6 +118,17 @@ export function CabinetSwitcher({
                 );
               })}
             </ul>
+
+            <div className="border-t border-[#F1F5F9] px-3 py-2.5">
+              <Link
+                href="/create"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#F97316] px-4 py-2.5 text-[13px] font-bold text-white shadow-[0px_6px_14px_-4px_rgba(249,115,22,0.45)] transition-colors hover:bg-[#EA6C0E]"
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.4} />
+                განცხადების დამატება
+              </Link>
+            </div>
 
             <div className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5">
               <Settings className="h-3.5 w-3.5 text-[#94A3B8]" />

@@ -29,6 +29,7 @@ interface SellerSidebarProps {
   notificationCount?: number;
   currentPath: string;
   onSignOut: () => void;
+  availableCabinets: string[];
 }
 
 interface NavItem {
@@ -135,6 +136,7 @@ export function SellerSidebar({
   notificationCount = 0,
   currentPath,
   onSignOut,
+  availableCabinets,
 }: SellerSidebarProps) {
   const initials = userName
     .split(" ")
@@ -150,7 +152,7 @@ export function SellerSidebar({
         </Link>
       </div>
 
-      <CabinetSwitcher activeKey="seller">
+      <CabinetSwitcher activeKey="seller" availableKeys={availableCabinets}>
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11 bg-[#DCFCE7]">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}

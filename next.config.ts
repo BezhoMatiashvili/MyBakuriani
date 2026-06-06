@@ -46,6 +46,17 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    // The site is now Georgian-only (see src/i18n/routing.ts). Permanently
+    // redirect previously-served /en and /ru URLs to their ka equivalent so
+    // existing bookmarks and indexed links don't 404.
+    return [
+      { source: "/en", destination: "/", permanent: true },
+      { source: "/ru", destination: "/", permanent: true },
+      { source: "/en/:path*", destination: "/:path*", permanent: true },
+      { source: "/ru/:path*", destination: "/:path*", permanent: true },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { createClient } from "@/lib/supabase/client";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { resolveNotificationsPath } from "@/lib/utils/notifications";
@@ -192,7 +191,6 @@ export function Navbar() {
 
         {/* Right side action buttons — desktop */}
         <div className="hidden items-center gap-3 md:flex">
-          <LanguageSelector />
           {user && (
             <NotificationBell
               variant="desktop"
@@ -221,6 +219,12 @@ export function Navbar() {
                 <ChevronRight className="size-4 text-[#94A3B8]" />
               </Button>
             </Link>
+          )}
+          {authLoading && (
+            <div
+              className="size-10 animate-pulse rounded-full bg-[#F1F5F9]"
+              aria-hidden
+            />
           )}
           {!authLoading && !user && (
             <Link href="/auth/login">
@@ -327,9 +331,6 @@ export function Navbar() {
               >
                 <X className="size-5" />
               </Button>
-            </div>
-            <div className="border-b border-[#F1F5F9] px-4 py-3">
-              <LanguageSelector />
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {navItemKeys.map((item) => {

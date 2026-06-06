@@ -12,7 +12,7 @@ import {
   TrendingUp,
   Users2,
 } from "lucide-react";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatNumber } from "@/lib/utils/format";
 
 interface AdminKPIs {
   revenue: number;
@@ -164,7 +164,7 @@ export default function AdminDashboardPage() {
     },
     {
       label: "აქტიური განცხადებები",
-      value: kpis.activeListings.toLocaleString("en-US"),
+      value: formatNumber(kpis.activeListings),
       change: kpis.listingsChange,
       icon: Building2,
     },
@@ -270,7 +270,7 @@ export default function AdminDashboardPage() {
                     >
                       <p className="text-xs font-semibold">{step.label}</p>
                       <p className="mt-1 text-[38px] font-black leading-none text-[#0F172A]">
-                        {step.value.toLocaleString("en-US")}
+                        {formatNumber(step.value)}
                       </p>
                     </div>
                   </div>

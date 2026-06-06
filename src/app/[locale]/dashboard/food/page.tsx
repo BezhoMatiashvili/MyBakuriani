@@ -15,7 +15,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatNumber } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
@@ -207,7 +207,7 @@ export default function FoodDashboardPage() {
             <Skeleton className="mt-3 h-8 w-24" />
           ) : (
             <p className="mt-3 text-[32px] font-black leading-[36px] text-[#2563EB]">
-              {stats.totalOrders.toLocaleString()}
+              {formatNumber(stats.totalOrders)}
             </p>
           )}
         </div>
@@ -222,7 +222,7 @@ export default function FoodDashboardPage() {
             <Skeleton className="mt-3 h-8 w-24" />
           ) : (
             <p className="mt-3 text-[32px] font-black leading-[36px] text-[#F97316]">
-              {views.toLocaleString()}
+              {formatNumber(views)}
             </p>
           )}
         </div>

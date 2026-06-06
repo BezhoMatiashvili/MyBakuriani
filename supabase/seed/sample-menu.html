@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ka">
+  <head>
+    <meta charset="utf-8" />
+    <title>მენიუ — MyBakuriani</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;600;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          "Noto Sans Georgian", "BPG Nino Mtavruli", system-ui, sans-serif;
+        color: #1e293b;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .page {
+        width: 210mm;
+        height: 297mm;
+        overflow: hidden;
+        padding: 14mm 18mm 12mm;
+      }
+      header {
+        text-align: center;
+        border-bottom: 3px solid #f97316;
+        padding-bottom: 14px;
+        margin-bottom: 18px;
+      }
+      header .brand {
+        font-size: 13px;
+        letter-spacing: 3px;
+        font-weight: 600;
+        color: #f97316;
+        text-transform: uppercase;
+      }
+      header h1 {
+        font-size: 40px;
+        font-weight: 800;
+        margin-top: 6px;
+      }
+      header p {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #64748b;
+      }
+      section {
+        margin-bottom: 16px;
+      }
+      section h2 {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      section h2::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: #e2e8f0;
+      }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 7px 0;
+      }
+      .item .name {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .item .desc {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 400;
+        margin-top: 2px;
+      }
+      .item .dots {
+        flex: 1;
+        border-bottom: 1px dotted #cbd5e1;
+        transform: translateY(-4px);
+      }
+      .item .price {
+        font-size: 15px;
+        font-weight: 800;
+        color: #f97316;
+        white-space: nowrap;
+      }
+      footer {
+        margin-top: 18px;
+        text-align: center;
+        font-size: 11px;
+        color: #94a3b8;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="brand">MyBakuriani · ბაკურიანი</div>
+        <h1>მენიუ</h1>
+        <p>ნიმუშის მენიუ · ფასები მითითებულია ლარში (₾)</p>
+      </header>
+
+      <section>
+        <h2>ცხელი კერძები</h2>
+        <div class="item">
+          <div>
+            <div class="name">ხინკალი (ხორცით)</div>
+            <div class="desc">ტრადიციული, 1 ცალი</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">1.50 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">ღვეზელი იმერული</div>
+            <div class="desc">ცხელი, ხელნაკეთი ცომი</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">12 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">მწვადი ღორის</div>
+            <div class="desc">მაყალზე შემწვარი, მოცვის საწებლით</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">22 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">ჩაშუშული</div>
+            <div class="desc">საქონლის ხორცი, ცხარე სოუსში</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">24 ₾</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>ხაჭაპური და მცხობელობა</h2>
+        <div class="item">
+          <div>
+            <div class="name">ხაჭაპური აჭარული</div>
+            <div class="desc">კვერცხითა და კარაქით</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">16 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">ხაჭაპური იმერული</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">13 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">მესხური ხაჭაპური</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">18 ₾</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>სალათები</h2>
+        <div class="item">
+          <div>
+            <div class="name">ქართული სალათი</div>
+            <div class="desc">პომიდორი, კიტრი, ნიგვზით</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">14 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">ცეზარი ქათმით</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">17 ₾</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>სასმელები</h2>
+        <div class="item">
+          <div>
+            <div class="name">ლიმონათი (ბახმარო)</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">4 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">ღვინო, სახლის (1 ჭიქა)</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">8 ₾</span>
+        </div>
+        <div class="item">
+          <div>
+            <div class="name">ჩაი მთის მცენარეებით</div>
+          </div>
+          <span class="dots"></span>
+          <span class="price">5 ₾</span>
+        </div>
+      </section>
+
+      <footer>
+        MyBakuriani.ge — ნიმუშის მენიუ სადემონსტრაციო მიზნებისთვის
+      </footer>
+    </div>
+  </body>
+</html>

@@ -26,6 +26,7 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { formatDateShort, formatTime } from "@/lib/utils/format";
 import {
   fetchPricingPackages,
   type PricingPackage,
@@ -671,15 +672,8 @@ function HistoryRow({ item }: { item: SmsHistoryItem }) {
         ? Sparkles
         : CheckCircle2;
 
-  const date = new Date(item.created_at);
-  const dateLabel = date.toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "short",
-  });
-  const timeLabel = date.toLocaleTimeString("ka-GE", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const dateLabel = formatDateShort(item.created_at);
+  const timeLabel = formatTime(item.created_at);
 
   return (
     <tr className="border-b border-[#F1F5F9] last:border-b-0">

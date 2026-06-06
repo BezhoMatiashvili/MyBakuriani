@@ -26,6 +26,7 @@ interface ServiceSidebarProps {
   currentPath: string;
   notificationCount?: number;
   onSignOut: () => void;
+  availableCabinets: string[];
 }
 
 interface NavItem {
@@ -98,6 +99,7 @@ export function ServiceSidebar({
   currentPath,
   notificationCount = 0,
   onSignOut,
+  availableCabinets,
 }: ServiceSidebarProps) {
   const initials = userName
     .split(" ")
@@ -113,7 +115,7 @@ export function ServiceSidebar({
         </Link>
       </div>
 
-      <CabinetSwitcher activeKey="service">
+      <CabinetSwitcher activeKey="service" availableKeys={availableCabinets}>
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}

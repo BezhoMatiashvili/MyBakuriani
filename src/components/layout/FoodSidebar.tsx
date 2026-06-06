@@ -24,6 +24,7 @@ interface FoodSidebarProps {
   currentPath: string;
   notificationCount?: number;
   onSignOut: () => void;
+  availableCabinets: string[];
 }
 
 interface NavItem {
@@ -83,6 +84,7 @@ export function FoodSidebar({
   currentPath,
   notificationCount = 0,
   onSignOut,
+  availableCabinets,
 }: FoodSidebarProps) {
   const displayBadge = badgeLabel ?? restaurantName.slice(0, 2).toUpperCase();
 
@@ -94,7 +96,7 @@ export function FoodSidebar({
         </Link>
       </div>
 
-      <CabinetSwitcher activeKey="food">
+      <CabinetSwitcher activeKey="food" availableKeys={availableCabinets}>
         <div className="relative shrink-0">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[15px] font-black text-white shadow-[0_6px_12px_-4px_rgba(249,115,22,0.45)]">
             {displayBadge}

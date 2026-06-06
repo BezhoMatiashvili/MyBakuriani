@@ -62,6 +62,13 @@ const wrapperByVariant: Record<Variant, string> = {
   inline: "flex w-full flex-col items-center justify-center py-4",
 };
 
+// Deterministic pseudo-random in [0, 1) derived from an index + seed so the
+// SSR and CSR output is identical (no hydration mismatch / flash).
+const rand = (i: number, s: number) => {
+  const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 function SkierSvg() {
   const prefersReducedMotion = useReducedMotion();
 
@@ -69,14 +76,14 @@ function SkierSvg() {
     () =>
       Array.from({ length: 12 }).map((_, i) => ({
         id: i,
-        cx: 100 + Math.random() * 60,
-        cy: 350 + Math.random() * 15,
-        r: Math.random() * 5 + 3,
-        delay: Math.random() * 0.8,
-        duration: 0.6 + Math.random() * 0.4,
-        scale: 1.5 + Math.random() * 2,
-        x: -100 - Math.random() * 80,
-        y: -20 - Math.random() * 30,
+        cx: 100 + rand(i, 1) * 60,
+        cy: 350 + rand(i, 2) * 15,
+        r: rand(i, 3) * 5 + 3,
+        delay: rand(i, 4) * 0.8,
+        duration: 0.6 + rand(i, 5) * 0.4,
+        scale: 1.5 + rand(i, 6) * 2,
+        x: -100 - rand(i, 7) * 80,
+        y: -20 - rand(i, 8) * 30,
       })),
     [],
   );
@@ -85,11 +92,11 @@ function SkierSvg() {
     () =>
       Array.from({ length: 16 }).map((_, i) => ({
         id: i,
-        y: 50 + Math.random() * 400,
-        length: 60 + Math.random() * 150,
-        delay: Math.random() * 1.5,
-        duration: 0.6 + Math.random() * 0.6,
-        strokeWidth: Math.random() * 3 + 2,
+        y: 50 + rand(i, 9) * 400,
+        length: 60 + rand(i, 10) * 150,
+        delay: rand(i, 11) * 1.5,
+        duration: 0.6 + rand(i, 12) * 0.6,
+        strokeWidth: rand(i, 13) * 3 + 2,
       })),
     [],
   );

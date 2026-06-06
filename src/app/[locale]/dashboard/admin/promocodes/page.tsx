@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils/format";
 
 interface Promocode {
   id: string;
@@ -240,7 +241,7 @@ export default function PromoCodesPage() {
                     ? `-${code.discount_value}%`
                     : `-${code.discount_value}₾`;
                 const expiry = code.expires_at
-                  ? new Date(code.expires_at).toLocaleDateString("ka-GE")
+                  ? formatDate(code.expires_at)
                   : "უვადოდ";
                 return (
                   <div

@@ -101,7 +101,11 @@ function getNavItems(role: string): NavItem[] {
           href: "/dashboard/seller/listings",
           icon: Building,
         },
-        { labelKey: "profile", href: "/dashboard/renter/profile", icon: User },
+        {
+          labelKey: "settings",
+          href: "/dashboard/seller/settings",
+          icon: Settings,
+        },
       ];
     case "cleaner":
       return [

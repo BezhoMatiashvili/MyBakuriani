@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
-  ArrowRight,
   BadgeCheck,
   BedDouble,
   Building2,
@@ -16,13 +15,12 @@ import {
   Heart,
   MapPin,
   Maximize,
+  MessageSquare,
   Share2,
   Star,
-  Users,
   X,
 } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
-import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
@@ -102,6 +100,16 @@ function constructionStatusLabel(status: string | null): {
   return { label: status, tone: "neutral" };
 }
 
+function renovationStatusLabel(status: string | null): string | null {
+  if (!status) return null;
+  const map: Record<string, string> = {
+    black_frame: "შავი კარკასი",
+    white_frame: "თეთრი კარკასი",
+    furnished: "ავეჯით",
+  };
+  return map[status] ?? status;
+}
+
 function deriveEnvironmentStatus(amenities: unknown): string | null {
   if (!Array.isArray(amenities)) return null;
   const tokens = amenities
@@ -152,15 +160,14 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
   const salePrice = property.sale_price ?? 0;
   const roiPercent = property.roi_percent ?? 0;
-  const annualReturn = salePrice * (roiPercent / 100);
 
   const postedAgo = (() => {
     if (!property.created_at) return null;
     const diffMs = Date.now() - new Date(property.created_at).getTime();
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    if (days <= 0) return "განცხადება: დღეს";
-    if (days === 1) return "განცხადება: 1 დღის წინ";
-    return `განცხადება: ${days} დღის წინ`;
+    if (days <= 0) return "გამოქვეყნებულია: დღეს";
+    if (days === 1) return "გამოქვეყნებულია: 1 დღის წინ";
+    return `გამოქვეყნებულია: ${days} დღის წინ`;
   })();
 
   const isUnderConstruction =
@@ -176,6 +183,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
     Array.isArray(property.photos) && property.photos.length > 0
       ? (property.photos[0] as string)
       : "/placeholder-property.jpg";
+  const constructionImg = property.construction_image_url ?? heroPhoto;
 
   const propertyTypeLabel = PROPERTY_TYPE_LABELS_GE[property.type] ?? "ქონება";
 
@@ -189,6 +197,51 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
   const statusInfo = constructionStatusLabel(property.construction_status);
   const envStatus = deriveEnvironmentStatus(property.amenities);
+
+  const roiText =
+    property.roi_percent_max != null
+      ? `${roiPercent}-${property.roi_percent_max}%`
+      : `${roiPercent}%`;
+  const renovationLabel = renovationStatusLabel(property.renovation_status);
+  const metricCells: { label: string; value: ReactNode; sub?: string }[] = [];
+  if (statusInfo) {
+    metricCells.push({
+      label: "მშენებლობის სტადია",
+      value: statusInfo.label,
+      sub: property.completion_year
+        ? `ბარდდება: ${property.completion_year} წელს`
+        : undefined,
+    });
+  }
+  if (renovationLabel) {
+    metricCells.push({
+      label: "რემონტის მდგომარეობა",
+      value: renovationLabel,
+    });
+  }
+  if (roiPercent > 0) {
+    metricCells.push({
+      label: "მოსალოდნელი ROI",
+      value: (
+        <span className="flex items-center gap-2">
+          {roiText}
+          <span className="rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[11px] font-bold text-[#16A34A]">
+            {roiPercent >= 12 ? "მაღალი" : "საშუალო"}
+          </span>
+        </span>
+      ),
+    });
+  }
+  if (envStatus) {
+    metricCells.push({ label: "გაყიდვის სტატუსი", value: envStatus });
+  }
+  if (property.cadastral_code) {
+    metricCells.push({
+      label: "საკადასტრო კოდი",
+      value: property.cadastral_code,
+    });
+  }
+  metricCells.push({ label: "მისამართი", value: property.location ?? "—" });
 
   const shortId = property.id.replace(/-/g, "").slice(0, 8).toUpperCase();
 
@@ -333,45 +386,34 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
       <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="space-y-10 lg:col-span-2">
-          {/* 6-card investment metrics grid */}
+          {/* Investment metrics box */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.18 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               საინვესტიციო მეტრიკები და სტატუსი
             </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {statusInfo && (
-                <MetricCard
-                  label="მშენებლობის სტატუსი"
-                  value={statusInfo.label}
-                  tone={statusInfo.tone}
-                />
-              )}
-              {property.registration_readiness && (
-                <MetricCard
-                  label="რეგისტრაცია მზადობა"
-                  value={property.registration_readiness}
-                />
-              )}
-              {roiPercent > 0 && (
-                <MetricCard
-                  label="მოსალოდნელი ROI"
-                  value={`${roiPercent}% წლიური`}
-                  tone={roiPercent >= 10 ? "done" : "neutral"}
-                />
-              )}
-              {envStatus && (
-                <MetricCard label="გარემოს სტატუსი" value={envStatus} />
-              )}
-              {property.cadastral_code && (
-                <MetricCard
-                  label="საკადასტრო კოდი"
-                  value={property.cadastral_code}
-                />
-              )}
-              <MetricCard
-                label="ზუსტი მისამართი"
-                value={property.location ?? "—"}
-              />
+            <div className="rounded-[20px] border border-[#E2E8F0] bg-[#F7F8FC] px-5 py-1 sm:px-7">
+              <div className="grid grid-cols-1 sm:grid-cols-2">
+                {metricCells.map((cell, i) => (
+                  <div
+                    key={cell.label}
+                    className={`border-t border-[#E9EBF3] py-4 first:border-t-0 ${
+                      i === 1 ? "sm:border-t-0" : ""
+                    } ${i % 2 === 0 ? "sm:pr-8" : "sm:pl-8"}`}
+                  >
+                    <p className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                      {cell.label}
+                    </p>
+                    <div className="mt-1.5 text-[15px] font-black text-[#1E293B]">
+                      {cell.value}
+                    </div>
+                    {cell.sub && (
+                      <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
+                        {cell.sub}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
 
@@ -396,19 +438,22 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white">
                 <div className="relative aspect-[16/7] overflow-hidden">
                   <Image
-                    src={heroPhoto}
+                    src={constructionImg}
                     alt={property.title}
                     fill
                     sizes="(max-width: 1024px) 100vw, 700px"
                     className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-[#16A34A] backdrop-blur">
+                    მშენებარე
+                    {property.completion_year
+                      ? ` (${property.completion_year})`
+                      : ""}
+                  </span>
                   <div className="absolute inset-x-0 bottom-0 p-5">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.5px] text-white/80">
-                      {property.developer ?? "მშენებელი კომპანია"}
-                    </p>
-                    <p className="mt-1 text-[18px] font-black uppercase tracking-[0.3px] text-white sm:text-[22px]">
-                      {property.title}
+                    <p className="text-[18px] font-black uppercase tracking-[0.3px] text-white sm:text-[22px]">
+                      {property.developer ?? property.title}
                     </p>
                   </div>
                 </div>
@@ -416,11 +461,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 <div className="space-y-4 p-5">
                   <ConstructionProgressBar
                     percent={constructionPct}
-                    label={
-                      property.completion_year
-                        ? `მშენებლობის პროგრესი • ${property.completion_year}`
-                        : "მშენებლობის პროგრესი"
-                    }
+                    label="მშენებლობის პროგრესი"
                   />
                   {property.progress_note && (
                     <div className="rounded-[12px] border border-[#EEF1F4] bg-[#F8FAFC] p-3">
@@ -444,13 +485,10 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                   <button
                     type="button"
                     onClick={() => setConstructionModalOpen(true)}
-                    className="group flex w-full items-center justify-between rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[13px] font-bold text-[#1E293B] transition-colors hover:border-[#16A34A] hover:bg-[#F0FDF4]"
+                    className="group flex w-full items-center justify-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[13px] font-bold text-[#1E293B] transition-colors hover:border-[#16A34A] hover:bg-[#F0FDF4]"
                   >
-                    <span className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-[#64748B] transition-colors group-hover:text-[#16A34A]" />
-                      მშენებლის ნახვა
-                    </span>
-                    <ArrowRight className="size-4 text-[#64748B] transition-colors group-hover:text-[#16A34A]" />
+                    <Eye className="h-4 w-4 text-[#64748B] transition-colors group-hover:text-[#16A34A]" />
+                    დეტალების ნახვა
                   </button>
                 </div>
               </div>
@@ -465,11 +503,6 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             <div className="mb-3 flex items-center gap-2 text-[14px] font-medium text-[#64748B]">
               <MapPin className="h-4 w-4 text-[#16A34A]" />
               {property.location}
-              {property.cadastral_code && (
-                <span className="ml-auto text-xs text-[#94A3B8]">
-                  საკადასტრო: {property.cadastral_code}
-                </span>
-              )}
             </div>
             {property.location_lat && property.location_lng ? (
               <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0]">
@@ -594,60 +627,23 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <CallButton
-                  phone={property.phone ?? property.profiles?.phone ?? null}
-                  onNoPhoneClick={() => router.push("/auth/login")}
-                  className="h-[55px] flex-1 gap-2 rounded-2xl bg-[#16A34A] text-[15px] font-bold tracking-[0.375px] text-white hover:bg-[#15803D]"
-                  label="დარეკვა"
-                  propertyId={property.id}
-                />
-                <WhatsAppButton
-                  phone={
-                    property.whatsapp ??
-                    property.phone ??
-                    property.profiles?.phone ??
-                    null
-                  }
-                  className="h-[55px] w-[55px] rounded-2xl"
-                  propertyId={property.id}
-                />
-              </div>
+              <CallButton
+                phone={property.phone ?? property.profiles?.phone ?? null}
+                onNoPhoneClick={() => router.push("/auth/login")}
+                className="h-[55px] w-full gap-2 rounded-2xl bg-[#16A34A] text-[15px] font-bold tracking-[0.375px] text-white hover:bg-[#15803D]"
+                label="დარეკვა"
+                propertyId={property.id}
+              />
 
               <button
                 type="button"
                 onClick={() => router.push("/auth/login")}
                 className="mt-3 flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-white text-[14px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
               >
-                <Users className="h-4 w-4" />
-                მესაკუთრის ნახვა
+                <MessageSquare className="h-4 w-4" />
+                შეტყობინების მიწერა
               </button>
             </div>
-
-            {/* Mini investment stats */}
-            {roiPercent > 0 && (
-              <div className="rounded-2xl bg-[#F0FDF4] p-5">
-                <h3 className="mb-3 text-sm font-semibold text-emerald-800">
-                  საინვესტიციო მონაცემები
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#94A3B8]">ROI</span>
-                    <span className="font-semibold text-emerald-700">
-                      {roiPercent}%
-                    </span>
-                  </div>
-                  {salePrice > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#94A3B8]">წლიური შემოსავალი</span>
-                      <span className="font-semibold">
-                        {formatPrice(Math.round(annualReturn))}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </motion.div>
       </div>
@@ -769,37 +765,6 @@ export default function SaleDetailClient({ property, reviews }: Props) {
         }
         ctaClassName="shrink-0 rounded-xl bg-[#16A34A] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#15803D]"
       />
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "active" | "done" | "neutral";
-}) {
-  const valueClass =
-    tone === "active"
-      ? "text-[#16A34A]"
-      : tone === "done"
-        ? "text-[#15803D]"
-        : "text-[#1E293B]";
-  const borderClass =
-    tone === "done"
-      ? "border-[#DCFCE7] bg-[#F0FDF4]"
-      : "border-[#E2E8F0] bg-white";
-  return (
-    <div className={`rounded-[14px] border ${borderClass} p-4`}>
-      <p className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-        {label}
-      </p>
-      <p className={`mt-1 truncate text-[15px] font-black ${valueClass}`}>
-        {value}
-      </p>
     </div>
   );
 }

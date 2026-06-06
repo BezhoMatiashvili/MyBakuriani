@@ -5,6 +5,7 @@ import { Heart, MapPin } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
+import { formatNumber } from "@/lib/utils/format";
 
 interface SalePropertyCardProps {
   id: string;
@@ -21,7 +22,7 @@ interface SalePropertyCardProps {
 }
 
 function formatUsd(n: number): string {
-  return `$${n.toLocaleString("en-US")}`;
+  return `$${formatNumber(n)}`;
 }
 
 export default function SalePropertyCard({
@@ -132,7 +133,7 @@ export default function SalePropertyCard({
               </span>
               {pricePerSqm && (
                 <span className="block text-[11px] font-medium text-[#94A3B8]">
-                  ${pricePerSqm.toLocaleString("en-US")} / მ²
+                  ${formatNumber(pricePerSqm)} / მ²
                 </span>
               )}
             </div>

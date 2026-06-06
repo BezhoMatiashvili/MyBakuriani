@@ -9,14 +9,45 @@ export function formatPricePerNight(amount: number): string {
   return `${formatNumber(amount)} ₾ / ღამე`;
 }
 
-function formatNumber(n: number): string {
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+/**
+ * Deterministic integer grouping with a thin space — identical on the server
+ * (Node) and the client (browser) regardless of runtime locale/ICU data.
+ * Use this instead of `Number.prototype.toLocaleString()` which varies per
+ * device locale and causes hydration mismatches.
+ */
+export function formatNumber(n: number): string {
+  return Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
   return format(d, "d MMMM, yyyy", { locale: ka });
+}
+
+/** Short date, e.g. "6 ივნ" — deterministic via bundled date-fns + ka locale. */
+export function formatDateShort(
+  date: string | Date | null | undefined,
+): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return format(d, "d MMM", { locale: ka });
+}
+
+/** 24h time, e.g. "14:30" — deterministic via bundled date-fns. */
+export function formatTime(date: string | Date | null | undefined): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return format(d, "HH:mm", { locale: ka });
+}
+
+/** Date + time, e.g. "6 ივნისი, 2026 14:30" — deterministic via date-fns. */
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return format(d, "d MMMM, yyyy HH:mm", { locale: ka });
 }
 
 export function formatDateRange(

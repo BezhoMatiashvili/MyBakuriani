@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Briefcase,
   Clock,
+  Settings,
   ShieldCheck,
   BarChart3,
   type LucideIcon,
@@ -80,7 +81,11 @@ function getTabs(role: string): TabItem[] {
           href: "/dashboard/seller/listings",
           icon: Building,
         },
-        { labelKey: "profile", href: "/dashboard/renter/profile", icon: User },
+        {
+          labelKey: "settings",
+          href: "/dashboard/seller/settings",
+          icon: Settings,
+        },
       ];
     case "cleaner":
       return [

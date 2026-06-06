@@ -14,8 +14,15 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import StatCard from "@/components/cards/StatCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatDateShort, formatTime } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
+
+// Deterministic pseudo-random in [0, 1) from an index so skeleton bar heights
+// are identical on SSR and CSR (no hydration mismatch / reshuffle on render).
+const rand = (i: number, s: number) => {
+  const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
 
 type CleaningTask = Tables<"cleaning_tasks"> & {
   properties: Pick<Tables<"properties">, "title" | "location"> | null;
@@ -151,7 +158,7 @@ export default function CleanerEarningsPage() {
                 <Skeleton
                   key={i}
                   className="flex-1 rounded-t-md"
-                  style={{ height: `${30 + Math.random() * 70}%` }}
+                  style={{ height: `${30 + rand(i, 1) * 70}%` }}
                 />
               ))
             : (() => {
@@ -189,10 +196,7 @@ export default function CleanerEarningsPage() {
                       />
                     </div>
                     <span className="text-[9px] text-[#94A3B8]">
-                      {new Date(date).toLocaleDateString("ka-GE", {
-                        day: "numeric",
-                        month: "short",
-                      })}
+                      {formatDateShort(date)}
                     </span>
                   </div>
                 ));
@@ -234,12 +238,8 @@ export default function CleanerEarningsPage() {
                       {task.properties?.title ?? "დალაგება"}
                     </p>
                     <p className="text-[10px] text-[#94A3B8]">
-                      {new Date(task.scheduled_at).toLocaleDateString("ka-GE", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatDateShort(task.scheduled_at)},{" "}
+                      {formatTime(task.scheduled_at)}
                     </p>
                   </div>
                 </div>

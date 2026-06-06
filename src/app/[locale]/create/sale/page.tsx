@@ -70,6 +70,9 @@ export default function CreateSalePage() {
   const [completionYear, setCompletionYear] = useState<string>(
     String(new Date().getFullYear() + 1),
   );
+  const [unitsTotal, setUnitsTotal] = useState("");
+  const [unitsSold, setUnitsSold] = useState("");
+  const [unitsReserved, setUnitsReserved] = useState("");
 
   const isUnderConstruction = constructionStatus === "under_construction";
 
@@ -118,6 +121,24 @@ export default function CreateSalePage() {
       const bathroomsNum = parseOptionalNonNegative(bathrooms);
       const roiNum = parseOptionalNonNegative(roiPercent);
 
+      const unitsTotalNum = isUnderConstruction
+        ? parseOptionalNonNegative(unitsTotal)
+        : null;
+      const unitsSoldNum = isUnderConstruction
+        ? (parseOptionalNonNegative(unitsSold) ?? 0)
+        : 0;
+      const unitsReservedNum = isUnderConstruction
+        ? (parseOptionalNonNegative(unitsReserved) ?? 0)
+        : 0;
+      if (
+        unitsTotalNum !== null &&
+        unitsSoldNum + unitsReservedNum > unitsTotalNum
+      ) {
+        throw new Error(
+          "გაყიდული + ჯავშანი არ უნდა აღემატებოდეს ბინების საერთო რაოდენობას",
+        );
+      }
+
       const { data: inserted, error: insertError } = await supabase
         .from("properties")
         .insert({
@@ -136,6 +157,10 @@ export default function CreateSalePage() {
           construction_status: constructionStatus,
           construction_progress_percent: progressNum,
           completion_year: yearNum,
+          units_total: unitsTotalNum,
+          units_sold: unitsSoldNum,
+          units_reserved: unitsReservedNum,
+          construction_stages: [],
           house_rules: {
             handover_date: handoverDate || null,
             price_currency: "USD",
@@ -292,6 +317,41 @@ export default function CreateSalePage() {
                   value={completionYear}
                   onChange={(e) => setCompletionYear(e.target.value)}
                   placeholder={String(new Date().getFullYear() + 1)}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+          )}
+
+          {isUnderConstruction && (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <Field label="ბინების რაოდენობა (სულ)" helper="სურვილისამებრ">
+                <input
+                  type="number"
+                  value={unitsTotal}
+                  onChange={(e) => setUnitsTotal(e.target.value)}
+                  placeholder="მაგ: 60"
+                  min="0"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="გაყიდული ერთეული">
+                <input
+                  type="number"
+                  value={unitsSold}
+                  onChange={(e) => setUnitsSold(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="ჯავშანში">
+                <input
+                  type="number"
+                  value={unitsReserved}
+                  onChange={(e) => setUnitsReserved(e.target.value)}
+                  placeholder="0"
+                  min="0"
                   className={inputClass}
                 />
               </Field>

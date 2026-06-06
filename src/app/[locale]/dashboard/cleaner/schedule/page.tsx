@@ -6,7 +6,7 @@ import { MapPin, CheckCircle2, Calendar, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatTime } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type TaskRow = Tables<"cleaning_tasks"> & {
@@ -180,12 +180,7 @@ export default function CleanerSchedulePage() {
                 <li key={t.id} className="relative flex gap-4 py-4">
                   <div className="w-[48px] shrink-0 text-right">
                     <p className="text-[13px] font-black text-[#0F172A]">
-                      {d
-                        ? d.toLocaleTimeString("ka-GE", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "—"}
+                      {d ? formatTime(d) : "—"}
                     </p>
                   </div>
                   <span

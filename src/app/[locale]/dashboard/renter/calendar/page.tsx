@@ -23,6 +23,7 @@ import PriceRangeModal from "@/components/renter/PriceRangeModal";
 import BulkActionBar, {
   BulkApplyChanges,
 } from "@/components/calendar/BulkActionBar";
+import { datesInRange } from "@/lib/utils/availability";
 import type { Tables } from "@/lib/types/database";
 
 type CalendarBlock = Tables<"calendar_blocks">;
@@ -73,26 +74,6 @@ function getDaysInMonth(year: number, month: number) {
 function getFirstDayOfMonth(year: number, month: number) {
   const day = new Date(year, month, 1).getDay();
   return day === 0 ? 6 : day - 1;
-}
-
-function dateStrCompare(a: string, b: string) {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-function datesInRange(a: string, b: string): string[] {
-  const [from, to] = dateStrCompare(a, b) <= 0 ? [a, b] : [b, a];
-  const out: string[] = [];
-  const start = new Date(from + "T00:00:00");
-  const end = new Date(to + "T00:00:00");
-  const cur = new Date(start);
-  while (cur <= end) {
-    const y = cur.getFullYear();
-    const m = cur.getMonth();
-    const d = cur.getDate();
-    out.push(fmtDate(y, m, d));
-    cur.setDate(d + 1);
-  }
-  return out;
 }
 
 export default function RenterCalendarPage() {

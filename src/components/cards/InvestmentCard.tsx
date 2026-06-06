@@ -4,9 +4,10 @@ import { motion } from "framer-motion";
 import { Heart, MapPin, Tag } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { formatNumber } from "@/lib/utils/format";
 
 function formatUsd(n: number): string {
-  return `$${n.toLocaleString("en-US")}`;
+  return `$${formatNumber(n)}`;
 }
 
 const COMPLETED_STATUSES = new Set([

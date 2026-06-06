@@ -45,3 +45,17 @@ export const buildNext30Days = (from?: Date): string[] =>
 export function parseIsoDate(iso: string): Date {
   return new Date(`${iso}T00:00:00`);
 }
+
+// Inclusive list of ISO dates between two ISO dates (order-independent).
+// ISO yyyy-mm-dd strings sort chronologically, so the smaller string is the start.
+export function datesInRange(a: string, b: string): string[] {
+  const [from, to] = a <= b ? [a, b] : [b, a];
+  const out: string[] = [];
+  const cur = parseIsoDate(from);
+  const end = parseIsoDate(to);
+  while (cur <= end) {
+    out.push(isoDate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
