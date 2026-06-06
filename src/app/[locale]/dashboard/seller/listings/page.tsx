@@ -14,6 +14,10 @@ import MultiSegmentBar from "@/components/shared/MultiSegmentBar";
 import ConstructionManagementModal from "@/components/seller/ConstructionManagementModal";
 import { getUnitsBreakdown } from "@/lib/constants/construction";
 import { formatRelativeGe } from "@/lib/utils/format";
+import ListingActions from "@/components/dashboard/ListingActions";
+import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
+import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 
 const constructionStatusLabel: Record<string, string> = {
   under_construction: "მშენებარე",
@@ -30,6 +34,10 @@ export default function SellerListingsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingProperty, setEditingProperty] =
     useState<Tables<"properties"> | null>(null);
+  const [pickerModal, setPickerModal] = useState<{
+    open: boolean;
+    tier: VipInfoTier;
+  }>({ open: false, tier: "super-vip" });
 
   useEffect(() => {
     if (!user) return;
@@ -240,14 +248,21 @@ export default function SellerListingsPage() {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => setEditingProperty(property)}
-                    className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0F172A] py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,23,42,0.3)] hover:bg-[#1E293B]"
+                  <ListingActions
+                    className="mt-4"
+                    viewUrl={propertyViewUrl(property)}
+                    editUrl={propertyEditUrl(property)}
+                    onPromote={(tier) => setPickerModal({ open: true, tier })}
                   >
-                    <Edit className="h-3.5 w-3.5" />
-                    პროგრესის / სტატუსის განახლება
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProperty(property)}
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0F172A] py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,23,42,0.3)] hover:bg-[#1E293B]"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                      პროგრესის / სტატუსის განახლება
+                    </button>
+                  </ListingActions>
                 </div>
               </motion.div>
             );
@@ -263,6 +278,35 @@ export default function SellerListingsPage() {
             prev.map((p) => (p.id === updated.id ? updated : p)),
           )
         }
+      />
+
+      <VipPropertyPickerModal
+        isOpen={pickerModal.open}
+        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
+        tier={pickerModal.tier}
+        properties={properties.map((p) => ({
+          id: p.id,
+          title: p.title,
+          subtitle: p.location ?? undefined,
+          photoUrl: (p.photos ?? [])[0] ?? null,
+          isForSale: p.is_for_sale ?? false,
+        }))}
+        onConfirm={async (propertyId) => {
+          await supabase.functions.invoke("purchase-vip", {
+            body: {
+              purchase_type:
+                pickerModal.tier === "super-vip"
+                  ? "super_vip"
+                  : pickerModal.tier === "vip"
+                    ? "vip_boost"
+                    : pickerModal.tier === "discount"
+                      ? "discount_badge"
+                      : "sms_package",
+              days: 1,
+              property_id: propertyId,
+            },
+          });
+        }}
       />
     </div>
   );

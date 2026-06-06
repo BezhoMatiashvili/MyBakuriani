@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Check, Clock, ImageIcon } from "lucide-react";
 import {
@@ -31,12 +31,31 @@ const COVERAGE_ZONES = ["მთლიანი ბაკურიანი", "�
 const LANGUAGES = ["ქართული", "ინგლისური", "რუსული"] as const;
 
 export default function CreateServicePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[320px] items-center justify-center text-sm font-medium text-[#64748B]">
+          იტვირთება...
+        </div>
+      }
+    >
+      <CreateServicePageInner />
+    </Suspense>
+  );
+}
+
+function CreateServicePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(isEditMode);
+  const [loadedCategory, setLoadedCategory] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [serviceTitle, setServiceTitle] = useState("");
@@ -54,6 +73,77 @@ export default function CreateServicePage() {
   const [price, setPrice] = useState("");
   const [phone, setPhone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+
+  useEffect(() => {
+    if (!editId || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("services")
+        .select("*")
+        .eq("id", editId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        setError("განცხადება ვერ მოიძებნა");
+        setHydrating(false);
+        return;
+      }
+
+      setLoadedCategory(data.category ?? null);
+      setName(data.provider_name ?? "");
+      setServiceTitle(data.title ?? "");
+      setExperienceYears(
+        (data.experience_required ?? "").replace(/\s*წელი\s*$/u, "").trim(),
+      );
+
+      const matchedSphere = SERVICE_SPHERES.find(
+        (s) => s.label === data.service_field,
+      );
+      if (matchedSphere) {
+        setSphere(matchedSphere.value);
+      } else {
+        setSphere(data.category === "cleaning" ? "cleaning" : "handymen");
+      }
+
+      setProfilePhoto(
+        Array.isArray(data.photos) && data.photos.length > 0
+          ? data.photos[0]
+          : null,
+      );
+      setCoverageZones(
+        data.location ? data.location.split(", ").filter(Boolean) : [],
+      );
+      if (Array.isArray(data.languages) && data.languages.length > 0) {
+        setLanguages(data.languages);
+      }
+      setDescription(data.description ?? "");
+
+      const sched = data.schedule ?? data.operating_hours ?? null;
+      if (sched === "24/7") {
+        setIs24_7(true);
+      } else if (sched) {
+        setWorkingHours(sched);
+      }
+
+      setPrice(data.price != null ? String(data.price) : "");
+
+      const stripPrefix = (v: string | null | undefined) =>
+        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
+      setPhone(stripPrefix(data.phone));
+      setWhatsapp(stripPrefix((data as { whatsapp?: string | null }).whatsapp));
+
+      setHydrating(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, user, supabase]);
 
   const requiredFilled = [
     name.trim().length > 0,
@@ -89,12 +179,13 @@ export default function CreateServicePage() {
     try {
       const categoryValue: "cleaning" | "handyman" =
         sphere === "cleaning" ? "cleaning" : "handyman";
+      const resolvedCategory =
+        editId && loadedCategory ? loadedCategory : categoryValue;
       const sphereLabel =
         SERVICE_SPHERES.find((s) => s.value === sphere)?.label ?? null;
 
-      const insertPayload: Record<string, unknown> = {
-        owner_id: user.id,
-        category: categoryValue,
+      const payload: Record<string, unknown> = {
+        category: resolvedCategory,
         title: serviceTitle.trim(),
         provider_name: name.trim(),
         service_field: sphereLabel,
@@ -108,16 +199,27 @@ export default function CreateServicePage() {
         photos: profilePhoto ? [profilePhoto] : [],
         phone: phone ? `+995${phone}` : null,
         whatsapp: whatsapp ? `+995${whatsapp}` : null,
-        status: "pending",
       };
 
-      const { error: insertError } = await supabase
-        .from("services")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(insertPayload as any);
+      if (editId) {
+        const { error: updateError } = await supabase
+          .from("services")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .update(payload as any)
+          .eq("id", editId)
+          .eq("owner_id", user.id);
 
-      if (insertError) throw insertError;
-      router.push("/dashboard");
+        if (updateError) throw updateError;
+        router.push("/dashboard/service");
+      } else {
+        const { error: insertError } = await supabase
+          .from("services")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert({ ...payload, owner_id: user.id, status: "pending" } as any);
+
+        if (insertError) throw insertError;
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
@@ -146,182 +248,193 @@ export default function CreateServicePage() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel="განცხადების გამოქვეყნება"
+          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
         />
       }
     >
-      {/* Section 1 — Sphere & Profile */}
-      <WizardInnerCard number={1} title="სფერო და პროფილი" accent="blue">
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="სახელი / კომპანია" required>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="ნინო"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="გამოცდილება" required>
-            <input
-              type="text"
-              value={experienceYears}
-              onChange={(e) => setExperienceYears(e.target.value)}
-              placeholder="8 წელი"
-              className={inputClass}
-            />
-          </Field>
+      {hydrating ? (
+        <div className="flex min-h-[320px] items-center justify-center text-sm font-medium text-[#64748B]">
+          იტვირთება...
         </div>
-
-        <Field label="მომსახურების სფერო" required>
-          <StyledSelect
-            value={sphere}
-            onValueChange={(v) => setSphere(v as SphereValue)}
-            options={SERVICE_SPHERES}
-            accent="blue"
-          />
-        </Field>
-
-        <Field label="სათაური" required>
-          <input
-            type="text"
-            value={serviceTitle}
-            onChange={(e) => setServiceTitle(e.target.value)}
-            placeholder="პროფესიონალი დამლაგებელი"
-            className={inputClass}
-          />
-        </Field>
-
-        <ProfilePhotoUpload value={profilePhoto} onChange={setProfilePhoto} />
-      </WizardInnerCard>
-
-      {/* Section 2 — Details & Description */}
-      <WizardInnerCard number={2} title="დეტალები და აღწერა" accent="blue">
-        <Field label="დაფარვის ზონა" required uppercase>
-          <div className="flex flex-wrap gap-2">
-            {COVERAGE_ZONES.map((zone) => (
-              <ChipToggle
-                key={zone}
-                selected={coverageZones.includes(zone)}
-                onClick={() => toggleZone(zone)}
-              >
-                {zone}
-              </ChipToggle>
-            ))}
-          </div>
-        </Field>
-
-        <Field label="სასაუბრო ენები" uppercase>
-          <div className="flex flex-wrap gap-3">
-            {LANGUAGES.map((lang) => (
-              <LanguageChip
-                key={lang}
-                selected={languages.includes(lang)}
-                onClick={() => toggleLanguage(lang)}
-              >
-                {lang}
-              </LanguageChip>
-            ))}
-          </div>
-        </Field>
-
-        <Field label="დეტალური აღწერა" required>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="ვასუფთავებ როგორც აპარტამენტებს, ისე კერძო კოტეჯებს..."
-            rows={4}
-            className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
-          />
-        </Field>
-      </WizardInnerCard>
-
-      {/* Section 3 — Schedule, Price & Contact */}
-      <WizardInnerCard
-        number={3}
-        title="გრაფიკი, ფასი და კონტაქტი"
-        accent="blue"
-      >
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="სამუშაო საათები" required uppercase>
-            <input
-              type="text"
-              value={workingHours}
-              onChange={(e) => setWorkingHours(e.target.value)}
-              placeholder="09:00 - 19:00"
-              disabled={is24_7}
-              className={cn(inputClass, is24_7 && "opacity-60")}
-            />
-          </Field>
-
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={() => setIs24_7((v) => !v)}
-              className={cn(
-                "flex h-[64px] w-full items-center justify-between gap-3 rounded-xl border bg-white px-4 transition-colors",
-                is24_7
-                  ? "border-[#16A34A] bg-[#F0FDF4]"
-                  : "border-[#E2E8F0] hover:border-[#CBD5E1]",
-              )}
-              aria-pressed={is24_7}
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#DCFCE7] text-[#16A34A]">
-                <Clock className="size-4" strokeWidth={2.2} />
-              </span>
-              <span className="flex-1 text-left">
-                <span className="block text-sm font-bold text-[#0F172A]">
-                  24/7 რეჟიმი
-                </span>
-                <span className="block text-xs font-medium text-[#64748B]">
-                  მუშაობს ღამითაც
-                </span>
-              </span>
-              <span
-                className={cn(
-                  "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-                  is24_7 ? "bg-[#16A34A]" : "bg-[#E2E8F0]",
-                )}
-              >
-                <span
-                  className={cn(
-                    "inline-block size-5 rounded-full bg-white shadow transition-transform",
-                    is24_7 ? "translate-x-[22px]" : "translate-x-0.5",
-                  )}
+      ) : (
+        <>
+          {/* Section 1 — Sphere & Profile */}
+          <WizardInnerCard number={1} title="სფერო და პროფილი" accent="blue">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="სახელი / კომპანია" required>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="ნინო"
+                  className={inputClass}
                 />
-              </span>
-            </button>
-          </div>
-        </div>
+              </Field>
+              <Field label="გამოცდილება" required>
+                <input
+                  type="text"
+                  value={experienceYears}
+                  onChange={(e) => setExperienceYears(e.target.value)}
+                  placeholder="8 წელი"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
 
-        <Field label="საწყისი ფასი / ტარიფი" required uppercase>
-          <div className="relative">
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="50"
-              min="0"
-              className={cn(inputClass, "pr-14")}
+            <Field label="მომსახურების სფერო" required>
+              <StyledSelect
+                value={sphere}
+                onValueChange={(v) => setSphere(v as SphereValue)}
+                options={SERVICE_SPHERES}
+                accent="blue"
+              />
+            </Field>
+
+            <Field label="სათაური" required>
+              <input
+                type="text"
+                value={serviceTitle}
+                onChange={(e) => setServiceTitle(e.target.value)}
+                placeholder="პროფესიონალი დამლაგებელი"
+                className={inputClass}
+              />
+            </Field>
+
+            <ProfilePhotoUpload
+              value={profilePhoto}
+              onChange={setProfilePhoto}
             />
-            <span className="pointer-events-none absolute inset-y-1.5 right-1.5 flex w-11 items-center justify-center rounded-lg bg-[#F1F5F9] text-sm font-semibold text-[#64748B]">
-              ₾
-            </span>
-          </div>
-        </Field>
+          </WizardInnerCard>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="ტელეფონის ნომერი" required uppercase>
-            <PhoneInput value={phone} onChange={setPhone} />
-          </Field>
-          <Field label="WhatsApp ნომერი" uppercase>
-            <PhoneInput value={whatsapp} onChange={setWhatsapp} />
-          </Field>
-        </div>
-      </WizardInnerCard>
+          {/* Section 2 — Details & Description */}
+          <WizardInnerCard number={2} title="დეტალები და აღწერა" accent="blue">
+            <Field label="დაფარვის ზონა" required uppercase>
+              <div className="flex flex-wrap gap-2">
+                {COVERAGE_ZONES.map((zone) => (
+                  <ChipToggle
+                    key={zone}
+                    selected={coverageZones.includes(zone)}
+                    onClick={() => toggleZone(zone)}
+                  >
+                    {zone}
+                  </ChipToggle>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="სასაუბრო ენები" uppercase>
+              <div className="flex flex-wrap gap-3">
+                {LANGUAGES.map((lang) => (
+                  <LanguageChip
+                    key={lang}
+                    selected={languages.includes(lang)}
+                    onClick={() => toggleLanguage(lang)}
+                  >
+                    {lang}
+                  </LanguageChip>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="დეტალური აღწერა" required>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="ვასუფთავებ როგორც აპარტამენტებს, ისე კერძო კოტეჯებს..."
+                rows={4}
+                className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+              />
+            </Field>
+          </WizardInnerCard>
+
+          {/* Section 3 — Schedule, Price & Contact */}
+          <WizardInnerCard
+            number={3}
+            title="გრაფიკი, ფასი და კონტაქტი"
+            accent="blue"
+          >
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="სამუშაო საათები" required uppercase>
+                <input
+                  type="text"
+                  value={workingHours}
+                  onChange={(e) => setWorkingHours(e.target.value)}
+                  placeholder="09:00 - 19:00"
+                  disabled={is24_7}
+                  className={cn(inputClass, is24_7 && "opacity-60")}
+                />
+              </Field>
+
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => setIs24_7((v) => !v)}
+                  className={cn(
+                    "flex h-[64px] w-full items-center justify-between gap-3 rounded-xl border bg-white px-4 transition-colors",
+                    is24_7
+                      ? "border-[#16A34A] bg-[#F0FDF4]"
+                      : "border-[#E2E8F0] hover:border-[#CBD5E1]",
+                  )}
+                  aria-pressed={is24_7}
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#DCFCE7] text-[#16A34A]">
+                    <Clock className="size-4" strokeWidth={2.2} />
+                  </span>
+                  <span className="flex-1 text-left">
+                    <span className="block text-sm font-bold text-[#0F172A]">
+                      24/7 რეჟიმი
+                    </span>
+                    <span className="block text-xs font-medium text-[#64748B]">
+                      მუშაობს ღამითაც
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
+                      is24_7 ? "bg-[#16A34A]" : "bg-[#E2E8F0]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-block size-5 rounded-full bg-white shadow transition-transform",
+                        is24_7 ? "translate-x-[22px]" : "translate-x-0.5",
+                      )}
+                    />
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <Field label="საწყისი ფასი / ტარიფი" required uppercase>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="50"
+                  min="0"
+                  className={cn(inputClass, "pr-14")}
+                />
+                <span className="pointer-events-none absolute inset-y-1.5 right-1.5 flex w-11 items-center justify-center rounded-lg bg-[#F1F5F9] text-sm font-semibold text-[#64748B]">
+                  ₾
+                </span>
+              </div>
+            </Field>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="ტელეფონის ნომერი" required uppercase>
+                <PhoneInput value={phone} onChange={setPhone} />
+              </Field>
+              <Field label="WhatsApp ნომერი" uppercase>
+                <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+              </Field>
+            </div>
+          </WizardInnerCard>
+        </>
+      )}
     </WizardShell>
   );
 }

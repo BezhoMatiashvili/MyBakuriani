@@ -331,6 +331,7 @@
     "defaultUser": "User"
   },
   "LanguageSelector": {
+    "ariaLabel": "Select language",
     "ka": "ქარ",
     "en": "EN",
     "ru": "RU"

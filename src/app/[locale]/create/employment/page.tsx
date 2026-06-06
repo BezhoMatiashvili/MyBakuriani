@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   WizardShell,
   WizardInnerCard,
@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 
 const EMPLOYMENT_TYPE_OPTIONS = [
   { value: "სრული განაკვეთი", label: "სრული განაკვეთი" },
@@ -38,7 +39,24 @@ const MEALS_OPTIONS = ["სრული კვება", "ერთჯერა
 const LANGUAGE_OPTIONS = ["ქართული", "ინგლისური", "რუსული", "სხვა"] as const;
 
 export default function CreateEmploymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
+        </div>
+      }
+    >
+      <CreateEmploymentPageInner />
+    </Suspense>
+  );
+}
+
+function CreateEmploymentPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
   const { zones } = useActiveZones();
@@ -49,6 +67,7 @@ export default function CreateEmploymentPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(isEditMode);
 
   // Section 1
   const [title, setTitle] = useState("");
@@ -70,6 +89,57 @@ export default function CreateEmploymentPage() {
   const [requirements, setRequirements] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
   const [experience, setExperience] = useState<string>("");
+
+  useEffect(() => {
+    if (!editId || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("services")
+        .select("*")
+        .eq("id", editId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        setError("განცხადება ვერ მოიძებნა");
+        setHydrating(false);
+        return;
+      }
+
+      setTitle(data.title ?? "");
+      setLocation(data.location ?? "");
+      setPosition(data.position ?? "");
+      setEmploymentType(data.employment_type ?? "სრული განაკვეთი");
+      setSalaryType(data.salary_type ?? "ფიქსირებული");
+      setSalaryMin(data.salary_min != null ? String(data.salary_min) : "");
+      setSalaryMax(data.salary_max != null ? String(data.salary_max) : "");
+      setSalaryDaily(
+        data.salary_daily != null ? String(data.salary_daily) : "",
+      );
+      setAccommodation(data.accommodation ?? "");
+      setMeals(data.meals ?? "");
+      setWorkDescription(data.description ?? "");
+      setRequirements(data.requirements ?? "");
+      setLanguages(
+        Array.isArray(data.languages)
+          ? (data.languages as unknown[]).filter(
+              (v): v is string => typeof v === "string",
+            )
+          : [],
+      );
+      setExperience(data.experience_required ?? "");
+
+      setHydrating(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, user, supabase]);
 
   const requiredFlags = [
     title.trim().length > 0,
@@ -98,9 +168,7 @@ export default function CreateEmploymentPage() {
     setError(null);
 
     try {
-      const { error: insertError } = await supabase.from("services").insert({
-        owner_id: user.id,
-        category: "employment",
+      const payload = {
         title: title.trim() || position.trim(),
         description: workDescription.trim() || null,
         position: position.trim() || null,
@@ -118,16 +186,41 @@ export default function CreateEmploymentPage() {
         // legacy compatibility
         salary_range:
           salaryMin && salaryMax ? `${salaryMin}-${salaryMax} ₾` : null,
-        status: "pending",
-      });
+      };
 
-      if (insertError) throw insertError;
-      router.push("/dashboard");
+      if (editId) {
+        const { error: updateError } = await supabase
+          .from("services")
+          .update(payload)
+          .eq("id", editId)
+          .eq("owner_id", user.id);
+
+        if (updateError) throw updateError;
+        router.push("/dashboard/service");
+      } else {
+        const { error: insertError } = await supabase.from("services").insert({
+          ...payload,
+          owner_id: user.id,
+          category: "employment",
+          status: "pending",
+        });
+
+        if (insertError) throw insertError;
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (hydrating) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center">
+        <SkierLoader variant="inline" />
+      </div>
+    );
   }
 
   return (
@@ -140,7 +233,7 @@ export default function CreateEmploymentPage() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel="განცხადების გამოქვეყნება"
+          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}

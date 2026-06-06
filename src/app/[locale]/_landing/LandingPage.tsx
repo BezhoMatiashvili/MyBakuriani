@@ -352,40 +352,8 @@ export default function LandingPage({
                 />
               </div>
             ) : activeDropdown === "calendar" ? (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-[1fr_auto] gap-4 md:grid">
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden md:block">
                 <div ref={dropdownPortalRef} className="min-w-0" />
-                <div className="flex w-[240px] flex-col gap-3">
-                  {/* Camera card */}
-                  <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
-                    <div className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                        <span className="size-2 rounded-full bg-[#EF4444]" />
-                        კამერები
-                      </span>
-                      <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                        2 ლოკაცია
-                        <Video className="size-[18px] text-[#CBD5E1]" />
-                      </span>
-                    </div>
-                  </div>
-                  {/* Coupon button */}
-                  <button
-                    type="button"
-                    className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
-                  >
-                    კუპონის აღება
-                  </button>
-                  {/* Discount toggle */}
-                  <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
-                    <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                      <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                      მხოლოდ ფასდაკლებები
-                    </span>
-                    <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                      <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
-                    </div>
-                  </div>
-                </div>
               </div>
             ) : null}
           </div>

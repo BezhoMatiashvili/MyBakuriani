@@ -3,6 +3,7 @@
 import { Link } from "@/i18n/navigation";
 import { MessageSquare, Plus, Search } from "lucide-react";
 import { formatPrice } from "@/lib/utils/format";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface SellerTopbarProps {
   balance: number;
@@ -38,6 +39,7 @@ export function SellerTopbar({
         <div className="flex-1" />
 
         <div className="flex shrink-0 items-center gap-3">
+          <LanguageSelector />
           <Link
             href="/dashboard/seller/balance"
             className="group flex h-[44px] items-center gap-2.5 rounded-full border border-[#E2E8F0] bg-white pl-4 pr-1.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB]"

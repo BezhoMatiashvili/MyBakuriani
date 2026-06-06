@@ -16,6 +16,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
+import ListingActions from "@/components/dashboard/ListingActions";
+import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import type { VipInfoTier } from "@/components/renter/VipInfoModal";
+import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
@@ -26,6 +30,10 @@ export default function FoodDashboardPage() {
   const [restaurant, setRestaurant] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [published, setPublished] = useState(true);
+  const [pickerModal, setPickerModal] = useState<{
+    open: boolean;
+    tier: VipInfoTier;
+  }>({ open: false, tier: "super-vip" });
   const [stats, setStats] = useState({
     ordersToday: 0,
     totalOrders: 0,
@@ -274,7 +282,52 @@ export default function FoodDashboardPage() {
             </>
           )}
         </div>
+        {restaurant && (
+          <ListingActions
+            className="mt-5 border-t border-[#F1F5F9] pt-4"
+            viewUrl={serviceViewUrl(restaurant)}
+            editUrl={serviceEditUrl(restaurant)}
+            onPromote={(tier) => setPickerModal({ open: true, tier })}
+          />
+        )}
       </motion.div>
+
+      <VipPropertyPickerModal
+        isOpen={pickerModal.open}
+        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
+        tier={pickerModal.tier}
+        flat
+        properties={
+          restaurant
+            ? [
+                {
+                  id: restaurant.id,
+                  title: restaurant.title,
+                  subtitle: restaurant.location ?? undefined,
+                  photoUrl: (restaurant.photos ?? [])[0] ?? null,
+                  badgeLabel: "კვება",
+                  badgeColor: "blue",
+                },
+              ]
+            : []
+        }
+        onConfirm={async (serviceId) => {
+          await supabase.functions.invoke("purchase-vip", {
+            body: {
+              purchase_type:
+                pickerModal.tier === "super-vip"
+                  ? "super_vip"
+                  : pickerModal.tier === "vip"
+                    ? "vip_boost"
+                    : pickerModal.tier === "discount"
+                      ? "discount_badge"
+                      : "sms_package",
+              days: 1,
+              service_id: serviceId,
+            },
+          });
+        }}
+      />
     </div>
   );
 }

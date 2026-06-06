@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { isAdminViewer } from "@/lib/auth/is-admin-viewer";
 import {
   getMockService,
@@ -16,8 +17,10 @@ export async function getServiceById(id: string): Promise<{
   }
 
   try {
-    const supabase = createPublicClient();
     const adminViewer = await isAdminViewer();
+    // Admins preview pending listings: the service-role client bypasses RLS.
+    // Services have no admin RLS override, so this is the only path that works.
+    const supabase = adminViewer ? createServiceClient() : createPublicClient();
     let query = supabase
       .from("services")
       .select("*, profiles!services_owner_id_fkey(*)")

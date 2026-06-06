@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { ChevronRight, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 export function CreateHeader() {
   const { user } = useAuth();
@@ -45,6 +46,7 @@ export function CreateHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <LanguageSelector />
           <Link
             href="/create"
             className="inline-flex h-[40px] items-center gap-1.5 rounded-xl bg-[#F97316] px-4 text-[13px] font-bold text-white shadow-[0px_6px_14px_-4px_rgba(249,115,22,0.45)] transition-colors hover:bg-[#EA6C0E]"

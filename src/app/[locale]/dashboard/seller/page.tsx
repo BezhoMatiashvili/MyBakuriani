@@ -9,6 +9,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
+import ListingActions from "@/components/dashboard/ListingActions";
+import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
+import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -31,6 +35,10 @@ export default function SellerDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<Tables<"properties">[]>([]);
+  const [pickerModal, setPickerModal] = useState<{
+    open: boolean;
+    tier: VipInfoTier;
+  }>({ open: false, tier: "super-vip" });
 
   useEffect(() => {
     if (!user) return;
@@ -179,9 +187,8 @@ export default function SellerDashboardPage() {
             </div>
           ) : (
             properties.map((property) => (
-              <Link
+              <div
                 key={property.id}
-                href="/dashboard/seller/listings"
                 className="block rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_8px_24px_rgba(15,23,42,0.06)]"
               >
                 <div className="flex flex-col gap-4 sm:flex-row">
@@ -234,11 +241,46 @@ export default function SellerDashboardPage() {
                     </div>
                   </div>
                 </div>
-              </Link>
+                <ListingActions
+                  viewUrl={propertyViewUrl(property)}
+                  editUrl={propertyEditUrl(property)}
+                  onPromote={(tier) => setPickerModal({ open: true, tier })}
+                  className="mt-4 border-t border-[#F1F5F9] pt-4"
+                />
+              </div>
             ))
           )}
         </div>
       </motion.section>
+
+      <VipPropertyPickerModal
+        isOpen={pickerModal.open}
+        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
+        tier={pickerModal.tier}
+        properties={properties.map((p) => ({
+          id: p.id,
+          title: p.title,
+          subtitle: p.location ?? undefined,
+          photoUrl: (p.photos ?? [])[0] ?? null,
+          isForSale: p.is_for_sale ?? true,
+        }))}
+        onConfirm={async (propertyId) => {
+          await supabase.functions.invoke("purchase-vip", {
+            body: {
+              purchase_type:
+                pickerModal.tier === "super-vip"
+                  ? "super_vip"
+                  : pickerModal.tier === "vip"
+                    ? "vip_boost"
+                    : pickerModal.tier === "discount"
+                      ? "discount_badge"
+                      : "sms_package",
+              days: 1,
+              property_id: propertyId,
+            },
+          });
+        }}
+      />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MapPin } from "lucide-react";
 import {
   WizardShell,
@@ -80,8 +80,34 @@ type PriceUnit = (typeof PRICE_UNITS)[number]["value"];
 
 const MAX_PHOTOS = 5;
 
+// Stored values are the Georgian labels, so hydration reverse-maps label → value.
+function findValueByLabel<T extends string>(
+  options: readonly { value: T; label: string }[],
+  label: string | null | undefined,
+): T | null {
+  if (!label) return null;
+  return options.find((o) => o.label === label)?.value ?? null;
+}
+
 export default function CreateEntertainmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
+        </div>
+      }
+    >
+      <CreateEntertainmentPageInner />
+    </Suspense>
+  );
+}
+
+function CreateEntertainmentPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
   const { zones: activeZones } = useActiveZones();
@@ -92,6 +118,7 @@ export default function CreateEntertainmentPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(isEditMode);
 
   const [title, setTitle] = useState("");
   const [activityType, setActivityType] = useState<ActivityType>("extreme");
@@ -116,6 +143,80 @@ export default function CreateEntertainmentPage() {
 
   const [phone, setPhone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+
+  useEffect(() => {
+    if (!editId || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("services")
+        .select("*")
+        .eq("id", editId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        setError("განცხადება ვერ მოიძებნა");
+        setHydrating(false);
+        return;
+      }
+
+      setTitle(data.title ?? "");
+      setDescription(data.description ?? "");
+
+      const at = findValueByLabel(ACTIVITY_TYPES, data.activity_type);
+      if (at) setActivityType(at);
+      const cat = findValueByLabel(ACTIVITY_CATEGORIES, data.activity_category);
+      if (cat) setCategory(cat);
+      const dur = findValueByLabel(DURATIONS, data.duration);
+      if (dur) setDuration(dur);
+      const age = findValueByLabel(AGES, data.age_min);
+      if (age) setAgeMin(age);
+      const gf = findValueByLabel(GOOD_FOR, data.good_for);
+      if (gf) setGoodFor(gf);
+      const pu = findValueByLabel(PRICE_UNITS, data.price_unit);
+      if (pu) setPriceUnit(pu);
+
+      setSafetyNotes(data.safety_notes ?? "");
+      setPrice(data.price != null ? String(data.price) : "");
+      setWorkingHours(data.schedule ?? data.operating_hours ?? "");
+
+      if (data.location) {
+        const parts = data.location.split(" • ");
+        setZone(parts[0] ?? "");
+        setExactLocation(parts.slice(1).join(" • "));
+      }
+
+      const rawCoords = data.coords;
+      if (
+        rawCoords &&
+        typeof rawCoords === "object" &&
+        !Array.isArray(rawCoords)
+      ) {
+        const obj = rawCoords as Record<string, unknown>;
+        if (typeof obj.lat === "number" && typeof obj.lng === "number") {
+          setCoords({ lat: obj.lat, lng: obj.lng });
+          setShowMap(true);
+        }
+      }
+
+      setPhotos(Array.isArray(data.photos) ? data.photos : []);
+
+      const stripPrefix = (v: string | null | undefined) =>
+        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
+      setPhone(stripPrefix(data.phone));
+      setWhatsapp(stripPrefix((data as { whatsapp?: string | null }).whatsapp));
+
+      setHydrating(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, user, supabase]);
 
   const requiredFilled = [
     title.trim().length > 0,
@@ -152,8 +253,7 @@ export default function CreateEntertainmentPage() {
         (p) => p.value === priceUnit,
       )?.label;
 
-      const insertPayload: Record<string, unknown> = {
-        owner_id: user.id,
+      const payload: Record<string, unknown> = {
         category: "entertainment",
         title: title.trim(),
         description: description.trim() || null,
@@ -172,21 +272,40 @@ export default function CreateEntertainmentPage() {
         photos,
         phone: phone ? `+995${phone}` : null,
         whatsapp: whatsapp ? `+995${whatsapp}` : null,
-        status: "pending",
       };
 
-      const { error: insertError } = await supabase
-        .from("services")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(insertPayload as any);
+      if (editId) {
+        const { error: updateError } = await supabase
+          .from("services")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .update(payload as any)
+          .eq("id", editId)
+          .eq("owner_id", user.id);
 
-      if (insertError) throw insertError;
-      router.push("/dashboard");
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from("services")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert({ ...payload, owner_id: user.id, status: "pending" } as any);
+
+        if (insertError) throw insertError;
+      }
+
+      router.push(editId ? "/dashboard/service" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (hydrating) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <SkierLoader variant="inline" />
+      </div>
+    );
   }
 
   return (
@@ -200,7 +319,7 @@ export default function CreateEntertainmentPage() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel="განცხადების გამოქვეყნება"
+          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
