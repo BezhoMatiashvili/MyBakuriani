@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import {
   CreditCard,
   Pencil,
+  Eye,
   AlertTriangle,
   Plus,
   Rocket,
@@ -23,6 +24,7 @@ import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
 import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 
 type Property = Tables<"properties">;
@@ -436,6 +438,15 @@ function PropertyRow({
               საწევრო
             </button>
           )}
+          <a
+            href={propertyViewUrl(property)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[12px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            ნახვა
+          </a>
           <Link
             href={`/create/rental?edit=${property.id}`}
             className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[12px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"

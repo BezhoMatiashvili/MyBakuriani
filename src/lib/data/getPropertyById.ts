@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { isAdminViewer } from "@/lib/auth/is-admin-viewer";
 import { getMockProperty, isMockPropertyId } from "@/lib/mock/properties";
 import type { Tables } from "@/lib/types/database";
@@ -16,8 +17,10 @@ export async function getPropertyById(id: string): Promise<{
   }
 
   try {
-    const supabase = createPublicClient();
     const adminViewer = await isAdminViewer();
+    // Admins preview pending listings: the service-role client bypasses RLS,
+    // which the anonymous public client cannot (it would still hide non-active rows).
+    const supabase = adminViewer ? createServiceClient() : createPublicClient();
     let query = supabase
       .from("properties")
       .select("*, profiles!properties_owner_id_fkey(*)")

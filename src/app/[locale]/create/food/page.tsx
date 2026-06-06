@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, ChangeEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Link2, MapPin, X } from "lucide-react";
 import {
   WizardShell,
@@ -10,6 +10,7 @@ import {
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
@@ -26,7 +27,24 @@ const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 10;
 
 export default function CreateFoodPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
+        </div>
+      }
+    >
+      <CreateFoodPageInner />
+    </Suspense>
+  );
+}
+
+function CreateFoodPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
   const { zones } = useActiveZones();
@@ -37,6 +55,7 @@ export default function CreateFoodPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(isEditMode);
 
   const [title, setTitle] = useState("");
   const [restaurantType, setRestaurantType] = useState("restaurant");
@@ -63,6 +82,71 @@ export default function CreateFoodPage() {
   const [photos, setPhotos] = useState<string[]>([]);
 
   const menuFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editId || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("services")
+        .select("*")
+        .eq("id", editId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        setError("განცხადება ვერ მოიძებნა");
+        setHydrating(false);
+        return;
+      }
+
+      setTitle(data.title ?? "");
+      setRestaurantType(
+        RESTAURANT_TYPES.find(
+          (t) =>
+            t.label === data.restaurant_type ||
+            t.value === data.restaurant_type,
+        )?.value ?? "restaurant",
+      );
+      setCuisineType(
+        CUISINE_TYPES.find(
+          (t) => t.label === data.cuisine_type || t.value === data.cuisine_type,
+        )?.value ?? "",
+      );
+      setZone(data.location ?? "");
+      setAvgCheck(data.avg_check ?? "");
+      setOperatingHours(data.operating_hours ?? "");
+      setAmenities(
+        FOOD_AMENITIES.reduce(
+          (acc, a) => {
+            acc[a.key] = Boolean(data[a.key]);
+            return acc;
+          },
+          {} as Record<FoodAmenityKey, boolean>,
+        ),
+      );
+      setMenuUrlInput(data.menu_url ?? "");
+      setDescription(data.description ?? "");
+      const stripPrefix = (v: string | null) =>
+        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
+      setPhone(stripPrefix(data.phone));
+      // `whatsapp` exists on services (migration 20260427130000) but the
+      // generated types are stale — read it through a narrow cast.
+      setWhatsapp(
+        stripPrefix((data as { whatsapp?: string | null }).whatsapp ?? null),
+      );
+      setPhotos(Array.isArray(data.photos) ? data.photos : []);
+
+      setHydrating(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, user, supabase]);
 
   function onPickMenuFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -112,9 +196,8 @@ export default function CreateFoodPage() {
         menuUrl = menuUrlInput.trim();
       }
 
-      const { error: insertError } = await supabase.from("services").insert({
-        owner_id: user.id,
-        category: "food",
+      const payload = {
+        category: "food" as const,
         title: title.trim(),
         description: description.trim() || null,
         restaurant_type:
@@ -130,11 +213,27 @@ export default function CreateFoodPage() {
         phone: phone ? `+995${phone}` : null,
         whatsapp: whatsapp ? `+995${whatsapp}` : null,
         photos,
-        status: "pending",
-      });
+      };
 
-      if (insertError) throw insertError;
-      router.push("/dashboard");
+      if (editId) {
+        const { error: updateError } = await supabase
+          .from("services")
+          .update(payload)
+          .eq("id", editId)
+          .eq("owner_id", user.id);
+
+        if (updateError) throw updateError;
+        router.push("/dashboard/food");
+      } else {
+        const { error: insertError } = await supabase.from("services").insert({
+          ...payload,
+          owner_id: user.id,
+          status: "pending",
+        });
+
+        if (insertError) throw insertError;
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
@@ -170,218 +269,230 @@ export default function CreateFoodPage() {
           accent="orange"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel="განცხადების გამოქვეყნება"
+          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
         />
       }
     >
-      <div className="space-y-8">
-        {/* Section 1 — Basic info */}
-        <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="orange">
-          <Field label="ობიექტის დასახელება" required>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="მაგ: რესტორანი პანორამა"
-              className={inputClass}
-            />
-          </Field>
-
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="რესტორნის ტიპი" required>
-              <StyledSelect
-                value={restaurantType}
-                onValueChange={setRestaurantType}
-                options={RESTAURANT_TYPES}
-                accent="orange"
-              />
-            </Field>
-            <Field label="სამზარეულოს ტიპი">
-              <StyledSelect
-                value={cuisineType}
-                onValueChange={setCuisineType}
-                options={CUISINE_TYPES}
-                placeholder="აირჩიეთ ტიპი"
-                accent="orange"
-              />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="ლოკაცია (ZONE)" required>
-              <StyledSelect
-                value={zone}
-                onValueChange={setZone}
-                options={zoneOptions}
-                placeholder="აირჩიეთ ზონა"
-                accent="orange"
-              />
-            </Field>
-            <Field label="ზუსტი ლოკაცია">
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={exactLocation}
-                  onChange={(e) => setExactLocation(e.target.value)}
-                  placeholder="მაგ: ცენტრალური პარკის შესასვლელთან"
-                  className={`${inputClass} flex-1`}
-                />
-                <button
-                  type="button"
-                  className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-xl bg-[#F97316] text-white shadow-[0px_4px_10px_rgba(249,115,22,0.25)] transition-colors hover:bg-[#EA580C]"
-                  aria-label="რუკაზე ჩვენება"
-                >
-                  <MapPin className="size-5" strokeWidth={2.25} />
-                </button>
-              </div>
-            </Field>
-          </div>
-
-          <Field label="აღწერა">
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="დეტალური აღწერა რესტორნის შესახებ..."
-              rows={4}
-              className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#F97316] focus:ring-2 focus:ring-[#FFEDD5]"
-            />
-          </Field>
-        </WizardInnerCard>
-
-        {/* Section 2 — Details & services */}
-        <WizardInnerCard
-          number={2}
-          title="დეტალები და სერვისები"
-          accent="orange"
-        >
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="საშუალო ჩეკი 1 პერსონაზე" required>
-              <StyledSelect
-                value={avgCheck}
-                onValueChange={setAvgCheck}
-                options={AVG_CHECK_OPTIONS}
-                placeholder="აირჩიეთ ფასი"
-                accent="orange"
-              />
-            </Field>
-            <Field label="სამუშაო საათები" required>
+      {hydrating ? (
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* Section 1 — Basic info */}
+          <WizardInnerCard
+            number={1}
+            title="ძირითადი ინფორმაცია"
+            accent="orange"
+          >
+            <Field label="ობიექტის დასახელება" required>
               <input
                 type="text"
-                value={operatingHours}
-                onChange={(e) => setOperatingHours(e.target.value)}
-                placeholder="მაგ: 10:00 - 20:00"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="მაგ: რესტორანი პანორამა"
                 className={inputClass}
               />
             </Field>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-[13px] font-bold text-[#334155]">
-              დამატებითი დეტალები
-            </label>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {FOOD_AMENITIES.map((a) => (
-                <ServiceCheckbox
-                  key={a.key}
-                  label={a.label}
-                  checked={amenities[a.key]}
-                  onChange={(v) =>
-                    setAmenities((prev) => ({ ...prev, [a.key]: v }))
-                  }
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="რესტორნის ტიპი" required>
+                <StyledSelect
+                  value={restaurantType}
+                  onValueChange={setRestaurantType}
+                  options={RESTAURANT_TYPES}
+                  accent="orange"
                 />
-              ))}
+              </Field>
+              <Field label="სამზარეულოს ტიპი">
+                <StyledSelect
+                  value={cuisineType}
+                  onValueChange={setCuisineType}
+                  options={CUISINE_TYPES}
+                  placeholder="აირჩიეთ ტიპი"
+                  accent="orange"
+                />
+              </Field>
             </div>
-          </div>
-        </WizardInnerCard>
 
-        {/* Section 3 — Menu & photos */}
-        <WizardInnerCard number={3} title="მენიუ და ფოტოები" accent="orange">
-          <Field label="მენიუ (არასავალდებულო)">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => menuFileRef.current?.click()}
-                className="flex h-[68px] items-center gap-3 rounded-xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 text-left transition-colors hover:border-[#F97316] hover:bg-[#FFF7ED]"
-              >
-                <FileText className="size-6 shrink-0 text-[#F97316]" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-bold text-[#334155]">
-                    {menuFile ? menuFile.name : "მენიუს ატვირთვა"}
-                  </div>
-                  <div className="text-xs text-[#94A3B8]">მხოლოდ PDF ფაილი</div>
-                </div>
-                {menuFile && (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuFile(null);
-                      if (menuFileRef.current) menuFileRef.current.value = "";
-                    }}
-                    className="flex size-6 items-center justify-center rounded-md text-[#94A3B8] hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
-                    aria-label="წაშლა"
-                  >
-                    <X className="size-4" />
-                  </span>
-                )}
-              </button>
-              <input
-                ref={menuFileRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={onPickMenuFile}
-              />
-
-              <div className="relative">
-                <Link2 className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
-                <input
-                  type="url"
-                  value={menuUrlInput}
-                  onChange={(e) => {
-                    setMenuUrlInput(e.target.value);
-                    if (e.target.value) setMenuFile(null);
-                  }}
-                  placeholder="ან ვებ-გვერდის ბმული (URL)..."
-                  className={`${inputClass} pl-10`}
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="ლოკაცია (ZONE)" required>
+                <StyledSelect
+                  value={zone}
+                  onValueChange={setZone}
+                  options={zoneOptions}
+                  placeholder="აირჩიეთ ზონა"
+                  accent="orange"
                 />
+              </Field>
+              <Field label="ზუსტი ლოკაცია">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={exactLocation}
+                    onChange={(e) => setExactLocation(e.target.value)}
+                    placeholder="მაგ: ცენტრალური პარკის შესასვლელთან"
+                    className={`${inputClass} flex-1`}
+                  />
+                  <button
+                    type="button"
+                    className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-xl bg-[#F97316] text-white shadow-[0px_4px_10px_rgba(249,115,22,0.25)] transition-colors hover:bg-[#EA580C]"
+                    aria-label="რუკაზე ჩვენება"
+                  >
+                    <MapPin className="size-5" strokeWidth={2.25} />
+                  </button>
+                </div>
+              </Field>
+            </div>
+
+            <Field label="აღწერა">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="დეტალური აღწერა რესტორნის შესახებ..."
+                rows={4}
+                className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#F97316] focus:ring-2 focus:ring-[#FFEDD5]"
+              />
+            </Field>
+          </WizardInnerCard>
+
+          {/* Section 2 — Details & services */}
+          <WizardInnerCard
+            number={2}
+            title="დეტალები და სერვისები"
+            accent="orange"
+          >
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="საშუალო ჩეკი 1 პერსონაზე" required>
+                <StyledSelect
+                  value={avgCheck}
+                  onValueChange={setAvgCheck}
+                  options={AVG_CHECK_OPTIONS}
+                  placeholder="აირჩიეთ ფასი"
+                  accent="orange"
+                />
+              </Field>
+              <Field label="სამუშაო საათები" required>
+                <input
+                  type="text"
+                  value={operatingHours}
+                  onChange={(e) => setOperatingHours(e.target.value)}
+                  placeholder="მაგ: 10:00 - 20:00"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[13px] font-bold text-[#334155]">
+                დამატებითი დეტალები
+              </label>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {FOOD_AMENITIES.map((a) => (
+                  <ServiceCheckbox
+                    key={a.key}
+                    label={a.label}
+                    checked={amenities[a.key]}
+                    onChange={(v) =>
+                      setAmenities((prev) => ({ ...prev, [a.key]: v }))
+                    }
+                  />
+                ))}
               </div>
             </div>
-          </Field>
+          </WizardInnerCard>
 
-          <Field
-            label="ობიექტის ფოტოები"
-            required
-            chip={{ label: `მინიმუმ ${MIN_PHOTOS} ფოტო`, variant: "orange" }}
-            chipPosition="end"
+          {/* Section 3 — Menu & photos */}
+          <WizardInnerCard number={3} title="მენიუ და ფოტოები" accent="orange">
+            <Field label="მენიუ (არასავალდებულო)">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => menuFileRef.current?.click()}
+                  className="flex h-[68px] items-center gap-3 rounded-xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 text-left transition-colors hover:border-[#F97316] hover:bg-[#FFF7ED]"
+                >
+                  <FileText className="size-6 shrink-0 text-[#F97316]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold text-[#334155]">
+                      {menuFile ? menuFile.name : "მენიუს ატვირთვა"}
+                    </div>
+                    <div className="text-xs text-[#94A3B8]">
+                      მხოლოდ PDF ფაილი
+                    </div>
+                  </div>
+                  {menuFile && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuFile(null);
+                        if (menuFileRef.current) menuFileRef.current.value = "";
+                      }}
+                      className="flex size-6 items-center justify-center rounded-md text-[#94A3B8] hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
+                      aria-label="წაშლა"
+                    >
+                      <X className="size-4" />
+                    </span>
+                  )}
+                </button>
+                <input
+                  ref={menuFileRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={onPickMenuFile}
+                />
+
+                <div className="relative">
+                  <Link2 className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
+                  <input
+                    type="url"
+                    value={menuUrlInput}
+                    onChange={(e) => {
+                      setMenuUrlInput(e.target.value);
+                      if (e.target.value) setMenuFile(null);
+                    }}
+                    placeholder="ან ვებ-გვერდის ბმული (URL)..."
+                    className={`${inputClass} pl-10`}
+                  />
+                </div>
+              </div>
+            </Field>
+
+            <Field
+              label="ობიექტის ფოტოები"
+              required
+              chip={{ label: `მინიმუმ ${MIN_PHOTOS} ფოტო`, variant: "orange" }}
+              chipPosition="end"
+            >
+              <PhotoUploader
+                photos={photos}
+                onPhotosChange={setPhotos}
+                maxPhotos={MAX_PHOTOS}
+                variant="figma"
+              />
+            </Field>
+          </WizardInnerCard>
+
+          {/* Section 4 — Contact */}
+          <WizardInnerCard
+            number={4}
+            title="საკონტაქტო ინფორმაცია"
+            accent="orange"
           >
-            <PhotoUploader
-              photos={photos}
-              onPhotosChange={setPhotos}
-              maxPhotos={MAX_PHOTOS}
-              variant="figma"
-            />
-          </Field>
-        </WizardInnerCard>
-
-        {/* Section 4 — Contact */}
-        <WizardInnerCard
-          number={4}
-          title="საკონტაქტო ინფორმაცია"
-          accent="orange"
-        >
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="ტელეფონის ნომერი" required>
-              <PhoneInput value={phone} onChange={setPhone} />
-            </Field>
-            <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
-              <PhoneInput value={whatsapp} onChange={setWhatsapp} />
-            </Field>
-          </div>
-        </WizardInnerCard>
-      </div>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="ტელეფონის ნომერი" required>
+                <PhoneInput value={phone} onChange={setPhone} />
+              </Field>
+              <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
+                <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+              </Field>
+            </div>
+          </WizardInnerCard>
+        </div>
+      )}
     </WizardShell>
   );
 }

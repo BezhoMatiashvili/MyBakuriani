@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   ChevronDown,
+  Eye,
   Loader2,
   Pause,
   Play,
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
 import { formatPrice } from "@/lib/utils/format";
+import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 
 type ListingRow = {
@@ -29,6 +31,7 @@ type ListingRow = {
   category?: string;
   location?: string | null;
   is_new?: boolean | null;
+  is_for_sale?: boolean | null;
 };
 
 const CATEGORY_OPTIONS: {
@@ -110,6 +113,8 @@ export default function ListingsPage() {
               location: r.location ?? null,
               is_new:
                 payload.kind === "service" ? (asService.is_new ?? false) : null,
+              is_for_sale:
+                payload.kind === "property" ? asProperty.is_for_sale : null,
             } satisfies ListingRow;
           },
         ),
@@ -270,6 +275,15 @@ export default function ListingsPage() {
                     ? formatPrice(row.sale_price)
                     : "—";
               const isBusy = busyId === row.id;
+              const previewUrl = `${
+                kind === "property"
+                  ? propertyViewUrl({
+                      id: row.id,
+                      is_for_sale: row.is_for_sale,
+                      type: row.type,
+                    })
+                  : serviceViewUrl({ id: row.id, category: row.category ?? "" })
+              }?preview=1`;
               const statusLabel =
                 STATUS_LABELS[row.status ?? "pending"] ?? row.status ?? "—";
               const statusBadge =
@@ -314,6 +328,17 @@ export default function ListingsPage() {
                       {statusLabel}
                     </span>
                     <div className="flex justify-end gap-2">
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] transition-colors hover:bg-[#EFF6FF] hover:text-[#1D4ED8]"
+                        aria-label="ნახე საიტზე"
+                        title="ნახე საიტზე"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </a>
                       {kind === "service" && (
                         <button
                           type="button"

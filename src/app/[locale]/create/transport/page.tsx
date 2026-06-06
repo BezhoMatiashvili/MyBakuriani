@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   WizardShell,
   WizardInnerCard,
@@ -48,13 +48,33 @@ const LANGUAGE_OPTIONS = ["ქართული", "English", "Русский"];
 const MIN_PHOTOS = 1;
 const MAX_PHOTOS = 10;
 
+function TransportLoading() {
+  return (
+    <div className="flex min-h-[320px] items-center justify-center text-sm font-medium text-[#64748B]">
+      იტვირთება...
+    </div>
+  );
+}
+
 export default function CreateTransportPage() {
+  return (
+    <Suspense fallback={<TransportLoading />}>
+      <CreateTransportPageInner />
+    </Suspense>
+  );
+}
+
+function CreateTransportPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(isEditMode);
 
   const [driverName, setDriverName] = useState("");
   const [vehicleMake, setVehicleMake] = useState("Mercedes-Benz");
@@ -71,6 +91,67 @@ export default function CreateTransportPage() {
   const [phone, setPhone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!editId || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("services")
+        .select("*")
+        .eq("id", editId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        setError("განცხადება ვერ მოიძებნა");
+        setHydrating(false);
+        return;
+      }
+
+      const toStringArray = (v: unknown): string[] =>
+        Array.isArray(v)
+          ? v.filter((x): x is string => typeof x === "string")
+          : [];
+      const stripPrefix = (v: string | null) =>
+        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
+
+      setDriverName(data.driver_name ?? data.title ?? "");
+      setVehicleMake(data.vehicle_make ?? "Mercedes-Benz");
+      setTransportType(
+        (data.transport_type ??
+          "minivan") as (typeof TRANSPORT_TYPES)[number]["value"],
+      );
+      setVehicleCapacity(
+        data.vehicle_capacity != null ? String(data.vehicle_capacity) : "",
+      );
+      setRoutes(toStringArray(data.routes));
+      setPrice(data.price != null ? String(data.price) : "");
+      setPriceUnit(
+        (data.price_unit ??
+          "whole_car") as (typeof PRICE_UNITS)[number]["value"],
+      );
+      setEquipment(toStringArray(data.equipment));
+      setLanguages(toStringArray(data.languages));
+      setDescription(data.description ?? "");
+      setPhone(stripPrefix(data.phone));
+      // `whatsapp` exists on services (migration 20260427130000) but the
+      // generated types are stale — read it through a narrow cast.
+      setWhatsapp(
+        stripPrefix((data as { whatsapp?: string | null }).whatsapp ?? null),
+      );
+      setPhotos(toStringArray(data.photos));
+
+      setHydrating(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, user, supabase]);
 
   function toggle(arr: string[], value: string): string[] {
     return arr.includes(value)
@@ -92,9 +173,7 @@ export default function CreateTransportPage() {
       if (photos.length < MIN_PHOTOS)
         throw new Error("ატვირთეთ მინიმუმ ერთი ფოტო");
 
-      const { error: insertError } = await supabase.from("services").insert({
-        owner_id: user.id,
-        category: "transport",
+      const payload = {
         title: driverName.trim(),
         description: description.trim() || null,
         driver_name: driverName.trim(),
@@ -109,11 +188,28 @@ export default function CreateTransportPage() {
         phone: phone ? `+995${phone}` : null,
         whatsapp: whatsapp ? `+995${whatsapp}` : null,
         photos,
-        status: "pending",
-      });
+      };
 
-      if (insertError) throw insertError;
-      router.push("/dashboard");
+      if (editId) {
+        const { error: updateError } = await supabase
+          .from("services")
+          .update(payload)
+          .eq("id", editId)
+          .eq("owner_id", user.id);
+
+        if (updateError) throw updateError;
+        router.push("/dashboard/service");
+      } else {
+        const { error: insertError } = await supabase.from("services").insert({
+          ...payload,
+          owner_id: user.id,
+          category: "transport",
+          status: "pending",
+        });
+
+        if (insertError) throw insertError;
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
     } finally {
@@ -149,163 +245,175 @@ export default function CreateTransportPage() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel="განცხადების გამოქვეყნება"
+          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
         />
       }
     >
-      <div className="space-y-8">
-        {/* Section 1 — Basic info */}
-        <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="blue">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="მძღოლის სახელი" required>
-              <input
-                type="text"
-                value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-                placeholder="გოგა მ."
-                className={inputClass}
-              />
-            </Field>
-            <Field label="მანქანის მარკა" required>
-              <SearchableSelect
-                value={vehicleMake}
-                onValueChange={setVehicleMake}
-                options={VEHICLE_MAKES}
-                accent="blue"
-                placeholder="აირჩიე მარკა"
-                searchPlaceholder="მოძებნე მარკა..."
-              />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="ტრანსპორტის ტიპი" required>
-              <StyledSelect
-                value={transportType}
-                onValueChange={setTransportType}
-                options={TRANSPORT_TYPES}
-                accent="blue"
-              />
-            </Field>
-            <Field label="რამდენ ადგილიანია მანქანა" required>
-              <input
-                type="number"
-                value={vehicleCapacity}
-                onChange={(e) => setVehicleCapacity(e.target.value)}
-                placeholder="8"
-                min="1"
-                className={inputClass}
-              />
-            </Field>
-          </div>
-
-          <Field label="აღწერა">
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="დეტალები სერვისის შესახებ..."
-              rows={4}
-              className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
-            />
-          </Field>
-        </WizardInnerCard>
-
-        {/* Section 2 — Route & price */}
-        <WizardInnerCard number={2} title="მარშრუტი და ფასი" accent="blue">
-          <Field label="ძირითადი მარშრუტები" required>
-            <div className="flex flex-wrap gap-2">
-              {ROUTE_OPTIONS.map((r) => (
-                <Chip
-                  key={r}
-                  active={routes.includes(r)}
-                  onClick={() => setRoutes(toggle(routes, r))}
-                >
-                  {r}
-                </Chip>
-              ))}
+      {hydrating ? (
+        <TransportLoading />
+      ) : (
+        <div className="space-y-8">
+          {/* Section 1 — Basic info */}
+          <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="blue">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="მძღოლის სახელი" required>
+                <input
+                  type="text"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="გოგა მ."
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="მანქანის მარკა" required>
+                <SearchableSelect
+                  value={vehicleMake}
+                  onValueChange={setVehicleMake}
+                  options={VEHICLE_MAKES}
+                  accent="blue"
+                  placeholder="აირჩიე მარკა"
+                  searchPlaceholder="მოძებნე მარკა..."
+                />
+              </Field>
             </div>
-          </Field>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="საწყისი ფასი (GEL)" required>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="250"
-                min="0"
-                className={inputClass}
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="ტრანსპორტის ტიპი" required>
+                <StyledSelect
+                  value={transportType}
+                  onValueChange={setTransportType}
+                  options={TRANSPORT_TYPES}
+                  accent="blue"
+                />
+              </Field>
+              <Field label="რამდენ ადგილიანია მანქანა" required>
+                <input
+                  type="number"
+                  value={vehicleCapacity}
+                  onChange={(e) => setVehicleCapacity(e.target.value)}
+                  placeholder="8"
+                  min="1"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+
+            <Field label="აღწერა">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="დეტალები სერვისის შესახებ..."
+                rows={4}
+                className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </Field>
-            <Field label="ფასის ერთეული" required>
-              <StyledSelect
-                value={priceUnit}
-                onValueChange={setPriceUnit}
-                options={PRICE_UNITS}
-                accent="blue"
+          </WizardInnerCard>
+
+          {/* Section 2 — Route & price */}
+          <WizardInnerCard number={2} title="მარშრუტი და ფასი" accent="blue">
+            <Field label="ძირითადი მარშრუტები" required>
+              <div className="flex flex-wrap gap-2">
+                {ROUTE_OPTIONS.map((r) => (
+                  <Chip
+                    key={r}
+                    active={routes.includes(r)}
+                    onClick={() => setRoutes(toggle(routes, r))}
+                  >
+                    {r}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="საწყისი ფასი (GEL)" required>
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="250"
+                  min="0"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="ფასის ერთეული" required>
+                <StyledSelect
+                  value={priceUnit}
+                  onValueChange={setPriceUnit}
+                  options={PRICE_UNITS}
+                  accent="blue"
+                />
+              </Field>
+            </div>
+          </WizardInnerCard>
+
+          {/* Section 3 — Equipment & languages */}
+          <WizardInnerCard
+            number={3}
+            title="აღჭურვილობა და ენები"
+            accent="blue"
+          >
+            <Field label="მანქანის აღჭურვილობა">
+              <div className="flex flex-wrap gap-2">
+                {EQUIPMENT_OPTIONS.map((e) => (
+                  <Chip
+                    key={e}
+                    active={equipment.includes(e)}
+                    onClick={() => setEquipment(toggle(equipment, e))}
+                  >
+                    {e}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="სასაუბრო ენები">
+              <div className="flex flex-wrap gap-2">
+                {LANGUAGE_OPTIONS.map((l) => (
+                  <Chip
+                    key={l}
+                    active={languages.includes(l)}
+                    onClick={() => setLanguages(toggle(languages, l))}
+                  >
+                    {l}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="მანქანის ფოტოები" required>
+              <PhotoUploader
+                photos={photos}
+                onPhotosChange={setPhotos}
+                maxPhotos={MAX_PHOTOS}
+                variant="figma"
               />
             </Field>
-          </div>
-        </WizardInnerCard>
+          </WizardInnerCard>
 
-        {/* Section 3 — Equipment & languages */}
-        <WizardInnerCard number={3} title="აღჭურვილობა და ენები" accent="blue">
-          <Field label="მანქანის აღჭურვილობა">
-            <div className="flex flex-wrap gap-2">
-              {EQUIPMENT_OPTIONS.map((e) => (
-                <Chip
-                  key={e}
-                  active={equipment.includes(e)}
-                  onClick={() => setEquipment(toggle(equipment, e))}
-                >
-                  {e}
-                </Chip>
-              ))}
+          {/* Section 4 — Contact */}
+          <WizardInnerCard
+            number={4}
+            title="საკონტაქტო ინფორმაცია"
+            accent="blue"
+          >
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <Field label="ტელეფონის ნომერი" required>
+                <PhoneInput value={phone} onChange={setPhone} />
+              </Field>
+              <Field label="WhatsApp ნომერი">
+                <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+              </Field>
             </div>
-          </Field>
-
-          <Field label="სასაუბრო ენები">
-            <div className="flex flex-wrap gap-2">
-              {LANGUAGE_OPTIONS.map((l) => (
-                <Chip
-                  key={l}
-                  active={languages.includes(l)}
-                  onClick={() => setLanguages(toggle(languages, l))}
-                >
-                  {l}
-                </Chip>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="მანქანის ფოტოები" required>
-            <PhotoUploader
-              photos={photos}
-              onPhotosChange={setPhotos}
-              maxPhotos={MAX_PHOTOS}
-              variant="figma"
-            />
-          </Field>
-        </WizardInnerCard>
-
-        {/* Section 4 — Contact */}
-        <WizardInnerCard number={4} title="საკონტაქტო ინფორმაცია" accent="blue">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="ტელეფონის ნომერი" required>
-              <PhoneInput value={phone} onChange={setPhone} />
-            </Field>
-            <Field label="WhatsApp ნომერი">
-              <PhoneInput value={whatsapp} onChange={setWhatsapp} />
-            </Field>
-          </div>
-          <p className="text-xs font-medium text-[#94A3B8]">
-            WhatsApp სურვილისამებრ
-          </p>
-        </WizardInnerCard>
-      </div>
+            <p className="text-xs font-medium text-[#94A3B8]">
+              WhatsApp სურვილისამებრ
+            </p>
+          </WizardInnerCard>
+        </div>
+      )}
     </WizardShell>
   );
 }

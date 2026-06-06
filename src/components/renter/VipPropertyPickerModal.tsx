@@ -11,7 +11,11 @@ export interface PickerProperty {
   title: string;
   subtitle?: string;
   photoUrl?: string | null;
-  isForSale: boolean;
+  /** Property listings split into rental/sale groups. Optional for services. */
+  isForSale?: boolean;
+  /** Overrides the rental/sale badge (e.g. a service category label). */
+  badgeLabel?: string;
+  badgeColor?: "blue" | "orange" | "green";
 }
 
 const TIER_META: Record<
@@ -35,7 +39,15 @@ interface VipPropertyPickerModalProps {
   properties: PickerProperty[];
   onConfirm?: (propertyId: string) => void;
   loading?: boolean;
+  /** Render a single flat list (no rental/sale grouping) — used for services. */
+  flat?: boolean;
 }
+
+const BADGE_COLOR: Record<string, string> = {
+  blue: "bg-[#DBEAFE] text-[#2563EB]",
+  orange: "bg-[#FFEDD5] text-[#EA580C]",
+  green: "bg-[#DCFCE7] text-[#16A34A]",
+};
 
 export default function VipPropertyPickerModal({
   isOpen,
@@ -44,6 +56,7 @@ export default function VipPropertyPickerModal({
   properties,
   onConfirm,
   loading,
+  flat,
 }: VipPropertyPickerModalProps) {
   const [selectedId, setSelectedId] = useState<string>(properties[0]?.id ?? "");
 
@@ -150,15 +163,20 @@ export default function VipPropertyPickerModal({
                           <p className="truncate text-[13px] font-extrabold text-[#0F172A]">
                             {p.title}
                           </p>
-                          <span
-                            className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
-                              p.isForSale
-                                ? "bg-[#FFEDD5] text-[#EA580C]"
-                                : "bg-[#DBEAFE] text-[#2563EB]"
-                            }`}
-                          >
-                            {p.isForSale ? "გაყიდვა" : "გაქირავება"}
-                          </span>
+                          {(p.badgeLabel || p.isForSale !== undefined) && (
+                            <span
+                              className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                                p.badgeColor
+                                  ? BADGE_COLOR[p.badgeColor]
+                                  : p.isForSale
+                                    ? "bg-[#FFEDD5] text-[#EA580C]"
+                                    : "bg-[#DBEAFE] text-[#2563EB]"
+                              }`}
+                            >
+                              {p.badgeLabel ??
+                                (p.isForSale ? "გაყიდვა" : "გაქირავება")}
+                            </span>
+                          )}
                         </div>
                         {p.subtitle && (
                           <p className="mt-0.5 truncate text-[11px] font-medium text-[#94A3B8]">
@@ -180,6 +198,10 @@ export default function VipPropertyPickerModal({
                     </button>
                   );
                 };
+
+                if (flat) {
+                  return <>{properties.map(renderRow)}</>;
+                }
 
                 return (
                   <>

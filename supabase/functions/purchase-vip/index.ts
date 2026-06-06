@@ -35,6 +35,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const package_id = body.package_id as string | undefined;
     const property_id = body.property_id as string | null | undefined;
+    const service_id = body.service_id as string | null | undefined;
 
     // New path: caller specifies a pricing_packages.id. The RPC reads price
     // and category-specific behavior from the row, so admin-managed prices
@@ -81,6 +82,7 @@ serve(async (req) => {
       p_purchase_type: purchase_type,
       p_property_id: property_id ?? null,
       p_days: days,
+      p_service_id: service_id ?? null,
     });
 
     if (error) throw error;

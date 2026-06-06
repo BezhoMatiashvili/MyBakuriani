@@ -4,13 +4,25 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, Eye, Edit, Building, Search } from "lucide-react";
+import {
+  Plus,
+  Eye,
+  Edit,
+  Building,
+  Search,
+  Rocket,
+  Ticket,
+  Percent,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
+import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
+import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 
 const statusLabels: Record<string, string> = {
@@ -42,6 +54,10 @@ export default function RenterListingsPage() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [pickerModal, setPickerModal] = useState<{
+    open: boolean;
+    tier: VipInfoTier;
+  }>({ open: false, tier: "super-vip" });
 
   useEffect(() => {
     if (!user) return;
@@ -237,28 +253,90 @@ export default function RenterListingsPage() {
 
                 {/* Actions */}
                 <div className="flex shrink-0 gap-2">
-                  <Link
-                    href={
-                      property.is_for_sale
-                        ? `/sales/${property.id}`
-                        : `/apartments/${property.id}`
-                    }
+                  <a
+                    href={propertyViewUrl(property)}
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
                     <Button variant="outline" size="icon-sm">
                       <Eye className="h-4 w-4" />
                     </Button>
-                  </Link>
-                  <Link href={`/create/rental?edit=${property.id}`}>
+                  </a>
+                  <Link href={propertyEditUrl(property)}>
                     <Button variant="outline" size="icon-sm">
                       <Edit className="h-4 w-4" />
                     </Button>
                   </Link>
                 </div>
               </div>
+
+              {/* Promote tier row */}
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#F1F5F9] pt-3">
+                <span className="mr-auto text-[12px] font-semibold text-[#64748B]">
+                  განცხადების დაწინაურება:
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPickerModal({ open: true, tier: "super-vip" })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#EA580C] transition-colors hover:bg-[#FFEDD5]"
+                >
+                  <Rocket className="h-3 w-3" />
+                  SUPER VIP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickerModal({ open: true, tier: "vip" })}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#BE185D] transition-colors hover:bg-[#FBCFE8]"
+                >
+                  <Ticket className="h-3 w-3" />
+                  VIP
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPickerModal({ open: true, tier: "discount" })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-black tracking-wide text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
+                >
+                  <Percent className="h-3 w-3" />
+                  ფასდაკლება
+                </button>
+              </div>
             </motion.div>
           ))
         )}
       </div>
+
+      <VipPropertyPickerModal
+        isOpen={pickerModal.open}
+        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
+        tier={pickerModal.tier}
+        properties={properties.map((p) => ({
+          id: p.id,
+          title: p.title,
+          subtitle: p.location ?? undefined,
+          photoUrl: (p.photos ?? [])[0] ?? null,
+          isForSale: p.is_for_sale ?? false,
+        }))}
+        onConfirm={async (propertyId) => {
+          await supabase.functions.invoke("purchase-vip", {
+            body: {
+              purchase_type:
+                pickerModal.tier === "super-vip"
+                  ? "super_vip"
+                  : pickerModal.tier === "vip"
+                    ? "vip_boost"
+                    : pickerModal.tier === "discount"
+                      ? "discount_badge"
+                      : "sms_package",
+              days: 1,
+              property_id: propertyId,
+            },
+          });
+        }}
+      />
     </div>
   );
 }

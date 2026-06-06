@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Star,
   Plus,
-  Pencil,
   Trash2,
   CheckCircle2,
 } from "lucide-react";
@@ -18,6 +17,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
+import ListingActions from "@/components/dashboard/ListingActions";
+import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
+import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
@@ -42,6 +45,10 @@ export default function ServiceDashboardPage() {
     inquiries: 0,
     rating: 0,
   });
+  const [pickerModal, setPickerModal] = useState<{
+    open: boolean;
+    tier: VipInfoTier;
+  }>({ open: false, tier: "super-vip" });
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -200,70 +207,71 @@ export default function ServiceDashboardPage() {
             {services.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+                className="flex flex-col gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
-                  {(s.photos ?? [])[0] ? (
-                    <Image
-                      src={(s.photos ?? [])[0]}
-                      alt={s.title}
-                      fill
-                      sizes="64px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[#94A3B8]">
-                      <Briefcase className="h-5 w-5" />
-                    </div>
-                  )}
-                  {s.is_vip && (
-                    <span className="absolute left-1 top-1 rounded bg-[#F97316] px-1 py-0.5 text-[8px] font-black uppercase text-white">
-                      VIP
-                    </span>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-[14px] font-black text-[#0F172A]">
-                      {s.title}
-                    </h3>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        s.status === "active"
-                          ? "bg-[#DCFCE7] text-[#16A34A]"
-                          : "bg-[#F1F5F9] text-[#64748B]"
-                      }`}
-                    >
-                      {s.status === "active" ? "აქტიური" : "გაუქმებული"}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-[#94A3B8]">
-                    <span>{CATEGORY_LABEL[s.category] ?? s.category}</span>
-                    <span>·</span>
-                    <span className="inline-flex items-center gap-0.5">
-                      <Eye className="h-3 w-3" />
-                      {s.views_count ?? 0}
-                    </span>
-                    {s.price != null && (
-                      <>
-                        <span>·</span>
-                        <span className="font-bold text-[#0F172A]">
-                          {formatPrice(Number(s.price))}
-                          {s.price_unit && ` / ${s.price_unit}`}
-                        </span>
-                      </>
+                <div className="flex items-center gap-4">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
+                    {(s.photos ?? [])[0] ? (
+                      <Image
+                        src={(s.photos ?? [])[0]}
+                        alt={s.title}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[#94A3B8]">
+                        <Briefcase className="h-5 w-5" />
+                      </div>
+                    )}
+                    {s.is_vip && (
+                      <span className="absolute left-1 top-1 rounded bg-[#F97316] px-1 py-0.5 text-[8px] font-black uppercase text-white">
+                        VIP
+                      </span>
                     )}
                   </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-[14px] font-black text-[#0F172A]">
+                        {s.title}
+                      </h3>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          s.status === "active"
+                            ? "bg-[#DCFCE7] text-[#16A34A]"
+                            : "bg-[#F1F5F9] text-[#64748B]"
+                        }`}
+                      >
+                        {s.status === "active" ? "აქტიური" : "გაუქმებული"}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-[#94A3B8]">
+                      <span>{CATEGORY_LABEL[s.category] ?? s.category}</span>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-0.5">
+                        <Eye className="h-3 w-3" />
+                        {s.views_count ?? 0}
+                      </span>
+                      {s.price != null && (
+                        <>
+                          <span>·</span>
+                          <span className="font-bold text-[#0F172A]">
+                            {formatPrice(Number(s.price))}
+                            {s.price_unit && ` / ${s.price_unit}`}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1">
-                  <Link
-                    href={`/services/${s.id}`}
-                    className="rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-[#F8FAFC] hover:text-[#2563EB]"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Link>
+                <ListingActions
+                  viewUrl={serviceViewUrl(s)}
+                  editUrl={serviceEditUrl(s)}
+                  onPromote={(tier) => setPickerModal({ open: true, tier })}
+                  className="border-t border-[#F1F5F9] pt-4"
+                >
                   <button
                     type="button"
                     onClick={() => removeService(s.id)}
@@ -271,12 +279,42 @@ export default function ServiceDashboardPage() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
-                </div>
+                </ListingActions>
               </li>
             ))}
           </ul>
         )}
       </motion.section>
+
+      <VipPropertyPickerModal
+        isOpen={pickerModal.open}
+        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
+        tier={pickerModal.tier}
+        flat
+        properties={services.map((s) => ({
+          id: s.id,
+          title: s.title,
+          photoUrl: (s.photos ?? [])[0] ?? null,
+          badgeLabel: CATEGORY_LABEL[s.category] ?? s.category,
+          badgeColor: "blue",
+        }))}
+        onConfirm={async (serviceId) => {
+          await supabase.functions.invoke("purchase-vip", {
+            body: {
+              purchase_type:
+                pickerModal.tier === "super-vip"
+                  ? "super_vip"
+                  : pickerModal.tier === "vip"
+                    ? "vip_boost"
+                    : pickerModal.tier === "discount"
+                      ? "discount_badge"
+                      : "sms_package",
+              days: 1,
+              service_id: serviceId,
+            },
+          });
+        }}
+      />
     </div>
   );
 }
