@@ -243,7 +243,10 @@
     "routeLabel": "Route",
     "typeLabel": "Type",
     "seatsLabel": "Seats",
-    "verifiedBadge": "Verified"
+    "verifiedBadge": "Verified",
+    "makeLabel": "Make",
+    "colorLabel": "Color",
+    "locationLabel": "Location"
   },
   "SmartMatchCard": {
     "guestRequests": "Guest requests",
@@ -331,6 +334,7 @@
     "defaultUser": "User"
   },
   "LanguageSelector": {
+    "ariaLabel": "Select language",
     "ka": "ქარ",
     "en": "EN",
     "ru": "RU"
@@ -393,7 +397,8 @@
     "matchLabel": "match",
     "skipButton": "Skip",
     "sendButton": "Send",
-    "belowYourPrice": "Below your price ({price})"
+    "belowYourPrice": "Below your price ({price})",
+    "capacityShort": "Exceeds capacity"
   },
   "ListingForm": {
     "back": "Back",

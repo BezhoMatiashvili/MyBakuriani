@@ -4,16 +4,16 @@ import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Link } from "@/i18n/navigation";
 import {
-  ShoppingBag,
+  BookOpen,
   Star,
   Eye,
   ChevronRight,
   Sparkles,
-  Truck,
   Clock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useRealtimeSubscription } from "@/lib/hooks/useRealtime";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
@@ -36,7 +36,6 @@ export default function FoodDashboardPage() {
   }>({ open: false, tier: "super-vip" });
   const [stats, setStats] = useState({
     ordersToday: 0,
-    totalOrders: 0,
     revenueThisMonth: 0,
   });
 
@@ -64,7 +63,7 @@ export default function FoodDashboardPage() {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const [todayRes, monthRes, totalRes] = await Promise.all([
+    const [todayRes, monthRes] = await Promise.all([
       supabase
         .from("sms_messages")
         .select("*", { count: "exact", head: true })
@@ -75,16 +74,11 @@ export default function FoodDashboardPage() {
         .select("*", { count: "exact", head: true })
         .eq("to_user_id", user.id)
         .gte("created_at", startOfMonth.toISOString()),
-      supabase
-        .from("sms_messages")
-        .select("*", { count: "exact", head: true })
-        .eq("to_user_id", user.id),
     ]);
 
     const unitPrice = svcData?.price ?? 0;
     setStats({
       ordersToday: todayRes.count ?? 0,
-      totalOrders: totalRes.count ?? 0,
       revenueThisMonth: (monthRes.count ?? 0) * unitPrice,
     });
 
@@ -94,6 +88,27 @@ export default function FoodDashboardPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Live: restaurant status changes and new orders/inquiries refresh without reload.
+  useRealtimeSubscription(
+    user
+      ? [
+          {
+            table: "services",
+            event: "*",
+            filter: `owner_id=eq.${user.id}`,
+            handler: () => void fetchData(),
+          },
+          {
+            table: "sms_messages",
+            event: "*",
+            filter: `to_user_id=eq.${user.id}`,
+            handler: () => void fetchData(),
+          },
+        ]
+      : [],
+    { enabled: !!user, channelName: "food-dashboard-rt" },
+  );
 
   async function togglePublished() {
     if (!restaurant) return;
@@ -108,6 +123,7 @@ export default function FoodDashboardPage() {
   const name = restaurant?.title ?? "რესტორანი";
   const rating = 0;
   const views = restaurant?.views_count ?? 0;
+  const menuViews = restaurant?.menu_views_count ?? 0;
 
   return (
     <div className="space-y-6">
@@ -206,16 +222,16 @@ export default function FoodDashboardPage() {
       >
         <div className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
           <div className="flex items-center gap-2 text-[#2563EB]">
-            <ShoppingBag className="h-4 w-4" />
+            <BookOpen className="h-4 w-4" />
             <p className="text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-              სულ შეკვეთები
+              მენიუს ნახვები
             </p>
           </div>
           {loading ? (
             <Skeleton className="mt-3 h-8 w-24" />
           ) : (
             <p className="mt-3 text-[32px] font-black leading-[36px] text-[#2563EB]">
-              {formatNumber(stats.totalOrders)}
+              {formatNumber(menuViews)}
             </p>
           )}
         </div>
@@ -246,20 +262,6 @@ export default function FoodDashboardPage() {
           ჩემი განცხადება
         </h2>
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2 text-[13px] font-medium text-[#64748B]">
-            <Truck className="h-4 w-4 text-[#2563EB]" />
-            <span>მიტანის სერვისი:</span>
-            <span
-              className={
-                restaurant?.has_delivery
-                  ? "font-bold text-[#10B981]"
-                  : "text-[#94A3B8]"
-              }
-            >
-              {restaurant?.has_delivery ? "ჩართულია" : "გამორთულია"}
-            </span>
-          </div>
-          <span aria-hidden className="hidden h-5 w-px bg-[#E2E8F0] sm:block" />
           <div className="flex items-center gap-2 text-[13px] font-medium text-[#64748B]">
             <Clock className="h-4 w-4 text-[#2563EB]" />
             <span>სამუშაო საათები:</span>

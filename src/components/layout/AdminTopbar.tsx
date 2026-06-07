@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, Search } from "lucide-react";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface AdminTopbarProps {
   userName: string;
@@ -29,6 +30,7 @@ export function AdminTopbar({ userName }: AdminTopbarProps) {
         </div>
 
         <div className="flex items-center gap-5">
+          <LanguageSelector />
           <div className="h-8 w-px bg-[#E2E8F0]" />
           <button
             type="button"

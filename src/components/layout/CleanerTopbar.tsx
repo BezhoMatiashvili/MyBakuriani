@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface CleanerTopbarProps {
   notificationCount?: number;
@@ -16,6 +17,7 @@ export function CleanerTopbar({
   return (
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
       <div className="flex w-full items-center justify-end gap-3">
+        <LanguageSelector />
         <button
           type="button"
           className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#CBD5E1]"

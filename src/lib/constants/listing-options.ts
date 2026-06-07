@@ -226,3 +226,33 @@ export const VEHICLE_MAKES: { value: string; label: string }[] = [
   ...VEHICLE_MAKE_NAMES.map((m) => ({ value: m, label: m })),
   { value: "სხვა", label: "სხვა" },
 ];
+
+// Vehicle color options for the /create/transport form. Stored as Georgian
+// labels (value === label), so cards render the value directly without a
+// resolver — mirrors how routes/equipment/languages are stored.
+export const VEHICLE_COLORS: { value: string; label: string }[] = [
+  "თეთრი",
+  "შავი",
+  "ნაცრისფერი",
+  "ვერცხლისფერი",
+  "წითელი",
+  "ლურჯი",
+  "ცისფერი",
+  "მწვანე",
+  "ყვითელი",
+  "ნარინჯისფერი",
+  "ყავისფერი",
+  "ოქროსფერი",
+  "სხვა",
+].map((c) => ({ value: c, label: c }));
+
+// Transport comfort features (amenities), shown as badges on transport cards.
+// Distinct from `equipment` (winter tires, chains). Stored as Georgian labels.
+export const TRANSPORT_FEATURES: string[] = [
+  "კონდიციონერი",
+  "Wi-Fi",
+  "USB დამტენი",
+  "მუსიკა",
+  "წყალი",
+  "ბავშვის სავარძელი",
+];

@@ -21,6 +21,11 @@ import {
   X,
 } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
+import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
+import {
+  managementServiceLabel,
+  renovationStatusLabel,
+} from "@/lib/constants/sale-listing";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
@@ -98,16 +103,6 @@ function constructionStatusLabel(status: string | null): {
     return { label: "დასრულებული", tone: "done" };
   }
   return { label: status, tone: "neutral" };
-}
-
-function renovationStatusLabel(status: string | null): string | null {
-  if (!status) return null;
-  const map: Record<string, string> = {
-    black_frame: "შავი კარკასი",
-    white_frame: "თეთრი კარკასი",
-    furnished: "ავეჯით",
-  };
-  return map[status] ?? status;
 }
 
 function deriveEnvironmentStatus(amenities: unknown): string | null {
@@ -202,7 +197,13 @@ export default function SaleDetailClient({ property, reviews }: Props) {
     property.roi_percent_max != null
       ? `${roiPercent}-${property.roi_percent_max}%`
       : `${roiPercent}%`;
+  const houseRules = (property.house_rules ?? {}) as Record<string, unknown>;
   const renovationLabel = renovationStatusLabel(property.renovation_status);
+  const managementLabel = managementServiceLabel(
+    typeof houseRules.management_service === "string"
+      ? houseRules.management_service
+      : null,
+  );
   const metricCells: { label: string; value: ReactNode; sub?: string }[] = [];
   if (statusInfo) {
     metricCells.push({
@@ -217,6 +218,12 @@ export default function SaleDetailClient({ property, reviews }: Props) {
     metricCells.push({
       label: "რემონტის მდგომარეობა",
       value: renovationLabel,
+    });
+  }
+  if (managementLabel) {
+    metricCells.push({
+      label: "მართვის სერვისი",
+      value: managementLabel,
     });
   }
   if (roiPercent > 0) {
@@ -627,13 +634,24 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 </div>
               </div>
 
-              <CallButton
-                phone={property.phone ?? property.profiles?.phone ?? null}
-                onNoPhoneClick={() => router.push("/auth/login")}
-                className="h-[55px] w-full gap-2 rounded-2xl bg-[#16A34A] text-[15px] font-bold tracking-[0.375px] text-white hover:bg-[#15803D]"
-                label="დარეკვა"
-                propertyId={property.id}
-              />
+              <div className="flex gap-2">
+                <CallButton
+                  phone={property.phone ?? property.profiles?.phone ?? null}
+                  onNoPhoneClick={() => router.push("/auth/login")}
+                  className="h-[55px] flex-1 gap-2 rounded-2xl bg-[#16A34A] text-[15px] font-bold tracking-[0.375px] text-white hover:bg-[#15803D]"
+                  label="დარეკვა"
+                  propertyId={property.id}
+                />
+                <WhatsAppButton
+                  phone={
+                    property.whatsapp ??
+                    property.phone ??
+                    property.profiles?.phone ??
+                    null
+                  }
+                  propertyId={property.id}
+                />
+              </div>
 
               <button
                 type="button"

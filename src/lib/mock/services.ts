@@ -17,6 +17,8 @@ type ServiceMockData = {
   driverName?: string;
   vehicleMake?: string;
   vehicleCapacity?: number;
+  vehicleColor?: string;
+  features?: string[];
   languages?: string[];
   route?: string;
   zone?: string;
@@ -46,6 +48,12 @@ export type MockServiceCardItem = {
   providerName: string | null;
   experienceYears: number | null;
   availabilityStatus: "active" | "busy" | null;
+  vehicleMake?: string | null;
+  vehicleColor?: string | null;
+  vehicleCapacity?: number | null;
+  features?: string[] | null;
+  route?: string | null;
+  isNew?: boolean;
 };
 
 type MockCategory =
@@ -72,6 +80,8 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       driverName: "გოგა მ.",
       vehicleMake: "Mercedes Vito (მინივენი)",
       vehicleCapacity: 8,
+      vehicleColor: "მწვანე",
+      features: ["კონდიციონერი", "Wi-Fi"],
       languages: ["ქართული", "English", "Русский"],
       route: "თბილისი - ბაკურიანი",
     },
@@ -84,6 +94,10 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       discount: 0,
       vip: false,
       phone: "+995599100002",
+      vehicleMake: "Toyota Land Cruiser",
+      vehicleCapacity: 6,
+      vehicleColor: "თეთრი",
+      features: ["კონდიციონერი"],
     },
     {
       title: "ჯიპ-ტური მთებში",
@@ -94,6 +108,10 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       discount: 0,
       vip: false,
       phone: "+995599100003",
+      vehicleMake: "Mitsubishi Delica",
+      vehicleCapacity: 7,
+      vehicleColor: "შავი",
+      features: ["კონდიციონერი", "მუსიკა"],
     },
   ],
   handyman: [
@@ -291,6 +309,11 @@ export function makeServiceCards(
     providerName: item.providerName ?? null,
     experienceYears: item.experienceYears ?? null,
     availabilityStatus: item.availabilityStatus ?? null,
+    vehicleMake: item.vehicleMake ?? null,
+    vehicleColor: item.vehicleColor ?? null,
+    vehicleCapacity: item.vehicleCapacity ?? null,
+    features: item.features ?? null,
+    route: item.route ?? null,
   }));
 }
 
@@ -350,6 +373,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     employment_type: null,
     equipment: null,
     experience_required: null,
+    features: item.features ?? null,
     has_delivery: null,
     has_kids_area: false,
     has_live_music: false,
@@ -362,6 +386,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     meals: null,
     menu: null,
     menu_url: item.menuUrl ?? null,
+    menu_views_count: 0,
     operating_hours: item.hours ?? null,
     owner_id: "mock-owner",
     phone: item.phone ?? null,
@@ -389,6 +414,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     transport_type: null,
     updated_at: epoch,
     vehicle_capacity: item.vehicleCapacity ?? null,
+    vehicle_color: item.vehicleColor ?? null,
     vehicle_make: item.vehicleMake ?? null,
     views_count: 0,
     work_schedule: null,

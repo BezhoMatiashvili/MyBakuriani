@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, CheckCircle2, Bell } from "lucide-react";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface GuestTopbarProps {
   searchPlaceholder?: string;
@@ -29,6 +30,8 @@ export function GuestTopbar({
           <CheckCircle2 className="h-4 w-4" />
           აქტიური ვიზიტორი
         </span>
+
+        <LanguageSelector />
 
         <button
           type="button"

@@ -16,6 +16,10 @@ import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import {
+  MANAGEMENT_SERVICES,
+  RENOVATION_STATUSES,
+} from "@/lib/constants/sale-listing";
 
 const PROPERTY_TYPES: { value: Enums<"property_type">; label: string }[] = [
   { value: "studio", label: "სტუდიო" },
@@ -38,19 +42,6 @@ const HANDOVER_OPTIONS = [
   { value: "2024 ბოლო", label: "2024 ბოლო" },
   { value: "2025 გაზაფხული", label: "2025 გაზაფხული" },
   { value: "2026 ბოლო", label: "2026 ბოლო" },
-];
-
-const RENOVATION_STATUSES = [
-  { value: "black_frame", label: "შავი კარკასი" },
-  { value: "white_frame", label: "თეთრი კარკასი" },
-  { value: "green_frame", label: "მწვანე კარკასი" },
-  { value: "renovated", label: "გარემონტებული" },
-  { value: "fully_furnished", label: "სრულად მოწყობილი" },
-];
-
-const MANAGEMENT_SERVICES = [
-  { value: "complex_management", label: "აქვს კომპლექსის მენეჯმენტი" },
-  { value: "none", label: "არ აქვს" },
 ];
 
 const ROI_OPTIONS = [

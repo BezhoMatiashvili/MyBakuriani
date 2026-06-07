@@ -16,6 +16,7 @@ export interface SmartMatchRequestItem {
   guests: string;
   clientBudget: number;
   belowOwnerPrice?: number;
+  capacityShort?: boolean;
 }
 
 export interface OwnerProperty {
@@ -227,7 +228,11 @@ function RequestCard({
       <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl bg-[#FAFBFC] p-4 sm:grid-cols-4">
         <InfoCell label={t("zone")} value={request.zone} />
         <InfoCell label={t("dates")} value={request.dates} />
-        <InfoCell label={t("guest")} value={request.guests} />
+        <InfoCell
+          label={t("guest")}
+          value={request.guests}
+          hint={request.capacityShort ? t("capacityShort") : undefined}
+        />
         <InfoCell
           label={isHighMatch ? t("maxBudget") : t("clientBudget")}
           value={

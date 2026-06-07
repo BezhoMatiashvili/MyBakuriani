@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Plus, Edit, Building2, Search, Target } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useRealtimeList } from "@/lib/hooks/useRealtime";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
@@ -29,8 +30,6 @@ export default function SellerListingsPage() {
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [properties, setProperties] = useState<Tables<"properties">[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingProperty, setEditingProperty] =
     useState<Tables<"properties"> | null>(null);
@@ -39,24 +38,28 @@ export default function SellerListingsPage() {
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
 
-  useEffect(() => {
-    if (!user) return;
-
-    async function fetchProperties() {
+  // Live sale listings — status / progress / VIP changes arrive without refresh.
+  // The list is scoped by owner_id AND is_for_sale, but a postgres_changes filter
+  // only takes one condition, so we refetch on any change to the owner's properties.
+  const {
+    rows: properties,
+    setRows: setProperties,
+    loading,
+  } = useRealtimeList<Tables<"properties">>({
+    table: "properties",
+    mode: "refetch",
+    enabled: !!user,
+    filter: user ? `owner_id=eq.${user.id}` : undefined,
+    fetcher: async () => {
       const { data } = await supabase
         .from("properties")
         .select("*")
         .eq("owner_id", user!.id)
         .eq("is_for_sale", true)
         .order("created_at", { ascending: false });
-
-      if (data) setProperties(data);
-      setLoading(false);
-    }
-
-    fetchProperties();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+      return data ?? [];
+    },
+  });
 
   const filteredProperties = useMemo(
     () =>

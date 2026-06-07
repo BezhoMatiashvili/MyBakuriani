@@ -53,11 +53,7 @@ export default function TransportPageClient({ services }: Props) {
       }
       if (activeRoute !== "all") {
         const routesForListing =
-          s.routes && s.routes.length > 0
-            ? s.routes
-            : s.route
-              ? [s.route]
-              : [];
+          s.routes && s.routes.length > 0 ? s.routes : s.route ? [s.route] : [];
         if (activeRoute === "other") {
           if (routesForListing.some((r) => KNOWN_ROUTES.has(r))) return false;
         } else if (!routesForListing.includes(activeRoute)) {
@@ -128,12 +124,12 @@ export default function TransportPageClient({ services }: Props) {
 
       {/* Filters card */}
       <section className="px-4">
-        <div className="mx-auto -mt-8 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
+        <div className="mx-auto -mt-16 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[160px]">
               ტრანსპორტის ტიპი:
             </span>
-            <div className="scrollbar-hide -mx-1 flex flex-1 flex-wrap gap-2 overflow-x-auto px-1">
+            <div className="flex flex-1 flex-wrap gap-2">
               {VEHICLE_TYPES.map((cat) => (
                 <button
                   key={cat.value}
@@ -157,7 +153,7 @@ export default function TransportPageClient({ services }: Props) {
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[160px]">
               მიმართულება:
             </span>
-            <div className="scrollbar-hide -mx-1 flex flex-1 flex-wrap gap-2 overflow-x-auto px-1">
+            <div className="flex flex-1 flex-wrap gap-2">
               {ROUTE_FILTERS.map((cat) => (
                 <button
                   key={cat.value}
@@ -216,6 +212,9 @@ export default function TransportPageClient({ services }: Props) {
                     phone={s.phone}
                     transportType={s.transport_type}
                     vehicleCapacity={s.vehicle_capacity}
+                    vehicleMake={s.vehicle_make}
+                    vehicleColor={s.vehicle_color}
+                    features={s.features}
                     route={s.route}
                     routes={s.routes}
                   />

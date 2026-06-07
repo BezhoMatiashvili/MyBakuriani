@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bell,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useRealtimeList } from "@/lib/hooks/useRealtime";
 
 interface Notification {
   id: string;
@@ -64,26 +65,30 @@ export default function FoodNotificationsPage() {
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .gte(
-        "created_at",
-        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      )
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (data) setNotifications(data as Notification[]);
-        setLoading(false);
-      });
-  }, [user, supabase]);
+  // Live notifications over websocket — new/updated rows arrive without refresh.
+  const {
+    rows: notifications,
+    setRows: setNotifications,
+    loading,
+  } = useRealtimeList<Notification>({
+    table: "notifications",
+    enabled: !!user,
+    filter: user ? `user_id=eq.${user.id}` : undefined,
+    fetcher: async () => {
+      const { data } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user!.id)
+        .gte(
+          "created_at",
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        )
+        .order("created_at", { ascending: false });
+      return (data ?? []) as Notification[];
+    },
+  });
 
   const unread = useMemo(
     () => notifications.filter((n) => !n.is_read).length,

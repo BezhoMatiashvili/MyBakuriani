@@ -243,7 +243,10 @@
     "routeLabel": "Маршрут",
     "typeLabel": "Тип",
     "seatsLabel": "Мест",
-    "verifiedBadge": "Проверен"
+    "verifiedBadge": "Проверен",
+    "makeLabel": "Марка",
+    "colorLabel": "Цвет",
+    "locationLabel": "Локация"
   },
   "SmartMatchCard": {
     "guestRequests": "Запросы гостей",
@@ -331,6 +334,7 @@
     "defaultUser": "Пользователь"
   },
   "LanguageSelector": {
+    "ariaLabel": "Выбор языка",
     "ka": "ქარ",
     "en": "EN",
     "ru": "RU"
@@ -393,7 +397,8 @@
     "matchLabel": "совпадение",
     "skipButton": "Пропустить",
     "sendButton": "Отправить",
-    "belowYourPrice": "Ниже вашей цены ({price})"
+    "belowYourPrice": "Ниже вашей цены ({price})",
+    "capacityShort": "Превышает вместимость"
   },
   "ListingForm": {
     "back": "Назад",

@@ -11,6 +11,11 @@ import {
   getPackageDisplay,
   type PricingPackage,
 } from "@/lib/pricing-packages";
+import VipInfoModal, {
+  inferVipInfoTier,
+  type VipInfoTier,
+} from "@/components/renter/VipInfoModal";
+import BalancePackageCard from "@/components/balance/BalancePackageCard";
 import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
@@ -36,6 +41,10 @@ export default function FoodBalancePage() {
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [vipModal, setVipModal] = useState<{
+    open: boolean;
+    tier: VipInfoTier;
+  }>({ open: false, tier: "super-vip" });
 
   useEffect(() => {
     fetchPricingPackages(["vip", "sms"]).then(setPackages);
@@ -62,6 +71,35 @@ export default function FoodBalancePage() {
       setLoading(false);
     }
     fetchData();
+
+    // Live balance + transactions — server-side top-ups / purchases reflect instantly.
+    const channel = supabase
+      .channel("food-balance-rt")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "balances",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchData(),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchData(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -137,48 +175,23 @@ export default function FoodBalancePage() {
         ) : (
           packages.map((pkg) => {
             const display = getPackageDisplay(pkg);
-            const Icon = display.icon;
-            const canAfford = (balance?.amount ?? 0) >= pkg.amount_gel;
+            const tier = inferVipInfoTier(pkg);
             return (
-              <div
+              <BalancePackageCard
                 key={pkg.id}
-                className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
-              >
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${display.iconBg}`}
-                >
-                  <Icon
-                    className={`h-5 w-5 ${display.iconColor}`}
-                    strokeWidth={2.2}
-                  />
-                </div>
-
-                <h3 className="mt-4 text-[18px] font-black text-[#0F172A]">
-                  {pkg.name}
-                </h3>
-                <p className="mt-1.5 text-[13px] leading-[19px] text-[#64748B]">
-                  {pkg.description ?? pkg.label ?? ""}
-                </p>
-
-                <div className="mt-6 flex items-end justify-between">
-                  <div>
-                    <p className="text-[28px] font-black leading-[32px] text-[#0F172A]">
-                      {pkg.amount_gel.toFixed(2)}
-                    </p>
-                    <p className="mt-1 text-[11px] font-bold text-[#64748B]">
-                      {display.unit}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={!canAfford || purchasing === pkg.id}
-                    onClick={() => handlePurchase(pkg)}
-                    className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${display.ctaColor}`}
-                  >
-                    {purchasing === pkg.id ? "..." : "გააქტიურება"}
-                  </button>
-                </div>
-              </div>
+                icon={display.icon}
+                iconBg={display.iconBg}
+                iconColor={display.iconColor}
+                title={pkg.name}
+                description={pkg.description ?? pkg.label ?? ""}
+                price={pkg.amount_gel}
+                unit={display.unit}
+                ctaColor={display.ctaColor}
+                canAfford={(balance?.amount ?? 0) >= pkg.amount_gel}
+                purchasing={purchasing === pkg.id}
+                onHowItWorks={() => setVipModal({ open: true, tier })}
+                onActivate={() => handlePurchase(pkg)}
+              />
             );
           })
         )}
@@ -246,6 +259,12 @@ export default function FoodBalancePage() {
           )}
         </div>
       </motion.section>
+
+      <VipInfoModal
+        isOpen={vipModal.open}
+        onClose={() => setVipModal((p) => ({ ...p, open: false }))}
+        tier={vipModal.tier}
+      />
     </div>
   );
 }

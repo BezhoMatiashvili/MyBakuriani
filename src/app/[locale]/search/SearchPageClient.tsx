@@ -681,6 +681,9 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
             phone={s.phone}
             driverName={s.driver_name}
             vehicleCapacity={s.vehicle_capacity}
+            vehicleMake={s.vehicle_make}
+            vehicleColor={s.vehicle_color}
+            features={s.features}
             route={s.route}
             description={s.description}
           />

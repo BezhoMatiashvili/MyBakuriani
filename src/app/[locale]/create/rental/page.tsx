@@ -110,8 +110,6 @@ function CreateRentalPageInner() {
   ]);
   const [smokingAllowed, setSmokingAllowed] = useState<boolean | null>(null);
   const [petsAllowed, setPetsAllowed] = useState<boolean | null>(null);
-  const [checkInTime, setCheckInTime] = useState("15:00");
-  const [checkOutTime, setCheckOutTime] = useState("12:00");
 
   // Step 4: availability (next 30 days)
   const [availability, setAvailability] = useState<
@@ -199,8 +197,6 @@ function CreateRentalPageInner() {
       }
       if (typeof rules.smoking === "boolean") setSmokingAllowed(rules.smoking);
       if (typeof rules.pets === "boolean") setPetsAllowed(rules.pets);
-      if (typeof rules.check_in === "string") setCheckInTime(rules.check_in);
-      if (typeof rules.check_out === "string") setCheckOutTime(rules.check_out);
       const stripPrefix = (v: string | null) =>
         v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
       setPhone(stripPrefix(data.phone));
@@ -345,8 +341,6 @@ function CreateRentalPageInner() {
           hosting_langs: hostingLangs,
           smoking: smokingAllowed,
           pets: petsAllowed,
-          check_in: checkInTime || null,
-          check_out: checkOutTime || null,
         },
         price_per_night: priceNum,
         min_booking_days: minBookingNum,
@@ -634,49 +628,41 @@ function CreateRentalPageInner() {
 
             {step === 2 && (
               <WizardSection title="კეთილმოწყობა და დეტალები">
-                <div className="space-y-3">
-                  <label className="text-[13px] font-bold text-[#334155]">
-                    ბინის ზომა
-                  </label>
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                    <Field label="ოთახების რაოდენობა">
-                      <input
-                        type="number"
-                        value={rooms}
-                        onChange={(e) => setRooms(e.target.value)}
-                        placeholder="მაგ: 2"
-                        min="0"
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="მაქს. სტუმრების რაოდენობა">
-                      <input
-                        type="number"
-                        value={capacity}
-                        onChange={(e) => setCapacity(e.target.value)}
-                        placeholder="მაგ: 4"
-                        min="0"
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="ბინის საერთო ფართობი (მ²)">
-                      <input
-                        type="number"
-                        value={areaSqm}
-                        onChange={(e) => setAreaSqm(e.target.value)}
-                        placeholder="მაგ: 55"
-                        min="0"
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                  <Field label="ოთახების რაოდენობა">
+                    <input
+                      type="number"
+                      value={rooms}
+                      onChange={(e) => setRooms(e.target.value)}
+                      placeholder="მაგ: 2"
+                      min="0"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="მაქს. სტუმრების რაოდენობა">
+                    <input
+                      type="number"
+                      value={capacity}
+                      onChange={(e) => setCapacity(e.target.value)}
+                      placeholder="მაგ: 4"
+                      min="0"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="ბინის საერთო ფართობი (მ²)">
+                    <input
+                      type="number"
+                      value={areaSqm}
+                      onChange={(e) => setAreaSqm(e.target.value)}
+                      placeholder="მაგ: 55"
+                      min="0"
+                      className={inputClass}
+                    />
+                  </Field>
                 </div>
 
                 <div className="space-y-4 pt-2">
-                  <label className="text-[13px] font-bold text-[#334155]">
-                    კეთილმოწყობა
-                  </label>
-                  <Field label="სააბაზანოების რაოდენობა">
+                  <Field label="სველი წერტილები">
                     <input
                       type="number"
                       value={bathrooms}
@@ -735,30 +721,6 @@ function CreateRentalPageInner() {
                       value={petsAllowed}
                       onChange={setPetsAllowed}
                     />
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <label className="text-[13px] font-bold text-[#334155]">
-                    შესვლა / გასვლა
-                  </label>
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label="შესვლის დრო">
-                      <input
-                        type="time"
-                        value={checkInTime}
-                        onChange={(e) => setCheckInTime(e.target.value)}
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="გასვლის დრო">
-                      <input
-                        type="time"
-                        value={checkOutTime}
-                        onChange={(e) => setCheckOutTime(e.target.value)}
-                        className={inputClass}
-                      />
-                    </Field>
                   </div>
                 </div>
               </WizardSection>

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 
 import { HomeListingModeProvider } from "@/components/layout/HomeListingModeContext";
+import { PageviewTracker } from "@/components/analytics/PageviewTracker";
 
 interface LocaleShellProps {
   children: ReactNode;
@@ -40,16 +41,21 @@ function isSalesIndexRoute(pathname: string) {
   return /(^|\/)sales\/?$/.test(pathname);
 }
 
+function isAuthRoute(pathname: string) {
+  return /(^|\/)auth(\/|$)/.test(pathname);
+}
+
 export function LocaleShell({ children }: LocaleShellProps) {
   const pathname = usePathname();
   const isDashboard = isDashboardRoute(pathname);
   const isCreate = isCreateRoute(pathname);
   const isSalesIndex = isSalesIndexRoute(pathname);
+  const isAuth = isAuthRoute(pathname);
 
   const content = (() => {
     if (isDashboard || isCreate) return <>{children}</>;
-    if (isSalesIndex) {
-      // Sales index renders its own simplified top bar; keep global footer.
+    if (isSalesIndex || isAuth) {
+      // Sales index and auth pages render their own header; keep global footer.
       return (
         <>
           <main className="flex-1">{children}</main>
@@ -70,6 +76,7 @@ export function LocaleShell({ children }: LocaleShellProps) {
 
   return (
     <>
+      <PageviewTracker />
       <CriticalNotificationGate />
       {content}
     </>

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useRealtimeSubscription } from "@/lib/hooks/useRealtime";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
@@ -94,6 +95,27 @@ export default function ServiceDashboardPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Live: listing status (admin moderation) and new inquiries refresh without reload.
+  useRealtimeSubscription(
+    user
+      ? [
+          {
+            table: "services",
+            event: "*",
+            filter: `owner_id=eq.${user.id}`,
+            handler: () => void fetchData(),
+          },
+          {
+            table: "sms_messages",
+            event: "*",
+            filter: `to_user_id=eq.${user.id}`,
+            handler: () => void fetchData(),
+          },
+        ]
+      : [],
+    { enabled: !!user, channelName: "service-dashboard-rt" },
+  );
 
   async function removeService(id: string) {
     await supabase.from("services").update({ status: "blocked" }).eq("id", id);

@@ -145,8 +145,23 @@ export default function GuestBookingsPage() {
       }
     }
     fetchData();
+
+    // Live: new/updated offers for this guest arrive over websocket. RLS scopes
+    // smart_match_offers to the guest's own requests, so we refetch on any change.
+    const channel = supabase
+      .channel("guest-bookings-offers")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "smart_match_offers" },
+        () => {
+          fetchData();
+        },
+      )
+      .subscribe();
+
     return () => {
       active = false;
+      supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);

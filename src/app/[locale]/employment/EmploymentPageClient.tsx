@@ -140,7 +140,7 @@ export default function EmploymentPageClient({ services }: Props) {
       </section>
 
       <section className="px-4">
-        <div className="mx-auto -mt-8 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
+        <div className="mx-auto -mt-16 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
               პოზიცია:

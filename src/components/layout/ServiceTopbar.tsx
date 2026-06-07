@@ -1,8 +1,9 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { MessageSquare, Plus, Search, Globe } from "lucide-react";
+import { MessageSquare, Plus, Search } from "lucide-react";
 import { formatPrice } from "@/lib/utils/format";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface ServiceTopbarProps {
   balance: number;
@@ -53,13 +54,7 @@ export function ServiceTopbar({
             </span>
           </div>
 
-          <button
-            type="button"
-            className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
-            aria-label="language"
-          >
-            <Globe className="h-[18px] w-[18px]" strokeWidth={2} />
-          </button>
+          <LanguageSelector />
         </div>
       </div>
     </header>

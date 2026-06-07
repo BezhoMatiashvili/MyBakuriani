@@ -78,7 +78,6 @@ function CreateFoodPageInner() {
   const [menuUrlInput, setMenuUrlInput] = useState("");
   const [description, setDescription] = useState("");
   const [phone, setPhone] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
   const menuFileRef = useRef<HTMLInputElement>(null);
@@ -133,11 +132,6 @@ function CreateFoodPageInner() {
       const stripPrefix = (v: string | null) =>
         v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
       setPhone(stripPrefix(data.phone));
-      // `whatsapp` exists on services (migration 20260427130000) but the
-      // generated types are stale — read it through a narrow cast.
-      setWhatsapp(
-        stripPrefix((data as { whatsapp?: string | null }).whatsapp ?? null),
-      );
       setPhotos(Array.isArray(data.photos) ? data.photos : []);
 
       setHydrating(false);
@@ -211,7 +205,6 @@ function CreateFoodPageInner() {
         operating_hours: operatingHours.trim() || null,
         location: zone || exactLocation.trim() || null,
         phone: phone ? `+995${phone}` : null,
-        whatsapp: whatsapp ? `+995${whatsapp}` : null,
         photos,
       };
 
@@ -482,14 +475,9 @@ function CreateFoodPageInner() {
             title="საკონტაქტო ინფორმაცია"
             accent="orange"
           >
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ტელეფონის ნომერი" required>
-                <PhoneInput value={phone} onChange={setPhone} />
-              </Field>
-              <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
-                <PhoneInput value={whatsapp} onChange={setWhatsapp} />
-              </Field>
-            </div>
+            <Field label="ტელეფონის ნომერი" required>
+              <PhoneInput value={phone} onChange={setPhone} />
+            </Field>
           </WizardInnerCard>
         </div>
       )}

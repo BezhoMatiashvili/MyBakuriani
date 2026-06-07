@@ -1409,6 +1409,7 @@ export type Database = {
           employment_type: string | null;
           equipment: string[] | null;
           experience_required: string | null;
+          features: string[] | null;
           has_delivery: boolean | null;
           has_kids_area: boolean;
           has_live_music: boolean;
@@ -1421,6 +1422,7 @@ export type Database = {
           meals: string | null;
           menu: Json | null;
           menu_url: string | null;
+          menu_views_count: number;
           operating_hours: string | null;
           owner_id: string;
           phone: string | null;
@@ -1444,6 +1446,7 @@ export type Database = {
           transport_type: string | null;
           updated_at: string | null;
           vehicle_capacity: number | null;
+          vehicle_color: string | null;
           vehicle_make: string | null;
           views_count: number | null;
           work_schedule: string | null;
@@ -1473,6 +1476,7 @@ export type Database = {
           employment_type?: string | null;
           equipment?: string[] | null;
           experience_required?: string | null;
+          features?: string[] | null;
           has_delivery?: boolean | null;
           has_kids_area?: boolean;
           has_live_music?: boolean;
@@ -1485,6 +1489,7 @@ export type Database = {
           meals?: string | null;
           menu?: Json | null;
           menu_url?: string | null;
+          menu_views_count?: number;
           operating_hours?: string | null;
           owner_id: string;
           phone?: string | null;
@@ -1508,6 +1513,7 @@ export type Database = {
           transport_type?: string | null;
           updated_at?: string | null;
           vehicle_capacity?: number | null;
+          vehicle_color?: string | null;
           vehicle_make?: string | null;
           views_count?: number | null;
           work_schedule?: string | null;
@@ -1537,6 +1543,7 @@ export type Database = {
           employment_type?: string | null;
           equipment?: string[] | null;
           experience_required?: string | null;
+          features?: string[] | null;
           has_delivery?: boolean | null;
           has_kids_area?: boolean;
           has_live_music?: boolean;
@@ -1549,6 +1556,7 @@ export type Database = {
           meals?: string | null;
           menu?: Json | null;
           menu_url?: string | null;
+          menu_views_count?: number;
           operating_hours?: string | null;
           owner_id?: string;
           phone?: string | null;
@@ -1572,6 +1580,7 @@ export type Database = {
           transport_type?: string | null;
           updated_at?: string | null;
           vehicle_capacity?: number | null;
+          vehicle_color?: string | null;
           vehicle_make?: string | null;
           views_count?: number | null;
           work_schedule?: string | null;
@@ -2176,6 +2185,10 @@ export type Database = {
           snippet: string;
           title: string;
         }[];
+      };
+      increment_service_menu_views: {
+        Args: { p_service_id: string };
+        Returns: undefined;
       };
       increment_views: { Args: { prop_id: string }; Returns: undefined };
       is_admin_user: { Args: never; Returns: boolean };

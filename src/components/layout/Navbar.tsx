@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { resolveNotificationsPath } from "@/lib/utils/notifications";
 
@@ -191,16 +192,7 @@ export function Navbar() {
 
         {/* Right side action buttons — desktop */}
         <div className="hidden items-center gap-3 md:flex">
-          {user && (
-            <NotificationBell
-              variant="desktop"
-              notifications={notifications}
-              unreadCount={unreadCount}
-              loading={notificationsLoading}
-              markAsRead={markAsRead}
-              viewAllPath={viewAllNotificationsPath}
-            />
-          )}
+          <LanguageSelector />
           <Link href={user ? "/create" : "/auth/login?next=/create"}>
             <Button className="h-[39.5px] w-[222px] gap-1.5 rounded-xl bg-[#F97316] px-5 text-[13px] font-bold leading-5 text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]">
               <Plus className="size-4" />
@@ -219,6 +211,16 @@ export function Navbar() {
                 <ChevronRight className="size-4 text-[#94A3B8]" />
               </Button>
             </Link>
+          )}
+          {user && (
+            <NotificationBell
+              variant="desktop"
+              notifications={notifications}
+              unreadCount={unreadCount}
+              loading={notificationsLoading}
+              markAsRead={markAsRead}
+              viewAllPath={viewAllNotificationsPath}
+            />
           )}
           {authLoading && (
             <div
@@ -259,8 +261,9 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Mobile actions: bell + hamburger */}
+        {/* Mobile actions: language + bell + hamburger */}
         <div className="flex items-center gap-1 md:hidden">
+          <LanguageSelector />
           {user && (
             <NotificationBell
               variant="mobile"

@@ -68,7 +68,7 @@ export default function RenterDashboardPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [monthlyIncome, setMonthlyIncome] = useState(0);
   const [receivable, setReceivable] = useState(0);
-  const [occupancy, setOccupancy] = useState(0);
+  const [favoritesCount, setFavoritesCount] = useState(0);
   const [totalViews, setTotalViews] = useState(0);
 
   const [paymentModal, setPaymentModal] = useState<{
@@ -101,55 +101,110 @@ export default function RenterDashboardPage() {
       ]);
 
       if (profileRes.data) setProfile(profileRes.data);
+
+      const props = propertiesRes.data ?? [];
       if (propertiesRes.data) {
         setProperties(propertiesRes.data);
-        setTotalViews(
-          propertiesRes.data.reduce((sum, p) => sum + (p.views_count ?? 0), 0),
-        );
+        setTotalViews(props.reduce((sum, p) => sum + (p.views_count ?? 0), 0));
       }
 
+      // Receivable = confirmed (not-yet-completed) bookings owed to the renter.
       if (bookingsRes.data) {
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const completedThisMonth = bookingsRes.data.filter(
-          (b) =>
-            b.status === "completed" && new Date(b.check_out) >= monthStart,
-        );
         const pendingBookings = bookingsRes.data.filter(
           (b) => b.status === "confirmed",
-        );
-        setMonthlyIncome(
-          completedThisMonth.reduce((sum, b) => sum + b.total_price, 0),
         );
         setReceivable(
           pendingBookings.reduce((sum, b) => sum + b.total_price, 0),
         );
+      }
 
-        const totalProps = propertiesRes.data?.length ?? 1;
-        const daysInMonth = new Date(
-          now.getFullYear(),
-          now.getMonth() + 1,
-          0,
-        ).getDate();
-        const bookedDays = bookingsRes.data.filter(
-          (b) =>
-            (b.status === "confirmed" || b.status === "completed") &&
-            new Date(b.check_in) <=
-              new Date(now.getFullYear(), now.getMonth() + 1, 0) &&
-            new Date(b.check_out) >= monthStart,
-        ).length;
+      // Monthly income = sum of the per-day price for every calendar day the
+      // renter marked "booked" this month, across all their listings. The
+      // per-day price is the calendar override for that date, falling back to
+      // the property's nightly price (mirrors renter/calendar/page.tsx).
+      const ids = props.map((p) => p.id);
+      if (ids.length > 0) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const monthStart = `${y}-${pad(m + 1)}-01`;
+        const monthEnd = `${y}-${pad(m + 1)}-${pad(new Date(y, m + 1, 0).getDate())}`;
 
-        setOccupancy(
-          totalProps > 0
-            ? Math.round((bookedDays / (totalProps * daysInMonth)) * 100)
-            : 0,
+        const [bookedRes, overridesRes, favoritesRes] = await Promise.all([
+          supabase
+            .from("calendar_blocks")
+            .select("property_id, date, status")
+            .in("property_id", ids)
+            .eq("status", "booked")
+            .gte("date", monthStart)
+            .lte("date", monthEnd),
+          supabase
+            .from("price_overrides")
+            .select("property_id, date, price")
+            .in("property_id", ids)
+            .gte("date", monthStart)
+            .lte("date", monthEnd),
+          supabase
+            .from("favorites")
+            .select("id", { count: "exact", head: true })
+            .in("property_id", ids),
+        ]);
+
+        const overrideMap = new Map<string, number>();
+        (overridesRes.data ?? []).forEach((o) =>
+          overrideMap.set(`${o.property_id}|${o.date}`, Number(o.price)),
         );
+        const basePriceMap = new Map<string, number>(
+          props.map((p) => [p.id, p.price_per_night ?? 0]),
+        );
+
+        const income = (bookedRes.data ?? []).reduce((sum, b) => {
+          const perDay =
+            overrideMap.get(`${b.property_id}|${b.date}`) ??
+            basePriceMap.get(b.property_id) ??
+            0;
+          return sum + perDay;
+        }, 0);
+
+        setMonthlyIncome(income);
+        setFavoritesCount(favoritesRes.count ?? 0);
       }
 
       setLoading(false);
     }
 
     fetchData();
+
+    // Live: new bookings (income/receivable) and listing status changes refresh
+    // the overview without a reload.
+    const channel = supabase
+      .channel("renter-overview-rt")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bookings",
+          filter: `owner_id=eq.${user.id}`,
+        },
+        () => fetchData(),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "properties",
+          filter: `owner_id=eq.${user.id}`,
+        },
+        () => fetchData(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -193,8 +248,8 @@ export default function RenterDashboardPage() {
           valueColor="warning"
         />
         <StatCard
-          label="დატვირთულობა"
-          value={`${occupancy}%`}
+          label="რჩეულში დამატება"
+          value={favoritesCount}
           change={null}
           loading={loading}
           valueColor="success"
@@ -202,7 +257,7 @@ export default function RenterDashboardPage() {
         <StatCard
           label="პროფილის ნახვები"
           value={totalViews}
-          change={totalViews > 0 ? 12 : null}
+          change={null}
           loading={loading}
           valueColor="accent"
         />

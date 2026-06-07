@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { User, Plus, ChevronRight, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 
@@ -101,6 +102,7 @@ export function SalesTopBar() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <LanguageSelector />
           {user && (
             <Link href="/create" className="hidden sm:block">
               <Button className="h-[39.5px] gap-1.5 rounded-xl bg-[#F97316] px-5 text-[13px] font-bold leading-5 text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]">

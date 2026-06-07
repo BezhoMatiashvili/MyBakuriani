@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, RotateCcw, Lock, Unlock } from "lucide-react";
 import BulkActionBar from "@/components/calendar/BulkActionBar";
+import { cn } from "@/lib/utils";
 import {
   AvailabilityStatus,
   datesInRange,
@@ -266,7 +268,7 @@ export default function AvailabilityWizardStep({
     Number(priceInput) >= 0;
 
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", hasActionable && "pb-24")}>
       {/* Intro */}
       <div className="rounded-2xl border border-[#DBEAFE] bg-[#EFF6FF] p-4">
         <p className="text-sm font-semibold text-[#0F172A]">
@@ -367,94 +369,102 @@ export default function AvailabilityWizardStep({
         })}
       </div>
 
-      {/* Selection action card — inline (the wizard footer is also inline) */}
-      {hasActionable && (
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-[0px_4px_16px_-8px_rgba(15,23,42,0.18)]">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9]"
-                aria-label="გაუქმება"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="text-[13px]">
-                <div className="font-black text-[#0F172A]">
-                  {selectedAvailable.length > 0 && selectedBlocked.length > 0
-                    ? `${selectedAvailable.length} ხელმისაწვდომი • ${selectedBlocked.length} დაკავებული`
-                    : selectedAvailable.length > 0
-                      ? `${selectedAvailable.length} დღე არჩეული`
-                      : `${selectedBlocked.length} დაკავებული არჩეული`}
-                </div>
-                {selectedAvailable.length > 0 && (
-                  <div className="text-[11px] font-semibold text-[#64748B]">
-                    საშუალო ფასი: {avgSelectedPrice}₾
+      {/* Selection action bar — floats & follows scroll while days are selected */}
+      <AnimatePresence>
+        {hasActionable && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:px-5 md:py-4"
+          >
+            <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9]"
+                  aria-label="გაუქმება"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="text-[13px]">
+                  <div className="font-black text-[#0F172A]">
+                    {selectedAvailable.length > 0 && selectedBlocked.length > 0
+                      ? `${selectedAvailable.length} ხელმისაწვდომი • ${selectedBlocked.length} დაკავებული`
+                      : selectedAvailable.length > 0
+                        ? `${selectedAvailable.length} დღე არჩეული`
+                        : `${selectedBlocked.length} დაკავებული არჩეული`}
                   </div>
+                  {selectedAvailable.length > 0 && (
+                    <div className="text-[11px] font-semibold text-[#64748B]">
+                      საშუალო ფასი: {avgSelectedPrice}₾
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">
+                {selectedBlocked.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={unblockSelected}
+                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#16A34A] bg-white px-4 text-[13px] font-black text-[#16A34A] transition-colors hover:bg-[#F0FDF4]"
+                  >
+                    <Unlock className="h-4 w-4" strokeWidth={2.4} />
+                    ჩართვა ({selectedBlocked.length})
+                  </button>
+                )}
+                {selectedAvailable.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={blockSelected}
+                      className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#D97706] px-4 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(217,119,6,0.3)] transition-colors hover:bg-[#B45309]"
+                    >
+                      <Lock className="h-4 w-4" strokeWidth={2.4} />
+                      გათიშვა ({selectedAvailable.length})
+                    </button>
+                    <div className="relative flex-1 md:max-w-[160px]">
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={priceInput}
+                        onChange={(e) => setPriceInput(e.target.value)}
+                        placeholder="ახალი ფასი"
+                        className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-3 pr-8 text-[14px] font-semibold text-[#0F172A] outline-none focus:border-[#F97316]"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
+                        ₾
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!priceValid}
+                      onClick={applyPrice}
+                      className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#F97316] px-4 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
+                    >
+                      <Check className="h-4 w-4" strokeWidth={2.6} />
+                      გადატარება
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetPrice}
+                      className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+                      title="ფასი ნაგულისხმევზე დაბრუნება"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      ნაგულისხმევზე
+                    </button>
+                  </>
                 )}
               </div>
             </div>
-
-            <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">
-              {selectedBlocked.length > 0 && (
-                <button
-                  type="button"
-                  onClick={unblockSelected}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#16A34A] bg-white px-4 text-[13px] font-black text-[#16A34A] transition-colors hover:bg-[#F0FDF4]"
-                >
-                  <Unlock className="h-4 w-4" strokeWidth={2.4} />
-                  ჩართვა ({selectedBlocked.length})
-                </button>
-              )}
-              {selectedAvailable.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={blockSelected}
-                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#D97706] px-4 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(217,119,6,0.3)] transition-colors hover:bg-[#B45309]"
-                  >
-                    <Lock className="h-4 w-4" strokeWidth={2.4} />
-                    გათიშვა ({selectedAvailable.length})
-                  </button>
-                  <div className="relative flex-1 md:max-w-[160px]">
-                    <input
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={priceInput}
-                      onChange={(e) => setPriceInput(e.target.value)}
-                      placeholder="ახალი ფასი"
-                      className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-3 pr-8 text-[14px] font-semibold text-[#0F172A] outline-none focus:border-[#F97316]"
-                    />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
-                      ₾
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={!priceValid}
-                    onClick={applyPrice}
-                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#F97316] px-4 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
-                  >
-                    <Check className="h-4 w-4" strokeWidth={2.6} />
-                    გადატარება
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetPrice}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
-                    title="ფასი ნაგულისხმევზე დაბრუნება"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    ნაგულისხმევზე
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Helper text */}
       <p className="text-center text-xs text-[#64748B]">

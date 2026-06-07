@@ -14,6 +14,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import VipInfoModal, {
+  type VipInfoTier,
+} from "@/components/renter/VipInfoModal";
+import BalancePackageCard from "@/components/balance/BalancePackageCard";
 import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
@@ -89,6 +93,14 @@ const TX_LABEL: Record<string, string> = {
   commission: "საკომისიო",
 };
 
+// Maps a local tier id to the shared info-modal tier whose copy it should show.
+const TIER_TO_INFO: Record<string, VipInfoTier> = {
+  super_vip: "super-vip",
+  vip: "vip",
+  discount: "discount",
+  sms: "sms",
+};
+
 export default function ServiceBalancePage() {
   const { user } = useAuth();
   const supabase = createClient();
@@ -97,6 +109,10 @@ export default function ServiceBalancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [vipModal, setVipModal] = useState<{
+    open: boolean;
+    tier: VipInfoTier;
+  }>({ open: false, tier: "super-vip" });
 
   useEffect(() => {
     if (!user) return;
@@ -119,6 +135,35 @@ export default function ServiceBalancePage() {
       setLoading(false);
     }
     fetchData();
+
+    // Live balance + transactions — server-side top-ups / purchases reflect instantly.
+    const channel = supabase
+      .channel("service-balance-rt")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "balances",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchData(),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchData(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -187,48 +232,25 @@ export default function ServiceBalancePage() {
         transition={{ delay: 0.05 }}
         className="grid grid-cols-1 gap-4 md:grid-cols-2"
       >
-        {TIERS.map((t) => {
-          const Icon = t.icon;
-          const canAfford = (balance?.amount ?? 0) >= t.price;
-          return (
-            <div
-              key={t.id}
-              className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
-            >
-              <div
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.iconBg}`}
-              >
-                <Icon className={`h-5 w-5 ${t.iconColor}`} strokeWidth={2.2} />
-              </div>
-
-              <h3 className="mt-4 text-[18px] font-black text-[#0F172A]">
-                {t.title}
-              </h3>
-              <p className="mt-1.5 text-[13px] leading-[19px] text-[#64748B]">
-                {t.description}
-              </p>
-
-              <div className="mt-6 flex items-end justify-between">
-                <div>
-                  <p className="text-[28px] font-black leading-[32px] text-[#0F172A]">
-                    {t.price.toFixed(2)}
-                  </p>
-                  <p className="mt-1 text-[11px] font-bold text-[#64748B]">
-                    {t.unit}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={!canAfford || purchasing === t.id}
-                  onClick={() => handlePurchase(t)}
-                  className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${t.cta}`}
-                >
-                  {purchasing === t.id ? "..." : "გააქტიურება"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        {TIERS.map((t) => (
+          <BalancePackageCard
+            key={t.id}
+            icon={t.icon}
+            iconBg={t.iconBg}
+            iconColor={t.iconColor}
+            title={t.title}
+            description={t.description}
+            price={t.price}
+            unit={t.unit}
+            ctaColor={t.cta}
+            canAfford={(balance?.amount ?? 0) >= t.price}
+            purchasing={purchasing === t.id}
+            onHowItWorks={() =>
+              setVipModal({ open: true, tier: TIER_TO_INFO[t.id] })
+            }
+            onActivate={() => handlePurchase(t)}
+          />
+        ))}
       </motion.section>
 
       <motion.section
@@ -293,6 +315,12 @@ export default function ServiceBalancePage() {
           )}
         </div>
       </motion.section>
+
+      <VipInfoModal
+        isOpen={vipModal.open}
+        onClose={() => setVipModal((p) => ({ ...p, open: false }))}
+        tier={vipModal.tier}
+      />
     </div>
   );
 }
