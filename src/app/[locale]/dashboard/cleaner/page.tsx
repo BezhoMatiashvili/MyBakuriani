@@ -6,7 +6,7 @@ import { MapPin, Calendar, Sparkles, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice, formatDateShort, formatTime } from "@/lib/utils/format";
+import { formatPrice, formatDateShort } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type TaskRow = Tables<"cleaning_tasks"> & {
