@@ -289,6 +289,24 @@ export default function SaleLandingBody({
               zones={zones}
             />
           </div>
+
+          {/* Stat cards — sit below the search box, overhang the hero bottom (matches rental landing) */}
+          <div
+            className={cn(
+              "mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4",
+              !showMap && "sm:-mb-[42px]",
+            )}
+          >
+            {zones.map((zone, i) => (
+              <StatCard
+                key={zone.id}
+                label={zone.name_ka}
+                value={formatPricePerSqm(pricePerSqmByZone?.[zone.name_ka])}
+                icon={renderZoneIcon(zone.icon, i === zones.length - 1)}
+                highlight={i === zones.length - 1}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
@@ -308,26 +326,6 @@ export default function SaleLandingBody({
           </div>
         </div>
       )}
-
-      {/* ═══ Stat cards — straddle the green→white boundary ═══ */}
-      <div
-        className={cn(
-          "relative mx-auto w-full max-w-[1180px] px-4",
-          showMap ? "mt-8" : "-mt-20",
-        )}
-      >
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {zones.map((zone, i) => (
-            <StatCard
-              key={zone.id}
-              label={zone.name_ka}
-              value={formatPricePerSqm(pricePerSqmByZone?.[zone.name_ka])}
-              icon={renderZoneIcon(zone.icon, i === zones.length - 1)}
-              highlight={i === zones.length - 1}
-            />
-          ))}
-        </div>
-      </div>
 
       {/* ═══ 2. Selected Inventory — featured full-width card ═══ */}
       <section className="mx-auto w-full max-w-[1180px] px-4 pb-16 pt-12">

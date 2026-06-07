@@ -223,6 +223,9 @@ export default function LandingPage({
   // Group server services by category
   const servicesByCategory = (category: string) => {
     if (serverServices && serverServices.length > 0) {
+      // Transport-only extras (type/seats/route) — scoped to transport so other
+      // categories' cards stay unchanged.
+      const isTransport = category === "transport";
       return serverServices
         .filter((s) => s.category === category)
         .slice(0, 4)
@@ -242,6 +245,14 @@ export default function LandingPage({
           providerName: null,
           experienceYears: null,
           availabilityStatus: null,
+          ...(isTransport
+            ? {
+                vehicleCapacity: s.vehicle_capacity,
+                transportType: s.transport_type,
+                route: s.route,
+                routes: s.routes,
+              }
+            : {}),
         }));
     }
     return makeServiceCards(category, 4);

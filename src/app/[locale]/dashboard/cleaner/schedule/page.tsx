@@ -53,6 +53,25 @@ export default function CleanerSchedulePage() {
       setLoading(false);
     }
     fetchData();
+
+    // Live: newly assigned / updated tasks appear on the schedule without refresh.
+    const channel = supabase
+      .channel("cleaner-schedule-rt")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cleaning_tasks",
+          filter: `cleaner_id=eq.${user.id}`,
+        },
+        () => fetchData(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 

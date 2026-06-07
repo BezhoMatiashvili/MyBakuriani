@@ -57,6 +57,25 @@ export default function SellerDashboardPage() {
     }
 
     fetchProperties();
+
+    // Live: status / VIP changes on the owner's listings refresh the preview.
+    const channel = supabase
+      .channel("seller-overview-rt")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "properties",
+          filter: `owner_id=eq.${user.id}`,
+        },
+        () => fetchProperties(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 

@@ -13,7 +13,11 @@ import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
-import { VEHICLE_MAKES } from "@/lib/constants/listing-options";
+import {
+  VEHICLE_MAKES,
+  VEHICLE_COLORS,
+  TRANSPORT_FEATURES,
+} from "@/lib/constants/listing-options";
 
 const TRANSPORT_TYPES = [
   { value: "minivan", label: "მინივენი" },
@@ -81,11 +85,13 @@ function CreateTransportPageInner() {
   const [transportType, setTransportType] =
     useState<(typeof TRANSPORT_TYPES)[number]["value"]>("minivan");
   const [vehicleCapacity, setVehicleCapacity] = useState("");
+  const [vehicleColor, setVehicleColor] = useState("");
   const [routes, setRoutes] = useState<string[]>([]);
   const [price, setPrice] = useState("");
   const [priceUnit, setPriceUnit] =
     useState<(typeof PRICE_UNITS)[number]["value"]>("whole_car");
   const [equipment, setEquipment] = useState<string[]>([]);
+  const [features, setFeatures] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [phone, setPhone] = useState("");
@@ -128,6 +134,7 @@ function CreateTransportPageInner() {
       setVehicleCapacity(
         data.vehicle_capacity != null ? String(data.vehicle_capacity) : "",
       );
+      setVehicleColor(data.vehicle_color ?? "");
       setRoutes(toStringArray(data.routes));
       setPrice(data.price != null ? String(data.price) : "");
       setPriceUnit(
@@ -135,6 +142,7 @@ function CreateTransportPageInner() {
           "whole_car") as (typeof PRICE_UNITS)[number]["value"],
       );
       setEquipment(toStringArray(data.equipment));
+      setFeatures(toStringArray(data.features));
       setLanguages(toStringArray(data.languages));
       setDescription(data.description ?? "");
       setPhone(stripPrefix(data.phone));
@@ -180,10 +188,12 @@ function CreateTransportPageInner() {
         vehicle_make: vehicleMake,
         transport_type: transportType,
         vehicle_capacity: Number(vehicleCapacity),
+        vehicle_color: vehicleColor || null,
         routes,
         price: Number(price),
         price_unit: priceUnit,
         equipment,
+        features,
         languages,
         phone: phone ? `+995${phone}` : null,
         whatsapp: whatsapp ? `+995${whatsapp}` : null,
@@ -301,6 +311,16 @@ function CreateTransportPageInner() {
               </Field>
             </div>
 
+            <Field label="მანქანის ფერი">
+              <StyledSelect
+                value={vehicleColor}
+                onValueChange={setVehicleColor}
+                options={VEHICLE_COLORS}
+                accent="blue"
+                placeholder="აირჩიე ფერი"
+              />
+            </Field>
+
             <Field label="აღწერა">
               <textarea
                 value={description}
@@ -365,6 +385,20 @@ function CreateTransportPageInner() {
                     onClick={() => setEquipment(toggle(equipment, e))}
                   >
                     {e}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="კომფორტი და სერვისები">
+              <div className="flex flex-wrap gap-2">
+                {TRANSPORT_FEATURES.map((f) => (
+                  <Chip
+                    key={f}
+                    active={features.includes(f)}
+                    onClick={() => setFeatures(toggle(features, f))}
+                  >
+                    {f}
                   </Chip>
                 ))}
               </div>

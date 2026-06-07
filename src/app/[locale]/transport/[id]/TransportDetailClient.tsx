@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowLeft, BadgeCheck, Users, Gauge, Languages } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Users,
+  Gauge,
+  Languages,
+  Palette,
+} from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
@@ -191,6 +198,17 @@ export default function TransportDetailClient({
             </span>
           </div>
         )}
+        {service.vehicle_color && (
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              <Palette className="h-3.5 w-3.5" />
+              ფერი
+            </span>
+            <span className="text-[15px] font-black text-[#1E293B]">
+              {service.vehicle_color}
+            </span>
+          </div>
+        )}
         {languagesText && (
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
@@ -219,6 +237,29 @@ export default function TransportDetailClient({
               <span
                 key={item}
                 className="rounded-[14px] border border-[#DBEAFE] bg-[#EFF6FF] px-4 py-2 text-[13px] font-semibold text-[#2563EB]"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Comfort & services (features) */}
+      {service.features && service.features.length > 0 && (
+        <motion.div
+          {...fadeIn}
+          transition={{ duration: 0.4, delay: 0.27 }}
+          className="mt-6"
+        >
+          <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+            კომფორტი და სერვისები
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {service.features.map((item) => (
+              <span
+                key={item}
+                className="rounded-[14px] border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-2 text-[13px] font-semibold text-[#16A34A]"
               >
                 {item}
               </span>

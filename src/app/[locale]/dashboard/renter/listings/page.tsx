@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useRealtimeList } from "@/lib/hooks/useRealtime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,8 +51,6 @@ export default function RenterListingsPage() {
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [properties, setProperties] = useState<Tables<"properties">[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [pickerModal, setPickerModal] = useState<{
@@ -59,23 +58,21 @@ export default function RenterListingsPage() {
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
 
-  useEffect(() => {
-    if (!user) return;
-
-    async function fetchProperties() {
+  // Live listings — verification status, VIP flips and view counts update without refresh.
+  const { rows: properties, loading } = useRealtimeList<Tables<"properties">>({
+    table: "properties",
+    enabled: !!user,
+    filter: user ? `owner_id=eq.${user.id}` : undefined,
+    sort: (a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+    fetcher: async () => {
       const { data } = await supabase
         .from("properties")
         .select("*")
         .eq("owner_id", user!.id)
         .order("created_at", { ascending: false });
-
-      if (data) setProperties(data);
-      setLoading(false);
-    }
-
-    fetchProperties();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+      return data ?? [];
+    },
+  });
 
   const filteredProperties = properties
     .filter((p) => activeFilter === "all" || p.status === activeFilter)

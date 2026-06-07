@@ -10,8 +10,15 @@ import SmartMatchRequestsModal, {
   type SmartMatchRequestItem,
   type OwnerProperty,
 } from "@/components/renter/SmartMatchRequestsModal";
-import { nearestZoneName } from "@/lib/zones/types";
 import { useActiveZones } from "@/lib/zones/client";
+import {
+  isCompatible,
+  isStale,
+  resolvePropertyZoneName,
+  scoreRequest,
+  type MatchProperty,
+  type MatchRequest,
+} from "@/lib/smart-match/match";
 import type { Tables } from "@/lib/types/database";
 
 type SmartMatchRequest = Tables<"smart_match_requests"> & {
@@ -23,6 +30,17 @@ type SmartMatchRequest = Tables<"smart_match_requests"> & {
 
 function shortRequestId(id: string) {
   return `REQ-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+}
+
+function toMatchRequest(r: SmartMatchRequest): MatchRequest {
+  return {
+    zone: r.zone,
+    budgetMin: r.budget_min != null ? Number(r.budget_min) : null,
+    budgetMax: r.budget_max != null ? Number(r.budget_max) : null,
+    guestsCount: r.guests_count ?? null,
+    checkIn: r.check_in,
+    checkOut: r.check_out,
+  };
 }
 
 function postedAgo(iso: string | null): string {
@@ -71,6 +89,7 @@ export default function RenterSmartMatchPage() {
 
   const [requests, setRequests] = useState<SmartMatchRequest[]>([]);
   const [ownerProperties, setOwnerProperties] = useState<OwnerProperty[]>([]);
+  const [ownerMatchProps, setOwnerMatchProps] = useState<MatchProperty[]>([]);
   const [ownerZones, setOwnerZones] = useState<Set<string>>(new Set());
   const [submittedRequestIds, setSubmittedRequestIds] = useState<Set<string>>(
     new Set(),
@@ -84,7 +103,9 @@ export default function RenterSmartMatchPage() {
     async function fetchData() {
       const { data: properties } = await supabase
         .from("properties")
-        .select("id, title, price_per_night, location_lat, location_lng")
+        .select(
+          "id, title, price_per_night, capacity, location, location_lat, location_lng",
+        )
         .eq("owner_id", user!.id)
         .eq("status", "active")
         .eq("is_for_sale", false);
@@ -94,17 +115,25 @@ export default function RenterSmartMatchPage() {
         return;
       }
 
-      // Compute zones the renter covers
+      // Resolve each property's zone from location text + sane coords. A null
+      // zone means "unknown" and acts as a wildcard (fail-open) downstream.
+      const matchProps: MatchProperty[] = properties.map((p) => ({
+        id: p.id,
+        zoneName: resolvePropertyZoneName(
+          activeZones,
+          p.location,
+          p.location_lat != null ? Number(p.location_lat) : null,
+          p.location_lng != null ? Number(p.location_lng) : null,
+        ),
+        price: Number(p.price_per_night ?? 0),
+        capacity: p.capacity ?? null,
+      }));
+      setOwnerMatchProps(matchProps);
+
+      // Zones the renter covers (resolved, non-null) — for the stat card.
       const zoneSet = new Set<string>();
-      for (const p of properties) {
-        if (p.location_lat != null && p.location_lng != null) {
-          const name = nearestZoneName(
-            activeZones,
-            Number(p.location_lat),
-            Number(p.location_lng),
-          );
-          if (name) zoneSet.add(name);
-        }
+      for (const mp of matchProps) {
+        if (mp.zoneName) zoneSet.add(mp.zoneName);
       }
       setOwnerZones(zoneSet);
 
@@ -116,7 +145,7 @@ export default function RenterSmartMatchPage() {
         })),
       );
 
-      // Fetch active requests matching one of renter's zones (or with no zone = "all")
+      // Fetch active requests, then keep the fresh, zone-compatible ones.
       const { data: reqData } = await supabase
         .from("smart_match_requests")
         .select("*, profiles(display_name, phone, avatar_url)")
@@ -125,9 +154,11 @@ export default function RenterSmartMatchPage() {
         .limit(30);
 
       if (reqData) {
-        const filtered = (reqData as SmartMatchRequest[]).filter(
-          (r) => !r.zone || zoneSet.has(r.zone),
-        );
+        const today = new Date().toISOString().slice(0, 10);
+        const filtered = (reqData as SmartMatchRequest[]).filter((r) => {
+          const mreq = toMatchRequest(r);
+          return !isStale(mreq, today) && isCompatible(mreq, matchProps);
+        });
         setRequests(filtered);
 
         // Mark requests this renter has already submitted offers on
@@ -175,7 +206,7 @@ export default function RenterSmartMatchPage() {
   }, [user]);
 
   const modalRequests: SmartMatchRequestItem[] = useMemo(() => {
-    return requests
+    const scored = requests
       .filter((r) => !submittedRequestIds.has(r.id))
       .map((r) => {
         const guestName = r.profiles?.display_name ?? "სტუმარი";
@@ -185,18 +216,13 @@ export default function RenterSmartMatchPage() {
           .join("")
           .slice(0, 2)
           .toUpperCase();
-        const inZone = !r.zone || ownerZones.has(r.zone);
-        const matchPercent = inZone ? 100 : 80;
-        const clientBudget = Number(r.budget_max ?? r.budget_min ?? 0);
-        const minOwnerPrice = ownerProperties.reduce(
-          (min, p) => (min === 0 ? p.price : Math.min(min, p.price)),
-          0,
+        const mreq = toMatchRequest(r);
+        const { matchPercent, belowOwnerPrice, capacityShort } = scoreRequest(
+          mreq,
+          ownerMatchProps,
         );
-        const belowOwnerPrice =
-          clientBudget > 0 && clientBudget < minOwnerPrice
-            ? minOwnerPrice
-            : undefined;
-        return {
+        const clientBudget = Number(r.budget_max ?? r.budget_min ?? 0);
+        const item: SmartMatchRequestItem & { _dbId: string } = {
           id: shortRequestId(r.id),
           guestName,
           initials: initials || "?",
@@ -207,11 +233,21 @@ export default function RenterSmartMatchPage() {
           guests: r.guests_count ? `${r.guests_count} სტუმარი` : "—",
           clientBudget,
           belowOwnerPrice,
+          capacityShort,
           // Keep real DB id for submission via a side channel
           _dbId: r.id,
-        } as SmartMatchRequestItem & { _dbId: string };
+        };
+        return { item, score: matchPercent, createdAt: r.created_at };
       });
-  }, [requests, submittedRequestIds, ownerZones, ownerProperties]);
+
+    // Best matches first, then most recent.
+    scored.sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
+    );
+    return scored.map((s) => s.item);
+  }, [requests, submittedRequestIds, ownerMatchProps]);
 
   async function handleSubmitOffer({
     requestId,

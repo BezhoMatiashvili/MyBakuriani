@@ -1,28 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "@/i18n/navigation";
 import {
   AlertTriangle,
   Banknote,
   Building2,
-  CheckCircle2,
   Download,
   Search,
   Send,
-  TrendingUp,
+  UserCheck,
+  Users,
   Users2,
 } from "lucide-react";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 
 interface AdminKPIs {
   revenue: number;
-  revenueChange: number;
-  conversionRate: number;
-  conversionChange: number;
   activeListings: number;
-  listingsChange: number;
-  avgResponseTime: number;
-  responseChange: number;
+  registeredUsers: number;
+  weeklyVisitors: number;
 }
 
 interface FunnelStep {
@@ -40,6 +37,13 @@ type AdminStatsApiResponse = {
     total_revenue: number;
     average_response_minutes: number;
     average_booking_price: number;
+    net_revenue: number;
+    pending_over_24h: number;
+    total_visits: number;
+    unique_visits: number;
+    registered_visitors: number;
+    registered_users: number;
+    weekly_visitors: number;
   };
 };
 
@@ -47,14 +51,11 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<AdminKPIs>({
     revenue: 0,
-    revenueChange: 0,
-    conversionRate: 0,
-    conversionChange: 0,
     activeListings: 0,
-    listingsChange: 0,
-    avgResponseTime: 0,
-    responseChange: 0,
+    registeredUsers: 0,
+    weeklyVisitors: 0,
   });
+  const [pendingOver24, setPendingOver24] = useState(0);
   const [funnel, setFunnel] = useState<FunnelStep[]>([]);
   const [occupancyRate, setOccupancyRate] = useState(0);
   const [avgPriceTrend, setAvgPriceTrend] = useState(0);
@@ -72,12 +73,6 @@ export default function AdminDashboardPage() {
 
         const payload = (await response.json()) as AdminStatsApiResponse;
         const stats = payload.data;
-        const conversionRate =
-          stats.total_bookings > 0
-            ? Math.round(
-                (stats.completed_bookings / stats.total_bookings) * 100,
-              )
-            : 0;
         const occ =
           stats.total_properties > 0
             ? Math.round(
@@ -86,21 +81,13 @@ export default function AdminDashboardPage() {
               )
             : 0;
 
-        // Week-over-week deltas require a prior-period snapshot that we don't
-        // yet collect. Keep at 0 until the admin-stats edge function supplies
-        // a real WoW comparison; falsy data is preferable to fabricated data.
         setKpis({
-          revenue: Number(stats.total_revenue ?? 0),
-          revenueChange: 0,
-          conversionRate,
-          conversionChange: 0,
+          revenue: Number(stats.net_revenue ?? 0),
           activeListings: Number(stats.active_listings ?? 0),
-          listingsChange: 0,
-          avgResponseTime: Math.round(
-            Number(stats.average_response_minutes ?? 0),
-          ),
-          responseChange: 0,
+          registeredUsers: Number(stats.registered_users ?? 0),
+          weeklyVisitors: Number(stats.weekly_visitors ?? 0),
         });
+        setPendingOver24(Number(stats.pending_over_24h ?? 0));
 
         // Funnel top steps require analytics tracking we haven't wired yet.
         // Surface only the known terminal count; upper steps stay at 0 until
@@ -153,26 +140,22 @@ export default function AdminDashboardPage() {
     {
       label: "სუფთა შემოსავალი (₾)",
       value: formatPrice(kpis.revenue),
-      change: kpis.revenueChange,
       icon: Banknote,
     },
     {
-      label: "ქონების კონვერსია",
-      value: `${kpis.conversionRate}%`,
-      change: kpis.conversionChange,
-      icon: TrendingUp,
+      label: "შემოსული მომხმარებლები",
+      value: formatNumber(kpis.weeklyVisitors),
+      icon: Users,
     },
     {
       label: "აქტიური განცხადებები",
       value: formatNumber(kpis.activeListings),
-      change: kpis.listingsChange,
       icon: Building2,
     },
     {
-      label: "პასუხის საშ. დრო",
-      value: `${kpis.avgResponseTime} წთ`,
-      change: kpis.responseChange,
-      icon: CheckCircle2,
+      label: "რეგისტრირებული მომხმარებლები",
+      value: formatNumber(kpis.registeredUsers),
+      icon: UserCheck,
     },
   ];
 
@@ -187,20 +170,24 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4 rounded-[18px] bg-[#EF2D2D] px-6 py-4 text-white shadow-[0px_8px_20px_rgba(239,45,45,0.25)] sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3 text-lg font-semibold leading-none">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
-            <AlertTriangle className="h-4 w-4" />
-          </span>
-          <span>ყურადღება: 3 ვერიფიკაცია ითხოვს 24 საათზე მეტია</span>
+      {!loading && pendingOver24 > 0 && (
+        <div className="flex flex-col gap-4 rounded-[18px] bg-[#EF2D2D] px-6 py-4 text-white shadow-[0px_8px_20px_rgba(239,45,45,0.25)] sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 text-lg font-semibold leading-none">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <span>
+              ყურადღება: {pendingOver24} ვერიფიკაცია ითხოვს 24 საათზე მეტია
+            </span>
+          </div>
+          <Link
+            href="/dashboard/admin/verifications"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-white px-5 text-sm font-bold text-[#EF2D2D] transition-colors hover:bg-[#F8FAFC]"
+          >
+            შემოწმება
+          </Link>
         </div>
-        <button
-          type="button"
-          className="h-11 rounded-xl bg-white px-5 text-sm font-bold text-[#EF2D2D] transition-colors hover:bg-[#F8FAFC]"
-        >
-          შემოწმება
-        </button>
-      </div>
+      )}
 
       <div className="flex items-center justify-between">
         <h2 className="text-[16px] font-black uppercase tracking-[1px] text-[#64748B]">
@@ -215,7 +202,7 @@ export default function AdminDashboardPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {kpiCards.map((card) => (
           <div
             key={card.label}
@@ -227,17 +214,9 @@ export default function AdminDashboardPage() {
               </p>
               <card.icon className="h-4 w-4 text-[#CBD5E1]" />
             </div>
-            <div className="mt-2 flex items-end justify-between">
+            <div className="mt-2">
               <p className="text-[42px] font-black leading-none text-[#0F172A]">
                 {loading ? "..." : card.value}
-              </p>
-              <p
-                className={`text-xs font-bold ${
-                  card.change >= 0 ? "text-[#22C55E]" : "text-[#EF4444]"
-                }`}
-              >
-                {card.change >= 0 ? "+" : ""}
-                {card.change}%
               </p>
             </div>
           </div>

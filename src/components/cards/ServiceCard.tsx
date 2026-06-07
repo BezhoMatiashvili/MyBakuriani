@@ -31,21 +31,12 @@ interface ServiceCardProps {
   route?: string | null;
   routes?: string[] | null;
   transportType?: string | null;
+  vehicleMake?: string | null;
+  vehicleColor?: string | null;
+  features?: string[] | null;
   isNew?: boolean;
   isVerified?: boolean;
   description?: string | null;
-}
-
-const TRANSPORT_TYPE_LABELS: Record<string, string> = {
-  minivan: "მინივენი",
-  minibus: "მინივენი",
-  taxi: "ტაქსი",
-  microbus: "მიკროავტობუსი",
-  other: "სხვა",
-};
-
-function translateTransportType(value: string) {
-  return TRANSPORT_TYPE_LABELS[value] ?? value;
 }
 
 const categoryRouteMap: Record<string, string> = {
@@ -56,6 +47,14 @@ const categoryRouteMap: Record<string, string> = {
   transport: "/transport",
   handyman: "/services",
   employment: "/employment",
+};
+
+const TRANSPORT_TYPE_LABELS: Record<string, string> = {
+  minivan: "მინივენი",
+  minibus: "მინივენი",
+  taxi: "ტაქსი",
+  microbus: "მიკროავტობუსი",
+  other: "სხვა",
 };
 
 export default function ServiceCard({
@@ -76,9 +75,9 @@ export default function ServiceCard({
   experienceYears,
   availabilityStatus,
   vehicleCapacity,
+  transportType,
   route,
   routes,
-  transportType,
   isNew = false,
   isVerified = false,
   description,
@@ -359,13 +358,13 @@ export default function ServiceCard({
                 VIP
               </span>
             )}
-            {isVerified && (
+            {isVerified && !isTransport && (
               <span className="inline-flex items-center gap-1 rounded-[4px] bg-[#2563EB] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
                 <Check className="h-3 w-3" strokeWidth={3} />
                 {t("verifiedBadge")}
               </span>
             )}
-            {isNew && (
+            {isNew && !isTransport && (
               <span className="rounded-[4px] bg-[#FCD34D] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#78350F] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
                 {t("statusNew")}
               </span>
@@ -402,10 +401,12 @@ export default function ServiceCard({
             <h3 className="min-h-[44px] min-w-0 flex-1 text-[18px] font-black leading-[22px] text-[#1E293B] line-clamp-2">
               {title}
             </h3>
-            <span className="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-              <Star className="h-3 w-3 fill-white text-white" />
-              4.9
-            </span>
+            {!isTransport && (
+              <span className="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                <Star className="h-3 w-3 fill-white text-white" />
+                4.9
+              </span>
+            )}
           </div>
           {isTransport ? (
             <div className="mt-2 space-y-1">
@@ -417,15 +418,15 @@ export default function ServiceCard({
                   <span className="text-[#94A3B8] font-medium">
                     {t("typeLabel")}:{" "}
                   </span>
-                  <span className="text-[#1E293B] font-bold">
-                    {translateTransportType(transportType)}
+                  <span className="text-[#1E293B] font-bold line-clamp-1">
+                    {TRANSPORT_TYPE_LABELS[transportType] ?? transportType}
                   </span>
                 </p>
               )}
               {vehicleCapacity != null && (
                 <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
                   <span aria-hidden className="text-[14px] leading-none">
-                    💺
+                    👥
                   </span>
                   <span className="text-[#94A3B8] font-medium">
                     {t("seatsLabel")}:{" "}
@@ -435,30 +436,19 @@ export default function ServiceCard({
                   </span>
                 </p>
               )}
-              {(() => {
-                const displayRoute = routes?.[0] ?? route ?? null;
-                if (!displayRoute) return null;
-                const extra =
-                  routes && routes.length > 1 ? routes.length - 1 : 0;
-                return (
-                  <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
-                    <span aria-hidden className="text-[14px] leading-none">
-                      📍
-                    </span>
-                    <span className="text-[#94A3B8] font-medium">
-                      {t("routeLabel")}:{" "}
-                    </span>
-                    <span className="text-[#1E293B] font-bold line-clamp-1">
-                      {displayRoute}
-                    </span>
-                    {extra > 0 && (
-                      <span className="shrink-0 rounded-full bg-[#F0F7FF] px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
-                        +{extra}
-                      </span>
-                    )}
-                  </p>
-                );
-              })()}
+              {(route ?? routes?.[0]) && (
+                <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
+                  <span aria-hidden className="text-[14px] leading-none">
+                    📍
+                  </span>
+                  <span className="text-[#94A3B8] font-medium">
+                    {t("routeLabel")}:{" "}
+                  </span>
+                  <span className="text-[#1E293B] font-bold line-clamp-1">
+                    {route ?? routes?.[0]}
+                  </span>
+                </p>
+              )}
             </div>
           ) : (
             <>

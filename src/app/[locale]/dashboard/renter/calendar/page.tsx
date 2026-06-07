@@ -596,7 +596,7 @@ export default function RenterCalendarPage() {
   };
 
   return (
-    <div className="space-y-5 pb-32 md:pb-5">
+    <div className={cn("space-y-5 pb-32 md:pb-5", hasActionable && "md:pb-28")}>
       {/* Header row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div ref={propertyDropdownRef} className="relative min-w-0">
@@ -802,7 +802,7 @@ export default function RenterCalendarPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:sticky md:bottom-3 md:rounded-2xl md:border md:px-5 md:py-4"
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:left-[272px] md:px-5 md:py-4"
           >
             <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">

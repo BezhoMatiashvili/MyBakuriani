@@ -242,8 +242,11 @@
     "capacityLabel": "მგზავრი",
     "routeLabel": "მარშრუტი",
     "typeLabel": "ტიპი",
-    "seatsLabel": "ადგილი",
-    "verifiedBadge": "გადამოწმებული"
+    "seatsLabel": "ადგილები",
+    "verifiedBadge": "გადამოწმებული",
+    "makeLabel": "მარკა",
+    "colorLabel": "ფერი",
+    "locationLabel": "ლოკაცია"
   },
   "SmartMatchCard": {
     "guestRequests": "სტუმრების მოთხოვნები",
@@ -394,7 +397,8 @@
     "matchLabel": "თანხვედრა",
     "skipButton": "გამოტოვება",
     "sendButton": "გაგზავნა",
-    "belowYourPrice": "დაბალია თქვენს ფასზე ({price})"
+    "belowYourPrice": "დაბალია თქვენს ფასზე ({price})",
+    "capacityShort": "ტევადობა არ კმარა"
   },
   "ListingForm": {
     "back": "უკან",

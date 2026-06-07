@@ -15,8 +15,12 @@ import NewRequestModal, {
 import GuestOffersModal, {
   type GuestOffer,
 } from "@/components/guest/GuestOffersModal";
-import { nearestZoneName } from "@/lib/zones/types";
 import { useActiveZones } from "@/lib/zones/client";
+import {
+  isCompatible,
+  resolvePropertyZoneName,
+  type MatchProperty,
+} from "@/lib/smart-match/match";
 import type { Tables } from "@/lib/types/database";
 
 type Property = Tables<"properties">;
@@ -188,34 +192,41 @@ export default function GuestDashboardPage() {
 
     if (insertErr || !request) return;
 
-    // 2. Find active rental properties in the chosen zone (or all)
+    // 2. Resolve every active rental property's zone and group by owner. The
+    // same fail-open logic the renter inbox uses, so the notify set agrees with
+    // what renters will actually see.
     const { data: properties } = await supabase
       .from("properties")
-      .select("id, owner_id, location_lat, location_lng")
+      .select(
+        "id, owner_id, location, location_lat, location_lng, price_per_night, capacity",
+      )
       .eq("status", "active")
       .eq("is_for_sale", false);
 
     if (!properties) return;
 
-    const matching = properties.filter((p) => {
-      if (!p.owner_id) return false;
-      if (!zoneValue) return true;
-      if (p.location_lat == null || p.location_lng == null) return false;
-      return (
-        nearestZoneName(
+    const ownerProps = new Map<string, MatchProperty[]>();
+    for (const p of properties) {
+      if (!p.owner_id) continue;
+      const list = ownerProps.get(p.owner_id) ?? [];
+      list.push({
+        id: p.id,
+        zoneName: resolvePropertyZoneName(
           zones,
-          Number(p.location_lat),
-          Number(p.location_lng),
-        ) === zoneValue
-      );
-    });
+          p.location,
+          p.location_lat != null ? Number(p.location_lat) : null,
+          p.location_lng != null ? Number(p.location_lng) : null,
+        ),
+        price: Number(p.price_per_night ?? 0),
+        capacity: p.capacity ?? null,
+      });
+      ownerProps.set(p.owner_id, list);
+    }
 
-    // 3. Notify unique owners
-    const uniqueOwners = Array.from(
-      new Set(
-        matching.map((p) => p.owner_id).filter((id): id is string => !!id),
-      ),
-    );
+    // 3. Notify owners whose listings are zone-compatible with this request.
+    const uniqueOwners = Array.from(ownerProps.entries())
+      .filter(([, props]) => isCompatible({ zone: zoneValue }, props))
+      .map(([ownerId]) => ownerId);
 
     if (uniqueOwners.length > 0) {
       const datesStr =

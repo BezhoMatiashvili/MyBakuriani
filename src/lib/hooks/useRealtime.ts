@@ -13,11 +13,15 @@ import { createClient } from "@/lib/supabase/client";
  * view shares one tested implementation instead of re-deriving channel lifecycle,
  * cleanup, and merge logic.
  *
- * Three patterns are observed in the codebase and supported here:
- *   1. id-keyed list merge   -> useRealtimeList({ mode: "merge" })   (notifications)
- *   2. single-row merge      -> useRealtimeRow                       (balance, profile)
- *   3. refetch-on-event      -> useRealtimeList({ mode: "refetch" }) (service orders, cleaner)
- *      (use when rows are scoped by a join/RLS that a postgres_changes filter can't express)
+ * Two layers are provided:
+ *   - useRealtimeSubscription  -> low-level: open a channel with N bindings + cleanup.
+ *                                 Use directly for bespoke fetchers, single rows, or
+ *                                 multi-table refetch (e.g. balance + transactions).
+ *   - useRealtimeList          -> fetch a list once, then keep it live. Two modes:
+ *       mode "merge"   -> apply INSERT/UPDATE/DELETE payloads in place      (notifications, listings)
+ *       mode "refetch" -> re-run the fetcher on any change; use when rows are
+ *                         scoped by a join/RLS a postgres_changes filter can't express
+ *                         (service orders, cleaner tasks, owner+is_for_sale listings)
  *
  * Note on DB load: postgres_changes still reads the WAL and runs RLS per subscriber,
  * so it is not zero-cost on the database. The win over the previous approach is
@@ -107,7 +111,6 @@ export function useRealtimeSubscription(
     return () => {
       void supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, channelName, signature]);
 }
 
@@ -255,86 +258,4 @@ export function useRealtimeList<Row>(
   );
 
   return { rows, setRows, loading, error, refetch };
-}
-
-export interface UseRealtimeRowOptions<Row> {
-  table: string;
-  /** Initial load returning the single row (or null). */
-  fetcher: () => Promise<Row | null>;
-  /** Server-side filter scoping to the one row, e.g. `user_id=eq.${id}`. */
-  filter?: string;
-  schema?: string;
-  enabled?: boolean;
-  channelName?: string;
-}
-
-export interface UseRealtimeRowResult<Row> {
-  row: Row | null;
-  setRow: React.Dispatch<React.SetStateAction<Row | null>>;
-  loading: boolean;
-  error: string | null;
-  refetch: () => Promise<Row | null>;
-}
-
-/**
- * Fetch a single row once, then keep it live. INSERT/UPDATE replace it with payload.new;
- * DELETE clears it. Use for per-user singletons like balance and profile.
- */
-export function useRealtimeRow<Row>(
-  options: UseRealtimeRowOptions<Row>,
-): UseRealtimeRowResult<Row> {
-  const { table, filter, schema, enabled = true, channelName } = options;
-
-  const [row, setRow] = useState<Row | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetcherRef = useRef(options.fetcher);
-  fetcherRef.current = options.fetcher;
-
-  const refetch = useCallback(async () => {
-    try {
-      const data = await fetcherRef.current();
-      setRow(data);
-      setError(null);
-      return data;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!enabled) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    void refetch();
-  }, [enabled, refetch]);
-
-  useRealtimeSubscription(
-    enabled
-      ? [
-          {
-            table,
-            schema,
-            event: "*",
-            filter,
-            handler: (payload) => {
-              if (payload.eventType === "DELETE") {
-                setRow(null);
-                return;
-              }
-              setRow(payload.new as Row);
-            },
-          },
-        ]
-      : [],
-    { enabled, channelName },
-  );
-
-  return { row, setRow, loading, error, refetch };
 }

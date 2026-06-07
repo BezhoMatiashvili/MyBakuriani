@@ -145,7 +145,7 @@ export default function ServiceDetailClient({
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             <MapPin className="h-3.5 w-3.5" />
-            მუშაობის ზონა
+            დაფარვის ზონა
           </span>
           <ZoneLocationLink
             location={service.location ?? "ბაკურიანი"}
@@ -169,7 +169,7 @@ export default function ServiceDetailClient({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Clock className="h-3.5 w-3.5" />
-              სამუშაო საათები
+              სამუშაო გრაფიკი
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
               {service.schedule}

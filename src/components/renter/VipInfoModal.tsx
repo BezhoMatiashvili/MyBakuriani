@@ -3,8 +3,18 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Rocket, Ticket, Percent, MessageSquare } from "lucide-react";
+import type { PricingPackage } from "@/lib/pricing-packages";
 
 export type VipInfoTier = "super-vip" | "vip" | "discount" | "sms";
+
+/** Map a pricing package to the info-modal tier whose copy it should show. */
+export function inferVipInfoTier(pkg: PricingPackage): VipInfoTier {
+  if (pkg.category === "sms") return "sms";
+  const tier = (pkg.meta?.tier as string | undefined) ?? "standard";
+  if (tier === "super") return "super-vip";
+  if (tier === "discount") return "discount";
+  return "vip";
+}
 
 const TIER_CONFIG: Record<
   VipInfoTier,
