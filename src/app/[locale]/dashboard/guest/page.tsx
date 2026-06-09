@@ -15,12 +15,6 @@ import NewRequestModal, {
 import GuestOffersModal, {
   type GuestOffer,
 } from "@/components/guest/GuestOffersModal";
-import { useActiveZones } from "@/lib/zones/client";
-import {
-  isCompatible,
-  resolvePropertyZoneName,
-  type MatchProperty,
-} from "@/lib/smart-match/match";
 import type { Tables } from "@/lib/types/database";
 
 type Property = Tables<"properties">;
@@ -32,11 +26,9 @@ function requestShortId(id: string) {
 export default function GuestDashboardPage() {
   const { user } = useAuth();
   const supabase = createClient();
-  const { zones } = useActiveZones();
 
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [recent, setRecent] = useState<Property[]>([]);
-  const [transportSvc, setTransportSvc] = useState<Tables<"services">[]>([]);
   const [offers, setOffers] = useState<GuestOffer[]>([]);
   const [reviewRequests, setReviewRequests] = useState<
     Tables<"notifications">[]
@@ -52,21 +44,14 @@ export default function GuestDashboardPage() {
   useEffect(() => {
     if (!user) return;
     async function fetchData() {
-      const [profileRes, propsRes, svcRes, offersRes, reviewReqRes] =
-        await Promise.all([
+      const [profileRes, propsRes, offersRes, reviewReqRes] = await Promise.all(
+        [
           supabase.from("profiles").select("*").eq("id", user!.id).single(),
           supabase
             .from("properties")
             .select("*")
             .eq("status", "active")
             .order("views_count", { ascending: false })
-            .limit(3),
-          supabase
-            .from("services")
-            .select("*")
-            .in("category", ["transport", "entertainment"])
-            .eq("status", "active")
-            .order("created_at", { ascending: false })
             .limit(3),
           supabase
             .from("smart_match_offers")
@@ -82,11 +67,11 @@ export default function GuestDashboardPage() {
             .eq("type", "review_request")
             .eq("is_read", false)
             .order("created_at", { ascending: false }),
-        ]);
+        ],
+      );
 
       if (profileRes.data) setProfile(profileRes.data);
       if (propsRes.data) setRecent(propsRes.data);
-      if (svcRes.data) setTransportSvc(svcRes.data);
       if (reviewReqRes.data) setReviewRequests(reviewReqRes.data);
       if (offersRes.data) {
         const mapped: GuestOffer[] = offersRes.data
@@ -174,76 +159,19 @@ export default function GuestDashboardPage() {
     if (!user) return;
     const zoneValue = payload.zone === "all" ? null : payload.zone;
 
-    // 1. Create the smart_match_request
-    const { data: request, error: insertErr } = await supabase
-      .from("smart_match_requests")
-      .insert({
-        guest_id: user.id,
-        check_in: payload.checkIn,
-        check_out: payload.checkOut,
-        guests_count: payload.guestsCount ?? null,
-        budget_min: payload.budgetMin ?? null,
-        budget_max: payload.budgetMax ?? null,
-        zone: zoneValue,
-        status: "active",
-      })
-      .select()
-      .single();
-
-    if (insertErr || !request) return;
-
-    // 2. Resolve every active rental property's zone and group by owner. The
-    // same fail-open logic the renter inbox uses, so the notify set agrees with
-    // what renters will actually see.
-    const { data: properties } = await supabase
-      .from("properties")
-      .select(
-        "id, owner_id, location, location_lat, location_lng, price_per_night, capacity",
-      )
-      .eq("status", "active")
-      .eq("is_for_sale", false);
-
-    if (!properties) return;
-
-    const ownerProps = new Map<string, MatchProperty[]>();
-    for (const p of properties) {
-      if (!p.owner_id) continue;
-      const list = ownerProps.get(p.owner_id) ?? [];
-      list.push({
-        id: p.id,
-        zoneName: resolvePropertyZoneName(
-          zones,
-          p.location,
-          p.location_lat != null ? Number(p.location_lat) : null,
-          p.location_lng != null ? Number(p.location_lng) : null,
-        ),
-        price: Number(p.price_per_night ?? 0),
-        capacity: p.capacity ?? null,
-      });
-      ownerProps.set(p.owner_id, list);
-    }
-
-    // 3. Notify owners whose listings are zone-compatible with this request.
-    const uniqueOwners = Array.from(ownerProps.entries())
-      .filter(([, props]) => isCompatible({ zone: zoneValue }, props))
-      .map(([ownerId]) => ownerId);
-
-    if (uniqueOwners.length > 0) {
-      const datesStr =
-        payload.checkIn && payload.checkOut
-          ? `${payload.checkIn} – ${payload.checkOut}`
-          : "";
-      const zoneStr = zoneValue ?? "ბაკურიანი";
-      await supabase.from("notifications").insert(
-        uniqueOwners.map((ownerId) => ({
-          user_id: ownerId,
-          type: "smart_match_request",
-          title: "ახალი Smart Match მოთხოვნა",
-          message: `სტუმარი ეძებს ${zoneStr}-ში ${datesStr}`.trim(),
-          action_url: "/dashboard/renter/smart-match",
-        })),
-      );
-    }
+    // Create the request. A DB trigger (notify_owners_of_smart_match_request)
+    // fans out notifications to every matching renter server-side, so there is no
+    // fragile client-side fan-out here.
+    await supabase.from("smart_match_requests").insert({
+      guest_id: user.id,
+      check_in: payload.checkIn,
+      check_out: payload.checkOut,
+      guests_count: payload.guestsCount ?? null,
+      budget_min: payload.budgetMin ?? null,
+      budget_max: payload.budgetMax ?? null,
+      zone: zoneValue,
+      status: "active",
+    });
   }
 
   async function handleDeclineOffer(offerId: string) {
@@ -448,69 +376,6 @@ export default function GuestDashboardPage() {
               ))}
         </div>
       </motion.section>
-
-      {transportSvc.length > 0 && (
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-[18px] font-black text-[#0F172A]">
-                ტრანსპორტი და გართობა
-              </h2>
-              <p className="mt-0.5 text-[12px] font-medium text-[#64748B]">
-                დაიჯავშნე შესანიშნავი შთაბეჭდილებებისთვის.
-              </p>
-            </div>
-            <Link
-              href="/services"
-              className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
-            >
-              ყველას ნახვა
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {transportSvc.map((s) => (
-              <Link
-                key={s.id}
-                href={`/services/${s.id}`}
-                className="group flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]"
-              >
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
-                  {(s.photos ?? [])[0] && (
-                    <Image
-                      src={(s.photos ?? [])[0]}
-                      alt={s.title}
-                      width={64}
-                      height={64}
-                      className="h-full w-full object-cover"
-                    />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
-                    {s.title}
-                  </h3>
-                  {s.price != null && (
-                    <p className="mt-1 text-[13px] font-black text-[#0F172A]">
-                      {formatPrice(Number(s.price))}
-                      {s.price_unit && (
-                        <span className="text-[11px] font-medium text-[#94A3B8]">
-                          {" "}
-                          / {s.price_unit}
-                        </span>
-                      )}
-                    </p>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </motion.section>
-      )}
 
       <NewRequestModal
         isOpen={newRequestOpen}

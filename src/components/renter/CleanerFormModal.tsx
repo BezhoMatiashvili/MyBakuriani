@@ -177,33 +177,6 @@ export default function CleanerFormModal({
                   />
                 </Field>
               </div>
-
-              <Field label="ხელმისაწვდომობა">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAvailable(true)}
-                    className={`rounded-xl border px-4 py-2.5 text-[12px] font-bold transition-colors ${
-                      available
-                        ? "border-[#16A34A] bg-[#DCFCE7] text-[#16A34A]"
-                        : "border-[#E2E8F0] bg-white text-[#64748B]"
-                    }`}
-                  >
-                    თავისუფალია
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAvailable(false)}
-                    className={`rounded-xl border px-4 py-2.5 text-[12px] font-bold transition-colors ${
-                      !available
-                        ? "border-[#EF4444] bg-[#FEE2E2] text-[#DC2626]"
-                        : "border-[#E2E8F0] bg-white text-[#64748B]"
-                    }`}
-                  >
-                    დაკავებულია
-                  </button>
-                </div>
-              </Field>
             </div>
 
             <button

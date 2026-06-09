@@ -101,6 +101,16 @@ export default function RenterSmartMatchPage() {
     if (!user) return;
 
     async function fetchData() {
+      // Opening Smart Match clears the sidebar "new requests" badge: mark this
+      // renter's unread request notifications as read. DashboardShell recomputes
+      // the badge from this via realtime.
+      void supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("user_id", user!.id)
+        .eq("type", "smart_match_request")
+        .eq("is_read", false);
+
       const { data: properties } = await supabase
         .from("properties")
         .select(
@@ -281,15 +291,8 @@ export default function RenterSmartMatchPage() {
       return;
     }
 
-    // Notify the guest
-    await supabase.from("notifications").insert({
-      user_id: guestRequest.guest_id,
-      type: "smart_match_offer",
-      title: "ახალი შეთავაზება",
-      message: `მფლობელმა შემოგთავაზათ ობიექტი ფასით ${offeredPrice}₾`,
-      action_url: "/dashboard/guest",
-    });
-
+    // The guest is notified server-side by the notify_guest_of_smart_match_offer
+    // trigger that fires on the insert above.
     setSubmittedRequestIds((prev) => new Set(prev).add(realRequestId));
   }
 

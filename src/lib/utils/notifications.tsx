@@ -40,9 +40,14 @@ export function iconForType(type: string): NotificationIconKey {
     case "smart_match":
       return "lead";
     case "smart_match_offer":
+    case "listing_pending":
       return "info";
+    case "payment_success":
+      return "lead";
     case "warning":
     case "balance_low":
+    case "payment_failed":
+    case "vip_expiring":
       return "warning";
     case "favorite":
     case "review":

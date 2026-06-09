@@ -21,8 +21,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NewRequestModal, {
   type NewRequestPayload,
 } from "@/components/guest/NewRequestModal";
-import { nearestZoneName } from "@/lib/zones/types";
-import { useActiveZones } from "@/lib/zones/client";
 import type { Tables } from "@/lib/types/database";
 
 type Property = Tables<"properties">;
@@ -49,7 +47,6 @@ type TabKey = "all" | "new";
 export default function GuestBookingsPage() {
   const { user } = useAuth();
   const supabase = createClient();
-  const { zones } = useActiveZones();
   const [offers, setOffers] = useState<OfferView[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("all");
@@ -176,62 +173,19 @@ export default function GuestBookingsPage() {
     if (!user) return;
     const zoneValue = p.zone === "all" ? null : p.zone;
 
-    const { data: request, error: insertErr } = await supabase
-      .from("smart_match_requests")
-      .insert({
-        guest_id: user.id,
-        check_in: p.checkIn,
-        check_out: p.checkOut,
-        guests_count: p.guestsCount ?? null,
-        budget_min: p.budgetMin ?? null,
-        budget_max: p.budgetMax ?? null,
-        zone: zoneValue,
-        status: "active",
-      })
-      .select()
-      .single();
-
-    if (insertErr || !request) return;
-
-    const { data: properties } = await supabase
-      .from("properties")
-      .select("owner_id, location_lat, location_lng")
-      .eq("status", "active")
-      .eq("is_for_sale", false);
-    if (!properties) return;
-
-    const matching = properties.filter((prop) => {
-      if (!prop.owner_id) return false;
-      if (!zoneValue) return true;
-      if (prop.location_lat == null || prop.location_lng == null) return false;
-      return (
-        nearestZoneName(
-          zones,
-          Number(prop.location_lat),
-          Number(prop.location_lng),
-        ) === zoneValue
-      );
+    // Create the request. A DB trigger (notify_owners_of_smart_match_request)
+    // fans out notifications to every matching renter server-side, so there is no
+    // fragile client-side fan-out here.
+    await supabase.from("smart_match_requests").insert({
+      guest_id: user.id,
+      check_in: p.checkIn,
+      check_out: p.checkOut,
+      guests_count: p.guestsCount ?? null,
+      budget_min: p.budgetMin ?? null,
+      budget_max: p.budgetMax ?? null,
+      zone: zoneValue,
+      status: "active",
     });
-
-    const uniqueOwners = Array.from(
-      new Set(
-        matching.map((m) => m.owner_id).filter((id): id is string => !!id),
-      ),
-    );
-    if (uniqueOwners.length > 0) {
-      const datesStr =
-        p.checkIn && p.checkOut ? `${p.checkIn} – ${p.checkOut}` : "";
-      const zoneStr = zoneValue ?? "ბაკურიანი";
-      await supabase.from("notifications").insert(
-        uniqueOwners.map((ownerId) => ({
-          user_id: ownerId,
-          type: "smart_match_request",
-          title: "ახალი Smart Match მოთხოვნა",
-          message: `სტუმარი ეძებს ${zoneStr}-ში ${datesStr}`.trim(),
-          action_url: "/dashboard/renter/smart-match",
-        })),
-      );
-    }
   }
 
   async function declineOffer(offerId: string) {

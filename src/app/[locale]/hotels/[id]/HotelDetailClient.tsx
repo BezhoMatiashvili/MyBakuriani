@@ -124,6 +124,10 @@ export default function HotelDetailClient({
     typeof houseRulesObj.pets === "boolean"
       ? (houseRulesObj.pets as boolean)
       : null;
+  const mealsIncludedRule =
+    typeof houseRulesObj.meals_included === "boolean"
+      ? (houseRulesObj.meals_included as boolean)
+      : null;
   const houseRulesLabels: Record<string, string> = {
     check_in: "შესვლა",
     check_out: "გასვლა",
@@ -137,7 +141,10 @@ export default function HotelDetailClient({
       return `${label}: ${value}`;
     });
   const showHouseRules =
-    smokingRule !== null || petsRule !== null || extraHouseRules.length > 0;
+    smokingRule !== null ||
+    petsRule !== null ||
+    mealsIncludedRule !== null ||
+    extraHouseRules.length > 0;
   const avgRating =
     reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
@@ -337,7 +344,9 @@ export default function HotelDetailClient({
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 სასტუმროს წესები
               </h2>
-              {(smokingRule !== null || petsRule !== null) && (
+              {(smokingRule !== null ||
+                petsRule !== null ||
+                mealsIncludedRule !== null) && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {smokingRule !== null && (
                     <HouseRuleCard
@@ -351,6 +360,17 @@ export default function HotelDetailClient({
                       icon={<PawPrint className="h-5 w-5 text-[#16A34A]" />}
                       label="ცხოველები"
                       value={petsRule}
+                    />
+                  )}
+                  {mealsIncludedRule !== null && (
+                    <HouseRuleCard
+                      icon={
+                        <UtensilsCrossed className="h-5 w-5 text-[#F59E0B]" />
+                      }
+                      label="კვება ფასში"
+                      value={mealsIncludedRule}
+                      trueLabel="შედის"
+                      falseLabel="არ შედის"
                     />
                   )}
                 </div>
@@ -455,10 +475,14 @@ function HouseRuleCard({
   icon,
   label,
   value,
+  trueLabel = "დაშვებულია",
+  falseLabel = "აკრძალულია",
 }: {
   icon: React.ReactNode;
   label: string;
   value: boolean;
+  trueLabel?: string;
+  falseLabel?: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
@@ -470,7 +494,7 @@ function HouseRuleCard({
           {label}
         </span>
         <span className="text-[15px] font-bold leading-snug text-[#0F172A]">
-          {value ? "დაშვებულია" : "აკრძალულია"}
+          {value ? trueLabel : falseLabel}
         </span>
       </div>
     </div>

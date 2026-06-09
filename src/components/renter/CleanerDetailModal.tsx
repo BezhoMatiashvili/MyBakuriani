@@ -142,7 +142,7 @@ export default function CleanerDetailModal({
                 className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#2563EB] text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF]"
               >
                 <Pencil className="h-4 w-4" strokeWidth={2.4} />
-                გამოძახება
+                დარეკვა
               </button>
             </div>
           </motion.div>

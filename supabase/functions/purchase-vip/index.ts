@@ -22,6 +22,8 @@ const VALID_TYPES: readonly PurchaseType[] = [
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+type UserCtx = Awaited<ReturnType<typeof requireUser>>;
+
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
 
@@ -29,8 +31,12 @@ serve(async (req) => {
     return new Response("ok", { headers: cors });
   }
 
+  // Hoisted so the catch block can notify the user of a failed payment.
+  let ctx: UserCtx | undefined;
+
   try {
-    const { supabase, user } = await requireUser(req);
+    ctx = await requireUser(req);
+    const { supabase, user } = ctx;
 
     const body = await req.json().catch(() => ({}));
     const package_id = body.package_id as string | undefined;
@@ -89,6 +95,22 @@ serve(async (req) => {
 
     return jsonResponse({ data }, 200, cors);
   } catch (err) {
+    // Best-effort failure notification. Skipped when auth itself failed
+    // (no user/client). Swallow any insert error so the real error surfaces.
+    if (ctx?.user?.id) {
+      try {
+        await ctx.supabase.from("notifications").insert({
+          user_id: ctx.user.id,
+          type: "payment_failed",
+          title: "გადახდა ვერ შესრულდა",
+          message: err instanceof Error ? err.message : "სცადეთ თავიდან.",
+          action_url: "/dashboard",
+          severity: "warning",
+        });
+      } catch (_) {
+        // ignore
+      }
+    }
     return errorResponse(err, cors);
   }
 });

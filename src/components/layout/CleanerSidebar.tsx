@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Wallet,
   LogOut,
-  MessageSquare,
   Home,
   type LucideIcon,
 } from "lucide-react";
@@ -39,7 +38,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: CalendarDays,
   },
   { label: "შემოსავალი", href: "/dashboard/cleaner/earnings", icon: Wallet },
-  { label: "SMS ცენტრი", href: "/dashboard/sms", icon: MessageSquare },
 ];
 
 function BrandLogo() {

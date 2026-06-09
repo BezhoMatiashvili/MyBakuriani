@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { SENDER_ROLES, type SenderRole } from "@/lib/sms/audience";
 import type { Tables } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -28,6 +29,16 @@ export async function GET() {
 
   if (!user) {
     return Response.json({ error: "unauthenticated" }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.role || !SENDER_ROLES.has(profile.role as SenderRole)) {
+    return Response.json({ error: "role_not_allowed" }, { status: 403 });
   }
 
   const db = createServiceClient();

@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import { CigaretteOff, PawPrint } from "lucide-react";
+import { CigaretteOff, PawPrint, UtensilsCrossed } from "lucide-react";
 import {
   WizardShell,
   WizardSection,
@@ -110,6 +110,7 @@ function CreateRentalPageInner() {
   ]);
   const [smokingAllowed, setSmokingAllowed] = useState<boolean | null>(null);
   const [petsAllowed, setPetsAllowed] = useState<boolean | null>(null);
+  const [mealsIncluded, setMealsIncluded] = useState<boolean | null>(null);
 
   // Step 4: availability (next 30 days)
   const [availability, setAvailability] = useState<
@@ -197,6 +198,8 @@ function CreateRentalPageInner() {
       }
       if (typeof rules.smoking === "boolean") setSmokingAllowed(rules.smoking);
       if (typeof rules.pets === "boolean") setPetsAllowed(rules.pets);
+      if (typeof rules.meals_included === "boolean")
+        setMealsIncluded(rules.meals_included);
       const stripPrefix = (v: string | null) =>
         v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
       setPhone(stripPrefix(data.phone));
@@ -258,6 +261,11 @@ function CreateRentalPageInner() {
     };
   }, [editId, user, supabase]);
 
+  // Meals-in-price applies only to hotels; drop any stale value otherwise.
+  useEffect(() => {
+    if (propertyType !== "hotel") setMealsIncluded(null);
+  }, [propertyType]);
+
   function toggleAmenity(key: string) {
     setSelectedAmenities((prev) =>
       prev.includes(key) ? prev.filter((a) => a !== key) : [...prev, key],
@@ -273,7 +281,10 @@ function CreateRentalPageInner() {
   const isStepValid = (s: number): boolean => {
     if (s === 0) return !!propertyType && !!location;
     if (s === 1) return !!title.trim();
-    if (s === 2) return smokingAllowed !== null && petsAllowed !== null;
+    if (s === 2) {
+      const mealsOk = propertyType !== "hotel" || mealsIncluded !== null;
+      return smokingAllowed !== null && petsAllowed !== null && mealsOk;
+    }
     // Step 3: base price + availability (defaults to all-available next 30 days)
     if (s === 3) {
       const priceNum = Number(pricePerNight);
@@ -303,6 +314,10 @@ function CreateRentalPageInner() {
 
       if (smokingAllowed === null || petsAllowed === null) {
         throw new Error("აირჩიეთ სახლის წესები");
+      }
+
+      if (propertyType === "hotel" && mealsIncluded === null) {
+        throw new Error("მიუთითეთ, შედის თუ არა კვება ფასში");
       }
 
       if (!phone.trim()) {
@@ -341,6 +356,7 @@ function CreateRentalPageInner() {
           hosting_langs: hostingLangs,
           smoking: smokingAllowed,
           pets: petsAllowed,
+          ...(propertyType === "hotel" && { meals_included: mealsIncluded }),
         },
         price_per_night: priceNum,
         min_booking_days: minBookingNum,
@@ -721,6 +737,18 @@ function CreateRentalPageInner() {
                       value={petsAllowed}
                       onChange={setPetsAllowed}
                     />
+                    {propertyType === "hotel" && (
+                      <HouseRuleField
+                        icon={
+                          <UtensilsCrossed className="h-5 w-5 text-[#F59E0B]" />
+                        }
+                        label="კვება ფასში?"
+                        value={mealsIncluded}
+                        onChange={setMealsIncluded}
+                        trueLabel="შედის"
+                        falseLabel="არ შედის"
+                      />
+                    )}
                   </div>
                 </div>
               </WizardSection>
@@ -894,11 +922,15 @@ function HouseRuleField({
   label,
   value,
   onChange,
+  trueLabel = "დაშვებულია",
+  falseLabel = "აკრძალულია",
 }: {
   icon: React.ReactNode;
   label: string;
   value: boolean | null;
   onChange: (v: boolean) => void;
+  trueLabel?: string;
+  falseLabel?: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
@@ -919,7 +951,7 @@ function HouseRuleField({
                 : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
             }`}
           >
-            დაშვებულია
+            {trueLabel}
           </button>
           <button
             type="button"
@@ -930,7 +962,7 @@ function HouseRuleField({
                 : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
             }`}
           >
-            აკრძალულია
+            {falseLabel}
           </button>
         </div>
       </div>

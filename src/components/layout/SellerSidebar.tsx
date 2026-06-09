@@ -11,7 +11,6 @@ import {
   Bell,
   Settings,
   LogOut,
-  MessageSquare,
   Home,
   type LucideIcon,
 } from "lucide-react";
@@ -74,11 +73,6 @@ const SECTIONS: NavSection[] = [
         label: "ბალანსი და VIP",
         href: "/dashboard/seller/balance",
         icon: Wallet,
-      },
-      {
-        label: "SMS ცენტრი",
-        href: "/dashboard/sms",
-        icon: MessageSquare,
       },
     ],
   },

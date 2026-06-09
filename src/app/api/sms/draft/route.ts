@@ -4,16 +4,8 @@ import { createServiceClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-const SENDER_ROLES = new Set([
-  "renter",
-  "seller",
-  "cleaner",
-  "food",
-  "entertainment",
-  "transport",
-  "employment",
-  "handyman",
-]);
+// SMS Center is renter-only (mirrors SENDER_ROLES in @/lib/sms/audience).
+const SENDER_ROLES = new Set(["renter"]);
 
 const MAX_PER_EVENT = 3;
 const MAX_MESSAGE_LEN = 320;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
@@ -85,7 +85,7 @@ export function DashboardShell({
   initialNotificationCount,
   balance,
   smsRemaining,
-  smartMatchCount,
+  smartMatchCount: initialSmartMatchCount,
   availableCabinets,
   children,
 }: DashboardShellProps) {
@@ -93,10 +93,33 @@ export function DashboardShell({
   const [notificationCount, setNotificationCount] = useState(
     initialNotificationCount,
   );
+  const [smartMatchCount, setSmartMatchCount] = useState(
+    initialSmartMatchCount,
+  );
   const [leadsCount, setLeadsCount] = useState(0);
+  const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
+
+    // Authoritative, debounced recount of the renter's unread "new request"
+    // notifications. This is the source of truth for the Smart Match badge so it
+    // can never drift (e.g. show N after the inbox has been opened and cleared).
+    const recountSmartMatch = () => {
+      if (recountTimer.current) clearTimeout(recountTimer.current);
+      recountTimer.current = setTimeout(() => {
+        supabase
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("type", "smart_match_request")
+          .eq("is_read", false)
+          .then((res: { count: number | null; error: unknown }) => {
+            if (!res.error) setSmartMatchCount(res.count ?? 0);
+          });
+      }, 400);
+    };
+
     const channel = supabase
       .channel("dashboard-notifications")
       .on(
@@ -107,10 +130,32 @@ export function DashboardShell({
           table: "notifications",
           filter: `user_id=eq.${userId}`,
         },
-        () => setNotificationCount((p) => p + 1),
+        (payload) => {
+          setNotificationCount((p) => p + 1);
+          if (
+            (payload.new as { type?: string } | null)?.type ===
+            "smart_match_request"
+          ) {
+            setSmartMatchCount((p) => p + 1);
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          // Mark-as-read (or any update) → reconcile the badge with the DB truth.
+          recountSmartMatch();
+        },
       )
       .subscribe();
     return () => {
+      if (recountTimer.current) clearTimeout(recountTimer.current);
       supabase.removeChannel(channel);
     };
   }, [userId]);

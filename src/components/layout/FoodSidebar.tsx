@@ -9,7 +9,6 @@ import {
   Bell,
   Settings,
   LogOut,
-  MessageSquare,
   Home,
   type LucideIcon,
 } from "lucide-react";
@@ -42,7 +41,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: UtensilsCrossed,
   },
   { label: "ბალანსი და VIP", href: "/dashboard/food/balance", icon: Wallet },
-  { label: "SMS ცენტრი", href: "/dashboard/sms", icon: MessageSquare },
   {
     label: "შეტყობინებები",
     href: "/dashboard/food/notifications",

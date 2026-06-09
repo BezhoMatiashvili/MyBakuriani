@@ -136,7 +136,7 @@ export default function RenterCleanersPage() {
                 }
                 className="rounded-xl bg-[#2563EB] py-2.5 text-[13px] font-bold text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF]"
               >
-                გამოძახება
+                დარეკვა
               </button>
             </div>
           </article>

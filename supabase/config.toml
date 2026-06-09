@@ -51,8 +51,14 @@ verify_jwt = false
 [functions.smart-match]
 verify_jwt = false
 
+[functions.sms-dispatch]
+verify_jwt = false
+
 [functions.upload-photos]
 verify_jwt = false
 
 [functions.verify-listing]
+verify_jwt = false
+
+[functions.vip-lifecycle]
 verify_jwt = false
