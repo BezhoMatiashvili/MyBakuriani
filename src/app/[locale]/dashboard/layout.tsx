@@ -19,7 +19,15 @@ export default async function DashboardLayout({
     redirect("/auth/login");
   }
 
-  const [profileRes, notifRes, balanceRes, smartMatchRes] = await Promise.all([
+  const [
+    profileRes,
+    notifRes,
+    balanceRes,
+    smartMatchRes,
+    propertiesRes,
+    servicesRes,
+    cleaningRes,
+  ] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, role, avatar_url")
@@ -43,6 +51,12 @@ export default async function DashboardLayout({
       .eq("user_id", user.id)
       .eq("type", "smart_match_request")
       .eq("is_read", false),
+    supabase.from("properties").select("is_for_sale").eq("owner_id", user.id),
+    supabase.from("services").select("category").eq("owner_id", user.id),
+    supabase
+      .from("cleaning_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("cleaner_id", user.id),
   ]);
 
   const displayName = profileRes.data?.display_name ?? "მომხმარებელი";
@@ -52,6 +66,15 @@ export default async function DashboardLayout({
   const balance = Number(balanceRes.data?.amount ?? 0);
   const smsRemaining = Number(balanceRes.data?.sms_remaining ?? SMS_PLAN_TOTAL);
   const smartMatchCount = smartMatchRes.count ?? 0;
+
+  const availableCabinets = deriveAvailableCabinets({
+    role,
+    isForSaleFlags: (propertiesRes.data ?? []).map(
+      (p) => p.is_for_sale === true,
+    ),
+    serviceCategories: (servicesRes.data ?? []).map((s) => s.category),
+    hasCleaningTasks: (cleaningRes.count ?? 0) > 0,
+  });
 
   return (
     <DashboardShell
@@ -63,6 +86,7 @@ export default async function DashboardLayout({
       balance={balance}
       smsRemaining={smsRemaining}
       smartMatchCount={smartMatchCount}
+      availableCabinets={availableCabinets}
     >
       {children}
     </DashboardShell>
