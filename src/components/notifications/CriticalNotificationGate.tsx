@@ -21,11 +21,14 @@ export function CriticalNotificationGate() {
   const [acknowledging, setAcknowledging] = useState(false);
 
   // Track auth user; pick up sign-in/sign-out without a full reload.
+  // getSession() reads the local cookie (no network) — anonymous visitors
+  // pay zero auth round-trips. The id is only a query filter; RLS on
+  // notifications is the real gate.
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (mounted) setUserId(data.user?.id ?? null);
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setUserId(data.session?.user?.id ?? null);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       if (mounted) setUserId(session?.user?.id ?? null);

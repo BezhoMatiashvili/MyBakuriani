@@ -29,7 +29,10 @@ export async function GET() {
     return Response.json({ error: message }, { status: 500 });
   }
 
-  return Response.json({
-    count: (propertiesRes.count ?? 0) + (servicesRes.count ?? 0),
-  });
+  return Response.json(
+    { count: (propertiesRes.count ?? 0) + (servicesRes.count ?? 0) },
+    // Short private cache: the badge refetches on every admin navigation,
+    // so let rapid navigations reuse the response for 30s.
+    { headers: { "Cache-Control": "private, max-age=30" } },
+  );
 }

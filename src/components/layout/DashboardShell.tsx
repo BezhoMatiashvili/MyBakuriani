@@ -193,7 +193,7 @@ export function DashboardShell({
   // navigation so it stays current after approving/rejecting listings.
   useEffect(() => {
     if (role !== "admin") return;
-    fetch("/api/admin/listings/pending/count", { cache: "no-store" })
+    fetch("/api/admin/listings/pending/count")
       .then((res) => (res.ok ? res.json() : null))
       .then((payload: { count?: number } | null) => {
         if (payload && typeof payload.count === "number") {
