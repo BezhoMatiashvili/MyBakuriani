@@ -30,6 +30,8 @@
     "entertainment": "Entertainment & Activities — MyBakuriani",
     "entertainmentDesc": "Entertainment and activities in Bakuriani: ski lessons, horseback riding, SPA, kids zones, and more.",
     "termsDesc": "Terms and conditions for using the MyBakuriani platform.",
+    "privacy": "Privacy Policy — MyBakuriani",
+    "privacyDesc": "How we collect, process, and protect your personal data on the MyBakuriani platform.",
     "blogDesc": "Latest news, tips, and articles about Bakuriani. Learn everything about the resort.",
     "employment": "Jobs in Bakuriani — MyBakuriani",
     "employmentDesc": "Find work in Bakuriani: chef, administrator, cleaner, driver, and other vacancies.",
@@ -108,6 +110,8 @@
     "contact": "Contact",
     "faq": "Frequently Asked Questions",
     "terms": "Terms and Conditions",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
     "copyright": "© 2024 MYBAKURIANI.GE - All rights reserved"
   },
   "DashboardSidebar": {
@@ -1544,28 +1548,6 @@
     "email": "Email",
     "address": "Address",
     "addressValue": "Bakuriani, Georgia"
-  },
-  "TermsPage": {
-    "title": "Terms & Conditions",
-    "lastUpdated": "Last updated: March 1, 2026",
-    "sections": {
-      "general": {
-        "title": "1. General provisions",
-        "body": "These terms and conditions govern the use of the MyBakuriani (mybakuriani.ge) platform. By registering on the platform, you agree to these terms and conditions."
-      },
-      "registration": {
-        "title": "2. Registration & account",
-        "body": "Registration requires a Georgian mobile number (+995). The user is responsible for the security of their account."
-      },
-      "booking": {
-        "title": "3. Booking rules",
-        "body": "A booking takes effect after the owner's confirmation. If cancelled at least 48 hours in advance, the amount is fully refunded."
-      },
-      "payment": {
-        "title": "4. Payment terms",
-        "body": "Payment is made via the platform balance. The balance can be topped up with TBC Bank and BOG cards."
-      }
-    }
   },
   "FAQ": {
     "title": "Frequently asked questions",

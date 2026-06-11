@@ -141,10 +141,10 @@ export function Footer() {
               href="/privacy"
               className="transition-colors hover:text-white"
             >
-              PRIVACY POLICY
+              {t("privacyPolicy")}
             </Link>
             <Link href="/terms" className="transition-colors hover:text-white">
-              TERMS OF SERVICE
+              {t("termsOfService")}
             </Link>
           </div>
         </div>

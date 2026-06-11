@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
-import { termsContent } from "@/content/legal";
+import { privacyContent } from "@/content/legal";
 import LegalDocumentView from "@/components/legal/LegalDocumentView";
 
 export async function generateMetadata({
@@ -12,16 +12,16 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
   return {
-    title: t("terms"),
-    description: t("termsDesc"),
+    title: t("privacy"),
+    description: t("privacyDesc"),
   };
 }
 
-export default async function TermsPage({
+export default async function PrivacyPage({
   params,
 }: {
   params: Promise<{ locale: AppLocale }>;
 }) {
   const { locale } = await params;
-  return <LegalDocumentView doc={termsContent[locale]} />;
+  return <LegalDocumentView doc={privacyContent[locale]} />;
 }

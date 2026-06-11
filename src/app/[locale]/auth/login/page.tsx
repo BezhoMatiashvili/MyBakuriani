@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -445,7 +444,7 @@ export default function LoginPage() {
             {t("termsOfService")}
           </Link>{" "}
           {t("and")}{" "}
-          <Link href="/terms#confidentiality" className="underline">
+          <Link href="/privacy" className="underline">
             {t("privacyPolicy")}
           </Link>
         </p>
