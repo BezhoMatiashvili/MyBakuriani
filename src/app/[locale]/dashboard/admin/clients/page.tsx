@@ -81,15 +81,24 @@ export default function ClientsPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((payload: { clients?: ProfileWithCounts[] } | null) => {
         if (cancelled) return;
-        if (payload?.clients) setProfiles(payload.clients);
+        if (payload?.clients) {
+          setProfiles(payload.clients);
+        } else {
+          // Surface failures (e.g. RPC missing) instead of a silently
+          // empty directory that looks like data loss.
+          toast.error(tShared("loadFailed"));
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) toast.error(tShared("loadFailed"));
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Real transaction history for the details modal (admin-only API; the

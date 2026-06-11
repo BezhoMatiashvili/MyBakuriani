@@ -8,6 +8,10 @@
 --
 -- listings_count counts only properties (not services) — exact parity with
 -- the previous client-side merge on the admin clients page.
+--
+-- Behavior change (intentional fix): balance_amount is now the REAL balance
+-- for every client. The old browser-client fetch was silently RLS-filtered
+-- ("Users see own balance"), so admins previously saw 0 for everyone else.
 
 create or replace function public.admin_clients_with_stats()
 returns jsonb

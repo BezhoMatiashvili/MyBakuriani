@@ -20,9 +20,10 @@ export async function GET() {
       { zones: data ?? [] },
       {
         // Let browsers/CDN reuse the response instead of re-fetching on
-        // every page mount; zone edits surface within ~2 minutes.
+        // every page mount. Worst-case staleness for a client that cached
+        // just before an edit: max-age + swr ≈ 2 minutes.
         headers: {
-          "Cache-Control": "public, max-age=120, stale-while-revalidate=600",
+          "Cache-Control": "public, max-age=60, stale-while-revalidate=60",
         },
       },
     );

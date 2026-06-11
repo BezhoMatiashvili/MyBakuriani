@@ -189,8 +189,10 @@ export function DashboardShell({
       });
   }, [role, userId]);
 
-  // Real pending-verifications count for the admin sidebar badge; refreshed on
-  // navigation so it stays current after approving/rejecting listings.
+  // Real pending-verifications count for the admin sidebar badge; refetched on
+  // navigation. The route caches privately for 30s, so the badge may lag an
+  // approve/reject by up to 30s — accepted tradeoff vs hitting the API on
+  // every navigation.
   useEffect(() => {
     if (role !== "admin") return;
     fetch("/api/admin/listings/pending/count")
