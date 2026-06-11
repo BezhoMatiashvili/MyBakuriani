@@ -3,39 +3,28 @@ import type { Database, Tables } from "@/lib/types/database";
 
 export type TaskRow = Tables<"cleaning_tasks"> & {
   properties: Pick<Tables<"properties">, "title" | "location"> | null;
-};
-
-export type CleanerData = {
-  myTasks: TaskRow[];
-  available: TaskRow[];
+  profiles: Pick<
+    Tables<"profiles">,
+    "display_name" | "phone" | "avatar_url"
+  > | null;
 };
 
 /**
- * Loads the cleaner dashboard tasks. Shared by the server component (initial
- * render, server client) and the client realtime handler (browser client) so the
- * queries live in one place and the first paint already has real data.
+ * Loads the cleaner's open tasks. Shared by the server page (initial render,
+ * server client) and the client realtime refetch (browser client) so the
+ * query lives in one place and the first paint already has real data.
  */
-export async function loadCleanerData(
+export async function loadCleanerTasks(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<CleanerData> {
-  const [mineRes, poolRes] = await Promise.all([
-    supabase
-      .from("cleaning_tasks")
-      .select("*, properties(title, location)")
-      .eq("cleaner_id", userId)
-      .order("scheduled_at", { ascending: true }),
-    supabase
-      .from("cleaning_tasks")
-      .select("*, properties(title, location)")
-      .is("cleaner_id", null)
-      .eq("status", "pending")
-      .order("scheduled_at", { ascending: true })
-      .limit(10),
-  ]);
-
-  return {
-    myTasks: (mineRes.data ?? []) as TaskRow[],
-    available: (poolRes.data ?? []) as TaskRow[],
-  };
+): Promise<TaskRow[]> {
+  const { data } = await supabase
+    .from("cleaning_tasks")
+    .select(
+      "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone, avatar_url)",
+    )
+    .eq("cleaner_id", userId)
+    .in("status", ["pending", "accepted", "in_progress"])
+    .order("scheduled_at");
+  return (data ?? []) as TaskRow[];
 }
