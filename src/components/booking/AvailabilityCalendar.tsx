@@ -179,7 +179,7 @@ export function AvailabilityCalendar({
         })}
       </div>
 
-      <div className="mt-4 flex items-center gap-6 border-t border-[#E2E8F0] pt-4 text-[12px] font-medium">
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[#E2E8F0] pt-4 text-[12px] font-medium">
         <span className="flex items-center gap-2 text-[#1E293B]">
           <span className="size-2 rounded-full bg-[#1E293B]" />
           {t("legendAvailable")}

@@ -411,7 +411,7 @@ function CreateFoodPageInner() {
               <label className="text-[13px] font-bold text-[#334155]">
                 {t("extraDetails")}
               </label>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                 {FOOD_AMENITIES.map((a) => (
                   <ServiceCheckbox
                     key={a.key}
@@ -532,7 +532,7 @@ function ServiceCheckbox({
 }) {
   return (
     <label
-      className={`flex h-[52px] cursor-pointer items-center gap-2.5 rounded-xl border px-4 transition-colors ${
+      className={`flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-xl border px-4 py-2 transition-colors ${
         checked
           ? "border-[#F97316] bg-[#FFF7ED]"
           : "border-[#E2E8F0] bg-white hover:border-[#F97316]/40"

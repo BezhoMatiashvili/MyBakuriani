@@ -211,7 +211,7 @@ export default function PhotoUploader({
                         e.stopPropagation();
                         handleRemove(photoIndex);
                       }}
-                      className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-100 lg:opacity-0 transition-opacity group-hover:opacity-100"
                     >
                       <X className="size-3.5" />
                     </button>
@@ -225,7 +225,7 @@ export default function PhotoUploader({
         </div>
 
         {extraPhotos.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
             {extraPhotos.map((photo, idx) => {
               const photoIndex = idx + 5;
               return (
@@ -243,7 +243,7 @@ export default function PhotoUploader({
                   <button
                     type="button"
                     onClick={() => handleRemove(photoIndex)}
-                    className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-100 lg:opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -306,7 +306,7 @@ export default function PhotoUploader({
 
       {/* Preview grid */}
       {photos.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
           {photos.map((photo, index) => (
             <div
               key={index}
@@ -322,7 +322,7 @@ export default function PhotoUploader({
               <button
                 type="button"
                 onClick={() => handleRemove(index)}
-                className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-100 lg:opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <X className="size-3.5" />
               </button>

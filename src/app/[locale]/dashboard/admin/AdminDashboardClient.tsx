@@ -145,7 +145,7 @@ export default function AdminDashboardClient({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[16px] font-black uppercase tracking-[1px] text-[#64748B]">
           {t("kpiTitle")}
         </h2>

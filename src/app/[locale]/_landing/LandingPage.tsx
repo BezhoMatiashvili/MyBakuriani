@@ -369,9 +369,9 @@ export default function LandingPage({
                 />
               </div>
             ) : activeDropdown === "calendar" ? (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-[1fr_auto] gap-4 md:grid">
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-1 gap-4 md:grid lg:grid-cols-[1fr_auto]">
                 <div ref={dropdownPortalRef} className="min-w-0" />
-                <div className="flex w-[240px] flex-col gap-3">
+                <div className="flex w-full flex-col gap-3 lg:w-[240px]">
                   {/* Camera card */}
                   <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
                     <div className="flex flex-col gap-1">
@@ -798,7 +798,7 @@ function ServiceSection({
           {filteredCards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
               <div
-                className={`h-full shrink-0 snap-start ${cardVariant === "avatar" ? "w-[280px]" : "w-[340px]"}`}
+                className={`h-full shrink-0 snap-start ${cardVariant === "avatar" ? "w-[280px]" : "w-[300px] sm:w-[340px]"}`}
               >
                 <ServiceCard {...card} variant={cardVariant} />
               </div>
@@ -1012,7 +1012,7 @@ function PropertySection({
         <div className="scrollbar-hide -mx-4 flex gap-6 overflow-x-auto px-4 scroll-smooth snap-x">
           {filteredProperties.map((prop, i) => (
             <ScrollReveal key={prop.id} delay={i * 0.08} className="h-full">
-              <div className="h-full w-[340px] shrink-0 snap-start">
+              <div className="h-full w-[300px] shrink-0 snap-start sm:w-[340px]">
                 <PropertyCard {...prop} />
               </div>
             </ScrollReveal>

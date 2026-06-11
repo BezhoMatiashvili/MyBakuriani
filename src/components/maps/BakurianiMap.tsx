@@ -377,7 +377,7 @@ export default function BakurianiMap({
               key={zone.id}
               type="button"
               onClick={() => onZoneClick?.(zone.name_ka)}
-              className="absolute size-3 rounded-full border-[2px] border-white bg-[#A855F7] shadow-[0px_2px_6px_rgba(168,85,247,0.4)] transition-transform hover:scale-150"
+              className="absolute size-3 rounded-full border-[2px] border-white bg-[#A855F7] shadow-[0px_2px_6px_rgba(168,85,247,0.4)] transition-transform hover:scale-150 after:absolute after:-inset-3.5 after:content-['']"
               style={{ left: pos.left, top: pos.top }}
               title={zone.name_ka}
             />

@@ -275,7 +275,9 @@ export default function AvailabilityWizardStep({
     Number(priceInput) >= 0;
 
   return (
-    <div className={cn("space-y-5", hasActionable && "pb-24")}>
+    <div
+      className={cn("space-y-5", hasActionable && "pb-44 sm:pb-32 md:pb-24")}
+    >
       {/* Intro */}
       <div className="rounded-2xl border border-[#DBEAFE] bg-[#EFF6FF] p-4">
         <p className="text-sm font-semibold text-[#0F172A]">
@@ -336,7 +338,7 @@ export default function AvailabilityWizardStep({
           return (
             <div
               key={`${year}-${month}`}
-              className="rounded-2xl border border-[#E2E8F0] bg-white p-4"
+              className="rounded-2xl border border-[#E2E8F0] bg-white p-2 sm:p-4"
             >
               <div className="mb-3 text-center text-[15px] font-black text-[#0F172A]">
                 {monthFormatter.format(new Date(year, month, 1))}
@@ -348,7 +350,7 @@ export default function AvailabilityWizardStep({
                   </div>
                 ))}
               </div>
-              <div className="mt-1 grid grid-cols-7 gap-1.5 sm:gap-2">
+              <div className="mt-1 grid grid-cols-7 gap-1 sm:gap-2">
                 {cells.map((cell, idx) => {
                   if (!cell) return <div key={idx} className="h-16 sm:h-20" />;
                   const inWindow = windowSet.has(cell.iso);
@@ -391,7 +393,7 @@ export default function AvailabilityWizardStep({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:px-5 md:py-4"
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:px-5 md:pt-4 md:pb-[calc(1rem+env(safe-area-inset-bottom))]"
           >
             <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
@@ -524,7 +526,7 @@ function DayCell({
 }) {
   if (!inWindow) {
     return (
-      <div className="flex h-16 items-start justify-start rounded-xl bg-[#F8FAFC] px-2 py-1.5 text-[13px] font-medium text-[#CBD5E1] sm:h-20">
+      <div className="flex h-16 items-start justify-start rounded-xl bg-[#F8FAFC] px-1 py-1 sm:px-2 sm:py-1.5 text-[13px] font-medium text-[#CBD5E1] sm:h-20">
         {day}
       </div>
     );
@@ -532,7 +534,7 @@ function DayCell({
 
   if (isBooked) {
     return (
-      <div className="flex h-16 cursor-not-allowed flex-col items-start justify-between rounded-xl border border-[#FEE2E2] bg-[#FEE2E2] px-2 py-1.5 text-[#991B1B] sm:h-20">
+      <div className="flex h-16 cursor-not-allowed flex-col items-start justify-between rounded-xl border border-[#FEE2E2] bg-[#FEE2E2] px-1 py-1 sm:px-2 sm:py-1.5 text-[#991B1B] sm:h-20">
         <span className="text-[13px] font-bold">{day}</span>
         <span className="text-[9px] font-semibold uppercase tracking-wide">
           {labels.booked}
@@ -548,7 +550,7 @@ function DayCell({
       onMouseDown={onMouseDown}
       onMouseEnter={onMouseEnter}
       onClick={onClick}
-      className={`relative flex h-16 flex-col items-start justify-between rounded-xl border px-2 py-1.5 text-left transition-colors active:scale-[0.98] sm:h-20 ${
+      className={`relative flex h-16 flex-col items-start justify-between rounded-xl border px-1 py-1 sm:px-2 sm:py-1.5 text-left transition-colors active:scale-[0.98] sm:h-20 ${
         isBlocked
           ? "border-[#FCA5A5] bg-[#FEE2E2] text-[#991B1B] hover:border-[#EF4444]"
           : "border-[#BBF7D0] bg-[#DCFCE7] text-[#15803D] hover:border-[#16A34A]"
@@ -562,7 +564,7 @@ function DayCell({
         <X className="ml-auto size-3" strokeWidth={3} />
       ) : (
         <span
-          className={`ml-auto inline-flex items-center gap-1 text-[10px] font-bold leading-none ${
+          className={`ml-auto inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold leading-none ${
             hasOverride ? "text-[#F97316]" : "text-[#16A34A]"
           }`}
         >

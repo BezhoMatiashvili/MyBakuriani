@@ -17,11 +17,11 @@ export function PromoBanners({ banners }: PromoBannersProps) {
           return (
             <ScrollReveal key={banner.id}>
               <div
-                className="relative flex flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:h-[180px] md:flex-row"
+                className="relative flex flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:flex-row lg:h-[180px]"
                 style={{ backgroundColor: tone.bg, borderColor: tone.border }}
               >
                 {banner.video_url ? (
-                  <div className="relative h-[180px] w-full shrink-0 md:w-[320px]">
+                  <div className="relative h-[180px] w-full shrink-0 md:h-auto md:w-[320px]">
                     <video
                       src={banner.video_url}
                       poster={
@@ -41,7 +41,7 @@ export function PromoBanners({ banners }: PromoBannersProps) {
                     </span>
                   </div>
                 ) : banner.image_url ? (
-                  <div className="relative h-[180px] w-full shrink-0 md:w-[320px]">
+                  <div className="relative h-[180px] w-full shrink-0 md:h-auto md:w-[320px]">
                     <Image
                       src={banner.image_url}
                       alt=""

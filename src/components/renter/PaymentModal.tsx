@@ -135,7 +135,7 @@ export default function PaymentModal({
 
             {/* Footer */}
             {isPending && (
-              <div className="px-6 pb-6 pt-6">
+              <div className="px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
                 <button
                   type="button"
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3.5 text-sm font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:bg-[#1E40AF]"
@@ -145,7 +145,9 @@ export default function PaymentModal({
                 </button>
               </div>
             )}
-            {!isPending && <div className="pb-6" />}
+            {!isPending && (
+              <div className="pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6" />
+            )}
           </motion.div>
         </div>
       )}

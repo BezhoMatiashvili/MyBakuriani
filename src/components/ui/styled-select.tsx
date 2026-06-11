@@ -99,7 +99,7 @@ export function StyledSelect<T extends string>({
         >
           <SelectPrimitive.Popup
             className={cn(
-              "origin-(--transform-origin) overflow-hidden rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_8px_24px_rgba(15,23,42,0.08)]",
+              "origin-(--transform-origin) max-h-[var(--available-height)] overflow-y-auto rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_8px_24px_rgba(15,23,42,0.08)]",
               "data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95",
               "data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95",
               "duration-100",

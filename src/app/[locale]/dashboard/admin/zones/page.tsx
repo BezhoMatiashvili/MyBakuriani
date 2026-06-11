@@ -484,12 +484,12 @@ export default function AdminZonesPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => move(zone, -1)}
                           disabled={idx === 0 || isSaving}
-                          className="rounded-full p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
+                          className="rounded-full p-3 lg:p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
                           aria-label="ზემოთ"
                         >
                           <ArrowUp className="h-4 w-4" />
@@ -498,7 +498,7 @@ export default function AdminZonesPage() {
                           type="button"
                           onClick={() => move(zone, 1)}
                           disabled={idx === ordered.length - 1 || isSaving}
-                          className="rounded-full p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
+                          className="rounded-full p-3 lg:p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
                           aria-label="ქვემოთ"
                         >
                           <ArrowDown className="h-4 w-4" />
@@ -507,7 +507,7 @@ export default function AdminZonesPage() {
                           type="button"
                           onClick={() => toggleActive(zone)}
                           disabled={isSaving}
-                          className={`relative h-5 w-10 rounded-full transition-colors ${
+                          className={`relative h-5 w-10 rounded-full transition-colors before:absolute before:-inset-x-0.5 before:-inset-y-3 before:content-[''] ${
                             zone.is_active ? "bg-[#10B981]" : "bg-[#CBD5E1]"
                           } disabled:opacity-50`}
                           aria-label={zone.is_active ? "გათიშვა" : "ჩართვა"}
@@ -523,7 +523,7 @@ export default function AdminZonesPage() {
                         <button
                           type="button"
                           onClick={() => startEditing(zone)}
-                          className="rounded-full p-2 text-[#2563EB] hover:bg-white"
+                          className="rounded-full p-3 lg:p-2 text-[#2563EB] hover:bg-white"
                           aria-label="რედაქტირება"
                         >
                           <Pencil className="h-4 w-4" />
@@ -532,7 +532,7 @@ export default function AdminZonesPage() {
                           type="button"
                           onClick={() => softDelete(zone)}
                           disabled={isSaving || !zone.is_active}
-                          className="rounded-full p-2 text-[#DC2626] hover:bg-white disabled:opacity-30"
+                          className="rounded-full p-3 lg:p-2 text-[#DC2626] hover:bg-white disabled:opacity-30"
                           aria-label="გათიშვა"
                         >
                           <Trash2 className="h-4 w-4" />

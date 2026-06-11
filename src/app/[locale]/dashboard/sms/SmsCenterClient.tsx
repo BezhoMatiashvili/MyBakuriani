@@ -320,7 +320,7 @@ export function SmsCenterClient({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="flex flex-col gap-4">
             <div>
               <label className="mb-2 block text-[12px] font-bold text-[#475569]">

@@ -21,7 +21,7 @@ export function AdminTopbar({ userName }: AdminTopbarProps) {
   return (
     <header className="h-20 border-b border-[#E2E8F0] bg-white px-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)] sm:px-8 xl:px-10">
       <div className="flex h-full w-full items-center justify-between gap-5">
-        <div className="w-full max-w-[505px]">
+        <div className="w-full min-w-0 max-w-[505px]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#94A3B8]" />
             <input

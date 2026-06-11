@@ -32,12 +32,12 @@ export function SalePagination({
   }
 
   return (
-    <div className="mt-12 flex items-center justify-center gap-2">
+    <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
       <button
         type="button"
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
-        className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
+        className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
         aria-label={t("prevPage")}
       >
         <ChevronLeft className="size-5" />
@@ -46,7 +46,7 @@ export function SalePagination({
         page === "..." ? (
           <span
             key={`dots-${idx}`}
-            className="flex h-[44px] w-[44px] items-center justify-center text-[14px] text-[#94A3B8]"
+            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center text-[14px] text-[#94A3B8]"
           >
             ...
           </span>
@@ -56,7 +56,7 @@ export function SalePagination({
             type="button"
             onClick={() => onPageChange(page)}
             className={cn(
-              "flex h-[44px] w-[44px] items-center justify-center rounded-full text-[14px] font-bold transition-colors",
+              "flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full text-[14px] font-bold transition-colors",
               currentPage === page
                 ? "bg-[#16A34A] text-white shadow-md"
                 : "border border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]",
@@ -70,7 +70,7 @@ export function SalePagination({
         type="button"
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
-        className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
+        className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
         aria-label={t("nextPage")}
       >
         <ChevronRight className="size-5" />

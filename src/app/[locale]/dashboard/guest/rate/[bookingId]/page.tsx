@@ -258,7 +258,7 @@ export default function GuestRatePage() {
                   type="button"
                   onClick={() => setRating(n)}
                   onMouseEnter={() => setHover(n)}
-                  className="p-0.5 transition-transform hover:scale-110"
+                  className="p-1.5 lg:p-0.5 transition-transform hover:scale-110"
                   aria-label={t("starLabel", { count: n })}
                 >
                   <Star

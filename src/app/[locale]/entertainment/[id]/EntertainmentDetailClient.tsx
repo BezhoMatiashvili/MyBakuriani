@@ -73,7 +73,7 @@ export default function EntertainmentDetailClient({
   }, [service.id, isMock]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
+    <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
       {/* Hero photo with floating back button */}
       <motion.div
         {...fadeIn}

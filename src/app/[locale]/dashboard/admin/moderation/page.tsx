@@ -237,7 +237,7 @@ export default function ModerationPage() {
                       <span className="text-[30px]">📣</span>
                     )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <h3 className="text-[18px] font-black leading-[27px] text-[#1E293B]">
                       {ad.title}
                     </h3>
@@ -248,7 +248,7 @@ export default function ModerationPage() {
                       href={ad.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs text-[#64748B] underline"
+                      className="break-words text-xs text-[#64748B] underline"
                     >
                       {ad.url}
                     </a>

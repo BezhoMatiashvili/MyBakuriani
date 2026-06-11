@@ -18,7 +18,7 @@ const options = [
 export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
   const t = useTranslations("RentBuyToggle");
   return (
-    <div className="inline-flex h-[54px] items-center rounded-full border border-white/5 bg-[#1F2A44] p-[7px] shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
+    <div className="inline-flex h-[54px] max-w-full items-center rounded-full border border-white/5 bg-[#1F2A44] p-[7px] shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
       {options.map((option) => {
         const isActive = value === option.key;
         const Icon = option.icon;
@@ -28,7 +28,7 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
             type="button"
             onClick={() => onChange(option.key)}
             className={cn(
-              "relative flex h-[40px] items-center gap-2 rounded-full px-8 text-[14px] transition-colors",
+              "relative flex h-[40px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 text-[13px] transition-colors sm:flex-none sm:px-8 sm:text-[14px]",
               isActive
                 ? "font-bold text-white"
                 : "font-medium text-[#CBD5E1] hover:text-[#E2E8F0]",
@@ -42,7 +42,7 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
               />
             )}
             <Icon className="relative z-10 size-4" />
-            <span className="relative z-10">{t(option.tKey)}</span>
+            <span className="relative z-10 truncate">{t(option.tKey)}</span>
           </button>
         );
       })}

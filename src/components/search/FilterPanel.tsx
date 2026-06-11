@@ -190,7 +190,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
         isOpen={!!expanded.rooms}
         onToggle={() => toggleSection("rooms")}
       >
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 lg:flex-nowrap">
           {ROOM_OPTIONS.map((opt) => {
             const numVal = typeof opt === "number" ? opt : 5;
             const isActive = filters.rooms === numVal;

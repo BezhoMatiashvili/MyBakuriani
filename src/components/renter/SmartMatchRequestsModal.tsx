@@ -82,7 +82,7 @@ export default function SmartMatchRequestsModal({
             className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)] sm:rounded-2xl"
           >
             {/* Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-[#EEF1F4] px-8 py-6">
+            <div className="flex items-start justify-between gap-4 border-b border-[#EEF1F4] px-4 py-6 sm:px-8">
               <div>
                 <h2 className="text-[22px] font-black text-[#0F172A]">
                   {t("title")}
@@ -100,7 +100,7 @@ export default function SmartMatchRequestsModal({
               </button>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto px-8 py-6">
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-8 sm:py-6">
               {/* Info banner */}
               <div className="flex items-start gap-2.5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" />
@@ -197,11 +197,11 @@ function RequestCard({
       className={`rounded-2xl border ${borderColor} bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F1F5F9] text-sm font-black text-[#0F172A]">
             {request.initials}
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-extrabold text-[#0F172A]">
               {t("seekingApartment", { name: request.guestName })}
             </h3>
@@ -211,7 +211,7 @@ function RequestCard({
           </div>
         </div>
         <div
-          className={`flex h-14 w-[92px] shrink-0 flex-col items-center justify-center rounded-full text-white ${
+          className={`flex h-14 w-[76px] shrink-0 flex-col items-center justify-center rounded-full text-white sm:w-[92px] ${
             isHighMatch ? "bg-[#10B981]" : "bg-[#F97316]"
           }`}
         >

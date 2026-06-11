@@ -46,7 +46,7 @@ export default function BottomSheet({
             dragConstraints={{ top: 0 }}
             dragElastic={0.2}
             onDragEnd={handleDragEnd}
-            className="relative z-10 max-h-[90vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-xl"
+            className="relative z-10 flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl"
           >
             <div className="flex justify-center pb-2 pt-3">
               <div className="h-1 w-10 rounded-full bg-[#64748B]/30" />
@@ -56,10 +56,7 @@ export default function BottomSheet({
                 <h2 className="text-lg font-semibold">{title}</h2>
               </div>
             )}
-            <div
-              className="overflow-y-auto p-5"
-              style={{ maxHeight: "calc(90vh - 60px)" }}
-            >
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
               {children}
             </div>
           </motion.div>

@@ -105,7 +105,7 @@ export default function RenterGuestsPage() {
         </div>
 
         {/* Table header */}
-        <div className="grid grid-cols-[1.6fr_1fr_2fr_auto] gap-4 px-6 py-4 text-[12px] font-semibold text-[#94A3B8]">
+        <div className="hidden grid-cols-[1.6fr_1fr_2fr_auto] gap-4 px-6 py-4 text-[12px] font-semibold text-[#94A3B8] sm:grid">
           <span>{t("colGuest")}</span>
           <span>{t("colVisit")}</span>
           <span>{t("colNote")}</span>
@@ -118,7 +118,7 @@ export default function RenterGuestsPage() {
             Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[1.6fr_1fr_2fr_auto] items-center gap-4 px-6 py-5"
+                className="grid grid-cols-1 gap-2 px-4 py-4 sm:grid-cols-[1.6fr_1fr_2fr_auto] sm:items-center sm:gap-4 sm:px-6 sm:py-5"
               >
                 <Skeleton className="h-9 w-40" />
                 <Skeleton className="h-9 w-24" />
@@ -211,7 +211,7 @@ function GuestRow({
 
   return (
     <div
-      className={`grid grid-cols-[1.6fr_1fr_2fr_auto] items-center gap-4 px-6 py-5 ${
+      className={`grid grid-cols-1 gap-2 px-4 py-4 sm:grid-cols-[1.6fr_1fr_2fr_auto] sm:items-center sm:gap-4 sm:px-6 sm:py-5 ${
         isLast ? "" : "border-b border-[#EEF1F4]"
       }`}
     >
@@ -254,7 +254,7 @@ function GuestRow({
             <button
               type="button"
               onClick={onEdit}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF]"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] sm:h-8 sm:w-8"
               aria-label={tShared("edit")}
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -262,7 +262,7 @@ function GuestRow({
             <button
               type="button"
               onClick={onBlacklist}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA]"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] sm:h-8 sm:w-8"
               aria-label={t("block")}
             >
               <Ban className="h-3.5 w-3.5" />

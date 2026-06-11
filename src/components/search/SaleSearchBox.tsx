@@ -532,7 +532,7 @@ export function SaleSearchBox({
       {tab === "search" ? (
         <>
           {/* ═══ Mobile: stacked ═══ */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
+          <div className="grid grid-cols-1 gap-3 lg:hidden">
             <MobileField
               label={t("fieldType")}
               value={propertyTypeLabel}
@@ -654,7 +654,7 @@ export function SaleSearchBox({
           </div>
 
           {/* ═══ Desktop: horizontal pill ═══ */}
-          <div className="hidden items-center gap-1 md:flex">
+          <div className="hidden items-center gap-1 lg:flex">
             <DesktopField
               label={t("fieldType")}
               value={propertyTypeLabel}
@@ -877,7 +877,7 @@ export function SaleSearchBox({
 
       {/* ═══ Pill-level popovers (type / rooms) — search tab only ═══ */}
       {tab === "search" && activeDropdown === "type" && (
-        <div className="absolute left-4 top-full z-50 mt-2 hidden w-[300px] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
+        <div className="absolute left-4 top-full z-50 mt-2 hidden w-[300px] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:block">
           <TypeList
             value={propertyType}
             onSelect={(v) => {
@@ -889,7 +889,7 @@ export function SaleSearchBox({
       )}
 
       {tab === "search" && activeDropdown === "rooms" && (
-        <div className="absolute right-[260px] top-full z-50 mt-2 hidden w-[240px] rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
+        <div className="absolute right-[260px] top-full z-50 mt-2 hidden w-[240px] rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:block">
           <p className="mb-2 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
             {t("roomsCountTitle")}
           </p>

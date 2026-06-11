@@ -101,7 +101,7 @@ function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
           type="button"
           onClick={() => setPage((p) => (p - 1 + pages.length) % pages.length)}
           aria-label={t("prev")}
-          className="absolute -left-5 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1A202C] shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 active:scale-95 md:-left-10"
+          className="absolute -left-5 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1A202C] shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 active:scale-95 md:left-0 xl:-left-10"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -109,7 +109,7 @@ function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
           type="button"
           onClick={() => setPage((p) => (p + 1) % pages.length)}
           aria-label={t("next")}
-          className="absolute -right-5 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1A202C] shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 active:scale-95 md:-right-10"
+          className="absolute -right-5 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1A202C] shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 active:scale-95 md:right-0 xl:-right-10"
         >
           <ChevronRight className="h-5 w-5" />
         </button>

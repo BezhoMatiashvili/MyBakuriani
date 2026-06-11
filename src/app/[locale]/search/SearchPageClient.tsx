@@ -484,7 +484,7 @@ export default function SearchPageClient({
 
             {/* Pagination (only property-only path) */}
             {!hasKeyword && totalPages > 1 && (
-              <div className="mt-10 flex items-center justify-center gap-2">
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}

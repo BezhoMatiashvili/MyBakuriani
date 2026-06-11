@@ -266,7 +266,7 @@ export default function PromoCodesPage() {
                       type="button"
                       onClick={() => cancel(code.id)}
                       disabled={isCancelling}
-                      className="ml-4 shrink-0 text-[12px] font-bold leading-[18px] text-[#EF4444] disabled:opacity-50"
+                      className="ml-4 inline-flex min-h-[44px] shrink-0 items-center px-2 -mr-2 text-[12px] font-bold leading-[18px] text-[#EF4444] disabled:opacity-50"
                     >
                       {isCancelling ? "..." : tDash("cancel")}
                     </button>

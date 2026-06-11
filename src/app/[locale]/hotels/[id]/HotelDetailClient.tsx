@@ -189,7 +189,7 @@ export default function HotelDetailClient({
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}
@@ -310,12 +310,12 @@ export default function HotelDetailClient({
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+                      className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
                     >
                       {Icon && (
                         <Icon className="h-5 w-5 text-brand-accent shrink-0" />
                       )}
-                      <span>{label}</span>
+                      <span className="break-words">{label}</span>
                     </div>
                   );
                 })}

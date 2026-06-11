@@ -417,11 +417,11 @@ export default function AdminBroadcastPage() {
               <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#64748B]">
                 2. აუდიტორია
               </p>
-              <div className="inline-flex rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
+              <div className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
                 <button
                   type="button"
                   onClick={() => setAudienceTab("roles")}
-                  className={`h-9 rounded-lg px-4 text-[12px] font-bold transition ${
+                  className={`h-9 min-w-0 rounded-lg px-4 text-[12px] font-bold transition ${
                     audienceTab === "roles"
                       ? "bg-white text-[#2563EB] shadow-sm"
                       : "text-[#64748B]"
@@ -432,7 +432,7 @@ export default function AdminBroadcastPage() {
                 <button
                   type="button"
                   onClick={() => setAudienceTab("users")}
-                  className={`h-9 rounded-lg px-4 text-[12px] font-bold transition ${
+                  className={`h-9 min-w-0 rounded-lg px-4 text-[12px] font-bold transition ${
                     audienceTab === "users"
                       ? "bg-white text-[#2563EB] shadow-sm"
                       : "text-[#64748B]"
@@ -456,7 +456,7 @@ export default function AdminBroadcastPage() {
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                     {ROLES.map((r) => {
                       const active = selectedRoles.has(r.id);
                       return (
@@ -552,9 +552,11 @@ export default function AdminBroadcastPage() {
                       {selectedUsers.map((u) => (
                         <span
                           key={u.id}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#2563EB]/30 bg-[#EFF6FF] pl-3 pr-1 text-[12px] font-bold text-[#2563EB]"
+                          className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-[#2563EB]/30 bg-[#EFF6FF] pl-3 pr-1 text-[12px] font-bold text-[#2563EB]"
                         >
-                          {u.display_name}
+                          <span className="min-w-0 truncate">
+                            {u.display_name}
+                          </span>
                           <button
                             type="button"
                             onClick={() => removeUser(u.id)}
@@ -615,7 +617,7 @@ export default function AdminBroadcastPage() {
                   return (
                     <label
                       key={option.id}
-                      className={`flex h-[60px] cursor-pointer items-center gap-3 rounded-xl border-2 px-4 transition ${
+                      className={`flex min-h-[60px] cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-2 sm:py-0 transition ${
                         checked
                           ? "border-[#2563EB] bg-[#EFF6FF]"
                           : "border-[#E2E8F0] bg-white hover:bg-[#F8FAFC]"

@@ -51,7 +51,7 @@ export function CreateHeader() {
           <LanguageSelector />
           <Link
             href="/create"
-            className="inline-flex h-[40px] items-center gap-1.5 rounded-xl bg-[#F97316] px-4 text-[13px] font-bold text-white shadow-[0px_6px_14px_-4px_rgba(249,115,22,0.45)] transition-colors hover:bg-[#EA6C0E]"
+            className="hidden sm:inline-flex h-[40px] items-center gap-1.5 rounded-xl bg-[#F97316] px-4 text-[13px] font-bold text-white shadow-[0px_6px_14px_-4px_rgba(249,115,22,0.45)] transition-colors hover:bg-[#EA6C0E]"
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />
             {t("addListing")}
@@ -60,7 +60,7 @@ export function CreateHeader() {
           {user ? (
             <Link
               href="/dashboard/renter/balance"
-              className="inline-flex h-[40px] items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
+              className="hidden sm:inline-flex h-[40px] items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
             >
               <span className="text-[#64748B]">{t("balance")}</span>
               <span className="font-bold text-[#0F172A]">

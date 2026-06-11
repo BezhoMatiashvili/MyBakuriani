@@ -379,7 +379,7 @@ function OfferCard({
               {offer.checkIn ?? "—"} → {offer.checkOut ?? "—"}
             </p>
           )}
-          <div className="mt-3 flex items-end justify-between gap-3">
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
                 {t("offeredPrice")}
@@ -396,7 +396,7 @@ function OfferCard({
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {offer.status === "pending" && (
                 <button
                   type="button"

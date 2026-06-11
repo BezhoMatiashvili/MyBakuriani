@@ -145,7 +145,7 @@ export default function AdminSmsApprovalsPage() {
                 </span>
               </div>
 
-              <div className="rounded-2xl bg-[#F8FAFC] p-3 text-[13px] leading-[20px] text-[#0F172A]">
+              <div className="break-words rounded-2xl bg-[#F8FAFC] p-3 text-[13px] leading-[20px] text-[#0F172A]">
                 {row.message}
               </div>
 

@@ -246,10 +246,11 @@ export function DashboardShell({
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
           <AdminTopbar userName={displayName} />
-          <main className="h-0 w-full flex-1 overflow-y-auto p-5 sm:p-8 xl:p-10">
+          <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8 xl:p-10">
             {children}
           </main>
         </div>
+        <MobileBottomNav currentPath={pathname} userRole="admin" />
       </div>
     );
   }
@@ -275,7 +276,7 @@ export function DashboardShell({
             smsRemaining={smsRemaining}
             smsTotal={SMS_PLAN_TOTAL}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
@@ -303,7 +304,7 @@ export function DashboardShell({
             smsRemaining={smsRemaining}
             smsTotal={SMS_PLAN_TOTAL}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
@@ -325,7 +326,7 @@ export function DashboardShell({
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <GuestTopbar notificationCount={notificationCount} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
@@ -351,7 +352,7 @@ export function DashboardShell({
             available={cleanerAvailable}
             onAvailableChange={handleCleanerAvailableChange}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
@@ -376,7 +377,7 @@ export function DashboardShell({
             smsRemaining={smsRemaining}
             smsTotal={SMS_PLAN_TOTAL}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
@@ -403,7 +404,7 @@ export function DashboardShell({
             smsRemaining={smsRemaining}
             smsTotal={SMS_PLAN_TOTAL}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
@@ -421,7 +422,7 @@ export function DashboardShell({
         smsCount={notificationCount}
         currentPath={pathname}
       />
-      <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
+      <div className="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </div>

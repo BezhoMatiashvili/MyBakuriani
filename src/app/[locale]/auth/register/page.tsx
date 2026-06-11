@@ -200,7 +200,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Form */}
-        <div className="rounded-[24px] border bg-white p-10 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)]">
+        <div className="rounded-[24px] border bg-white p-6 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)] sm:p-10">
           <AnimatePresence mode="wait">
             {step === 1 ? (
               <motion.div
@@ -288,14 +288,14 @@ export default function RegisterPage() {
                       key={role.value}
                       type="button"
                       onClick={() => setSelectedRole(role.value)}
-                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all sm:p-4 ${
                         selectedRole === role.value
                           ? "border-brand-accent bg-brand-accent/5 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
                           : "border-transparent bg-[#F8FAFC] hover:border-[#64748B]/20"
                       }`}
                     >
                       <span className="text-2xl">{role.icon}</span>
-                      <span className="text-sm font-medium">
+                      <span className="break-words text-[13px] font-medium sm:text-sm">
                         {t(`roles.${role.value}`)}
                       </span>
                     </button>

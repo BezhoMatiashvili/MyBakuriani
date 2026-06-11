@@ -639,18 +639,18 @@ function BannerRow({
                 </span>
               )}
               {banner.cta_label && banner.cta_href && (
-                <span className="rounded bg-white/70 px-2 py-1 normal-case tracking-normal">
+                <span className="max-w-full break-words rounded bg-white/70 px-2 py-1 normal-case tracking-normal">
                   {banner.cta_label} → {banner.cta_href}
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={onToggle}
-            className="inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#475569]"
+            className="inline-flex h-11 min-h-[44px] lg:h-9 lg:min-h-[36px] items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#475569]"
           >
             {banner.active ? (
               <>
@@ -665,14 +665,14 @@ function BannerRow({
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#475569]"
+            className="inline-flex h-11 min-h-[44px] lg:h-9 lg:min-h-[36px] items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#475569]"
           >
             <Pencil className="h-3.5 w-3.5" /> {tDash("edit")}
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-lg border border-[#FECACA] bg-white px-3 text-[11px] font-bold text-[#B91C1C]"
+            className="inline-flex h-11 min-h-[44px] lg:h-9 lg:min-h-[36px] items-center gap-1.5 rounded-lg border border-[#FECACA] bg-white px-3 text-[11px] font-bold text-[#B91C1C]"
           >
             <Trash2 className="h-3.5 w-3.5" /> {tCreate("delete")}
           </button>

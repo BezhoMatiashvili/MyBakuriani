@@ -217,7 +217,7 @@ export default function TransportPageClient({ services }: Props) {
               ))}
             </div>
             {totalPages > 1 && (
-              <div className="mt-12 flex items-center justify-center gap-2">
+              <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}

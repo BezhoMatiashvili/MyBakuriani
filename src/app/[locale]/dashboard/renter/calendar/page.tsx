@@ -601,7 +601,12 @@ export default function RenterCalendarPage() {
   };
 
   return (
-    <div className={cn("space-y-5 pb-32 md:pb-5", hasActionable && "md:pb-28")}>
+    <div
+      className={cn(
+        "space-y-5",
+        hasActionable ? "pb-72 md:pb-28" : "pb-32 md:pb-5",
+      )}
+    >
       {/* Header row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div ref={propertyDropdownRef} className="relative min-w-0">
@@ -803,7 +808,7 @@ export default function RenterCalendarPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:left-[272px] md:px-5 md:py-4"
+            className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:bottom-0 md:left-[272px] md:px-5 md:py-4"
           >
             <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
@@ -995,7 +1000,7 @@ function DayCell({
       onDoubleClick={onDoubleClick}
       disabled={!meta.inMonth}
       className={cn(
-        "relative flex h-[110px] flex-col items-start justify-between border-b border-r border-[#EEF1F4] px-3 py-2.5 text-left transition-colors",
+        "relative flex h-[84px] flex-col items-start justify-between border-b border-r border-[#EEF1F4] px-1 py-1.5 text-left transition-colors sm:h-[110px] sm:px-3 sm:py-2.5",
         bg,
         isBottomRow && "border-b-0",
         isRightCol && "border-r-0",
@@ -1005,7 +1010,9 @@ function DayCell({
           `before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full ${accentBorder}`,
       )}
     >
-      <span className={cn("text-[13px] font-black", numberColor)}>
+      <span
+        className={cn("text-[12px] font-black sm:text-[13px]", numberColor)}
+      >
         {meta.day}
       </span>
       <div className="flex w-full items-end justify-between">

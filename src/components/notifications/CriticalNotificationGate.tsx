@@ -132,7 +132,7 @@ export function CriticalNotificationGate() {
       aria-labelledby="critical-notif-title"
       className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
+      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-red-600">
           <AlertTriangle className="size-4" />
           {t("severityCritical")}

@@ -403,7 +403,7 @@ export default function SaleLandingBody({
                 ease: [0.16, 1, 0.3, 1],
                 staggerChildren: 0.1,
               }}
-              className="absolute inset-0 w-full"
+              className="w-full"
             >
               <FeaturedInventoryCard
                 {...FEATURED_INVENTORY_ITEMS[inventoryIdx]}
@@ -664,7 +664,7 @@ function FeaturedInventoryCard({
             </p>
           </div>
 
-          <div className="flex items-end justify-between gap-4 border-t border-[#F1F5F9] pt-5">
+          <div className="flex flex-wrap items-end justify-between gap-4 border-t border-[#F1F5F9] pt-5">
             <div>
               <span className="block text-[11px] font-bold uppercase tracking-[0.6px] text-[#64748B]">
                 {t("sale.priceLabel")}

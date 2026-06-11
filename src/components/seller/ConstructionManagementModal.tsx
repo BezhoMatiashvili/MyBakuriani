@@ -209,7 +209,7 @@ export default function ConstructionManagementModal({
                     {percent}%
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
                   {CONSTRUCTION_STAGES.map((stage) => {
                     const selected = selectedStages.includes(stage.key);
                     return (

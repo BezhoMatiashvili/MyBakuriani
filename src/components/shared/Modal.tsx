@@ -70,7 +70,7 @@ export default function Modal({
                 <X className="size-4" />
               </button>
             </div>
-            <div className="max-h-[70vh] overflow-y-auto p-5 sm:p-8">
+            <div className="max-h-[70dvh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8">
               {children}
             </div>
           </motion.div>

@@ -346,7 +346,7 @@ export default function EmploymentDetailClient({
           : null);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
+    <div className="mx-auto max-w-6xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
       <div className="mb-6 flex items-center justify-between">
         <motion.button
           {...fadeIn}
@@ -388,7 +388,7 @@ export default function EmploymentDetailClient({
           <motion.h1
             {...fadeIn}
             transition={{ duration: 0.4, delay: 0.15 }}
-            className="text-[36px] font-black leading-[44px] text-[#0F172A] sm:text-[44px] sm:leading-[52px]"
+            className="break-words text-[30px] font-black leading-[38px] text-[#0F172A] sm:text-[44px] sm:leading-[52px]"
           >
             {service.position ?? service.title}
           </motion.h1>

@@ -52,7 +52,9 @@ export function CleanerTopbar({
               }}
             />
           </span>
-          <span className={available ? "text-[#10B981]" : "text-[#64748B]"}>
+          <span
+            className={`hidden sm:inline ${available ? "text-[#10B981]" : "text-[#64748B]"}`}
+          >
             {available
               ? tLayout("topbar.available")
               : tLayout("topbar.unavailable")}

@@ -182,7 +182,7 @@ export default function ServiceOrdersPage() {
       </h1>
 
       {/* View type switcher */}
-      <div className="inline-flex rounded-xl border border-[#E2E8F0] bg-white p-1">
+      <div className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E2E8F0] bg-white p-1">
         {viewTabs.map((vt) => {
           const active = viewType === vt.key;
           const badge =
@@ -210,7 +210,9 @@ export default function ServiceOrdersPage() {
               {badge > 0 && (
                 <span
                   className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                    active ? "bg-white text-[#2563EB]" : "bg-[#EF4444] text-white"
+                    active
+                      ? "bg-white text-[#2563EB]"
+                      : "bg-[#EF4444] text-white"
                   }`}
                 >
                   {badge}
@@ -406,7 +408,7 @@ function MessagesList({
   }
   return (
     <>
-      <div className="hidden overflow-hidden rounded-xl border sm:block">
+      <div className="hidden overflow-x-auto rounded-xl border sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-[#F8FAFC] text-left">
@@ -520,7 +522,7 @@ function ApplicationsList({
   }
   return (
     <>
-      <div className="hidden overflow-hidden rounded-xl border sm:block">
+      <div className="hidden overflow-x-auto rounded-xl border sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-[#F8FAFC] text-left">
@@ -528,9 +530,7 @@ function ApplicationsList({
                 კანდიდატი
               </th>
               <th className="px-4 py-3 font-medium text-[#94A3B8]">ვაკანსია</th>
-              <th className="px-4 py-3 font-medium text-[#94A3B8]">
-                ტელეფონი
-              </th>
+              <th className="px-4 py-3 font-medium text-[#94A3B8]">ტელეფონი</th>
               <th className="px-4 py-3 font-medium text-[#94A3B8]">თარიღი</th>
               <th className="px-4 py-3 font-medium text-[#94A3B8]">CV</th>
               <th className="px-4 py-3 font-medium text-[#94A3B8]">სტატუსი</th>
@@ -664,7 +664,10 @@ function ApplicationDetail({
         <Field icon={<MapPin className="h-4 w-4" />} label="ლოკაცია">
           {app.current_location ?? "—"}
         </Field>
-        <Field icon={<Banknote className="h-4 w-4" />} label="სასურველი ხელფასი">
+        <Field
+          icon={<Banknote className="h-4 w-4" />}
+          label="სასურველი ხელფასი"
+        >
           {app.desired_salary ? `${app.desired_salary} ₾` : "—"}
         </Field>
         <Field icon={<MapPin className="h-4 w-4" />} label="საცხოვრებელი">

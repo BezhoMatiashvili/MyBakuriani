@@ -207,7 +207,7 @@ export default function ClientsPage() {
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
         <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
-          <div className="sticky top-0 z-10 grid grid-cols-[1.5fr_1fr_1.1fr] items-center gap-[48px] border-b border-[#E2E8F0] bg-[#F8FAFC] px-6 py-5 text-[12px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
+          <div className="sticky top-0 z-10 hidden lg:grid grid-cols-[1.5fr_1fr_1.1fr] items-center gap-[48px] border-b border-[#E2E8F0] bg-[#F8FAFC] px-6 py-5 text-[12px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
             <span>{t("colClient")}</span>
             <span>{t("colRoleStatus")}</span>
             <span className="text-right">{t("colActions")}</span>
@@ -223,7 +223,7 @@ export default function ClientsPage() {
             profiles.map((profile) => (
               <div
                 key={profile.id}
-                className="grid grid-cols-[1.5fr_1fr_1.1fr] items-center gap-[48px] border-b border-[#F1F5F9] px-6 py-[18px] last:border-b-0"
+                className="grid grid-cols-1 gap-3 lg:grid-cols-[1.5fr_1fr_1.1fr] lg:gap-[48px] items-center border-b border-[#F1F5F9] px-6 py-[18px] last:border-b-0"
               >
                 <div>
                   <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -254,7 +254,7 @@ export default function ClientsPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex flex-wrap items-center justify-start gap-2 lg:flex-nowrap lg:justify-end">
                   <button
                     type="button"
                     onClick={() => setSelectedProfile(profile)}
@@ -356,11 +356,11 @@ export default function ClientsPage() {
 
       {selectedProfile ? (
         <div
-          className="fixed bottom-0 right-0 top-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.6)] p-4 backdrop-blur-[2px] md:left-[281px]"
+          className="fixed bottom-0 right-0 top-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.6)] p-4 backdrop-blur-[2px] lg:left-[281px]"
           onClick={() => setSelectedProfile(null)}
         >
           <div
-            className="flex h-auto w-full max-w-[700px] flex-col rounded-[32px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]"
+            className="flex h-auto max-h-full w-full max-w-[700px] flex-col overflow-y-auto rounded-[32px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 px-8 pb-5 pt-8">

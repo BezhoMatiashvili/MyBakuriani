@@ -243,7 +243,7 @@ export default function ReviewsPage() {
                 </div>
 
                 <div className="flex flex-col gap-5 lg:flex-row">
-                  <blockquote className="flex-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-[14px] font-medium leading-[22px] text-[#1E293B]">
+                  <blockquote className="min-w-0 flex-1 break-words rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-[14px] font-medium leading-[22px] text-[#1E293B]">
                     {review.comment?.trim() ? (
                       review.comment
                     ) : (

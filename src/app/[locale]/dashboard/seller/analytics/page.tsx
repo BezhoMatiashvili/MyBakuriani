@@ -227,16 +227,16 @@ export default function SellerAnalyticsPage() {
                 return (
                   <div
                     key={stage.label}
-                    className="grid grid-cols-[minmax(120px,1fr)_2fr] items-center gap-4"
+                    className="grid grid-cols-1 gap-1.5 sm:grid-cols-[minmax(120px,1fr)_2fr] sm:items-center sm:gap-4"
                   >
-                    <p className="text-right text-[12px] font-semibold text-[#0F172A]">
+                    <p className="text-left text-[12px] font-semibold text-[#0F172A] sm:text-right">
                       {stage.label}
                     </p>
                     <motion.div
                       initial={{ scaleX: 0, transformOrigin: "left" }}
                       animate={{ scaleX: 1 }}
                       transition={{ delay: 0.05 * idx, duration: 0.4 }}
-                      className={`flex h-11 items-center rounded-xl ${stage.color} px-4`}
+                      className={`flex h-11 items-center rounded-xl ${stage.color} px-2 sm:px-4`}
                       style={{ width: `${widthPct}%` }}
                     >
                       <span

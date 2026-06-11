@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
@@ -10,6 +11,13 @@ const DISMISS_KEY = "mybakuriani:sticky_news:dismissed";
 
 export function StickyNewsBar() {
   const t = useTranslations("Shared");
+  const pathname = usePathname();
+  // Detail pages render MobileStickyCTA (fixed bottom-0, md:hidden) — below md
+  // the news bar must stack above it instead of covering the primary CTA.
+  const isDetailRoute =
+    /\/(apartments|hotels|sales|food|services|entertainment|transport|employment)\/[^/]+$/.test(
+      pathname ?? "",
+    ) && !/\/sales\/all$/.test(pathname ?? "");
   const [banners, setBanners] = useState<LandingBanner[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -58,7 +66,13 @@ export function StickyNewsBar() {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4">
+    <div
+      className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4 ${
+        isDetailRoute
+          ? "bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-0"
+          : "bottom-0"
+      }`}
+    >
       <div
         className="pointer-events-auto flex w-full max-w-[1160px] flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] sm:px-5"
         style={{ backgroundColor: tone.bg, borderColor: tone.border }}

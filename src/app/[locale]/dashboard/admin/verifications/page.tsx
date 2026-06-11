@@ -275,7 +275,7 @@ export default function VerificationsPage() {
       )}
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
-        <div className="grid grid-cols-[1.2fr_140px_1.6fr_140px_160px_32px] items-center gap-3 border-b border-[#EDF2F7] px-6 py-4 text-sm font-semibold text-[#64748B]">
+        <div className="hidden lg:grid lg:grid-cols-[1.2fr_140px_1.6fr_140px_160px_32px] items-center gap-3 border-b border-[#EDF2F7] px-6 py-4 text-sm font-semibold text-[#64748B]">
           <span>მესაკუთრე</span>
           <span>კატეგორია</span>
           <span>განცხადება</span>
@@ -318,7 +318,7 @@ export default function VerificationsPage() {
                     }
                   }}
                   aria-expanded={isExpanded}
-                  className={`grid cursor-pointer grid-cols-[1.2fr_140px_1.6fr_140px_160px_32px] items-center gap-3 px-6 py-5 transition-colors hover:bg-[#F8FAFC] ${
+                  className={`grid cursor-pointer grid-cols-1 gap-3 lg:grid-cols-[1.2fr_140px_1.6fr_140px_160px_32px] items-center px-6 py-5 transition-colors hover:bg-[#F8FAFC] ${
                     isExpanded ? "bg-[#F8FAFC]" : ""
                   }`}
                 >
@@ -371,7 +371,7 @@ export default function VerificationsPage() {
                     </a>
                   </div>
 
-                  <div className="flex justify-center gap-2">
+                  <div className="flex justify-start gap-2 lg:justify-center">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -434,7 +434,7 @@ export default function VerificationsPage() {
       </section>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}

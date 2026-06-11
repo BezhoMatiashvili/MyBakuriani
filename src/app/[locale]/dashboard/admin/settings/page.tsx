@@ -273,7 +273,7 @@ export default function SettingsPage() {
                     return (
                       <div
                         key={pkg.id}
-                        className="flex min-h-[76px] items-center justify-between rounded-2xl border border-[#F1F5F9] bg-[#F8FAFC] px-4"
+                        className="flex min-h-[76px] flex-wrap items-center justify-between gap-y-2 rounded-2xl border border-[#F1F5F9] bg-[#F8FAFC] px-4 py-3 sm:py-0"
                       >
                         <div className="pr-4">
                           <p className="text-sm font-bold leading-[21px] text-[#1E293B]">
@@ -321,7 +321,7 @@ export default function SettingsPage() {
                                 ? "გამორთვით პაკეტი იმალება მომხმარებლებისგან"
                                 : "ჩართეთ რომ მომხმარებლებმა დაინახონ"
                             }
-                            className={`relative h-5 w-10 rounded-full transition-colors ${
+                            className={`relative h-5 w-10 rounded-full transition-colors before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] ${
                               pkg.is_enabled ? "bg-[#10B981]" : "bg-[#CBD5E1]"
                             } disabled:opacity-50`}
                             aria-label="ჩართვა/გამორთვა"

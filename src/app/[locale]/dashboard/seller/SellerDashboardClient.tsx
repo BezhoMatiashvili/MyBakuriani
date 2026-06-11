@@ -289,7 +289,7 @@ export default function SellerDashboardClient({
                     <span className="mt-1.5 inline-block rounded-md bg-[#FFEDD5] px-2 py-0.5 text-[11px] font-bold text-[#EA580C]">
                       {t("forSale")}
                     </span>
-                    <div className="mt-2 flex items-center gap-4">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                       <span className="text-[17px] font-black text-[#2563EB]">
                         {formatPrice(Number(property.sale_price ?? 0))}
                       </span>
@@ -383,7 +383,7 @@ function MetricCard({
           <Skeleton className="h-8 w-16" />
         ) : (
           <span
-            className="text-[32px] font-black leading-none"
+            className="text-[22px] lg:text-[32px] font-black leading-none"
             style={{ color: valueColor ?? "#0F172A" }}
           >
             {value}

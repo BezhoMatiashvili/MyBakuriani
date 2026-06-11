@@ -167,7 +167,7 @@ export default function FoodDashboardClient({
             {loading ? (
               <Skeleton className="mt-2 h-[56px] w-[200px] bg-white/10" />
             ) : (
-              <p className="mt-1 text-[52px] font-black leading-[60px]">
+              <p className="mt-1 text-[36px] font-black leading-[44px] sm:text-[52px] sm:leading-[60px]">
                 {stats.revenueThisMonth.toFixed(2)}
                 <span className="ml-1 text-[22px] font-bold text-white/60">
                   ₾

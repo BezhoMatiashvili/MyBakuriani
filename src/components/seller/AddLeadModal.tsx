@@ -476,7 +476,7 @@ export default function AddLeadModal({
               )}
             </form>
 
-            <div className="flex items-center justify-between gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] px-7 py-4">
+            <div className="flex items-center justify-between gap-3 border-t border-[#E2E8F0] bg-[#F8FAFC] px-7 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
               <button
                 type="button"
                 onClick={handleClose}

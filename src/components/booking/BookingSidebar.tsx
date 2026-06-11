@@ -159,7 +159,7 @@ function MiniCalendar({
               type="button"
               disabled={!inMonth || blocked}
               onClick={() => !blocked && inMonth && onDateClick(day)}
-              className={`flex h-8 items-center justify-center rounded-full text-[12px] transition-colors ${
+              className={`flex h-10 lg:h-8 items-center justify-center rounded-full text-[12px] transition-colors ${
                 !inMonth
                   ? "invisible"
                   : rangeEnd
@@ -253,7 +253,7 @@ export function BookingSidebar({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
+      <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-5 sm:p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
         <div className="flex items-center justify-between">
           <div>
             <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">

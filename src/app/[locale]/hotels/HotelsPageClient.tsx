@@ -45,23 +45,27 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 const ITEMS_PER_PAGE = 9;
 
 const STATUS_CARDS = [
-  { labelKey: "weather", value: "-4°C", fontSize: "text-[24px]" },
+  {
+    labelKey: "weather",
+    value: "-4°C",
+    fontSize: "text-[20px] sm:text-[24px]",
+  },
   {
     labelKey: "lifts",
     valueKey: "liftsValue",
-    fontSize: "text-[20px]",
+    fontSize: "text-[18px] sm:text-[20px]",
     iconType: "ski" as const,
   },
   {
     labelKey: "road",
     valueKey: "roadValue",
-    fontSize: "text-[18px]",
+    fontSize: "text-[15px] sm:text-[18px]",
     iconType: "car" as const,
   },
   {
     labelKey: "cameras",
     valueKey: "camerasValue",
-    fontSize: "text-[18px]",
+    fontSize: "text-[15px] sm:text-[18px]",
     iconType: "camera" as const,
     hasRedDot: true,
   },
@@ -216,7 +220,7 @@ export default function HotelsPageClient({ properties }: Props) {
             >
               <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
               <BakurianiMap
-                className="min-h-[400px] w-[280px] shrink-0 self-stretch"
+                className="hidden min-h-[400px] w-[280px] shrink-0 self-stretch lg:block"
                 embedded
                 expandable
                 properties={mapProperties}
@@ -224,9 +228,9 @@ export default function HotelsPageClient({ properties }: Props) {
               />
             </div>
           ) : activeDropdown === "calendar" ? (
-            <div className="mt-8 hidden grid-cols-[1fr_auto] gap-4 md:grid">
+            <div className="mt-8 hidden grid-cols-1 gap-4 md:grid lg:grid-cols-[1fr_auto]">
               <div ref={dropdownPortalRef} className="min-w-0" />
-              <div className="flex w-[240px] flex-col gap-3">
+              <div className="flex w-full flex-col gap-3 lg:w-[240px]">
                 <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
                   <div className="flex flex-col gap-1">
                     <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
@@ -269,7 +273,7 @@ export default function HotelsPageClient({ properties }: Props) {
             {STATUS_CARDS.map((card) => (
               <div
                 key={card.labelKey}
-                className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]"
+                className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-3 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] md:px-5"
               >
                 <div className="flex flex-col gap-1">
                   <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
@@ -407,7 +411,7 @@ export default function HotelsPageClient({ properties }: Props) {
         )}
 
         {totalPages > 1 && (
-          <div className="mt-12 flex items-center justify-center gap-2">
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => goToPage(Math.max(1, currentPage - 1))}

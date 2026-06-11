@@ -121,7 +121,7 @@ export default function NewBookingRequestModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="relative z-10 w-full max-w-[520px] overflow-hidden rounded-[24px] bg-white shadow-[0px_24px_60px_-12px_rgba(15,23,42,0.25)]"
+            className="relative z-10 w-full max-w-[520px] max-h-[calc(100dvh-3rem)] overflow-y-auto rounded-[24px] bg-white shadow-[0px_24px_60px_-12px_rgba(15,23,42,0.25)]"
           >
             <form onSubmit={handleSubmit}>
               <div className="flex items-start justify-between gap-3 border-b border-[#EEF1F4] px-7 pt-6 pb-5">

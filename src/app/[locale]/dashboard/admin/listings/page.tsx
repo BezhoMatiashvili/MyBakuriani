@@ -261,7 +261,7 @@ export default function ListingsPage() {
         </div>
 
         <div className="w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-[#E2E8F0] bg-[#F8FAFCCC] px-6 py-5 text-[11px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
+          <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-[#E2E8F0] bg-[#F8FAFCCC] px-6 py-5 text-[11px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
             <span>{t("colObject")}</span>
             <span>{t("colOwner")}</span>
             <span>{t("colPrice")}</span>
@@ -336,7 +336,7 @@ export default function ListingsPage() {
                       }
                     }}
                     aria-expanded={isExpanded}
-                    className={`grid cursor-pointer grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 px-6 py-5 transition-colors hover:bg-[#F8FAFC] ${
+                    className={`grid cursor-pointer grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr_auto] lg:gap-4 items-center px-6 py-5 transition-colors hover:bg-[#F8FAFC] ${
                       isExpanded ? "bg-[#F8FAFC]" : ""
                     }`}
                   >
@@ -361,7 +361,7 @@ export default function ListingsPage() {
                     >
                       {statusLabel}
                     </span>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-start gap-2 lg:justify-end">
                       <a
                         href={previewUrl}
                         target="_blank"

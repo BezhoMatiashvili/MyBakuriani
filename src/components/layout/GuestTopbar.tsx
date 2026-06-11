@@ -19,7 +19,7 @@ export function GuestTopbar({
   return (
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
       <div className="flex w-full items-center gap-4">
-        <label className="relative block w-full max-w-[520px] flex-1">
+        <label className="relative block w-full min-w-0 max-w-[520px] flex-1">
           <Search className="pointer-events-none absolute left-5 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#94A3B8]" />
           <input
             type="text"
@@ -30,7 +30,7 @@ export function GuestTopbar({
 
         <div className="flex-1" />
 
-        <span className="inline-flex h-[44px] shrink-0 items-center gap-2 rounded-full border border-[#A7F3D0] bg-[#F0FDF4] px-4 text-[13px] font-bold text-[#16A34A]">
+        <span className="hidden sm:inline-flex h-[44px] shrink-0 items-center gap-2 rounded-full border border-[#A7F3D0] bg-[#F0FDF4] px-4 text-[13px] font-bold text-[#16A34A]">
           <CheckCircle2 className="h-4 w-4" />
           {tLayout("topbar.activeVisitor")}
         </span>

@@ -118,7 +118,7 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="relative z-10 w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-t-2xl bg-white shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)] sm:max-w-md sm:rounded-2xl"
+            className="relative z-10 w-full max-w-[calc(100vw-2rem)] max-h-[92vh] overflow-y-auto overscroll-contain rounded-t-2xl bg-white shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)] sm:max-w-md sm:rounded-2xl"
           >
             <form onSubmit={handleSubmit}>
               <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-6">

@@ -167,7 +167,7 @@ export function Navbar() {
   return (
     <header
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled
+        scrolled && !mobileOpen
           ? "bg-white/80 shadow-[0px_1px_3px_rgba(0,0,0,0.05)] backdrop-blur-md"
           : "bg-white"
       }`}
@@ -277,6 +277,7 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="icon"
+            className="size-11"
             onClick={() => setMobileOpen(true)}
             aria-label={t("menu")}
           >
@@ -288,7 +289,7 @@ export function Navbar() {
       {/* Category Navigation Bar (desktop only) — home + rent mode */}
       {showCategoryNav ? (
         <nav className="hidden border-b border-[#EEF1F4] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
-          <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-[60px] px-4 lg:gap-[104px]">
+          <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-6 px-4 lg:gap-[60px] xl:gap-[104px]">
             {navItemKeys.map((item) => {
               const Icon = item.icon;
               const isActive =
@@ -330,6 +331,7 @@ export function Navbar() {
               <Button
                 variant="ghost"
                 size="icon"
+                className="size-11"
                 onClick={() => setMobileOpen(false)}
               >
                 <X className="size-5" />

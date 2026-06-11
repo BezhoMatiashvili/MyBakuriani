@@ -410,7 +410,7 @@ export function SearchBox({
             {dateLabel || t("selectDate")}
           </button>
           {activeDropdown === "calendar" && isMobile && (
-            <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-2rem)] rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
+            <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-2rem)] rounded-[24px] border border-[#E2E8F0] bg-white p-3 min-[360px]:p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
               <Calendar
                 mode="range"
                 selected={dateRange}
@@ -419,7 +419,7 @@ export function SearchBox({
                 min={1}
                 locale={calendarLocale}
                 disabled={{ before: new Date() }}
-                className="rounded-md bg-white [--cell-size:40px]"
+                className="rounded-md bg-white [--cell-size:36px] min-[360px]:[--cell-size:40px]"
               />
               <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
                 <button
@@ -580,7 +580,7 @@ export function SearchBox({
 
         {/* Keyword field (site-wide fuzzy search) */}
         <div className="flex h-[61.5px] items-center justify-center px-2">
-          <div className="relative w-[260px]">
+          <div className="relative w-[180px] lg:w-[260px]">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
             <input
               type="text"
@@ -628,8 +628,8 @@ export function SearchBox({
           <div
             className={cn(
               usePortal
-                ? "w-full rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[var(--shadow-category-nav)]"
-                : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[760px] rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                ? "w-full overflow-x-auto rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[var(--shadow-category-nav)]"
+                : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[760px] md:max-w-[calc(100vw-3rem)] rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
             )}
           >
             <Calendar

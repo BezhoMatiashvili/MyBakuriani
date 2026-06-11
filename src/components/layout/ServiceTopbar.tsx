@@ -25,7 +25,7 @@ export function ServiceTopbar({
   return (
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
       <div className="flex w-full items-center gap-4">
-        <label className="relative block w-full max-w-[480px] flex-1">
+        <label className="relative block w-full min-w-0 max-w-[480px] flex-1">
           <Search className="pointer-events-none absolute left-5 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#94A3B8]" />
           <input
             type="text"
