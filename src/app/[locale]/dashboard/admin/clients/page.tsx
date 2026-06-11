@@ -16,7 +16,6 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import Modal from "@/components/shared/Modal";
-import { createClient } from "@/lib/supabase/client";
 import { formatPhone, formatPrice } from "@/lib/utils/format";
 import type { Tables, Enums } from "@/lib/types/database";
 
@@ -74,43 +73,23 @@ export default function ClientsPage() {
   const [bonusComment, setBonusComment] = useState("");
   const [bonusSubmitting, setBonusSubmitting] = useState(false);
 
+  // Profiles + listings count + balance arrive pre-joined from one admin
+  // RPC instead of downloading profiles, properties and balances separately.
   useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      try {
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (profilesData) {
-          const [{ data: propertiesData }, { data: balancesData }] =
-            await Promise.all([
-              supabase.from("properties").select("owner_id"),
-              supabase.from("balances").select("user_id, amount"),
-            ]);
-
-          const countMap = new Map<string, number>();
-          propertiesData?.forEach((p) => {
-            countMap.set(p.owner_id, (countMap.get(p.owner_id) ?? 0) + 1);
-          });
-          const balanceMap = new Map<string, number>();
-          balancesData?.forEach((b) => {
-            balanceMap.set(b.user_id, Number(b.amount ?? 0));
-          });
-
-          const enriched: ProfileWithCounts[] = profilesData.map((p) => ({
-            ...p,
-            listings_count: countMap.get(p.id) ?? 0,
-            balance_amount: balanceMap.get(p.id) ?? 0,
-          }));
-          setProfiles(enriched);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    let cancelled = false;
+    fetch("/api/admin/clients")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: { clients?: ProfileWithCounts[] } | null) => {
+        if (cancelled) return;
+        if (payload?.clients) setProfiles(payload.clients);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Real transaction history for the details modal (admin-only API; the

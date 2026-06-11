@@ -2184,6 +2184,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_clients_with_stats: { Args: never; Returns: Json };
       admin_dashboard_stats: {
         Args: never;
         Returns: {
