@@ -2229,6 +2229,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      dashboard_layout_data: { Args: never; Returns: Json };
       get_platform_cleaners: {
         Args: never;
         Returns: {
