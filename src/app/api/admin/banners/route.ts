@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db
     .from("landing_banners")
     .insert({

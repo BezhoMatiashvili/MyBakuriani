@@ -1,11 +1,9 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { canUseSmsCenter } from "@/lib/sms/sender-access";
 
 export const runtime = "nodejs";
-
-// SMS Center is renter-only (mirrors SENDER_ROLES in @/lib/sms/audience).
-const SENDER_ROLES = new Set(["renter"]);
 
 const MAX_PER_EVENT = 3;
 const MAX_MESSAGE_LEN = 320;
@@ -31,7 +29,7 @@ export async function POST(req: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile?.role || !SENDER_ROLES.has(profile.role)) {
+  if (!(await canUseSmsCenter(supabase, user.id, profile?.role))) {
     return Response.json({ error: "role_not_allowed" }, { status: 403 });
   }
 

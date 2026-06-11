@@ -67,6 +67,54 @@ export type Database = {
           },
         ];
       };
+      audit_logs: {
+        Row: {
+          actor_id: string | null;
+          actor_source: string;
+          changed_fields: string[] | null;
+          id: string;
+          new_values: Json | null;
+          occurred_at: string;
+          old_values: Json | null;
+          operation: string;
+          property_id: string | null;
+          record_id: string | null;
+          service_id: string | null;
+          subject_user_id: string | null;
+          table_name: string;
+        };
+        Insert: {
+          actor_id?: string | null;
+          actor_source?: string;
+          changed_fields?: string[] | null;
+          id?: string;
+          new_values?: Json | null;
+          occurred_at?: string;
+          old_values?: Json | null;
+          operation: string;
+          property_id?: string | null;
+          record_id?: string | null;
+          service_id?: string | null;
+          subject_user_id?: string | null;
+          table_name: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          actor_source?: string;
+          changed_fields?: string[] | null;
+          id?: string;
+          new_values?: Json | null;
+          occurred_at?: string;
+          old_values?: Json | null;
+          operation?: string;
+          property_id?: string | null;
+          record_id?: string | null;
+          service_id?: string | null;
+          subject_user_id?: string | null;
+          table_name?: string;
+        };
+        Relationships: [];
+      };
       balances: {
         Row: {
           amount: number | null;
@@ -1352,6 +1400,39 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "renter_guests_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      renter_saved_cleaners: {
+        Row: {
+          cleaner_id: string;
+          created_at: string;
+          owner_id: string;
+        };
+        Insert: {
+          cleaner_id: string;
+          created_at?: string;
+          owner_id: string;
+        };
+        Update: {
+          cleaner_id?: string;
+          created_at?: string;
+          owner_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "renter_saved_cleaners_cleaner_id_fkey";
+            columns: ["cleaner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "renter_saved_cleaners_owner_id_fkey";
             columns: ["owner_id"];
             isOneToOne: false;
             referencedRelation: "profiles";

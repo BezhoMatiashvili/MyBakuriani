@@ -114,7 +114,7 @@ export async function PATCH(req: NextRequest) {
       { status: 400 },
     );
   }
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const table = body.kind === "property" ? "properties" : "services";
   const patch: Record<string, unknown> = {};
   if (body.status !== undefined) patch.status = body.status;

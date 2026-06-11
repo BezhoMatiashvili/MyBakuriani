@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = createServiceClient();
+    const db = createServiceClient(guard.admin.userId);
     const { data, error } = await db
       .from("zones")
       .insert({
@@ -159,7 +159,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const db = createServiceClient();
+    const db = createServiceClient(guard.admin.userId);
     const { error } = await db.from("zones").update(patch).eq("id", body.id);
     if (error) return Response.json({ error: error.message }, { status: 500 });
     bumpCaches();
@@ -180,7 +180,7 @@ export async function DELETE(req: NextRequest) {
     const id = url.searchParams.get("id");
     if (!id) return Response.json({ error: "id required" }, { status: 400 });
 
-    const db = createServiceClient();
+    const db = createServiceClient(guard.admin.userId);
     const { error } = await db
       .from("zones")
       .update({ is_active: false })

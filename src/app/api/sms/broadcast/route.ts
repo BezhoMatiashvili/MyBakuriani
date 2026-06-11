@@ -1,11 +1,8 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
-import {
-  SENDER_ROLES,
-  isValidAudienceForRole,
-  type SenderRole,
-} from "@/lib/sms/audience";
+import { isValidAudienceForRole } from "@/lib/sms/audience";
+import { canUseSmsCenter } from "@/lib/sms/sender-access";
 
 export const runtime = "nodejs";
 
@@ -35,7 +32,7 @@ export async function POST(req: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile?.role || !SENDER_ROLES.has(profile.role as SenderRole)) {
+  if (!(await canUseSmsCenter(supabase, user.id, profile?.role))) {
     return Response.json({ error: "role_not_allowed" }, { status: 403 });
   }
 
@@ -43,7 +40,9 @@ export async function POST(req: NextRequest) {
   if (!body?.audience || !body.message) {
     return Response.json({ error: "missing_params" }, { status: 400 });
   }
-  if (!isValidAudienceForRole(body.audience, profile.role)) {
+  // Effective sender role is always "renter" — SMS Center is the renter
+  // cabinet's tool regardless of the user's primary profile role.
+  if (!isValidAudienceForRole(body.audience, "renter")) {
     return Response.json({ error: "invalid_audience" }, { status: 400 });
   }
 

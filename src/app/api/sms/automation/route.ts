@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { SENDER_ROLES, type SenderRole } from "@/lib/sms/audience";
+import { canUseSmsCenter } from "@/lib/sms/sender-access";
 
 export const runtime = "nodejs";
 
@@ -41,10 +41,10 @@ async function requireSender() {
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  if (!profile?.role || !SENDER_ROLES.has(profile.role as SenderRole)) {
+  if (!(await canUseSmsCenter(supabase, user.id, profile?.role))) {
     return { ok: false as const, status: 403, error: "role_not_allowed" };
   }
-  return { ok: true as const, userId: user.id, role: profile.role };
+  return { ok: true as const, userId: user.id };
 }
 
 export async function GET() {

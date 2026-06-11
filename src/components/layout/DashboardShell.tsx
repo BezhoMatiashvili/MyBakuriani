@@ -245,7 +245,10 @@ export function DashboardShell({
           onSignOut={handleSignOut}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
-          <AdminTopbar userName={displayName} />
+          <AdminTopbar
+            userName={displayName}
+            notificationCount={notificationCount}
+          />
           <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8 xl:p-10">
             {children}
           </main>

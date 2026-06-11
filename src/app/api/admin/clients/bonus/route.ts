@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     ? `ბონუსი ადმინისტრატორისგან: ${comment}`
     : "ბონუსი ადმინისტრატორისგან";
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db.rpc("topup_balance", {
     p_user_id: body.user_id,
     p_amount: amount,

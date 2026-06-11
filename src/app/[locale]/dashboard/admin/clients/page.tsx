@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import Modal from "@/components/shared/Modal";
+import { AuditTimeline } from "@/components/admin/AuditTimeline";
+import { Link } from "@/i18n/navigation";
 import { formatPhone, formatPrice } from "@/lib/utils/format";
 import type { Tables, Enums } from "@/lib/types/database";
 
@@ -50,6 +52,7 @@ const roleBadgeClasses: Record<Enums<"user_role">, string> = {
 export default function ClientsPage() {
   const t = useTranslations("AdminClients");
   const tShared = useTranslations("AdminShared");
+  const tLogs = useTranslations("AdminLogs");
   const locale = useLocale();
   const txDateFormatter = useMemo(
     () =>
@@ -489,6 +492,27 @@ export default function ClientsPage() {
                       </tbody>
                     </table>
                   )}
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC]">
+                <div className="flex items-center justify-between gap-3 px-6 py-4">
+                  <h3 className="text-[13px] font-black uppercase tracking-[1.3px] text-[#64748B]">
+                    {tLogs("activityTitle")}
+                  </h3>
+                  <Link
+                    href={`/dashboard/admin/logs?user=${selectedProfile.id}`}
+                    className="text-[12px] font-bold text-[#2563EB] hover:underline"
+                  >
+                    {tLogs("fullHistory")}
+                  </Link>
+                </div>
+                <div className="bg-white px-4 pb-4 pt-3">
+                  <AuditTimeline
+                    userId={selectedProfile.id}
+                    compact
+                    pageSize={15}
+                  />
                 </div>
               </div>
             </div>

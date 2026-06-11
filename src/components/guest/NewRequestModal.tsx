@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, X, MapPin, ChevronDown, Calendar, Plus } from "lucide-react";
+import { Send, X, MapPin, ChevronDown, Plus } from "lucide-react";
+import DateField from "@/components/shared/DateField";
 import { useActiveZones } from "@/lib/zones/client";
 
 export interface NewRequestPayload {
@@ -199,41 +200,31 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                     <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
                       {t("checkIn")}
                     </label>
-                    <div className="relative">
-                      <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-                      <input
-                        type="date"
-                        value={checkIn}
-                        min={today}
-                        onChange={(e) => {
-                          setCheckIn(e.target.value);
-                          if (e.target.value >= checkOut) {
-                            const next = new Date(
-                              new Date(e.target.value).getTime() + 86400000,
-                            )
-                              .toISOString()
-                              .slice(0, 10);
-                            setCheckOut(next);
-                          }
-                        }}
-                        className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none"
-                      />
-                    </div>
+                    <DateField
+                      value={checkIn}
+                      min={today}
+                      onChange={(v) => {
+                        setCheckIn(v);
+                        if (v >= checkOut) {
+                          const next = new Date(
+                            new Date(v).getTime() + 86400000,
+                          )
+                            .toISOString()
+                            .slice(0, 10);
+                          setCheckOut(next);
+                        }
+                      }}
+                    />
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
                       {t("checkOut")}
                     </label>
-                    <div className="relative">
-                      <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-                      <input
-                        type="date"
-                        value={checkOut}
-                        min={checkIn || today}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none"
-                      />
-                    </div>
+                    <DateField
+                      value={checkOut}
+                      min={checkIn || today}
+                      onChange={setCheckOut}
+                    />
                   </div>
                 </div>
 

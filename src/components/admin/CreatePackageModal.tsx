@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import DateField from "@/components/shared/DateField";
 import Modal from "@/components/shared/Modal";
 
 export type PackageCategory =
@@ -239,23 +240,21 @@ export default function CreatePackageModal({
               <label className="text-[12px] font-bold text-[#0F172A]">
                 {t("validFrom")} <span className="text-[#DC2626]">*</span>
               </label>
-              <input
-                type="date"
+              <DateField
                 value={validFrom}
-                onChange={(e) => setValidFrom(e.target.value)}
-                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
+                onChange={setValidFrom}
+                className="h-[42px]"
               />
             </div>
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-[#0F172A]">
                 {t("validTo")} <span className="text-[#DC2626]">*</span>
               </label>
-              <input
-                type="date"
+              <DateField
                 value={validTo}
                 min={validFrom || undefined}
-                onChange={(e) => setValidTo(e.target.value)}
-                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
+                onChange={setValidTo}
+                className="h-[42px]"
               />
             </div>
           </div>

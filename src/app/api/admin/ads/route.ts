@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db
     .from("ads")
     .insert({

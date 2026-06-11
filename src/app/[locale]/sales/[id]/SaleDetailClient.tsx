@@ -91,6 +91,21 @@ const PROPERTY_TYPE_LABEL_KEYS: Record<PropertyType, string> = {
   villa: "typeVilla",
 };
 
+const MONTH_KEYS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+] as const;
+
 // Returns a translation key for known statuses; unknown free-text statuses
 // from the DB are passed through raw.
 function constructionStatusLabel(status: string | null): {
@@ -104,6 +119,9 @@ function constructionStatusLabel(status: string | null): {
   }
   if (/complete|finished|done|ready/i.test(status)) {
     return { labelKey: "completed", raw: status, tone: "done" };
+  }
+  if (/old[_\s-]?built|ძველი/i.test(status)) {
+    return { labelKey: "oldBuilt", raw: status, tone: "done" };
   }
   return { labelKey: null, raw: status, tone: "neutral" };
 }
@@ -134,6 +152,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
   const tShared = useTranslations("Shared");
   const tShare = useTranslations("ShareListing");
   const tOpts = useTranslations("ListingOptions");
+  const tMonths = useTranslations("DateRangeFilter.months");
   const locale = useLocale();
   const router = useRouter();
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
@@ -209,6 +228,13 @@ export default function SaleDetailClient({ property, reviews }: Props) {
       ? `${roiPercent}-${property.roi_percent_max}%`
       : `${roiPercent}%`;
   const houseRules = (property.house_rules ?? {}) as Record<string, unknown>;
+  const handoverMonthNum = Number(houseRules.handover_month);
+  const handoverMonthKey =
+    Number.isInteger(handoverMonthNum) &&
+    handoverMonthNum >= 1 &&
+    handoverMonthNum <= 12
+      ? MONTH_KEYS[handoverMonthNum - 1]
+      : null;
   // DB stores codes (newer rows) or Georgian labels (legacy rows); unknown
   // custom values pass through raw.
   const renovationKey = optionKeyFor(
@@ -232,7 +258,11 @@ export default function SaleDetailClient({ property, reviews }: Props) {
       label: t("constructionStage"),
       value: statusInfo.labelKey ? t(statusInfo.labelKey) : statusInfo.raw,
       sub: property.completion_year
-        ? t("deliveredInYear", { year: property.completion_year })
+        ? handoverMonthKey
+          ? t("deliveredOn", {
+              date: `${tMonths(handoverMonthKey)} ${property.completion_year}`,
+            })
+          : t("deliveredInYear", { year: property.completion_year })
         : undefined,
     });
   }

@@ -12,6 +12,7 @@ import {
 import { Flame, Loader2, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import DateField from "@/components/shared/DateField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
 
@@ -372,13 +373,16 @@ export default function ModerationPage() {
                   >
                     {t("startDate")}
                   </label>
-                  <input
+                  <DateField
                     id="start-date"
-                    name="startDate"
-                    type="date"
                     value={formState.startDate}
-                    onChange={handleInputChange}
-                    className="h-[57px] w-full rounded-2xl border border-[#E2E8F0] px-4 text-sm font-medium leading-[21px] text-[#1E293B] focus:border-[#2563EB] focus:outline-none"
+                    onChange={(value) =>
+                      setFormState((previous) => ({
+                        ...previous,
+                        startDate: value,
+                      }))
+                    }
+                    className="h-[55px] rounded-2xl"
                   />
                 </div>
                 <div className="space-y-2">
@@ -388,13 +392,17 @@ export default function ModerationPage() {
                   >
                     {t("endDate")}
                   </label>
-                  <input
+                  <DateField
                     id="end-date"
-                    name="endDate"
-                    type="date"
                     value={formState.endDate}
-                    onChange={handleInputChange}
-                    className="h-[57px] w-full rounded-2xl border border-[#E2E8F0] px-4 text-sm font-medium leading-[21px] text-[#1E293B] focus:border-[#2563EB] focus:outline-none"
+                    onChange={(value) =>
+                      setFormState((previous) => ({
+                        ...previous,
+                        endDate: value,
+                      }))
+                    }
+                    min={formState.startDate || undefined}
+                    className="h-[55px] rounded-2xl"
                   />
                 </div>
               </div>

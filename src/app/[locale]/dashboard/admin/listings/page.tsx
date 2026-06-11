@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   Eye,
+  History,
   Loader2,
   Pause,
   Play,
@@ -17,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
+import { Link } from "@/i18n/navigation";
 import { formatPrice } from "@/lib/utils/format";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
@@ -58,6 +60,7 @@ export default function ListingsPage() {
   const t = useTranslations("AdminListings");
   const tShared = useTranslations("AdminShared");
   const tDash = useTranslations("DashboardShared");
+  const tLogs = useTranslations("AdminLogs");
 
   const CATEGORY_OPTIONS = useMemo(
     () =>
@@ -373,6 +376,15 @@ export default function ListingsPage() {
                       >
                         <Eye className="h-3 w-3" />
                       </a>
+                      <Link
+                        href={`/dashboard/admin/logs?${row.kind}=${row.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] transition-colors hover:bg-[#EFF6FF] hover:text-[#1D4ED8]"
+                        aria-label={tLogs("title")}
+                        title={tLogs("title")}
+                      >
+                        <History className="h-3 w-3" />
+                      </Link>
                       {row.kind === "service" && (
                         <button
                           type="button"

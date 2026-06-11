@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db
     .from("promocodes")
     .insert({
@@ -59,7 +59,7 @@ export async function DELETE(req: NextRequest) {
   if (!guard.ok) return guard.response;
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return Response.json({ error: "id required" }, { status: 400 });
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { error } = await db
     .from("promocodes")
     .update({ is_active: false })

@@ -348,15 +348,10 @@ const DB_VALUE_KEYS = {
   constructionStatuses: {
     მშენებარე: "under_construction",
     "ახალი აშენებული/დასრულებული": "completed",
+    "ძველი აშენებული": "old_built",
     // Codes written by the admin listing-audit panel (distinct vocabulary).
     "მზად ჩასახლებისთვის": "ready",
     დაგეგმილი: "planned",
-  },
-  handoverOptions: {
-    "უკვე ჩაბარებული": "delivered",
-    "2024 ბოლო": "2024_end",
-    "2025 გაზაფხული": "2025_spring",
-    "2026 ბოლო": "2026_end",
   },
   renovationStatuses: {
     "შავი კარკასი": "black_frame",
@@ -427,6 +422,11 @@ const DB_VALUE_KEYS = {
     "სტანდარტული აივანი": "standard_balcony",
     "დიდი ტერასა": "large_terrace",
     ეზო: "yard",
+    // Legacy keys still present on old rows; not offered in forms.
+    გათბობა: "heating",
+    სამზარეულო: "kitchen",
+    "BBQ / მანგალი": "bbq",
+    "კომპლექსის მართვა": "complex_management",
   },
   hostingLangs: { ქართული: "ka", English: "en", Русский: "ru", Arabic: "ar" },
 } satisfies Record<string, Record<string, string>>;

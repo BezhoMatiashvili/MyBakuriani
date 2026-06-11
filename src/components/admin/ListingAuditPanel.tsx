@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import SharedDateField from "@/components/shared/DateField";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import {
   FOOD_AMENITIES,
@@ -1521,11 +1522,11 @@ function DateField({
       <span className="mb-1 block text-[12px] font-bold text-[#475569]">
         {label}
       </span>
-      <input
-        type="date"
+      <SharedDateField
         value={display}
-        onChange={(e) => onChange(e.target.value || null)}
-        className={inputClass}
+        onChange={(v) => onChange(v || null)}
+        clearable
+        className="h-[42px]"
       />
     </label>
   );

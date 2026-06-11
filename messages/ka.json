@@ -174,6 +174,7 @@
       "promoCodes": "პრომო კოდები",
       "banners": "ბანერები",
       "news": "სიახლეები",
+      "logs": "ლოგები",
       "graphic": "გრაფიკი"
     },
     "notifications": "{count} შეტყობინება",
@@ -299,16 +300,6 @@
       "hotel": "სასტუმრო",
       "villa": "ვილა",
       "studio": "სტუდიო"
-    },
-    "amenityLabels": {
-      "wifi": "Wi-Fi",
-      "parking": "პარკინგი",
-      "skiStorage": "სათხილამურო საწყობი",
-      "fireplace": "ბუხარი",
-      "balcony": "აივანი",
-      "pool": "აუზი",
-      "spa": "SPA",
-      "restaurant": "რესტორანი"
     }
   },
   "RentBuyToggle": {
@@ -559,7 +550,6 @@
       "searchIdNumber": "ძიება (ID, ნომერი)...",
       "activeVisitor": "აქტიური ვიზიტორი",
       "smsSuffix": " / {total} SMS",
-      "notificationsAria": "შეტყობინებები",
       "available": "აქტიურია",
       "unavailable": "არააქტიურია"
     }
@@ -726,6 +716,7 @@
     "emptyRequests": "ჯერ არ არის ახალი მოთხოვნები",
     "offerSent": "✓ შეთავაზება გაგზავნილია",
     "offerSentHint": "სტუმარი ნახავს თქვენს შეთავაზებას თავის კაბინეტში.",
+    "offerError": "შეთავაზების გაგზავნა ვერ მოხერხდა. გთხოვთ, სცადოთ თავიდან.",
     "yourPriceLabel": "თქვენი ფასი (კონფიდენ-მფარული):",
     "perNight": "₾ /ღამე",
     "pickProperty": "აირჩიეთ ბინა შესათავაზებლად:",
@@ -993,7 +984,13 @@
     "legendBooked": "დაკავებული",
     "legendSelected": "არჩეული",
     "prevMonth": "წინა თვე",
-    "nextMonth": "შემდეგი თვე"
+    "nextMonth": "შემდეგი თვე",
+    "selectDate": "აირჩიეთ თარიღი",
+    "selectTime": "აირჩიეთ დრო",
+    "clear": "გასუფთავება",
+    "done": "მზადაა",
+    "hours": "საათი",
+    "minutes": "წუთი"
   },
   "BakurianiMap": {
     "bakuriani": "ბაკურიანი",
@@ -1070,7 +1067,8 @@
     "noReviews": "ჯერ არ არის შეფასებები",
     "anonymous": "ანონიმური",
     "ownerFallback": "მესაკუთრე",
-    "book": "დაჯავშნა"
+    "book": "დაჯავშნა",
+    "balconyNone": "აივანი: არ აქვს"
   },
   "ApartmentDetail": {
     "showLess": "ნაკლების ჩვენება",
@@ -1099,23 +1097,6 @@
     "included": "შედის",
     "notIncluded": "არ შედის"
   },
-  "Amenities": {
-    "wifi": "Wi-Fi",
-    "parking": "პარკინგი",
-    "skiStorage": "სათხილამურო საწყობი",
-    "fireplace": "ბუხარი",
-    "balcony": "აივანი",
-    "pool": "აუზი",
-    "spa": "SPA",
-    "restaurant": "რესტორანი",
-    "heating": "გათბობა",
-    "ac": "კონდიციონერი",
-    "tv": "ტელევიზორი",
-    "kitchen": "სამზარეულო",
-    "washer": "სარეცხი მანქანა",
-    "laundry": "სამრეცხაო",
-    "mountainView": "მთის ხედი"
-  },
   "SaleDetail": {
     "postedToday": "გამოქვეყნებულია: დღეს",
     "postedOneDayAgo": "გამოქვეყნებულია: 1 დღის წინ",
@@ -1128,6 +1109,7 @@
     "typeFallback": "ქონება",
     "underConstruction": "მშენებარე",
     "completed": "დასრულებული",
+    "oldBuilt": "ძველი აშენებული",
     "complexManagement": "აქვს კომპლექსის მენეჯმენტი",
     "securedArea": "დაცული ტერიტორია",
     "share": "გაზიარება",
@@ -1139,6 +1121,7 @@
     "investmentMetrics": "საინვესტიციო მეტრიკები და სტატუსი",
     "constructionStage": "მშენებლობის სტადია",
     "deliveredInYear": "ბარდდება: {year} წელს",
+    "deliveredOn": "ბარდდება: {date}",
     "renovationState": "რემონტის მდგომარეობა",
     "managementService": "მართვის სერვისი",
     "expectedRoi": "მოსალოდნელი ROI",
@@ -1947,6 +1930,7 @@
     "constructionStatuses": {
       "under_construction": "მშენებარე",
       "completed": "ახალი აშენებული/დასრულებული",
+      "old_built": "ძველი აშენებული",
       "ready": "მზად ჩასახლებისთვის",
       "planned": "დაგეგმილი"
     },
@@ -1966,12 +1950,6 @@
       "ski_rack": "თხილამურის საბარგული",
       "extra_rack": "დამატებითი საბარგული",
       "child_seat": "ბავშვის სავარძელი"
-    },
-    "handoverOptions": {
-      "delivered": "უკვე ჩაბარებული",
-      "2024_end": "2024 ბოლო",
-      "2025_spring": "2025 გაზაფხული",
-      "2026_end": "2026 ბოლო"
     },
     "renovationStatuses": {
       "black_frame": "შავი კარკასი",
@@ -2048,7 +2026,11 @@
       "french_balcony": "ფრანგული აივანი",
       "standard_balcony": "სტანდარტული აივანი",
       "large_terrace": "დიდი ტერასა",
-      "yard": "ეზო"
+      "yard": "ეზო",
+      "heating": "გათბობა",
+      "kitchen": "სამზარეულო",
+      "bbq": "BBQ / მანგალი",
+      "complex_management": "კომპლექსის მართვა"
     },
     "hostingLangs": {
       "ka": "ქართული",
@@ -2913,6 +2895,7 @@
     "statZones": "თქვენი ზონები",
     "bannerNew": "{count} ახალი მოთხოვნა თქვენი ზონისთვის",
     "bannerEmpty": "ჯერ არ არის შემოსავალი მოთხოვნები",
+    "bannerAllAnswered": "ყველა მოთხოვნას უპასუხეთ",
     "bannerDesc": "ნახეთ სტუმრების მოთხოვნები და გაუგზავნეთ პერსონალური შეთავაზებები.",
     "viewRequests": "ნახე მოთხოვნები",
     "empty": "ახალი მოთხოვნები ჯერ არ არის",
@@ -2929,6 +2912,7 @@
     "subtitleCount": "გაუგზავნეთ დასუფთავების დავალებები {count} კლიკით.",
     "available": "თავისუფალია",
     "empty": "ჯერ არ დაგიმატებიათ დამლაგებელი",
+    "emptyHint": "დააჭირეთ „დამატება“ ღილაკს და აირჩიეთ დამლაგებელი",
     "callOut": "გამოძახება",
     "noCleanersAvailable": "ამჟამად ხელმისაწვდომი დამლაგებელი არ არის",
     "myCalls": "ჩემი გამოძახებები",
@@ -2951,6 +2935,13 @@
       "sending": "იგზავნება...",
       "submit": "გამოძახების გაგზავნა",
       "sendError": "გაგზავნა ვერ მოხერხდა, სცადეთ თავიდან"
+    },
+    "addModal": {
+      "title": "დამლაგებლის დამატება",
+      "add": "დამატება",
+      "added": "დამატებულია",
+      "remove": "წაშლა",
+      "error": "ვერ შეინახა, სცადეთ თავიდან"
     }
   },
   "RenterGuests": {
@@ -3026,6 +3017,116 @@
     "submitError": "შეფასების შენახვა ვერ მოხერხდა. სცადეთ ხელახლა.",
     "submitting": "იგზავნება...",
     "submit": "შეფასების გაგზავნა"
+  },
+  "AdminLogs": {
+    "title": "ლოგები",
+    "subtitle": "მომხმარებლების და განცხადებების სრული აქტივობის ისტორია",
+    "searchPlaceholder": "მოძებნეთ მომხმარებელი ან განცხადება...",
+    "searchEmpty": "ვერაფერი მოიძებნა",
+    "activeFilter": "ფილტრი",
+    "clearFilter": "ფილტრის გასუფთავება",
+    "system": "სისტემა",
+    "loadMore": "მეტის ჩვენება",
+    "empty": "ჩანაწერები არ არის",
+    "loadError": "ლოგების ჩატვირთვა ვერ მოხერხდა",
+    "showDiff": "დეტალები",
+    "hideDiff": "დახურვა",
+    "fullHistory": "სრული ისტორია",
+    "activityTitle": "აქტივობა",
+    "kinds": {
+      "user": "მომხმარებელი",
+      "property": "განცხადება",
+      "service": "სერვისი"
+    },
+    "ops": {
+      "INSERT": "შექმნა",
+      "UPDATE": "ცვლილება",
+      "DELETE": "წაშლა",
+      "LOGIN": "შესვლა"
+    },
+    "events": {
+      "auth_users_LOGIN": "შესვლა სისტემაში",
+      "profiles_INSERT": "რეგისტრაცია",
+      "profiles_UPDATE": "პროფილის ცვლილება",
+      "transactions_INSERT": "ტრანზაქცია",
+      "balances_UPDATE": "ბალანსის ცვლილება",
+      "properties_INSERT": "განცხადება დაემატა",
+      "properties_UPDATE": "განცხადების ცვლილება",
+      "properties_DELETE": "განცხადება წაიშალა",
+      "services_INSERT": "სერვისი დაემატა",
+      "services_UPDATE": "სერვისის ცვლილება",
+      "services_DELETE": "სერვისი წაიშალა",
+      "bookings_INSERT": "ახალი ჯავშანი",
+      "bookings_UPDATE": "ჯავშნის ცვლილება",
+      "verifications_INSERT": "ვერიფიკაციის მოთხოვნა",
+      "verifications_UPDATE": "ვერიფიკაციის განხილვა",
+      "reviews_INSERT": "ახალი შეფასება",
+      "favorites_INSERT": "ფავორიტებში დამატება",
+      "favorites_DELETE": "ფავორიტებიდან წაშლა",
+      "smart_match_requests_INSERT": "Smart Match მოთხოვნა",
+      "smart_match_offers_INSERT": "Smart Match შეთავაზება",
+      "cleaning_tasks_INSERT": "დალაგების გამოძახება",
+      "cleaning_tasks_UPDATE": "დალაგების სტატუსი"
+    },
+    "tables": {
+      "auth_users": "ავტორიზაცია",
+      "profiles": "პროფილი",
+      "properties": "განცხადება",
+      "services": "სერვისი",
+      "bookings": "ჯავშანი",
+      "transactions": "ტრანზაქცია",
+      "balances": "ბალანსი",
+      "verifications": "ვერიფიკაცია",
+      "reviews": "შეფასება",
+      "smart_match_requests": "Smart Match მოთხოვნა",
+      "smart_match_offers": "Smart Match შეთავაზება",
+      "cleaning_tasks": "დალაგება",
+      "calendar_blocks": "კალენდარი",
+      "price_overrides": "ფასის ცვლილება",
+      "promocodes": "პრომოკოდი",
+      "manual_bookings": "ხელით ჯავშანი",
+      "favorites": "ფავორიტი",
+      "sms_outbound": "SMS",
+      "sms_broadcasts": "SMS დაგზავნა",
+      "sms_messages": "შეტყობინება",
+      "sms_automation_rules": "SMS ავტომატიზაცია",
+      "user_subscriptions": "გამოწერა",
+      "leads": "ლიდი",
+      "job_applications": "განაცხადი ვაკანსიაზე",
+      "renter_guests": "სტუმარი",
+      "renter_cleaners": "დამლაგებელი",
+      "cleaner_profiles": "დამლაგებლის პროფილი",
+      "zones": "ზონა",
+      "pricing_packages": "პაკეტი",
+      "site_settings": "საიტის პარამეტრი",
+      "landing_banners": "ბანერი",
+      "blog_posts": "ბლოგი",
+      "ads": "რეკლამა",
+      "broadcasts": "შეტყობინებების დაგზავნა",
+      "project_updates": "პროექტის განახლება"
+    },
+    "fields": {
+      "status": "სტატუსი",
+      "title": "სათაური",
+      "description": "აღწერა",
+      "price": "ფასი",
+      "price_per_night": "ფასი ღამეზე",
+      "sale_price": "გასაყიდი ფასი",
+      "amount": "თანხა",
+      "sms_remaining": "SMS ბალანსი",
+      "role": "როლი",
+      "display_name": "სახელი",
+      "phone": "ტელეფონი",
+      "is_verified": "ვერიფიცირებული",
+      "is_vip": "VIP",
+      "is_super_vip": "Super VIP",
+      "vip_expires_at": "VIP ვადა",
+      "admin_notes": "ადმინის შენიშვნა",
+      "check_in": "შესვლა",
+      "check_out": "გასვლა",
+      "total_price": "ჯამური ფასი",
+      "discount_percent": "ფასდაკლება %"
+    }
   },
   "AdminShared": {
     "loadFailed": "ჩატვირთვა ვერ მოხერხდა",

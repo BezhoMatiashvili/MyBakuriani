@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   const status = body.action === "approve" ? "approved" : "rejected";
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
 
   const { data: verification, error: vErr } = await db
     .from("verifications")

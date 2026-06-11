@@ -86,7 +86,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     );
   }
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db
     .from("landing_banners")
     .update(update)
@@ -106,7 +106,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext) {
   const { id } = await ctx.params;
   if (!id) return Response.json({ error: "id required" }, { status: 400 });
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { error } = await db.from("landing_banners").delete().eq("id", id);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

@@ -39,6 +39,7 @@ import PhoneInput from "@/components/forms/PhoneInput";
 import { formatDate } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
+import DateField, { toISODate } from "@/components/shared/DateField";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -617,11 +618,13 @@ export default function EmploymentDetailClient({
                   {t("form.birthDate")}{" "}
                   <span className="text-[#EF4444]">*</span>
                 </label>
-                <input
-                  type="date"
+                <DateField
                   value={form.birth_date}
-                  onChange={(e) => update("birth_date", e.target.value)}
-                  className={inputClass("birth_date")}
+                  onChange={(v) => update("birth_date", v)}
+                  withYearDropdown
+                  max={toISODate(new Date())}
+                  error={!!errors.birth_date}
+                  className="h-11 rounded-[12px]"
                 />
                 {errors.birth_date && (
                   <p className="mt-1 text-xs text-[#EF4444]">

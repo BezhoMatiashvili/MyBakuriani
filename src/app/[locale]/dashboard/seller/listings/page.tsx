@@ -23,6 +23,7 @@ import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 const constructionStatusLabel: Record<string, string> = {
   under_construction: "მშენებარე",
   completed: "დასრულებული",
+  old_built: "ძველი აშენებული",
   ready: "მზა",
 };
 

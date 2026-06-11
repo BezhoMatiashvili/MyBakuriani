@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles, X, Calendar, Check, ChevronDown } from "lucide-react";
+import { Sparkles, X, Check, ChevronDown } from "lucide-react";
+import DateField from "@/components/shared/DateField";
 
 type CategoryKey =
   | "all"
@@ -199,30 +200,17 @@ export default function NewBookingRequestModal({
                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                       {t("checkIn")}
                     </label>
-                    <div className="relative">
-                      <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-                      <input
-                        type="date"
-                        value={checkIn}
-                        onChange={(e) => setCheckIn(e.target.value)}
-                        className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
-                      />
-                    </div>
+                    <DateField value={checkIn} onChange={setCheckIn} />
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                       {t("checkOut")}
                     </label>
-                    <div className="relative">
-                      <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-                      <input
-                        type="date"
-                        value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        min={checkIn}
-                        className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
-                      />
-                    </div>
+                    <DateField
+                      value={checkOut}
+                      onChange={setCheckOut}
+                      min={checkIn || undefined}
+                    />
                   </div>
                 </div>
 

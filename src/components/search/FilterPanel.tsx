@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { AMENITY_GROUPS } from "@/lib/constants/listing-options";
 
 const PROPERTY_TYPE_KEYS = [
   "apartment",
@@ -14,16 +15,11 @@ const PROPERTY_TYPE_KEYS = [
   "studio",
 ] as const;
 
-const AMENITY_KEYS = [
-  { value: "wifi", key: "wifi" },
-  { value: "parking", key: "parking" },
-  { value: "ski_storage", key: "skiStorage" },
-  { value: "fireplace", key: "fireplace" },
-  { value: "balcony", key: "balcony" },
-  { value: "pool", key: "pool" },
-  { value: "spa", key: "spa" },
-  { value: "restaurant", key: "restaurant" },
-] as const;
+// "no_balcony" is excluded: amenity filters are "must have X" matches.
+const FILTER_AMENITY_GROUPS = AMENITY_GROUPS.map((group) => ({
+  key: group.key,
+  options: group.options.filter((opt) => opt.key !== "no_balcony"),
+}));
 
 const ROOM_OPTIONS = [1, 2, 3, 4, "5+"] as const;
 
@@ -101,6 +97,7 @@ export const DEFAULT_FILTERS: Filters = {
 
 export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
   const t = useTranslations("FilterPanel");
+  const tOpts = useTranslations("ListingOptions");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     price: true,
     rooms: false,
@@ -281,20 +278,27 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
         isOpen={!!expanded.amenities}
         onToggle={() => toggleSection("amenities")}
       >
-        <div className="flex flex-col gap-3">
-          {AMENITY_KEYS.map(({ value, key }) => (
-            <label
-              key={value}
-              className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#64748B]"
-            >
-              <input
-                type="checkbox"
-                checked={filters.amenities.includes(value)}
-                onChange={() => toggleArrayItem("amenities", value)}
-                className="size-5 rounded-[6px] border-[#E2E8F0] accent-brand-accent"
-              />
-              {t(`amenityLabels.${key}`)}
-            </label>
+        <div className="flex flex-col gap-4">
+          {FILTER_AMENITY_GROUPS.map((group) => (
+            <div key={group.key} className="flex flex-col gap-3">
+              <p className="text-[12px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                {tOpts(`amenityGroupLabels.${group.key}`)}
+              </p>
+              {group.options.map((opt) => (
+                <label
+                  key={opt.key}
+                  className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#64748B]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={filters.amenities.includes(opt.key)}
+                    onChange={() => toggleArrayItem("amenities", opt.key)}
+                    className="size-5 rounded-[6px] border-[#E2E8F0] accent-brand-accent"
+                  />
+                  {tOpts(`amenities.${opt.key}`)}
+                </label>
+              ))}
+            </div>
           ))}
         </div>
       </FilterSection>

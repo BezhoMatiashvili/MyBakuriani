@@ -39,13 +39,13 @@ interface Props {
 const STATUS_MAP: Record<string, RegExp> = {
   new: /(ახალი|new)/i,
   progress: /(მიმდინარე|progress|under)/i,
-  ready: /(მზად|ready|complete|დასრულ)/i,
+  ready: /(მზად|ready|complete|დასრულ|old[_\s-]?built|ძველი)/i,
 };
 
 // Sale-tab `construction` URL param uses the Figma-aligned values which map
 // onto the existing free-text `construction_status` column.
 const CONSTRUCTION_MAP: Record<string, RegExp> = {
-  completed: /(დასრულ|completed|complete|მზა|ready)/i,
+  completed: /(დასრულ|completed|complete|მზა|ready|old[_\s-]?built|ძველი)/i,
   under_construction: /(მშენებარე|under|progress|in_progress)/i,
 };
 

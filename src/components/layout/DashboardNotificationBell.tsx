@@ -1,0 +1,35 @@
+"use client";
+
+import { NotificationBell } from "@/components/layout/NotificationBell";
+import { useNotifications } from "@/lib/hooks/useNotifications";
+
+interface DashboardNotificationBellProps {
+  /** Server-seeded unread count shown until the client hook finishes loading. */
+  initialUnreadCount?: number;
+  /** Trigger styling so each topbar keeps its own button design. */
+  triggerClassName?: string;
+}
+
+/**
+ * Bell popover for dashboard topbars (guest/cleaner/admin) — roles without a
+ * dedicated notifications page, hence no viewAllPath. Reuses the Navbar's
+ * "notifications" channel name; safe because LocaleShell never renders the
+ * Navbar on /dashboard routes, so the two never mount together.
+ */
+export function DashboardNotificationBell({
+  initialUnreadCount = 0,
+  triggerClassName,
+}: DashboardNotificationBellProps) {
+  const { notifications, unreadCount, loading, markAsRead } =
+    useNotifications();
+
+  return (
+    <NotificationBell
+      notifications={notifications}
+      unreadCount={loading ? initialUnreadCount : unreadCount}
+      loading={loading}
+      markAsRead={markAsRead}
+      triggerClassName={triggerClassName}
+    />
+  );
+}

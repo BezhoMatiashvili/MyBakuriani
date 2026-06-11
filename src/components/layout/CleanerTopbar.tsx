@@ -1,8 +1,8 @@
 "use client";
 
-import { Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { DashboardNotificationBell } from "@/components/layout/DashboardNotificationBell";
 
 interface CleanerTopbarProps {
   notificationCount?: number;
@@ -21,18 +21,10 @@ export function CleanerTopbar({
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
       <div className="flex w-full items-center justify-end gap-3">
         <LanguageSelector />
-        <button
-          type="button"
-          className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
-          aria-label={tLayout("topbar.notificationsAria")}
-        >
-          <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
-          {notificationCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-1 text-[10px] font-bold text-white">
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
-          )}
-        </button>
+        <DashboardNotificationBell
+          initialUnreadCount={notificationCount}
+          triggerClassName="relative flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
+        />
 
         <button
           type="button"

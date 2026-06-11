@@ -1,14 +1,19 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { DashboardNotificationBell } from "@/components/layout/DashboardNotificationBell";
 
 interface AdminTopbarProps {
   userName: string;
+  notificationCount?: number;
 }
 
-export function AdminTopbar({ userName }: AdminTopbarProps) {
+export function AdminTopbar({
+  userName,
+  notificationCount = 0,
+}: AdminTopbarProps) {
   const tLayout = useTranslations("DashboardLayout");
   const tSidebar = useTranslations("DashboardSidebar");
   const initials = userName
@@ -35,14 +40,10 @@ export function AdminTopbar({ userName }: AdminTopbarProps) {
         <div className="flex items-center gap-5">
           <LanguageSelector />
           <div className="h-8 w-px bg-[#E2E8F0]" />
-          <button
-            type="button"
-            className="relative text-[#94A3B8] transition-colors hover:text-[#475569]"
-            aria-label={tLayout("topbar.notificationsAria")}
-          >
-            <Bell className="h-[20px] w-[18px]" />
-            <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-[#EF4444]" />
-          </button>
+          <DashboardNotificationBell
+            initialUnreadCount={notificationCount}
+            triggerClassName="relative inline-flex h-[44px] w-[44px] items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#475569]"
+          />
           <div className="hidden items-center gap-3 sm:flex">
             <p className="w-[98px] text-right text-[13px] font-bold leading-4 text-[#1E293B]">
               {tSidebar("roles.superAdmin")}

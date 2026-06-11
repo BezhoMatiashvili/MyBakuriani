@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const audience = AUDIENCE_FILTERS[body.audience](db);
 
   // Resolve recipients.

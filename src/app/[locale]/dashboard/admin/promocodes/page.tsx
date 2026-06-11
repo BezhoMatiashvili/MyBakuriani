@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import DateField from "@/components/shared/DateField";
 import { formatDate } from "@/lib/utils/format";
 
 interface Promocode {
@@ -201,13 +202,11 @@ export default function PromoCodesPage() {
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
                   {t("expires")}
                 </label>
-                <input
-                  type="date"
+                <DateField
                   value={form.expires_at}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, expires_at: e.target.value }))
-                  }
-                  className="h-[51px] w-full rounded-xl border border-[#E2E8F0] bg-white px-[14px] text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                  onChange={(v) => setForm((f) => ({ ...f, expires_at: v }))}
+                  clearable
+                  className="h-[51px] w-full"
                 />
               </div>
             </div>

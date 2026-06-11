@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
+import { optionKeyFor } from "@/lib/constants/listing-options";
 
 function formatNum(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -52,6 +53,7 @@ function extractZone(location: string): string {
 
 export default function PropertyCard(props: PropertyCardProps) {
   const t = useTranslations("PropertyCard");
+  const tOpts = useTranslations("ListingOptions");
   const { user } = useAuth();
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
@@ -101,7 +103,11 @@ export default function PropertyCard(props: PropertyCardProps) {
     if (rooms) tags.push(t("rooms", { count: rooms }));
     if (capacity) tags.push(t("guests", { count: capacity }));
     if (amenityTags?.length) {
-      tags.push(...amenityTags.slice(0, 2));
+      const amenityLabels = amenityTags
+        .map((v) => optionKeyFor("amenities", v))
+        .filter((k): k is string => k !== null && k !== "no_balcony")
+        .map((k) => tOpts(`amenities.${k}`));
+      tags.push(...amenityLabels.slice(0, 2));
     }
   }
 

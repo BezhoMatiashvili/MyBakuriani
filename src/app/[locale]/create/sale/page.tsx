@@ -31,15 +31,26 @@ const PROPERTY_TYPES: { value: Enums<"property_type"> }[] = [
 ];
 
 const CONSTRUCTION_STATUSES: {
-  value: "completed" | "under_construction";
-}[] = [{ value: "under_construction" }, { value: "completed" }];
+  value: "completed" | "under_construction" | "old_built";
+}[] = [
+  { value: "under_construction" },
+  { value: "completed" },
+  { value: "old_built" },
+];
 
-/** DB-stored handover values (unchanged payloads). */
-const HANDOVER_OPTIONS = [
-  { value: "უკვე ჩაბარებული", key: "delivered" },
-  { value: "2024 ბოლო", key: "2024_end" },
-  { value: "2025 გაზაფხული", key: "2025_spring" },
-  { value: "2026 ბოლო", key: "2026_end" },
+const MONTH_KEYS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
 ] as const;
 
 const ROI_OPTIONS = [
@@ -71,6 +82,7 @@ function CreateSalePageInner() {
   const t = useTranslations("CreateSale");
   const tShared = useTranslations("CreateShared");
   const tOpts = useTranslations("ListingOptions");
+  const tMonths = useTranslations("DateRangeFilter.months");
   const tFood = useTranslations("CreateFood");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -102,13 +114,13 @@ function CreateSalePageInner() {
     [tOpts],
   );
 
-  const handoverOptions = useMemo(
+  const handoverMonthOptions = useMemo(
     () =>
-      HANDOVER_OPTIONS.map((o) => ({
-        value: o.value,
-        label: tOpts(`handoverOptions.${o.key}`),
+      MONTH_KEYS.map((key, i) => ({
+        value: String(i + 1),
+        label: tMonths(key),
       })),
-    [tOpts],
+    [tMonths],
   );
 
   const renovationOptions = useMemo(
@@ -138,10 +150,12 @@ function CreateSalePageInner() {
     useState<Enums<"property_type">>("apartment");
   const [location, setLocation] = useState("");
   const [constructionStatus, setConstructionStatus] = useState<
-    "completed" | "under_construction"
+    "completed" | "under_construction" | "old_built"
   >("under_construction");
-  // Default is a DB-stored handover payload value (see HANDOVER_OPTIONS).
-  const [handoverDate, setHandoverDate] = useState("2026 ბოლო");
+  const [handoverMonth, setHandoverMonth] = useState("");
+  const [handoverYear, setHandoverYear] = useState(
+    String(new Date().getFullYear() + 1),
+  );
   const [cadastralCode, setCadastralCode] = useState("");
   const [exactLocation, setExactLocation] = useState("");
   const [renovationStatus, setRenovationStatus] = useState("white_frame");
@@ -159,14 +173,23 @@ function CreateSalePageInner() {
   const [whatsapp, setWhatsapp] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [constructionPercent, setConstructionPercent] = useState(0);
-  const [completionYear, setCompletionYear] = useState<string>(
-    String(new Date().getFullYear() + 1),
-  );
   const [unitsTotal, setUnitsTotal] = useState("");
   const [unitsSold, setUnitsSold] = useState("");
   const [unitsReserved, setUnitsReserved] = useState("");
 
   const isUnderConstruction = constructionStatus === "under_construction";
+
+  const handoverYearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 8 }, (_, i) => currentYear + i);
+    // Keep a hydrated out-of-range year (legacy rows) selectable.
+    const selected = Number(handoverYear);
+    if (Number.isFinite(selected) && !years.includes(selected)) {
+      years.push(selected);
+      years.sort((a, b) => a - b);
+    }
+    return years.map((y) => ({ value: String(y), label: String(y) }));
+  }, [handoverYear]);
 
   useEffect(() => {
     if (!editId || !user) return;
@@ -192,8 +215,9 @@ function CreateSalePageInner() {
       setPropertyType((data.type ?? "apartment") as Enums<"property_type">);
       setLocation(data.location ?? "");
       setConstructionStatus(
-        data.construction_status === "under_construction"
-          ? "under_construction"
+        data.construction_status === "under_construction" ||
+          data.construction_status === "old_built"
+          ? data.construction_status
           : "completed",
       );
       setAreaSqm(data.area_sqm != null ? String(data.area_sqm) : "");
@@ -224,7 +248,7 @@ function CreateSalePageInner() {
           : 0,
       );
       if (data.completion_year != null) {
-        setCompletionYear(String(data.completion_year));
+        setHandoverYear(String(data.completion_year));
       }
       setUnitsTotal(data.units_total != null ? String(data.units_total) : "");
       setUnitsSold(data.units_sold != null ? String(data.units_sold) : "");
@@ -236,8 +260,17 @@ function CreateSalePageInner() {
         data.house_rules && typeof data.house_rules === "object"
           ? (data.house_rules as Record<string, unknown>)
           : {};
-      if (typeof rules.handover_date === "string") {
-        setHandoverDate(rules.handover_date);
+      const monthRaw = Number(rules.handover_month);
+      if (Number.isInteger(monthRaw) && monthRaw >= 1 && monthRaw <= 12) {
+        setHandoverMonth(String(monthRaw));
+      }
+      // Legacy rows stored a string like "2026 ბოლო"; salvage the year.
+      if (
+        data.completion_year == null &&
+        typeof rules.handover_date === "string"
+      ) {
+        const legacyYear = rules.handover_date.match(/\d{4}/)?.[0];
+        if (legacyYear) setHandoverYear(legacyYear);
       }
       if (typeof rules.exact_location === "string") {
         setExactLocation(rules.exact_location);
@@ -291,13 +324,12 @@ function CreateSalePageInner() {
         throw new Error(tShared("enterPhone"));
       }
 
-      const handoverYear = handoverDate.match(/\d{4}/)?.[0];
+      const monthNum =
+        isUnderConstruction && handoverMonth ? Number(handoverMonth) : null;
       const yearNum =
-        isUnderConstruction && handoverYear
+        isUnderConstruction && handoverYear.trim()
           ? Number(handoverYear)
-          : isUnderConstruction && completionYear.trim()
-            ? Number(completionYear)
-            : null;
+          : null;
       const progressNum = isUnderConstruction ? constructionPercent : null;
 
       const parseOptionalNonNegative = (v: string): number | null => {
@@ -350,7 +382,7 @@ function CreateSalePageInner() {
         units_sold: unitsSoldNum,
         units_reserved: unitsReservedNum,
         house_rules: {
-          handover_date: handoverDate || null,
+          handover_month: monthNum,
           exact_location: exactLocation.trim() || null,
           management_service: managementService,
           price_currency: "USD",
@@ -493,13 +525,26 @@ function CreateSalePageInner() {
                     : undefined
                 }
               >
-                <StyledSelect
-                  value={handoverDate}
-                  onValueChange={setHandoverDate}
-                  options={handoverOptions}
-                  accent="blue"
-                  disabled={!isUnderConstruction}
-                />
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <StyledSelect
+                      value={handoverMonth}
+                      onValueChange={setHandoverMonth}
+                      options={handoverMonthOptions}
+                      accent="blue"
+                      disabled={!isUnderConstruction}
+                    />
+                  </div>
+                  <div className="w-[104px] shrink-0">
+                    <StyledSelect
+                      value={handoverYear}
+                      onValueChange={setHandoverYear}
+                      options={handoverYearOptions}
+                      accent="blue"
+                      disabled={!isUnderConstruction}
+                    />
+                  </div>
+                </div>
               </Field>
             </div>
 

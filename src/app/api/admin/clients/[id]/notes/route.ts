@@ -14,7 +14,7 @@ export async function PATCH(
   const body = (await req.json().catch(() => null)) as {
     admin_notes?: string | null;
   } | null;
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { error } = await db
     .from("profiles")
     .update({ admin_notes: body?.admin_notes ?? null })

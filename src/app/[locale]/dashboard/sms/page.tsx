@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SmsCenterClient } from "./SmsCenterClient";
-import { SENDER_ROLES, type SenderRole } from "@/lib/sms/audience";
+import { canUseSmsCenter } from "@/lib/sms/sender-access";
 
 const DEFAULT_RULES = {
   check_in_reminder_enabled: false,
@@ -28,8 +28,7 @@ export default async function SmsCenterPage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = (profile?.role ?? "guest") as SenderRole;
-  if (!SENDER_ROLES.has(role)) {
+  if (!(await canUseSmsCenter(supabase, user.id, profile?.role))) {
     redirect("/dashboard");
   }
 
@@ -50,7 +49,7 @@ export default async function SmsCenterPage() {
 
   return (
     <SmsCenterClient
-      role={role}
+      role="renter"
       senderName={profile?.display_name ?? null}
       initialSmsRemaining={Number(balanceRes.data?.sms_remaining ?? 0)}
       initialRules={rulesRes.data ?? DEFAULT_RULES}

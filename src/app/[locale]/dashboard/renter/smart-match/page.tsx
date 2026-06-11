@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { AlertTriangle, Home, Inbox } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,6 +88,7 @@ export default function RenterSmartMatchPage() {
   const t = useTranslations("RenterSmartMatch");
   const tShared = useTranslations("DashboardShared");
   const tSchedule = useTranslations("CleanerSchedule");
+  const tModal = useTranslations("SmartMatchModal");
   const { user } = useAuth();
   const supabase = createClient();
   const { zones: activeZones } = useActiveZones();
@@ -205,8 +207,12 @@ export default function RenterSmartMatchPage() {
               filtered.map((r) => r.id),
             );
           if (existingOffers) {
+            // Merge, don't replace: a reseed racing a just-sent offer (this tab
+            // or another) must not wipe its id — offers are never deleted, so
+            // ids only ever become true.
             setSubmittedRequestIds(
-              new Set(existingOffers.map((o) => o.request_id)),
+              (prev) =>
+                new Set([...prev, ...existingOffers.map((o) => o.request_id)]),
             );
           }
         }
@@ -218,6 +224,27 @@ export default function RenterSmartMatchPage() {
 
     const channel = supabase
       .channel("smart-match-inbox")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "smart_match_offers",
+        },
+        (payload) => {
+          // Keeps the "responded" state live across tabs/devices without a
+          // refetch. RLS (renter_read_own_offers) already scopes delivery to
+          // this renter's offers; the guard is defensive.
+          const offer = payload.new as {
+            renter_id?: string;
+            request_id?: string;
+          };
+          if (offer.renter_id === user!.id && offer.request_id) {
+            const offerRequestId = offer.request_id;
+            setSubmittedRequestIds((prev) => new Set(prev).add(offerRequestId));
+          }
+        },
+      )
       .on(
         "postgres_changes",
         {
@@ -238,43 +265,44 @@ export default function RenterSmartMatchPage() {
   }, [user]);
 
   const modalRequests: SmartMatchRequestItem[] = useMemo(() => {
-    const scored = requests
-      .filter((r) => !submittedRequestIds.has(r.id))
-      .map((r) => {
-        const guestName = r.profiles?.display_name ?? tShared("defaultGuest");
-        const initials = guestName
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase();
-        const mreq = toMatchRequest(r);
-        const { matchPercent, belowOwnerPrice, capacityShort } = scoreRequest(
-          mreq,
-          ownerMatchProps,
-        );
-        const clientBudget = Number(r.budget_max ?? r.budget_min ?? 0);
-        const item: SmartMatchRequestItem & { _dbId: string } = {
-          id: shortRequestId(r.id),
-          guestName,
-          initials: initials || "?",
-          postedAgo: postedAgo(tShared, r.created_at),
-          matchPercent,
-          zone: r.zone ?? t("allZones"),
-          dates: formatDates(tSchedule, r.check_in, r.check_out),
-          guests: r.guests_count
-            ? t("guestsCount", { count: r.guests_count })
-            : "—",
-          clientBudget,
-          belowOwnerPrice,
-          capacityShort,
-          // Keep real DB id for submission via a side channel
-          _dbId: r.id,
-        };
-        return { item, score: matchPercent, createdAt: r.created_at };
-      });
+    const scored = requests.map((r) => {
+      const guestName = r.profiles?.display_name ?? tShared("defaultGuest");
+      const initials = guestName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+      const mreq = toMatchRequest(r);
+      const { matchPercent, belowOwnerPrice, capacityShort } = scoreRequest(
+        mreq,
+        ownerMatchProps,
+      );
+      const clientBudget = Number(r.budget_max ?? r.budget_min ?? 0);
+      const item: SmartMatchRequestItem & { _dbId: string } = {
+        id: shortRequestId(r.id),
+        guestName,
+        initials: initials || "?",
+        postedAgo: postedAgo(tShared, r.created_at),
+        matchPercent,
+        zone: r.zone ?? t("allZones"),
+        dates: formatDates(tSchedule, r.check_in, r.check_out),
+        guests: r.guests_count
+          ? t("guestsCount", { count: r.guests_count })
+          : "—",
+        clientBudget,
+        belowOwnerPrice,
+        capacityShort,
+        responded: submittedRequestIds.has(r.id),
+        // Keep real DB id for submission via a side channel
+        _dbId: r.id,
+      };
+      return { item, score: matchPercent, createdAt: r.created_at };
+    });
 
-    // Best matches first, then most recent.
+    // Best matches first, then most recent. Responded cards keep their rank
+    // position so the card the user just answered doesn't teleport away from
+    // under their cursor — its green "sent" panel shows in place instead.
     scored.sort(
       (a, b) =>
         b.score - a.score ||
@@ -291,8 +319,8 @@ export default function RenterSmartMatchPage() {
     requestId: string;
     propertyId: string;
     offeredPrice: number;
-  }) {
-    if (!user) return;
+  }): Promise<boolean> {
+    if (!user) return false;
     // Look up the real DB id by short id
     const requestRow = modalRequests.find((r) => r.id === requestId) as
       | (SmartMatchRequestItem & { _dbId: string })
@@ -300,7 +328,7 @@ export default function RenterSmartMatchPage() {
     const realRequestId = requestRow?._dbId ?? requestId;
 
     const guestRequest = requests.find((r) => r.id === realRequestId);
-    if (!guestRequest) return;
+    if (!guestRequest) return false;
 
     const { error } = await supabase.from("smart_match_offers").insert({
       request_id: realRequestId,
@@ -311,16 +339,28 @@ export default function RenterSmartMatchPage() {
     });
 
     if (error) {
+      // Duplicate (request_id, property_id) means an offer already exists —
+      // treat it as sent instead of failing.
+      if (error.code === "23505") {
+        setSubmittedRequestIds((prev) => new Set(prev).add(realRequestId));
+        return true;
+      }
       console.error("Failed to submit offer", error);
-      return;
+      toast.error(tModal("offerError"));
+      return false;
     }
 
     // The guest is notified server-side by the notify_guest_of_smart_match_offer
     // trigger that fires on the insert above.
     setSubmittedRequestIds((prev) => new Set(prev).add(realRequestId));
+    return true;
   }
 
-  const incomingCount = modalRequests.length;
+  // Responded cards stay visible in the modal; only unanswered ones count as
+  // "incoming" for the stat and banner. "Sent" counts responded cards within
+  // the same visible window so the two stats always add up.
+  const actionableCount = modalRequests.filter((r) => !r.responded).length;
+  const respondedCount = modalRequests.length - actionableCount;
 
   return (
     <div className="space-y-6">
@@ -340,12 +380,12 @@ export default function RenterSmartMatchPage() {
         {[
           {
             label: t("statIncoming"),
-            value: incomingCount,
+            value: actionableCount,
             color: "bg-green-100 text-green-600",
           },
           {
             label: t("statSent"),
-            value: submittedRequestIds.size,
+            value: respondedCount,
             color: "bg-brand-accent-light text-brand-accent",
           },
           {
@@ -378,16 +418,18 @@ export default function RenterSmartMatchPage() {
           SMART MATCH
         </span>
         <h2 className="mt-3 text-[24px] font-black leading-[30px]">
-          {incomingCount > 0
-            ? t("bannerNew", { count: incomingCount })
-            : t("bannerEmpty")}
+          {actionableCount > 0
+            ? t("bannerNew", { count: actionableCount })
+            : modalRequests.length > 0
+              ? t("bannerAllAnswered")
+              : t("bannerEmpty")}
         </h2>
         <p className="mt-2 max-w-xl text-[13px] font-medium text-white/80">
           {t("bannerDesc")}
         </p>
         <button
           type="button"
-          disabled={incomingCount === 0}
+          disabled={modalRequests.length === 0}
           onClick={() => setModalOpen(true)}
           className="mt-5 rounded-xl bg-white px-5 py-2.5 text-[13px] font-black text-[#0F172A] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
@@ -422,12 +464,15 @@ export default function RenterSmartMatchPage() {
         </div>
       )}
 
-      {!loading && !loadError && !noActiveListings && incomingCount === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
-          <Inbox className="h-12 w-12 text-[#94A3B8]" />
-          <p className="mt-3 text-sm text-[#94A3B8]">{t("empty")}</p>
-        </div>
-      )}
+      {!loading &&
+        !loadError &&
+        !noActiveListings &&
+        modalRequests.length === 0 && (
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+            <Inbox className="h-12 w-12 text-[#94A3B8]" />
+            <p className="mt-3 text-sm text-[#94A3B8]">{t("empty")}</p>
+          </div>
+        )}
 
       <SmartMatchRequestsModal
         isOpen={modalOpen}

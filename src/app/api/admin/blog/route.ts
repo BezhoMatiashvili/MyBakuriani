@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const slug = `${slugify(body.title)}-${Date.now().toString(36)}`;
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db
     .from("blog_posts")
     .insert({

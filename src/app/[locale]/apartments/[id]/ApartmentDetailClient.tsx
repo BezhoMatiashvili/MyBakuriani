@@ -12,19 +12,6 @@ import {
   Bath,
   Maximize,
   Eye,
-  Wifi,
-  Car,
-  Snowflake,
-  Flame,
-  Tv,
-  UtensilsCrossed,
-  WashingMachine,
-  Mountain,
-  Warehouse,
-  Fence,
-  Waves,
-  Sparkles,
-  Hotel,
   ChevronDown,
   ChevronUp,
   CigaretteOff,
@@ -51,26 +38,8 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ),
 });
 import type { Tables } from "@/lib/types/database";
-
-const AMENITY_MAP: Record<
-  string,
-  { icon: React.ElementType; labelKey: string }
-> = {
-  wifi: { icon: Wifi, labelKey: "wifi" },
-  parking: { icon: Car, labelKey: "parking" },
-  ski_storage: { icon: Warehouse, labelKey: "skiStorage" },
-  fireplace: { icon: Flame, labelKey: "fireplace" },
-  balcony: { icon: Fence, labelKey: "balcony" },
-  pool: { icon: Waves, labelKey: "pool" },
-  spa: { icon: Sparkles, labelKey: "spa" },
-  restaurant: { icon: Hotel, labelKey: "restaurant" },
-  heating: { icon: Flame, labelKey: "heating" },
-  ac: { icon: Snowflake, labelKey: "ac" },
-  tv: { icon: Tv, labelKey: "tv" },
-  kitchen: { icon: UtensilsCrossed, labelKey: "kitchen" },
-  washer: { icon: WashingMachine, labelKey: "washer" },
-  mountain_view: { icon: Mountain, labelKey: "mountainView" },
-};
+import { AMENITY_ICONS } from "@/lib/constants/amenity-icons";
+import { optionKeyFor } from "@/lib/constants/listing-options";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -115,7 +84,7 @@ export default function ApartmentDetailClient({
 }: Props) {
   const t = useTranslations("ApartmentDetail");
   const tDetail = useTranslations("PropertyDetail");
-  const tAmenities = useTranslations("Amenities");
+  const tOpts = useTranslations("ListingOptions");
   const tRules = useTranslations("HouseRules");
   const tShared = useTranslations("Shared");
   const locale = useLocale();
@@ -302,9 +271,14 @@ export default function ApartmentDetailClient({
                 )}
                 {(amenitiesExpanded ? amenities : amenities.slice(0, 3)).map(
                   (key) => {
-                    const amenity = AMENITY_MAP[key];
-                    const Icon = amenity?.icon;
-                    const label = amenity ? tAmenities(amenity.labelKey) : key;
+                    const optKey = optionKeyFor("amenities", key);
+                    const Icon = optKey ? AMENITY_ICONS[optKey] : undefined;
+                    const label =
+                      optKey === "no_balcony"
+                        ? tDetail("balconyNone")
+                        : optKey
+                          ? tOpts(`amenities.${optKey}`)
+                          : key;
                     return (
                       <div
                         key={key}

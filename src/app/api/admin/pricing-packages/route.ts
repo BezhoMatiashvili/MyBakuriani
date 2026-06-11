@@ -152,7 +152,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const db = createServiceClient();
+    const db = createServiceClient(guard.admin.userId);
     const { data: updated, error } = await db
       .from("pricing_packages")
       .update(patch)
@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
       is_enabled: true,
     };
 
-    const db = createServiceClient();
+    const db = createServiceClient(guard.admin.userId);
     const { data, error } = await db
       .from("pricing_packages")
       .insert(insert)
@@ -299,7 +299,7 @@ export async function DELETE(req: NextRequest) {
     const id = req.nextUrl.searchParams.get("id");
     if (!id) return Response.json({ error: "id required" }, { status: 400 });
 
-    const db = createServiceClient();
+    const db = createServiceClient(guard.admin.userId);
     const { data: pkg, error: readError } = await db
       .from("pricing_packages")
       .select("id, category, name")

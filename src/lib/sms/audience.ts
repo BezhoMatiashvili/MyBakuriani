@@ -25,8 +25,11 @@ export type SenderRole =
   | "employment"
   | "handyman";
 
-// SMS Center is renter-only. The SenderRole type / AUDIENCES_BY_ROLE below keep
-// every role (their audience values are DB enum-tied), but only renters may send.
+// SMS Center is renter-cabinet-only: access is gated by canUseSmsCenter in
+// @/lib/sms/sender-access (role renter OR owns a rental listing), and the
+// effective sender role is always "renter". The SenderRole type /
+// AUDIENCES_BY_ROLE below keep every role (their audience values are DB
+// enum-tied), but only renter audiences are reachable.
 export const SENDER_ROLES = new Set<SenderRole>(["renter"]);
 
 export const AUDIENCES_BY_ROLE: Record<SenderRole, SmsAudience[]> = {

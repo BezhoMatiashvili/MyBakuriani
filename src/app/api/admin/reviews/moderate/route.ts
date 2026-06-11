@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { error } = await db
     .from("reviews")
     .update({

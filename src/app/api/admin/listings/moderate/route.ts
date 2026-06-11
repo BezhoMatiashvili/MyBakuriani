@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "invalid kind" }, { status: 400 });
   }
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const table = body.kind === "property" ? "properties" : "services";
   const newStatus = body.action === "approve" ? "active" : "blocked";
 

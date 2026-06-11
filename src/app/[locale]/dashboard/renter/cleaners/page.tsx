@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Phone, Calendar, RotateCcw } from "lucide-react";
+import { Phone, Calendar, RotateCcw, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import CleanerCallModal from "@/components/renter/CleanerCallModal";
+import AddCleanerModal from "@/components/renter/AddCleanerModal";
 import { formatDateTime, formatPrice } from "@/lib/utils/format";
 import {
   optionKeyFor,
@@ -60,6 +61,9 @@ export default function RenterCleanersPage() {
 
   const [cleaners, setCleaners] = useState<PlatformCleaner[]>([]);
   const [cleanersLoaded, setCleanersLoaded] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savedLoaded, setSavedLoaded] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
   const [callModal, setCallModal] = useState<CallTarget | null>(null);
@@ -69,6 +73,56 @@ export default function RenterCleanersPage() {
     if (data) setCleaners(data);
     setCleanersLoaded(true);
   }, [supabase]);
+
+  // Bumped on every toggle so an in-flight refetch can't clobber newer state.
+  const savedVersion = useRef(0);
+
+  const fetchSaved = useCallback(async () => {
+    if (!user) return;
+    const version = savedVersion.current;
+    const { data } = await supabase
+      .from("renter_saved_cleaners")
+      .select("cleaner_id")
+      .eq("owner_id", user.id);
+    if (data && savedVersion.current === version) {
+      setSavedIds(new Set(data.map((row) => row.cleaner_id)));
+    }
+    setSavedLoaded(true);
+  }, [supabase, user]);
+
+  // Optimistic add/remove of a cleaner in the renter's list, with rollback.
+  // Returns false when the write failed so the dialog can surface it.
+  const toggleSaved = useCallback(
+    async (cleanerId: string, save: boolean) => {
+      if (!user) return false;
+      savedVersion.current += 1;
+      const apply = (ids: Set<string>, add: boolean) => {
+        const next = new Set(ids);
+        if (add) next.add(cleanerId);
+        else next.delete(cleanerId);
+        return next;
+      };
+      setSavedIds((prev) => apply(prev, save));
+      const { error } = save
+        ? await supabase
+            .from("renter_saved_cleaners")
+            .upsert(
+              { owner_id: user.id, cleaner_id: cleanerId },
+              { onConflict: "owner_id,cleaner_id", ignoreDuplicates: true },
+            )
+        : await supabase
+            .from("renter_saved_cleaners")
+            .delete()
+            .eq("owner_id", user.id)
+            .eq("cleaner_id", cleanerId);
+      if (error) {
+        setSavedIds((prev) => apply(prev, !save));
+        return false;
+      }
+      return true;
+    },
+    [supabase, user],
+  );
 
   const fetchTasks = useCallback(async () => {
     if (!user) return;
@@ -84,6 +138,10 @@ export default function RenterCleanersPage() {
   useEffect(() => {
     fetchCleaners();
   }, [fetchCleaners]);
+
+  useEffect(() => {
+    fetchSaved();
+  }, [fetchSaved]);
 
   useEffect(() => {
     fetchTasks();
@@ -140,18 +198,38 @@ export default function RenterCleanersPage() {
 
   const visibleTasks = tasks.filter((task) => task.status !== "cancelled");
 
+  // One entry per person (a cleaner may list several cleaning services);
+  // the deduped list feeds both the grid and the add dialog so they agree.
+  const uniqueCleaners = cleaners.filter(
+    (c, i) => cleaners.findIndex((o) => o.cleaner_id === c.cleaner_id) === i,
+  );
+  // Only cleaners the renter added themselves.
+  const myCleaners = uniqueCleaners.filter((c) => savedIds.has(c.cleaner_id));
+  const listReady = cleanersLoaded && savedLoaded;
+
   return (
     <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
+        className="flex flex-wrap items-start justify-between gap-3"
       >
-        <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          {t("title")}
-        </h1>
-        <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          {t("subtitleEmpty")}
-        </p>
+        <div>
+          <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+            {t("title")}
+          </h1>
+          <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+            {t("subtitleEmpty")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAddModalOpen(true)}
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
+        >
+          <UserPlus className="h-4 w-4" strokeWidth={2.4} />
+          {tShared("add")}
+        </button>
       </motion.div>
 
       <motion.div
@@ -160,7 +238,7 @@ export default function RenterCleanersPage() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
       >
-        {cleaners.map((cleaner) => (
+        {myCleaners.map((cleaner) => (
           <article
             key={cleaner.service_id}
             className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
@@ -232,10 +310,11 @@ export default function RenterCleanersPage() {
           </article>
         ))}
 
-        {cleanersLoaded && cleaners.length === 0 && (
+        {listReady && myCleaners.length === 0 && (
           <div className="rounded-[20px] border border-dashed border-[#E2E8F0] bg-white px-6 py-14 text-center sm:col-span-2 xl:col-span-3">
-            <p className="text-sm font-medium text-[#64748B]">
-              {t("noCleanersAvailable")}
+            <p className="text-sm font-semibold text-[#0F172A]">{t("empty")}</p>
+            <p className="mt-1 text-sm font-medium text-[#64748B]">
+              {t("emptyHint")}
             </p>
           </div>
         )}
@@ -318,6 +397,15 @@ export default function RenterCleanersPage() {
         prefill={callModal?.prefill}
         onClose={() => setCallModal(null)}
         onSent={fetchTasks}
+      />
+
+      <AddCleanerModal
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        cleaners={uniqueCleaners}
+        loading={!listReady}
+        savedIds={savedIds}
+        onToggle={toggleSaved}
       />
     </div>
   );

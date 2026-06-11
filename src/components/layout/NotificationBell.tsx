@@ -23,8 +23,11 @@ interface NotificationBellProps {
   unreadCount: number;
   loading: boolean;
   markAsRead: (id: string) => Promise<void>;
-  viewAllPath: string;
+  /** Omit for roles without a dedicated notifications page (hides the footer link). */
+  viewAllPath?: string;
   variant?: "desktop" | "mobile";
+  /** Overrides the variant trigger styling (e.g. dashboard topbar buttons). */
+  triggerClassName?: string;
 }
 
 export function NotificationBell({
@@ -34,6 +37,7 @@ export function NotificationBell({
   markAsRead,
   viewAllPath,
   variant = "desktop",
+  triggerClassName,
 }: NotificationBellProps) {
   const t = useTranslations("Navbar");
   const tShared = useTranslations("DashboardShared");
@@ -73,9 +77,10 @@ export function NotificationBell({
       <PopoverTrigger
         aria-label={t("notificationsAria", { count: unreadCount })}
         className={
-          variant === "mobile"
+          triggerClassName ??
+          (variant === "mobile"
             ? "relative inline-flex h-10 w-10 items-center justify-center rounded-full text-[#334155] transition-colors hover:bg-[#F1F5F9]"
-            : "relative inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] text-[#2563EB] transition-colors hover:bg-[#EFF6FF]"
+            : "relative inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] text-[#2563EB] transition-colors hover:bg-[#EFF6FF]")
         }
       >
         <Bell className="size-5" aria-hidden />
@@ -97,7 +102,9 @@ export function NotificationBell({
           <span className="text-[14px] font-extrabold text-[#0F172A]">
             {t("notifications")}
           </span>
-          {unreadCount > 0 && (
+          {/* Hidden while loading: markAllRead derives the unread list from the
+              not-yet-fetched local state, so a click would be a silent no-op. */}
+          {!loading && unreadCount > 0 && (
             <button
               type="button"
               onClick={markAllRead}
@@ -181,15 +188,17 @@ export function NotificationBell({
           </ul>
         )}
 
-        <div className="border-t border-[#EEF1F4] px-4 py-2.5">
-          <Link
-            href={viewAllPath as never}
-            onClick={() => setOpen(false)}
-            className="block text-center text-[12px] font-bold text-[#2563EB] hover:underline"
-          >
-            {t("viewAll")}
-          </Link>
-        </div>
+        {viewAllPath && (
+          <div className="border-t border-[#EEF1F4] px-4 py-2.5">
+            <Link
+              href={viewAllPath as never}
+              onClick={() => setOpen(false)}
+              className="block text-center text-[12px] font-bold text-[#2563EB] hover:underline"
+            >
+              {t("viewAll")}
+            </Link>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

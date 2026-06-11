@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "bad_action" }, { status: 400 });
   }
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
 
   if (body.broadcast_id) {
     return moderateBroadcast(db, guard.admin.userId, body);

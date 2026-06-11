@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     : VIDEO_TYPES[body.contentType];
   const path = `${body.kind}/${crypto.randomUUID()}.${ext}`;
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data: signed, error: signErr } = await db.storage
     .from(BUCKET)
     .createSignedUploadUrl(path);

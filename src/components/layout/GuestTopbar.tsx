@@ -1,8 +1,9 @@
 "use client";
 
-import { Search, CheckCircle2, Bell } from "lucide-react";
+import { Search, CheckCircle2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { DashboardNotificationBell } from "@/components/layout/DashboardNotificationBell";
 
 interface GuestTopbarProps {
   searchPlaceholder?: string;
@@ -37,16 +38,10 @@ export function GuestTopbar({
 
         <LanguageSelector />
 
-        <button
-          type="button"
-          aria-label={tLayout("topbar.notificationsAria")}
-          className="relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-[#0F8F60] hover:text-[#0F8F60]"
-        >
-          <Bell className="h-[18px] w-[18px]" />
-          {notificationCount > 0 && (
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#EF4444]" />
-          )}
-        </button>
+        <DashboardNotificationBell
+          initialUnreadCount={notificationCount}
+          triggerClassName="relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-[#0F8F60] hover:text-[#0F8F60]"
+        />
       </div>
     </header>
   );

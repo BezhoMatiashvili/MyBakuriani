@@ -314,7 +314,7 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ ok: true, updated: 0 });
   }
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const table: "properties" | "services" =
     body.kind === "property" ? "properties" : "services";
 

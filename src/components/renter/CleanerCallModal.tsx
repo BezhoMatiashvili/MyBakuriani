@@ -7,6 +7,8 @@ import { X, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { optionKeyFor } from "@/lib/constants/listing-options";
+import DateField from "@/components/shared/DateField";
+import TimeField from "@/components/shared/TimeField";
 
 interface PropertyOption {
   id: string;
@@ -238,19 +240,17 @@ export default function CleanerCallModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label={tShared("date")}>
-                  <input
-                    type="date"
+                  <DateField
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                    onChange={setDate}
+                    className="h-[42px]"
                   />
                 </Field>
                 <Field label={tShared("time")}>
-                  <input
-                    type="time"
+                  <TimeField
                     value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                    onChange={setTime}
+                    className="h-[42px]"
                   />
                 </Field>
               </div>

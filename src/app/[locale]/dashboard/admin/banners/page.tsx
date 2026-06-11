@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import MediaUploader, {
   type MediaValue,
 } from "@/components/forms/MediaUploader";
+import DateTimeField from "@/components/shared/DateTimeField";
 import {
   BANNER_KINDS,
   BANNER_TONE_STYLES,
@@ -472,21 +473,19 @@ export default function AdminBannersPage() {
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Field label={t("startOptional")}>
-                  <input
-                    type="datetime-local"
-                    name="start_at"
+                  <DateTimeField
                     value={form.start_at}
-                    onChange={onField}
-                    className={inputCls}
+                    onChange={(v) => setForm((p) => ({ ...p, start_at: v }))}
+                    clearable
+                    className="h-[55px] rounded-2xl"
                   />
                 </Field>
                 <Field label={t("endOptional")}>
-                  <input
-                    type="datetime-local"
-                    name="end_at"
+                  <DateTimeField
                     value={form.end_at}
-                    onChange={onField}
-                    className={inputCls}
+                    onChange={(v) => setForm((p) => ({ ...p, end_at: v }))}
+                    clearable
+                    className="h-[55px] rounded-2xl"
                   />
                 </Field>
               </div>

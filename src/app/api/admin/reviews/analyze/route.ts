@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!body?.id)
     return Response.json({ error: "id required" }, { status: 400 });
 
-  const db = createServiceClient();
+  const db = createServiceClient(guard.admin.userId);
   const { data: review, error: fetchErr } = await db
     .from("reviews")
     .select("id, rating, comment")

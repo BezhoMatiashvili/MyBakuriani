@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Check, Clock, MapPin, Play, User } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDateShort, formatNumber, formatTime } from "@/lib/utils/format";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import {
+  formatDateShort,
+  formatNumber,
+  formatTime,
+  getDateFnsLocale,
+} from "@/lib/utils/format";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 
@@ -29,10 +40,6 @@ function dayPartKey(d: Date): "morning" | "afternoon" | "evening" {
   return "evening";
 }
 
-function toInputDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 export default function CleanerSchedulePage() {
   const t = useTranslations("CleanerSchedule");
   const tOpts = useTranslations("ListingOptions");
@@ -43,7 +50,7 @@ export default function CleanerSchedulePage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDate, setActiveDate] = useState<Date>(() => new Date());
-  const dateInputRef = useRef<HTMLInputElement>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -111,22 +118,6 @@ export default function CleanerSchedulePage() {
         ),
     [tasks, activeDate],
   );
-
-  function openCalendar() {
-    const input = dateInputRef.current;
-    if (!input) return;
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-    } else {
-      input.click();
-    }
-  }
-
-  function handleDatePick(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.value) return;
-    const [y, m, d] = e.target.value.split("-").map(Number);
-    setActiveDate(new Date(y, m - 1, d));
-  }
 
   async function startTask(id: string) {
     const startedAt = new Date().toISOString();
@@ -206,10 +197,8 @@ export default function CleanerSchedulePage() {
             aria-hidden
             className="mx-1 hidden h-8 w-px bg-[#EEF1F4] sm:block"
           />
-          <div className="relative">
-            <button
-              type="button"
-              onClick={openCalendar}
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-[13px] font-bold transition-colors ${
                 isCustomDate
                   ? "bg-[#2563EB] text-white"
@@ -220,17 +209,25 @@ export default function CleanerSchedulePage() {
               {isCustomDate
                 ? formatDateShort(activeDate, locale)
                 : t("calendar")}
-            </button>
-            <input
-              ref={dateInputRef}
-              type="date"
-              value={toInputDate(activeDate)}
-              onChange={handleDatePick}
-              className="sr-only"
-              tabIndex={-1}
-              aria-hidden
-            />
-          </div>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={8}
+              className="w-auto max-w-none p-2 md:w-auto"
+            >
+              <CalendarPicker
+                mode="single"
+                selected={activeDate}
+                defaultMonth={activeDate}
+                locale={getDateFnsLocale(locale)}
+                onSelect={(d) => {
+                  if (!d) return;
+                  setActiveDate(d);
+                  setCalendarOpen(false);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </motion.div>
 

@@ -174,6 +174,7 @@
       "promoCodes": "Promo Codes",
       "banners": "Banners",
       "news": "News",
+      "logs": "Logs",
       "graphic": "Schedule"
     },
     "notifications": "{count} notifications",
@@ -299,16 +300,6 @@
       "hotel": "Hotel",
       "villa": "Villa",
       "studio": "Studio"
-    },
-    "amenityLabels": {
-      "wifi": "Wi-Fi",
-      "parking": "Parking",
-      "skiStorage": "Ski Storage",
-      "fireplace": "Fireplace",
-      "balcony": "Balcony",
-      "pool": "Pool",
-      "spa": "SPA",
-      "restaurant": "Restaurant"
     }
   },
   "RentBuyToggle": {
@@ -559,7 +550,6 @@
       "searchIdNumber": "Search (ID, number)...",
       "activeVisitor": "Active visitor",
       "smsSuffix": " / {total} SMS",
-      "notificationsAria": "Notifications",
       "available": "Active",
       "unavailable": "Inactive"
     }
@@ -726,6 +716,7 @@
     "emptyRequests": "No new requests yet",
     "offerSent": "✓ Offer sent",
     "offerSentHint": "The guest will see your offer in their dashboard.",
+    "offerError": "Failed to send the offer. Please try again.",
     "yourPriceLabel": "Your price (confidential):",
     "perNight": "₾ /night",
     "pickProperty": "Select a property to offer:",
@@ -993,7 +984,13 @@
     "legendBooked": "Booked",
     "legendSelected": "Selected",
     "prevMonth": "Previous month",
-    "nextMonth": "Next month"
+    "nextMonth": "Next month",
+    "selectDate": "Select date",
+    "selectTime": "Select time",
+    "clear": "Clear",
+    "done": "Done",
+    "hours": "Hours",
+    "minutes": "Minutes"
   },
   "BakurianiMap": {
     "bakuriani": "Bakuriani",
@@ -1070,7 +1067,8 @@
     "noReviews": "No reviews yet",
     "anonymous": "Anonymous",
     "ownerFallback": "Owner",
-    "book": "Book"
+    "book": "Book",
+    "balconyNone": "Balcony: none"
   },
   "ApartmentDetail": {
     "showLess": "Show less",
@@ -1099,23 +1097,6 @@
     "included": "Included",
     "notIncluded": "Not included"
   },
-  "Amenities": {
-    "wifi": "Wi-Fi",
-    "parking": "Parking",
-    "skiStorage": "Ski storage",
-    "fireplace": "Fireplace",
-    "balcony": "Balcony",
-    "pool": "Pool",
-    "spa": "Spa",
-    "restaurant": "Restaurant",
-    "heating": "Heating",
-    "ac": "Air conditioning",
-    "tv": "TV",
-    "kitchen": "Kitchen",
-    "washer": "Washing machine",
-    "laundry": "Laundry",
-    "mountainView": "Mountain view"
-  },
   "SaleDetail": {
     "postedToday": "Posted: today",
     "postedOneDayAgo": "Posted: 1 day ago",
@@ -1128,6 +1109,7 @@
     "typeFallback": "Property",
     "underConstruction": "Under construction",
     "completed": "Completed",
+    "oldBuilt": "Older building",
     "complexManagement": "Complex management available",
     "securedArea": "Secured area",
     "share": "Share",
@@ -1139,6 +1121,7 @@
     "investmentMetrics": "Investment metrics and status",
     "constructionStage": "Construction stage",
     "deliveredInYear": "Delivery: {year}",
+    "deliveredOn": "Delivery: {date}",
     "renovationState": "Renovation condition",
     "managementService": "Management service",
     "expectedRoi": "Expected ROI",
@@ -1947,6 +1930,7 @@
     "constructionStatuses": {
       "under_construction": "Under construction",
       "completed": "Newly built / completed",
+      "old_built": "Older building",
       "ready": "Move-in ready",
       "planned": "Planned"
     },
@@ -1966,12 +1950,6 @@
       "ski_rack": "Ski rack",
       "extra_rack": "Extra luggage rack",
       "child_seat": "Child seat"
-    },
-    "handoverOptions": {
-      "delivered": "Already delivered",
-      "2024_end": "End of 2024",
-      "2025_spring": "Spring 2025",
-      "2026_end": "End of 2026"
     },
     "renovationStatuses": {
       "black_frame": "Black frame",
@@ -2048,7 +2026,11 @@
       "french_balcony": "French balcony",
       "standard_balcony": "Standard balcony",
       "large_terrace": "Large terrace",
-      "yard": "Yard"
+      "yard": "Yard",
+      "heating": "Heating",
+      "kitchen": "Kitchen",
+      "bbq": "BBQ",
+      "complex_management": "Complex management"
     },
     "hostingLangs": {
       "ka": "Georgian",
@@ -2913,6 +2895,7 @@
     "statZones": "Your zones",
     "bannerNew": "{count} new requests for your zones",
     "bannerEmpty": "No incoming requests yet",
+    "bannerAllAnswered": "You've responded to every request",
     "bannerDesc": "View guest requests and send personal offers.",
     "viewRequests": "View requests",
     "empty": "No new requests yet",
@@ -2929,6 +2912,7 @@
     "subtitleCount": "Send cleaning tasks in {count} clicks.",
     "available": "Available",
     "empty": "No cleaners added yet",
+    "emptyHint": "Tap the \"Add\" button to choose a cleaner",
     "callOut": "Call out",
     "noCleanersAvailable": "No cleaners are available right now",
     "myCalls": "My call-outs",
@@ -2951,6 +2935,13 @@
       "sending": "Sending...",
       "submit": "Send call-out",
       "sendError": "Could not send the request, please try again"
+    },
+    "addModal": {
+      "title": "Add a cleaner",
+      "add": "Add",
+      "added": "Added",
+      "remove": "Remove",
+      "error": "Could not save, please try again"
     }
   },
   "RenterGuests": {
@@ -3026,6 +3017,116 @@
     "submitError": "Failed to save review. Please try again.",
     "submitting": "Submitting...",
     "submit": "Submit review"
+  },
+  "AdminLogs": {
+    "title": "Logs",
+    "subtitle": "Complete activity history of users and listings",
+    "searchPlaceholder": "Search for a user or listing...",
+    "searchEmpty": "Nothing found",
+    "activeFilter": "Filter",
+    "clearFilter": "Clear filter",
+    "system": "System",
+    "loadMore": "Show more",
+    "empty": "No records yet",
+    "loadError": "Failed to load logs",
+    "showDiff": "Details",
+    "hideDiff": "Hide",
+    "fullHistory": "Full history",
+    "activityTitle": "Activity",
+    "kinds": {
+      "user": "User",
+      "property": "Listing",
+      "service": "Service"
+    },
+    "ops": {
+      "INSERT": "Created",
+      "UPDATE": "Updated",
+      "DELETE": "Deleted",
+      "LOGIN": "Login"
+    },
+    "events": {
+      "auth_users_LOGIN": "Signed in",
+      "profiles_INSERT": "Registered",
+      "profiles_UPDATE": "Profile updated",
+      "transactions_INSERT": "Transaction",
+      "balances_UPDATE": "Balance changed",
+      "properties_INSERT": "Listing created",
+      "properties_UPDATE": "Listing updated",
+      "properties_DELETE": "Listing deleted",
+      "services_INSERT": "Service created",
+      "services_UPDATE": "Service updated",
+      "services_DELETE": "Service deleted",
+      "bookings_INSERT": "New booking",
+      "bookings_UPDATE": "Booking updated",
+      "verifications_INSERT": "Verification requested",
+      "verifications_UPDATE": "Verification reviewed",
+      "reviews_INSERT": "New review",
+      "favorites_INSERT": "Added to favorites",
+      "favorites_DELETE": "Removed from favorites",
+      "smart_match_requests_INSERT": "Smart Match request",
+      "smart_match_offers_INSERT": "Smart Match offer",
+      "cleaning_tasks_INSERT": "Cleaning requested",
+      "cleaning_tasks_UPDATE": "Cleaning status updated"
+    },
+    "tables": {
+      "auth_users": "Authentication",
+      "profiles": "Profile",
+      "properties": "Listing",
+      "services": "Service",
+      "bookings": "Booking",
+      "transactions": "Transaction",
+      "balances": "Balance",
+      "verifications": "Verification",
+      "reviews": "Review",
+      "smart_match_requests": "Smart Match request",
+      "smart_match_offers": "Smart Match offer",
+      "cleaning_tasks": "Cleaning",
+      "calendar_blocks": "Calendar",
+      "price_overrides": "Price override",
+      "promocodes": "Promo code",
+      "manual_bookings": "Manual booking",
+      "favorites": "Favorite",
+      "sms_outbound": "SMS",
+      "sms_broadcasts": "SMS broadcast",
+      "sms_messages": "Message",
+      "sms_automation_rules": "SMS automation",
+      "user_subscriptions": "Subscription",
+      "leads": "Lead",
+      "job_applications": "Job application",
+      "renter_guests": "Guest",
+      "renter_cleaners": "Cleaner",
+      "cleaner_profiles": "Cleaner profile",
+      "zones": "Zone",
+      "pricing_packages": "Package",
+      "site_settings": "Site setting",
+      "landing_banners": "Banner",
+      "blog_posts": "Blog post",
+      "ads": "Ad",
+      "broadcasts": "Broadcast",
+      "project_updates": "Project update"
+    },
+    "fields": {
+      "status": "Status",
+      "title": "Title",
+      "description": "Description",
+      "price": "Price",
+      "price_per_night": "Price per night",
+      "sale_price": "Sale price",
+      "amount": "Amount",
+      "sms_remaining": "SMS balance",
+      "role": "Role",
+      "display_name": "Name",
+      "phone": "Phone",
+      "is_verified": "Verified",
+      "is_vip": "VIP",
+      "is_super_vip": "Super VIP",
+      "vip_expires_at": "VIP expires",
+      "admin_notes": "Admin notes",
+      "check_in": "Check-in",
+      "check_out": "Check-out",
+      "total_price": "Total price",
+      "discount_percent": "Discount %"
+    }
   },
   "AdminShared": {
     "loadFailed": "Failed to load",

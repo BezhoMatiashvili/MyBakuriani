@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Send, CalendarDays, Clock } from "lucide-react";
+import { X, Send } from "lucide-react";
+import DateField from "@/components/shared/DateField";
+import TimeField from "@/components/shared/TimeField";
 
 interface PropertyOption {
   id: string;
@@ -116,29 +118,21 @@ export default function RentOutModal({
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
                     {tShared("date")}
                   </label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                    />
-                    <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-                  </div>
+                  <DateField
+                    value={date}
+                    onChange={setDate}
+                    className="h-[46px]"
+                  />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
                     {tShared("time")}
                   </label>
-                  <div className="relative">
-                    <input
-                      type="time"
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                    />
-                    <Clock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-                  </div>
+                  <TimeField
+                    value={time}
+                    onChange={setTime}
+                    className="h-[46px]"
+                  />
                 </div>
               </div>
 
