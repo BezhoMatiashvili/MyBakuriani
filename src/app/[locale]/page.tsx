@@ -31,11 +31,14 @@ export async function generateMetadata() {
 
 export const revalidate = 120;
 
-async function fetchLandingProps(zones: Zone[]) {
+// Takes a promise so the landing queries fire in parallel with the zones
+// fetch — zones are only needed for post-query aggregation below.
+async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
+    const zones = await zonesPromise;
     return { ...emptyLandingProps, pricePerSqmByZone: emptyAggregate(zones) };
   }
 
@@ -106,14 +109,17 @@ async function fetchLandingProps(zones: Zone[]) {
 
   try {
     const [
-      { data: hotOffers },
-      { data: hotels },
-      { data: saleProperties },
-      { data: vipProperties },
-      { data: services },
-      { data: blogPosts },
-      { data: saleAggregateRows },
-    ] = await Promise.race([queries, timeout]);
+      [
+        { data: hotOffers },
+        { data: hotels },
+        { data: saleProperties },
+        { data: vipProperties },
+        { data: services },
+        { data: blogPosts },
+        { data: saleAggregateRows },
+      ],
+      zones,
+    ] = await Promise.race([Promise.all([queries, zonesPromise]), timeout]);
 
     return {
       hotOffers: hotOffers ?? [],
@@ -125,6 +131,7 @@ async function fetchLandingProps(zones: Zone[]) {
       pricePerSqmByZone: aggregatePricePerSqm(zones, saleAggregateRows ?? []),
     };
   } catch {
+    const zones = await zonesPromise;
     return { ...emptyLandingProps, pricePerSqmByZone: emptyAggregate(zones) };
   }
 }
@@ -178,9 +185,12 @@ function aggregatePricePerSqm(
 }
 
 async function LandingWithData() {
-  const zones = await getActiveZones();
-  const [props, infoBanners, promoBanners] = await Promise.all([
-    fetchLandingProps(zones),
+  // getActiveZones never rejects (falls back internally), so the shared
+  // promise is safe to await in multiple places.
+  const zonesPromise = getActiveZones();
+  const [zones, props, infoBanners, promoBanners] = await Promise.all([
+    zonesPromise,
+    fetchLandingProps(zonesPromise),
     fetchActiveBanners("info").catch(() => []),
     fetchActiveBanners("promo").catch(() => []),
   ]);

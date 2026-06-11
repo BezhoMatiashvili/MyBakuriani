@@ -16,7 +16,16 @@ export async function GET() {
     if (error) {
       return Response.json({ error: error.message }, { status: 500 });
     }
-    return Response.json({ zones: data ?? [] });
+    return Response.json(
+      { zones: data ?? [] },
+      {
+        // Let browsers/CDN reuse the response instead of re-fetching on
+        // every page mount; zone edits surface within ~2 minutes.
+        headers: {
+          "Cache-Control": "public, max-age=120, stale-while-revalidate=600",
+        },
+      },
+    );
   } catch (error) {
     console.error("GET /api/zones failed", error);
     return Response.json({ error: "internal server error" }, { status: 500 });

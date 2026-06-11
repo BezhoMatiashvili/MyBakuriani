@@ -14,7 +14,7 @@ export function useActiveZones(): { zones: Zone[]; loading: boolean } {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/zones", { cache: "no-store" })
+    fetch("/api/zones")
       .then((r) => (r.ok ? r.json() : null))
       .then((payload) => {
         if (cancelled) return;
