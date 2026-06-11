@@ -86,7 +86,7 @@ export default function GuestDashboardClient({
     // Create the request. A DB trigger (notify_owners_of_smart_match_request)
     // fans out notifications to every matching renter server-side, so there is no
     // fragile client-side fan-out here.
-    await supabase.from("smart_match_requests").insert({
+    const { error } = await supabase.from("smart_match_requests").insert({
       guest_id: userId,
       check_in: payload.checkIn,
       check_out: payload.checkOut,
@@ -96,6 +96,9 @@ export default function GuestDashboardClient({
       zone: zoneValue,
       status: "active",
     });
+    // Throw so NewRequestModal stays open and shows the failure instead of
+    // closing with apparent success.
+    if (error) throw error;
   }
 
   async function handleDeclineOffer(offerId: string) {

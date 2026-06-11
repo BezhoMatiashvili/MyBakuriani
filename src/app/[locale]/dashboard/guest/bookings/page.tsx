@@ -172,13 +172,15 @@ export default function GuestBookingsPage() {
   const newCount = offers.filter((o) => o.isNew).length;
 
   async function submitNewRequest(p: NewRequestPayload) {
-    if (!user) return;
+    // Throwing keeps NewRequestModal open with an error instead of closing
+    // with apparent success.
+    if (!user) throw new Error("Not authenticated");
     const zoneValue = p.zone === "all" ? null : p.zone;
 
     // Create the request. A DB trigger (notify_owners_of_smart_match_request)
     // fans out notifications to every matching renter server-side, so there is no
     // fragile client-side fan-out here.
-    await supabase.from("smart_match_requests").insert({
+    const { error } = await supabase.from("smart_match_requests").insert({
       guest_id: user.id,
       check_in: p.checkIn,
       check_out: p.checkOut,
@@ -188,6 +190,7 @@ export default function GuestBookingsPage() {
       zone: zoneValue,
       status: "active",
     });
+    if (error) throw error;
   }
 
   async function declineOffer(offerId: string) {

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { Inbox } from "lucide-react";
+import { AlertTriangle, Home, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +14,6 @@ import SmartMatchRequestsModal, {
 } from "@/components/renter/SmartMatchRequestsModal";
 import { useActiveZones } from "@/lib/zones/client";
 import {
-  isCompatible,
   isStale,
   resolvePropertyZoneName,
   scoreRequest,
@@ -99,6 +99,8 @@ export default function RenterSmartMatchPage() {
     new Set(),
   );
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [noActiveListings, setNoActiveListings] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
@@ -115,7 +117,10 @@ export default function RenterSmartMatchPage() {
         .eq("type", "smart_match_request")
         .eq("is_read", false);
 
-      const { data: properties } = await supabase
+      setLoadError(false);
+      setNoActiveListings(false);
+
+      const { data: properties, error: propertiesError } = await supabase
         .from("properties")
         .select(
           "id, title, price_per_night, capacity, location, location_lat, location_lng",
@@ -124,7 +129,17 @@ export default function RenterSmartMatchPage() {
         .eq("status", "active")
         .eq("is_for_sale", false);
 
+      // A failed query must not render as "no requests" — surface it.
+      if (propertiesError) {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
+
+      // Requests are gated (page + RLS + fan-out trigger) on owning at least
+      // one active non-sale listing — explain that instead of a generic empty.
       if (!properties || properties.length === 0) {
+        setNoActiveListings(true);
         setLoading(false);
         return;
       }
@@ -159,20 +174,23 @@ export default function RenterSmartMatchPage() {
         })),
       );
 
-      // Fetch active requests, then keep the fresh, zone-compatible ones.
-      const { data: reqData } = await supabase
+      // Fetch active requests and keep the fresh ones. Zone mismatches are NOT
+      // hidden: property zones are often coord-derived guesses (seeded coords),
+      // so scoreRequest only ranks them lower instead.
+      const { data: reqData, error: reqError } = await supabase
         .from("smart_match_requests")
         .select("*, profiles(display_name, phone, avatar_url)")
         .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(30);
 
-      if (reqData) {
+      if (reqError) {
+        setLoadError(true);
+      } else if (reqData) {
         const today = new Date().toISOString().slice(0, 10);
-        const filtered = (reqData as SmartMatchRequest[]).filter((r) => {
-          const mreq = toMatchRequest(r);
-          return !isStale(mreq, today) && isCompatible(mreq, matchProps);
-        });
+        const filtered = (reqData as SmartMatchRequest[]).filter(
+          (r) => !isStale(toMatchRequest(r), today),
+        );
         setRequests(filtered);
 
         // Mark requests this renter has already submitted offers on
@@ -377,7 +395,34 @@ export default function RenterSmartMatchPage() {
         </button>
       </motion.div>
 
-      {!loading && incomingCount === 0 && (
+      {!loading && loadError && (
+        <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#FECACA] bg-[#FEF2F2] py-16 text-center">
+          <AlertTriangle className="h-12 w-12 text-[#DC2626]" />
+          <p className="mt-3 px-6 text-sm font-bold text-[#991B1B]">
+            {t("loadError")}
+          </p>
+        </div>
+      )}
+
+      {!loading && !loadError && noActiveListings && (
+        <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white px-6 py-16 text-center shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+          <Home className="h-12 w-12 text-[#94A3B8]" />
+          <p className="mt-3 text-[15px] font-extrabold text-[#0F172A]">
+            {t("needActiveTitle")}
+          </p>
+          <p className="mt-1 max-w-md text-[13px] font-medium text-[#64748B]">
+            {t("needActiveDesc")}
+          </p>
+          <Link
+            href="/dashboard/renter/listings"
+            className="mt-5 rounded-xl bg-[#0F8F60] px-5 py-2.5 text-[13px] font-black text-white transition-colors hover:bg-[#0B7A52]"
+          >
+            {t("needActiveCta")}
+          </Link>
+        </div>
+      )}
+
+      {!loading && !loadError && !noActiveListings && incomingCount === 0 && (
         <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
           <Inbox className="h-12 w-12 text-[#94A3B8]" />
           <p className="mt-3 text-sm text-[#94A3B8]">{t("empty")}</p>

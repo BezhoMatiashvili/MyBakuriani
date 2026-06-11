@@ -48,6 +48,7 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
   const [budgetMin, setBudgetMin] = useState<string>("");
   const [budgetMax, setBudgetMax] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -71,12 +72,14 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
     setZoneOpen(false);
     setAdvancedOpen(false);
     setSubmitting(false);
+    setSubmitError(false);
   }, [isOpen]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+    setSubmitError(false);
     try {
       await onSubmit({
         zone,
@@ -87,6 +90,10 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
         budgetMax: budgetMax ? Number(budgetMax) : undefined,
       });
       onClose();
+    } catch {
+      // Keep the modal open so the guest can retry — closing here would look
+      // like success even though the request was never created.
+      setSubmitError(true);
     } finally {
       setSubmitting(false);
     }
@@ -298,6 +305,12 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {submitError && (
+                  <p className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[12px] font-bold text-[#DC2626]">
+                    {t("submitError")}
+                  </p>
+                )}
 
                 <button
                   type="submit"

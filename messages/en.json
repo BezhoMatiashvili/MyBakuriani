@@ -2299,7 +2299,8 @@
       "guestsPlaceholder": "e.g. 4",
       "budgetMin": "Budget min (₾)",
       "budgetMax": "Budget max (₾)",
-      "submit": "Send request (up to 24 hours)"
+      "submit": "Send request (up to 24 hours)",
+      "submitError": "Failed to send the request. Please try again."
     },
     "offersModal": {
       "title": "Received offers",
@@ -2934,7 +2935,11 @@
     "viewRequests": "View requests",
     "empty": "No new requests yet",
     "allZones": "All",
-    "guestsCount": "{count} guests"
+    "guestsCount": "{count} guests",
+    "loadError": "Failed to load data. Please refresh the page.",
+    "needActiveTitle": "You need an active listing",
+    "needActiveDesc": "To see guest requests and send offers you need at least one active rental listing.",
+    "needActiveCta": "My listings"
   },
   "RenterCleaners": {
     "title": "Cleaners",
