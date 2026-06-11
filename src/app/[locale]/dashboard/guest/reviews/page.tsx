@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
@@ -8,6 +9,7 @@ import { Clock, Heart, History, Phone, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDateShort } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type BookingRow = Tables<"bookings"> & {
@@ -21,54 +23,41 @@ type ReviewRow = Tables<"reviews"> & {
   properties: Pick<Tables<"properties">, "title" | "photos"> | null;
 };
 
-const GE_MONTHS = [
-  "იანვარი",
-  "თებერვალი",
-  "მარტი",
-  "აპრილი",
-  "მაისი",
-  "ივნისი",
-  "ივლისი",
-  "აგვისტო",
-  "სექტემბერი",
-  "ოქტომბერი",
-  "ნოემბერი",
-  "დეკემბერი",
-];
+function useCallRelativeFormatter() {
+  const t = useTranslations("GuestReviews");
+  const locale = useLocale();
 
-function formatReviewDate(iso: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${d.getDate()} ${GE_MONTHS[d.getMonth()]}`;
-}
+  return (iso: string | null) => {
+    if (!iso) return t("undated");
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return t("undated");
 
-function formatCallRelative(iso: string | null) {
-  if (!iso) return "დაუთარიღებელი";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "დაუთარიღებელი";
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const startOfDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayDiff = Math.round(
+      (startOfToday.getTime() - startOfDate.getTime()) / 86400000,
+    );
 
-  const now = new Date();
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  const startOfDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const dayDiff = Math.round(
-    (startOfToday.getTime() - startOfDate.getTime()) / 86400000,
-  );
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const time = `${hh}:${mm}`;
 
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-
-  if (dayDiff <= 0) return `დარეკეთ დღეს, ${hh}:${mm}`;
-  if (dayDiff === 1) return `დარეკეთ გუშინ, ${hh}:${mm}`;
-  if (dayDiff < 7) return `დარეკეთ ${dayDiff} დღის წინ`;
-  return `დარეკეთ ${formatReviewDate(iso)}`;
+    if (dayDiff <= 0) return t("calledToday", { time });
+    if (dayDiff === 1) return t("calledYesterday", { time });
+    if (dayDiff < 7) return t("calledDaysAgo", { days: dayDiff });
+    return t("calledOn", { date: formatDateShort(iso, locale) });
+  };
 }
 
 export default function GuestHistoryPage() {
+  const t = useTranslations("GuestReviews");
+  const locale = useLocale();
+  const formatCallRelative = useCallRelativeFormatter();
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -109,10 +98,10 @@ export default function GuestHistoryPage() {
         className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:p-8"
       >
         <h1 className="text-[30px] font-black leading-[38px] text-[#0F172A]">
-          კომუნიკაციის ისტორია
+          {t("title")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          ბოლო სერვისები და შეფასებები.
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -122,7 +111,7 @@ export default function GuestHistoryPage() {
           animate={{ opacity: 1, y: 0 }}
         >
           <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-            ბოლო ზარები
+            {t("recentCalls")}
           </p>
           <div className="space-y-3">
             {loading ? (
@@ -132,10 +121,16 @@ export default function GuestHistoryPage() {
             ) : bookings.length === 0 ? (
               <EmptyState
                 icon={<History className="h-6 w-6 text-[#CBD5E1]" />}
-                title="ზარები არ არის"
+                title={t("noCalls")}
               />
             ) : (
-              bookings.map((b) => <CallCard key={b.id} booking={b} />)
+              bookings.map((b) => (
+                <CallCard
+                  key={b.id}
+                  booking={b}
+                  formatCallRelative={formatCallRelative}
+                />
+              ))
             )}
           </div>
         </motion.section>
@@ -146,7 +141,7 @@ export default function GuestHistoryPage() {
           transition={{ delay: 0.05 }}
         >
           <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-            ჩემი შეფასებები
+            {t("myReviews")}
           </p>
           <div className="space-y-3">
             {loading ? (
@@ -156,10 +151,12 @@ export default function GuestHistoryPage() {
             ) : reviews.length === 0 ? (
               <EmptyState
                 icon={<Star className="h-6 w-6 text-[#CBD5E1]" />}
-                title="შეფასებები არ გაქვთ"
+                title={t("noReviews")}
               />
             ) : (
-              reviews.map((r) => <ReviewCard key={r.id} review={r} />)
+              reviews.map((r) => (
+                <ReviewCard key={r.id} review={r} locale={locale} />
+              ))
             )}
           </div>
         </motion.section>
@@ -177,7 +174,14 @@ function EmptyState({ icon, title }: { icon: React.ReactNode; title: string }) {
   );
 }
 
-function CallCard({ booking }: { booking: BookingRow }) {
+function CallCard({
+  booking,
+  formatCallRelative,
+}: {
+  booking: BookingRow;
+  formatCallRelative: (iso: string | null) => string;
+}) {
+  const t = useTranslations("GuestReviews");
   const confirmed =
     booking.status === "confirmed" || booking.status === "completed";
   const iconChipColors = confirmed
@@ -203,7 +207,7 @@ function CallCard({ booking }: { booking: BookingRow }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-bold text-[#0F172A]">
-          {booking.properties?.title ?? "ობიექტი"}
+          {booking.properties?.title ?? t("defaultProperty")}
         </p>
         <p className="text-[11px] text-[#94A3B8]">
           {formatCallRelative(booking.created_at)}
@@ -218,7 +222,8 @@ function CallCard({ booking }: { booking: BookingRow }) {
   );
 }
 
-function ReviewCard({ review }: { review: ReviewRow }) {
+function ReviewCard({ review, locale }: { review: ReviewRow; locale: string }) {
+  const t = useTranslations("GuestReviews");
   const photo = review.properties?.photos?.[0] ?? null;
   return (
     <div className="flex items-center gap-3 rounded-[16px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
@@ -235,10 +240,10 @@ function ReviewCard({ review }: { review: ReviewRow }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-bold text-[#0F172A]">
-          {review.properties?.title ?? "ობიექტი"}
+          {review.properties?.title ?? t("defaultProperty")}
         </p>
         <p className="text-[11px] text-[#94A3B8]">
-          {formatReviewDate(review.created_at)}
+          {formatDateShort(review.created_at, locale)}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-0.5">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import Modal from "@/components/shared/Modal";
 
@@ -20,11 +21,7 @@ interface CreatePackageModalProps {
   onCreated: () => void;
 }
 
-const VIP_TIERS: { value: string; label: string }[] = [
-  { value: "super", label: "Super VIP — საუკეთესო პოზიცია" },
-  { value: "standard", label: "VIP სტატუსი — გამოკვეთა" },
-  { value: "discount", label: "ფასდაკლების ბეჯი" },
-];
+const VIP_TIER_VALUES = ["super", "standard", "discount"] as const;
 
 export default function CreatePackageModal({
   isOpen,
@@ -33,6 +30,19 @@ export default function CreatePackageModal({
   categoryLabel,
   onCreated,
 }: CreatePackageModalProps) {
+  const t = useTranslations("AdminShared.createPackage");
+  const tAdmin = useTranslations("AdminShared");
+  const tShared = useTranslations("DashboardShared");
+
+  const vipTiers = useMemo(
+    () =>
+      VIP_TIER_VALUES.map((value) => ({
+        value,
+        label: t(`vipTiers.${value}`),
+      })),
+    [t],
+  );
+
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
@@ -40,6 +50,8 @@ export default function CreatePackageModal({
   const [smsCount, setSmsCount] = useState<number | "">("");
   const [durationHours, setDurationHours] = useState<number | "">(24);
   const [vipTier, setVipTier] = useState<string>("standard");
+  const [validFrom, setValidFrom] = useState("");
+  const [validTo, setValidTo] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -51,28 +63,41 @@ export default function CreatePackageModal({
     setSmsCount("");
     setDurationHours(24);
     setVipTier("standard");
+    setValidFrom("");
+    setValidTo("");
   }, [isOpen]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error("შეიყვანეთ პაკეტის სახელი");
+      toast.error(t("nameRequired"));
       return;
     }
     if (price === "" || Number(price) < 0) {
-      toast.error("შეიყვანეთ სწორი ფასი");
+      toast.error(t("priceRequired"));
       return;
     }
     if (category === "sms" && (smsCount === "" || Number(smsCount) <= 0)) {
-      toast.error("SMS პაკეტისთვის სავალდებულოა SMS-ების რაოდენობა");
+      toast.error(t("smsRequired"));
       return;
     }
     if (
       category === "vip" &&
       (durationHours === "" || Number(durationHours) <= 0)
     ) {
-      toast.error("VIP-ისთვის სავალდებულოა ხანგრძლივობა");
+      toast.error(t("vipDurationRequired"));
       return;
+    }
+    if (category === "subscription") {
+      if (!validFrom || !validTo) {
+        toast.error(t("periodRequired"));
+        return;
+      }
+      // ISO YYYY-MM-DD strings compare correctly as strings
+      if (validFrom >= validTo) {
+        toast.error(t("periodInvalid"));
+        return;
+      }
     }
 
     const meta: Record<string, unknown> = {};
@@ -81,6 +106,10 @@ export default function CreatePackageModal({
     } else if (category === "vip") {
       meta.duration_hours = Number(durationHours);
       meta.tier = vipTier;
+    } else if (category === "subscription") {
+      // Validity period the buyer receives (read by purchase_package RPC)
+      meta.valid_from = validFrom;
+      meta.valid_to = validTo;
     }
 
     setSubmitting(true);
@@ -99,16 +128,22 @@ export default function CreatePackageModal({
       });
       const payload = (await res.json().catch(() => null)) as {
         error?: string;
+        code?: string;
       } | null;
       if (!res.ok) {
-        toast.error(payload?.error ?? "შექმნა ვერ მოხერხდა");
+        const code = payload?.code;
+        toast.error(
+          code && tAdmin.has(`apiErrors.${code}`)
+            ? tAdmin(`apiErrors.${code}`)
+            : (payload?.error ?? tAdmin("createFailed")),
+        );
         return;
       }
-      toast.success("პაკეტი დაემატა");
+      toast.success(t("packageAdded"));
       onCreated();
       onClose();
     } catch {
-      toast.error("შექმნა ვერ მოხერხდა");
+      toast.error(tAdmin("createFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -118,19 +153,19 @@ export default function CreatePackageModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`ახალი პაკეტი — ${categoryLabel}`}
+      title={t("title", { label: categoryLabel })}
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <label className="text-[12px] font-bold text-[#0F172A]">
-            სახელი <span className="text-[#DC2626]">*</span>
+            {t("name")} <span className="text-[#DC2626]">*</span>
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="მაგ: VIP 48 საათი"
+            placeholder={t("namePlaceholder")}
             className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
             autoFocus
           />
@@ -138,33 +173,33 @@ export default function CreatePackageModal({
 
         <div className="space-y-1.5">
           <label className="text-[12px] font-bold text-[#0F172A]">
-            მოკლე ნიშნული (Label)
+            {t("shortLabel")}
           </label>
           <input
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="მაგ: 48 საათი, 200 SMS, 1 კვირა"
+            placeholder={t("labelPlaceholder")}
             className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
           />
         </div>
 
         <div className="space-y-1.5">
           <label className="text-[12px] font-bold text-[#0F172A]">
-            აღწერა (გამოჩნდება მომხმარებლის ბარათზე)
+            {t("description")}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            placeholder="აღწერეთ, რას იღებს მომხმარებელი ამ პაკეტიდან"
+            placeholder={t("descriptionPlaceholder")}
             className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
           />
         </div>
 
         <div className="space-y-1.5">
           <label className="text-[12px] font-bold text-[#0F172A]">
-            ფასი (₾) <span className="text-[#DC2626]">*</span>
+            {t("price")} <span className="text-[#DC2626]">*</span>
           </label>
           <input
             type="number"
@@ -182,7 +217,7 @@ export default function CreatePackageModal({
         {category === "sms" ? (
           <div className="space-y-1.5">
             <label className="text-[12px] font-bold text-[#0F172A]">
-              SMS-ების რაოდენობა <span className="text-[#DC2626]">*</span>
+              {t("smsCount")} <span className="text-[#DC2626]">*</span>
             </label>
             <input
               type="number"
@@ -192,9 +227,37 @@ export default function CreatePackageModal({
               onChange={(e) =>
                 setSmsCount(e.target.value === "" ? "" : Number(e.target.value))
               }
-              placeholder="მაგ: 200"
+              placeholder={t("smsPlaceholder")}
               className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB]"
             />
+          </div>
+        ) : null}
+
+        {category === "subscription" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-bold text-[#0F172A]">
+                {t("validFrom")} <span className="text-[#DC2626]">*</span>
+              </label>
+              <input
+                type="date"
+                value={validFrom}
+                onChange={(e) => setValidFrom(e.target.value)}
+                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-bold text-[#0F172A]">
+                {t("validTo")} <span className="text-[#DC2626]">*</span>
+              </label>
+              <input
+                type="date"
+                value={validTo}
+                min={validFrom || undefined}
+                onChange={(e) => setValidTo(e.target.value)}
+                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
+              />
+            </div>
           </div>
         ) : null}
 
@@ -202,7 +265,7 @@ export default function CreatePackageModal({
           <>
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-[#0F172A]">
-                ხანგრძლივობა (საათი) <span className="text-[#DC2626]">*</span>
+                {t("durationHours")} <span className="text-[#DC2626]">*</span>
               </label>
               <input
                 type="number"
@@ -219,16 +282,16 @@ export default function CreatePackageModal({
             </div>
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-[#0F172A]">
-                VIP ტიპი
+                {t("vipType")}
               </label>
               <select
                 value={vipTier}
                 onChange={(e) => setVipTier(e.target.value)}
                 className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
               >
-                {VIP_TIERS.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {vipTiers.map((tier) => (
+                  <option key={tier.value} value={tier.value}>
+                    {tier.label}
                   </option>
                 ))}
               </select>
@@ -243,7 +306,7 @@ export default function CreatePackageModal({
             disabled={submitting}
             className="flex-1 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm font-bold text-[#0F172A] hover:bg-[#F8FAFC] disabled:opacity-50"
           >
-            გაუქმება
+            {tShared("cancel")}
           </button>
           <button
             type="submit"
@@ -253,10 +316,10 @@ export default function CreatePackageModal({
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                იქმნება...
+                {t("creating")}
               </>
             ) : (
-              "შექმნა"
+              t("create")
             )}
           </button>
         </div>

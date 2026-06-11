@@ -1,37 +1,40 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 import ApartmentsPageClient from "./ApartmentsPageClient";
 
-export const metadata: Metadata = {
-  title: "აპარტამენტები და კოტეჯები — MyBakuriani",
-  description:
-    "იპოვეთ საუკეთესო აპარტამენტები და კოტეჯები ბაკურიანში. ვერიფიცირებული მესაკუთრეები, რეალური ფოტოები და სამართლიანი ფასები.",
-};
+// Cache the public (active) listings instead of paying an Auth round-trip +
+// fresh query on every visit. Owners review their own pending listings from the
+// dashboard, which lists every property they own regardless of status.
+export const revalidate = 60;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
+  return {
+    title: t("apartmentsPage"),
+    description: t("apartmentsPageDesc"),
+  };
+}
 
 export default async function ApartmentsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const supabase = createPublicClient();
 
-  let query = supabase
+  const { data: properties, error } = await supabase
     .from("properties")
     .select("*")
     .eq("is_for_sale", false)
     .in("type", ["apartment", "cottage", "villa", "studio"])
+    .eq("status", "active")
     .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (user) {
-    query = query.or(
-      `status.eq.active,and(status.eq.pending,owner_id.eq.${user.id})`,
-    );
-  } else {
-    query = query.eq("status", "active");
-  }
-
-  const { data: properties, error } = await query;
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   if (error) {
     console.error("[apartments] failed to load properties", error.message);

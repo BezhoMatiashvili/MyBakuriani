@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   Bell,
@@ -14,6 +15,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRealtimeList } from "@/lib/hooks/useRealtime";
+import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 
 interface Notification {
   id: string;
@@ -54,24 +56,11 @@ const TYPE_ICON: Record<string, { icon: LucideIcon; bg: string; fg: string }> =
     },
   };
 
-function relativeTimeKa(createdAt: string): string {
-  const diffMs = Date.now() - new Date(createdAt).getTime();
-  const hours = Math.floor(diffMs / 3_600_000);
-  if (hours < 1) {
-    const mins = Math.floor(diffMs / 60_000);
-    return mins < 1 ? "ახლა" : `${mins} წთ-ის წინ`;
-  }
-  if (hours < 24) return `${hours} სთ-ის წინ`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "გუშინ";
-  return `${days} დღის წინ`;
-}
-
 export default function SellerNotificationsPage() {
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
-  // Live notifications over websocket — new/updated rows arrive without refresh.
   const {
     rows: notifications,
     setRows: setNotifications,
@@ -121,10 +110,10 @@ export default function SellerNotificationsPage() {
         <Bell className="mb-1 h-6 w-6 text-[#2563EB]" />
         <div>
           <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-            შეტყობინებები
+            {tShared("notifTitle")}
           </h1>
           <p className="mt-1 text-sm font-medium text-[#64748B]">
-            სისტემური შეტყობინებები და მნიშვნელოვანი სიახლეები.
+            {tShared("notifSubtitleSystem")}
           </p>
         </div>
       </motion.div>
@@ -135,14 +124,16 @@ export default function SellerNotificationsPage() {
         className="overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
         <div className="flex items-center justify-between border-b border-[#EEF1F4] px-6 py-4">
-          <p className="text-[12px] font-bold text-[#0F172A]">ბოლო 30 დღე</p>
+          <p className="text-[12px] font-bold text-[#0F172A]">
+            {tShared("last30Days")}
+          </p>
           <button
             type="button"
             onClick={markAllRead}
             disabled={unread === 0}
             className="text-[12px] font-bold text-[#2563EB] hover:underline disabled:cursor-not-allowed disabled:text-[#CBD5E1] disabled:no-underline"
           >
-            ყველას წაკითხულად მონიშვნა
+            {tShared("markAllReadAlt")}
           </button>
         </div>
 
@@ -161,10 +152,10 @@ export default function SellerNotificationsPage() {
             <li className="flex flex-col items-center justify-center py-16 text-center">
               <CheckCircle2 className="h-10 w-10 text-[#CBD5E1]" />
               <p className="mt-3 text-[13px] font-semibold text-[#0F172A]">
-                ცარიელია
+                {tShared("empty")}
               </p>
               <p className="mt-1 text-[12px] text-[#94A3B8]">
-                ბოლო 30 დღეში შეტყობინებები ჯერ არ არის
+                {tShared("emptyLast30Days")}
               </p>
             </li>
           ) : (
@@ -189,7 +180,7 @@ export default function SellerNotificationsPage() {
                         {n.title}
                       </p>
                       <span className="shrink-0 text-[11px] text-[#94A3B8]">
-                        {relativeTimeKa(n.created_at)}
+                        {formatRelativeTime(tShared, n.created_at)}
                       </span>
                     </div>
                     <p className="mt-1 text-[12px] leading-[18px] text-[#64748B]">

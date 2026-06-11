@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -22,17 +23,19 @@ import type { Tables } from "@/lib/types/database";
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
 
-const TX_LABEL: Record<string, string> = {
-  topup: "შევსება",
-  vip_boost: "VIP",
-  super_vip: "Super VIP",
-  sms_package: "SMS პაკეტი",
-  discount_badge: "ფასდაკლების ბეჯი",
-  withdrawal: "გამოტანა",
-  commission: "საკომისიო",
-};
+const TX_TYPES = [
+  "topup",
+  "vip_boost",
+  "super_vip",
+  "sms_package",
+  "discount_badge",
+  "withdrawal",
+  "commission",
+] as const;
 
 export default function FoodBalancePage() {
+  const tShared = useTranslations("DashboardShared");
+  const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -129,10 +132,10 @@ export default function FoodBalancePage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          ბალანსი და VIP
+          {tShared("balanceTitle")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          მართე ბალანსი და გაააქტიურე პრომო პაკეტები.
+          {tShared("balanceSubtitle")}
         </p>
       </motion.div>
 
@@ -143,7 +146,7 @@ export default function FoodBalancePage() {
       >
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
-            მიმდინარე ბალანსი
+            {tShared("currentBalance")}
           </p>
           {loading ? (
             <Skeleton className="mt-2 h-10 w-32 bg-white/20" />
@@ -158,7 +161,7 @@ export default function FoodBalancePage() {
           type="button"
           className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[13px] font-black text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
         >
-          ბალანსის შევსება
+          {tShared("topUpBalance")}
         </button>
       </motion.div>
 
@@ -170,11 +173,11 @@ export default function FoodBalancePage() {
       >
         {packages.length === 0 ? (
           <p className="col-span-full text-center text-sm text-[#94A3B8]">
-            პაკეტი ჯერ არ არის ხელმისაწვდომი
+            {tShared("noPackages")}
           </p>
         ) : (
           packages.map((pkg) => {
-            const display = getPackageDisplay(pkg);
+            const display = getPackageDisplay(pkg, locale);
             const tier = inferVipInfoTier(pkg);
             return (
               <BalancePackageCard
@@ -203,7 +206,7 @@ export default function FoodBalancePage() {
         transition={{ delay: 0.1 }}
       >
         <h2 className="text-[16px] font-black text-[#0F172A]">
-          ტრანზაქციების ისტორია
+          {tShared("txHistory")}
         </h2>
         <div className="mt-3 space-y-2">
           {loading ? (
@@ -214,7 +217,7 @@ export default function FoodBalancePage() {
             <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
               <History className="h-10 w-10 text-[#94A3B8]" />
               <p className="mt-2 text-[13px] text-[#94A3B8]">
-                ტრანზაქციები ჯერ არ გაქვთ
+                {tShared("noTransactions")}
               </p>
             </div>
           ) : (
@@ -239,7 +242,11 @@ export default function FoodBalancePage() {
                   </div>
                   <div>
                     <p className="text-[13px] font-bold text-[#0F172A]">
-                      {TX_LABEL[tx.type] ?? tx.type}
+                      {TX_TYPES.includes(tx.type as (typeof TX_TYPES)[number])
+                        ? tShared(
+                            `txTypes.${tx.type as (typeof TX_TYPES)[number]}`,
+                          )
+                        : tx.type}
                     </p>
                     <p className="text-[11px] text-[#94A3B8]">
                       {formatDate(tx.created_at)}

@@ -1,4 +1,5 @@
 import { Star } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Props {
   establishmentType: string | null;
@@ -36,13 +37,14 @@ export function FoodInfoCard({
   avgCheck,
   operatingHours,
 }: Props) {
+  const t = useTranslations("FoodDetail");
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 rounded-[20px] bg-[#F8FAFC] p-6">
-      <Cell label="ტიპი">{establishmentType ?? "—"}</Cell>
-      <Cell label="სამზარეულო">{cuisineType ?? "—"}</Cell>
+      <Cell label={t("info.type")}>{establishmentType ?? "—"}</Cell>
+      <Cell label={t("info.cuisine")}>{cuisineType ?? "—"}</Cell>
 
-      <Cell label="ზონა">{zone ?? "—"}</Cell>
-      <Cell label="რეიტინგი">
+      <Cell label={t("info.zone")}>{zone ?? "—"}</Cell>
+      <Cell label={t("info.rating")}>
         {rating != null ? (
           <span className="inline-flex items-center gap-1">
             <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
@@ -53,8 +55,8 @@ export function FoodInfoCard({
         )}
       </Cell>
 
-      <Cell label="საშუალო ჩეკი">{avgCheck ?? "—"}</Cell>
-      <Cell label="სამუშაო საათები">{operatingHours ?? "—"}</Cell>
+      <Cell label={t("info.avgCheck")}>{avgCheck ?? "—"}</Cell>
+      <Cell label={t("info.workingHours")}>{operatingHours ?? "—"}</Cell>
     </div>
   );
 }

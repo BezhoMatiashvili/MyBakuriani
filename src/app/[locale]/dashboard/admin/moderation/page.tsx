@@ -6,9 +6,11 @@ import {
   MouseEvent,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { Flame, Loader2, Plus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
@@ -26,11 +28,7 @@ type Ad = {
   clicks_count: number;
 };
 
-const POSITION_OPTIONS = [
-  { value: "slot-a", label: "სლოტი A (Hero)" },
-  { value: "slot-b", label: "სლოტი B (Between cards)" },
-  { value: "slot-c", label: "სლოტი C (Sidebar)" },
-];
+const POSITION_VALUES = ["slot-a", "slot-b", "slot-c"] as const;
 
 const INITIAL_FORM_STATE = {
   title: "",
@@ -42,6 +40,16 @@ const INITIAL_FORM_STATE = {
 };
 
 export default function ModerationPage() {
+  const t = useTranslations("AdminModeration");
+  const tShared = useTranslations("AdminShared");
+  const positionOptions = useMemo(
+    () =>
+      POSITION_VALUES.map((value) => ({
+        value,
+        label: t(`slots.${value}`),
+      })),
+    [t],
+  );
   const [loading, setLoading] = useState(true);
   const [ads, setAds] = useState<Ad[]>([]);
   const [isAddAdModalOpen, setIsAddAdModalOpen] = useState(false);
@@ -54,13 +62,13 @@ export default function ModerationPage() {
     const res = await fetch("/api/admin/ads", { cache: "no-store" });
     const payload = await res.json();
     if (!res.ok) {
-      toast.error(payload.error ?? "ჩატვირთვა ვერ მოხერხდა");
+      toast.error(payload.error ?? tShared("loadFailed"));
       setAds([]);
     } else {
       setAds(payload.ads as Ad[]);
     }
     setLoading(false);
-  }, []);
+  }, [tShared]);
 
   useEffect(() => {
     load();
@@ -104,17 +112,17 @@ export default function ModerationPage() {
       !formState.startDate ||
       !formState.endDate
     ) {
-      setFormError("გთხოვთ შეავსოთ ყველა სავალდებულო ველი.");
+      setFormError(t("fillRequired"));
       return;
     }
     try {
       new URL(formState.url);
     } catch {
-      setFormError("გთხოვთ მიუთითოთ სწორი URL მისამართი.");
+      setFormError(t("invalidUrl"));
       return;
     }
     if (new Date(formState.endDate) < new Date(formState.startDate)) {
-      setFormError("დასასრული თარიღი ვერ იქნება დაწყების თარიღზე ადრე.");
+      setFormError(t("endBeforeStart"));
       return;
     }
     setSubmitting(true);
@@ -132,14 +140,14 @@ export default function ModerationPage() {
         }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? "შექმნა ვერ მოხერხდა");
-      toast.success("რეკლამა შეიქმნა");
+      if (!res.ok) throw new Error(payload.error ?? tShared("createFailed"));
+      toast.success(t("adCreated"));
       setFormState(INITIAL_FORM_STATE);
       setFormError("");
       setIsAddAdModalOpen(false);
       await load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "შეცდომა");
+      setFormError(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setSubmitting(false);
     }
@@ -151,10 +159,10 @@ export default function ModerationPage() {
         <div className="flex flex-wrap items-end justify-between gap-6 pb-4">
           <div className="space-y-2">
             <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
-              B2B რეკლამები
+              {t("title")}
             </h1>
             <p className="text-[14px] font-medium leading-[21px] text-[#64748B]">
-              რესტორნების, ტრანსპორტისა და ინვენტარის ბანერების მართვა.
+              {t("subtitle")}
             </p>
           </div>
           <button
@@ -163,7 +171,7 @@ export default function ModerationPage() {
             className="inline-flex h-[53px] min-h-[44px] items-center gap-2 rounded-xl bg-[#0F172A] px-6 text-[14px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
           >
             <Plus className="h-[13px] w-[13px]" strokeWidth={2.8} />
-            რეკლამის დამატება
+            {t("addAd")}
           </button>
         </div>
 
@@ -175,9 +183,7 @@ export default function ModerationPage() {
           </div>
         ) : ads.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-[#E2E8F0] bg-white py-20 text-center">
-            <p className="text-sm font-medium text-[#94A3B8]">
-              ჯერ არ არის კამპანია. დააწკაპუნეთ &laquo;რეკლამის დამატება&raquo;.
-            </p>
+            <p className="text-sm font-medium text-[#94A3B8]">{t("empty")}</p>
           </div>
         ) : (
           ads.map((ad) => {
@@ -185,6 +191,22 @@ export default function ModerationPage() {
               ad.views_count > 0
                 ? ((ad.clicks_count / ad.views_count) * 100).toFixed(1)
                 : "0.0";
+            const daysLeft = Math.max(
+              0,
+              Math.ceil(
+                (new Date(ad.end_at).getTime() - Date.now()) /
+                  (1000 * 60 * 60 * 24),
+              ),
+            );
+            const metrics = [
+              { key: "views", value: formatNumber(ad.views_count) },
+              { key: "clicks", value: formatNumber(ad.clicks_count) },
+              { key: "ctr", value: `${ctr}%` },
+              {
+                key: "daysLeft",
+                value: t("daysUnit", { count: daysLeft }),
+              },
+            ] as const;
             return (
               <article
                 key={ad.id}
@@ -220,7 +242,7 @@ export default function ModerationPage() {
                       {ad.title}
                     </h3>
                     <p className="text-[13px] font-bold leading-5 text-[#F97316]">
-                      პოზიცია: {ad.position}
+                      {t("positionLabel", { position: ad.position })}
                     </p>
                     <a
                       href={ad.url}
@@ -234,30 +256,13 @@ export default function ModerationPage() {
                 </div>
 
                 <div className="grid grid-cols-4">
-                  {[
-                    {
-                      label: "ნახვები",
-                      value: formatNumber(ad.views_count),
-                    },
-                    { label: "კლიკი", value: formatNumber(ad.clicks_count) },
-                    { label: "კლიკების %", value: `${ctr}%` },
-                    {
-                      label: "დარჩენილია",
-                      value: `${Math.max(
-                        0,
-                        Math.ceil(
-                          (new Date(ad.end_at).getTime() - Date.now()) /
-                            (1000 * 60 * 60 * 24),
-                        ),
-                      )} დღე`,
-                    },
-                  ].map((metric) => (
+                  {metrics.map((metric) => (
                     <div
-                      key={metric.label}
+                      key={metric.key}
                       className="flex h-[86px] flex-col items-center justify-center border-l border-[#E2E8F0] px-3 first:border-l-0 bg-white"
                     >
                       <span className="text-[10px] font-bold uppercase leading-[15px] tracking-[0.5px] text-[#94A3B8]">
-                        {metric.label}
+                        {t(metric.key)}
                       </span>
                       <span className="mt-1 font-black text-[#1E293B]">
                         {metric.value}
@@ -284,17 +289,17 @@ export default function ModerationPage() {
             <div className="flex items-start justify-between gap-4 pb-8">
               <div className="space-y-1">
                 <h2 className="text-2xl font-black leading-6 tracking-[-0.6px] text-[#1E293B]">
-                  რეკლამის დამატება
+                  {t("modalTitle")}
                 </h2>
                 <p className="text-xs font-medium leading-[18px] text-[#64748B]">
-                  B2B კამპანიის კონფიგურაცია
+                  {t("modalSubtitle")}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
                 className="inline-flex h-10 min-h-[44px] w-10 items-center justify-center rounded-full border border-[#F1F5F9] bg-[#F8FAFC] text-[#64748B]"
-                aria-label="დახურვა"
+                aria-label={tShared("close")}
               >
                 <X className="h-[18px] w-[18px]" />
               </button>
@@ -306,14 +311,14 @@ export default function ModerationPage() {
                   htmlFor="ad-title"
                   className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
                 >
-                  რეკლამის სათაური
+                  {t("adTitle")}
                 </label>
                 <input
                   id="ad-title"
                   name="title"
                   value={formState.title}
                   onChange={handleInputChange}
-                  placeholder="მაგ: თხილამურები დიდველზე"
+                  placeholder={t("adTitlePlaceholder")}
                   className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] px-4 text-sm font-medium leading-[21px] text-[#1E293B] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none"
                 />
               </div>
@@ -324,7 +329,7 @@ export default function ModerationPage() {
                     htmlFor="ad-position"
                     className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
                   >
-                    პოზიცია
+                    {t("position")}
                   </label>
                   <select
                     id="ad-position"
@@ -333,7 +338,7 @@ export default function ModerationPage() {
                     onChange={handleInputChange}
                     className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] bg-white px-4 text-sm font-medium leading-[21px] text-[#1E293B] focus:border-[#2563EB] focus:outline-none"
                   >
-                    {POSITION_OPTIONS.map((option) => (
+                    {positionOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -346,7 +351,7 @@ export default function ModerationPage() {
                     htmlFor="ad-url"
                     className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
                   >
-                    გადამისამართება (URL)
+                    {t("redirectUrl")}
                   </label>
                   <input
                     id="ad-url"
@@ -365,7 +370,7 @@ export default function ModerationPage() {
                     htmlFor="start-date"
                     className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
                   >
-                    დაწყება
+                    {t("startDate")}
                   </label>
                   <input
                     id="start-date"
@@ -381,7 +386,7 @@ export default function ModerationPage() {
                     htmlFor="end-date"
                     className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
                   >
-                    დასრულება
+                    {t("endDate")}
                   </label>
                   <input
                     id="end-date"
@@ -399,7 +404,7 @@ export default function ModerationPage() {
                   htmlFor="banner-url"
                   className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
                 >
-                  ბანერის URL (სურვილისამებრ)
+                  {t("bannerUrl")}
                 </label>
                 <input
                   id="banner-url"
@@ -425,7 +430,7 @@ export default function ModerationPage() {
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
-                კამპანიის გაშვება
+                {t("launch")}
               </button>
             </form>
           </div>

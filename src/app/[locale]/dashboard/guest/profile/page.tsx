@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Camera, Check, Mail, Phone, Save, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +12,8 @@ import type { Tables } from "@/lib/types/database";
 import { watermarkFile } from "@/lib/utils/watermark";
 
 export default function GuestProfilePage() {
+  const t = useTranslations("GuestProfile");
+  const tShared = useTranslations("CreateShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -86,11 +89,11 @@ export default function GuestProfilePage() {
     setUploadError(null);
 
     if (file.size > 2 * 1024 * 1024) {
-      setUploadError("ფაილი არ უნდა აღემატებოდეს 2MB-ს");
+      setUploadError(t("errors.fileTooLarge"));
       return;
     }
     if (!["image/jpeg", "image/png"].includes(file.type)) {
-      setUploadError("მხოლოდ JPG და PNG ფორმატია დაშვებული");
+      setUploadError(t("errors.invalidFormat"));
       return;
     }
 
@@ -118,7 +121,7 @@ export default function GuestProfilePage() {
 
       setAvatarUrl(newUrl);
     } catch {
-      setUploadError("ფოტოს ატვირთვა ვერ მოხერხდა");
+      setUploadError(t("errors.uploadFailed"));
     } finally {
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -131,7 +134,7 @@ export default function GuestProfilePage() {
       .map((s) => s[0])
       .join("")
       .slice(0, 2)
-      .toUpperCase() || "ს";
+      .toUpperCase() || t("defaultInitial");
 
   return (
     <div className="mx-auto w-full max-w-[1040px] space-y-6">
@@ -140,10 +143,10 @@ export default function GuestProfilePage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          პროფილის პარამეტრები
+          {t("title")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          მართეთ თქვენი პერსონალური მონაცემები და საკონტაქტო ინფორმაცია.
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -164,7 +167,7 @@ export default function GuestProfilePage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              aria-label="ატვირთე ფოტო"
+              aria-label={t("uploadPhoto")}
               className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F8F60] shadow-sm transition-colors hover:border-[#0F8F60] hover:bg-[#ECFDF5] disabled:opacity-50"
             >
               <Camera className="h-4 w-4" />
@@ -179,14 +182,14 @@ export default function GuestProfilePage() {
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-[18px] font-black text-[#0F172A]">
-              პროფილის ფოტო
+              {t("avatarTitle")}
             </h2>
             <p className="mt-1 text-[13px] font-medium text-[#64748B]">
-              ატვირთეთ ფოტო (JPG, PNG). მაქს. ზომა 2MB.
+              {t("avatarHint")}
             </p>
             {uploadingAvatar && (
               <p className="mt-2 text-[12px] font-medium text-[#0F8F60]">
-                იტვირთება...
+                {tShared("loading")}
               </p>
             )}
             {uploadError && (
@@ -202,7 +205,7 @@ export default function GuestProfilePage() {
         <form onSubmit={handleSave} className="space-y-5">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <ProfileField
-              label="სახელი"
+              label={t("firstName")}
               icon={<User className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
             >
@@ -215,7 +218,7 @@ export default function GuestProfilePage() {
             </ProfileField>
 
             <ProfileField
-              label="გვარი"
+              label={t("lastName")}
               icon={<User className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
             >
@@ -228,7 +231,7 @@ export default function GuestProfilePage() {
             </ProfileField>
 
             <ProfileField
-              label="ტელეფონის ნომერი"
+              label={t("phone")}
               icon={<Phone className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
             >
@@ -242,7 +245,7 @@ export default function GuestProfilePage() {
             </ProfileField>
 
             <ProfileField
-              label="ელ. ფოსტა (Gmail)"
+              label={t("email")}
               icon={<Mail className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
             >
@@ -261,7 +264,7 @@ export default function GuestProfilePage() {
               onClick={resetForm}
               className="inline-flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white px-6 py-3 text-[13px] font-bold text-[#64748B] transition-colors hover:border-[#CBD5E1] hover:text-[#0F172A]"
             >
-              გაუქმება
+              {t("cancel")}
             </button>
             <button
               type="submit"
@@ -273,11 +276,7 @@ export default function GuestProfilePage() {
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              {saving
-                ? "შენახვა..."
-                : saved
-                  ? "შენახულია"
-                  : "ცვლილებების შენახვა"}
+              {saving ? t("saving") : saved ? t("saved") : t("saveChanges")}
             </button>
           </div>
         </form>

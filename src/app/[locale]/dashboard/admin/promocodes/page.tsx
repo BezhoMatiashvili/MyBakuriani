@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,9 @@ interface Promocode {
 }
 
 export default function PromoCodesPage() {
+  const t = useTranslations("AdminPromocodes");
+  const tShared = useTranslations("AdminShared");
+  const tDash = useTranslations("DashboardShared");
   const [loading, setLoading] = useState(true);
   const [codes, setCodes] = useState<Promocode[]>([]);
   const [form, setForm] = useState({
@@ -36,13 +40,13 @@ export default function PromoCodesPage() {
     const res = await fetch("/api/admin/promocodes", { cache: "no-store" });
     const payload = await res.json();
     if (!res.ok) {
-      toast.error(payload.error ?? "ჩატვირთვა ვერ მოხერხდა");
+      toast.error(payload.error ?? tShared("loadFailed"));
       setCodes([]);
     } else {
       setCodes(payload.codes as Promocode[]);
     }
     setLoading(false);
-  }, []);
+  }, [tShared]);
 
   useEffect(() => {
     load();
@@ -50,11 +54,11 @@ export default function PromoCodesPage() {
 
   async function submit() {
     if (!form.code.trim()) {
-      toast.error("კოდი სავალდებულოა");
+      toast.error(t("codeRequired"));
       return;
     }
     if (!(form.discount_value > 0)) {
-      toast.error("ფასდაკლების მნიშვნელობა დადებითი უნდა იყოს");
+      toast.error(t("discountPositive"));
       return;
     }
     setSubmitting(true);
@@ -71,8 +75,8 @@ export default function PromoCodesPage() {
         }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? "შექმნა ვერ მოხერხდა");
-      toast.success("კოდი შეიქმნა");
+      if (!res.ok) throw new Error(payload.error ?? tShared("createFailed"));
+      toast.success(t("codeCreated"));
       setForm({
         code: "",
         discount_value: 20,
@@ -82,7 +86,7 @@ export default function PromoCodesPage() {
       });
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setSubmitting(false);
     }
@@ -95,13 +99,13 @@ export default function PromoCodesPage() {
         method: "DELETE",
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? "გაუქმება ვერ მოხერხდა");
-      toast.success("კოდი გაუქმდა");
+      if (!res.ok) throw new Error(payload.error ?? tShared("cancelFailed"));
+      toast.success(t("codeCancelled"));
       setCodes((prev) =>
         prev.map((c) => (c.id === id ? { ...c, is_active: false } : c)),
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setCancellingId(null);
     }
@@ -113,10 +117,10 @@ export default function PromoCodesPage() {
     <div className="mx-auto flex w-full max-w-[918px] flex-col gap-8 pb-10">
       <div className="space-y-2">
         <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
-          პრომო კოდების გენერატორი
+          {t("title")}
         </h1>
         <p className="text-[14px] font-medium leading-[21px] text-[#64748B]">
-          შექმენით ფასდაკლების კოდები ლოიალური მომხმარებლებისთვის.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -125,7 +129,7 @@ export default function PromoCodesPage() {
           <div className="flex flex-col gap-6">
             <div className="space-y-2">
               <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
-                პრომო კოდი (მაგ: NEWYEAR2026)
+                {t("codeLabel")}
               </label>
               <input
                 id="promocode-code"
@@ -144,7 +148,7 @@ export default function PromoCodesPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
-                  ფასდაკლება
+                  {t("discount")}
                 </label>
                 <input
                   type="number"
@@ -161,7 +165,7 @@ export default function PromoCodesPage() {
               </div>
               <div className="space-y-2">
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
-                  ტიპი
+                  {t("type")}
                 </label>
                 <select
                   value={form.discount_type}
@@ -173,8 +177,8 @@ export default function PromoCodesPage() {
                   }
                   className="h-[51px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                 >
-                  <option value="percent">პროცენტი (%)</option>
-                  <option value="fixed">ფიქსირებული (₾)</option>
+                  <option value="percent">{t("typePercent")}</option>
+                  <option value="fixed">{t("typeFixed")}</option>
                 </select>
               </div>
             </div>
@@ -182,7 +186,7 @@ export default function PromoCodesPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
-                  გამოყენების ლიმიტი (სურვილისამებრ)
+                  {t("maxUses")}
                 </label>
                 <input
                   type="number"
@@ -195,7 +199,7 @@ export default function PromoCodesPage() {
               </div>
               <div className="space-y-2">
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
-                  ვადის ამოწურვა (სურვილისამებრ)
+                  {t("expires")}
                 </label>
                 <input
                   type="date"
@@ -215,14 +219,14 @@ export default function PromoCodesPage() {
               className="inline-flex h-[53px] min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#0F172A] text-[14px] font-bold leading-[21px] text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] disabled:opacity-50"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              კოდის გენერაცია
+              {t("generate")}
             </button>
           </div>
         </section>
 
         <section className="min-h-[329px] rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
           <h2 className="pb-6 text-[14px] font-bold leading-[21px] text-[#1E293B]">
-            აქტიური კოდები ({activeCodes.length})
+            {t("activeCodes", { count: activeCodes.length })}
           </h2>
           <div className="space-y-3">
             {loading ? (
@@ -231,7 +235,7 @@ export default function PromoCodesPage() {
               ))
             ) : activeCodes.length === 0 ? (
               <p className="py-8 text-center text-sm text-[#94A3B8]">
-                აქტიური კოდი ჯერ არ არის
+                {t("noActiveCodes")}
               </p>
             ) : (
               activeCodes.map((code) => {
@@ -242,7 +246,7 @@ export default function PromoCodesPage() {
                     : `-${code.discount_value}₾`;
                 const expiry = code.expires_at
                   ? formatDate(code.expires_at)
-                  : "უვადოდ";
+                  : t("noExpiry");
                 return (
                   <div
                     key={code.id}
@@ -253,7 +257,8 @@ export default function PromoCodesPage() {
                         {code.code}
                       </p>
                       <p className="mt-1 truncate text-[11px] font-medium leading-4 text-[#64748B]">
-                        {discountLabel} • გამოყ.: {code.uses_count}
+                        {discountLabel} •{" "}
+                        {t("uses", { count: code.uses_count })}
                         {code.max_uses ? `/${code.max_uses}` : ""} • {expiry}
                       </p>
                     </div>
@@ -263,7 +268,7 @@ export default function PromoCodesPage() {
                       disabled={isCancelling}
                       className="ml-4 shrink-0 text-[12px] font-bold leading-[18px] text-[#EF4444] disabled:opacity-50"
                     >
-                      {isCancelling ? "..." : "გაუქმება"}
+                      {isCancelling ? "..." : tDash("cancel")}
                     </button>
                   </div>
                 );

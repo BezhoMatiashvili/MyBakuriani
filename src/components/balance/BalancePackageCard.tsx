@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Info, type LucideIcon } from "lucide-react";
 
 interface BalancePackageCardProps {
@@ -35,6 +36,8 @@ export default function BalancePackageCard({
   onHowItWorks,
   onActivate,
 }: BalancePackageCardProps) {
+  const t = useTranslations("DashboardShared");
+
   return (
     <div className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
       <div
@@ -53,7 +56,7 @@ export default function BalancePackageCard({
         className="mt-3 inline-flex items-center gap-1 self-start text-[12px] font-bold text-[#2563EB] hover:underline"
       >
         <Info className="h-3.5 w-3.5" />
-        როგორ მუშაობს?
+        {t("howItWorks")}
       </button>
 
       <div className="mt-6 flex items-end justify-between">
@@ -69,7 +72,7 @@ export default function BalancePackageCard({
           onClick={onActivate}
           className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${ctaColor}`}
         >
-          {purchasing ? "..." : "გააქტიურება"}
+          {purchasing ? "..." : t("activate")}
         </button>
       </div>
     </div>

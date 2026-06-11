@@ -58,17 +58,6 @@ export function iconForType(type: string): NotificationIconKey {
   }
 }
 
-export function relativeTime(iso: string | null): string {
-  if (!iso) return "ახლახან";
-  const diff = Date.now() - new Date(iso).getTime();
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 1) return "ახლახან";
-  if (hours < 24) return `${hours} სთ-ის წინ`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "გუშინ";
-  return `${days} დღის წინ`;
-}
-
 const SEGMENTS_WITH_NOTIFICATIONS = new Set([
   "renter",
   "seller",

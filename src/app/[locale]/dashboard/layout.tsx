@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { deriveAvailableCabinets } from "@/lib/cabinets";
 
@@ -10,29 +12,26 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/auth/login");
   }
 
+  const t = await getTranslations("DashboardLayout");
+  const supabase = await createClient();
+
   const [
-    profileRes,
+    profile,
     notifRes,
     balanceRes,
     smartMatchRes,
     propertiesRes,
     servicesRes,
     cleaningRes,
+    cleanerProfileRes,
   ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name, role, avatar_url")
-      .eq("id", user.id)
-      .maybeSingle(),
+    getCurrentProfile(),
     supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
@@ -57,11 +56,16 @@ export default async function DashboardLayout({
       .from("cleaning_tasks")
       .select("id", { count: "exact", head: true })
       .eq("cleaner_id", user.id),
+    supabase
+      .from("cleaner_profiles")
+      .select("is_online")
+      .eq("id", user.id)
+      .maybeSingle(),
   ]);
 
-  const displayName = profileRes.data?.display_name ?? "მომხმარებელი";
-  const role = profileRes.data?.role ?? "guest";
-  const avatarUrl = profileRes.data?.avatar_url ?? null;
+  const displayName = profile?.display_name ?? t("defaultUser");
+  const role = profile?.role ?? "guest";
+  const avatarUrl = profile?.avatar_url ?? null;
   const notificationCount = notifRes.count ?? 0;
   const balance = Number(balanceRes.data?.amount ?? 0);
   const smsRemaining = Number(balanceRes.data?.sms_remaining ?? SMS_PLAN_TOTAL);
@@ -87,6 +91,7 @@ export default async function DashboardLayout({
       smsRemaining={smsRemaining}
       smartMatchCount={smartMatchCount}
       availableCabinets={availableCabinets}
+      cleanerOnline={cleanerProfileRes.data?.is_online ?? true}
     >
       {children}
     </DashboardShell>

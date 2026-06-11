@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Home } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import InvestmentCard from "@/components/cards/InvestmentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
@@ -15,6 +16,8 @@ interface Props {
 }
 
 export default function SalesPageClient({ properties }: Props) {
+  const t = useTranslations("SalesPage");
+  const tShared = useTranslations("Shared");
   const [currentPage, setCurrentPage] = useState(1);
   const listingsRef = useRef<HTMLElement>(null);
 
@@ -41,10 +44,10 @@ export default function SalesPageClient({ properties }: Props) {
       <section className="mx-auto w-full max-w-[1160px] px-4 pb-6 pt-10 sm:px-6 lg:px-8">
         <ScrollReveal>
           <h1 className="text-[32px] font-black leading-[38px] tracking-[-0.5px] text-[#0F172A] sm:text-[40px] sm:leading-[48px]">
-            იყიდება ბინები ბაკურიანში
+            {t("title")}
           </h1>
           <p className="mt-2 text-[14px] leading-[22px] text-[#64748B]">
-            მაღალი ROI და მაქსიმალური სარგებელი აქტივში.
+            {t("subtitle")}
           </p>
         </ScrollReveal>
       </section>
@@ -59,10 +62,10 @@ export default function SalesPageClient({ properties }: Props) {
               <Home className="h-8 w-8 text-[#94A3B8]" />
             </div>
             <h3 className="text-[17px] font-black leading-[21px] text-[#1E293B]">
-              განცხადებები ვერ მოიძებნა
+              {tShared("noListingsFound")}
             </h3>
             <p className="mt-1 text-[13px] leading-[20px] text-[#64748B]">
-              სცადეთ მოგვიანებით
+              {t("tryLater")}
             </p>
           </div>
         ) : (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import {
@@ -12,12 +12,18 @@ import {
   Languages,
   MapPin,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
+import {
+  optionKeyFor,
+  priceUnitPathFor,
+  type OptionGroup,
+} from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 
 type ServiceWithOwner = Tables<"services"> & {
@@ -28,15 +34,6 @@ interface Props {
   service: ServiceWithOwner;
   isMock?: boolean;
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  cleaning: "დალაგება",
-  handyman: "ხელოსანი",
-  entertainment: "გართობა",
-  transport: "ტრანსპორტი",
-  food: "კვება",
-  employment: "დასაქმება",
-};
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -49,8 +46,30 @@ export default function ServiceDetailClient({
   isMock = false,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("ServiceDetail");
+  const tShared = useTranslations("Shared");
+  const tCard = useTranslations("ServiceCard");
+  const tOpts = useTranslations("ListingOptions");
+  // Translates a stored DB option value; falls through to the raw value for
+  // custom/free-text entries.
+  const optionLabel = (group: OptionGroup, value: string | null) => {
+    const key = optionKeyFor(group, value);
+    return key ? tOpts(`${group}.${key}`) : value;
+  };
+  const priceUnitPath = priceUnitPathFor(service.price_unit);
+  // /create/service stores either an experienceOptions label or "N წელი".
+  const experienceLabel = (() => {
+    const value = service.experience_required;
+    if (!value) return null;
+    const key = optionKeyFor("experienceOptions", value);
+    if (key) return tOpts(`experienceOptions.${key}`);
+    const years = value.match(/^(\d+)\s*წელი$/u);
+    return years ? t("experienceYears", { count: Number(years[1]) }) : value;
+  })();
   const owner = service.profiles;
-  const categoryLabel = CATEGORY_LABELS[service.category] ?? service.category;
+  const categoryLabel = tCard.has(`categories.${service.category}`)
+    ? tCard(`categories.${service.category}`)
+    : service.category;
 
   useEffect(() => {
     if (isMock) return;
@@ -70,7 +89,7 @@ export default function ServiceDetailClient({
         {...fadeIn}
         className="mb-4 flex items-center gap-1.5 text-[12px] text-[#94A3B8]"
       >
-        <span>სერვისი</span>
+        <span>{t("breadcrumbRoot")}</span>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="text-[#64748B]">{categoryLabel}</span>
       </motion.nav>
@@ -81,7 +100,7 @@ export default function ServiceDetailClient({
         className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
-        უკან დაბრუნება
+        {tShared("back")}
       </motion.button>
 
       {/* Title */}
@@ -101,20 +120,20 @@ export default function ServiceDetailClient({
                 />
               ) : (
                 <span className="flex size-full items-center justify-center text-[12px] font-bold text-[#94A3B8]">
-                  {owner?.display_name?.charAt(0) ?? "ს"}
+                  {owner?.display_name?.charAt(0) ?? t("providerInitial")}
                 </span>
               )}
             </span>
             {service.provider_name ??
               owner?.display_name ??
-              "სერვისის მომწოდებელი"}
+              t("providerFallback")}
             {owner?.is_verified && (
               <BadgeCheck className="h-4 w-4 text-[#2563EB]" />
             )}
           </span>
           {service.service_field && (
             <span className="rounded-full bg-[#EFF6FF] px-3 py-1 text-[13px] font-semibold text-[#2563EB]">
-              {service.service_field}
+              {optionLabel("serviceSpheres", service.service_field)}
             </span>
           )}
         </div>
@@ -128,7 +147,7 @@ export default function ServiceDetailClient({
           className="mt-8"
         >
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-            შესახებ
+            {t("about")}
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
@@ -145,10 +164,16 @@ export default function ServiceDetailClient({
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             <MapPin className="h-3.5 w-3.5" />
-            დაფარვის ზონა
+            {t("coverageArea")}
           </span>
           <ZoneLocationLink
-            location={service.location ?? "ბაკურიანი"}
+            location={
+              // /create/service stores a comma-joined list of coverageZones labels.
+              service.location
+                ?.split(", ")
+                .map((zone) => optionLabel("coverageZones", zone))
+                .join(", ") ?? t("bakuriani")
+            }
             className="text-[15px] font-black text-[#1E293B]"
             prefix=""
             showIcon={false}
@@ -158,10 +183,12 @@ export default function ServiceDetailClient({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Languages className="h-3.5 w-3.5" />
-              ენები
+              {t("languages")}
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
-              {service.languages.join(", ")}
+              {service.languages
+                .map((lang) => optionLabel("languages", lang))
+                .join(", ")}
             </span>
           </div>
         )}
@@ -169,7 +196,7 @@ export default function ServiceDetailClient({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Clock className="h-3.5 w-3.5" />
-              სამუშაო გრაფიკი
+              {t("schedule")}
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
               {service.schedule}
@@ -180,10 +207,10 @@ export default function ServiceDetailClient({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <BadgeCheck className="h-3.5 w-3.5" />
-              გამოცდილება
+              {t("experience")}
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
-              {service.experience_required}
+              {experienceLabel}
             </span>
           </div>
         )}
@@ -201,12 +228,10 @@ export default function ServiceDetailClient({
           </div>
           <div>
             <h3 className="text-[15px] font-black text-[#1E293B]">
-              ვერიფიცირებული პროფესიონალი
+              {t("verifiedTitle")}
             </h3>
             <p className="mt-1 text-[13px] leading-[20px] text-[#64748B]">
-              აღნიშნულ პირს გავლილი აქვს პირადობის და გამოცდილების ვერიფიკაცია
-              MyBakuriani-ს მიერ, რაც უზრუნველყოფს სერვისის მაღალ ხარისხს და
-              უსაფრთხოებას.
+              {t("verifiedBody")}
             </p>
           </div>
         </motion.div>
@@ -226,7 +251,7 @@ export default function ServiceDetailClient({
             </span>
             {service.price_unit && (
               <span className="ml-1 text-sm text-[#94A3B8]">
-                / {service.price_unit}
+                / {priceUnitPath ? tOpts(priceUnitPath) : service.price_unit}
               </span>
             )}
           </div>
@@ -236,7 +261,7 @@ export default function ServiceDetailClient({
           <CallButton
             phone={service.phone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#22C55E] px-8 text-[15px] font-bold text-white hover:bg-[#16A34A] sm:flex-none"
-            label="დარეკვა"
+            label={tCard("call")}
             alwaysShowLabel
             onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={service.id}
@@ -246,9 +271,9 @@ export default function ServiceDetailClient({
 
       {service.price != null && (
         <MobileStickyCTA
-          primary={`${formatPrice(service.price)}${service.price_unit ? ` / ${service.price_unit}` : ""}`}
+          primary={`${formatPrice(service.price)}${service.price_unit ? ` / ${priceUnitPath ? tOpts(priceUnitPath) : service.price_unit}` : ""}`}
           secondary={service.location ?? undefined}
-          ctaLabel="დარეკვა"
+          ctaLabel={tCard("call")}
           onClick={() =>
             document
               .getElementById("contact-sidebar")

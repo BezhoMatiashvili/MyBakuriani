@@ -310,10 +310,59 @@ export type Database = {
           },
         ];
       };
+      cleaner_profiles: {
+        Row: {
+          address: string | null;
+          created_at: string;
+          first_name: string | null;
+          id: string;
+          is_online: boolean;
+          last_name: string | null;
+          personal_number: string | null;
+          phone: string | null;
+          updated_at: string;
+          whatsapp: string | null;
+        };
+        Insert: {
+          address?: string | null;
+          created_at?: string;
+          first_name?: string | null;
+          id: string;
+          is_online?: boolean;
+          last_name?: string | null;
+          personal_number?: string | null;
+          phone?: string | null;
+          updated_at?: string;
+          whatsapp?: string | null;
+        };
+        Update: {
+          address?: string | null;
+          created_at?: string;
+          first_name?: string | null;
+          id?: string;
+          is_online?: boolean;
+          last_name?: string | null;
+          personal_number?: string | null;
+          phone?: string | null;
+          updated_at?: string;
+          whatsapp?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cleaner_profiles_id_fkey";
+            columns: ["id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       cleaning_tasks: {
         Row: {
+          address: string | null;
           cleaner_id: string | null;
           cleaning_type: string;
+          completed_at: string | null;
           created_at: string | null;
           id: string;
           notes: string | null;
@@ -321,11 +370,14 @@ export type Database = {
           price: number | null;
           property_id: string;
           scheduled_at: string;
+          started_at: string | null;
           status: string | null;
         };
         Insert: {
+          address?: string | null;
           cleaner_id?: string | null;
           cleaning_type: string;
+          completed_at?: string | null;
           created_at?: string | null;
           id?: string;
           notes?: string | null;
@@ -333,11 +385,14 @@ export type Database = {
           price?: number | null;
           property_id: string;
           scheduled_at: string;
+          started_at?: string | null;
           status?: string | null;
         };
         Update: {
+          address?: string | null;
           cleaner_id?: string | null;
           cleaning_type?: string;
+          completed_at?: string | null;
           created_at?: string | null;
           id?: string;
           notes?: string | null;
@@ -345,6 +400,7 @@ export type Database = {
           price?: number | null;
           property_id?: string;
           scheduled_at?: string;
+          started_at?: string | null;
           status?: string | null;
         };
         Relationships: [
@@ -2173,6 +2229,22 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      get_platform_cleaners: {
+        Args: never;
+        Returns: {
+          avatar_url: string;
+          cleaner_id: string;
+          is_online: boolean;
+          location: string;
+          name: string;
+          phone: string;
+          photo: string;
+          price: number;
+          price_unit: string;
+          service_id: string;
+          whatsapp: string;
+        }[];
+      };
       global_search: {
         Args: { entity_types?: string[]; q: string; result_limit?: number };
         Returns: {
@@ -2192,6 +2264,22 @@ export type Database = {
       };
       increment_views: { Args: { prop_id: string }; Returns: undefined };
       is_admin_user: { Args: never; Returns: boolean };
+      owner_dashboard_stats: {
+        Args: {
+          p_from?: string;
+          p_listing_ids?: string[];
+          p_scope: string;
+          p_to?: string;
+        };
+        Returns: {
+          calls: number;
+          favorites_total: number;
+          menu_views_total: number;
+          revenue: number;
+          spent: number;
+          views_total: number;
+        }[];
+      };
       purchase_package: {
         Args: {
           p_package_id: string;
@@ -2223,6 +2311,22 @@ export type Database = {
       release_booking_calendar: {
         Args: { p_booking_id: string };
         Returns: number;
+      };
+      seller_dashboard_stats: {
+        Args: {
+          p_from: string;
+          p_property_ids?: string[];
+          p_to: string;
+        };
+        Returns: {
+          contact_reach: number;
+          favorites: number;
+          new_interest: number;
+          new_leads: number;
+          sms_views: number;
+          sold: number;
+          views_total: number;
+        }[];
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };

@@ -26,7 +26,12 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import {
+  optionKeyFor,
+  type OptionGroup,
+} from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables, TablesInsert } from "@/lib/types/database";
@@ -99,17 +104,13 @@ function SidebarRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const SALARY_MODEL_VALUES = [
-  "ფიქსირებული",
-  "ფიქსირებული + ბონუსი/Tips",
-  "გამომუშავებით (%)",
-  "შეთანხმებით",
-];
-
-function salaryModelLabel(salaryType: string | null): string {
-  const v = salaryType?.trim();
-  return v && SALARY_MODEL_VALUES.includes(v) ? v : "ფიქსირებული";
-}
+// DB `salary_type` values mapped to translation keys.
+const SALARY_MODEL_KEYS: Record<string, string> = {
+  ფიქსირებული: "fixed",
+  "ფიქსირებული + ბონუსი/Tips": "fixedBonus",
+  "გამომუშავებით (%)": "commission",
+  შეთანხმებით: "negotiable",
+};
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -117,8 +118,17 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-const LOCATION_OPTIONS = ["ბაკურიანი", "თბილისი", "სხვა"];
-const LANGUAGE_OPTIONS = ["ქართული", "ინგლისური", "რუსული"];
+// `value` strings are stored in the DB and must stay Georgian; labels are translated.
+const LOCATION_OPTIONS = [
+  { value: "ბაკურიანი", key: "bakuriani" },
+  { value: "თბილისი", key: "tbilisi" },
+  { value: "სხვა", key: "other" },
+] as const;
+const LANGUAGE_OPTIONS = [
+  { value: "ქართული", key: "georgian" },
+  { value: "ინგლისური", key: "english" },
+  { value: "რუსული", key: "russian" },
+] as const;
 const MAX_CV_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_CV_MIME = [
   "application/pdf",
@@ -159,9 +169,25 @@ export default function EmploymentDetailClient({
   applicationsCount,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("EmploymentDetail");
+  const locale = useLocale();
   const { user } = useAuth();
   const owner = service.profiles;
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const salaryModelLabel = (salaryType: string | null): string => {
+    const key = SALARY_MODEL_KEYS[salaryType?.trim() ?? ""] ?? "fixed";
+    return t(`salaryModels.${key}`);
+  };
+
+  // Rows store Georgian enum labels; resolve to the ListingOptions
+  // translation, passing unknown free-text through raw. Display only.
+  const tOpts = useTranslations("ListingOptions");
+  const optLabel = (group: OptionGroup, value: string): string => {
+    const key = optionKeyFor(group, value);
+    return key ? tOpts(`${group}.${key}`) : value;
+  };
+  const scheduleRaw = service.work_schedule ?? service.employment_schedule;
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -203,12 +229,12 @@ export default function EmploymentDetailClient({
     const file = e.target.files?.[0];
     if (!file) return;
     if (!ACCEPTED_CV_MIME.includes(file.type)) {
-      toast.error("მხოლოდ PDF ან DOCX ფორმატია დაშვებული");
+      toast.error(t("errors.cvFormat"));
       e.target.value = "";
       return;
     }
     if (file.size > MAX_CV_BYTES) {
-      toast.error("ფაილის ზომა არ უნდა აღემატებოდეს 5 MB-ს");
+      toast.error(t("errors.cvSize"));
       e.target.value = "";
       return;
     }
@@ -222,14 +248,13 @@ export default function EmploymentDetailClient({
 
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!form.full_name.trim()) next.full_name = "შეავსე სახელი და გვარი";
+    if (!form.full_name.trim()) next.full_name = t("errors.fullName");
     if (form.phone.replace(/\D/g, "").length !== 9)
-      next.phone = "შეიყვანე ვალიდური ნომერი";
-    if (!form.birth_date) next.birth_date = "მიუთითე დაბადების თარიღი";
-    if (!form.current_location) next.current_location = "აირჩიე ლოკაცია";
-    if (!form.housing_choice) next.housing_choice = "აირჩიე ვარიანტი";
-    if (!form.desired_salary.trim())
-      next.desired_salary = "მიუთითე სასურველი ხელფასი";
+      next.phone = t("errors.phone");
+    if (!form.birth_date) next.birth_date = t("errors.birthDate");
+    if (!form.current_location) next.current_location = t("errors.location");
+    if (!form.housing_choice) next.housing_choice = t("errors.housing");
+    if (!form.desired_salary.trim()) next.desired_salary = t("errors.salary");
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -237,13 +262,11 @@ export default function EmploymentDetailClient({
   async function handleSubmit() {
     if (submitting) return;
     if (!validate()) {
-      toast.error("შეავსე ყველა აუცილებელი ველი");
+      toast.error(t("errors.fillRequired"));
       return;
     }
     if (isMock) {
-      toast.success(
-        "სატესტო ვაკანსიაა — რეალურ მონაცემთა ბაზაში არ ჩაიწერა, მაგრამ ფორმა მუშაობს",
-      );
+      toast.success(t("mockSuccess"));
       setForm(INITIAL_FORM);
       clearCv();
       return;
@@ -264,7 +287,7 @@ export default function EmploymentDetailClient({
         });
       if (uploadError) {
         setSubmitting(false);
-        toast.error("CV-ის ატვირთვა ვერ მოხერხდა");
+        toast.error(t("errors.cvUpload"));
         return;
       }
       cvPath = path;
@@ -298,11 +321,11 @@ export default function EmploymentDetailClient({
       if (cvPath) {
         await supabase.storage.from("cv-documents").remove([cvPath]);
       }
-      toast.error("განაცხადის გაგზავნა ვერ მოხერხდა");
+      toast.error(t("errors.submitFailed"));
       return;
     }
 
-    toast.success("განაცხადი წარმატებით გაიგზავნა");
+    toast.success(t("submitSuccess"));
     setForm(INITIAL_FORM);
     clearCv();
   }
@@ -319,7 +342,7 @@ export default function EmploymentDetailClient({
       : service.salary_min != null
         ? `${service.salary_min} ₾`
         : service.salary_daily != null
-          ? `${service.salary_daily} ₾ / დღეში`
+          ? t("salaryDaily", { amount: service.salary_daily })
           : null);
 
   return (
@@ -331,7 +354,7 @@ export default function EmploymentDetailClient({
           className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
         >
           <ArrowLeft className="h-4 w-4" />
-          უკან ძიებაზე
+          {t("backToSearch")}
         </motion.button>
         {service.created_at && (
           <motion.div
@@ -339,7 +362,7 @@ export default function EmploymentDetailClient({
             className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
           >
             <ClockIcon className="h-3.5 w-3.5" />
-            გამოქვეყნდა: {formatDate(service.created_at)}
+            {t("publishedAt", { date: formatDate(service.created_at, locale) })}
           </motion.div>
         )}
       </div>
@@ -353,7 +376,7 @@ export default function EmploymentDetailClient({
           >
             <span className="inline-flex items-center gap-1.5 rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[12px] font-black text-[#16A34A]">
               <Leaf className="h-3.5 w-3.5" />
-              სასწრაფო
+              {t("urgent")}
             </span>
             {service.is_vip && (
               <span className="inline-flex items-center rounded-md bg-[#FEF3C7] px-2.5 py-1 text-[12px] font-black text-[#92400E]">
@@ -385,7 +408,7 @@ export default function EmploymentDetailClient({
             <span className="text-[#CBD5E1]">·</span>
             <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
               <Users className="h-4 w-4" />
-              {applicationsCount} გამოხმაურება
+              {t("applications", { count: applicationsCount })}
             </span>
           </motion.div>
 
@@ -396,10 +419,10 @@ export default function EmploymentDetailClient({
           >
             <StatCard
               icon={<MapPin />}
-              label="ლოკაცია"
+              label={t("stats.location")}
               value={
                 <ZoneLocationLink
-                  location={service.location ?? "დიდველი"}
+                  location={service.location ?? t("stats.locationFallback")}
                   prefix=""
                   showIcon={false}
                 />
@@ -407,23 +430,27 @@ export default function EmploymentDetailClient({
             />
             <StatCard
               icon={<Banknote />}
-              label="ანაზღაურება"
-              value={salaryDisplay ?? "შეთანხმებით"}
+              label={t("stats.salary")}
+              value={salaryDisplay ?? t("stats.negotiable")}
               accent
             />
             <StatCard
               icon={<ClockIcon />}
-              label="გრაფიკი"
+              label={t("stats.schedule")}
               value={
-                service.work_schedule ??
-                service.employment_schedule ??
-                "მოქნილი"
+                scheduleRaw
+                  ? optLabel("employmentTypes", scheduleRaw)
+                  : t("stats.flexible")
               }
             />
             <StatCard
               icon={<Briefcase />}
-              label="გამოცდილება"
-              value={service.experience_required ?? "სასურველია"}
+              label={t("stats.experience")}
+              value={
+                service.experience_required
+                  ? optLabel("experienceOptions", service.experience_required)
+                  : t("stats.preferred")
+              }
             />
           </motion.div>
 
@@ -434,7 +461,7 @@ export default function EmploymentDetailClient({
               className="mt-8"
             >
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                სამუშაოს აღწერა
+                {t("jobDescription")}
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {service.description}
@@ -449,7 +476,7 @@ export default function EmploymentDetailClient({
               className="mt-8"
             >
               <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                მოთხოვნები და კომპეტენციები
+                {t("requirements")}
               </h2>
               <ul className="space-y-3">
                 {service.requirements
@@ -475,11 +502,10 @@ export default function EmploymentDetailClient({
               className="mt-8 rounded-[16px] border border-[#A7F3D0] bg-[#ECFDF5] p-5"
             >
               <p className="mb-1 text-[15px] font-black text-[#0F766E]">
-                ვერიფიცირებული დამსაქმებელი
+                {t("verifiedEmployer")}
               </p>
               <p className="text-[13px] leading-[20px] text-[#475569]">
-                აღნიშნულ კომპანიას გავლილი აქვს იდენტიფიკაცია MyBakuriani-ს
-                მიერ, რაც უზრუნველყოფს სანდო და უსაფრთო სამუშაო გარემოს.
+                {t("verifiedEmployerBody")}
               </p>
             </motion.div>
           )}
@@ -492,10 +518,10 @@ export default function EmploymentDetailClient({
             className="mt-10 rounded-[24px] border border-[#E2E8F0] bg-gradient-to-b from-[#F8FAFC] to-white p-6 sm:p-8"
           >
             <h2 className="mb-2 text-center text-[28px] font-black text-[#1E293B] sm:text-[32px]">
-              გამოეხმაურე ვაკანსიას
+              {t("applyTitle")}
             </h2>
             <p className="mb-6 text-center text-[13px] text-[#64748B]">
-              შეავსეთ ფორმა მარტივად, პირდაპირ საიტიდან
+              {t("applySubtitle")}
             </p>
 
             {/* CV upload */}
@@ -524,20 +550,19 @@ export default function EmploymentDetailClient({
                     className="mt-3 inline-flex items-center gap-1 text-[12px] font-bold text-[#EF4444] hover:underline"
                   >
                     <X className="h-3 w-3" />
-                    წაშლა
+                    {t("remove")}
                   </button>
                 </>
               ) : (
                 <>
                   <p className="text-[16px] font-black text-[#1E293B]">
-                    ატვირთეთ რეზიუმე (CV)
+                    {t("cvUploadTitle")}
                   </p>
                   <p className="mt-1 text-[12px] text-[#64748B]">
-                    PDF ან DOCX ფორმატი (არ არის სავალდებულო)
+                    {t("cvUploadHint")}
                   </p>
                   <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#DCFCE7] px-3 py-1 text-[11px] font-bold text-[#16A34A]">
-                    💡 CV-ის ატვირთვისას დამსაქმებლის დაინტერესება ბევრად
-                    მაღალია
+                    {t("cvUploadTip")}
                   </span>
                 </>
               )}
@@ -553,21 +578,21 @@ export default function EmploymentDetailClient({
 
             <div className="my-6 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
               <span className="h-px flex-1 bg-[#E2E8F0]" />
-              ან შეავსეთ დეტალები
+              {t("orFillDetails")}
               <span className="h-px flex-1 bg-[#E2E8F0]" />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
-                  სახელი და გვარი <span className="text-[#EF4444]">*</span>
+                  {t("form.fullName")} <span className="text-[#EF4444]">*</span>
                 </label>
                 <input
                   type="text"
                   value={form.full_name}
                   onChange={(e) => update("full_name", e.target.value)}
                   className={inputClass("full_name")}
-                  placeholder="მაგ: მარიამ გიორგაძე"
+                  placeholder={t("form.fullNamePlaceholder")}
                 />
                 {errors.full_name && (
                   <p className="mt-1 text-xs text-[#EF4444]">
@@ -578,7 +603,7 @@ export default function EmploymentDetailClient({
 
               <div>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
-                  ტელეფონის ნომერი <span className="text-[#EF4444]">*</span>
+                  {t("form.phone")} <span className="text-[#EF4444]">*</span>
                 </label>
                 <PhoneInput
                   value={form.phone}
@@ -589,7 +614,7 @@ export default function EmploymentDetailClient({
 
               <div>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
-                  დაბადების თარიღი (ასაკი){" "}
+                  {t("form.birthDate")}{" "}
                   <span className="text-[#EF4444]">*</span>
                 </label>
                 <input
@@ -607,17 +632,18 @@ export default function EmploymentDetailClient({
 
               <div>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
-                  ამჟამინდელი ლოკაცია <span className="text-[#EF4444]">*</span>
+                  {t("form.currentLocation")}{" "}
+                  <span className="text-[#EF4444]">*</span>
                 </label>
                 <select
                   value={form.current_location}
                   onChange={(e) => update("current_location", e.target.value)}
                   className={inputClass("current_location")}
                 >
-                  <option value="">აირჩიეთ ლოკაცია</option>
+                  <option value="">{t("form.selectLocation")}</option>
                   {LOCATION_OPTIONS.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
+                    <option key={loc.value} value={loc.value}>
+                      {t(`form.locations.${loc.key}`)}
                     </option>
                   ))}
                 </select>
@@ -630,13 +656,12 @@ export default function EmploymentDetailClient({
 
               <div className="sm:col-span-2">
                 <div className="mb-2 text-[13px] font-bold text-[#1E293B]">
-                  საცხოვრებელი ლოკაციაზე{" "}
-                  <span className="text-[#EF4444]">*</span>
+                  {t("form.housing")} <span className="text-[#EF4444]">*</span>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {[
-                    { value: "needs", label: "მჭირდება საცხოვრებელი" },
-                    { value: "has", label: "მაქვს ჩემი ფართი ბაკურიანში" },
+                    { value: "needs", label: t("form.housingNeeds") },
+                    { value: "has", label: t("form.housingHas") },
                   ].map((opt) => {
                     const active = form.housing_choice === opt.value;
                     return (
@@ -684,14 +709,15 @@ export default function EmploymentDetailClient({
 
               <div className="sm:col-span-2">
                 <div className="mb-2 text-[13px] font-bold text-[#1E293B]">
-                  ენები <span className="text-[#EF4444]">*</span>
+                  {t("form.languages")}{" "}
+                  <span className="text-[#EF4444]">*</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {LANGUAGE_OPTIONS.map((lang) => {
-                    const checked = form.languages.includes(lang);
+                    const checked = form.languages.includes(lang.value);
                     return (
                       <label
-                        key={lang}
+                        key={lang.value}
                         className={`flex cursor-pointer items-center gap-2 rounded-[12px] border px-4 py-2.5 text-[13px] font-medium transition-colors ${
                           checked
                             ? "border-[#2563EB] bg-[#EFF6FF] text-[#1E293B]"
@@ -701,7 +727,7 @@ export default function EmploymentDetailClient({
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => toggleLanguage(lang)}
+                          onChange={() => toggleLanguage(lang.value)}
                           className="sr-only"
                         />
                         <span
@@ -715,7 +741,7 @@ export default function EmploymentDetailClient({
                             <CheckCircle2 className="h-3 w-3 text-white" />
                           )}
                         </span>
-                        {lang}
+                        {t(`form.languageOptions.${lang.key}`)}
                       </label>
                     );
                   })}
@@ -724,21 +750,21 @@ export default function EmploymentDetailClient({
 
               <div className="sm:col-span-2">
                 <div className="mb-2 text-[13px] font-bold text-[#1E293B]">
-                  დამატებითი ინფორმაცია
+                  {t("form.additionalInfo")}
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {[
                     {
                       key: "is_non_smoker" as const,
-                      label: "არამწეველი",
+                      label: t("form.nonSmoker"),
                     },
                     {
                       key: "has_health_certificate" as const,
-                      label: "ჯანმრთელობის ცნობა",
+                      label: t("form.healthCertificate"),
                     },
                     {
                       key: "has_experience" as const,
-                      label: "სამუშაო გამოცდილება",
+                      label: t("form.workExperience"),
                     },
                   ].map((opt) => {
                     const checked = form[opt.key];
@@ -778,9 +804,9 @@ export default function EmploymentDetailClient({
               {form.has_experience && (
                 <div>
                   <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
-                    ბოლო სამუშაო ადგილი{" "}
+                    {t("form.lastWorkplace")}{" "}
                     <span className="text-[12px] font-medium text-[#94A3B8]">
-                      (გამოცდილების შემთხვევაში)
+                      {t("form.lastWorkplaceHint")}
                     </span>
                   </label>
                   <input
@@ -788,16 +814,16 @@ export default function EmploymentDetailClient({
                     value={form.last_workplace}
                     onChange={(e) => update("last_workplace", e.target.value)}
                     className={inputClass("last_workplace")}
-                    placeholder="მაგ: სასტუმრო რუმსი..."
+                    placeholder={t("form.lastWorkplacePlaceholder")}
                   />
                 </div>
               )}
 
               <div className={form.has_experience ? "" : "sm:col-span-2"}>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
-                  სასურველი ხელფასი{" "}
+                  {t("form.desiredSalary")}{" "}
                   <span className="text-[12px] font-medium text-[#94A3B8]">
-                    (თუ შეთანხმებითია)
+                    {t("form.desiredSalaryHint")}
                   </span>{" "}
                   <span className="text-[#EF4444]">*</span>
                 </label>
@@ -816,7 +842,7 @@ export default function EmploymentDetailClient({
                     value={form.desired_salary}
                     onChange={(e) => update("desired_salary", e.target.value)}
                     className="h-full w-full bg-transparent px-3 text-sm outline-none"
-                    placeholder="მაგ: 1500"
+                    placeholder={t("form.desiredSalaryPlaceholder")}
                   />
                   <span className="px-3 text-sm font-bold text-[#94A3B8]">
                     ₾
@@ -836,7 +862,7 @@ export default function EmploymentDetailClient({
               className="mt-6 h-12 w-full gap-2 rounded-[12px] bg-[#2563EB] text-[15px] font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
-              {submitting ? "იგზავნება..." : "მონაცემების გაგზავნა"}
+              {submitting ? t("form.submitting") : t("form.submit")}
             </Button>
           </motion.div>
         </div>
@@ -849,26 +875,32 @@ export default function EmploymentDetailClient({
         >
           <div className="sticky top-24 rounded-[20px] border border-[#E2E8F0] bg-white p-6">
             <h3 className="mb-5 text-[18px] font-black text-[#0F172A]">
-              დამატებითი პირობები
+              {t("sidebar.title")}
             </h3>
             <dl className="divide-y divide-[#E2E8F0]">
               <SidebarRow
-                label="ანაზღაურების მოდელი"
+                label={t("sidebar.salaryModel")}
                 value={salaryModelLabel(service.salary_type)}
               />
               {service.accommodation && (
                 <SidebarRow
-                  label="საცხოვრებელი"
-                  value={service.accommodation}
+                  label={t("sidebar.accommodation")}
+                  value={optLabel(
+                    "accommodationOptions",
+                    service.accommodation,
+                  )}
                 />
               )}
               {service.meals && (
-                <SidebarRow label="კვება" value={service.meals} />
+                <SidebarRow
+                  label={t("sidebar.meals")}
+                  value={optLabel("mealsOptions", service.meals)}
+                />
               )}
               {service.languages?.length ? (
                 <div className="pt-4">
                   <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-                    სასურველი ენები
+                    {t("sidebar.preferredLanguages")}
                   </dt>
                   <dd className="mt-2 flex flex-wrap gap-2">
                     {service.languages.map((lang) => (
@@ -876,7 +908,7 @@ export default function EmploymentDetailClient({
                         key={lang}
                         className="rounded-[8px] border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-bold text-[#475569]"
                       >
-                        {lang}
+                        {optLabel("languages", lang)}
                       </span>
                     ))}
                   </dd>
@@ -890,7 +922,7 @@ export default function EmploymentDetailClient({
       <MobileStickyCTA
         primary={salaryDisplay ?? service.title}
         secondary={service.location ?? undefined}
-        ctaLabel="განაცხადი"
+        ctaLabel={t("apply")}
         onClick={() =>
           document
             .getElementById("contact-sidebar")

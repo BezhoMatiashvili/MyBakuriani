@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GoogleMap, OverlayViewF, MarkerF } from "@react-google-maps/api";
+import { useTranslations } from "next-intl";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { formatNumber } from "@/lib/utils/format";
 
@@ -286,6 +287,7 @@ export default function BakurianiMap({
   expandable,
   zones = FALLBACK_ZONES,
 }: BakurianiMapProps) {
+  const t = useTranslations("BakurianiMap");
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
 
   const [isLoaded, setIsLoaded] = useState(_loaded);
@@ -400,7 +402,7 @@ export default function BakurianiMap({
           </span>
         </div>
         <div className="absolute bottom-3 left-3 rounded-lg bg-white/90 px-3 py-1.5 text-[12px] font-bold text-[#334155] shadow-sm backdrop-blur-sm">
-          ბაკურიანი
+          {t("bakuriani")}
         </div>
       </div>
     );
@@ -466,7 +468,7 @@ export default function BakurianiMap({
             type="button"
             onClick={() => setExpanded(true)}
             className="absolute bottom-3 right-3 z-10 flex size-[36px] items-center justify-center rounded-lg border border-[#E2E8F0] bg-white shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9]"
-            title="რუკის გაშლა"
+            title={t("expandMap")}
           >
             <ExpandIcon className="size-4 text-[#334155]" />
           </button>
@@ -486,7 +488,7 @@ export default function BakurianiMap({
             {/* Header with collapse button */}
             <div className="flex items-center justify-between border-b border-[#E2E8F0] px-5 py-3">
               <h3 className="text-[15px] font-black text-[#1E293B]">
-                ბაკურიანის რუკა
+                {t("mapTitle")}
               </h3>
               <button
                 type="button"
@@ -494,7 +496,7 @@ export default function BakurianiMap({
                 className="flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-[12px] font-bold text-[#334155] transition-colors hover:bg-[#F1F5F9]"
               >
                 <CollapseIcon className="size-3.5" />
-                შეკუმშვა
+                {t("collapse")}
               </button>
             </div>
 

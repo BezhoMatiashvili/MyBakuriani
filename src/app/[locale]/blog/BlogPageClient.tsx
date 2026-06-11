@@ -1,67 +1,64 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import type { Tables } from "@/lib/types/database";
 
-const BLOG_POSTS = [
+// Mock fallback posts (shown when no DB posts exist). Texts live in messages
+// under BlogPage.mockPosts.* / BlogPage.categories.*.
+const MOCK_POSTS = [
   {
     id: "1",
-    title: "ბაკურიანის სეზონი 2026 — რა სიახლეებია?",
-    excerpt:
-      "წელს ბაკურიანში მრავალი სიახლე გელოდებათ: ახალი ტრასები, გაუმჯობესებული ინფრასტრუქტურა.",
+    messageKey: "post1",
+    categoryKey: "news",
     image: "/placeholder-property.jpg",
     date: "2026-03-20",
-    category: "სიახლეები",
   },
   {
     id: "2",
-    title: "როგორ ავირჩიოთ საუკეთესო აპარტამენტი",
-    excerpt:
-      "გაიგეთ რა კრიტერიუმებით უნდა აირჩიოთ აპარტამენტი კომფორტული დასვენებისთვის.",
+    messageKey: "post2",
+    categoryKey: "tips",
     image: "/placeholder-property.jpg",
     date: "2026-03-15",
-    category: "რჩევები",
   },
   {
     id: "3",
-    title: "დიდველის ახალი ტრასები — სრული მიმოხილვა",
-    excerpt: "დიდველის სათხილამურო კურორტმა ახალი ტრასები გახსნა.",
+    messageKey: "post3",
+    categoryKey: "sport",
     image: "/placeholder-property.jpg",
     date: "2026-03-10",
-    category: "სპორტი",
   },
   {
     id: "4",
-    title: "ბაკურიანის საუკეთესო რესტორნები 2026",
-    excerpt: "აღმოაჩინეთ ბაკურიანის პოპულარული რესტორნები და კაფეები.",
+    messageKey: "post4",
+    categoryKey: "food",
     image: "/placeholder-property.jpg",
     date: "2026-03-05",
-    category: "კვება",
   },
   {
     id: "5",
-    title: "საოჯახო დასვენება — სრული გზამკვლევი",
-    excerpt: "რა აქტივობებია ხელმისაწვდომი ბავშვიანი ოჯახებისთვის?",
+    messageKey: "post5",
+    categoryKey: "guide",
     image: "/placeholder-property.jpg",
     date: "2026-02-28",
-    category: "გზამკვლევი",
   },
   {
     id: "6",
-    title: "ინვესტიცია ბაკურიანის უძრავ ქონებაში",
-    excerpt: "რატომ არის ბაკურიანი საუკეთესო ადგილი ინვესტიციისთვის.",
+    messageKey: "post6",
+    categoryKey: "investment",
     image: "/placeholder-property.jpg",
     date: "2026-02-20",
-    category: "ინვესტიცია",
   },
-];
+] as const;
 
 interface Props {
   posts?: Tables<"blog_posts">[];
 }
 
 export default function BlogPageClient({ posts: serverPosts }: Props) {
+  const t = useTranslations("BlogPage");
+  const locale = useLocale();
   const displayPosts =
     serverPosts && serverPosts.length > 0
       ? serverPosts.map((bp) => ({
@@ -73,35 +70,34 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
             const d = new Date(
               bp.published_at ?? bp.created_at ?? new Date().toISOString(),
             );
-            const months = [
-              "იანვარი",
-              "თებერვალი",
-              "მარტი",
-              "აპრილი",
-              "მაისი",
-              "ივნისი",
-              "ივლისი",
-              "აგვისტო",
-              "სექტემბერი",
-              "ოქტომბერი",
-              "ნოემბერი",
-              "დეკემბერი",
-            ];
-            return `${d.getUTCDate()} ${months[d.getUTCMonth()]}, ${d.getUTCFullYear()}`;
+            const month = new Intl.DateTimeFormat(locale, {
+              month: "long",
+              timeZone: "UTC",
+            }).format(d);
+            return `${d.getUTCDate()} ${month}, ${d.getUTCFullYear()}`;
           })(),
-          category: "სიახლეები",
+          category: t("newsCategory"),
+          categoryKey: "news",
         }))
-      : BLOG_POSTS;
+      : MOCK_POSTS.map((p) => ({
+          id: p.id,
+          title: t(`mockPosts.${p.messageKey}Title`),
+          excerpt: t(`mockPosts.${p.messageKey}Excerpt`),
+          image: p.image,
+          date: p.date,
+          category: t(`categories.${p.categoryKey}`),
+          categoryKey: p.categoryKey as string,
+        }));
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
       <div className="mx-auto max-w-7xl px-4 py-12">
         <ScrollReveal>
           <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-            ბლოგი და სიახლეები
+            {t("title")}
           </h1>
           <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
-            ბაკურიანის უახლესი სიახლეები, რჩევები და სტატიები
+            {t("subtitle")}
           </p>
         </ScrollReveal>
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -120,7 +116,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <span
-                    className={`absolute top-4 left-4 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[1px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-[2px] ${post.category === "რჩევები" ? "bg-blue-500" : post.category === "კვება" ? "bg-orange-500" : "bg-[#1E293B]/80"}`}
+                    className={`absolute top-4 left-4 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[1px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-[2px] ${post.categoryKey === "tips" ? "bg-blue-500" : post.categoryKey === "food" ? "bg-orange-500" : "bg-[#1E293B]/80"}`}
                   >
                     {post.category}
                   </span>

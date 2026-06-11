@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 
@@ -22,6 +23,10 @@ export default function ProgressUpdateModal({
   onClose,
   onSaved,
 }: Props) {
+  const t = useTranslations("SellerDashboard.progressModal");
+  const tShared = useTranslations("DashboardShared");
+  const tAdmin = useTranslations("AdminShared");
+
   const open = property !== null;
   const [percent, setPercent] = useState(0);
   const [year, setYear] = useState<string>("");
@@ -63,7 +68,7 @@ export default function ProgressUpdateModal({
         yearNum !== null &&
         (!Number.isInteger(yearNum) || yearNum < MIN_YEAR || yearNum > MAX_YEAR)
       ) {
-        throw new Error(`დასრულების წელი უნდა იყოს ${MIN_YEAR}–${MAX_YEAR}`);
+        throw new Error(t("yearRange", { min: MIN_YEAR, max: MAX_YEAR }));
       }
       const trimmedNote = note.trim();
 
@@ -86,11 +91,7 @@ export default function ProgressUpdateModal({
         onClose();
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "შენახვა ვერ მოხერხდა, სცადეთ თავიდან.",
-      );
+      setError(err instanceof Error ? err.message : tAdmin("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -118,7 +119,7 @@ export default function ProgressUpdateModal({
             <div className="flex items-start justify-between gap-4 border-b border-[#F1F5F9] px-6 py-5">
               <div>
                 <h2 className="text-[17px] font-black text-[#0F172A]">
-                  მშენებლობის პროგრესის განახლება
+                  {t("title")}
                 </h2>
                 <p className="mt-0.5 truncate text-[12px] text-[#64748B]">
                   {property.title}
@@ -128,7 +129,7 @@ export default function ProgressUpdateModal({
                 type="button"
                 onClick={onClose}
                 className="flex size-8 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9]"
-                aria-label="დახურვა"
+                aria-label={tShared("closeAria")}
               >
                 <X className="size-4" />
               </button>
@@ -137,7 +138,9 @@ export default function ProgressUpdateModal({
             <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
               <div>
                 <div className="mb-2 flex items-center justify-between text-[12px]">
-                  <span className="font-bold text-[#334155]">მზადყოფნა</span>
+                  <span className="font-bold text-[#334155]">
+                    {t("readiness")}
+                  </span>
                   <span className="font-black text-[#16A34A]">{percent}%</span>
                 </div>
                 <input
@@ -158,7 +161,7 @@ export default function ProgressUpdateModal({
 
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-[#334155]">
-                  დასრულების წელი
+                  {t("completionYear")}
                 </label>
                 <input
                   type="number"
@@ -175,7 +178,7 @@ export default function ProgressUpdateModal({
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="text-[12px] font-bold text-[#334155]">
-                    განახლების კომენტარი
+                    {t("updateComment")}
                   </label>
                   <span className="text-[10px] font-medium text-[#94A3B8]">
                     {note.length} / {NOTE_MAX}
@@ -184,7 +187,7 @@ export default function ProgressUpdateModal({
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
-                  placeholder="მაგ: დღეს დასრულდა მე-3 სართულის გადახურვა…"
+                  placeholder={t("commentPlaceholder")}
                   rows={4}
                   className="min-h-[110px] w-full resize-y rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
                 />
@@ -204,7 +207,7 @@ export default function ProgressUpdateModal({
                 disabled={saving}
                 className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-60"
               >
-                გაუქმება
+                {tShared("cancel")}
               </button>
               <button
                 type="button"
@@ -212,7 +215,7 @@ export default function ProgressUpdateModal({
                 disabled={saving}
                 className="rounded-xl bg-[#16A34A] px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#15803D] disabled:opacity-60"
               >
-                {saving ? "ინახება…" : "შენახვა"}
+                {saving ? tShared("saving") : tShared("save")}
               </button>
             </div>
           </motion.div>

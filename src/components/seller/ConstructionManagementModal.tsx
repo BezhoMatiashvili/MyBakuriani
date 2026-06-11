@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
-import { ka } from "date-fns/locale";
 import { CalendarDays, Check, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 import {
   CONSTRUCTION_STAGES,
-  STATUS_OPTIONS,
   percentFromStages,
   stagesUpToPercent,
 } from "@/lib/constants/construction";
-import { formatDate } from "@/lib/utils/format";
+import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import {
@@ -32,12 +31,34 @@ interface Props {
 
 const NOTE_MAX = 1000;
 
+const STATUS_VALUES = [
+  "on_schedule",
+  "delayed",
+  "paused",
+  "completed",
+] as const;
+
 export default function ConstructionManagementModal({
   property,
   onClose,
   onSaved,
 }: Props) {
+  const t = useTranslations("SellerDashboard.constructionModal");
+  const tCreate = useTranslations("CreateShared");
+  const tShared = useTranslations("DashboardShared");
+  const tAdmin = useTranslations("AdminShared");
+  const locale = useLocale();
+
   const open = property !== null;
+
+  const statusOptions = useMemo(
+    () =>
+      STATUS_VALUES.map((value) => ({
+        value,
+        label: t(`statuses.${value}`),
+      })),
+    [t],
+  );
 
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [updateDate, setUpdateDate] = useState<Date>(() => new Date());
@@ -88,7 +109,7 @@ export default function ConstructionManagementModal({
   async function handlePublish() {
     if (!property) return;
     if (!note.trim()) {
-      setError("შეავსეთ აღწერა (რა გაკეთდა).");
+      setError(t("noteRequired"));
       return;
     }
     setSaving(true);
@@ -112,8 +133,6 @@ export default function ConstructionManagementModal({
 
       if (updateError) throw updateError;
 
-      // Best-effort: append to the project_updates history feed. A failure here
-      // must not undo the property update or block the modal from closing.
       const { error: feedError } = await supabase
         .from("project_updates")
         .insert({
@@ -127,20 +146,16 @@ export default function ConstructionManagementModal({
         });
 
       if (feedError) {
-        toast.error("განახლება შენახულია, თუმცა ისტორიაში ვერ დაემატა.");
+        toast.error(t("savedHistoryFailed"));
       }
 
       if (data) {
-        toast.success("განახლება გამოქვეყნდა 🚀");
+        toast.success(t("published"));
         onSaved(data as Tables<"properties">);
         onClose();
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "შენახვა ვერ მოხერხდა, სცადეთ თავიდან.",
-      );
+      setError(err instanceof Error ? err.message : tAdmin("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -168,7 +183,7 @@ export default function ConstructionManagementModal({
             <div className="flex items-start justify-between gap-4 border-b border-[#F1F5F9] px-6 py-5">
               <div>
                 <h2 className="text-[17px] font-black text-[#0F172A]">
-                  მშენებლობის მართვა
+                  {t("title")}
                 </h2>
                 <p className="mt-0.5 truncate text-[12px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
                   {property.title}
@@ -178,18 +193,17 @@ export default function ConstructionManagementModal({
                 type="button"
                 onClick={onClose}
                 className="flex size-8 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9]"
-                aria-label="დახურვა"
+                aria-label={tShared("closeAria")}
               >
                 <X className="size-4" />
               </button>
             </div>
 
             <div className="space-y-6 overflow-y-auto px-6 py-5">
-              {/* Work stages */}
               <div>
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-[13px] font-bold text-[#334155]">
-                    სამუშაო ეტაპები
+                    {t("workStages")}
                   </span>
                   <span className="text-[18px] font-black text-[#2563EB]">
                     {percent}%
@@ -225,7 +239,7 @@ export default function ConstructionManagementModal({
                               : "text-[13px] font-medium text-[#475569]"
                           }
                         >
-                          {stage.label}
+                          {t(`stages.${stage.key}`)}
                         </span>
                       </button>
                     );
@@ -233,14 +247,13 @@ export default function ConstructionManagementModal({
                 </div>
               </div>
 
-              {/* Photo / video */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[13px] font-bold text-[#334155]">
-                    ფოტო / ვიდეო განახლება
+                    {t("photoVideo")}
                   </span>
                   <span className="text-[11px] font-medium text-[#94A3B8]">
-                    მაქს. 10MB/30MB
+                    {t("maxSize")}
                   </span>
                 </div>
                 <PhotoUploader
@@ -253,51 +266,49 @@ export default function ConstructionManagementModal({
                   type="url"
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="ვიდეოს ბმული (სურვილისამებრ) — https://..."
+                  placeholder={t("videoPlaceholder")}
                   className="mt-2 h-[44px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                 />
               </div>
 
-              {/* Date + status */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[13px] font-bold text-[#334155]">
-                    თარიღი
+                    {tShared("date")}
                   </label>
                   <Popover>
                     <PopoverTrigger className="flex h-[48px] w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-sm font-medium text-[#0F172A] outline-none transition-colors hover:border-[#CBD5E1] data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE]">
                       <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
-                      {formatDate(updateDate)}
+                      {formatDate(updateDate, locale)}
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-auto">
                       <Calendar
                         mode="single"
                         selected={updateDate}
                         onSelect={(d) => d && setUpdateDate(d)}
-                        locale={ka}
+                        locale={getDateFnsLocale(locale)}
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[13px] font-bold text-[#334155]">
-                    სტატუსი
+                    {t("status")}
                   </label>
                   <StyledSelect
                     value={status}
                     onValueChange={setStatus}
-                    options={STATUS_OPTIONS}
-                    placeholder="აირჩიე"
+                    options={statusOptions}
+                    placeholder={tCreate("choose")}
                     accent="blue"
                   />
                 </div>
               </div>
 
-              {/* Description */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="text-[13px] font-bold text-[#334155]">
-                    აღწერა (რა გაკეთდა)
+                    {t("description")}
                   </label>
                   <span className="text-[10px] font-medium text-[#94A3B8]">
                     {note.length} / {NOTE_MAX}
@@ -306,7 +317,7 @@ export default function ConstructionManagementModal({
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
-                  placeholder="მაგ: დაასრულდა მე-4 სართულის გადახურვა, დაიწყო ფასადის მონტაჟი…"
+                  placeholder={t("descriptionPlaceholder")}
                   rows={4}
                   className="min-h-[110px] w-full resize-y rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                 />
@@ -326,7 +337,7 @@ export default function ConstructionManagementModal({
                 disabled={saving || !note.trim()}
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
               >
-                {saving ? "ქვეყნდება…" : "განახლების გამოქვეყნება 🚀"}
+                {saving ? t("publishing") : t("publish")}
               </button>
             </div>
           </motion.div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface CleanerTopbarProps {
@@ -14,6 +15,8 @@ export function CleanerTopbar({
   available,
   onAvailableChange,
 }: CleanerTopbarProps) {
+  const tLayout = useTranslations("DashboardLayout");
+
   return (
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
       <div className="flex w-full items-center justify-end gap-3">
@@ -21,7 +24,7 @@ export function CleanerTopbar({
         <button
           type="button"
           className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
-          aria-label="notifications"
+          aria-label={tLayout("topbar.notificationsAria")}
         >
           <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
           {notificationCount > 0 && (
@@ -50,7 +53,9 @@ export function CleanerTopbar({
             />
           </span>
           <span className={available ? "text-[#10B981]" : "text-[#64748B]"}>
-            {available ? "ონლაინ" : "ოფლაინ"}
+            {available
+              ? tLayout("topbar.available")
+              : tLayout("topbar.unavailable")}
           </span>
         </button>
       </div>

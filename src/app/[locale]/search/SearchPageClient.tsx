@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { SlidersHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ServiceCard from "@/components/cards/ServiceCard";
@@ -57,6 +58,7 @@ export default function SearchPageClient({
   initialMode = "rent",
   initialFilters = DEFAULT_FILTERS,
 }: Props) {
+  const t = useTranslations("SearchPage");
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [searchState, setSearchState] = useState<SearchState>({
     location: initialLocation,
@@ -333,7 +335,7 @@ export default function SearchPageClient({
             <aside className="hidden w-[280px] shrink-0 lg:block">
               <div className="sticky top-24">
                 <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
-                  ფილტრები
+                  {t("filters")}
                 </h2>
                 <FilterPanel filters={filters} onFilterChange={setFilters} />
               </div>
@@ -344,7 +346,7 @@ export default function SearchPageClient({
             {!hasKeyword && (
               <div className="mb-4 flex items-center justify-between lg:hidden">
                 <span className="text-[13px] font-medium leading-[20px] text-[#64748B]">
-                  {totalCount} შედეგი
+                  {t("resultsCount", { count: totalCount })}
                 </span>
                 <Button
                   variant="outline"
@@ -353,7 +355,7 @@ export default function SearchPageClient({
                   className="gap-2"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
-                  ფილტრები
+                  {t("filters")}
                 </Button>
               </div>
             )}
@@ -362,11 +364,10 @@ export default function SearchPageClient({
             {hasKeyword ? (
               <div className="mb-6">
                 <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                  შედეგები: „{searchState.keyword}“
+                  {t("resultsFor", { keyword: searchState.keyword })}
                 </h1>
                 <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                  ნაპოვნია {tabCounts.all} შედეგი ბინების, სერვისებისა და ბლოგის
-                  გარშემო
+                  {t("foundAcrossSections", { count: tabCounts.all })}
                 </p>
               </div>
             ) : (
@@ -374,13 +375,16 @@ export default function SearchPageClient({
                 <div>
                   <h1 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
                     {mode === "sale"
-                      ? `ნაპოვნია ${totalCount} ობიექტი`
+                      ? t("foundObjects", { count: totalCount })
                       : searchState.location
-                        ? `ნაპოვნია ${totalCount} შეთავაზება ${searchState.location}-ზე`
-                        : `ნაპოვნია ${totalCount} შეთავაზება`}
+                        ? t("foundOffersAt", {
+                            count: totalCount,
+                            location: searchState.location,
+                          })
+                        : t("foundOffers", { count: totalCount })}
                   </h1>
                   <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                    საუკეთესო საცხოვრებელი შენი დასვენებისთვის
+                    {t("bestStaySubtitle")}
                   </p>
                 </div>
               </div>
@@ -391,18 +395,18 @@ export default function SearchPageClient({
               <div className="mb-6 flex flex-wrap gap-2 border-b border-[#E2E8F0]">
                 {(
                   [
-                    { id: "all", label: "ყველა", count: tabCounts.all },
+                    { id: "all", label: t("tabAll"), count: tabCounts.all },
                     {
                       id: "properties",
-                      label: "ბინები",
+                      label: t("tabProperties"),
                       count: tabCounts.properties,
                     },
                     {
                       id: "services",
-                      label: "სერვისები",
+                      label: t("tabServices"),
                       count: tabCounts.services,
                     },
-                    { id: "blog", label: "ბლოგი", count: tabCounts.blog },
+                    { id: "blog", label: t("tabBlog"), count: tabCounts.blog },
                   ] as const
                 ).map((tab) => (
                   <button
@@ -516,14 +520,14 @@ export default function SearchPageClient({
         <BottomSheet
           isOpen={mobileFiltersOpen}
           onClose={() => setMobileFiltersOpen(false)}
-          title="ფილტრები"
+          title={t("filters")}
         >
           <FilterPanel filters={filters} onFilterChange={setFilters} />
           <Button
             className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent-hover"
             onClick={() => setMobileFiltersOpen(false)}
           >
-            შედეგების ნახვა
+            {t("viewResults")}
           </Button>
         </BottomSheet>
       </div>
@@ -532,13 +536,14 @@ export default function SearchPageClient({
 }
 
 function EmptyState() {
+  const t = useTranslations("SearchPage");
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <p className="text-[17px] font-black leading-[21px] text-[#1E293B]">
-        შედეგი ვერ მოიძებნა
+        {t("emptyTitle")}
       </p>
       <p className="mt-2 text-[13px] leading-[20px] text-[#64748B]">
-        სცადეთ სხვა საძიებო სიტყვა ან შეცვალეთ ფილტრები
+        {t("emptyHint")}
       </p>
     </div>
   );
@@ -557,6 +562,7 @@ function KeywordResults({
   servicesArr: ServiceRow[];
   blogArr: BlogRow[];
 }) {
+  const t = useTranslations("SearchPage");
   if (activeTab === "properties") {
     return <PropertiesGrid items={propertiesArr} />;
   }
@@ -571,7 +577,7 @@ function KeywordResults({
     <div className="flex flex-col gap-10">
       {propertiesArr.length > 0 && (
         <Section
-          title="ბინები"
+          title={t("tabProperties")}
           count={propertiesArr.length}
           onSeeAll={() => onTabChange("properties")}
         >
@@ -580,7 +586,7 @@ function KeywordResults({
       )}
       {servicesArr.length > 0 && (
         <Section
-          title="სერვისები"
+          title={t("tabServices")}
           count={servicesArr.length}
           onSeeAll={() => onTabChange("services")}
         >
@@ -589,7 +595,7 @@ function KeywordResults({
       )}
       {blogArr.length > 0 && (
         <Section
-          title="ბლოგი"
+          title={t("tabBlog")}
           count={blogArr.length}
           onSeeAll={() => onTabChange("blog")}
         >
@@ -611,6 +617,7 @@ function Section({
   onSeeAll: () => void;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("SearchPage");
   return (
     <section>
       <div className="mb-4 flex items-end justify-between">
@@ -626,7 +633,7 @@ function Section({
             onClick={onSeeAll}
             className="text-[13px] font-bold text-[#2563EB] hover:underline"
           >
-            ყველას ნახვა →
+            {t("seeAll")}
           </button>
         )}
       </div>

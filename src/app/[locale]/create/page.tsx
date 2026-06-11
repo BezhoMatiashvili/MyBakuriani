@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import {
   Tag,
   Briefcase,
@@ -12,44 +13,17 @@ import {
 } from "lucide-react";
 
 const CATEGORIES = [
-  {
-    href: "/create/rental",
-    icon: Tag,
-    title: "უძრავი ქონება — გაქირავება",
-  },
-  {
-    href: "/create/sale",
-    icon: Tag,
-    title: "უძრავი ქონება — გაყიდვა",
-  },
-  {
-    href: "/create/employment",
-    icon: Briefcase,
-    title: "დასაქმება",
-  },
-  {
-    href: "/create/service",
-    icon: Wrench,
-    title: "სერვისები / ხელოსნები",
-  },
-  {
-    href: "/create/transport",
-    icon: Car,
-    title: "ტრანსპორტი",
-  },
-  {
-    href: "/create/food",
-    icon: UtensilsCrossed,
-    title: "კვების ობიექტები",
-  },
-  {
-    href: "/create/entertainment",
-    icon: MapIcon,
-    title: "გართობა და აქტივობები",
-  },
-];
+  { href: "/create/rental", icon: Tag, key: "rental" },
+  { href: "/create/sale", icon: Tag, key: "sale" },
+  { href: "/create/employment", icon: Briefcase, key: "employment" },
+  { href: "/create/service", icon: Wrench, key: "service" },
+  { href: "/create/transport", icon: Car, key: "transport" },
+  { href: "/create/food", icon: UtensilsCrossed, key: "food" },
+  { href: "/create/entertainment", icon: MapIcon, key: "entertainment" },
+] as const;
 
 export default function CreatePage() {
+  const t = useTranslations("CreateHub");
   return (
     <div className="mx-auto w-full max-w-[880px] px-4 py-10 sm:py-12">
       <motion.div
@@ -60,10 +34,10 @@ export default function CreatePage() {
       >
         <div>
           <h1 className="text-[28px] font-black leading-8 tracking-[-0.7px] text-[#0F172A]">
-            განცხადების დამატება
+            {t("title")}
           </h1>
           <p className="mt-1 text-sm font-medium text-[#64748B]">
-            აირჩიე კატეგორია
+            {t("subtitle")}
           </p>
         </div>
 
@@ -84,7 +58,7 @@ export default function CreatePage() {
                   strokeWidth={1.5}
                 />
                 <h2 className="text-[13px] font-semibold leading-snug text-[#334155] transition-colors group-hover:text-[#2563EB]">
-                  {cat.title}
+                  {t(`categories.${cat.key}`)}
                 </h2>
               </Link>
             </motion.div>

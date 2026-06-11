@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   Banknote,
@@ -17,8 +18,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatDateShort, formatTime } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
-// Deterministic pseudo-random in [0, 1) from an index so skeleton bar heights
-// are identical on SSR and CSR (no hydration mismatch / reshuffle on render).
 const rand = (i: number, s: number) => {
   const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453;
   return x - Math.floor(x);
@@ -29,6 +28,8 @@ type CleaningTask = Tables<"cleaning_tasks"> & {
 };
 
 export default function CleanerEarningsPage() {
+  const t = useTranslations("CleanerEarnings");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -72,11 +73,11 @@ export default function CleanerEarningsPage() {
         return tasks;
     }
 
-    return tasks.filter((t) => new Date(t.scheduled_at) >= cutoff);
+    return tasks.filter((task) => new Date(task.scheduled_at) >= cutoff);
   }, [tasks, filterPeriod]);
 
   const totalEarnings = filteredTasks.reduce(
-    (sum, t) => sum + (t.price ?? 0),
+    (sum, task) => sum + (task.price ?? 0),
     0,
   );
   const completedCount = filteredTasks.length;
@@ -84,9 +85,9 @@ export default function CleanerEarningsPage() {
     completedCount > 0 ? Math.round(totalEarnings / completedCount) : 0;
 
   const periodLabels = {
-    week: "კვირა",
-    month: "თვე",
-    all: "სულ",
+    week: tShared("periodWeek"),
+    month: tShared("periodMonth"),
+    all: tShared("periodAll"),
   };
 
   return (
@@ -96,14 +97,13 @@ export default function CleanerEarningsPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          შემოსავალი
+          {t("title")}
         </h1>
         <p className="mt-1 text-sm font-medium text-[#64748B]">
-          თქვენი შემოსავლის ისტორია და სტატისტიკა
+          {t("subtitle")}
         </p>
       </motion.div>
 
-      {/* Period filter */}
       <div className="flex gap-2">
         {(["week", "month", "all"] as const).map((period) => (
           <Button
@@ -117,32 +117,30 @@ export default function CleanerEarningsPage() {
         ))}
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={<Banknote className="h-5 w-5" />}
-          label="შემოსავალი"
+          label={t("statEarnings")}
           value={formatPrice(Number(totalEarnings))}
           change={null}
           loading={loading}
         />
         <StatCard
           icon={<CheckCircle className="h-5 w-5" />}
-          label="შესრულებული"
+          label={t("statCompleted")}
           value={completedCount}
           change={null}
           loading={loading}
         />
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
-          label="საშუალო"
+          label={t("statAverage")}
           value={formatPrice(Number(avgEarning))}
           change={null}
           loading={loading}
         />
       </div>
 
-      {/* Earnings summary chart placeholder */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -150,7 +148,7 @@ export default function CleanerEarningsPage() {
         className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
         <h2 className="text-base font-semibold text-[#1E293B]">
-          შემოსავალი პერიოდის მიხედვით
+          {t("chartTitle")}
         </h2>
         <div className="mt-4 flex h-32 items-end gap-2">
           {loading
@@ -162,13 +160,12 @@ export default function CleanerEarningsPage() {
                 />
               ))
             : (() => {
-                // Group by date and show bar chart
                 const earningsByDate = new Map<string, number>();
-                filteredTasks.forEach((t) => {
-                  const date = t.scheduled_at.split("T")[0];
+                filteredTasks.forEach((task) => {
+                  const date = task.scheduled_at.split("T")[0];
                   earningsByDate.set(
                     date,
-                    (earningsByDate.get(date) ?? 0) + (t.price ?? 0),
+                    (earningsByDate.get(date) ?? 0) + (task.price ?? 0),
                   );
                 });
 
@@ -204,13 +201,12 @@ export default function CleanerEarningsPage() {
         </div>
       </motion.div>
 
-      {/* Transaction history */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <h2 className="text-lg font-semibold text-[#1E293B]">ისტორია</h2>
+        <h2 className="text-lg font-semibold text-[#1E293B]">{t("history")}</h2>
         <div className="mt-3 space-y-2">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
@@ -219,9 +215,7 @@ export default function CleanerEarningsPage() {
           ) : filteredTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
               <History className="h-10 w-10 text-[#94A3B8]" />
-              <p className="mt-2 text-sm text-[#94A3B8]">
-                ამ პერიოდში ჩანაწერები არ არის
-              </p>
+              <p className="mt-2 text-sm text-[#94A3B8]">{t("emptyHistory")}</p>
             </div>
           ) : (
             filteredTasks.map((task) => (
@@ -235,7 +229,7 @@ export default function CleanerEarningsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-[#1E293B]">
-                      {task.properties?.title ?? "დალაგება"}
+                      {task.properties?.title ?? tShared("cleaningTask")}
                     </p>
                     <p className="text-[10px] text-[#94A3B8]">
                       {formatDateShort(task.scheduled_at)},{" "}

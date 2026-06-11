@@ -40,9 +40,11 @@ export function roleToCabinetKey(role: string | null | undefined): CabinetKey {
   }
 }
 
-/** Map a service listing category to its cabinet key (food has its own cabinet). */
+/** Map a service listing category to its cabinet key (cleaning and food have their own cabinets). */
 export function serviceCategoryToCabinetKey(category: string): CabinetKey {
-  return category === "food" ? "food" : "service";
+  if (category === "cleaning") return "cleaner";
+  if (category === "food") return "food";
+  return "service";
 }
 
 interface DeriveArgs {

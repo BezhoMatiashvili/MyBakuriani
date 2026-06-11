@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import {
   CalendarCheck,
   CalendarX,
@@ -8,6 +8,7 @@ import {
   Sun,
   CalendarClock,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   isWeekend,
   parseIsoDate,
@@ -34,27 +35,29 @@ interface BulkActionBarProps {
 
 interface Action {
   key: string;
-  label: string;
+  labelKey:
+    | "allAvailable"
+    | "allBlocked"
+    | "weekdaysOnly"
+    | "weekendsOnly"
+    | "blockNext7";
   icon: ReactNode;
   compute: (dates: string[]) => BulkApplyChanges;
 }
 
-const ACTIONS: Action[] = [
+const ACTION_DEFS: Omit<Action, "labelKey">[] = [
   {
     key: "all-available",
-    label: "მთელი თვე ხელმისაწვდომი",
     icon: <CalendarCheck className="size-4" />,
     compute: (dates) => ({ available: [...dates], blocked: [] }),
   },
   {
     key: "all-blocked",
-    label: "მთელი თვე დაკავებული",
     icon: <CalendarX className="size-4" />,
     compute: (dates) => ({ available: [], blocked: [...dates] }),
   },
   {
     key: "weekdays-only",
-    label: "მხოლოდ სამუშაო დღეები",
     icon: <Briefcase className="size-4" />,
     compute: (dates) => {
       const available: string[] = [];
@@ -68,7 +71,6 @@ const ACTIONS: Action[] = [
   },
   {
     key: "weekends-only",
-    label: "მხოლოდ პარ.–კვ.",
     icon: <Sun className="size-4" />,
     compute: (dates) => {
       const available: string[] = [];
@@ -82,7 +84,6 @@ const ACTIONS: Action[] = [
   },
   {
     key: "block-next-7",
-    label: "მომდევნო 7 დღის დაკავება",
     icon: <CalendarClock className="size-4" />,
     compute: (dates) => {
       const next7 = new Set(buildNextNDays(7));
@@ -91,12 +92,31 @@ const ACTIONS: Action[] = [
   },
 ];
 
+const LABEL_KEYS: Action["labelKey"][] = [
+  "allAvailable",
+  "allBlocked",
+  "weekdaysOnly",
+  "weekendsOnly",
+  "blockNext7",
+];
+
 export default function BulkActionBar({
   windowDates,
   onApply,
   skipDates,
 }: BulkActionBarProps) {
-  const handleClick = (action: Action) => {
+  const t = useTranslations("BulkActionBar");
+
+  const actions = useMemo(
+    () =>
+      ACTION_DEFS.map((def, i) => ({
+        ...def,
+        label: t(LABEL_KEYS[i]),
+      })),
+    [t],
+  );
+
+  const handleClick = (action: (typeof actions)[number]) => {
     const result = action.compute(windowDates);
     if (skipDates && skipDates.size > 0) {
       result.available = result.available.filter((d) => !skipDates.has(d));
@@ -108,10 +128,10 @@ export default function BulkActionBar({
   return (
     <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
       <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-        სწრაფი მონიშვნა
+        {t("quickSelect")}
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {ACTIONS.map((action) => (
+        {actions.map((action) => (
           <button
             key={action.key}
             type="button"

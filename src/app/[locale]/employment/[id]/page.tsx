@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 import {
   getServiceById,
   getServiceMetadataById,
@@ -8,20 +10,22 @@ import { createPublicClient } from "@/lib/supabase/server";
 import EmploymentDetailClient from "./EmploymentDetailClient";
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: AppLocale; id: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+  const { locale, id } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
   const data = await getServiceMetadataById(id);
 
   if (!data) {
-    return { title: "ვაკანსია ვერ მოიძებნა — MyBakuriani" };
+    return { title: t("detail.employmentNotFound") };
   }
 
   return {
-    title: `${data.title} — ვაკანსია ბაკურიანში | MyBakuriani`,
-    description: data.description ?? `${data.title} — ვაკანსია ბაკურიანში`,
+    title: t("detail.employmentTitle", { title: data.title }),
+    description:
+      data.description ?? t("detail.employmentDesc", { title: data.title }),
   };
 }
 

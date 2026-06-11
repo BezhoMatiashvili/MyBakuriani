@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 import { createPublicClient } from "@/lib/supabase/server";
 import {
   getPropertyById,
@@ -8,22 +10,23 @@ import {
 import SaleDetailClient from "./SaleDetailClient";
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: AppLocale; id: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+  const { locale, id } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
   const data = await getPropertyMetadataById(id);
 
   if (!data) {
-    return { title: "ქონება ვერ მოიძებნა — MyBakuriani" };
+    return { title: t("detail.saleNotFound") };
   }
 
   return {
-    title: `${data.title} — გასაყიდი ბაკურიანში | MyBakuriani`,
+    title: t("detail.saleTitle", { title: data.title }),
     description:
       data.description ??
-      `${data.title} — გასაყიდი ქონება ბაკურიანში, ${data.location}`,
+      t("detail.saleDesc", { title: data.title, location: data.location }),
   };
 }
 

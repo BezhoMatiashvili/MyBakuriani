@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Heart, MapPin } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { formatNumber } from "@/lib/utils/format";
 
@@ -38,17 +39,18 @@ export default function SalePropertyCard({
   constructionStatus,
   constructionProgressPercent,
 }: SalePropertyCardProps) {
+  const t = useTranslations("SalePropertyCard");
   const showProgress =
     constructionStatus === "under_construction" &&
     constructionProgressPercent != null;
   const href = `/sales/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-property.jpg";
 
-  const sizePill = area
-    ? `${area} მ²${rooms ? ` • ${rooms} ოთახი` : ""}`
-    : rooms
-      ? `${rooms} ოთახი`
-      : null;
+  const areaText = area ? t("areaSqm", { area }) : null;
+  const roomsText = rooms ? t("rooms", { count: rooms }) : null;
+  const sizePill = areaText
+    ? `${areaText}${roomsText ? ` • ${roomsText}` : ""}`
+    : roomsText;
 
   const pricePerSqm = area && priceUsd ? Math.round(priceUsd / area) : null;
 
@@ -74,7 +76,7 @@ export default function SalePropertyCard({
           />
 
           <span className="absolute left-3 top-3 rounded-full bg-[#16A34A] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.12)]">
-            იყიდება
+            {t("forSale")}
           </span>
 
           {isVip && (
@@ -87,7 +89,7 @@ export default function SalePropertyCard({
             type="button"
             onClick={(e) => e.preventDefault()}
             className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors hover:text-[#16A34A]"
-            aria-label="favorite"
+            aria-label={t("favoriteAria")}
           >
             <Heart className="h-4 w-4" />
           </button>
@@ -120,7 +122,7 @@ export default function SalePropertyCard({
             <div className="mt-3">
               <ConstructionProgressBar
                 percent={constructionProgressPercent!}
-                label="მშენებლობა"
+                label={t("construction")}
                 size="sm"
               />
             </div>
@@ -133,12 +135,12 @@ export default function SalePropertyCard({
               </span>
               {pricePerSqm && (
                 <span className="block text-[11px] font-medium text-[#94A3B8]">
-                  ${formatNumber(pricePerSqm)} / მ²
+                  {t("pricePerSqm", { price: `$${formatNumber(pricePerSqm)}` })}
                 </span>
               )}
             </div>
             <span className="rounded-full bg-[#16A34A] px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]">
-              დეტალები
+              {t("details")}
             </span>
           </div>
         </div>

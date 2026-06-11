@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
@@ -45,6 +46,7 @@ interface OfferView {
 type TabKey = "all" | "new";
 
 export default function GuestBookingsPage() {
+  const t = useTranslations("GuestBookings");
   const { user } = useAuth();
   const supabase = createClient();
   const [offers, setOffers] = useState<OfferView[]>([]);
@@ -209,10 +211,10 @@ export default function GuestBookingsPage() {
       >
         <div>
           <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-            მიღებული შეთავაზებები
+            {t("title")}
           </h1>
           <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-            მფლობელების პერსონალური შეთავაზებები თქვენი მოთხოვნის მიხედვით.
+            {t("subtitle")}
           </p>
         </div>
         <button
@@ -221,27 +223,27 @@ export default function GuestBookingsPage() {
           className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#0F8F60] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,143,96,0.35)] transition-colors hover:bg-[#0B7A52]"
         >
           <Plus className="h-4 w-4" />
-          ახალი მოთხოვნა
+          {t("newRequest")}
         </button>
       </motion.div>
 
       <div className="flex items-center gap-2">
         {[
-          { key: "all" as const, label: `ყველა (${offers.length})` },
-          { key: "new" as const, label: `ახალი (${newCount})` },
-        ].map((t) => (
+          { key: "all" as const, label: t("tabAll", { count: offers.length }) },
+          { key: "new" as const, label: t("tabNew", { count: newCount }) },
+        ].map((tabItem) => (
           <button
-            key={t.key}
+            key={tabItem.key}
             type="button"
-            onClick={() => setTab(t.key)}
+            onClick={() => setTab(tabItem.key)}
             className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-bold transition-colors ${
-              tab === t.key
+              tab === tabItem.key
                 ? "bg-[#0F8F60] text-white"
                 : "border border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#0F8F60] hover:text-[#0F8F60]"
             }`}
           >
-            {t.key === "new" && <Sparkles className="h-3.5 w-3.5" />}
-            {t.label}
+            {tabItem.key === "new" && <Sparkles className="h-3.5 w-3.5" />}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -259,11 +261,9 @@ export default function GuestBookingsPage() {
           <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 text-center shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
             <Megaphone className="h-10 w-10 text-[#CBD5E1]" />
             <p className="mt-3 text-[14px] font-bold text-[#0F172A]">
-              ჯერ არ გაქვთ შეთავაზებები
+              {t("emptyTitle")}
             </p>
-            <p className="mt-1 text-[12px] text-[#94A3B8]">
-              გაგზავნეთ მოთხოვნა და მფლობელები დაგიკავშირდებიან.
-            </p>
+            <p className="mt-1 text-[12px] text-[#94A3B8]">{t("emptyDesc")}</p>
           </div>
         ) : (
           filtered.map((o) => (
@@ -292,7 +292,8 @@ function OfferCard({
   offer: OfferView;
   onDecline: () => void;
 }) {
-  const ownerName = offer.owner?.display_name ?? "მფლობელი";
+  const t = useTranslations("GuestBookings");
+  const ownerName = offer.owner?.display_name ?? t("defaultOwner");
   const initials = ownerName
     .split(" ")
     .map((n) => n[0])
@@ -315,7 +316,7 @@ function OfferCard({
             {ownerName}
           </p>
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-[#64748B]">
-            <span>სახლის მფლობელი</span>
+            <span>{t("ownerRole")}</span>
             {offer.owner?.rating != null && (
               <>
                 <span className="text-[#CBD5E1]">·</span>
@@ -332,12 +333,12 @@ function OfferCard({
         </div>
         {offer.isNew && (
           <span className="rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#16A34A]">
-            ახალი
+            {t("badgeNew")}
           </span>
         )}
         {offer.status === "declined" && (
           <span className="rounded-full bg-[#FEE2E2] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#DC2626]">
-            უარყოფილი
+            {t("badgeDeclined")}
           </span>
         )}
       </div>
@@ -378,17 +379,17 @@ function OfferCard({
           <div className="mt-3 flex items-end justify-between gap-3">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                შემოთავაზებული ფასი
+                {t("offeredPrice")}
               </span>
               <p className="text-[20px] font-black text-[#0F172A]">
                 {formatPrice(offer.offeredPrice)}{" "}
                 <span className="text-[11px] font-medium text-[#94A3B8]">
-                  /ღამე
+                  {t("perNight")}
                 </span>
               </p>
               {isCheaper && (
                 <p className="mt-0.5 text-[10px] font-bold text-[#10B981]">
-                  ✓ იაფი (ლისტინგი: {listingPrice}₾)
+                  {t("cheaper", { price: listingPrice })}
                 </p>
               )}
             </div>
@@ -399,7 +400,7 @@ function OfferCard({
                   onClick={onDecline}
                   className="h-10 rounded-xl border border-[#E2E8F0] px-4 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
                 >
-                  უარყოფა
+                  {t("decline")}
                 </button>
               )}
               <Link
@@ -410,7 +411,7 @@ function OfferCard({
                 }
                 className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#2563EB] px-4 text-[12px] font-bold text-white hover:bg-[#1D4ED8]"
               >
-                დეტალურად ნახვა
+                {t("viewDetails")}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>

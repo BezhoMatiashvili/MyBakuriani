@@ -1,12 +1,33 @@
 import { format } from "date-fns";
-import { ka } from "date-fns/locale";
+import { ka, enUS, ru } from "date-fns/locale";
+import type { Locale } from "date-fns";
+import {
+  NIGHT_LABELS,
+  RELATIVE_LABELS,
+  type FormatLocale,
+} from "./format-locale-labels";
+
+const DATE_FNS_LOCALES: Record<FormatLocale, Locale> = {
+  ka,
+  en: enUS,
+  ru,
+};
+
+function normalizeLocale(locale?: string): FormatLocale {
+  return locale === "en" || locale === "ru" ? locale : "ka";
+}
+
+/** date-fns locale for a next-intl locale string ("ka" | "en" | "ru"). */
+export function getDateFnsLocale(locale?: string): Locale {
+  return DATE_FNS_LOCALES[normalizeLocale(locale)];
+}
 
 export function formatPrice(amount: number): string {
   return `${formatNumber(amount)} ₾`;
 }
 
-export function formatPricePerNight(amount: number): string {
-  return `${formatNumber(amount)} ₾ / ღამე`;
+export function formatPricePerNight(amount: number, locale?: string): string {
+  return `${formatNumber(amount)} ₾ / ${NIGHT_LABELS[normalizeLocale(locale)]}`;
 }
 
 /**
@@ -21,19 +42,23 @@ export function formatNumber(n: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
-export function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return "—";
-  const d = typeof date === "string" ? new Date(date) : date;
-  return format(d, "d MMMM, yyyy", { locale: ka });
-}
-
-/** Short date, e.g. "6 ივნ" — deterministic via bundled date-fns + ka locale. */
-export function formatDateShort(
+export function formatDate(
   date: string | Date | null | undefined,
+  locale?: string,
 ): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
-  return format(d, "d MMM", { locale: ka });
+  return format(d, "d MMMM, yyyy", { locale: getDateFnsLocale(locale) });
+}
+
+/** Short date ("d MMM") — deterministic via bundled date-fns locales. */
+export function formatDateShort(
+  date: string | Date | null | undefined,
+  locale?: string,
+): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return format(d, "d MMM", { locale: getDateFnsLocale(locale) });
 }
 
 /** 24h time, e.g. "14:30" — deterministic via bundled date-fns. */
@@ -43,30 +68,35 @@ export function formatTime(date: string | Date | null | undefined): string {
   return format(d, "HH:mm", { locale: ka });
 }
 
-/** Date + time, e.g. "6 ივნისი, 2026 14:30" — deterministic via date-fns. */
-export function formatDateTime(date: string | Date | null | undefined): string {
+/** Date + time ("d MMMM, yyyy HH:mm") — deterministic via date-fns. */
+export function formatDateTime(
+  date: string | Date | null | undefined,
+  locale?: string,
+): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
-  return format(d, "d MMMM, yyyy HH:mm", { locale: ka });
+  return format(d, "d MMMM, yyyy HH:mm", { locale: getDateFnsLocale(locale) });
 }
 
 export function formatDateRange(
   start: string | Date,
   end: string | Date,
+  locale?: string,
 ): string {
   const s = typeof start === "string" ? new Date(start) : start;
   const e = typeof end === "string" ? new Date(end) : end;
+  const l = getDateFnsLocale(locale);
 
   const sameYear = s.getFullYear() === e.getFullYear();
   const sameMonth = sameYear && s.getMonth() === e.getMonth();
 
   if (sameMonth) {
-    return `${format(s, "d", { locale: ka })} – ${format(e, "d MMMM, yyyy", { locale: ka })}`;
+    return `${format(s, "d", { locale: l })} – ${format(e, "d MMMM, yyyy", { locale: l })}`;
   }
   if (sameYear) {
-    return `${format(s, "d MMMM", { locale: ka })} – ${format(e, "d MMMM, yyyy", { locale: ka })}`;
+    return `${format(s, "d MMMM", { locale: l })} – ${format(e, "d MMMM, yyyy", { locale: l })}`;
   }
-  return `${format(s, "d MMMM, yyyy", { locale: ka })} – ${format(e, "d MMMM, yyyy", { locale: ka })}`;
+  return `${format(s, "d MMMM, yyyy", { locale: l })} – ${format(e, "d MMMM, yyyy", { locale: l })}`;
 }
 
 export function formatPhone(phone: string | null | undefined): string {
@@ -81,19 +111,23 @@ export function formatPhone(phone: string | null | undefined): string {
   return phone;
 }
 
-export function formatRelativeGe(iso: string | null | undefined): string {
+export function formatRelativeGe(
+  iso: string | null | undefined,
+  locale?: string,
+): string {
   if (!iso) return "";
+  const labels = RELATIVE_LABELS[normalizeLocale(locale)];
   const then = new Date(iso).getTime();
   const diffMs = Date.now() - then;
   const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "ახლახან";
-  if (diffMin < 60) return `${diffMin} წთ წინ`;
+  if (diffMin < 1) return labels.justNow;
+  if (diffMin < 60) return labels.minutesAgo(diffMin);
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} სთ წინ`;
+  if (diffHr < 24) return labels.hoursAgo(diffHr);
   const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 30) return `${diffDay} დღის წინ`;
+  if (diffDay < 30) return labels.daysAgo(diffDay);
   const diffMo = Math.floor(diffDay / 30);
-  return `${diffMo} თვის წინ`;
+  return labels.monthsAgo(diffMo);
 }
 
 export function maskPhone(phone: string | null | undefined): string {

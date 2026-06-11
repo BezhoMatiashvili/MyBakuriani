@@ -18,7 +18,6 @@ import {
   Users,
   BarChart3,
   ShieldCheck,
-  Briefcase,
   Clock,
   DollarSign,
   type LucideIcon,
@@ -134,14 +133,7 @@ function getNavItems(role: string): NavItem[] {
     case "transport":
     case "employment":
     case "handyman":
-      return [
-        { labelKey: "home", href: "/dashboard/service", icon: Home },
-        {
-          labelKey: "orders",
-          href: "/dashboard/service/orders",
-          icon: Briefcase,
-        },
-      ];
+      return [{ labelKey: "home", href: "/dashboard/service", icon: Home }];
     default:
       return [
         { labelKey: "home", href: "/dashboard/guest", icon: Home },

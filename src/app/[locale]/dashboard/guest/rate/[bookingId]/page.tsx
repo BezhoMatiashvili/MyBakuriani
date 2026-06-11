@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -34,6 +35,8 @@ type LoadState =
   | { kind: "ready"; booking: BookingRow; property: PropertyRow };
 
 export default function GuestRatePage() {
+  const t = useTranslations("GuestRate");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
   const router = useRouter();
@@ -116,7 +119,7 @@ export default function GuestRatePage() {
     e.preventDefault();
     if (state.kind !== "ready" || !user) return;
     if (rating < 1 || rating > 5) {
-      setSubmitError("გთხოვთ აირჩიოთ შეფასება 1-დან 5-მდე");
+      setSubmitError(t("ratingRequired"));
       return;
     }
     setSubmitting(true);
@@ -133,7 +136,7 @@ export default function GuestRatePage() {
 
     if (error) {
       setSubmitting(false);
-      setSubmitError("შეფასების შენახვა ვერ მოხერხდა. სცადეთ ხელახლა.");
+      setSubmitError(t("submitError"));
       return;
     }
 
@@ -161,7 +164,7 @@ export default function GuestRatePage() {
         className="inline-flex items-center gap-2 text-[13px] font-bold text-[#64748B] hover:text-[#0F172A]"
       >
         <ArrowLeft className="h-4 w-4" />
-        უკან
+        {tShared("back")}
       </motion.button>
 
       <motion.div
@@ -169,11 +172,10 @@ export default function GuestRatePage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[32px] font-black leading-[40px] text-[#0F172A]">
-          შეაფასეთ თქვენი დარჩენა
+          {t("title")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          თქვენი მიმოხილვა დაეხმარება სხვა სტუმრებს უკეთესი არჩევანის
-          გაკეთებაში.
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -185,30 +187,24 @@ export default function GuestRatePage() {
       )}
 
       {state.kind === "not-found" && (
-        <EmptyState
-          title="ჯავშანი ვერ მოიძებნა"
-          subtitle="შესაძლოა ბმული მცდარია ან ჯავშანი წაშლილია."
-        />
+        <EmptyState title={t("notFoundTitle")} subtitle={t("notFoundDesc")} />
       )}
 
       {state.kind === "not-yours" && (
-        <EmptyState
-          title="წვდომა შეზღუდულია"
-          subtitle="ამ ჯავშნის შეფასება მხოლოდ მის სტუმარს შეუძლია."
-        />
+        <EmptyState title={t("notYoursTitle")} subtitle={t("notYoursDesc")} />
       )}
 
       {state.kind === "not-finished" && (
         <EmptyState
-          title="დარჩენა ჯერ არ დასრულებულა"
-          subtitle="შეფასების ბმული გააქტიურდება გასვლის თარიღის შემდეგ."
+          title={t("notFinishedTitle")}
+          subtitle={t("notFinishedDesc")}
         />
       )}
 
       {state.kind === "already-rated" && (
         <EmptyState
-          title="ამ ჯავშანი უკვე შეფასებულია"
-          subtitle="გმადლობთ მიმოხილვისთვის! შეგიძლიათ ნახოთ თქვენი შეფასებები პროფილში."
+          title={t("alreadyRatedTitle")}
+          subtitle={t("alreadyRatedDesc")}
           icon="check"
         />
       )}
@@ -250,7 +246,7 @@ export default function GuestRatePage() {
 
           <div>
             <p className="mb-2 text-[13px] font-bold text-[#0F172A]">
-              თქვენი შეფასება
+              {t("yourRating")}
             </p>
             <div
               className="flex items-center gap-1.5"
@@ -263,7 +259,7 @@ export default function GuestRatePage() {
                   onClick={() => setRating(n)}
                   onMouseEnter={() => setHover(n)}
                   className="p-0.5 transition-transform hover:scale-110"
-                  aria-label={`${n} ვარსკვლავი`}
+                  aria-label={t("starLabel", { count: n })}
                 >
                   <Star
                     className="h-8 w-8"
@@ -286,7 +282,7 @@ export default function GuestRatePage() {
               htmlFor="comment"
               className="mb-2 block text-[13px] font-bold text-[#0F172A]"
             >
-              კომენტარი (არასავალდებულო)
+              {t("commentLabel")}
             </label>
             <textarea
               id="comment"
@@ -294,7 +290,7 @@ export default function GuestRatePage() {
               onChange={(e) => setComment(e.target.value)}
               maxLength={2000}
               rows={5}
-              placeholder="რა მოგეწონათ და რა შეიძლება გაუმჯობესდეს?"
+              placeholder={t("commentPlaceholder")}
               className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[14px] text-[#0F172A] outline-none transition-colors focus:border-[#2563EB]"
             />
             <p className="mt-1 text-[11px] text-[#94A3B8]">
@@ -315,14 +311,14 @@ export default function GuestRatePage() {
               disabled={submitting}
               className="rounded-xl px-5 py-2.5 text-[13px] font-bold text-[#64748B] hover:bg-[#F8FAFC]"
             >
-              გაუქმება
+              {tShared("cancel")}
             </button>
             <button
               type="submit"
               disabled={submitting || rating === 0}
               className="inline-flex items-center gap-2 rounded-xl bg-[#0F8F60] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,143,96,0.35)] transition-colors hover:bg-[#0B7A52] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "იგზავნება..." : "შეფასების გაგზავნა"}
+              {submitting ? t("submitting") : t("submit")}
             </button>
           </div>
         </motion.form>

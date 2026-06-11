@@ -1,4 +1,5 @@
 import { BadgeCheck, Banknote, MapPin, Star, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
 export interface EmploymentCardProps {
@@ -28,6 +29,7 @@ export default function EmploymentCard({
   postedLabel,
   highlighted,
 }: EmploymentCardProps) {
+  const t = useTranslations("EmploymentCard");
   return (
     <div
       className={`relative flex h-full flex-col overflow-hidden rounded-[24px] border bg-white p-5 transition-shadow hover:shadow-[var(--shadow-card-hover)] ${
@@ -41,7 +43,7 @@ export default function EmploymentCard({
           {badge === "urgent" && (
             <span className="inline-flex items-center gap-1 rounded-md bg-[#DCFCE7] px-2 py-1 text-[11px] font-bold text-[#166534]">
               <span className="inline-block size-1.5 rounded-full bg-[#16A34A]" />
-              სასწრაფო
+              {t("urgent")}
             </span>
           )}
           {badge === "vip" && (
@@ -52,7 +54,7 @@ export default function EmploymentCard({
           )}
           {badge === "new" && (
             <span className="inline-flex items-center rounded-md bg-[#DBEAFE] px-2 py-1 text-[11px] font-bold text-[#1D4ED8]">
-              ახალი
+              {t("new")}
             </span>
           )}
         </div>
@@ -105,7 +107,7 @@ export default function EmploymentCard({
         {applicationsCount != null ? (
           <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
             <Users className="h-3.5 w-3.5 text-[#22C55E]" />
-            {applicationsCount} გამოხმაურება
+            {t("applications", { count: applicationsCount })}
           </span>
         ) : (
           <span />
@@ -114,7 +116,7 @@ export default function EmploymentCard({
           href={`/employment/${id}`}
           className="flex h-10 items-center justify-center rounded-xl bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
         >
-          დეტალები
+          {t("details")}
         </Link>
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import {
@@ -12,35 +12,19 @@ import {
   Languages,
   Palette,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
+import {
+  optionKeyFor,
+  priceUnitPathFor,
+  type OptionGroup,
+} from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
-
-const TRANSPORT_TYPE_LABELS: Record<string, string> = {
-  minivan: "მინივენი",
-  minibus: "მინივენი",
-  taxi: "ტაქსი",
-  microbus: "მიკროავტობუსი",
-  other: "სხვა",
-};
-
-const PRICE_UNIT_LABELS: Record<string, string> = {
-  whole_car: "მთლიანი მანქანა",
-  on_demand: "გამოძახება",
-  per_person: "ერთ კაცზე",
-};
-
-function labelFor(
-  map: Record<string, string>,
-  value: string | null | undefined,
-) {
-  if (!value) return null;
-  return map[value] ?? value;
-}
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -62,14 +46,26 @@ export default function TransportDetailClient({
   isMock = false,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("TransportDetail");
+  const tShared = useTranslations("Shared");
+  const tCard = useTranslations("ServiceCard");
+  const tOpts = useTranslations("ListingOptions");
+  // Translates a stored DB option value; falls through to the raw value for
+  // custom/free-text entries.
+  const optionLabel = (group: OptionGroup, value: string) => {
+    const key = optionKeyFor(group, value);
+    return key ? tOpts(`${group}.${key}`) : value;
+  };
+  const priceUnitPath = priceUnitPathFor(service.price_unit);
   const owner = service.profiles;
   const photos = service.photos ?? [];
   const mainPhoto = photos[0];
-  const driverName = service.driver_name ?? owner?.display_name ?? "მძღოლი";
+  const driverName =
+    service.driver_name ?? owner?.display_name ?? t("driverFallback");
   const vehicleSubtitle = service.vehicle_make ?? service.title;
   const languagesText =
     service.languages && service.languages.length > 0
-      ? service.languages.join(", ")
+      ? service.languages.map((l) => optionLabel("languages", l)).join(", ")
       : null;
   const routes =
     service.routes && service.routes.length > 0
@@ -127,7 +123,7 @@ export default function TransportDetailClient({
           className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-2 text-[13px] font-bold text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
         >
           <ArrowLeft className="h-4 w-4" />
-          უკან დაბრუნება
+          {tShared("back")}
         </button>
       </motion.div>
 
@@ -181,20 +177,23 @@ export default function TransportDetailClient({
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             <Users className="h-3.5 w-3.5" />
-            ადგილები
+            {t("seats")}
           </span>
           <span className="text-[15px] font-black text-[#1E293B]">
-            {service.vehicle_capacity ?? 8} ადგილი
+            {t("seatsCount", { count: service.vehicle_capacity ?? 8 })}
           </span>
         </div>
         {service.transport_type && (
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Gauge className="h-3.5 w-3.5" />
-              ტიპი
+              {t("type")}
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
-              {labelFor(TRANSPORT_TYPE_LABELS, service.transport_type)}
+              {service.transport_type &&
+              tCard.has(`transportTypes.${service.transport_type}`)
+                ? tCard(`transportTypes.${service.transport_type}`)
+                : service.transport_type}
             </span>
           </div>
         )}
@@ -202,10 +201,10 @@ export default function TransportDetailClient({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Palette className="h-3.5 w-3.5" />
-              ფერი
+              {t("color")}
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
-              {service.vehicle_color}
+              {optionLabel("vehicleColors", service.vehicle_color)}
             </span>
           </div>
         )}
@@ -213,7 +212,7 @@ export default function TransportDetailClient({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Languages className="h-3.5 w-3.5" />
-              ენები
+              {t("languages")}
             </span>
             <span className="text-[15px] font-black text-[#1E293B]">
               {languagesText}
@@ -230,7 +229,7 @@ export default function TransportDetailClient({
           className="mt-6"
         >
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            აღჭურვილობა და უსაფრთხოება
+            {t("equipmentAndSafety")}
           </h2>
           <div className="flex flex-wrap gap-2">
             {service.equipment.map((item) => (
@@ -238,7 +237,7 @@ export default function TransportDetailClient({
                 key={item}
                 className="rounded-[14px] border border-[#DBEAFE] bg-[#EFF6FF] px-4 py-2 text-[13px] font-semibold text-[#2563EB]"
               >
-                {item}
+                {optionLabel("vehicleEquipment", item)}
               </span>
             ))}
           </div>
@@ -253,7 +252,7 @@ export default function TransportDetailClient({
           className="mt-6"
         >
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            კომფორტი და სერვისები
+            {t("comfortAndServices")}
           </h2>
           <div className="flex flex-wrap gap-2">
             {service.features.map((item) => (
@@ -261,7 +260,7 @@ export default function TransportDetailClient({
                 key={item}
                 className="rounded-[14px] border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-2 text-[13px] font-semibold text-[#16A34A]"
               >
-                {item}
+                {optionLabel("transportFeatures", item)}
               </span>
             ))}
           </div>
@@ -276,7 +275,7 @@ export default function TransportDetailClient({
           className="mt-8"
         >
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-            აღწერა
+            {t("description")}
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
@@ -292,7 +291,7 @@ export default function TransportDetailClient({
           className="mt-8"
         >
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            მარშრუტი და ფასი
+            {t("routeAndPrice")}
           </h2>
           <div className="flex flex-col gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -302,12 +301,12 @@ export default function TransportDetailClient({
                     key={r}
                     className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]"
                   >
-                    {r}
+                    {optionLabel("transportRoutes", r)}
                   </li>
                 ))}
               </ul>
               <p className="mt-1.5 text-[12px] font-medium text-[#94A3B8]">
-                საწყისი ფასი
+                {t("startingPrice")}
               </p>
             </div>
             {service.price != null && (
@@ -317,7 +316,8 @@ export default function TransportDetailClient({
                 </p>
                 {service.price_unit && (
                   <p className="mt-0.5 text-[12px] text-[#94A3B8]">
-                    ({labelFor(PRICE_UNIT_LABELS, service.price_unit)})
+                    ({priceUnitPath ? tOpts(priceUnitPath) : service.price_unit}
+                    )
                   </p>
                 )}
               </div>
@@ -340,7 +340,7 @@ export default function TransportDetailClient({
                 {formatPrice(service.price)}
               </span>
               <span className="ml-1 text-sm text-[#94A3B8]">
-                / საწყისი ფასი
+                / {t("startingPrice")}
               </span>
             </div>
           )}
@@ -350,7 +350,7 @@ export default function TransportDetailClient({
           <CallButton
             phone={service.phone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#22C55E] px-8 text-[15px] font-bold text-white hover:bg-[#16A34A] sm:flex-none"
-            label="დარეკვა"
+            label={tCard("call")}
             onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={service.id}
           />
@@ -359,9 +359,9 @@ export default function TransportDetailClient({
 
       {service.price != null && (
         <MobileStickyCTA
-          primary={`${formatPrice(service.price)} / საწყისი ფასი`}
+          primary={`${formatPrice(service.price)} / ${t("startingPrice")}`}
           secondary={service.location ?? undefined}
-          ctaLabel="დარეკვა"
+          ctaLabel={tCard("call")}
           onClick={() =>
             document
               .getElementById("contact-sidebar")

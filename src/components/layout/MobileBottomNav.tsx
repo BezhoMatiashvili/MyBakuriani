@@ -12,7 +12,6 @@ import {
   Star,
   Sparkles,
   ShoppingBag,
-  Briefcase,
   Clock,
   Settings,
   ShieldCheck,
@@ -91,14 +90,19 @@ function getTabs(role: string): TabItem[] {
       return [
         { labelKey: "home", href: "/", icon: Home },
         {
+          labelKey: "orders",
+          href: "/dashboard/cleaner",
+          icon: ClipboardList,
+        },
+        {
           labelKey: "schedule",
           href: "/dashboard/cleaner/schedule",
           icon: Clock,
         },
         {
-          labelKey: "earnings",
-          href: "/dashboard/cleaner/earnings",
-          icon: Wallet,
+          labelKey: "settings",
+          href: "/dashboard/cleaner/parameters",
+          icon: Settings,
         },
       ];
     case "food":
@@ -114,14 +118,7 @@ function getTabs(role: string): TabItem[] {
     case "transport":
     case "employment":
     case "handyman":
-      return [
-        { labelKey: "home", href: "/", icon: Home },
-        {
-          labelKey: "orders",
-          href: "/dashboard/service/orders",
-          icon: Briefcase,
-        },
-      ];
+      return [{ labelKey: "home", href: "/", icon: Home }];
     case "guest":
     default:
       return [
@@ -150,10 +147,17 @@ export function MobileBottomNav({
         {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const isDashboardHomeTab = index === 0;
-          const isActive = isDashboardHomeTab
-            ? currentPath === tab.href
-            : currentPath === tab.href ||
-              currentPath.startsWith(`${tab.href}/`);
+          // Exact-match tabs whose href is a parent of another tab's href
+          // (e.g. cleaner "/dashboard/cleaner" vs "/dashboard/cleaner/schedule")
+          // so two tabs never highlight at once.
+          const hasNestedTab = tabs.some(
+            (other) => other !== tab && other.href.startsWith(`${tab.href}/`),
+          );
+          const isActive =
+            isDashboardHomeTab || hasNestedTab
+              ? currentPath === tab.href
+              : currentPath === tab.href ||
+                currentPath.startsWith(`${tab.href}/`);
           return (
             <li key={tab.href} className="flex-1">
               <Link

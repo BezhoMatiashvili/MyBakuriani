@@ -28,6 +28,7 @@ import {
   PawPrint,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useLocale, useTranslations } from "next-intl";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import { SkierLoader } from "@/components/shared/SkierLoader";
@@ -47,26 +48,28 @@ import ReviewCard from "@/components/cards/ReviewCard";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPricePerNight } from "@/lib/utils/format";
 
-const AMENITY_MAP: Record<string, { icon: React.ElementType; label: string }> =
-  {
-    wifi: { icon: Wifi, label: "Wi-Fi" },
-    parking: { icon: Car, label: "პარკინგი" },
-    ski_storage: { icon: Warehouse, label: "სათხილამურო საწყობი" },
-    fireplace: { icon: Flame, label: "ბუხარი" },
-    balcony: { icon: Fence, label: "აივანი" },
-    pool: { icon: Waves, label: "აუზი" },
-    spa: { icon: Sparkles, label: "SPA" },
-    restaurant: { icon: UtensilsCrossed, label: "რესტორანი" },
-    heating: { icon: Flame, label: "გათბობა" },
-    ac: { icon: Snowflake, label: "კონდიციონერი" },
-    tv: { icon: Tv, label: "ტელევიზორი" },
-    kitchen: { icon: UtensilsCrossed, label: "სამზარეულო" },
-    laundry: { icon: WashingMachine, label: "სამრეცხაო" },
-    washer: { icon: WashingMachine, label: "სარეცხი მანქანა" },
-    mountain_view: { icon: Mountain, label: "მთის ხედი" },
-  };
+const AMENITY_MAP: Record<
+  string,
+  { icon: React.ElementType; labelKey: string }
+> = {
+  wifi: { icon: Wifi, labelKey: "wifi" },
+  parking: { icon: Car, labelKey: "parking" },
+  ski_storage: { icon: Warehouse, labelKey: "skiStorage" },
+  fireplace: { icon: Flame, labelKey: "fireplace" },
+  balcony: { icon: Fence, labelKey: "balcony" },
+  pool: { icon: Waves, labelKey: "pool" },
+  spa: { icon: Sparkles, labelKey: "spa" },
+  restaurant: { icon: UtensilsCrossed, labelKey: "restaurant" },
+  heating: { icon: Flame, labelKey: "heating" },
+  ac: { icon: Snowflake, labelKey: "ac" },
+  tv: { icon: Tv, labelKey: "tv" },
+  kitchen: { icon: UtensilsCrossed, labelKey: "kitchen" },
+  laundry: { icon: WashingMachine, labelKey: "laundry" },
+  washer: { icon: WashingMachine, labelKey: "washer" },
+  mountain_view: { icon: Mountain, labelKey: "mountainView" },
+};
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -102,6 +105,12 @@ export default function HotelDetailClient({
   reviews,
   calendarBlocks,
 }: Props) {
+  const t = useTranslations("HotelDetail");
+  const tDetail = useTranslations("PropertyDetail");
+  const tAmenities = useTranslations("Amenities");
+  const tRules = useTranslations("HouseRules");
+  const tShared = useTranslations("Shared");
+  const locale = useLocale();
   const router = useRouter();
   const [selectedRange, setSelectedRange] = useState<{
     start: Date | null;
@@ -129,15 +138,15 @@ export default function HotelDetailClient({
       ? (houseRulesObj.meals_included as boolean)
       : null;
   const houseRulesLabels: Record<string, string> = {
-    check_in: "შესვლა",
-    check_out: "გასვლა",
+    check_in: tRules("checkIn"),
+    check_out: tRules("checkOut"),
   };
   const extraHouseRules = Object.entries(houseRulesObj)
     .filter(([key]) => key in houseRulesLabels)
     .map(([key, value]) => {
       const label = houseRulesLabels[key] ?? key;
       if (typeof value === "boolean")
-        return `${label}: ${value ? "დიახ" : "არა"}`;
+        return `${label}: ${value ? tRules("yes") : tRules("no")}`;
       return `${label}: ${value}`;
     });
   const showHouseRules =
@@ -187,7 +196,7 @@ export default function HotelDetailClient({
         className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
-        უკან დაბრუნება
+        {tShared("back")}
       </motion.button>
 
       <motion.div
@@ -199,7 +208,7 @@ export default function HotelDetailClient({
           <div>
             <div className="mb-2 flex items-center gap-2">
               <span className="rounded-md bg-brand-accent-light px-2 py-0.5 text-xs font-medium text-brand-accent">
-                სასტუმრო
+                {t("hotel")}
               </span>
               {property.is_super_vip && (
                 <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
@@ -226,12 +235,13 @@ export default function HotelDetailClient({
               {avgRating !== null && (
                 <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
                   <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
-                  {avgRating.toFixed(1)} ({reviews.length} შეფასება)
+                  {avgRating.toFixed(1)} (
+                  {tDetail("reviewsCount", { count: reviews.length })})
                 </span>
               )}
               <span className="flex items-center gap-1.5 font-medium">
                 <Eye className="h-4 w-4" />
-                {property.views_count} ნახვა
+                {tDetail("views", { count: property.views_count ?? 0 })}
               </span>
             </div>
           </div>
@@ -250,25 +260,25 @@ export default function HotelDetailClient({
               {property.rooms != null && (
                 <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <BedDouble className="h-4 w-4 text-brand-accent" />
-                  {property.rooms} ნომერი
+                  {t("roomsCount", { count: property.rooms })}
                 </span>
               )}
               {property.bathrooms != null && (
                 <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Bath className="h-4 w-4 text-brand-accent" />
-                  {property.bathrooms} სააბაზანო
+                  {tDetail("bathrooms", { count: property.bathrooms })}
                 </span>
               )}
               {property.capacity != null && (
                 <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Users className="h-4 w-4 text-brand-accent" />
-                  {property.capacity} სტუმარი
+                  {tDetail("guests", { count: property.capacity })}
                 </span>
               )}
               {property.area_sqm != null && (
                 <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
                   <Maximize className="h-4 w-4 text-brand-accent" />
-                  {property.area_sqm} მ²
+                  {tDetail("areaSqm", { area: property.area_sqm })}
                 </span>
               )}
             </div>
@@ -278,7 +288,7 @@ export default function HotelDetailClient({
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                აღწერა
+                {tDetail("description")}
               </h2>
               <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {property.description}
@@ -290,13 +300,13 @@ export default function HotelDetailClient({
           {amenities.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                კეთილმოწყობა
+                {tDetail("amenitiesTitle")}
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {amenities.map((key) => {
                   const amenity = AMENITY_MAP[key];
                   const Icon = amenity?.icon;
-                  const label = amenity?.label ?? key;
+                  const label = amenity ? tAmenities(amenity.labelKey) : key;
                   return (
                     <div
                       key={key}
@@ -316,7 +326,7 @@ export default function HotelDetailClient({
           {/* Location with Map */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              ზუსტი ლოკაცია
+              {tDetail("exactLocation")}
             </h2>
             <p className="mb-3 flex items-center gap-1.5 text-[14px] font-medium text-[#64748B]">
               <MapPin className="h-4 w-4 shrink-0 text-[#F97316]" />
@@ -342,7 +352,7 @@ export default function HotelDetailClient({
           {showHouseRules && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.33 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                სასტუმროს წესები
+                {t("hotelRulesTitle")}
               </h2>
               {(smokingRule !== null ||
                 petsRule !== null ||
@@ -351,14 +361,14 @@ export default function HotelDetailClient({
                   {smokingRule !== null && (
                     <HouseRuleCard
                       icon={<CigaretteOff className="h-5 w-5 text-[#EF4444]" />}
-                      label="მოწევა"
+                      label={tRules("smoking")}
                       value={smokingRule}
                     />
                   )}
                   {petsRule !== null && (
                     <HouseRuleCard
                       icon={<PawPrint className="h-5 w-5 text-[#16A34A]" />}
-                      label="ცხოველები"
+                      label={tRules("pets")}
                       value={petsRule}
                     />
                   )}
@@ -367,10 +377,10 @@ export default function HotelDetailClient({
                       icon={
                         <UtensilsCrossed className="h-5 w-5 text-[#F59E0B]" />
                       }
-                      label="კვება ფასში"
+                      label={tRules("mealsIncluded")}
                       value={mealsIncludedRule}
-                      trueLabel="შედის"
-                      falseLabel="არ შედის"
+                      trueLabel={tRules("included")}
+                      falseLabel={tRules("notIncluded")}
                     />
                   )}
                 </div>
@@ -394,7 +404,7 @@ export default function HotelDetailClient({
           {/* Calendar */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              თავისუფალი თარიღები
+              {tDetail("freeDates")}
             </h2>
             <AvailabilityCalendar
               dates={calendarDates}
@@ -406,16 +416,18 @@ export default function HotelDetailClient({
           {/* Reviews */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
             <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              შეფასებები {reviews.length > 0 && `(${reviews.length})`}
+              {t("reviewsTitle")} {reviews.length > 0 && `(${reviews.length})`}
             </h2>
             {reviews.length === 0 ? (
-              <p className="text-sm text-[#94A3B8]">ჯერ არ არის შეფასებები</p>
+              <p className="text-sm text-[#94A3B8]">{tDetail("noReviews")}</p>
             ) : (
               <div className="space-y-8">
                 {reviews.map((review) => (
                   <ReviewCard
                     key={review.id}
-                    displayName={review.profiles?.display_name ?? "ანონიმური"}
+                    displayName={
+                      review.profiles?.display_name ?? tDetail("anonymous")
+                    }
                     rating={review.rating}
                     comment={review.comment ?? ""}
                     createdAt={review.created_at ?? ""}
@@ -438,7 +450,7 @@ export default function HotelDetailClient({
             <BookingSidebar
               pricePerNight={property.price_per_night}
               minBookingDays={property.min_booking_days ?? 0}
-              ownerName={owner?.display_name ?? "სასტუმრო"}
+              ownerName={owner?.display_name ?? t("hotel")}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
               ownerPhone={owner?.phone ?? null}
@@ -457,9 +469,9 @@ export default function HotelDetailClient({
 
       {property.price_per_night != null && (
         <MobileStickyCTA
-          primary={`${formatPrice(property.price_per_night)} / ღამე`}
+          primary={formatPricePerNight(property.price_per_night, locale)}
           secondary={property.location ?? undefined}
-          ctaLabel="დაჯავშნა"
+          ctaLabel={tDetail("book")}
           onClick={() =>
             document
               .getElementById("booking-sidebar")
@@ -475,8 +487,8 @@ function HouseRuleCard({
   icon,
   label,
   value,
-  trueLabel = "დაშვებულია",
-  falseLabel = "აკრძალულია",
+  trueLabel,
+  falseLabel,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -484,6 +496,9 @@ function HouseRuleCard({
   trueLabel?: string;
   falseLabel?: string;
 }) {
+  const tRules = useTranslations("HouseRules");
+  const resolvedTrue = trueLabel ?? tRules("allowed");
+  const resolvedFalse = falseLabel ?? tRules("forbidden");
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
@@ -494,7 +509,7 @@ function HouseRuleCard({
           {label}
         </span>
         <span className="text-[15px] font-bold leading-snug text-[#0F172A]">
-          {value ? trueLabel : falseLabel}
+          {value ? resolvedTrue : resolvedFalse}
         </span>
       </div>
     </div>

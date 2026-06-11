@@ -2,6 +2,7 @@
 
 import { Combobox } from "@base-ui/react/combobox";
 import { Check, ChevronDown, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type Accent = "blue" | "green" | "orange";
@@ -64,12 +65,15 @@ export function SearchableSelect({
   value,
   onValueChange,
   options,
-  placeholder = "აირჩიე",
-  searchPlaceholder = "ძებნა...",
+  placeholder,
+  searchPlaceholder,
   accent = "blue",
   disabled,
   name,
 }: SearchableSelectProps) {
+  const t = useTranslations("UISelect");
+  const placeholderText = placeholder ?? t("choose");
+  const searchPlaceholderText = searchPlaceholder ?? t("searchPlaceholder");
   const a = ACCENT_CLASSES[accent];
   const selected = options.find((o) => o.value === value) ?? null;
 
@@ -92,7 +96,7 @@ export function SearchableSelect({
           a.focusRing,
         )}
       >
-        <Combobox.Value placeholder={placeholder} />
+        <Combobox.Value placeholder={placeholderText} />
         <Combobox.Icon className="ml-2 shrink-0 text-[#94A3B8] transition-transform data-[popup-open]:rotate-180 data-[popup-open]:text-[#2563EB]">
           <ChevronDown className="size-4" strokeWidth={2} />
         </Combobox.Icon>
@@ -115,13 +119,13 @@ export function SearchableSelect({
             <div className="relative shrink-0 border-b border-[#E2E8F0] p-2">
               <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
               <Combobox.Input
-                placeholder={searchPlaceholder}
+                placeholder={searchPlaceholderText}
                 className="h-10 w-full rounded-lg bg-[#F8FAFC] pr-3 pl-9 text-sm font-medium text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:bg-white"
               />
             </div>
 
             <Combobox.Empty className="px-3 py-6 text-center text-sm font-medium text-[#94A3B8]">
-              ვერ მოიძებნა
+              {t("noResults")}
             </Combobox.Empty>
 
             <Combobox.List className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-2 outline-none">

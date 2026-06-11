@@ -12,11 +12,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import {
-  ICON_STYLES,
-  iconForType,
-  relativeTime,
-} from "@/lib/utils/notifications";
+import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
+import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import type { Database } from "@/lib/types/database";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
@@ -39,6 +36,7 @@ export function NotificationBell({
   variant = "desktop",
 }: NotificationBellProps) {
   const t = useTranslations("Navbar");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const items = notifications.slice(0, 8);
@@ -154,7 +152,7 @@ export function NotificationBell({
                     )}
                   </div>
                   <span className="shrink-0 text-[10px] font-medium text-[#94A3B8]">
-                    {relativeTime(item.created_at)}
+                    {formatRelativeTime(tShared, item.created_at)}
                   </span>
                 </>
               );

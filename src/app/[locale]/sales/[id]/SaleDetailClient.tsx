@@ -20,12 +20,10 @@ import {
   Star,
   X,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
-import {
-  managementServiceLabel,
-  renovationStatusLabel,
-} from "@/lib/constants/sale-listing";
+import { optionKeyFor } from "@/lib/constants/listing-options";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
@@ -69,43 +67,48 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-const CONSTRUCTION_MILESTONES: Array<{ label: string; pctThreshold: number }> =
-  [
-    { label: "მშენებლობის ნებართვა", pctThreshold: 5 },
-    { label: "საფუძვლის მოწყობა", pctThreshold: 15 },
-    { label: "კარკასი", pctThreshold: 30 },
-    { label: "სახურავი", pctThreshold: 45 },
-    { label: "კომუნიკაციები", pctThreshold: 60 },
-    { label: "გარე მოპირკეთება", pctThreshold: 75 },
-    { label: "შიდა მოპირკეთება", pctThreshold: 90 },
-    { label: "დასრულება", pctThreshold: 100 },
-  ];
+const CONSTRUCTION_MILESTONES: Array<{
+  labelKey: string;
+  pctThreshold: number;
+}> = [
+  { labelKey: "milestonePermit", pctThreshold: 5 },
+  { labelKey: "milestoneFoundation", pctThreshold: 15 },
+  { labelKey: "milestoneFrame", pctThreshold: 30 },
+  { labelKey: "milestoneRoof", pctThreshold: 45 },
+  { labelKey: "milestoneUtilities", pctThreshold: 60 },
+  { labelKey: "milestoneExterior", pctThreshold: 75 },
+  { labelKey: "milestoneInterior", pctThreshold: 90 },
+  { labelKey: "milestoneCompletion", pctThreshold: 100 },
+];
 
 type PropertyType = Database["public"]["Enums"]["property_type"];
 
-const PROPERTY_TYPE_LABELS_GE: Record<PropertyType, string> = {
-  apartment: "აპარტამენტი",
-  cottage: "კოტეჯი",
-  hotel: "სასტუმრო",
-  studio: "სტუდია",
-  villa: "ვილა",
+const PROPERTY_TYPE_LABEL_KEYS: Record<PropertyType, string> = {
+  apartment: "typeApartment",
+  cottage: "typeCottage",
+  hotel: "typeHotel",
+  studio: "typeStudio",
+  villa: "typeVilla",
 };
 
+// Returns a translation key for known statuses; unknown free-text statuses
+// from the DB are passed through raw.
 function constructionStatusLabel(status: string | null): {
-  label: string;
+  labelKey: string | null;
+  raw: string;
   tone: "active" | "done" | "neutral";
 } | null {
   if (!status) return null;
   if (/under[_\s-]?construction|building|in[_\s-]?progress/i.test(status)) {
-    return { label: "მშენებარე", tone: "active" };
+    return { labelKey: "underConstruction", raw: status, tone: "active" };
   }
   if (/complete|finished|done|ready/i.test(status)) {
-    return { label: "დასრულებული", tone: "done" };
+    return { labelKey: "completed", raw: status, tone: "done" };
   }
-  return { label: status, tone: "neutral" };
+  return { labelKey: null, raw: status, tone: "neutral" };
 }
 
-function deriveEnvironmentStatus(amenities: unknown): string | null {
+function deriveEnvironmentStatusKey(amenities: unknown): string | null {
   if (!Array.isArray(amenities)) return null;
   const tokens = amenities
     .filter((v): v is string => typeof v === "string")
@@ -115,17 +118,23 @@ function deriveEnvironmentStatus(amenities: unknown): string | null {
       ["complex_management", "concierge", "management"].includes(t),
     )
   ) {
-    return "აქვს კომპლექსის მენეჯმენტი";
+    return "complexManagement";
   }
   if (
     tokens.some((t) => ["security", "guarded", "24_7_security"].includes(t))
   ) {
-    return "დაცული ტერიტორია";
+    return "securedArea";
   }
   return null;
 }
 
 export default function SaleDetailClient({ property, reviews }: Props) {
+  const t = useTranslations("SaleDetail");
+  const tDetail = useTranslations("PropertyDetail");
+  const tShared = useTranslations("Shared");
+  const tShare = useTranslations("ShareListing");
+  const tOpts = useTranslations("ListingOptions");
+  const locale = useLocale();
   const router = useRouter();
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
 
@@ -160,9 +169,9 @@ export default function SaleDetailClient({ property, reviews }: Props) {
     if (!property.created_at) return null;
     const diffMs = Date.now() - new Date(property.created_at).getTime();
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    if (days <= 0) return "გამოქვეყნებულია: დღეს";
-    if (days === 1) return "გამოქვეყნებულია: 1 დღის წინ";
-    return `გამოქვეყნებულია: ${days} დღის წინ`;
+    if (days <= 0) return t("postedToday");
+    if (days === 1) return t("postedOneDayAgo");
+    return t("postedDaysAgo", { days });
   })();
 
   const isUnderConstruction =
@@ -180,7 +189,9 @@ export default function SaleDetailClient({ property, reviews }: Props) {
       : "/placeholder-property.jpg";
   const constructionImg = property.construction_image_url ?? heroPhoto;
 
-  const propertyTypeLabel = PROPERTY_TYPE_LABELS_GE[property.type] ?? "ქონება";
+  const propertyTypeLabel = PROPERTY_TYPE_LABEL_KEYS[property.type]
+    ? t(PROPERTY_TYPE_LABEL_KEYS[property.type])
+    : t("typeFallback");
 
   const locationParts = (property.location ?? "")
     .split(/[,/]/)
@@ -191,68 +202,83 @@ export default function SaleDetailClient({ property, reviews }: Props) {
     : (property.location ?? "");
 
   const statusInfo = constructionStatusLabel(property.construction_status);
-  const envStatus = deriveEnvironmentStatus(property.amenities);
+  const envStatusKey = deriveEnvironmentStatusKey(property.amenities);
 
   const roiText =
     property.roi_percent_max != null
       ? `${roiPercent}-${property.roi_percent_max}%`
       : `${roiPercent}%`;
   const houseRules = (property.house_rules ?? {}) as Record<string, unknown>;
-  const renovationLabel = renovationStatusLabel(property.renovation_status);
-  const managementLabel = managementServiceLabel(
+  // DB stores codes (newer rows) or Georgian labels (legacy rows); unknown
+  // custom values pass through raw.
+  const renovationKey = optionKeyFor(
+    "renovationStatuses",
+    property.renovation_status,
+  );
+  const renovationLabel = renovationKey
+    ? tOpts(`renovationStatuses.${renovationKey}`)
+    : property.renovation_status;
+  const managementValue =
     typeof houseRules.management_service === "string"
       ? houseRules.management_service
-      : null,
-  );
+      : null;
+  const managementKey = optionKeyFor("managementServices", managementValue);
+  const managementLabel = managementKey
+    ? tOpts(`managementServices.${managementKey}`)
+    : managementValue;
   const metricCells: { label: string; value: ReactNode; sub?: string }[] = [];
   if (statusInfo) {
     metricCells.push({
-      label: "მშენებლობის სტადია",
-      value: statusInfo.label,
+      label: t("constructionStage"),
+      value: statusInfo.labelKey ? t(statusInfo.labelKey) : statusInfo.raw,
       sub: property.completion_year
-        ? `ბარდდება: ${property.completion_year} წელს`
+        ? t("deliveredInYear", { year: property.completion_year })
         : undefined,
     });
   }
   if (renovationLabel) {
     metricCells.push({
-      label: "რემონტის მდგომარეობა",
+      label: t("renovationState"),
       value: renovationLabel,
     });
   }
   if (managementLabel) {
     metricCells.push({
-      label: "მართვის სერვისი",
+      label: t("managementService"),
       value: managementLabel,
     });
   }
   if (roiPercent > 0) {
     metricCells.push({
-      label: "მოსალოდნელი ROI",
+      label: t("expectedRoi"),
       value: (
         <span className="flex items-center gap-2">
           {roiText}
           <span className="rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[11px] font-bold text-[#16A34A]">
-            {roiPercent >= 12 ? "მაღალი" : "საშუალო"}
+            {roiPercent >= 12 ? t("roiHigh") : t("roiMedium")}
           </span>
         </span>
       ),
     });
   }
-  if (envStatus) {
-    metricCells.push({ label: "გაყიდვის სტატუსი", value: envStatus });
+  if (envStatusKey) {
+    metricCells.push({ label: t("saleStatus"), value: t(envStatusKey) });
   }
   if (property.cadastral_code) {
     metricCells.push({
-      label: "საკადასტრო კოდი",
+      label: t("cadastralCode"),
       value: property.cadastral_code,
     });
   }
-  metricCells.push({ label: "მისამართი", value: property.location ?? "—" });
+  metricCells.push({ label: t("address"), value: property.location ?? "—" });
 
   const shortId = property.id.replace(/-/g, "").slice(0, 8).toUpperCase();
 
-  const handleShare = () => shareListing(property.title);
+  const handleShare = () =>
+    shareListing(property.title, {
+      copied: tShare("copied"),
+      error: tShare("error"),
+    });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
@@ -266,7 +292,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
         >
           <ArrowLeft className="h-4 w-4" />
-          უკან დაბრუნება
+          {tShared("back")}
         </button>
 
         <div className="flex items-center gap-1">
@@ -274,20 +300,22 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             type="button"
             onClick={handleShare}
             className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-[#1E293B]"
-            aria-label="გაზიარება"
+            aria-label={t("share")}
           >
             <Share2 className="h-[15px] w-[15px]" />
             <span className="underline-offset-2 hover:underline">
-              გაზიარება
+              {t("share")}
             </span>
           </button>
           <button
             type="button"
             className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-red-500"
-            aria-label="ფავორიტებში დამატება"
+            aria-label={t("addToFavorites")}
           >
             <Heart className="h-[15px] w-[15px]" />
-            <span className="underline-offset-2 hover:underline">შენახვა</span>
+            <span className="underline-offset-2 hover:underline">
+              {t("save")}
+            </span>
           </button>
         </div>
       </motion.div>
@@ -352,9 +380,11 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             </span>
             <div className="min-w-0">
               <p className="truncate text-[15px] font-black text-[#1E293B]">
-                {property.area_sqm} მ²
+                {tDetail("areaSqm", { area: property.area_sqm })}
               </p>
-              <p className="text-[11px] font-medium text-[#94A3B8]">ფართობი</p>
+              <p className="text-[11px] font-medium text-[#94A3B8]">
+                {t("areaLabel")}
+              </p>
             </div>
           </div>
         )}
@@ -367,7 +397,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               {propertyTypeLabel}
             </p>
             <p className="text-[11px] font-medium text-[#94A3B8]">
-              ობიექტის ტიპი
+              {t("objectType")}
             </p>
           </div>
         </div>
@@ -378,10 +408,10 @@ export default function SaleDetailClient({ property, reviews }: Props) {
             </span>
             <div className="min-w-0">
               <p className="truncate text-[15px] font-black text-[#1E293B]">
-                {property.rooms} ოთახი
+                {tDetail("rooms", { count: property.rooms })}
               </p>
               <p className="text-[11px] font-medium text-[#94A3B8]">
-                გეგმარება
+                {t("layout")}
               </p>
             </div>
           </div>
@@ -396,7 +426,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Investment metrics box */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.18 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              საინვესტიციო მეტრიკები და სტატუსი
+              {t("investmentMetrics")}
             </h2>
             <div className="rounded-[20px] border border-[#E2E8F0] bg-[#F7F8FC] px-5 py-1 sm:px-7">
               <div className="grid grid-cols-1 sm:grid-cols-2">
@@ -428,7 +458,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {property.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                ბინის შესახებ
+                {t("aboutApartment")}
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {property.description}
@@ -440,7 +470,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {showConstructionSection && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                მშენებლობის პროცესი
+                {t("constructionProcess")}
               </h2>
               <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white">
                 <div className="relative aspect-[16/7] overflow-hidden">
@@ -453,7 +483,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-[#16A34A] backdrop-blur">
-                    მშენებარე
+                    {t("underConstruction")}
                     {property.completion_year
                       ? ` (${property.completion_year})`
                       : ""}
@@ -468,18 +498,19 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 <div className="space-y-4 p-5">
                   <ConstructionProgressBar
                     percent={constructionPct}
-                    label="მშენებლობის პროგრესი"
+                    label={tShared("constructionProgress")}
                   />
                   {property.progress_note && (
                     <div className="rounded-[12px] border border-[#EEF1F4] bg-[#F8FAFC] p-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
-                          დეველოპერის განახლება
+                          {t("developerUpdate")}
                         </span>
                         {property.progress_note_updated_at && (
                           <span className="text-[10px] font-semibold text-[#94A3B8]">
                             {formatRelativeGe(
                               property.progress_note_updated_at,
+                              locale,
                             )}
                           </span>
                         )}
@@ -495,7 +526,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                     className="group flex w-full items-center justify-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[13px] font-bold text-[#1E293B] transition-colors hover:border-[#16A34A] hover:bg-[#F0FDF4]"
                   >
                     <Eye className="h-4 w-4 text-[#64748B] transition-colors group-hover:text-[#16A34A]" />
-                    დეტალების ნახვა
+                    {t("viewDetails")}
                   </button>
                 </div>
               </div>
@@ -505,7 +536,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {/* Map */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.32 }}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              ზუსტი ლოკაცია
+              {tDetail("exactLocation")}
             </h2>
             <div className="mb-3 flex items-center gap-2 text-[14px] font-medium text-[#64748B]">
               <MapPin className="h-4 w-4 text-[#16A34A]" />
@@ -535,7 +566,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               </div>
             ) : (
               <div className="flex h-[200px] items-center justify-center rounded-[20px] border border-dashed border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#94A3B8]">
-                რუკის კოორდინატები არ არის დამატებული
+                {t("noCoordinates")}
               </div>
             )}
           </motion.div>
@@ -544,13 +575,15 @@ export default function SaleDetailClient({ property, reviews }: Props) {
           {reviews.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
               <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                შეფასებები ({reviews.length})
+                {t("reviewsTitle")} ({reviews.length})
               </h2>
               <div className="space-y-4">
                 {reviews.map((review) => (
                   <ReviewCard
                     key={review.id}
-                    displayName={review.profiles?.display_name ?? "ანონიმური"}
+                    displayName={
+                      review.profiles?.display_name ?? tDetail("anonymous")
+                    }
                     rating={review.rating}
                     comment={review.comment ?? ""}
                     createdAt={review.created_at ?? ""}
@@ -583,19 +616,25 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 </span>
               )}
 
-              <div className="mb-1 text-sm text-[#94A3B8]">ფასი</div>
+              <div className="mb-1 text-sm text-[#94A3B8]">{t("price")}</div>
               <div className="text-[32px] font-black leading-[34px] text-[#1E293B]">
-                {salePrice > 0 ? formatPrice(salePrice) : "შეთანხმებით"}
+                {salePrice > 0 ? formatPrice(salePrice) : t("negotiable")}
               </div>
               {property.area_sqm != null && salePrice > 0 && (
                 <div className="mt-1 text-sm text-[#94A3B8]">
-                  {formatPrice(Math.round(salePrice / property.area_sqm))} / მ²
+                  {t("pricePerSqm", {
+                    price: formatPrice(
+                      Math.round(salePrice / property.area_sqm),
+                    ),
+                  })}
                 </div>
               )}
 
               {(property.discount_percent ?? 0) > 0 && (
                 <div className="mt-3 rounded-lg bg-red-50 p-2 text-center text-sm font-semibold text-red-600">
-                  -{property.discount_percent}% ფასდაკლება
+                  {t("discountPct", {
+                    percent: property.discount_percent ?? 0,
+                  })}
                 </div>
               )}
 
@@ -613,22 +652,22 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                     />
                   ) : (
                     <div className="flex size-full items-center justify-center text-sm font-bold text-[#94A3B8]">
-                      {owner?.display_name?.charAt(0) ?? "მ"}
+                      {owner?.display_name?.charAt(0) ?? t("ownerInitial")}
                     </div>
                   )}
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-[15px] font-bold text-[#1E293B]">
-                    {owner?.display_name ?? "მესაკუთრე"}
+                    {owner?.display_name ?? tDetail("ownerFallback")}
                   </p>
                   {owner?.is_verified ? (
                     <div className="flex items-center gap-1 text-xs text-[#16A34A]">
                       <BadgeCheck className="size-3.5" />
-                      ვერიფიცირებული მესაკუთრე
+                      {t("verifiedOwner")}
                     </div>
                   ) : (
                     <p className="text-xs text-[#94A3B8]">
-                      მესაკუთრე / ინვესტორი
+                      {t("ownerInvestor")}
                     </p>
                   )}
                 </div>
@@ -639,7 +678,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                   phone={property.phone ?? property.profiles?.phone ?? null}
                   onNoPhoneClick={() => router.push("/auth/login")}
                   className="h-[55px] flex-1 gap-2 rounded-2xl bg-[#16A34A] text-[15px] font-bold tracking-[0.375px] text-white hover:bg-[#15803D]"
-                  label="დარეკვა"
+                  label={t("call")}
                   propertyId={property.id}
                 />
                 <WhatsAppButton
@@ -659,7 +698,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                 className="mt-3 flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-white text-[14px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
               >
                 <MessageSquare className="h-4 w-4" />
-                შეტყობინების მიწერა
+                {t("sendMessage")}
               </button>
             </div>
           </div>
@@ -688,7 +727,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
               <div className="flex items-start justify-between gap-4 border-b border-[#F1F5F9] px-6 py-5">
                 <div>
                   <h2 className="text-[17px] font-black text-[#0F172A]">
-                    მშენებლობის პროცესი
+                    {t("constructionProcess")}
                   </h2>
                   <p className="mt-0.5 text-[12px] text-[#64748B]">
                     {property.developer ?? property.title}
@@ -701,7 +740,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                   <button
                     onClick={() => setConstructionModalOpen(false)}
                     className="flex size-8 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9]"
-                    aria-label="დახურვა"
+                    aria-label={tShared("close")}
                   >
                     <X className="size-4" />
                   </button>
@@ -710,7 +749,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
               <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
                 <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
-                  მიმდინარე ფაზები
+                  {t("currentPhases")}
                 </p>
 
                 <div className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -718,7 +757,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                     const done = constructionPct >= m.pctThreshold;
                     return (
                       <div
-                        key={m.label}
+                        key={m.labelKey}
                         className={
                           done
                             ? "flex items-center gap-2.5 rounded-[12px] border border-[#DCFCE7] bg-[#F0FDF4] px-3 py-2.5"
@@ -741,7 +780,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                               : "text-[13px] font-medium text-[#94A3B8]"
                           }
                         >
-                          {m.label}
+                          {t(m.labelKey)}
                         </span>
                       </div>
                     );
@@ -773,9 +812,9 @@ export default function SaleDetailClient({ property, reviews }: Props) {
       </AnimatePresence>
 
       <MobileStickyCTA
-        primary={salePrice > 0 ? formatPrice(salePrice) : "შეთანხმებით"}
+        primary={salePrice > 0 ? formatPrice(salePrice) : t("negotiable")}
         secondary={property.location ?? undefined}
-        ctaLabel="დარეკვა"
+        ctaLabel={t("call")}
         onClick={() =>
           document
             .getElementById("seller-sidebar")

@@ -6,26 +6,28 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 
 const OBJECT_TYPES = [
-  { value: "all", label: "ყველა" },
-  { value: "restaurant", label: "რესტორანი" },
-  { value: "cafe", label: "კავი / საკონდიტრო" },
-  { value: "bar", label: "ბარი / პაბი" },
-  { value: "fastfood", label: "სწრაფი კვება" },
-  { value: "other", label: "სხვა" },
+  "all",
+  "restaurant",
+  "cafe",
+  "bar",
+  "fastfood",
+  "other",
 ] as const;
 
+// `value` is matched against DB `location` values and must stay Georgian.
 const LOCATION_FILTERS = [
-  { value: "all", label: "ყველა" },
-  { value: "დიდველი", label: "დიდველი" },
-  { value: "კოხტა", label: "კოხტა" },
-  { value: "ცენტრი", label: "ცენტრი" },
-  { value: "25-იანები", label: "25-იანები" },
-  { value: "other", label: "სხვა" },
+  { value: "all", key: "all" },
+  { value: "დიდველი", key: "didveli" },
+  { value: "კოხტა", key: "kokhta" },
+  { value: "ცენტრი", key: "tsentri" },
+  { value: "25-იანები", key: "d25" },
+  { value: "other", key: "other" },
 ] as const;
 
 const KNOWN_LOCATIONS = new Set(["დიდველი", "კოხტა", "ცენტრი", "25-იანები"]);
@@ -62,6 +64,8 @@ function matchesObjectType(s: Tables<"services">, value: string): boolean {
 }
 
 export default function FoodPageClient({ services }: Props) {
+  const t = useTranslations("FoodPage");
+  const tShared = useTranslations("Shared");
   const [activeType, setActiveType] = useState<string>("all");
   const [activeLocation, setActiveLocation] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -109,12 +113,11 @@ export default function FoodPageClient({ services }: Props) {
         <div className="mx-auto max-w-3xl">
           <ScrollReveal>
             <h1 className="text-[36px] font-black leading-[44px] sm:text-[48px] sm:leading-[56px]">
-              <span className="text-white">კვება და</span>{" "}
-              <span className="text-white">რესტორნები</span>
+              <span className="text-white">{t("heroTitle1")}</span>{" "}
+              <span className="text-white">{t("heroTitle2")}</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/80">
-              აღმოაჩინეთ საუკეთესო კერძები, რესტორნები, ბარები და ადგილზე
-              მიტანის სერვისები ბაკურიანში.
+              {t("heroSubtitle")}
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-8 flex max-w-[720px] items-center gap-2 rounded-full bg-white p-2 shadow-lg">
@@ -127,7 +130,7 @@ export default function FoodPageClient({ services }: Props) {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="რას ეძებთ?..."
+                placeholder={t("searchPlaceholder")}
                 className="h-10 w-full border-0 bg-transparent text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
               />
             </div>
@@ -135,7 +138,7 @@ export default function FoodPageClient({ services }: Props) {
               type="button"
               className="h-10 shrink-0 rounded-full bg-[#2563EB] px-6 text-sm font-bold text-white transition-colors hover:bg-[#1D4ED8]"
             >
-              ძიება
+              {t("search")}
             </button>
           </div>
         </div>
@@ -146,23 +149,23 @@ export default function FoodPageClient({ services }: Props) {
         <div className="relative z-10 mx-auto -mt-16 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
-              ობიექტის ტიპი:
+              {t("objectTypeLabel")}
             </span>
             <div className="flex flex-1 flex-wrap gap-2">
-              {OBJECT_TYPES.map((cat) => (
+              {OBJECT_TYPES.map((value) => (
                 <button
-                  key={cat.value}
+                  key={value}
                   onClick={() => {
-                    setActiveType(cat.value);
+                    setActiveType(value);
                     setCurrentPage(1);
                   }}
                   className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
-                    activeType === cat.value
+                    activeType === value
                       ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
                   }`}
                 >
-                  {cat.label}
+                  {t(`objectTypes.${value}`)}
                 </button>
               ))}
             </div>
@@ -170,7 +173,7 @@ export default function FoodPageClient({ services }: Props) {
           <div className="my-5 h-px w-full bg-[#E2E8F0]" />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
-              ლოკაცია:
+              {t("locationLabel")}
             </span>
             <div className="flex flex-1 flex-wrap gap-2">
               {LOCATION_FILTERS.map((cat) => (
@@ -186,7 +189,7 @@ export default function FoodPageClient({ services }: Props) {
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
                   }`}
                 >
-                  {cat.label}
+                  {t(`locations.${cat.key}`)}
                 </button>
               ))}
             </div>
@@ -197,7 +200,7 @@ export default function FoodPageClient({ services }: Props) {
       {/* Results */}
       <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-12">
         <h2 className="mb-6 text-[28px] font-black leading-[34px] text-[#1E293B]">
-          შედეგები ({filtered.length})
+          {t("results", { count: filtered.length })}
         </h2>
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -205,10 +208,10 @@ export default function FoodPageClient({ services }: Props) {
               <UtensilsCrossed className="h-8 w-8 text-[#64748B]" />
             </div>
             <h3 className="text-[17px] font-black text-[#1E293B]">
-              განცხადებები ვერ მოიძებნა
+              {tShared("noListingsFound")}
             </h3>
             <p className="mt-1 text-sm text-[#64748B]">
-              სცადეთ ფილტრების შეცვლა
+              {tShared("tryChangeFilters")}
             </p>
           </div>
         ) : (

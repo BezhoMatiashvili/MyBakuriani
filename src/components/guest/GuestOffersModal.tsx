@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,7 +16,7 @@ export interface GuestOffer {
   offeredPrice: number;
   status: "pending" | "declined" | "accepted";
   renter: {
-    displayName: string;
+    displayName: string | null;
     avatarUrl: string | null;
     rating: number | null;
     listingsCount: number | null;
@@ -38,25 +39,15 @@ interface Props {
   onDecline: (offerId: string) => Promise<void> | void;
 }
 
-function relativeTime(iso: string | null): string {
-  if (!iso) return "ახლახან";
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) {
-    const hours = Math.floor(diff / 3600000);
-    if (hours === 0) return "ახლახან";
-    return `${hours} სთ-ის წინ`;
-  }
-  if (days === 1) return "გუშინ";
-  return `${days} დღის წინ`;
-}
-
 export default function GuestOffersModal({
   isOpen,
   onClose,
   offers,
   onDecline,
 }: Props) {
+  const t = useTranslations("GuestDashboard.offersModal");
+  const tShared = useTranslations("DashboardShared");
+
   useEffect(() => {
     if (!isOpen) return;
     document.body.style.overflow = "hidden";
@@ -74,6 +65,19 @@ export default function GuestOffersModal({
 
   const firstRequestShortId = offers[0]?.requestShortId ?? "—";
   const offerCount = offers.length;
+
+  function relativeTime(iso: string | null): string {
+    if (!iso) return tShared("timeJustNow");
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86400000);
+    if (days === 0) {
+      const hours = Math.floor(diff / 3600000);
+      if (hours === 0) return tShared("timeJustNow");
+      return tShared("timeHoursAgo", { hours });
+    }
+    if (days === 1) return tShared("timeYesterday");
+    return tShared("timeDaysAgo", { days });
+  }
 
   return (
     <AnimatePresence>
@@ -93,22 +97,23 @@ export default function GuestOffersModal({
             transition={{ duration: 0.2 }}
             className="relative z-10 flex max-h-[90vh] w-full max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)] sm:max-w-2xl sm:rounded-2xl"
           >
-            {/* Header */}
             <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-6 sm:px-8">
               <div>
                 <h2 className="text-[22px] font-black leading-[28px] text-[#0F172A]">
-                  მიღებული შეთავაზებები
+                  {t("title")}
                 </h2>
                 <p className="mt-1 text-[13px] font-medium text-[#64748B]">
-                  თქვენი მოთხოვნა (ID: REQ-{firstRequestShortId}) დაფიქსირდა{" "}
-                  {offerCount} პასუხი
+                  {t("subtitle", {
+                    id: firstRequestShortId,
+                    count: offerCount,
+                  })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
                 className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-[#94A3B8] hover:bg-[#F1F5F9]"
-                aria-label="დახურვა"
+                aria-label={tShared("closeAria")}
               >
                 <X className="size-4" />
               </button>
@@ -118,10 +123,10 @@ export default function GuestOffersModal({
               {offers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-[#EEF1F4] bg-[#FAFBFC] py-16 text-center">
                   <p className="text-[14px] font-bold text-[#0F172A]">
-                    ჯერ არ მიგიღიათ შეთავაზებები
+                    {t("emptyTitle")}
                   </p>
                   <p className="mt-1 text-[12px] text-[#94A3B8]">
-                    მფლობელები მალე გამოგიგზავნიან თავიანთ ვერსიებს.
+                    {t("emptyDesc")}
                   </p>
                 </div>
               ) : (
@@ -131,6 +136,7 @@ export default function GuestOffersModal({
                     offer={offer}
                     highlight={idx === 0}
                     onDecline={onDecline}
+                    relativeTime={relativeTime}
                   />
                 ))
               )}
@@ -146,15 +152,21 @@ function OfferCard({
   offer,
   highlight,
   onDecline,
+  relativeTime,
 }: {
   offer: GuestOffer;
   highlight: boolean;
   onDecline: (offerId: string) => Promise<void> | void;
+  relativeTime: (iso: string | null) => string;
 }) {
+  const t = useTranslations("GuestDashboard.offersModal");
+  const tBookings = useTranslations("GuestBookings");
+
   const listingPrice = offer.property.pricePerNight;
   const isCheaper = offer.offeredPrice < listingPrice && listingPrice > 0;
   const isExpensive = offer.offeredPrice > listingPrice && listingPrice > 0;
-  const initials = offer.renter.displayName
+  const displayName = offer.renter.displayName ?? tBookings("defaultOwner");
+  const initials = displayName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -167,7 +179,6 @@ function OfferCard({
         highlight ? "border-[#E2E8F0]" : "border-[#D1FAE5]"
       }`}
     >
-      {/* Renter row */}
       <div
         className={`flex items-center gap-3 px-5 pt-5 pb-3 ${
           highlight ? "" : "bg-[#ECFDF5]"
@@ -177,7 +188,7 @@ function OfferCard({
           {offer.renter.avatarUrl ? (
             <Image
               src={offer.renter.avatarUrl}
-              alt={offer.renter.displayName}
+              alt={displayName}
               fill
               sizes="40px"
               className="object-cover"
@@ -190,17 +201,15 @@ function OfferCard({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
-            {offer.renter.displayName}
+            {displayName}
           </h3>
           <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
-            სახლის მფლობელი • {relativeTime(offer.createdAt)}
+            {t("ownerRole", { time: relativeTime(offer.createdAt) })}
           </p>
         </div>
       </div>
 
-      {/* Body */}
       <div className="px-5 pb-5 pt-2">
-        {/* Property row */}
         <div className="flex items-center gap-3 rounded-xl bg-[#FAFBFC] p-3">
           <div className="relative h-[60px] w-[80px] shrink-0 overflow-hidden rounded-lg bg-[#F1F5F9]">
             {offer.property.photo ? (
@@ -230,34 +239,35 @@ function OfferCard({
                 </span>
               )}
               {offer.property.capacity != null && (
-                <span>• {offer.property.capacity} სტუმარი</span>
+                <span>
+                  {t("guestsCount", { count: offer.property.capacity })}
+                </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Price + actions */}
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
-              შემოთავაზებული ფასი
+              {t("offeredPrice")}
             </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-[22px] font-black text-[#0F172A]">
                 {formatPrice(offer.offeredPrice)}
               </span>
               <span className="text-[11px] font-medium text-[#94A3B8]">
-                / ღამე
+                {tBookings("perNight")}
               </span>
             </div>
             {isCheaper && (
               <p className="mt-0.5 text-[10px] font-bold text-[#10B981]">
-                ↓ იაფი (ლისტინგი: {listingPrice}₾)
+                {t("cheaper", { price: listingPrice })}
               </p>
             )}
             {isExpensive && (
               <p className="mt-0.5 text-[10px] font-bold text-[#DC2626]">
-                ↑ ძვირია თქვენი ფასი ({listingPrice}₾)
+                {t("expensive", { price: listingPrice })}
               </p>
             )}
           </div>
@@ -267,13 +277,13 @@ function OfferCard({
               onClick={() => onDecline(offer.id)}
               className="h-11 rounded-xl border border-[#E2E8F0] px-5 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-[#0F172A]"
             >
-              უარყოფა
+              {tBookings("decline")}
             </button>
             <Link
               href={`/apartments/${offer.property.id}`}
               className="flex h-11 items-center gap-2 rounded-xl bg-[#2563EB] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
             >
-              დეტალურად ნახვა
+              {tBookings("viewDetails")}
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

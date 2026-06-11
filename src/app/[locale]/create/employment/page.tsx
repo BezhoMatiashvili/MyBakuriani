@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   WizardShell,
   WizardInnerCard,
@@ -14,29 +15,74 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 
-const EMPLOYMENT_TYPE_OPTIONS = [
-  { value: "სრული განაკვეთი", label: "სრული განაკვეთი" },
-  { value: "ნახევარი განაკვეთი", label: "ნახევარი განაკვეთი" },
-  { value: "მოქნილი", label: "მოქნილი" },
+const EMPLOYMENT_TYPE_VALUES = [
+  "სრული განაკვეთი",
+  "ნახევარი განაკვეთი",
+  "მოქნილი",
 ] as const;
 
-const SALARY_TYPE_OPTIONS = [
-  { value: "ფიქსირებული", label: "ფიქსირებული" },
-  { value: "ფიქსირებული + ბონუსი/Tips", label: "ფიქსირებული + ბონუსი/Tips" },
-  { value: "გამომუშავებით (%)", label: "გამომუშავებით (%)" },
-  { value: "შეთანხმებით", label: "შეთანხმებით" },
+const EMPLOYMENT_TYPE_KEYS: Record<
+  (typeof EMPLOYMENT_TYPE_VALUES)[number],
+  string
+> = {
+  "სრული განაკვეთი": "full_time",
+  "ნახევარი განაკვეთი": "part_time",
+  მოქნილი: "flexible",
+};
+
+const SALARY_TYPE_VALUES = [
+  "ფიქსირებული",
+  "ფიქსირებული + ბონუსი/Tips",
+  "გამომუშავებით (%)",
+  "შეთანხმებით",
 ] as const;
 
-const EXPERIENCE_OPTIONS = [
-  { value: "სასურველია", label: "სასურველია" },
-  { value: "არ არის აუცილებელი", label: "არ არის აუცილებელი" },
-  { value: "1 წელი", label: "1 წელი" },
-  { value: "1+ წელი", label: "1+ წელი" },
+const SALARY_TYPE_KEYS: Record<(typeof SALARY_TYPE_VALUES)[number], string> = {
+  ფიქსირებული: "fixed",
+  "ფიქსირებული + ბონუსი/Tips": "fixed_bonus",
+  "გამომუშავებით (%)": "commission",
+  შეთანხმებით: "negotiable",
+};
+
+const EXPERIENCE_VALUES = [
+  "სასურველია",
+  "არ არის აუცილებელი",
+  "1 წელი",
+  "1+ წელი",
 ] as const;
 
-const ACCOMMODATION_OPTIONS = ["კი", "არა", "შეთანხმებით"] as const;
-const MEALS_OPTIONS = ["სრული კვება", "ერთჯერადი კვება", "არ შედის"] as const;
-const LANGUAGE_OPTIONS = ["ქართული", "ინგლისური", "რუსული", "სხვა"] as const;
+const EXPERIENCE_KEYS: Record<(typeof EXPERIENCE_VALUES)[number], string> = {
+  სასურველია: "preferred",
+  "არ არის აუცილებელი": "not_required",
+  "1 წელი": "one_year",
+  "1+ წელი": "one_plus_year",
+};
+
+const ACCOMMODATION_VALUES = ["კი", "არა", "შეთანხმებით"] as const;
+
+const ACCOMMODATION_KEYS: Record<
+  (typeof ACCOMMODATION_VALUES)[number],
+  string
+> = {
+  კი: "yes",
+  არა: "no",
+  შეთანხმებით: "negotiable",
+};
+
+const MEALS_VALUES = ["სრული კვება", "ერთჯერადი კვება", "არ შედის"] as const;
+
+const MEALS_KEYS: Record<(typeof MEALS_VALUES)[number], string> = {
+  "სრული კვება": "full",
+  "ერთჯერადი კვება": "single",
+  "არ შედის": "not_included",
+};
+
+const LANGUAGE_OPTIONS = [
+  { value: "ქართული", key: "ka" },
+  { value: "ინგლისური", key: "en" },
+  { value: "რუსული", key: "ru" },
+  { value: "სხვა", key: "other" },
+] as const;
 
 export default function CreateEmploymentPage() {
   return (
@@ -53,6 +99,9 @@ export default function CreateEmploymentPage() {
 }
 
 function CreateEmploymentPageInner() {
+  const t = useTranslations("CreateEmployment");
+  const tShared = useTranslations("CreateShared");
+  const tOpts = useTranslations("ListingOptions");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -65,16 +114,41 @@ function CreateEmploymentPageInner() {
     label: z.name_ka,
   }));
 
+  const employmentTypeOptions = useMemo(
+    () =>
+      EMPLOYMENT_TYPE_VALUES.map((value) => ({
+        value,
+        label: tOpts(`employmentTypes.${EMPLOYMENT_TYPE_KEYS[value]}`),
+      })),
+    [tOpts],
+  );
+
+  const salaryTypeOptions = useMemo(
+    () =>
+      SALARY_TYPE_VALUES.map((value) => ({
+        value,
+        label: tOpts(`salaryTypes.${SALARY_TYPE_KEYS[value]}`),
+      })),
+    [tOpts],
+  );
+
+  const experienceOptions = useMemo(
+    () =>
+      EXPERIENCE_VALUES.map((value) => ({
+        value,
+        label: tOpts(`experienceOptions.${EXPERIENCE_KEYS[value]}`),
+      })),
+    [tOpts],
+  );
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(isEditMode);
 
-  // Section 1
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState<string>("");
   const [position, setPosition] = useState("");
 
-  // Section 2
   const [employmentType, setEmploymentType] =
     useState<string>("სრული განაკვეთი");
   const [salaryType, setSalaryType] = useState<string>("ფიქსირებული");
@@ -82,7 +156,6 @@ function CreateEmploymentPageInner() {
   const [salaryMax, setSalaryMax] = useState("");
   const [salaryDaily, setSalaryDaily] = useState("");
 
-  // Section 3
   const [accommodation, setAccommodation] = useState<string>("");
   const [meals, setMeals] = useState<string>("");
   const [workDescription, setWorkDescription] = useState("");
@@ -105,7 +178,7 @@ function CreateEmploymentPageInner() {
       if (cancelled) return;
 
       if (fetchError || !data) {
-        setError("განცხადება ვერ მოიძებნა");
+        setError(tShared("listingNotFound"));
         setHydrating(false);
         return;
       }
@@ -139,7 +212,7 @@ function CreateEmploymentPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [editId, user, supabase]);
+  }, [editId, user, supabase, tShared]);
 
   const requiredFlags = [
     title.trim().length > 0,
@@ -160,6 +233,13 @@ function CreateEmploymentPageInner() {
     setLanguages((prev) =>
       prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang],
     );
+  }
+
+  function languageLabel(lang: (typeof LANGUAGE_OPTIONS)[number]): string {
+    if (lang.key === "other") {
+      return lang.value;
+    }
+    return tOpts(`languages.${lang.key}`);
   }
 
   async function handleSubmit() {
@@ -183,7 +263,6 @@ function CreateEmploymentPageInner() {
         requirements: requirements.trim() || null,
         languages: languages.length > 0 ? languages : null,
         experience_required: experience || null,
-        // legacy compatibility
         salary_range:
           salaryMin && salaryMax ? `${salaryMin}-${salaryMax} ₾` : null,
       };
@@ -209,7 +288,7 @@ function CreateEmploymentPageInner() {
         router.push("/dashboard");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : tShared("genericError"));
     } finally {
       setLoading(false);
     }
@@ -225,7 +304,7 @@ function CreateEmploymentPageInner() {
 
   return (
     <WizardShell
-      title="დასაქმება ბაკურიანში"
+      title={t("pageTitle")}
       accent="blue"
       progressPercent={progressPercent}
       footer={
@@ -233,68 +312,67 @@ function CreateEmploymentPageInner() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
+          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
         />
       }
     >
-      {/* SECTION 1 */}
-      <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="blue">
+      <WizardInnerCard number={1} title={tShared("basicInfo")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="დამსაქმებელი / ობიექტი" required>
+          <Field label={t("employer")} required>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="რესტორანი 'პანორამა'"
+              placeholder={t("employerPlaceholder")}
               className={inputClass}
             />
           </Field>
-          <Field label="ლოკაცია" required>
+          <Field label={t("location")} required>
             <StyledSelect
               value={location}
               onValueChange={setLocation}
               options={locationOptions}
+              placeholder={tShared("chooseZone")}
               accent="blue"
             />
           </Field>
         </div>
 
-        <Field label="პოზიცია" required>
+        <Field label={t("position")} required>
           <input
             type="text"
             value={position}
             onChange={(e) => setPosition(e.target.value)}
-            placeholder="მიმტანი / ბარმენი"
+            placeholder={t("positionPlaceholder")}
             className={inputClass}
           />
         </Field>
       </WizardInnerCard>
 
-      {/* SECTION 2 */}
-      <WizardInnerCard number={2} title="გრაფიკი და ანაზღაურება" accent="blue">
+      <WizardInnerCard number={2} title={t("sectionSchedulePay")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="დასაქმების ტიპი">
+          <Field label={t("employmentType")}>
             <StyledSelect
               value={employmentType}
               onValueChange={setEmploymentType}
-              options={EMPLOYMENT_TYPE_OPTIONS}
+              options={employmentTypeOptions}
               accent="blue"
             />
           </Field>
-          <Field label="ანაზღაურების ტიპი">
+          <Field label={t("salaryType")}>
             <StyledSelect
               value={salaryType}
               onValueChange={setSalaryType}
-              options={SALARY_TYPE_OPTIONS}
+              options={salaryTypeOptions}
               accent="blue"
             />
           </Field>
         </div>
 
-        <Field label="ანაზღაურება (₾)" required>
+        <Field label={t("salary")} required>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <CurrencyInput
@@ -311,86 +389,85 @@ function CreateEmploymentPageInner() {
             </div>
             <div className="flex items-center gap-3">
               <span className="shrink-0 text-xs font-medium text-[#94A3B8]">
-                ან
+                {tShared("or")}
               </span>
               <CurrencyInput
                 value={salaryDaily}
                 onChange={setSalaryDaily}
-                placeholder="დღიური ანაზღაურება"
+                placeholder={t("dailySalaryPlaceholder")}
               />
             </div>
           </div>
         </Field>
       </WizardInnerCard>
 
-      {/* SECTION 3 */}
-      <WizardInnerCard
-        number={3}
-        title="პირობები, აღწერა და მოთხოვნები"
-        accent="blue"
-      >
+      <WizardInnerCard number={3} title={t("sectionConditions")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="საცხოვრებლით უზრუნველყოფა">
+          <Field label={t("accommodation")}>
             <PillGroup
-              options={ACCOMMODATION_OPTIONS}
+              options={ACCOMMODATION_VALUES}
               value={accommodation}
               onChange={setAccommodation}
+              getLabel={(v) =>
+                tOpts(`accommodationOptions.${ACCOMMODATION_KEYS[v]}`)
+              }
             />
           </Field>
-          <Field label="კვებით უზრუნველყოფა">
+          <Field label={t("meals")}>
             <PillGroup
-              options={MEALS_OPTIONS}
+              options={MEALS_VALUES}
               value={meals}
               onChange={setMeals}
+              getLabel={(v) => tOpts(`mealsOptions.${MEALS_KEYS[v]}`)}
             />
           </Field>
         </div>
 
-        <Field label="სამუშაოს აღწერა" required>
+        <Field label={t("jobDescription")} required>
           <textarea
             value={workDescription}
             onChange={(e) => setWorkDescription(e.target.value)}
-            placeholder="ვეძებთ კომუნიკაბელურ და მოტივირებულ მიმტანებს..."
+            placeholder={t("jobDescriptionPlaceholder")}
             rows={4}
             className={textareaClass}
           />
         </Field>
 
-        <Field label="მოთხოვნები და კომპეტენციები">
+        <Field label={t("requirements")}>
           <textarea
             value={requirements}
             onChange={(e) => setRequirements(e.target.value)}
-            placeholder="ინგლისური ან რუსული ენის სასაუბრო დონეზე ცოდნა..."
+            placeholder={t("requirementsPlaceholder")}
             rows={4}
             className={textareaClass}
           />
         </Field>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="სასურველი ენები">
+          <Field label={t("preferredLanguages")}>
             <div className="flex flex-wrap gap-2">
               {LANGUAGE_OPTIONS.map((lang) => {
-                const active = languages.includes(lang);
+                const active = languages.includes(lang.value);
                 return (
                   <button
-                    key={lang}
+                    key={lang.value}
                     type="button"
-                    onClick={() => toggleLanguage(lang)}
+                    onClick={() => toggleLanguage(lang.value)}
                     className={pillClass(active)}
                   >
-                    {lang}
+                    {languageLabel(lang)}
                   </button>
                 );
               })}
             </div>
           </Field>
-          <Field label="სამუშაო გამოცდილება">
+          <Field label={t("workExperience")}>
             <StyledSelect
               value={experience}
               onValueChange={setExperience}
-              options={EXPERIENCE_OPTIONS}
+              options={experienceOptions}
               accent="blue"
-              placeholder="აირჩიე"
+              placeholder={tShared("choose")}
             />
           </Field>
         </div>
@@ -467,14 +544,16 @@ function CurrencyInput({
   );
 }
 
-function PillGroup({
+function PillGroup<T extends string>({
   options,
   value,
   onChange,
+  getLabel,
 }: {
-  options: readonly string[];
+  options: readonly T[];
   value: string;
   onChange: (v: string) => void;
+  getLabel: (v: T) => string;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -487,7 +566,7 @@ function PillGroup({
             onClick={() => onChange(active ? "" : opt)}
             className={pillClass(active)}
           >
-            {opt}
+            {getLabel(opt)}
           </button>
         );
       })}

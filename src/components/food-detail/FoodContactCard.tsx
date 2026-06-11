@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ExternalLink, MapPin } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { trackMenuOpen } from "@/lib/menu-tracking";
@@ -19,7 +20,10 @@ export function FoodContactCard({
   serviceId,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("FoodDetail");
 
+  // Google Maps search query, not visible UI — Georgian "ბაკურიანი" matches
+  // the Georgian location strings stored in the DB for geocoding.
   const mapsHref = location
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
         `${location} ბაკურიანი`,
@@ -29,7 +33,7 @@ export function FoodContactCard({
   return (
     <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6">
       <h3 className="mb-4 text-[16px] font-bold text-[#1E293B]">
-        კონტაქტი და ქმედებები
+        {t("contactAndActions")}
       </h3>
 
       <div className="space-y-3">
@@ -42,7 +46,7 @@ export function FoodContactCard({
             className="flex h-[55px] w-full items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-white text-[14px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
           >
             <ExternalLink className="h-4 w-4" />
-            მენიუ • URL მენიუ
+            {t("menuLink")}
           </a>
         )}
 
@@ -54,13 +58,13 @@ export function FoodContactCard({
             className="flex h-[55px] w-full items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-white text-[14px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
           >
             <MapPin className="h-4 w-4" />
-            ლოკაციის ნახვა
+            {t("viewLocation")}
           </a>
         )}
 
         <CallButton
           phone={phone}
-          label="დაკავშირება"
+          label={t("getInTouch")}
           className="h-[55px] w-full gap-2 rounded-2xl bg-[#10B981] text-[15px] font-bold text-white hover:bg-[#059669]"
           onNoPhoneClick={() => router.push("/auth/login")}
           serviceId={serviceId}

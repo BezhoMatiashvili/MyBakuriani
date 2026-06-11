@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, RotateCcw, Lock, Unlock } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import BulkActionBar from "@/components/calendar/BulkActionBar";
 import { cn } from "@/lib/utils";
 import {
@@ -25,21 +26,15 @@ interface AvailabilityWizardStepProps {
   bookedDates?: ReadonlySet<string>;
 }
 
-const DAY_NAMES = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
-const MONTH_NAMES = [
-  "იანვარი",
-  "თებერვალი",
-  "მარტი",
-  "აპრილი",
-  "მაისი",
-  "ივნისი",
-  "ივლისი",
-  "აგვისტო",
-  "სექტემბერი",
-  "ოქტომბერი",
-  "ნოემბერი",
-  "დეკემბერი",
-];
+const DAY_KEYS = [
+  "day1",
+  "day2",
+  "day3",
+  "day4",
+  "day5",
+  "day6",
+  "day7",
+] as const;
 
 interface MonthCell {
   iso: string;
@@ -71,6 +66,18 @@ export default function AvailabilityWizardStep({
   basePrice,
   bookedDates,
 }: AvailabilityWizardStepProps) {
+  const t = useTranslations("AvailabilityWizard");
+  const tCal = useTranslations("Calendar");
+  const locale = useLocale();
+  const dayNames = DAY_KEYS.map((k) => tCal(k));
+  const monthFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: "long",
+        year: "numeric",
+      }),
+    [locale],
+  );
   const windowDates = useMemo(() => Array.from(value.keys()).sort(), [value]);
 
   const windowSet = useMemo(() => new Set(windowDates), [windowDates]);
@@ -272,13 +279,14 @@ export default function AvailabilityWizardStep({
       {/* Intro */}
       <div className="rounded-2xl border border-[#DBEAFE] bg-[#EFF6FF] p-4">
         <p className="text-sm font-semibold text-[#0F172A]">
-          მონიშნე დღეები და დააყენე ფასი მომდევნო 30 დღისთვის.
+          {t("introTitle")}
         </p>
         <p className="mt-1 text-[13px] text-[#475569]">
-          დააწექი ან გადაიტანე მაუსი დღეების ასარჩევად, შემდეგ დააყენე ფასი ან
-          გათიშე ისინი. ნაგულისხმევად ყველა დღე ხელმისაწვდომია ძირითადი ფასით —{" "}
-          <span className="font-semibold text-[#F97316]">ნარინჯისფერი</span>{" "}
-          ფასი ნიშნავს, რომ ის შეცვლილია.
+          {t.rich("introBody", {
+            orange: (chunks) => (
+              <span className="font-semibold text-[#F97316]">{chunks}</span>
+            ),
+          })}
         </p>
       </div>
 
@@ -288,16 +296,16 @@ export default function AvailabilityWizardStep({
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] font-bold">
             <span className="inline-flex items-center gap-2 text-[#16A34A]">
               <span className="size-2.5 rounded-full bg-[#16A34A]" />
-              {availableCount} ხელმისაწვდომი
+              {t("availableCount", { count: availableCount })}
             </span>
             <span className="inline-flex items-center gap-2 text-[#EF4444]">
               <span className="size-2.5 rounded-full bg-[#EF4444]" />
-              {blockedCount} დაკავებული
+              {t("blockedCount", { count: blockedCount })}
             </span>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#DCFCE7] px-3 py-1 text-[12px] font-bold text-[#15803D]">
             <Check className="size-3.5" />
-            {totalDays} / 30 დღე დადასტურებულია
+            {t("daysConfirmed", { total: totalDays })}
           </span>
         </div>
         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
@@ -331,10 +339,10 @@ export default function AvailabilityWizardStep({
               className="rounded-2xl border border-[#E2E8F0] bg-white p-4"
             >
               <div className="mb-3 text-center text-[15px] font-black text-[#0F172A]">
-                {MONTH_NAMES[month]} {year}
+                {monthFormatter.format(new Date(year, month, 1))}
               </div>
               <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-[#64748B]">
-                {DAY_NAMES.map((d) => (
+                {dayNames.map((d) => (
                   <div key={d} className="py-1">
                     {d}
                   </div>
@@ -360,6 +368,12 @@ export default function AvailabilityWizardStep({
                       onMouseDown={() => handleCellMouseDown(cell.iso)}
                       onMouseEnter={() => handleCellMouseEnter(cell.iso)}
                       onClick={() => handleCellClick(cell.iso)}
+                      labels={{
+                        booked: t("booked"),
+                        blockedSelect: t("blockedSelect"),
+                        availablePrice: (price) =>
+                          t("availablePrice", { price }),
+                      }}
                     />
                   );
                 })}
@@ -385,21 +399,28 @@ export default function AvailabilityWizardStep({
                   type="button"
                   onClick={clearSelection}
                   className="flex h-9 w-9 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9]"
-                  aria-label="გაუქმება"
+                  aria-label={t("cancelSelection")}
                 >
                   <X className="h-4 w-4" />
                 </button>
                 <div className="text-[13px]">
                   <div className="font-black text-[#0F172A]">
                     {selectedAvailable.length > 0 && selectedBlocked.length > 0
-                      ? `${selectedAvailable.length} ხელმისაწვდომი • ${selectedBlocked.length} დაკავებული`
+                      ? t("selectedMixed", {
+                          available: selectedAvailable.length,
+                          blocked: selectedBlocked.length,
+                        })
                       : selectedAvailable.length > 0
-                        ? `${selectedAvailable.length} დღე არჩეული`
-                        : `${selectedBlocked.length} დაკავებული არჩეული`}
+                        ? t("selectedAvailable", {
+                            count: selectedAvailable.length,
+                          })
+                        : t("selectedBlocked", {
+                            count: selectedBlocked.length,
+                          })}
                   </div>
                   {selectedAvailable.length > 0 && (
                     <div className="text-[11px] font-semibold text-[#64748B]">
-                      საშუალო ფასი: {avgSelectedPrice}₾
+                      {t("avgPrice", { price: avgSelectedPrice })}
                     </div>
                   )}
                 </div>
@@ -413,7 +434,7 @@ export default function AvailabilityWizardStep({
                     className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#16A34A] bg-white px-4 text-[13px] font-black text-[#16A34A] transition-colors hover:bg-[#F0FDF4]"
                   >
                     <Unlock className="h-4 w-4" strokeWidth={2.4} />
-                    ჩართვა ({selectedBlocked.length})
+                    {t("unblock", { count: selectedBlocked.length })}
                   </button>
                 )}
                 {selectedAvailable.length > 0 && (
@@ -424,7 +445,7 @@ export default function AvailabilityWizardStep({
                       className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#D97706] px-4 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(217,119,6,0.3)] transition-colors hover:bg-[#B45309]"
                     >
                       <Lock className="h-4 w-4" strokeWidth={2.4} />
-                      გათიშვა ({selectedAvailable.length})
+                      {t("block", { count: selectedAvailable.length })}
                     </button>
                     <div className="relative flex-1 md:max-w-[160px]">
                       <input
@@ -433,7 +454,7 @@ export default function AvailabilityWizardStep({
                         inputMode="numeric"
                         value={priceInput}
                         onChange={(e) => setPriceInput(e.target.value)}
-                        placeholder="ახალი ფასი"
+                        placeholder={t("newPricePlaceholder")}
                         className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-3 pr-8 text-[14px] font-semibold text-[#0F172A] outline-none focus:border-[#F97316]"
                       />
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
@@ -447,16 +468,16 @@ export default function AvailabilityWizardStep({
                       className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#F97316] px-4 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
                     >
                       <Check className="h-4 w-4" strokeWidth={2.6} />
-                      გადატარება
+                      {t("applyPrice")}
                     </button>
                     <button
                       type="button"
                       onClick={resetPrice}
                       className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
-                      title="ფასი ნაგულისხმევზე დაბრუნება"
+                      title={t("resetPriceTitle")}
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      ნაგულისხმევზე
+                      {t("resetPrice")}
                     </button>
                   </>
                 )}
@@ -467,9 +488,7 @@ export default function AvailabilityWizardStep({
       </AnimatePresence>
 
       {/* Helper text */}
-      <p className="text-center text-xs text-[#64748B]">
-        შეგიძლიათ მოგვიანებით განაახლოთ კალენდარი და ფასები თქვენი დაშბორდიდან.
-      </p>
+      <p className="text-center text-xs text-[#64748B]">{t("footerHint")}</p>
     </div>
   );
 }
@@ -485,6 +504,7 @@ function DayCell({
   onMouseDown,
   onMouseEnter,
   onClick,
+  labels,
 }: {
   day: number;
   inWindow: boolean;
@@ -496,6 +516,11 @@ function DayCell({
   onMouseDown: () => void;
   onMouseEnter: () => void;
   onClick: () => void;
+  labels: {
+    booked: string;
+    blockedSelect: string;
+    availablePrice: (price: number) => string;
+  };
 }) {
   if (!inWindow) {
     return (
@@ -510,7 +535,7 @@ function DayCell({
       <div className="flex h-16 cursor-not-allowed flex-col items-start justify-between rounded-xl border border-[#FEE2E2] bg-[#FEE2E2] px-2 py-1.5 text-[#991B1B] sm:h-20">
         <span className="text-[13px] font-bold">{day}</span>
         <span className="text-[9px] font-semibold uppercase tracking-wide">
-          დაჯავშნა
+          {labels.booked}
         </span>
       </div>
     );
@@ -529,9 +554,7 @@ function DayCell({
           : "border-[#BBF7D0] bg-[#DCFCE7] text-[#15803D] hover:border-[#16A34A]"
       } ${isSelected ? "ring-2 ring-inset ring-[#2563EB]" : ""}`}
       aria-label={`${day} — ${
-        isBlocked
-          ? "დაკავებული, დააწექი რომ აირჩიო"
-          : `ხელმისაწვდომი, ${price}₾`
+        isBlocked ? labels.blockedSelect : labels.availablePrice(price)
       }`}
     >
       <span className="text-[13px] font-bold leading-none">{day}</span>

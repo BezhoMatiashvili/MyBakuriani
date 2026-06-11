@@ -1,36 +1,30 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
+import {
+  optionKeyFor,
+  priceUnitPathFor,
+} from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 
+// `value` is matched against DB `position` values and must stay Georgian.
 const POSITIONS = [
-  { value: "all", label: "ყველა" },
-  { value: "დამლაგებელი", label: "დამლაგებელი" },
-  { value: "მიმტანი", label: "მიმტანი" },
-  { value: "ბარმენი", label: "ბარმენი" },
-  { value: "ადმინისტრატორი", label: "ადმინისტრატორი" },
-  { value: "სხვა", label: "სხვა" },
+  { value: "all", key: "all" },
+  { value: "დამლაგებელი", key: "cleaner" },
+  { value: "მიმტანი", key: "waiter" },
+  { value: "ბარმენი", key: "bartender" },
+  { value: "ადმინისტრატორი", key: "administrator" },
+  { value: "სხვა", key: "other" },
 ] as const;
 
-const SCHEDULES = [
-  { value: "all", label: "ყველა" },
-  { value: "fulltime", label: "სრული განაკვეთი" },
-  { value: "parttime", label: "ნახევარი განაკვეთი" },
-  { value: "seasonal", label: "სეზონური" },
-  { value: "other", label: "სხვა" },
-] as const;
+const SCHEDULES = ["all", "fulltime", "parttime", "seasonal", "other"] as const;
 
 const ITEMS_PER_PAGE = 9;
 
-const POSTED_LABELS = [
-  "დღეს",
-  "3 დღის წინ",
-  "5 დღის წინ",
-  "1 კვირის წინ",
-  "2 კვირის წინ",
-];
+const POSTED_KEYS = ["today", "days3", "days5", "week1", "weeks2"] as const;
 
 interface Props {
   services: Tables<"services">[];
@@ -46,18 +40,34 @@ function deriveBadge(
   return null;
 }
 
-function salaryLabel(s: Tables<"services">): string | null {
-  if (s.salary_daily != null) return `${s.salary_daily} ₾ / დღეში`;
-  if (s.salary_min != null && s.salary_max != null) {
-    return `${s.salary_min} - ${s.salary_max} ₾`;
-  }
-  if (s.price != null) {
-    return `${s.price} ₾${s.price_unit ? ` / ${s.price_unit}` : ""}`;
-  }
-  return null;
-}
-
 export default function EmploymentPageClient({ services }: Props) {
+  const t = useTranslations("EmploymentPage");
+  const tShared = useTranslations("Shared");
+  const tOpts = useTranslations("ListingOptions");
+
+  const salaryLabel = (s: Tables<"services">): string | null => {
+    if (s.salary_daily != null)
+      return t("salaryDaily", { amount: s.salary_daily });
+    if (s.salary_min != null && s.salary_max != null) {
+      return `${s.salary_min} - ${s.salary_max} ₾`;
+    }
+    if (s.price != null) {
+      const unitPath = priceUnitPathFor(s.price_unit);
+      const unit = unitPath ? tOpts(unitPath) : s.price_unit;
+      return `${s.price} ₾${unit ? ` / ${unit}` : ""}`;
+    }
+    return null;
+  };
+
+  // Rows store Georgian enum labels (e.g. "მოქნილი"); resolve to the
+  // ListingOptions translation, passing unknown free-text through raw.
+  const scheduleLabel = (s: Tables<"services">): string | null => {
+    const raw = s.work_schedule ?? s.employment_schedule;
+    if (!raw) return null;
+    const key = optionKeyFor("employmentTypes", raw);
+    return key ? tOpts(`employmentTypes.${key}`) : raw;
+  };
+
   const [activePosition, setActivePosition] = useState<string>("all");
   const [activeSchedule, setActiveSchedule] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -108,11 +118,11 @@ export default function EmploymentPageClient({ services }: Props) {
         <div className="mx-auto max-w-3xl">
           <ScrollReveal>
             <h1 className="text-[36px] font-black leading-[44px] sm:text-[48px] sm:leading-[56px]">
-              <span className="text-[#60A5FA]">დასაქმება</span>{" "}
-              <span className="text-white">ბაკურიანში</span>
+              <span className="text-[#60A5FA]">{t("heroTitle1")}</span>{" "}
+              <span className="text-white">{t("heroTitle2")}</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/70">
-              იპოვე შენი სასურველი ვაკანსია და დასაქმდი ბაკურიანში მარტივად
+              {t("heroSubtitle")}
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-8 flex max-w-[720px] items-center gap-2 rounded-full bg-white p-2 shadow-lg">
@@ -125,7 +135,7 @@ export default function EmploymentPageClient({ services }: Props) {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="რას ეძებთ?..."
+                placeholder={t("searchPlaceholder")}
                 className="h-10 w-full border-0 bg-transparent text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
               />
             </div>
@@ -133,7 +143,7 @@ export default function EmploymentPageClient({ services }: Props) {
               type="button"
               className="h-10 shrink-0 rounded-full bg-[#2563EB] px-6 text-sm font-bold text-white transition-colors hover:bg-[#1D4ED8]"
             >
-              ძიება
+              {t("search")}
             </button>
           </div>
         </div>
@@ -143,7 +153,7 @@ export default function EmploymentPageClient({ services }: Props) {
         <div className="relative z-10 mx-auto -mt-16 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
-              პოზიცია:
+              {t("positionLabel")}
             </span>
             <div className="flex flex-1 flex-wrap gap-2">
               {POSITIONS.map((cat) => (
@@ -159,7 +169,7 @@ export default function EmploymentPageClient({ services }: Props) {
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
                   }`}
                 >
-                  {cat.label}
+                  {t(`positions.${cat.key}`)}
                 </button>
               ))}
             </div>
@@ -167,23 +177,23 @@ export default function EmploymentPageClient({ services }: Props) {
           <div className="my-5 h-px w-full bg-[#E2E8F0]" />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
-              გრაფიკი:
+              {t("scheduleLabel")}
             </span>
             <div className="flex flex-1 flex-wrap gap-2">
-              {SCHEDULES.map((cat) => (
+              {SCHEDULES.map((value) => (
                 <button
-                  key={cat.value}
+                  key={value}
                   onClick={() => {
-                    setActiveSchedule(cat.value);
+                    setActiveSchedule(value);
                     setCurrentPage(1);
                   }}
                   className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
-                    activeSchedule === cat.value
+                    activeSchedule === value
                       ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
                   }`}
                 >
-                  {cat.label}
+                  {t(`schedules.${value}`)}
                 </button>
               ))}
             </div>
@@ -193,7 +203,7 @@ export default function EmploymentPageClient({ services }: Props) {
 
       <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-12">
         <h2 className="mb-6 text-[28px] font-black leading-[34px] text-[#1E293B]">
-          ვაკანსიები ({filtered.length})
+          {t("vacancies", { count: filtered.length })}
         </h2>
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -201,10 +211,10 @@ export default function EmploymentPageClient({ services }: Props) {
               <Briefcase className="h-8 w-8 text-[#64748B]" />
             </div>
             <h3 className="text-[17px] font-black text-[#1E293B]">
-              ვაკანსიები ვერ მოიძებნა
+              {t("noVacancies")}
             </h3>
             <p className="mt-1 text-sm text-[#64748B]">
-              სცადეთ ფილტრების შეცვლა
+              {tShared("tryChangeFilters")}
             </p>
           </div>
         ) : (
@@ -217,10 +227,12 @@ export default function EmploymentPageClient({ services }: Props) {
                     title={s.title}
                     location={s.location}
                     salaryLabel={salaryLabel(s)}
-                    scheduleLabel={s.work_schedule ?? s.employment_schedule}
+                    scheduleLabel={scheduleLabel(s)}
                     description={s.description}
                     badge={deriveBadge(s, i)}
-                    postedLabel={POSTED_LABELS[i % POSTED_LABELS.length]}
+                    postedLabel={t(
+                      `posted.${POSTED_KEYS[i % POSTED_KEYS.length]}`,
+                    )}
                     applicationsCount={Math.max(
                       1,
                       ((s.views_count ?? 0) % 30) + 1,

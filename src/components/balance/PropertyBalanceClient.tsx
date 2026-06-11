@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -24,15 +25,15 @@ type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
 type Property = Tables<"properties">;
 
-const transactionLabels: Record<string, string> = {
-  topup: "შევსება",
-  vip_boost: "VIP",
-  super_vip: "Super VIP",
-  sms_package: "SMS პაკეტი",
-  discount_badge: "ფასდაკლების ბეჯი",
-  withdrawal: "გამოტანა",
-  commission: "საკომისიო",
-};
+const transactionTypeKeys = [
+  "topup",
+  "vip_boost",
+  "super_vip",
+  "sms_package",
+  "discount_badge",
+  "withdrawal",
+  "commission",
+] as const;
 
 /**
  * Balance & VIP page body shared by the renter and seller dashboards. Both own
@@ -40,6 +41,8 @@ const transactionLabels: Record<string, string> = {
  * packages are bought directly.
  */
 export default function PropertyBalanceClient() {
+  const t = useTranslations("DashboardShared");
+  const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -199,10 +202,10 @@ export default function PropertyBalanceClient() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          ბალანსი და VIP
+          {t("balanceTitle")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          მართეთ ბალანსი და დააწინაურეთ ობიექტები საუკეთესო შედეგისთვის.
+          {t("balanceSubtitlePromo")}
         </p>
       </motion.div>
 
@@ -214,7 +217,7 @@ export default function PropertyBalanceClient() {
       >
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
-            მიმდინარე ბალანსი
+            {t("currentBalance")}
           </p>
           {loading ? (
             <Skeleton className="mt-2 h-10 w-32 bg-white/20" />
@@ -229,7 +232,7 @@ export default function PropertyBalanceClient() {
           type="button"
           className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[13px] font-black text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
         >
-          ბალანსის შევსება
+          {t("topUpBalance")}
         </button>
       </motion.div>
 
@@ -241,11 +244,11 @@ export default function PropertyBalanceClient() {
       >
         {sortedPackages.length === 0 ? (
           <p className="col-span-full text-center text-sm text-[#94A3B8]">
-            პაკეტი ჯერ არ არის ხელმისაწვდომი
+            {t("noPackages")}
           </p>
         ) : (
           sortedPackages.map((pkg) => {
-            const display = getPackageDisplay(pkg);
+            const display = getPackageDisplay(pkg, locale);
             const tier = inferVipInfoTier(pkg);
             return (
               <BalancePackageCard
@@ -273,7 +276,9 @@ export default function PropertyBalanceClient() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <h2 className="text-[18px] font-black text-[#0F172A]">ტრანზაქციები</h2>
+        <h2 className="text-[18px] font-black text-[#0F172A]">
+          {t("transactionsTitle")}
+        </h2>
         <div className="mt-3 space-y-2">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
@@ -283,7 +288,7 @@ export default function PropertyBalanceClient() {
             <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
               <History className="h-10 w-10 text-[#94A3B8]" />
               <p className="mt-2 text-sm text-[#94A3B8]">
-                ტრანზაქციები ჯერ არ გაქვთ
+                {t("noTransactions")}
               </p>
             </div>
           ) : (
@@ -308,7 +313,13 @@ export default function PropertyBalanceClient() {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-[#0F172A]">
-                      {transactionLabels[tx.type] ?? tx.type}
+                      {transactionTypeKeys.includes(
+                        tx.type as (typeof transactionTypeKeys)[number],
+                      )
+                        ? t(
+                            `txTypes.${tx.type as (typeof transactionTypeKeys)[number]}`,
+                          )
+                        : tx.type}
                     </p>
                     <p className="text-[11px] text-[#94A3B8]">
                       {formatDate(tx.created_at)}

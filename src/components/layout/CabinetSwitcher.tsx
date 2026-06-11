@@ -2,32 +2,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { Check, Plus, Settings } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface SwitcherItem {
   key: string;
-  label: string;
+  labelKey: string;
   href: string;
 }
 
 const ALL_ITEMS: SwitcherItem[] = [
   {
     key: "renter",
-    label: "ბინები (გაქირავება)",
+    labelKey: "rentalsRent",
     href: "/dashboard/renter",
   },
-  { key: "employment", label: "დასაქმება", href: "/dashboard/service" },
+  { key: "employment", labelKey: "employment", href: "/dashboard/service" },
   {
     key: "service",
-    label: "ტრანსპორტი / სერვისი / დასაქმება / გართობა",
+    labelKey: "services",
     href: "/dashboard/service",
   },
-  { key: "seller", label: "ბინები (გაყიდვა)", href: "/dashboard/seller" },
-  { key: "food", label: "კვება", href: "/dashboard/food" },
-  { key: "guest", label: "სტუმარი", href: "/dashboard/guest" },
-  { key: "cleaner", label: "დამლაგებელი", href: "/dashboard/cleaner" },
+  { key: "seller", labelKey: "rentalsSale", href: "/dashboard/seller" },
+  { key: "food", labelKey: "food", href: "/dashboard/food" },
+  { key: "guest", labelKey: "guest", href: "/dashboard/guest" },
+  { key: "cleaner", labelKey: "cleaner", href: "/dashboard/cleaner" },
 ];
 
 interface CabinetSwitcherProps {
@@ -46,6 +47,7 @@ export function CabinetSwitcher({
   triggerClassName,
   openClassName,
 }: CabinetSwitcherProps) {
+  const t = useTranslations("DashboardSidebar");
   const items = availableKeys
     ? ALL_ITEMS.filter((item) => availableKeys.includes(item.key))
     : ALL_ITEMS;
@@ -93,7 +95,7 @@ export function CabinetSwitcher({
           >
             <div className="border-b border-[#F1F5F9] px-4 py-2.5">
               <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#94A3B8]">
-                სივრცის შეცვლა
+                {t("switcher.switchWorkspace")}
               </p>
             </div>
             <ul className="py-2">
@@ -111,7 +113,9 @@ export function CabinetSwitcher({
                           : "text-[#0F172A] hover:bg-[#F8FAFC]",
                       )}
                     >
-                      <span className="flex-1 truncate">{item.label}</span>
+                      <span className="flex-1 truncate">
+                        {t(`switcher.${item.labelKey}`)}
+                      </span>
                       {isActive && <Check className="h-4 w-4 text-[#10B981]" />}
                     </Link>
                   </li>
@@ -126,14 +130,14 @@ export function CabinetSwitcher({
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#F97316] px-4 py-2.5 text-[13px] font-bold text-white shadow-[0px_6px_14px_-4px_rgba(249,115,22,0.45)] transition-colors hover:bg-[#EA6C0E]"
               >
                 <Plus className="h-4 w-4" strokeWidth={2.4} />
-                განცხადების დამატება
+                {t("switcher.addListing")}
               </Link>
             </div>
 
             <div className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5">
               <Settings className="h-3.5 w-3.5 text-[#94A3B8]" />
               <span className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                პარამეტრები
+                {t("nav.settings")}
               </span>
             </div>
 
@@ -144,10 +148,10 @@ export function CabinetSwitcher({
                 className="block rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2.5 text-center"
               >
                 <p className="text-[13px] font-bold text-[#2563EB]">
-                  სტუმრის რეჟიმი
+                  {t("switcher.guestMode")}
                 </p>
                 <p className="mt-0.5 text-[10px] font-medium text-[#64748B]">
-                  სერვისების დათვალიერება
+                  {t("switcher.guestModeDesc")}
                 </p>
               </Link>
             </div>

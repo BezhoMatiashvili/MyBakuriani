@@ -22,20 +22,25 @@ export function useNotifications() {
     async function init() {
       setLoading(true);
 
+      // getSession reads the cookie locally (no Auth round-trip). The query is
+      // RLS-scoped to the user, so a stale/forged session can't widen access.
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) {
         setLoading(false);
         return;
       }
 
-      // Fetch existing notifications
+      // Fetch existing notifications (cap the initial load — the bell only shows
+      // recent items, and realtime keeps newer ones in sync).
       const { data } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       setNotifications(data ?? []);
       setLoading(false);

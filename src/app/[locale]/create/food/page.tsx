@@ -1,7 +1,15 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, ChangeEvent } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  ChangeEvent,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { FileText, Link2, MapPin, X } from "lucide-react";
 import {
   WizardShell,
@@ -41,6 +49,9 @@ export default function CreateFoodPage() {
 }
 
 function CreateFoodPageInner() {
+  const t = useTranslations("CreateFood");
+  const tShared = useTranslations("CreateShared");
+  const tOpts = useTranslations("ListingOptions");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -82,6 +93,23 @@ function CreateFoodPageInner() {
 
   const menuFileRef = useRef<HTMLInputElement>(null);
 
+  const restaurantTypeOptions = useMemo(
+    () =>
+      RESTAURANT_TYPES.map((o) => ({
+        value: o.value,
+        label: tOpts(`restaurantTypes.${o.value}`),
+      })),
+    [tOpts],
+  );
+  const cuisineTypeOptions = useMemo(
+    () =>
+      CUISINE_TYPES.map((o) => ({
+        value: o.value,
+        label: tOpts(`cuisineTypes.${o.value}`),
+      })),
+    [tOpts],
+  );
+
   useEffect(() => {
     if (!editId || !user) return;
     let cancelled = false;
@@ -97,7 +125,7 @@ function CreateFoodPageInner() {
       if (cancelled) return;
 
       if (fetchError || !data) {
-        setError("განცხადება ვერ მოიძებნა");
+        setError(tShared("listingNotFound"));
         setHydrating(false);
         return;
       }
@@ -146,7 +174,7 @@ function CreateFoodPageInner() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf") {
-      setError("მენიუ უნდა იყოს PDF ფაილი");
+      setError(t("menuMustBePdf"));
       return;
     }
     setMenuFile(file);
@@ -161,7 +189,7 @@ function CreateFoodPageInner() {
       .from("restaurant-menus")
       .upload(path, menuFile, { contentType: "application/pdf" });
     if (upErr)
-      throw new Error(`მენიუს ატვირთვა ვერ მოხერხდა: ${upErr.message}`);
+      throw new Error(t("menuUploadFailed", { message: upErr.message }));
     const { data } = supabase.storage
       .from("restaurant-menus")
       .getPublicUrl(path);
@@ -174,13 +202,13 @@ function CreateFoodPageInner() {
     setError(null);
 
     try {
-      if (!title.trim()) throw new Error("შეავსეთ ობიექტის დასახელება");
-      if (!zone) throw new Error("აირჩიეთ ლოკაცია");
-      if (!avgCheck) throw new Error("აირჩიეთ საშუალო ჩეკი");
-      if (!operatingHours.trim()) throw new Error("მიუთითეთ სამუშაო საათები");
-      if (!phone.trim()) throw new Error("მიუთითეთ ტელეფონის ნომერი");
+      if (!title.trim()) throw new Error(t("enterTitle"));
+      if (!zone) throw new Error(t("chooseLocation"));
+      if (!avgCheck) throw new Error(t("chooseAvgCheck"));
+      if (!operatingHours.trim()) throw new Error(t("enterOperatingHours"));
+      if (!phone.trim()) throw new Error(tShared("enterPhone"));
       if (photos.length < MIN_PHOTOS) {
-        throw new Error(`მინიმუმ ${MIN_PHOTOS} ფოტო აუცილებელია`);
+        throw new Error(tShared("minPhotosRequired", { count: MIN_PHOTOS }));
       }
 
       let menuUrl: string | null = null;
@@ -228,7 +256,7 @@ function CreateFoodPageInner() {
         router.push("/dashboard");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : tShared("genericError"));
     } finally {
       setLoading(false);
     }
@@ -254,7 +282,7 @@ function CreateFoodPageInner() {
 
   return (
     <WizardShell
-      title="კვება და რესტორნები"
+      title={t("pageTitle")}
       accent="orange"
       progressPercent={progressPercent}
       footer={
@@ -262,7 +290,7 @@ function CreateFoodPageInner() {
           accent="orange"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
+          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
@@ -278,62 +306,62 @@ function CreateFoodPageInner() {
           {/* Section 1 — Basic info */}
           <WizardInnerCard
             number={1}
-            title="ძირითადი ინფორმაცია"
+            title={tShared("basicInfo")}
             accent="orange"
           >
-            <Field label="ობიექტის დასახელება" required>
+            <Field label={t("objectTitle")} required>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="მაგ: რესტორანი პანორამა"
+                placeholder={t("titlePlaceholder")}
                 className={inputClass}
               />
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="რესტორნის ტიპი" required>
+              <Field label={t("restaurantType")} required>
                 <StyledSelect
                   value={restaurantType}
                   onValueChange={setRestaurantType}
-                  options={RESTAURANT_TYPES}
+                  options={restaurantTypeOptions}
                   accent="orange"
                 />
               </Field>
-              <Field label="სამზარეულოს ტიპი">
+              <Field label={t("cuisineType")}>
                 <StyledSelect
                   value={cuisineType}
                   onValueChange={setCuisineType}
-                  options={CUISINE_TYPES}
-                  placeholder="აირჩიეთ ტიპი"
+                  options={cuisineTypeOptions}
+                  placeholder={tShared("chooseType")}
                   accent="orange"
                 />
               </Field>
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ლოკაცია (ZONE)" required>
+              <Field label={t("locationZone")} required>
                 <StyledSelect
                   value={zone}
                   onValueChange={setZone}
                   options={zoneOptions}
-                  placeholder="აირჩიეთ ზონა"
+                  placeholder={tShared("chooseZone")}
                   accent="orange"
                 />
               </Field>
-              <Field label="ზუსტი ლოკაცია">
+              <Field label={t("exactLocation")}>
                 <div className="flex items-center gap-3">
                   <input
                     type="text"
                     value={exactLocation}
                     onChange={(e) => setExactLocation(e.target.value)}
-                    placeholder="მაგ: ცენტრალური პარკის შესასვლელთან"
+                    placeholder={t("exactLocationPlaceholder")}
                     className={`${inputClass} flex-1`}
                   />
                   <button
                     type="button"
                     className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-xl bg-[#F97316] text-white shadow-[0px_4px_10px_rgba(249,115,22,0.25)] transition-colors hover:bg-[#EA580C]"
-                    aria-label="რუკაზე ჩვენება"
+                    aria-label={tShared("showOnMap")}
                   >
                     <MapPin className="size-5" strokeWidth={2.25} />
                   </button>
@@ -341,11 +369,11 @@ function CreateFoodPageInner() {
               </Field>
             </div>
 
-            <Field label="აღწერა">
+            <Field label={tShared("description")}>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="დეტალური აღწერა რესტორნის შესახებ..."
+                placeholder={t("descriptionPlaceholder")}
                 rows={4}
                 className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#F97316] focus:ring-2 focus:ring-[#FFEDD5]"
               />
@@ -355,25 +383,25 @@ function CreateFoodPageInner() {
           {/* Section 2 — Details & services */}
           <WizardInnerCard
             number={2}
-            title="დეტალები და სერვისები"
+            title={t("sectionDetails")}
             accent="orange"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="საშუალო ჩეკი 1 პერსონაზე" required>
+              <Field label={t("avgCheck")} required>
                 <StyledSelect
                   value={avgCheck}
                   onValueChange={setAvgCheck}
                   options={AVG_CHECK_OPTIONS}
-                  placeholder="აირჩიეთ ფასი"
+                  placeholder={tShared("choosePrice")}
                   accent="orange"
                 />
               </Field>
-              <Field label="სამუშაო საათები" required>
+              <Field label={t("operatingHours")} required>
                 <input
                   type="text"
                   value={operatingHours}
                   onChange={(e) => setOperatingHours(e.target.value)}
-                  placeholder="მაგ: 10:00 - 20:00"
+                  placeholder={t("hoursPlaceholder")}
                   className={inputClass}
                 />
               </Field>
@@ -381,13 +409,13 @@ function CreateFoodPageInner() {
 
             <div className="space-y-2">
               <label className="text-[13px] font-bold text-[#334155]">
-                დამატებითი დეტალები
+                {t("extraDetails")}
               </label>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {FOOD_AMENITIES.map((a) => (
                   <ServiceCheckbox
                     key={a.key}
-                    label={a.label}
+                    label={tOpts(`foodAmenities.${a.key}`)}
                     checked={amenities[a.key]}
                     onChange={(v) =>
                       setAmenities((prev) => ({ ...prev, [a.key]: v }))
@@ -399,8 +427,12 @@ function CreateFoodPageInner() {
           </WizardInnerCard>
 
           {/* Section 3 — Menu & photos */}
-          <WizardInnerCard number={3} title="მენიუ და ფოტოები" accent="orange">
-            <Field label="მენიუ (არასავალდებულო)">
+          <WizardInnerCard
+            number={3}
+            title={t("sectionMenuPhotos")}
+            accent="orange"
+          >
+            <Field label={t("menuOptional")}>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <button
                   type="button"
@@ -410,11 +442,9 @@ function CreateFoodPageInner() {
                   <FileText className="size-6 shrink-0 text-[#F97316]" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-bold text-[#334155]">
-                      {menuFile ? menuFile.name : "მენიუს ატვირთვა"}
+                      {menuFile ? menuFile.name : t("uploadMenu")}
                     </div>
-                    <div className="text-xs text-[#94A3B8]">
-                      მხოლოდ PDF ფაილი
-                    </div>
+                    <div className="text-xs text-[#94A3B8]">{t("pdfOnly")}</div>
                   </div>
                   {menuFile && (
                     <span
@@ -424,7 +454,7 @@ function CreateFoodPageInner() {
                         if (menuFileRef.current) menuFileRef.current.value = "";
                       }}
                       className="flex size-6 items-center justify-center rounded-md text-[#94A3B8] hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
-                      aria-label="წაშლა"
+                      aria-label={tShared("delete")}
                     >
                       <X className="size-4" />
                     </span>
@@ -447,7 +477,7 @@ function CreateFoodPageInner() {
                       setMenuUrlInput(e.target.value);
                       if (e.target.value) setMenuFile(null);
                     }}
-                    placeholder="ან ვებ-გვერდის ბმული (URL)..."
+                    placeholder={t("menuUrlPlaceholder")}
                     className={`${inputClass} pl-10`}
                   />
                 </div>
@@ -455,9 +485,12 @@ function CreateFoodPageInner() {
             </Field>
 
             <Field
-              label="ობიექტის ფოტოები"
+              label={t("objectPhotos")}
               required
-              chip={{ label: `მინიმუმ ${MIN_PHOTOS} ფოტო`, variant: "orange" }}
+              chip={{
+                label: tShared("minPhotos", { count: MIN_PHOTOS }),
+                variant: "orange",
+              }}
               chipPosition="end"
             >
               <PhotoUploader
@@ -472,10 +505,10 @@ function CreateFoodPageInner() {
           {/* Section 4 — Contact */}
           <WizardInnerCard
             number={4}
-            title="საკონტაქტო ინფორმაცია"
+            title={tShared("contactInfo")}
             accent="orange"
           >
-            <Field label="ტელეფონის ნომერი" required>
+            <Field label={tShared("phoneNumber")} required>
               <PhoneInput value={phone} onChange={setPhone} />
             </Field>
           </WizardInnerCard>

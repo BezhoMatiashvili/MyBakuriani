@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type Accent = "blue" | "green" | "orange";
@@ -65,12 +66,14 @@ export function WizardShell({
   accent = "blue",
   currentStep,
   totalSteps,
-  stepLabel = "ნაბიჯი",
+  stepLabel,
   stepTitle,
   progressPercent,
   children,
   footer,
 }: WizardShellProps) {
+  const t = useTranslations("Wizard");
+  const stepLabelText = stepLabel ?? t("step");
   const a = ACCENT_CLASSES[accent];
   const hasSteps =
     typeof currentStep === "number" &&
@@ -104,7 +107,7 @@ export function WizardShell({
               </div>
               <div className="flex w-full flex-col items-end gap-1.5 sm:w-[200px]">
                 <span className="text-xs font-semibold text-[#64748B]">
-                  {stepLabel} {currentStep}/{totalSteps} ({progress}%)
+                  {stepLabelText} {currentStep}/{totalSteps} ({progress}%)
                 </span>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
                   <div
@@ -240,7 +243,7 @@ export function WizardFooter({
   accent = "blue",
   onBack,
   backHref,
-  backLabel = "უკან დაბრუნება",
+  backLabel,
   onSubmit,
   submitLabel,
   submitType = "button",
@@ -250,6 +253,8 @@ export function WizardFooter({
   finalStep = false,
   error,
 }: WizardFooterProps) {
+  const tShared = useTranslations("Shared");
+  const backLabelText = backLabel ?? tShared("back");
   const a = ACCENT_CLASSES[accent];
   // Final step of a stepped flow uses orange accent for the publish button per design
   const submitAccent = finalStep ? ACCENT_CLASSES.orange : a;
@@ -269,7 +274,7 @@ export function WizardFooter({
               className="inline-flex items-center gap-1.5 text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A]"
             >
               <ArrowLeft className="size-4" />
-              {backLabel}
+              {backLabelText}
             </Link>
           ) : (
             <button
@@ -278,7 +283,7 @@ export function WizardFooter({
               className="inline-flex items-center gap-1.5 text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A]"
             >
               <ArrowLeft className="size-4" />
-              {backLabel}
+              {backLabelText}
             </button>
           )
         ) : (

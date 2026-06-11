@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GoogleMap, MarkerF } from "@react-google-maps/api";
+import { useTranslations } from "next-intl";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 
 const BAKURIANI_CENTER = { lat: 41.7509, lng: 43.5294 };
@@ -45,6 +46,7 @@ export default function ExactLocationPicker({
   value,
   onChange,
 }: ExactLocationPickerProps) {
+  const t = useTranslations("ExactLocationPicker");
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
   const [isLoaded, setIsLoaded] = useState(mapsLoaded);
   const [latInput, setLatInput] = useState(value ? String(value.lat) : "");
@@ -91,7 +93,7 @@ export default function ExactLocationPicker({
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#64748B]">
-        ზუსტი ლოკაციის ასარჩევად დაამატეთ `NEXT_PUBLIC_GOOGLE_MAPS_KEY`.
+        {t("missingApiKey")}
       </div>
     );
   }
@@ -122,9 +124,7 @@ export default function ExactLocationPicker({
           {value && <MarkerF position={value} />}
         </GoogleMap>
       </div>
-      <p className="text-xs text-[#64748B]">
-        რუკაზე დააჭირეთ სასურველ წერტილს ზუსტი მდებარეობის ასარჩევად.
-      </p>
+      <p className="text-xs text-[#64748B]">{t("clickHint")}</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <label className="text-xs font-medium text-[#334155]">Latitude</label>
@@ -159,12 +159,13 @@ export default function ExactLocationPicker({
           />
         </div>
       </div>
-      <p className="text-xs text-[#64748B]">
-        შეგიძლიათ ხელითაც ჩაწეროთ კოორდინატები (lat/lng).
-      </p>
+      <p className="text-xs text-[#64748B]">{t("manualHint")}</p>
       {value && (
         <p className="text-xs font-medium text-[#334155]">
-          არჩეული კოორდინატები: {value.lat}, {value.lng}
+          {t("selectedCoords", {
+            lat: String(value.lat),
+            lng: String(value.lng),
+          })}
         </p>
       )}
     </div>

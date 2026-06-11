@@ -6,6 +6,10 @@ import Image from "next/image";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import {
+  optionKeyFor,
+  priceUnitPathFor,
+} from "@/lib/constants/listing-options";
 import { Badge } from "@/components/ui/badge";
 import { trackContactClick } from "@/lib/contact-tracking";
 
@@ -49,14 +53,6 @@ const categoryRouteMap: Record<string, string> = {
   employment: "/employment",
 };
 
-const TRANSPORT_TYPE_LABELS: Record<string, string> = {
-  minivan: "მინივენი",
-  minibus: "მინივენი",
-  taxi: "ტაქსი",
-  microbus: "მიკროავტობუსი",
-  other: "სხვა",
-};
-
 export default function ServiceCard({
   id,
   title,
@@ -85,7 +81,9 @@ export default function ServiceCard({
   const isFood = category === "food";
   const isTransport = category === "transport";
   const t = useTranslations("ServiceCard");
+  const tOpts = useTranslations("ListingOptions");
   const router = useRouter();
+  const priceUnitPath = priceUnitPathFor(priceUnit);
   const basePath = categoryRouteMap[category] ?? `/services/${category}`;
   const href = `${basePath}/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-service.jpg";
@@ -327,6 +325,8 @@ export default function ServiceCard({
 
   // variant === "photo" (default)
   const isBusy = availabilityStatus === "busy";
+  const routeValue = route ?? routes?.[0];
+  const routeKey = optionKeyFor("transportRoutes", routeValue);
 
   return (
     <motion.div
@@ -419,7 +419,9 @@ export default function ServiceCard({
                     {t("typeLabel")}:{" "}
                   </span>
                   <span className="text-[#1E293B] font-bold line-clamp-1">
-                    {TRANSPORT_TYPE_LABELS[transportType] ?? transportType}
+                    {t.has(`transportTypes.${transportType}`)
+                      ? t(`transportTypes.${transportType}`)
+                      : transportType}
                   </span>
                 </p>
               )}
@@ -436,7 +438,7 @@ export default function ServiceCard({
                   </span>
                 </p>
               )}
-              {(route ?? routes?.[0]) && (
+              {routeValue && (
                 <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
                   <span aria-hidden className="text-[14px] leading-none">
                     📍
@@ -445,7 +447,9 @@ export default function ServiceCard({
                     {t("routeLabel")}:{" "}
                   </span>
                   <span className="text-[#1E293B] font-bold line-clamp-1">
-                    {route ?? routes?.[0]}
+                    {routeKey
+                      ? tOpts(`transportRoutes.${routeKey}`)
+                      : routeValue}
                   </span>
                 </p>
               )}
@@ -475,7 +479,7 @@ export default function ServiceCard({
                         </span>
                         {priceUnit && (
                           <span className="text-[13px] font-bold text-[#94A3B8]">
-                            / {priceUnit}
+                            / {priceUnitPath ? tOpts(priceUnitPath) : priceUnit}
                           </span>
                         )}
                       </span>

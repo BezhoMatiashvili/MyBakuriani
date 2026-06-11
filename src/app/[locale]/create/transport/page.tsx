@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   WizardShell,
   WizardInnerCard,
@@ -11,70 +12,107 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
-import {
-  VEHICLE_MAKES,
-  VEHICLE_COLORS,
-  TRANSPORT_FEATURES,
-} from "@/lib/constants/listing-options";
+import { VEHICLE_MAKES, dbOptionsFor } from "@/lib/constants/listing-options";
 
 const TRANSPORT_TYPES = [
-  { value: "minivan", label: "მინივენი" },
-  { value: "taxi", label: "ტაქსი" },
-  { value: "microbus", label: "მიკროავტობუსი" },
-  { value: "other", label: "სხვა" },
+  { value: "minivan" },
+  { value: "taxi" },
+  { value: "microbus" },
+  { value: "other" },
 ] as const;
 
 const PRICE_UNITS = [
-  { value: "whole_car", label: "მთლიანი მანქანა" },
-  { value: "on_demand", label: "გამოძახება" },
-  { value: "per_person", label: "ერთ კაცზე" },
+  { value: "whole_car" },
+  { value: "on_demand" },
+  { value: "per_person" },
 ] as const;
 
-const ROUTE_OPTIONS = [
-  "შიდა გადაადგილება (ტაქსი)",
-  "თბილისი - ბაკურიანი - თბილისი",
-  "აეროპორტის ტრანსფერი",
-  "სხვა",
-];
+const LANGUAGE_OPTIONS = [
+  { value: "ქართული", key: "ka" },
+  { value: "English", key: "en" },
+  { value: "Русский", key: "ru" },
+] as const;
 
-const EQUIPMENT_OPTIONS = [
-  "ზამთრის საბურავები",
-  "მოცურების ჯაჭვები",
-  "თხილამურის საბარგული",
-  "დამატებითი საბარგული",
-  "ბავშვის სავარძელი",
-];
-
-const LANGUAGE_OPTIONS = ["ქართული", "English", "Русский"];
+// DB-stored Georgian payload values + message keys (see listing-options.ts).
+const ROUTE_OPTIONS = dbOptionsFor("transportRoutes");
+const EQUIPMENT_OPTIONS = dbOptionsFor("vehicleEquipment");
+const FEATURE_OPTIONS = dbOptionsFor("transportFeatures");
 
 const MIN_PHOTOS = 1;
 const MAX_PHOTOS = 10;
 
 function TransportLoading() {
+  const tShared = useTranslations("CreateShared");
   return (
     <div className="flex min-h-[320px] items-center justify-center text-sm font-medium text-[#64748B]">
-      იტვირთება...
+      {tShared("loading")}
     </div>
   );
 }
 
 export default function CreateTransportPage() {
   return (
-    <Suspense fallback={<TransportLoading />}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
+        </div>
+      }
+    >
       <CreateTransportPageInner />
     </Suspense>
   );
 }
 
 function CreateTransportPageInner() {
+  const t = useTranslations("CreateTransport");
+  const tShared = useTranslations("CreateShared");
+  const tOpts = useTranslations("ListingOptions");
+  const tService = useTranslations("CreateService");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
   const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
+
+  const transportTypeOptions = useMemo(
+    () =>
+      TRANSPORT_TYPES.map((o) => ({
+        value: o.value,
+        label: tOpts(`transportTypes.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const priceUnitOptions = useMemo(
+    () =>
+      PRICE_UNITS.map((o) => ({
+        value: o.value,
+        label: tOpts(`priceUnits.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const vehicleColorOptions = useMemo(
+    () =>
+      dbOptionsFor("vehicleColors").map((c) => ({
+        value: c.value,
+        label: tOpts(`vehicleColors.${c.key}`),
+      })),
+    [tOpts],
+  );
+
+  const vehicleMakeOptions = useMemo(
+    () =>
+      VEHICLE_MAKES.map((m) =>
+        m.value === "სხვა" ? { ...m, label: tOpts("other") } : m,
+      ),
+    [tOpts],
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +151,7 @@ function CreateTransportPageInner() {
       if (cancelled) return;
 
       if (fetchError || !data) {
-        setError("განცხადება ვერ მოიძებნა");
+        setError(tShared("listingNotFound"));
         setHydrating(false);
         return;
       }
@@ -146,8 +184,6 @@ function CreateTransportPageInner() {
       setLanguages(toStringArray(data.languages));
       setDescription(data.description ?? "");
       setPhone(stripPrefix(data.phone));
-      // `whatsapp` exists on services (migration 20260427130000) but the
-      // generated types are stale — read it through a narrow cast.
       setWhatsapp(
         stripPrefix((data as { whatsapp?: string | null }).whatsapp ?? null),
       );
@@ -159,7 +195,7 @@ function CreateTransportPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [editId, user, supabase]);
+  }, [editId, user, supabase, tShared]);
 
   function toggle(arr: string[], value: string): string[] {
     return arr.includes(value)
@@ -173,13 +209,13 @@ function CreateTransportPageInner() {
     setError(null);
 
     try {
-      if (!driverName.trim()) throw new Error("მიუთითეთ მძღოლის სახელი");
-      if (!vehicleCapacity) throw new Error("მიუთითეთ ადგილების რაოდენობა");
-      if (routes.length === 0) throw new Error("აირჩიეთ მინიმუმ ერთი მარშრუტი");
-      if (!price) throw new Error("მიუთითეთ საწყისი ფასი");
-      if (!phone.trim()) throw new Error("მიუთითეთ ტელეფონის ნომერი");
+      if (!driverName.trim()) throw new Error(t("enterDriverName"));
+      if (!vehicleCapacity) throw new Error(t("enterCapacity"));
+      if (routes.length === 0) throw new Error(t("chooseRoute"));
+      if (!price) throw new Error(t("enterPrice"));
+      if (!phone.trim()) throw new Error(tShared("enterPhone"));
       if (photos.length < MIN_PHOTOS)
-        throw new Error("ატვირთეთ მინიმუმ ერთი ფოტო");
+        throw new Error(tShared("uploadMinOnePhoto"));
 
       const payload = {
         title: driverName.trim(),
@@ -221,7 +257,7 @@ function CreateTransportPageInner() {
         router.push("/dashboard");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : tShared("genericError"));
     } finally {
       setLoading(false);
     }
@@ -247,7 +283,7 @@ function CreateTransportPageInner() {
 
   return (
     <WizardShell
-      title="ტრანსპორტი და ტრანსფერები"
+      title={t("pageTitle")}
       accent="blue"
       progressPercent={progressPercent}
       footer={
@@ -255,7 +291,7 @@ function CreateTransportPageInner() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
+          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
@@ -266,40 +302,43 @@ function CreateTransportPageInner() {
         <TransportLoading />
       ) : (
         <div className="space-y-8">
-          {/* Section 1 — Basic info */}
-          <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="blue">
+          <WizardInnerCard
+            number={1}
+            title={tShared("basicInfo")}
+            accent="blue"
+          >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="მძღოლის სახელი" required>
+              <Field label={t("driverName")} required>
                 <input
                   type="text"
                   value={driverName}
                   onChange={(e) => setDriverName(e.target.value)}
-                  placeholder="გოგა მ."
+                  placeholder={t("driverPlaceholder")}
                   className={inputClass}
                 />
               </Field>
-              <Field label="მანქანის მარკა" required>
+              <Field label={t("vehicleMake")} required>
                 <SearchableSelect
                   value={vehicleMake}
                   onValueChange={setVehicleMake}
-                  options={VEHICLE_MAKES}
+                  options={vehicleMakeOptions}
                   accent="blue"
-                  placeholder="აირჩიე მარკა"
-                  searchPlaceholder="მოძებნე მარკა..."
+                  placeholder={t("chooseMake")}
+                  searchPlaceholder={t("searchMake")}
                 />
               </Field>
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ტრანსპორტის ტიპი" required>
+              <Field label={t("transportType")} required>
                 <StyledSelect
                   value={transportType}
                   onValueChange={setTransportType}
-                  options={TRANSPORT_TYPES}
+                  options={transportTypeOptions}
                   accent="blue"
                 />
               </Field>
-              <Field label="რამდენ ადგილიანია მანქანა" required>
+              <Field label={t("vehicleCapacity")} required>
                 <input
                   type="number"
                   value={vehicleCapacity}
@@ -311,45 +350,48 @@ function CreateTransportPageInner() {
               </Field>
             </div>
 
-            <Field label="მანქანის ფერი">
+            <Field label={t("vehicleColor")}>
               <StyledSelect
                 value={vehicleColor}
                 onValueChange={setVehicleColor}
-                options={VEHICLE_COLORS}
+                options={vehicleColorOptions}
                 accent="blue"
-                placeholder="აირჩიე ფერი"
+                placeholder={t("chooseColor")}
               />
             </Field>
 
-            <Field label="აღწერა">
+            <Field label={tShared("description")}>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="დეტალები სერვისის შესახებ..."
+                placeholder={t("descriptionPlaceholder")}
                 rows={4}
                 className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </Field>
           </WizardInnerCard>
 
-          {/* Section 2 — Route & price */}
-          <WizardInnerCard number={2} title="მარშრუტი და ფასი" accent="blue">
-            <Field label="ძირითადი მარშრუტები" required>
+          <WizardInnerCard
+            number={2}
+            title={t("sectionRoutePrice")}
+            accent="blue"
+          >
+            <Field label={t("mainRoutes")} required>
               <div className="flex flex-wrap gap-2">
                 {ROUTE_OPTIONS.map((r) => (
                   <Chip
-                    key={r}
-                    active={routes.includes(r)}
-                    onClick={() => setRoutes(toggle(routes, r))}
+                    key={r.value}
+                    active={routes.includes(r.value)}
+                    onClick={() => setRoutes(toggle(routes, r.value))}
                   >
-                    {r}
+                    {tOpts(`transportRoutes.${r.key}`)}
                   </Chip>
                 ))}
               </div>
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="საწყისი ფასი (GEL)" required>
+              <Field label={t("startingPrice")} required>
                 <input
                   type="number"
                   value={price}
@@ -359,66 +401,65 @@ function CreateTransportPageInner() {
                   className={inputClass}
                 />
               </Field>
-              <Field label="ფასის ერთეული" required>
+              <Field label={t("priceUnit")} required>
                 <StyledSelect
                   value={priceUnit}
                   onValueChange={setPriceUnit}
-                  options={PRICE_UNITS}
+                  options={priceUnitOptions}
                   accent="blue"
                 />
               </Field>
             </div>
           </WizardInnerCard>
 
-          {/* Section 3 — Equipment & languages */}
           <WizardInnerCard
             number={3}
-            title="აღჭურვილობა და ენები"
+            title={t("sectionEquipment")}
             accent="blue"
           >
-            <Field label="მანქანის აღჭურვილობა">
+            <Field label={t("vehicleEquipment")}>
               <div className="flex flex-wrap gap-2">
                 {EQUIPMENT_OPTIONS.map((e) => (
                   <Chip
-                    key={e}
-                    active={equipment.includes(e)}
-                    onClick={() => setEquipment(toggle(equipment, e))}
+                    key={e.value}
+                    active={equipment.includes(e.value)}
+                    onClick={() => setEquipment(toggle(equipment, e.value))}
                   >
-                    {e}
+                    {tOpts(`vehicleEquipment.${e.key}`)}
                   </Chip>
                 ))}
               </div>
             </Field>
 
-            <Field label="კომფორტი და სერვისები">
+            <Field label={t("comfortAndServices")}>
               <div className="flex flex-wrap gap-2">
-                {TRANSPORT_FEATURES.map((f) => (
+                {FEATURE_OPTIONS.map((f) => (
                   <Chip
-                    key={f}
-                    active={features.includes(f)}
-                    onClick={() => setFeatures(toggle(features, f))}
+                    key={f.value}
+                    active={features.includes(f.value)}
+                    onClick={() => setFeatures(toggle(features, f.value))}
                   >
-                    {f}
+                    {tOpts(`transportFeatures.${f.key}`)}
                   </Chip>
                 ))}
               </div>
             </Field>
 
-            <Field label="სასაუბრო ენები">
+            <Field label={tService("spokenLanguages")}>
               <div className="flex flex-wrap gap-2">
                 {LANGUAGE_OPTIONS.map((l) => (
                   <Chip
-                    key={l}
-                    active={languages.includes(l)}
-                    onClick={() => setLanguages(toggle(languages, l))}
+                    key={l.value}
+                    active={languages.includes(l.value)}
+                    onClick={() => setLanguages(toggle(languages, l.value))}
                   >
-                    {l}
+                    {tOpts(`languages.${l.key}`)}
                   </Chip>
                 ))}
               </div>
             </Field>
 
-            <Field label="მანქანის ფოტოები" required>
+            <Field label={t("vehiclePhotos")} required>
               <PhotoUploader
                 photos={photos}
                 onPhotosChange={setPhotos}
@@ -428,22 +469,21 @@ function CreateTransportPageInner() {
             </Field>
           </WizardInnerCard>
 
-          {/* Section 4 — Contact */}
           <WizardInnerCard
             number={4}
-            title="საკონტაქტო ინფორმაცია"
+            title={tShared("contactInfo")}
             accent="blue"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ტელეფონის ნომერი" required>
+              <Field label={tShared("phoneNumber")} required>
                 <PhoneInput value={phone} onChange={setPhone} />
               </Field>
-              <Field label="WhatsApp ნომერი">
+              <Field label={tShared("whatsappNumber")}>
                 <PhoneInput value={whatsapp} onChange={setWhatsapp} />
               </Field>
             </div>
             <p className="text-xs font-medium text-[#94A3B8]">
-              WhatsApp სურვილისამებრ
+              {tShared("whatsappOptional")}
             </p>
           </WizardInnerCard>
         </div>

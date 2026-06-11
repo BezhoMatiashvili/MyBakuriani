@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
 import Image from "next/image";
 import { Camera, Upload, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -20,6 +21,7 @@ export default function PhotoUploader({
   maxPhotos = 10,
   variant = "default",
 }: PhotoUploaderProps) {
+  const t = useTranslations("PhotoUploader");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -42,10 +44,10 @@ export default function PhotoUploader({
         setErrorMessage(
           [
             invalidCount > 0
-              ? `${invalidCount} ფაილი გამოტოვებულია (მხოლოდ JPG/PNG/WEBP)`
+              ? t("skippedInvalid", { count: invalidCount })
               : "",
             skippedByLimit > 0
-              ? `${skippedByLimit} ფაილი გამოტოვებულია (მაქს. ${maxPhotos} ფოტო)`
+              ? t("skippedByLimit", { count: skippedByLimit, max: maxPhotos })
               : "",
           ]
             .filter(Boolean)
@@ -169,13 +171,13 @@ export default function PhotoUploader({
                   <Upload className="size-5 text-[#94A3B8]" />
                 </div>
                 <span className="text-[15px] font-black text-[#0F172A]">
-                  ფოტოების ატვირთვა
+                  {t("uploadPhotos")}
                 </span>
                 <span className="text-xs font-normal text-[#64748B]">
-                  ჩააგდეთ ფოტოები აქ ან დააჭირეთ
+                  {t("dropHereOrClick")}
                 </span>
                 <span className="rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#166534]">
-                  მაქს. {maxPhotos} ფოტო
+                  {t("maxPhotos", { max: maxPhotos })}
                 </span>
               </>
             )}
@@ -281,10 +283,10 @@ export default function PhotoUploader({
           <Upload className="size-4 text-[#94A3B8]" />
         </div>
         <span className="text-[15px] font-black text-[#1E293B]">
-          ატვირთეთ ფოტოები
+          {t("uploadPhotosAlt")}
         </span>
         <span className="text-xs font-normal text-[#64748B]">
-          ჩააგდეთ ფოტოები აქ ან დააჭირეთ ასარჩევად
+          {t("dropHereOrClickSelect")}
         </span>
       </div>
 
@@ -299,7 +301,7 @@ export default function PhotoUploader({
 
       {/* Photo count */}
       <span className="inline-block rounded-lg bg-[#EEF1F4] px-3 py-1.5 text-[10px] font-black uppercase tracking-[1px] text-[#8B5CF6]">
-        {photos.length} / {maxPhotos} ფოტო
+        {t("photoCount", { count: photos.length, max: maxPhotos })}
       </span>
 
       {/* Preview grid */}

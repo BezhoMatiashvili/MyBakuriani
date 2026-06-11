@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -26,12 +27,7 @@ import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 
-const statusLabels: Record<string, string> = {
-  active: "აქტიური",
-  blocked: "დაბლოკილი",
-  pending: "მოლოდინში",
-  draft: "დრაფტი",
-};
+const STATUS_KEYS = ["active", "blocked", "pending", "draft"] as const;
 
 const statusColors: Record<string, string> = {
   active: "bg-green-100 text-green-700",
@@ -40,14 +36,12 @@ const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
 };
 
-const filterTabs = [
-  { key: "all", label: "ყველა" },
-  { key: "active", label: "აქტიური" },
-  { key: "pending", label: "მოლოდინში" },
-  { key: "blocked", label: "დაბლოკილი" },
-];
+const FILTER_KEYS = ["all", "active", "pending", "blocked"] as const;
 
 export default function RenterListingsPage() {
+  const t = useTranslations("RenterListings");
+  const tDash = useTranslations("RenterDashboard");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -99,16 +93,16 @@ export default function RenterListingsPage() {
       >
         <div>
           <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-            ჩემი ობიექტები
+            {t("title")}
           </h1>
           <p className="mt-1 text-sm font-medium text-[#64748B]">
-            მართეთ თქვენი გაქირავების ობიექტები
+            {t("subtitle")}
           </p>
         </div>
         <Link href="/create/rental">
           <Button className="gap-2">
             <Plus className="h-4 w-4" />
-            ახალი ობიექტი
+            {t("newProperty")}
           </Button>
         </Link>
       </motion.div>
@@ -118,7 +112,7 @@ export default function RenterListingsPage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
         <input
           type="text"
-          placeholder="ობიექტის ძებნა..."
+          placeholder={t("searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] py-2.5 pl-10 pr-4 text-[13px] font-medium text-[#1E293B] shadow-[inset_0px_2px_4px_1px_rgba(0,0,0,0.05)] placeholder:text-[#94A3B8] focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
@@ -127,16 +121,18 @@ export default function RenterListingsPage() {
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2">
-        {filterTabs.map((tab) => (
+        {FILTER_KEYS.map((key) => (
           <Button
-            key={tab.key}
-            variant={activeFilter === tab.key ? "default" : "outline"}
+            key={key}
+            variant={activeFilter === key ? "default" : "outline"}
             size="sm"
-            onClick={() => setActiveFilter(tab.key)}
+            onClick={() => setActiveFilter(key)}
           >
-            {tab.label}
+            {key === "all"
+              ? t("filterAll")
+              : tDash(`statuses.${key as (typeof STATUS_KEYS)[number]}`)}
             <span className="ml-1.5 rounded-full bg-white/20 px-1.5 text-[10px]">
-              {counts[tab.key as keyof typeof counts]}
+              {counts[key as keyof typeof counts]}
             </span>
           </Button>
         ))}
@@ -167,13 +163,11 @@ export default function RenterListingsPage() {
             className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
           >
             <Building className="h-12 w-12 text-[#94A3B8]" />
-            <p className="mt-3 text-sm text-[#94A3B8]">
-              ობიექტები ვერ მოიძებნა
-            </p>
+            <p className="mt-3 text-sm text-[#94A3B8]">{t("notFound")}</p>
             <Link href="/create/rental" className="mt-4">
               <Button size="sm" className="gap-2">
                 <Plus className="h-4 w-4" />
-                დაამატეთ ობიექტი
+                {t("addProperty")}
               </Button>
             </Link>
           </motion.div>
@@ -213,21 +207,31 @@ export default function RenterListingsPage() {
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[property.status ?? "draft"] ?? ""}`}
                     >
-                      {statusLabels[property.status ?? "draft"] ??
-                        property.status}
+                      {STATUS_KEYS.includes(
+                        (property.status ??
+                          "draft") as (typeof STATUS_KEYS)[number],
+                      )
+                        ? tDash(
+                            `statuses.${property.status as (typeof STATUS_KEYS)[number]}`,
+                          )
+                        : property.status}
                     </span>
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-[#94A3B8]">
                     <span className="flex items-center gap-1">
                       <Eye className="h-3.5 w-3.5" />
-                      {property.views_count} ნახვა
+                      {tDash("views", { count: property.views_count ?? 0 })}
                     </span>
                     <span>
-                      {property.rooms} ოთახი | {property.capacity} სტუმარი
+                      {tShared("roomsGuests", {
+                        rooms: property.rooms ?? 0,
+                        guests: property.capacity ?? 0,
+                      })}
                     </span>
                     <span className="font-bold text-brand-accent">
-                      {formatPrice(Number(property.price_per_night ?? 0))}/ღამე
+                      {formatPrice(Number(property.price_per_night ?? 0))}
+                      {tShared("perNight")}
                     </span>
                   </div>
 
@@ -270,7 +274,7 @@ export default function RenterListingsPage() {
               {/* Promote tier row */}
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#F1F5F9] pt-3">
                 <span className="mr-auto text-[12px] font-semibold text-[#64748B]">
-                  განცხადების დაწინაურება:
+                  {t("promote")}
                 </span>
                 <button
                   type="button"
@@ -298,7 +302,7 @@ export default function RenterListingsPage() {
                   className="inline-flex items-center gap-1.5 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-black tracking-wide text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
                 >
                   <Percent className="h-3 w-3" />
-                  ფასდაკლება
+                  {tDash("discount")}
                 </button>
               </div>
             </motion.div>

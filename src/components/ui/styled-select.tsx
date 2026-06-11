@@ -2,6 +2,7 @@
 
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { Check, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type Accent = "blue" | "green" | "orange";
@@ -58,11 +59,13 @@ export function StyledSelect<T extends string>({
   value,
   onValueChange,
   options,
-  placeholder = "აირჩიე",
+  placeholder,
   accent = "blue",
   disabled,
   name,
 }: StyledSelectProps<T>) {
+  const t = useTranslations("UISelect");
+  const placeholderText = placeholder ?? t("choose");
   const a = ACCENT_CLASSES[accent];
 
   return (
@@ -82,7 +85,7 @@ export function StyledSelect<T extends string>({
           a.focusRing,
         )}
       >
-        <SelectPrimitive.Value placeholder={placeholder} />
+        <SelectPrimitive.Value placeholder={placeholderText} />
         <SelectPrimitive.Icon className="ml-2 shrink-0 text-[#94A3B8] transition-transform data-[popup-open]:rotate-180 data-[popup-open]:text-[#2563EB]">
           <ChevronDown className="size-4" strokeWidth={2} />
         </SelectPrimitive.Icon>

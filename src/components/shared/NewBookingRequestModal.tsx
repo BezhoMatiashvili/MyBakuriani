@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X, Calendar, Check, ChevronDown } from "lucide-react";
 
@@ -11,15 +12,6 @@ type CategoryKey =
   | "transport"
   | "food"
   | "excursion";
-
-const CATEGORIES: { key: CategoryKey; label: string }[] = [
-  { key: "all", label: "ყველა ჩამონათვალი" },
-  { key: "cottage", label: "კოტეჯი" },
-  { key: "apartment", label: "აპარტამენტი" },
-  { key: "transport", label: "ტრანსფერი" },
-  { key: "food", label: "კვება" },
-  { key: "excursion", label: "ექსკურსია" },
-];
 
 export interface NewBookingRequestPayload {
   category: CategoryKey;
@@ -43,6 +35,28 @@ export default function NewBookingRequestModal({
   onSubmit,
   smsCost = 1,
 }: Props) {
+  const t = useTranslations("GuestDashboard.newBookingModal");
+  const tGuest = useTranslations("GuestDashboard");
+  const tShared = useTranslations("DashboardShared");
+
+  const categoryKeys: CategoryKey[] = [
+    "all",
+    "cottage",
+    "apartment",
+    "transport",
+    "food",
+    "excursion",
+  ];
+
+  const CATEGORIES = useMemo(
+    () =>
+      categoryKeys.map((key) => ({
+        key,
+        label: t(`categories.${key}`),
+      })),
+    [t],
+  );
+
   const [category, setCategory] = useState<CategoryKey>("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
@@ -113,17 +127,17 @@ export default function NewBookingRequestModal({
               <div className="flex items-start justify-between gap-3 border-b border-[#EEF1F4] px-7 pt-6 pb-5">
                 <div>
                   <h2 className="text-[22px] font-black leading-[28px] text-[#0F172A]">
-                    ახალი მოთხოვნა
+                    {tGuest("newRequest")}
                   </h2>
                   <p className="mt-1 text-[12px] font-medium text-[#64748B]">
-                    გააგზავნე მოთხოვნა და მფლობელები დაგიკავშირდებიან.
+                    {t("subtitle")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-                  aria-label="close"
+                  aria-label={tShared("closeAria")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -132,7 +146,7 @@ export default function NewBookingRequestModal({
               <div className="space-y-4 px-7 py-6">
                 <div className="relative">
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                    მიზნობრივი კატეგორია
+                    {t("categoryLabel")}
                   </label>
                   <button
                     type="button"
@@ -183,7 +197,7 @@ export default function NewBookingRequestModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                      ჩამოსვლა
+                      {t("checkIn")}
                     </label>
                     <div className="relative">
                       <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
@@ -197,7 +211,7 @@ export default function NewBookingRequestModal({
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                      გასვლა
+                      {t("checkOut")}
                     </label>
                     <div className="relative">
                       <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
@@ -214,7 +228,7 @@ export default function NewBookingRequestModal({
 
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                    სტუმრების რაოდენობა
+                    {t("guestsCount")}
                   </label>
                   <input
                     type="number"
@@ -230,13 +244,13 @@ export default function NewBookingRequestModal({
 
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                    ბიუჯეტი (₾ / ღამე)
+                    {t("budgetLabel")}
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="number"
                       min={0}
-                      placeholder="მინ."
+                      placeholder={t("budgetMin")}
                       value={budgetMin}
                       onChange={(e) => setBudgetMin(e.target.value)}
                       className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
@@ -244,7 +258,7 @@ export default function NewBookingRequestModal({
                     <input
                       type="number"
                       min={0}
-                      placeholder="მაქს."
+                      placeholder={t("budgetMax")}
                       value={budgetMax}
                       onChange={(e) => setBudgetMax(e.target.value)}
                       className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
@@ -261,8 +275,8 @@ export default function NewBookingRequestModal({
                 >
                   <Sparkles className="h-4 w-4" />
                   {submitting
-                    ? "მიმდინარეობს..."
-                    : `მოთხოვნის გაგზავნა (${smsCost} SMS ლიმიტიდან)`}
+                    ? tShared("inProgress")
+                    : t("submit", { cost: smsCost })}
                 </button>
               </div>
             </form>

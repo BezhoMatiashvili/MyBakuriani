@@ -1,10 +1,21 @@
-import { createClient } from "@/lib/supabase/server";
+import type { Metadata } from "next";
+import { createPublicClient } from "@/lib/supabase/server";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 import SearchPageClient from "./SearchPageClient";
 
-export const metadata = {
-  title: "MyBakuriani — ძებნა",
-  description: "მოძებნეთ აპარტამენტები, სასტუმროები და სერვისები ბაკურიანში.",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
+  return {
+    title: t("search"),
+    description: t("searchDesc"),
+  };
+}
 
 interface SearchPageProps {
   searchParams: Promise<{
@@ -46,7 +57,9 @@ function parseBoolean(value?: string): boolean {
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
-  const supabase = await createClient();
+  // Anon client — search reads only active listings and filters by searchParams
+  // (already dynamic), so there's no need for the cookie-bound client's auth cost.
+  const supabase = createPublicClient();
 
   let query = supabase.from("properties").select("*").eq("status", "active");
 

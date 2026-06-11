@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   WizardShell,
   WizardInnerCard,
@@ -21,28 +22,25 @@ import {
   RENOVATION_STATUSES,
 } from "@/lib/constants/sale-listing";
 
-const PROPERTY_TYPES: { value: Enums<"property_type">; label: string }[] = [
-  { value: "studio", label: "სტუდიო" },
-  { value: "apartment", label: "აპარტამენტი" },
-  { value: "cottage", label: "კოტეჯი" },
-  { value: "villa", label: "მიწის ნაკვეთი" },
-  { value: "hotel", label: "სასტუმრო ოთახი" },
+const PROPERTY_TYPES: { value: Enums<"property_type"> }[] = [
+  { value: "studio" },
+  { value: "apartment" },
+  { value: "cottage" },
+  { value: "villa" },
+  { value: "hotel" },
 ];
 
 const CONSTRUCTION_STATUSES: {
   value: "completed" | "under_construction";
-  label: string;
-}[] = [
-  { value: "under_construction", label: "მშენებარე" },
-  { value: "completed", label: "ახალი აშენებული/დასრულებული" },
-];
+}[] = [{ value: "under_construction" }, { value: "completed" }];
 
+/** DB-stored handover values (unchanged payloads). */
 const HANDOVER_OPTIONS = [
-  { value: "უკვე ჩაბარებული", label: "უკვე ჩაბარებული" },
-  { value: "2024 ბოლო", label: "2024 ბოლო" },
-  { value: "2025 გაზაფხული", label: "2025 გაზაფხული" },
-  { value: "2026 ბოლო", label: "2026 ბოლო" },
-];
+  { value: "უკვე ჩაბარებული", key: "delivered" },
+  { value: "2024 ბოლო", key: "2024_end" },
+  { value: "2025 გაზაფხული", key: "2025_spring" },
+  { value: "2026 ბოლო", key: "2026_end" },
+] as const;
 
 const ROI_OPTIONS = [
   { value: "5-8", label: "5-8%", min: 5, max: 8 },
@@ -70,6 +68,10 @@ export default function CreateSalePage() {
 }
 
 function CreateSalePageInner() {
+  const t = useTranslations("CreateSale");
+  const tShared = useTranslations("CreateShared");
+  const tOpts = useTranslations("ListingOptions");
+  const tFood = useTranslations("CreateFood");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -82,6 +84,51 @@ function CreateSalePageInner() {
     label: z.name_ka,
   }));
 
+  const propertyTypeOptions = useMemo(
+    () =>
+      PROPERTY_TYPES.map((o) => ({
+        value: o.value,
+        label: tOpts(`salePropertyTypes.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const constructionStatusOptions = useMemo(
+    () =>
+      CONSTRUCTION_STATUSES.map((o) => ({
+        value: o.value,
+        label: tOpts(`constructionStatuses.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const handoverOptions = useMemo(
+    () =>
+      HANDOVER_OPTIONS.map((o) => ({
+        value: o.value,
+        label: tOpts(`handoverOptions.${o.key}`),
+      })),
+    [tOpts],
+  );
+
+  const renovationOptions = useMemo(
+    () =>
+      RENOVATION_STATUSES.map((o) => ({
+        value: o.value,
+        label: tOpts(`renovationStatuses.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const managementOptions = useMemo(
+    () =>
+      MANAGEMENT_SERVICES.map((o) => ({
+        value: o.value,
+        label: tOpts(`managementServices.${o.value}`),
+      })),
+    [tOpts],
+  );
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -93,6 +140,7 @@ function CreateSalePageInner() {
   const [constructionStatus, setConstructionStatus] = useState<
     "completed" | "under_construction"
   >("under_construction");
+  // Default is a DB-stored handover payload value (see HANDOVER_OPTIONS).
   const [handoverDate, setHandoverDate] = useState("2026 ბოლო");
   const [cadastralCode, setCadastralCode] = useState("");
   const [exactLocation, setExactLocation] = useState("");
@@ -135,7 +183,7 @@ function CreateSalePageInner() {
       if (cancelled) return;
 
       if (fetchError || !data) {
-        setError("განცხადება ვერ მოიძებნა");
+        setError(tShared("listingNotFound"));
         setHydrating(false);
         return;
       }
@@ -210,7 +258,7 @@ function CreateSalePageInner() {
     return () => {
       cancelled = true;
     };
-  }, [editId, user, supabase]);
+  }, [editId, user, supabase, tShared]);
 
   async function handleSubmit() {
     if (!user) return;
@@ -221,26 +269,26 @@ function CreateSalePageInner() {
       const titleTrimmed = title.trim();
       const locationTrimmed = location.trim();
       const cadastralCodeTrimmed = cadastralCode.trim();
-      if (!titleTrimmed) throw new Error("არასწორი სათაური");
-      if (!locationTrimmed) throw new Error("არასწორი მდებარეობა");
-      if (!cadastralCodeTrimmed) throw new Error("მიუთითეთ საკადასტრო კოდი");
+      if (!titleTrimmed) throw new Error(t("invalidTitle"));
+      if (!locationTrimmed) throw new Error(t("invalidLocation"));
+      if (!cadastralCodeTrimmed) throw new Error(t("enterCadastral"));
 
       const areaNum = Number(areaSqm);
       if (!Number.isFinite(areaNum) || areaNum <= 0) {
-        throw new Error("არასწორი ფართობი");
+        throw new Error(t("invalidArea"));
       }
 
       const priceNum = Number(priceUsd);
       if (!Number.isFinite(priceNum) || priceNum <= 0) {
-        throw new Error("არასწორი ფასი");
+        throw new Error(t("invalidPrice"));
       }
 
       if (photos.length < MIN_PHOTOS) {
-        throw new Error(`მინიმუმ ${MIN_PHOTOS} ფოტო აუცილებელია`);
+        throw new Error(tShared("minPhotosRequired", { count: MIN_PHOTOS }));
       }
 
       if (!phone.trim()) {
-        throw new Error("მიუთითეთ ტელეფონის ნომერი");
+        throw new Error(tShared("enterPhone"));
       }
 
       const handoverYear = handoverDate.match(/\d{4}/)?.[0];
@@ -277,9 +325,7 @@ function CreateSalePageInner() {
         unitsTotalNum !== null &&
         unitsSoldNum + unitsReservedNum > unitsTotalNum
       ) {
-        throw new Error(
-          "გაყიდული + ჯავშანი არ უნდა აღემატებოდეს ბინების საერთო რაოდენობას",
-        );
+        throw new Error(t("soldReservedExceeds"));
       }
 
       const payload = {
@@ -336,11 +382,11 @@ function CreateSalePageInner() {
           .single();
 
         if (insertError) throw insertError;
-        if (!inserted) throw new Error("შეცდომა. სცადეთ თავიდან.");
+        if (!inserted) throw new Error(tShared("genericError"));
         router.push("/dashboard");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : tShared("genericError"));
     } finally {
       setLoading(false);
     }
@@ -368,7 +414,7 @@ function CreateSalePageInner() {
 
   return (
     <WizardShell
-      title="ყიდვა / გაყიდვა"
+      title={t("pageTitle")}
       accent="green"
       progressPercent={progressPercent}
       footer={
@@ -376,7 +422,7 @@ function CreateSalePageInner() {
           accent="green"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
+          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
@@ -391,66 +437,66 @@ function CreateSalePageInner() {
         <div className="space-y-8">
           <WizardInnerCard
             number={1}
-            title="იდენტიფიკაცია და სტატუსი"
+            title={t("sectionIdentity")}
             accent="green"
           >
             <Field
-              label="სათაური"
+              label={t("listingTitle")}
               required
-              helper={`მაქსიმუმ ${TITLE_MAX} სიმბოლო`}
+              helper={t("titleMaxHelper", { max: TITLE_MAX })}
             >
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
-                placeholder="მაგ: საინვესტიციო აპარტამენტი დიდველზე..."
+                placeholder={t("titlePlaceholder")}
                 className={inputClass}
               />
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ობიექტის ტიპი" required>
+              <Field label={t("propertyType")} required>
                 <StyledSelect
                   value={propertyType}
                   onValueChange={setPropertyType}
-                  options={PROPERTY_TYPES}
+                  options={propertyTypeOptions}
                   accent="blue"
                 />
               </Field>
 
-              <Field label="ლოკაცია (ZONE)" required>
+              <Field label={t("locationZone")} required>
                 <StyledSelect
                   value={location}
                   onValueChange={setLocation}
                   options={zoneOptions}
-                  placeholder="აირჩიე ზონა"
+                  placeholder={tShared("chooseZone")}
                   accent="blue"
                 />
               </Field>
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="მშენებლობის სტატუსი" required>
+              <Field label={t("constructionStatus")} required>
                 <StyledSelect
                   value={constructionStatus}
                   onValueChange={setConstructionStatus}
-                  options={CONSTRUCTION_STATUSES}
+                  options={constructionStatusOptions}
                   accent="blue"
                 />
               </Field>
 
               <Field
-                label="ჩაბარების დრო"
+                label={t("handoverDate")}
                 chip={
                   isUnderConstruction
-                    ? { label: "მხოლოდ მშენებარეზე" }
+                    ? { label: tShared("onlyUnderConstruction") }
                     : undefined
                 }
               >
                 <StyledSelect
                   value={handoverDate}
                   onValueChange={setHandoverDate}
-                  options={HANDOVER_OPTIONS}
+                  options={handoverOptions}
                   accent="blue"
                   disabled={!isUnderConstruction}
                 />
@@ -458,9 +504,9 @@ function CreateSalePageInner() {
             </div>
 
             <Field
-              label="საკადასტრო კოდი"
+              label={t("cadastralCode")}
               required
-              helper="თუ ბინა დასრულებულია, შეიყვანეთ ბინის კოდი. თუ მშენებარეა - მიუთითეთ მიწის/პროექტის კოდი."
+              helper={t("cadastralHelper")}
             >
               <input
                 type="text"
@@ -472,24 +518,24 @@ function CreateSalePageInner() {
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ოთახების რაოდენობა">
+              <Field label={t("roomsCount")}>
                 <input
                   type="number"
                   value={rooms}
                   onChange={(e) => setRooms(e.target.value)}
-                  placeholder="მაგ: 1, 2, 3"
+                  placeholder={t("roomsPlaceholder")}
                   min="0"
                   className={inputClass}
                 />
               </Field>
 
-              <Field label="ზუსტი ლოკაცია">
+              <Field label={t("exactLocation")}>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={exactLocation}
                     onChange={(e) => setExactLocation(e.target.value)}
-                    placeholder="მაგ: ცენტრალური პარკის შესასვლელთან"
+                    placeholder={tFood("exactLocationPlaceholder")}
                     className={inputClass}
                   />
                   <div className="flex size-[48px] shrink-0 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_2px_4px_rgba(5,150,105,0.2)]">
@@ -502,29 +548,29 @@ function CreateSalePageInner() {
 
           <WizardInnerCard
             number={2}
-            title="მდგომარეობა და საინვესტიციო მეტრიკები"
+            title={t("sectionCondition")}
             accent="green"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <Field label="რემონტის მდგომარეობა">
+              <Field label={t("renovationStatus")}>
                 <StyledSelect
                   value={renovationStatus}
                   onValueChange={setRenovationStatus}
-                  options={RENOVATION_STATUSES}
+                  options={renovationOptions}
                   accent="blue"
                 />
               </Field>
 
-              <Field label="მართვის სერვისი">
+              <Field label={t("managementService")}>
                 <StyledSelect
                   value={managementService}
                   onValueChange={setManagementService}
-                  options={MANAGEMENT_SERVICES}
+                  options={managementOptions}
                   accent="blue"
                 />
               </Field>
 
-              <Field label="მოსალოდნელი ROI (%)">
+              <Field label={t("expectedRoi")}>
                 <StyledSelect
                   value={roiRange}
                   onValueChange={setRoiRange}
@@ -537,11 +583,11 @@ function CreateSalePageInner() {
 
           <WizardInnerCard
             number={3}
-            title="ფინანსები და ფართობი"
+            title={t("sectionFinance")}
             accent="green"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="საერთო ფართობი (კვ.მ)" required>
+              <Field label={t("totalArea")} required>
                 <div className="relative">
                   <input
                     type="number"
@@ -553,12 +599,12 @@ function CreateSalePageInner() {
                     className={`${inputClass} pr-16`}
                   />
                   <span className="pointer-events-none absolute bottom-0 right-0 top-0 flex items-center rounded-r-xl border-l border-[#E2E8F0] bg-[#F8FAFC] px-4 text-xs font-bold text-[#64748B]">
-                    კვ.მ
+                    {tShared("sqm")}
                   </span>
                 </div>
               </Field>
 
-              <Field label="ფასი (USD)" required>
+              <Field label={t("priceUsd")} required>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-[#059669]">
                     $
@@ -576,9 +622,12 @@ function CreateSalePageInner() {
             </div>
 
             <Field
-              label="ფოტოები / რენდერები"
+              label={t("photosRenders")}
               required
-              chip={{ label: `მინ. ${MIN_PHOTOS} ფოტო`, variant: "blue" }}
+              chip={{
+                label: tShared("minPhotosShort", { count: MIN_PHOTOS }),
+                variant: "blue",
+              }}
               chipPosition="end"
             >
               <PhotoUploader
@@ -592,24 +641,27 @@ function CreateSalePageInner() {
 
           <WizardInnerCard
             number={4}
-            title="დეტალები და კონტაქტი"
+            title={t("sectionDetailsContact")}
             accent="green"
           >
-            <Field label="აღწერა">
+            <Field label={tShared("description")}>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="დეტალური აღწერა ობიექტის შესახებ..."
+                placeholder={t("descriptionPlaceholder")}
                 rows={5}
                 className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
               />
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ტელეფონის ნომერი" required>
+              <Field label={tShared("phoneNumber")} required>
                 <PhoneInput value={phone} onChange={setPhone} />
               </Field>
-              <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
+              <Field
+                label={tShared("whatsappNumber")}
+                helper={tShared("optional")}
+              >
                 <PhoneInput value={whatsapp} onChange={setWhatsapp} />
               </Field>
             </div>

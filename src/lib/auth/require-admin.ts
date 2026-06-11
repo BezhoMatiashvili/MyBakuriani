@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
 
 export type AdminSession = {
   userId: string;
@@ -8,14 +8,14 @@ export type AdminSession = {
 /**
  * Verifies the request comes from an authenticated admin.
  * Returns the admin session on success, or a Response to return immediately on failure.
+ *
+ * Uses the request-memoized auth helpers so the user + role lookup is shared
+ * with any other guard in the same render instead of re-fetched.
  */
 export async function requireAdmin(): Promise<
   { ok: true; admin: AdminSession } | { ok: false; response: Response }
 > {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return {
@@ -24,11 +24,7 @@ export async function requireAdmin(): Promise<
     };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const profile = await getCurrentProfile();
 
   if (!profile || profile.role !== "admin") {
     return {

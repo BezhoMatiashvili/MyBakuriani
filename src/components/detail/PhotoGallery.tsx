@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, Share2, Heart } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { shareListing } from "@/lib/share";
 
 interface PhotoGalleryProps {
@@ -12,6 +13,8 @@ interface PhotoGalleryProps {
 }
 
 export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
+  const t = useTranslations("PhotoGallery");
+  const tShare = useTranslations("ShareListing");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const openLightbox = useCallback((index: number) => {
@@ -39,7 +42,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
   if (photos.length === 0) {
     return (
       <div className="aspect-[16/9] w-full rounded-[24px] bg-[#F8FAFC] flex items-center justify-center">
-        <span className="text-[#94A3B8]">ფოტო არ არის</span>
+        <span className="text-[#94A3B8]">{t("noPhotos")}</span>
       </div>
     );
   }
@@ -59,15 +62,20 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
       <div className="mb-3 flex items-center justify-end gap-2">
         <button
           type="button"
-          onClick={() => shareListing(title)}
+          onClick={() =>
+            shareListing(title, {
+              copied: tShare("copied"),
+              error: tShare("error"),
+            })
+          }
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
-          aria-label="გაზიარება"
+          aria-label={t("share")}
         >
           <Share2 className="h-[18px] w-[18px]" />
         </button>
         <button
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-red-500"
-          aria-label="ფავორიტებში დამატება"
+          aria-label={t("addToFavorites")}
         >
           <Heart className="h-[18px] w-[18px]" />
         </button>
@@ -143,7 +151,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
           {photos.length > 5 && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span className="text-sm font-semibold text-white">
-                ყველა ფოტო ({photos.length})
+                {t("allPhotos", { count: photos.length })}
               </span>
             </div>
           )}
@@ -154,7 +162,7 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
             onClick={() => openLightbox(0)}
             className="mt-2 text-sm font-medium text-brand-accent underline md:hidden"
           >
-            ყველა ფოტოს ნახვა ({photos.length})
+            {t("viewAllPhotos", { count: photos.length })}
           </button>
         )}
       </div>

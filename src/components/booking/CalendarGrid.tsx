@@ -9,8 +9,9 @@ import {
   isSameDay,
   format,
 } from "date-fns";
-import { ka } from "date-fns/locale";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { getDateFnsLocale } from "@/lib/utils/format";
 
 export type DateStatus = "available" | "booked" | "blocked";
 export interface CalendarDate {
@@ -18,8 +19,24 @@ export interface CalendarDate {
   status: DateStatus;
 }
 
-const DAY_HEADERS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
-const DAY_HEADERS_SHORT = ["ო", "ს", "ო", "ხ", "პ", "შ", "კ"];
+const DAY_KEYS = [
+  "day1",
+  "day2",
+  "day3",
+  "day4",
+  "day5",
+  "day6",
+  "day7",
+] as const;
+const DAY_SHORT_KEYS = [
+  "day1Short",
+  "day2Short",
+  "day3Short",
+  "day4Short",
+  "day5Short",
+  "day6Short",
+  "day7Short",
+] as const;
 const statusClasses: Record<DateStatus, string> = {
   available:
     "bg-green-50 text-[#1E293B] hover:bg-green-200 cursor-pointer transition-colors",
@@ -38,6 +55,8 @@ export function CalendarGrid({
   dates: CalendarDate[];
   onDateClick: (date: Date) => void;
 }) {
+  const t = useTranslations("Calendar");
+  const locale = useLocale();
   const monthDate = new Date(year, month);
   const allDays = eachDayOfInterval({
     start: startOfWeek(startOfMonth(monthDate), { weekStartsOn: 1 }),
@@ -48,16 +67,16 @@ export function CalendarGrid({
   return (
     <div>
       <h3 className="mb-3 text-center text-[14px] font-bold capitalize text-[#1E293B]">
-        {format(monthDate, "LLLL yyyy", { locale: ka })}
+        {format(monthDate, "LLLL yyyy", { locale: getDateFnsLocale(locale) })}
       </h3>
       <div className="grid grid-cols-7 gap-1">
-        {DAY_HEADERS.map((d, i) => (
+        {DAY_KEYS.map((d, i) => (
           <div
             key={d}
             className="py-1 text-center text-[11px] font-bold uppercase text-[#94A3B8]"
           >
-            <span className="md:hidden">{DAY_HEADERS_SHORT[i]}</span>
-            <span className="hidden md:inline">{d}</span>
+            <span className="md:hidden">{t(DAY_SHORT_KEYS[i])}</span>
+            <span className="hidden md:inline">{t(d)}</span>
           </div>
         ))}
         {allDays.map((day) => {

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   LayoutGrid,
   UtensilsCrossed,
@@ -27,27 +28,27 @@ interface FoodSidebarProps {
 }
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: LucideIcon;
   badgeKind?: "notifications";
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "ჩემი კაბინეტი", href: "/dashboard/food", icon: LayoutGrid },
+  { labelKey: "myCabinet", href: "/dashboard/food", icon: LayoutGrid },
   {
-    label: "ჩემი მენიუ (PDF)",
+    labelKey: "myMenuPdf",
     href: "/dashboard/food/orders",
     icon: UtensilsCrossed,
   },
-  { label: "ბალანსი და VIP", href: "/dashboard/food/balance", icon: Wallet },
+  { labelKey: "balanceAndVip", href: "/dashboard/food/balance", icon: Wallet },
   {
-    label: "შეტყობინებები",
+    labelKey: "notificationsItem",
     href: "/dashboard/food/notifications",
     icon: Bell,
     badgeKind: "notifications",
   },
-  { label: "პარამეტრები", href: "/dashboard/food/parameters", icon: Settings },
+  { labelKey: "settings", href: "/dashboard/food/parameters", icon: Settings },
 ];
 
 function BrandLogo() {
@@ -77,14 +78,16 @@ function isItemActive(href: string, current: string) {
 
 export function FoodSidebar({
   restaurantName,
-  restaurantSubtitle = "კვების სერვისი",
+  restaurantSubtitle,
   badgeLabel,
   currentPath,
   notificationCount = 0,
   onSignOut,
   availableCabinets,
 }: FoodSidebarProps) {
+  const t = useTranslations("DashboardSidebar");
   const displayBadge = badgeLabel ?? restaurantName.slice(0, 2).toUpperCase();
+  const subtitle = restaurantSubtitle ?? t("roles.foodService");
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
@@ -106,7 +109,7 @@ export function FoodSidebar({
             {restaurantName}
           </p>
           <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
-            {restaurantSubtitle}
+            {subtitle}
           </p>
         </div>
       </CabinetSwitcher>
@@ -138,7 +141,9 @@ export function FoodSidebar({
                     />
                   )}
                   <Icon className="size-[18px] shrink-0" />
-                  <span className="flex-1 truncate">{item.label}</span>
+                  <span className="flex-1 truncate">
+                    {t(`nav.${item.labelKey}`)}
+                  </span>
                   {showBadge && (
                     <span className="flex h-[20px] min-w-[24px] items-center justify-center rounded-md bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">
                       {notificationCount > 9 ? "9+" : notificationCount}
@@ -157,7 +162,7 @@ export function FoodSidebar({
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8]"
         >
           <Home className="size-[18px]" />
-          მთავარზე დაბრუნება
+          {t("backToHome")}
         </Link>
       </div>
 
@@ -168,7 +173,7 @@ export function FoodSidebar({
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
         >
           <LogOut className="size-[18px]" />
-          გამოსვლა
+          {t("logout")}
         </button>
       </div>
     </motion.aside>

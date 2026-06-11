@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Check, Flame, UserPlus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type LeadStage =
   | "new"
@@ -39,26 +40,26 @@ interface AddLeadModalProps {
   onSubmit: (lead: LeadInput) => Promise<void> | void;
 }
 
-const INTEREST_OPTIONS: { value: LeadInterestType; label: string }[] = [
-  { value: "apartment_purchase", label: "აპარტამენტის შეძენა" },
-  { value: "cottage_purchase", label: "კოტეჯის შეძენა" },
-  { value: "land_plot", label: "მიწის ნაკვეთი" },
-  { value: "long_term_rent", label: "ბინის ქირაობა (დიდი ხნით)" },
+const INTEREST_VALUES: LeadInterestType[] = [
+  "apartment_purchase",
+  "cottage_purchase",
+  "land_plot",
+  "long_term_rent",
 ];
 
-const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
-  { value: "new", label: "ახალი მოთხოვნა" },
-  { value: "contacted", label: "დავუკავშირდი" },
-  { value: "shown", label: "ვაჩვენე ობიექტი" },
-  { value: "negotiating", label: "გაიყიდა / დასრულდა" },
-  { value: "closed", label: "არასწორი / გაუქმდა" },
+const STAGE_VALUES: LeadStage[] = [
+  "new",
+  "contacted",
+  "shown",
+  "negotiating",
+  "closed",
 ];
 
-const LOCATION_OPTIONS: { value: LeadLocation; label: string }[] = [
-  { value: "didveli", label: "დიდველი" },
-  { value: "koxta", label: "კოხტა" },
-  { value: "centri", label: "ცენტრი" },
-  { value: "tyis_piras", label: "ტყის პირას" },
+const LOCATION_VALUES: LeadLocation[] = [
+  "didveli",
+  "koxta",
+  "centri",
+  "tyis_piras",
 ];
 
 interface CustomSelectProps<T extends string> {
@@ -160,6 +161,36 @@ export default function AddLeadModal({
   onClose,
   onSubmit,
 }: AddLeadModalProps) {
+  const t = useTranslations("SellerDashboard.addLead");
+  const tShared = useTranslations("DashboardShared");
+
+  const interestOptions = useMemo(
+    () =>
+      INTEREST_VALUES.map((value) => ({
+        value,
+        label: t(`interests.${value}`),
+      })),
+    [t],
+  );
+
+  const stageOptions = useMemo(
+    () =>
+      STAGE_VALUES.map((value) => ({
+        value,
+        label: t(`stages.${value}`),
+      })),
+    [t],
+  );
+
+  const locationOptions = useMemo(
+    () =>
+      LOCATION_VALUES.map((value) => ({
+        value,
+        label: t(`locations.${value}`),
+      })),
+    [t],
+  );
+
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [interest, setInterest] =
@@ -211,7 +242,7 @@ export default function AddLeadModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!clientName.trim()) {
-      setError("სახელი სავალდებულოა");
+      setError(t("nameRequired"));
       return;
     }
     setSubmitting(true);
@@ -232,7 +263,7 @@ export default function AddLeadModal({
       reset();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : tShared("genericRetry"));
     } finally {
       setSubmitting(false);
     }
@@ -265,10 +296,10 @@ export default function AddLeadModal({
                 </div>
                 <div>
                   <h2 className="text-[20px] font-black leading-tight text-[#0F172A]">
-                    ახალი მოთხოვნის დამატება
+                    {t("title")}
                   </h2>
                   <p className="mt-1 text-[12px] font-semibold uppercase tracking-wide text-[#94A3B8]">
-                    მონაცემების შეყვანა CRM-ში
+                    {t("subtitle")}
                   </p>
                 </div>
               </div>
@@ -288,19 +319,19 @@ export default function AddLeadModal({
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                    კლიენტის სახელი *
+                    {t("clientName")}
                   </label>
                   <input
                     type="text"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    placeholder="მაგ: დავითი"
+                    placeholder={t("clientNamePlaceholder")}
                     className="h-12 w-full rounded-xl border-2 border-[#E2E8F0] bg-white px-4 text-[14px] focus:border-[#2563EB] focus:outline-none"
                   />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                    ტელეფონის ნომერი
+                    {t("phoneLabel")}
                   </label>
                   <input
                     type="tel"
@@ -315,21 +346,21 @@ export default function AddLeadModal({
               <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                    რითია დაინტერესებული? *
+                    {t("interestLabel")}
                   </label>
                   <CustomSelect
                     value={interest}
-                    options={INTEREST_OPTIONS}
+                    options={interestOptions}
                     onChange={setInterest}
                   />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                    სტატუსი (ეტაპი) *
+                    {t("stageLabel")}
                   </label>
                   <CustomSelect
                     value={stage}
-                    options={STAGE_OPTIONS}
+                    options={stageOptions}
                     onChange={setStage}
                   />
                 </div>
@@ -338,7 +369,7 @@ export default function AddLeadModal({
               <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                    სავარაუდო ბიუჯეტი (USD)
+                    {t("budgetLabel")}
                   </label>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[14px] font-bold text-[#94A3B8]">
@@ -348,14 +379,14 @@ export default function AddLeadModal({
                       type="text"
                       value={budgetText}
                       onChange={(e) => setBudgetText(e.target.value)}
-                      placeholder="მაგ: 35,000 - 50,000"
+                      placeholder={t("budgetPlaceholder")}
                       className="h-12 w-full rounded-xl border-2 border-[#E2E8F0] bg-white pl-9 pr-4 text-[14px] focus:border-[#2563EB] focus:outline-none"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                    პრიორიტეტი
+                    {t("priorityLabel")}
                   </label>
                   <div className="flex gap-2">
                     <button
@@ -368,7 +399,7 @@ export default function AddLeadModal({
                       }`}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-[#94A3B8]" />
-                      დაბალი
+                      {t("priorityLow")}
                     </button>
                     <button
                       type="button"
@@ -380,7 +411,7 @@ export default function AddLeadModal({
                       }`}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
-                      საშ.
+                      {t("priorityMedium")}
                     </button>
                     <button
                       type="button"
@@ -394,7 +425,7 @@ export default function AddLeadModal({
                       <Flame
                         className={`h-3.5 w-3.5 ${priority === "high" ? "text-[#F97316]" : "text-[#94A3B8]"}`}
                       />
-                      ცხელი
+                      {t("priorityHigh")}
                     </button>
                   </div>
                 </div>
@@ -402,10 +433,10 @@ export default function AddLeadModal({
 
               <div className="mt-5">
                 <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                  სასურველი ლოკაცია
+                  {t("locationLabel")}
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {LOCATION_OPTIONS.map((l) => {
+                  {locationOptions.map((l) => {
                     const active = location === l.value;
                     return (
                       <button
@@ -427,13 +458,13 @@ export default function AddLeadModal({
 
               <div className="mt-5">
                 <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                  დამატებითი დეტალები / შენიშვნა
+                  {t("noteLabel")}
                 </label>
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={4}
-                  placeholder="ჩაწერეთ კლიენტის მოთხოვნები..."
+                  placeholder={t("notePlaceholder")}
                   className="w-full rounded-xl border-2 border-[#E2E8F0] bg-white px-4 py-3 text-[13px] focus:border-[#2563EB] focus:outline-none"
                 />
               </div>
@@ -451,7 +482,7 @@ export default function AddLeadModal({
                 onClick={handleClose}
                 className="rounded-xl border-2 border-[#E2E8F0] bg-white px-6 py-2.5 text-[13px] font-bold text-[#475569] hover:bg-[#F1F5F9]"
               >
-                გაუქმება
+                {tShared("cancel")}
               </button>
               <button
                 type="button"
@@ -459,7 +490,7 @@ export default function AddLeadModal({
                 disabled={submitting}
                 className="rounded-xl bg-[#2563EB] px-7 py-2.5 text-[13px] font-bold text-white shadow-[0_8px_18px_-6px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
               >
-                {submitting ? "..." : "დამატება"}
+                {submitting ? tShared("inProgress") : tShared("add")}
               </button>
             </div>
           </motion.div>

@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { leadsClient } from "@/lib/supabase/leads";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
+import { useStatsFilter } from "@/lib/hooks/useStatsFilter";
+import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import {
+  ListingScopeSelect,
+  type ListingOption,
+} from "@/components/dashboard/ListingScopeSelect";
 
 interface FunnelStage {
   label: string;
@@ -23,39 +30,68 @@ interface SourceRow {
 }
 
 export default function SellerAnalyticsPage() {
+  const t = useTranslations("SellerAnalytics");
   const { user } = useAuth();
   const supabase = createClient();
 
+  const { range, preset, label, listingIds, setRange, setListingIds } =
+    useStatsFilter();
+
   const [loading, setLoading] = useState(true);
+  const [listingOptions, setListingOptions] = useState<ListingOption[]>([]);
   const [views, setViews] = useState(0);
-  const [favorites] = useState(0);
-  const [contactReveals] = useState(0);
+  const [favorites, setFavorites] = useState(0);
+  const [contactReveals, setContactReveals] = useState(0);
   const [realContacts, setRealContacts] = useState(0);
   const [closed, setClosed] = useState(0);
 
   useEffect(() => {
     if (!user) return;
 
+    async function fetchListings() {
+      const { data } = await supabase
+        .from("properties")
+        .select("id, title")
+        .eq("owner_id", user!.id)
+        .eq("is_for_sale", true)
+        .order("created_at", { ascending: false });
+
+      if (data) setListingOptions(data);
+    }
+
+    fetchListings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
     async function fetch() {
-      const [propsRes, leadsRes] = await Promise.all([
-        supabase
-          .from("properties")
-          .select("views_count")
-          .eq("owner_id", user!.id)
-          .eq("is_for_sale", true),
-        leadsClient(supabase)
-          .from("leads")
-          .select("stage", { count: "exact" })
-          .eq("owner_id", user!.id),
+      let leadsQuery = leadsClient(supabase)
+        .from("leads")
+        .select("stage", { count: "exact" })
+        .eq("owner_id", user!.id)
+        .gte("created_at", range.from.toISOString())
+        .lt("created_at", range.to.toISOString());
+      if (listingIds.length) {
+        leadsQuery = leadsQuery.in("property_id", listingIds);
+      }
+
+      const [statsRes, leadsRes] = await Promise.all([
+        supabase.rpc("seller_dashboard_stats", {
+          p_from: range.from.toISOString(),
+          p_to: range.to.toISOString(),
+          p_property_ids: listingIds.length ? listingIds : undefined,
+        }),
+        leadsQuery,
       ]);
 
-      if (propsRes.data) {
-        setViews(
-          propsRes.data.reduce(
-            (s, r) => s + Number((r.views_count as number) ?? 0),
-            0,
-          ),
-        );
+      const s = statsRes.data?.[0];
+      if (s) {
+        setViews(Number(s.views_total));
+        setFavorites(Number(s.favorites));
+        setContactReveals(Number(s.contact_reach));
+        setClosed(Number(s.sold));
       }
       if (!leadsRes.error && leadsRes.data) {
         const rows = leadsRes.data as { stage: string }[];
@@ -67,42 +103,41 @@ export default function SellerAnalyticsPage() {
               r.stage === "negotiating",
           ).length,
         );
-        setClosed(rows.filter((r) => r.stage === "closed").length);
       }
       setLoading(false);
     }
 
     fetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, range.from.getTime(), range.to.getTime(), listingIds.join(",")]);
 
   const funnel: FunnelStage[] = [
     {
-      label: "ობიექტის ნახვა",
+      label: t("funnelViews"),
       value: views,
       color: "bg-[#E2E8F0]",
       textColor: "text-[#0F172A]",
     },
     {
-      label: "რჩეულებში დამატება",
+      label: t("funnelFavorites"),
       value: favorites,
       color: "bg-[#60A5FA]",
       textColor: "text-white",
     },
     {
-      label: "ნომრის / WA ნახვა",
+      label: t("funnelContact"),
       value: contactReveals,
       color: "bg-[#2563EB]",
       textColor: "text-white",
     },
     {
-      label: "რეალური კონტაქტი",
+      label: t("funnelRealContact"),
       value: realContacts,
       color: "bg-[#10B981]",
       textColor: "text-white",
     },
     {
-      label: "გაყიდვა / გაფორმდა",
+      label: t("funnelClosed"),
       value: closed,
       color: "bg-[#047857]",
       textColor: "text-white",
@@ -113,35 +148,35 @@ export default function SellerAnalyticsPage() {
 
   const sources: SourceRow[] = [
     { label: "Smart Match", value: 0, percent: 0, color: "bg-[#2563EB]" },
-    { label: "პირდაპირი ძიება", value: 0, percent: 0, color: "bg-[#10B981]" },
-    { label: "რეკომენდაცია", value: 0, percent: 0, color: "bg-[#F59E0B]" },
-    { label: "სხვა", value: 0, percent: 0, color: "bg-[#94A3B8]" },
+    { label: t("sourceDirect"), value: 0, percent: 0, color: "bg-[#10B981]" },
+    { label: t("sourceReferral"), value: 0, percent: 0, color: "bg-[#F59E0B]" },
+    { label: t("sourceOther"), value: 0, percent: 0, color: "bg-[#94A3B8]" },
   ];
 
   const metrics: { label: string; value: string; sub: string }[] = [
     {
-      label: "საშ. ნახვა / ობიექტი",
+      label: t("metricAvgViews"),
       value: views
         ? Math.round(views / Math.max(1, funnel.length)).toString()
         : "0",
-      sub: "ბოლო 30 დღე",
+      sub: label,
     },
     {
-      label: "კონვერსია (ნახვა → კონტაქტი)",
+      label: t("metricConversion"),
       value: views ? `${((realContacts / views) * 100).toFixed(1)}%` : "0%",
-      sub: "ბოლო 30 დღე",
+      sub: label,
     },
     {
-      label: "საშ. პასუხის დრო",
+      label: t("metricResponseTime"),
       value: "—",
-      sub: "ჯერ არ არის საკმარისი მონაცემი",
+      sub: t("insufficientData"),
     },
     {
-      label: "დახურვის განაკვეთი",
+      label: t("metricCloseRate"),
       value: realContacts
         ? `${((closed / realContacts) * 100).toFixed(1)}%`
         : "0%",
-      sub: "ბოლო 30 დღე",
+      sub: label,
     },
   ];
 
@@ -152,11 +187,19 @@ export default function SellerAnalyticsPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-          ანალიტიკა და მარკეტინგი
+          {t("title")}
         </h1>
         <p className="mt-1 text-sm font-medium text-[#64748B]">
-          კლიენტების მოზიდვის ძაბრი და ეფექტურობა
+          {t("subtitle")}
         </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <DateRangeFilter range={range} preset={preset} onChange={setRange} />
+          <ListingScopeSelect
+            listings={listingOptions}
+            selectedIds={listingIds}
+            onChange={setListingIds}
+          />
+        </div>
       </motion.div>
 
       <motion.div
@@ -165,7 +208,7 @@ export default function SellerAnalyticsPage() {
         className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:p-8"
       >
         <p className="text-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#94A3B8]">
-          Lead Generation Funnel
+          {t("funnelTitle")}
         </p>
         <div className="mx-auto mt-8 max-w-2xl">
           {loading ? (
@@ -218,7 +261,7 @@ export default function SellerAnalyticsPage() {
           className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
           <h3 className="text-[14px] font-black text-[#0F172A]">
-            ლიდების წყაროები
+            {t("leadSources")}
           </h3>
           <div className="mt-5 space-y-4">
             {sources.map((s) => (
@@ -247,7 +290,7 @@ export default function SellerAnalyticsPage() {
           className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#94A3B8]">
-            Performance metrics
+            {t("metricsTitle")}
           </p>
           <div className="mt-4 grid grid-cols-2 gap-4">
             {metrics.map((m) => (

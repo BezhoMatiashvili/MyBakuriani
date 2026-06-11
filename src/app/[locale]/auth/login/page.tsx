@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -27,6 +28,7 @@ type AuthTab = "email" | "phone";
 type AuthMode = "login" | "register";
 
 export default function LoginPage() {
+  const t = useTranslations("AuthLogin");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signInWithOtp, verifyOtp, signUp, signInWithPassword } = useAuth();
@@ -63,7 +65,7 @@ export default function LoginPage() {
 
   async function handleSendOtp() {
     if (phone.length !== 9) {
-      setError("გთხოვთ შეიყვანოთ სწორი ტელეფონის ნომერი");
+      setError(t("errors.invalidPhone"));
       return;
     }
     setLoading(true);
@@ -72,7 +74,7 @@ export default function LoginPage() {
       await signInWithOtp(fullPhone);
       setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : t("errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -80,7 +82,7 @@ export default function LoginPage() {
 
   async function handleVerifyOtp() {
     if (otp.length !== 6) {
-      setError("გთხოვთ შეიყვანოთ 6-ციფრიანი კოდი");
+      setError(t("errors.invalidOtp"));
       return;
     }
     setLoading(true);
@@ -89,9 +91,7 @@ export default function LoginPage() {
       const data = await verifyOtp(fullPhone, otp);
       if (data?.user) await redirectAfterAuth(data.user.id);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "არასწორი კოდი. სცადეთ თავიდან.",
-      );
+      setError(err instanceof Error ? err.message : t("errors.wrongCode"));
     } finally {
       setLoading(false);
     }
@@ -99,7 +99,7 @@ export default function LoginPage() {
 
   async function handleEmailLogin() {
     if (!email.trim() || !password) {
-      setError("გთხოვთ შეავსოთ ყველა ველი");
+      setError(t("errors.fillAllFields"));
       return;
     }
     setLoading(true);
@@ -109,7 +109,7 @@ export default function LoginPage() {
       if (data?.user) await redirectAfterAuth(data.user.id);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "არასწორი ელ. ფოსტა ან პაროლი",
+        err instanceof Error ? err.message : t("errors.wrongCredentials"),
       );
     } finally {
       setLoading(false);
@@ -118,15 +118,15 @@ export default function LoginPage() {
 
   async function handleEmailRegister() {
     if (!email.trim() || !password) {
-      setError("გთხოვთ შეავსოთ ყველა ველი");
+      setError(t("errors.fillAllFields"));
       return;
     }
     if (password.length < 6) {
-      setError("პაროლი მინიმუმ 6 სიმბოლო");
+      setError(t("errors.passwordTooShort"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("პაროლები არ ემთხვევა");
+      setError(t("errors.passwordsMismatch"));
       return;
     }
     setLoading(true);
@@ -134,20 +134,17 @@ export default function LoginPage() {
     try {
       const data = await signUp(email.trim(), password);
       if (data?.user && !data.user.identities?.length) {
-        setError("ეს ელ. ფოსტა უკვე რეგისტრირებულია.");
+        setError(t("errors.emailTaken"));
         return;
       }
       if (data?.session && data.user) await redirectAfterAuth(data.user.id);
-      else if (!data?.session)
-        setSuccessMessage(
-          "დადასტურების ბმული გამოგზავნილია თქვენს ელ. ფოსტაზე.",
-        );
+      else if (!data?.session) setSuccessMessage(t("confirmationLinkSent"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setError(
         msg.includes("already registered")
-          ? "ეს ელ. ფოსტა უკვე რეგისტრირებულია."
-          : msg || "შეცდომა.",
+          ? t("errors.emailTaken")
+          : msg || t("errors.error"),
       );
     } finally {
       setLoading(false);
@@ -179,13 +176,13 @@ export default function LoginPage() {
             <span className="text-[#1E293B]">My</span>
             <span className="text-brand-accent">Bakuriani</span>
           </h2>
-          <p className="mt-1 text-xs text-[#94A3B8]">პრემიუმ ეკოსისტემა</p>
+          <p className="mt-1 text-xs text-[#94A3B8]">{t("tagline")}</p>
           <div className="mx-auto mt-4 flex w-48 gap-1">
             <div className="h-[3px] flex-1 rounded-full bg-brand-accent" />
             <div className="h-[3px] flex-1 rounded-full bg-[#F8FAFC]" />
           </div>
           <h1 className="mt-6 text-xl font-black text-[#1E293B]">
-            შესვლა / რეგისტრაცია
+            {t("title")}
           </h1>
         </div>
 
@@ -195,14 +192,14 @@ export default function LoginPage() {
             onClick={() => switchTab("email")}
             className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${tab === "email" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
           >
-            ელ. ფოსტა
+            {t("emailTab")}
           </button>
           <button
             type="button"
             onClick={() => switchTab("phone")}
             className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${tab === "phone" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
           >
-            ტელეფონი
+            {t("phoneTab")}
           </button>
         </div>
 
@@ -223,7 +220,9 @@ export default function LoginPage() {
                 ) : (
                   <>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">ელ. ფოსტა</label>
+                      <label className="text-sm font-medium">
+                        {t("emailLabel")}
+                      </label>
                       <input
                         type="email"
                         value={email}
@@ -233,7 +232,9 @@ export default function LoginPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">პაროლი</label>
+                      <label className="text-sm font-medium">
+                        {t("passwordLabel")}
+                      </label>
                       <div className="relative">
                         <input
                           type={showPassword ? "text" : "password"}
@@ -258,7 +259,7 @@ export default function LoginPage() {
                     {authMode === "register" && (
                       <div className="space-y-2">
                         <label className="text-sm font-medium">
-                          პაროლის დადასტურება
+                          {t("confirmPasswordLabel")}
                         </label>
                         <input
                           type={showPassword ? "text" : "password"}
@@ -283,7 +284,7 @@ export default function LoginPage() {
                       {loading && (
                         <Loader2 className="mr-2 size-4 animate-spin" />
                       )}
-                      {authMode === "login" ? "შესვლა" : "რეგისტრაცია"}
+                      {authMode === "login" ? t("signIn") : t("register")}
                     </Button>
                     <button
                       type="button"
@@ -292,9 +293,7 @@ export default function LoginPage() {
                       }
                       className="w-full text-center text-sm text-[#94A3B8]"
                     >
-                      {authMode === "login"
-                        ? "არ გაქვთ ანგარიში? რეგისტრაცია"
-                        : "უკვე გაქვთ ანგარიში? შესვლა"}
+                      {authMode === "login" ? t("noAccount") : t("haveAccount")}
                     </button>
                   </>
                 )}
@@ -342,7 +341,7 @@ export default function LoginPage() {
                       d="M12 5.48c1.61 0 3.06.55 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.41 9.14 5.48 12 5.48z"
                     />
                   </svg>
-                  გაგრძელება Google-ით
+                  {t("continueWithGoogle")}
                 </button>
                 <button
                   type="button"
@@ -367,18 +366,18 @@ export default function LoginPage() {
                       d="M24 12a12 12 0 1 0-13.88 11.85v-8.39H7.08V12h3.04V9.36c0-3 1.79-4.67 4.53-4.67 1.31 0 2.68.24 2.68.24v2.95h-1.51c-1.49 0-1.95.93-1.95 1.87V12h3.32l-.53 3.47h-2.79v8.39A12 12 0 0 0 24 12z"
                     />
                   </svg>
-                  გაგრძელება Facebook-ით
+                  {t("continueWithFacebook")}
                 </button>
                 <div className="relative flex items-center py-1">
                   <div className="flex-grow border-t border-[#E2E8F0]" />
                   <span className="mx-3 text-[11px] font-medium uppercase text-[#94A3B8]">
-                    ან
+                    {t("or")}
                   </span>
                   <div className="flex-grow border-t border-[#E2E8F0]" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    ტელეფონის ნომერი
+                    {t("phoneLabel")}
                   </label>
                   <PhoneInput value={phone} onChange={setPhone} error={error} />
                 </div>
@@ -389,7 +388,7 @@ export default function LoginPage() {
                   size="lg"
                 >
                   {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
-                  SMS კოდის მიღება
+                  {t("getSmsCode")}
                 </Button>
               </motion.div>
             ) : (
@@ -401,7 +400,7 @@ export default function LoginPage() {
                 className="space-y-6"
               >
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">ერთჯერადი კოდი</label>
+                  <label className="text-sm font-medium">{t("otpLabel")}</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -422,7 +421,7 @@ export default function LoginPage() {
                   size="lg"
                 >
                   {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
-                  დადასტურება
+                  {t("verify")}
                 </Button>
                 <button
                   type="button"
@@ -433,7 +432,7 @@ export default function LoginPage() {
                   }}
                   className="w-full text-center text-sm text-[#94A3B8]"
                 >
-                  ნომრის შეცვლა
+                  {t("changeNumber")}
                 </button>
               </motion.div>
             )}
@@ -441,13 +440,13 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-[#94A3B8]">
-          შესვლით თქვენ ეთანხმებით{" "}
+          {t("agreePrefix")}{" "}
           <Link href="/terms" className="underline">
-            მომსახურების პირობებს
+            {t("termsOfService")}
           </Link>{" "}
-          და{" "}
+          {t("and")}{" "}
           <Link href="/terms#confidentiality" className="underline">
-            კონფიდენციალურობის პოლიტიკას
+            {t("privacyPolicy")}
           </Link>
         </p>
       </motion.div>

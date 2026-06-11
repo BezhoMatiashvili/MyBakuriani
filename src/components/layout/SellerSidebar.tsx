@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   PieChart,
   IdCard,
@@ -21,7 +22,7 @@ import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface SellerSidebarProps {
   userName: string;
-  profileType?: "ფიზიკური პირი" | "იურიდიული პირი";
+  profileType?: "individual" | "legal";
   avatarUrl?: string;
   isVerified?: boolean;
   leadsCount?: number;
@@ -32,61 +33,61 @@ interface SellerSidebarProps {
 }
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: LucideIcon;
   badgeKind?: "leads" | "notifications";
 }
 
 interface NavSection {
-  title: string;
+  titleKey: string;
   items: NavItem[];
 }
 
 const SECTIONS: NavSection[] = [
   {
-    title: "მართვის პანელი",
+    titleKey: "managementPanel",
     items: [
-      { label: "მთავარი პანელი", href: "/dashboard/seller", icon: PieChart },
+      { labelKey: "mainPanel", href: "/dashboard/seller", icon: PieChart },
       {
-        label: "კლიენტები / ბაზა",
+        labelKey: "clientsDatabase",
         href: "/dashboard/seller/leads",
         icon: IdCard,
         badgeKind: "leads",
       },
       {
-        label: "ობიექტები და პროექტები",
+        labelKey: "propertiesAndProjects",
         href: "/dashboard/seller/listings",
         icon: Building2,
       },
     ],
   },
   {
-    title: "ეფექტურობა",
+    titleKey: "efficiency",
     items: [
       {
-        label: "ანალიტიკა და უკუგება",
+        labelKey: "analyticsAndFeedback",
         href: "/dashboard/seller/analytics",
         icon: TrendingUp,
       },
       {
-        label: "ბალანსი და VIP",
+        labelKey: "balanceAndVip",
         href: "/dashboard/seller/balance",
         icon: Wallet,
       },
     ],
   },
   {
-    title: "სისტემა",
+    titleKey: "system",
     items: [
       {
-        label: "შეტყობინებები",
+        labelKey: "notificationsItem",
         href: "/dashboard/seller/notifications",
         icon: Bell,
         badgeKind: "notifications",
       },
       {
-        label: "პარამეტრები",
+        labelKey: "settings",
         href: "/dashboard/seller/settings",
         icon: Settings,
       },
@@ -123,7 +124,7 @@ function isItemActive(itemHref: string, currentPath: string) {
 
 export function SellerSidebar({
   userName,
-  profileType = "ფიზიკური პირი",
+  profileType = "individual",
   avatarUrl,
   isVerified = true,
   leadsCount = 0,
@@ -132,6 +133,7 @@ export function SellerSidebar({
   onSignOut,
   availableCabinets,
 }: SellerSidebarProps) {
+  const t = useTranslations("DashboardSidebar");
   const initials = userName
     .split(" ")
     .map((n) => n[0])
@@ -164,11 +166,11 @@ export function SellerSidebar({
               <span className="flex h-3 w-3 items-center justify-center rounded-full bg-[#10B981] text-[8px] text-white">
                 ✓
               </span>
-              ვერიფიცირებული
+              {t("verified")}
             </p>
           )}
           <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
-            {profileType}
+            {t(`profileType.${profileType}`)}
           </p>
         </div>
       </CabinetSwitcher>
@@ -176,9 +178,9 @@ export function SellerSidebar({
       <nav className="mt-5 flex-1 overflow-y-auto px-4">
         <ul className="space-y-5">
           {SECTIONS.map((section) => (
-            <li key={section.title}>
+            <li key={section.titleKey}>
               <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
-                {section.title}
+                {t(`sections.${section.titleKey}`)}
               </p>
               <ul className="space-y-1">
                 {section.items.map((item) => {
@@ -213,7 +215,9 @@ export function SellerSidebar({
                           />
                         )}
                         <Icon className="size-[18px] shrink-0" />
-                        <span className="flex-1 truncate">{item.label}</span>
+                        <span className="flex-1 truncate">
+                          {t(`nav.${item.labelKey}`)}
+                        </span>
                         {showBadge && (
                           <span
                             className={cn(
@@ -240,7 +244,7 @@ export function SellerSidebar({
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8]"
         >
           <Home className="size-[18px]" />
-          მთავარზე დაბრუნება
+          {t("backToHome")}
         </Link>
       </div>
 
@@ -251,7 +255,7 @@ export function SellerSidebar({
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
         >
           <LogOut className="size-[18px]" />
-          გამოსვლა
+          {t("logout")}
         </button>
       </div>
     </motion.aside>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   Bell,
@@ -15,6 +16,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRealtimeList } from "@/lib/hooks/useRealtime";
+import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 
 interface Notification {
   id: string;
@@ -48,26 +50,13 @@ const TYPE_ICON: Record<string, { icon: LucideIcon; bg: string; fg: string }> =
     default: { icon: Bell, bg: "bg-[#F1F5F9]", fg: "text-[#64748B]" },
   };
 
-function relativeTimeKa(createdAt: string): string {
-  const diffMs = Date.now() - new Date(createdAt).getTime();
-  const hours = Math.floor(diffMs / 3_600_000);
-  if (hours < 1) {
-    const mins = Math.floor(diffMs / 60_000);
-    return mins < 1 ? "ახლა" : `${mins} წთ-ის წინ`;
-  }
-  if (hours < 24) return `${hours} სთ-ის წინ`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "გუშინ";
-  return `${days} დღის წინ`;
-}
-
 export default function ServiceNotificationsPage() {
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
-  // Live notifications over websocket — new/updated rows arrive without refresh.
   const {
     rows: notifications,
     setRows: setNotifications,
@@ -119,30 +108,36 @@ export default function ServiceNotificationsPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          შეტყობინებები
+          {tShared("notifTitle")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          მოთხოვნები, აქციები და სისტემური ცნობები.
+          {tShared("notifSubtitleRequests")}
         </p>
       </motion.div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {[
-            { key: "all" as const, label: `ყველა (${notifications.length})` },
-            { key: "unread" as const, label: `წაუკითხავი (${unread})` },
-          ].map((t) => (
+            {
+              key: "all" as const,
+              label: tShared("tabAll", { count: notifications.length }),
+            },
+            {
+              key: "unread" as const,
+              label: tShared("tabUnread", { count: unread }),
+            },
+          ].map((tab) => (
             <button
-              key={t.key}
+              key={tab.key}
               type="button"
-              onClick={() => setFilter(t.key)}
+              onClick={() => setFilter(tab.key)}
               className={`rounded-full px-4 py-2 text-[12px] font-bold transition-colors ${
-                filter === t.key
+                filter === tab.key
                   ? "bg-[#0F172A] text-white"
                   : "border border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#0F172A] hover:text-[#0F172A]"
               }`}
             >
-              {t.label}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -152,7 +147,7 @@ export default function ServiceNotificationsPage() {
           disabled={unread === 0}
           className="text-[12px] font-bold text-[#2563EB] hover:underline disabled:cursor-not-allowed disabled:text-[#CBD5E1] disabled:no-underline"
         >
-          ყველას ნაკითხულად მონიშვნა
+          {tShared("markAllRead")}
         </button>
       </div>
 
@@ -176,10 +171,10 @@ export default function ServiceNotificationsPage() {
             <li className="flex flex-col items-center justify-center py-16 text-center">
               <CheckCircle2 className="h-10 w-10 text-[#CBD5E1]" />
               <p className="mt-3 text-[13px] font-semibold text-[#0F172A]">
-                ცარიელია
+                {tShared("empty")}
               </p>
               <p className="mt-1 text-[12px] text-[#94A3B8]">
-                შეტყობინებები ჯერ არ არის
+                {tShared("noNotifications")}
               </p>
             </li>
           ) : (
@@ -204,7 +199,7 @@ export default function ServiceNotificationsPage() {
                         {n.title}
                       </p>
                       <span className="shrink-0 text-[11px] text-[#94A3B8]">
-                        {relativeTimeKa(n.created_at)}
+                        {formatRelativeTime(tShared, n.created_at)}
                       </span>
                     </div>
                     <p className="mt-1 text-[12px] leading-[18px] text-[#64748B]">

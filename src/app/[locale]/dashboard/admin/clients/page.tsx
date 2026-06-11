@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Ban,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Gift,
+  Loader2,
   LogOut,
   Phone,
   RefreshCcw,
   UserRound,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import Modal from "@/components/shared/Modal";
 import { createClient } from "@/lib/supabase/client";
 import { formatPhone, formatPrice } from "@/lib/utils/format";
 import type { Tables, Enums } from "@/lib/types/database";
@@ -23,20 +25,15 @@ type ProfileWithCounts = Tables<"profiles"> & {
   balance_amount: number;
 };
 
-const PAGE_SIZE = 2;
-
-const roleLabels: Record<Enums<"user_role">, string> = {
-  guest: "სტუმარი",
-  renter: "დამქირავებელი",
-  seller: "გამყიდველი",
-  cleaner: "დამლაგებელი",
-  food: "კვება",
-  entertainment: "გართობა",
-  transport: "ტრანსპორტი",
-  employment: "დასაქმება",
-  handyman: "ხელოსანი",
-  admin: "ადმინი",
+type Txn = {
+  id: string;
+  amount: number;
+  type: string;
+  description: string | null;
+  created_at: string;
 };
+
+const VIP_TX_TYPES = new Set(["vip_boost", "super_vip", "discount_badge"]);
 
 const roleBadgeClasses: Record<Enums<"user_role">, string> = {
   guest: "border border-[#E2E8F0] bg-[#ECFDF5] text-[#475569]",
@@ -52,11 +49,30 @@ const roleBadgeClasses: Record<Enums<"user_role">, string> = {
 };
 
 export default function ClientsPage() {
+  const t = useTranslations("AdminClients");
+  const tShared = useTranslations("AdminShared");
+  const locale = useLocale();
+  const txDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+    [locale],
+  );
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<ProfileWithCounts[]>([]);
-  const [page, setPage] = useState(1);
   const [selectedProfile, setSelectedProfile] =
     useState<ProfileWithCounts | null>(null);
+  // null = still loading the selected profile's transactions
+  const [txns, setTxns] = useState<Txn[] | null>(null);
+  const [bonusProfile, setBonusProfile] = useState<ProfileWithCounts | null>(
+    null,
+  );
+  const [bonusAmount, setBonusAmount] = useState<number | "">("");
+  const [bonusComment, setBonusComment] = useState("");
+  const [bonusSubmitting, setBonusSubmitting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -97,46 +113,99 @@ export default function ClientsPage() {
     load();
   }, []);
 
-  const filtered = useMemo(() => profiles, [profiles]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
+  // Real transaction history for the details modal (admin-only API; the
+  // browser client can't read other users' transactions through RLS).
   useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+    if (!selectedProfile) return;
+    let cancelled = false;
+    setTxns(null);
+    fetch(`/api/admin/clients/${selectedProfile.id}/transactions`, {
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: { transactions?: Txn[] } | null) => {
+        if (!cancelled) setTxns(payload?.transactions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setTxns([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProfile]);
 
-  const pageWindow = useMemo(() => {
-    const pages: (number | "...")[] = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i += 1) pages.push(i);
-      return pages;
+  const txStats = useMemo(() => {
+    if (!txns) return null;
+    let vipCount = 0;
+    let topupCount = 0;
+    let ltv = 0;
+    for (const tx of txns) {
+      const amount = Number(tx.amount);
+      if (VIP_TX_TYPES.has(tx.type)) vipCount += 1;
+      if (tx.type === "topup") topupCount += 1;
+      // Spend = money out, excluding withdrawals (cash-out is not consumption)
+      if (amount < 0 && tx.type !== "withdrawal") ltv += Math.abs(amount);
     }
-    pages.push(1);
-    if (page > 3) pages.push("...");
-    for (
-      let i = Math.max(2, page - 1);
-      i <= Math.min(totalPages - 1, page + 1);
-      i += 1
-    ) {
-      pages.push(i);
+    return { vipCount, topupCount, ltv };
+  }, [txns]);
+
+  function openBonus(profile: ProfileWithCounts) {
+    setBonusProfile(profile);
+    setBonusAmount("");
+    setBonusComment("");
+  }
+
+  async function submitBonus(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bonusProfile) return;
+    const amount = Number(bonusAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error(t("bonusAmountInvalid"));
+      return;
     }
-    if (page < totalPages - 2) pages.push("...");
-    pages.push(totalPages);
-    return pages;
-  }, [page, totalPages]);
+    setBonusSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/clients/bonus", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          user_id: bonusProfile.id,
+          amount,
+          comment: bonusComment.trim() || undefined,
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as {
+        error?: string;
+        new_balance?: number;
+      } | null;
+      if (!res.ok) {
+        toast.error(payload?.error ?? t("bonusFailed"));
+        return;
+      }
+      const newBalance = Number(payload?.new_balance ?? 0);
+      setProfiles((prev) =>
+        prev.map((p) =>
+          p.id === bonusProfile.id ? { ...p, balance_amount: newBalance } : p,
+        ),
+      );
+      toast.success(t("bonusSuccess"));
+      setBonusProfile(null);
+    } catch {
+      toast.error(t("bonusFailed"));
+    } finally {
+      setBonusSubmitting(false);
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1280px] space-y-6 pb-10">
       <div className="flex items-end justify-between gap-4 pb-2">
         <div>
           <h1 className="text-[32px] font-black leading-[32px] tracking-[-0.8px] text-[#0F172A]">
-            მომხმარებლები
+            {t("title")}
           </h1>
           <p className="mt-2 text-sm font-medium leading-[21px] text-[#64748B]">
-            მართეთ მომხმარებლები, შეამოწმეთ ისტორია ან აჩუქეთ ბალანსი.
+            {t("subtitle")}
           </p>
         </div>
         <button
@@ -144,126 +213,158 @@ export default function ClientsPage() {
           className="inline-flex h-[42px] items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-sm hover:bg-[#F8FAFC]"
         >
           <Download className="h-[13px] w-[13px]" />
-          ექსპორტი
+          {tShared("export")}
         </button>
       </div>
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-        <div className="grid grid-cols-[1.5fr_1fr_1.1fr] items-center gap-[48px] border-b border-[#E2E8F0] bg-[rgba(248,250,252,0.8)] px-6 py-5 text-[12px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
-          <span>კლიენტი</span>
-          <span>როლი / სტატუსი</span>
-          <span className="text-right">ოპერაციები</span>
-        </div>
-
-        {loading ? (
-          <div className="space-y-3 p-6">
-            {Array.from({ length: 2 }).map((_, idx) => (
-              <Skeleton key={idx} className="h-24 w-full rounded-xl" />
-            ))}
+        <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
+          <div className="sticky top-0 z-10 grid grid-cols-[1.5fr_1fr_1.1fr] items-center gap-[48px] border-b border-[#E2E8F0] bg-[#F8FAFC] px-6 py-5 text-[12px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
+            <span>{t("colClient")}</span>
+            <span>{t("colRoleStatus")}</span>
+            <span className="text-right">{t("colActions")}</span>
           </div>
-        ) : (
-          paginated.map((profile) => (
-            <div
-              key={profile.id}
-              className="grid grid-cols-[1.5fr_1fr_1.1fr] items-center gap-[48px] border-b border-[#F1F5F9] px-6 py-[18px] last:border-b-0"
-            >
-              <div>
-                <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+
+          {loading ? (
+            <div className="space-y-3 p-6">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <Skeleton key={idx} className="h-24 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            profiles.map((profile) => (
+              <div
+                key={profile.id}
+                className="grid grid-cols-[1.5fr_1fr_1.1fr] items-center gap-[48px] border-b border-[#F1F5F9] px-6 py-[18px] last:border-b-0"
+              >
+                <div>
+                  <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfile(profile)}
+                      className="text-left text-[16px] font-black leading-[21px] text-[#1E293B] hover:text-[#2563EB]"
+                    >
+                      {profile.display_name}
+                    </button>
+                    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-[18px] text-[#64748B]">
+                      <Phone className="h-[14px] w-[14px] shrink-0 text-[#2563EB]" />
+                      {formatPhone(profile.phone)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span
+                    className={`inline-flex rounded-lg px-3 py-1 text-[11px] font-black leading-[15px] tracking-[0.275px] ${roleBadgeClasses[profile.role]}`}
+                  >
+                    {tShared(`roles.${profile.role}`)}
+                  </span>
+                  <p className="text-[12px] font-semibold leading-[16px] text-[#64748B]">
+                    {tShared("balanceLabel", {
+                      amount: formatPrice(profile.balance_amount),
+                    })}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedProfile(profile)}
-                    className="text-left text-[16px] font-black leading-[21px] text-[#1E293B] hover:text-[#2563EB]"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[12px] bg-[#EFF6FF] px-3.5 text-[12px] font-bold text-[#2563EB] hover:bg-[#DBEAFE]"
                   >
-                    {profile.display_name}
+                    <RefreshCcw className="h-3 w-3" />
+                    {t("history")}
                   </button>
-                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-[18px] text-[#64748B]">
-                    <Phone className="h-[14px] w-[14px] shrink-0 text-[#2563EB]" />
-                    {formatPhone(profile.phone)}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openBonus(profile)}
+                    className="inline-flex h-[34px] items-center gap-1.5 rounded-[12px] border border-[#D1FAE5] bg-[#ECFDF5] px-3.5 text-[12px] font-bold text-[#10B981] hover:bg-[#D1FAE5]"
+                  >
+                    <Gift className="h-3 w-3" />
+                    {t("bonus")}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] hover:bg-white"
+                  >
+                    <LogOut className="h-[13px] w-[13px]" />
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8] hover:bg-white"
+                  >
+                    <Ban className="h-[13px] w-[13px]" />
+                  </button>
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <span
-                  className={`inline-flex rounded-lg px-3 py-1 text-[11px] font-black leading-[15px] tracking-[0.275px] ${roleBadgeClasses[profile.role]}`}
-                >
-                  {roleLabels[profile.role]}
-                </span>
-                <p className="text-[12px] font-semibold leading-[16px] text-[#64748B]">
-                  ბალანსი: {formatPrice(profile.balance_amount)}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedProfile(profile)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-[12px] bg-[#EFF6FF] px-3.5 text-[12px] font-bold text-[#2563EB] hover:bg-[#DBEAFE]"
-                >
-                  <RefreshCcw className="h-3 w-3" />
-                  ისტორია
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-[34px] items-center gap-1.5 rounded-[12px] border border-[#D1FAE5] bg-[#ECFDF5] px-3.5 text-[12px] font-bold text-[#10B981] hover:bg-[#D1FAE5]"
-                >
-                  <Gift className="h-3 w-3" />
-                  ბონუსი
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] hover:bg-white"
-                >
-                  <LogOut className="h-[13px] w-[13px]" />
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8] hover:bg-white"
-                >
-                  <Ban className="h-[13px] w-[13px]" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </section>
 
-      <div className="flex items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#334155]"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        {pageWindow.map((entry, idx) =>
-          entry === "..." ? (
-            <span key={`dots-${idx}`} className="px-1 text-xl text-[#94A3B8]">
-              ...
-            </span>
-          ) : (
+      <Modal
+        isOpen={Boolean(bonusProfile)}
+        onClose={() => setBonusProfile(null)}
+        title={t("bonusTitle", { name: bonusProfile?.display_name ?? "" })}
+        size="sm"
+      >
+        <form onSubmit={submitBonus} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-bold text-[#0F172A]">
+              {t("bonusAmount")} <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={bonusAmount}
+              onChange={(e) =>
+                setBonusAmount(
+                  e.target.value === "" ? "" : Number(e.target.value),
+                )
+              }
+              placeholder="0"
+              className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB]"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-bold text-[#0F172A]">
+              {t("bonusComment")}
+            </label>
+            <input
+              type="text"
+              value={bonusComment}
+              onChange={(e) => setBonusComment(e.target.value)}
+              className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
-              key={entry}
-              onClick={() => setPage(entry)}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${
-                page === entry
-                  ? "border-[#3B82F6] bg-[#3B82F6] text-white"
-                  : "border-[#E2E8F0] bg-white text-[#334155]"
-              }`}
+              onClick={() => setBonusProfile(null)}
+              disabled={bonusSubmitting}
+              className="flex-1 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm font-bold text-[#0F172A] hover:bg-[#F8FAFC] disabled:opacity-50"
             >
-              {entry}
+              {t("bonusCancel")}
             </button>
-          ),
-        )}
-        <button
-          type="button"
-          onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#334155]"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+            <button
+              type="submit"
+              disabled={bonusSubmitting}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#10B981] px-4 py-3 text-sm font-bold text-white hover:bg-[#059669] disabled:opacity-50"
+            >
+              {bonusSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("bonusSubmitting")}
+                </>
+              ) : (
+                t("bonusSubmit")
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {selectedProfile ? (
         <div
@@ -280,7 +381,7 @@ export default function ClientsPage() {
                   <UserRound className="h-[17px] w-[17px] text-[#2563EB]" />
                 </div>
                 <h2 className="flex flex-wrap items-center gap-1.5 text-[20px] font-black leading-[30px] text-[#1E293B]">
-                  <span>მომხმარებლის დეტალები:</span>
+                  <span>{t("userDetails")}</span>
                   <span className="text-[#2563EB]">
                     {selectedProfile.display_name}
                   </span>
@@ -299,87 +400,107 @@ export default function ClientsPage() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className="rounded-[20px] border border-[#FFEDD5] bg-[#ECFDF5] p-5">
                   <p className="text-[11px] font-bold uppercase tracking-[1.1px] text-[#F97316]">
-                    VIP გამოყენება
+                    {t("vipUsage")}
                   </p>
-                  <p className="mt-1 text-[28px] font-black leading-7 text-[#1E293B]">
-                    5-ჯერ
-                  </p>
+                  <div className="mt-1 text-[28px] font-black leading-7 text-[#1E293B]">
+                    {txStats ? (
+                      tShared("timesCount", { count: txStats.vipCount })
+                    ) : (
+                      <Skeleton className="h-7 w-16" />
+                    )}
+                  </div>
                 </div>
                 <div className="rounded-[20px] border border-[#EEF1F4] bg-[#F8FAFC] p-5">
                   <p className="text-[11px] font-bold uppercase tracking-[1.1px] text-[#9333EA]">
-                    პრომო კოდი
+                    {t("topups")}
                   </p>
-                  <p className="mt-1 text-[28px] font-black leading-7 text-[#1E293B]">
-                    2-ჯერ
-                  </p>
+                  <div className="mt-1 text-[28px] font-black leading-7 text-[#1E293B]">
+                    {txStats ? (
+                      tShared("timesCount", { count: txStats.topupCount })
+                    ) : (
+                      <Skeleton className="h-7 w-16" />
+                    )}
+                  </div>
                 </div>
                 <div className="rounded-[20px] border border-[#E2E8E5] bg-[#ECFDF5] p-5">
                   <p className="text-[11px] font-bold uppercase tracking-[1.1px] text-[#10B981]">
-                    LTV (ჯამური ხარჯი)
+                    {t("ltv")}
                   </p>
-                  <p className="mt-1 text-[28px] font-black leading-7 text-[#1E293B]">
-                    145.00 ₾
-                  </p>
+                  <div className="mt-1 text-[28px] font-black leading-7 text-[#1E293B]">
+                    {txStats ? (
+                      `${txStats.ltv.toFixed(2)} ₾`
+                    ) : (
+                      <Skeleton className="h-7 w-20" />
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC]">
                 <div className="px-6 py-4">
                   <h3 className="text-[13px] font-black uppercase tracking-[1.3px] text-[#64748B]">
-                    ტრანზაქციების ისტორია
+                    {t("txHistory")}
                   </h3>
                 </div>
                 <div className="max-h-[195px] overflow-x-auto overflow-y-auto">
-                  <table className="w-full min-w-[640px] md:min-w-0">
-                    <thead className="bg-[#F8FAFC]">
-                      <tr className="border-y border-[#E2E8F0]">
-                        <th className="px-6 py-3 text-left text-[11px] font-bold uppercase text-[#94A3B8]">
-                          თარიღი
-                        </th>
-                        <th className="px-6 py-3 text-left text-[11px] font-bold uppercase text-[#94A3B8]">
-                          მოქმედება
-                        </th>
-                        <th className="px-6 py-3 text-right text-[11px] font-bold uppercase text-[#94A3B8]">
-                          თანხა
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                      <tr className="border-t border-[#F1F5F9]">
-                        <td className="px-6 py-[17px] text-[13px] font-bold text-[#475569]">
-                          14 თებ. 2026
-                        </td>
-                        <td className="px-6 py-[17px] text-[13px] font-medium text-[#334155]">
-                          VIP ამოწევა (ბინა ID: PR-8842)
-                        </td>
-                        <td className="px-6 py-[16.5px] text-right text-[14px] font-black text-[#EF4444]">
-                          - 1.50 ₾
-                        </td>
-                      </tr>
-                      <tr className="border-t border-[#F1F5F9]">
-                        <td className="px-6 py-[17px] text-[13px] font-bold text-[#475569]">
-                          12 თებ. 2026
-                        </td>
-                        <td className="px-6 py-[17px] text-[13px] font-medium text-[#334155]">
-                          სეზონური ვერიფიკაცია (FB პაკეტი)
-                        </td>
-                        <td className="px-6 py-[16.5px] text-right text-[14px] font-black text-[#EF4444]">
-                          - 30.00 ₾
-                        </td>
-                      </tr>
-                      <tr className="border-t border-[#F1F5F9]">
-                        <td className="px-6 py-[17px] text-[13px] font-bold text-[#475569]">
-                          10 თებ. 2026
-                        </td>
-                        <td className="px-6 py-[17px] text-[13px] font-medium text-[#334155]">
-                          ბალანსის შევსება (Unipay)
-                        </td>
-                        <td className="px-6 py-4 text-right text-[14px] font-black text-[#10B981]">
-                          + 50.00 ₾
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {txns === null ? (
+                    <div className="space-y-2 bg-white p-6">
+                      {Array.from({ length: 3 }).map((_, idx) => (
+                        <Skeleton key={idx} className="h-8 w-full rounded-lg" />
+                      ))}
+                    </div>
+                  ) : txns.length === 0 ? (
+                    <div className="bg-white px-6 py-10 text-center text-sm font-medium text-[#94A3B8]">
+                      {t("txEmpty")}
+                    </div>
+                  ) : (
+                    <table className="w-full min-w-[640px] md:min-w-0">
+                      <thead className="bg-[#F8FAFC]">
+                        <tr className="border-y border-[#E2E8F0]">
+                          <th className="px-6 py-3 text-left text-[11px] font-bold uppercase text-[#94A3B8]">
+                            {t("colDate")}
+                          </th>
+                          <th className="px-6 py-3 text-left text-[11px] font-bold uppercase text-[#94A3B8]">
+                            {t("colAction")}
+                          </th>
+                          <th className="px-6 py-3 text-right text-[11px] font-bold uppercase text-[#94A3B8]">
+                            {t("colAmount")}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {txns.map((tx) => {
+                          const amount = Number(tx.amount);
+                          const isPositive = amount >= 0;
+                          return (
+                            <tr
+                              key={tx.id}
+                              className="border-t border-[#F1F5F9]"
+                            >
+                              <td className="px-6 py-[17px] text-[13px] font-bold text-[#475569]">
+                                {txDateFormatter.format(
+                                  new Date(tx.created_at),
+                                )}
+                              </td>
+                              <td className="px-6 py-[17px] text-[13px] font-medium text-[#334155]">
+                                {tx.description ?? t(`txTypes.${tx.type}`)}
+                              </td>
+                              <td
+                                className={`px-6 py-[16.5px] text-right text-[14px] font-black ${
+                                  isPositive
+                                    ? "text-[#10B981]"
+                                    : "text-[#EF4444]"
+                                }`}
+                              >
+                                {isPositive ? "+ " : "- "}
+                                {Math.abs(amount).toFixed(2)} ₾
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </div>
             </div>

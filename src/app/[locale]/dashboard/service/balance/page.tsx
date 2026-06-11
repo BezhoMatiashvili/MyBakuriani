@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   Rocket,
@@ -25,24 +26,17 @@ type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
 
 interface Tier {
-  id: string;
-  title: string;
-  description: string;
+  id: "super_vip" | "vip" | "discount" | "sms";
   price: number;
-  unit: string;
   icon: typeof Rocket;
   iconBg: string;
   iconColor: string;
   cta: string;
 }
 
-const TIERS: Tier[] = [
+const TIER_META: Omit<Tier, "price">[] = [
   {
     id: "super_vip",
-    title: "SUPER VIP",
-    description: "განცხადება მოექცევა ძიების სათავეში 24 საათით.",
-    price: 5.0,
-    unit: "₾ / 24სთ",
     icon: Rocket,
     iconBg: "bg-[#DCFCE7]",
     iconColor: "text-[#16A34A]",
@@ -50,10 +44,6 @@ const TIERS: Tier[] = [
   },
   {
     id: "vip",
-    title: "VIP სტატუსი",
-    description: "ყურადღების მიმქცევი ბეჯი და მოწინავე პოზიცია.",
-    price: 1.5,
-    unit: "₾ / დღე",
     icon: Star,
     iconBg: "bg-[#FFEDD5]",
     iconColor: "text-[#F97316]",
@@ -61,10 +51,6 @@ const TIERS: Tier[] = [
   },
   {
     id: "discount",
-    title: "ფასდაკლება",
-    description: "ფასდაკლების ნიშანი განცხადებაზე — მეტი მოთხოვნა.",
-    price: 1.0,
-    unit: "₾ / დღე",
     icon: Percent,
     iconBg: "bg-[#DCFCE7]",
     iconColor: "text-[#16A34A]",
@@ -72,10 +58,6 @@ const TIERS: Tier[] = [
   },
   {
     id: "sms",
-    title: "SMS პაკეტი",
-    description: "200 SMS შეტყობინების პაკეტი კლიენტებთან კომუნიკაციისთვის.",
-    price: 10.0,
-    unit: "₾ / 200 SMS",
     icon: MessageSquare,
     iconBg: "bg-[#DBEAFE]",
     iconColor: "text-[#2563EB]",
@@ -83,15 +65,22 @@ const TIERS: Tier[] = [
   },
 ];
 
-const TX_LABEL: Record<string, string> = {
-  topup: "შევსება",
-  vip_boost: "VIP",
-  super_vip: "Super VIP",
-  sms_package: "SMS პაკეტი",
-  discount_badge: "ფასდაკლების ბეჯი",
-  withdrawal: "გამოტანა",
-  commission: "საკომისიო",
+const TIER_PRICES: Record<Tier["id"], number> = {
+  super_vip: 5.0,
+  vip: 1.5,
+  discount: 1.0,
+  sms: 10.0,
 };
+
+const TX_TYPES = [
+  "topup",
+  "vip_boost",
+  "super_vip",
+  "sms_package",
+  "discount_badge",
+  "withdrawal",
+  "commission",
+] as const;
 
 // Maps a local tier id to the shared info-modal tier whose copy it should show.
 const TIER_TO_INFO: Record<string, VipInfoTier> = {
@@ -102,6 +91,8 @@ const TIER_TO_INFO: Record<string, VipInfoTier> = {
 };
 
 export default function ServiceBalancePage() {
+  const tBalance = useTranslations("ServiceBalance");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -167,12 +158,12 @@ export default function ServiceBalancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  async function handlePurchase(tier: Tier) {
+  async function handlePurchase(tierId: Tier["id"]) {
     if (!user || !balance) return;
-    setPurchasing(tier.id);
+    setPurchasing(tierId);
     try {
       await supabase.functions.invoke("purchase-vip", {
-        body: { purchase_type: tier.id, days: 1 },
+        body: { purchase_type: tierId, days: 1 },
       });
       const { data: txData } = await supabase
         .from("transactions")
@@ -193,10 +184,10 @@ export default function ServiceBalancePage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          ბალანსი და VIP
+          {tShared("balanceTitle")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          მართე ბალანსი და გაააქტიურე პრომო პაკეტები.
+          {tShared("balanceSubtitle")}
         </p>
       </motion.div>
 
@@ -207,7 +198,7 @@ export default function ServiceBalancePage() {
       >
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
-            მიმდინარე ბალანსი
+            {tShared("currentBalance")}
           </p>
           {loading ? (
             <Skeleton className="mt-2 h-10 w-32 bg-white/20" />
@@ -222,7 +213,7 @@ export default function ServiceBalancePage() {
           type="button"
           className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[13px] font-black text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
         >
-          ბალანსის შევსება
+          {tShared("topUpBalance")}
         </button>
       </motion.div>
 
@@ -232,25 +223,28 @@ export default function ServiceBalancePage() {
         transition={{ delay: 0.05 }}
         className="grid grid-cols-1 gap-4 md:grid-cols-2"
       >
-        {TIERS.map((t) => (
-          <BalancePackageCard
-            key={t.id}
-            icon={t.icon}
-            iconBg={t.iconBg}
-            iconColor={t.iconColor}
-            title={t.title}
-            description={t.description}
-            price={t.price}
-            unit={t.unit}
-            ctaColor={t.cta}
-            canAfford={(balance?.amount ?? 0) >= t.price}
-            purchasing={purchasing === t.id}
-            onHowItWorks={() =>
-              setVipModal({ open: true, tier: TIER_TO_INFO[t.id] })
-            }
-            onActivate={() => handlePurchase(t)}
-          />
-        ))}
+        {TIER_META.map((tier) => {
+          const price = TIER_PRICES[tier.id];
+          return (
+            <BalancePackageCard
+              key={tier.id}
+              icon={tier.icon}
+              iconBg={tier.iconBg}
+              iconColor={tier.iconColor}
+              title={tBalance(`tiers.${tier.id}.title`)}
+              description={tBalance(`tiers.${tier.id}.description`)}
+              price={price}
+              unit={tBalance(`tiers.${tier.id}.unit`)}
+              ctaColor={tier.cta}
+              canAfford={(balance?.amount ?? 0) >= price}
+              purchasing={purchasing === tier.id}
+              onHowItWorks={() =>
+                setVipModal({ open: true, tier: TIER_TO_INFO[tier.id] })
+              }
+              onActivate={() => handlePurchase(tier.id)}
+            />
+          );
+        })}
       </motion.section>
 
       <motion.section
@@ -259,7 +253,7 @@ export default function ServiceBalancePage() {
         transition={{ delay: 0.1 }}
       >
         <h2 className="text-[16px] font-black text-[#0F172A]">
-          ტრანზაქციების ისტორია
+          {tShared("txHistory")}
         </h2>
         <div className="mt-3 space-y-2">
           {loading ? (
@@ -270,7 +264,7 @@ export default function ServiceBalancePage() {
             <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
               <History className="h-10 w-10 text-[#94A3B8]" />
               <p className="mt-2 text-[13px] text-[#94A3B8]">
-                ტრანზაქციები ჯერ არ გაქვთ
+                {tShared("noTransactions")}
               </p>
             </div>
           ) : (
@@ -295,7 +289,11 @@ export default function ServiceBalancePage() {
                   </div>
                   <div>
                     <p className="text-[13px] font-bold text-[#0F172A]">
-                      {TX_LABEL[tx.type] ?? tx.type}
+                      {TX_TYPES.includes(tx.type as (typeof TX_TYPES)[number])
+                        ? tShared(
+                            `txTypes.${tx.type as (typeof TX_TYPES)[number]}`,
+                          )
+                        : tx.type}
                     </p>
                     <p className="text-[11px] text-[#94A3B8]">
                       {formatDate(tx.created_at)}

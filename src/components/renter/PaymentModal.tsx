@@ -26,6 +26,7 @@ export default function PaymentModal({
   dueDate,
 }: PaymentModalProps) {
   const t = useTranslations("PaymentModal");
+  const tShared = useTranslations("DashboardShared");
 
   useEffect(() => {
     if (isOpen) {
@@ -82,7 +83,7 @@ export default function PaymentModal({
               <button
                 onClick={onClose}
                 className="flex size-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
               >
                 <X className="size-4" />
               </button>

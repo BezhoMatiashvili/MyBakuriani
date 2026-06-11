@@ -3,6 +3,7 @@
 import { Mountain, Home } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {
@@ -11,77 +12,77 @@ interface AdminSidebarProps {
 }
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   badge?: number;
 }
 
-const sections: { title: string; items: NavItem[] }[] = [
+const sections: { titleKey: string; items: NavItem[] }[] = [
   {
-    title: "ანალიტიკა",
+    titleKey: "analytics",
     items: [
-      { label: "მთავარი გვერდი", href: "/dashboard/admin" },
+      { labelKey: "homePage", href: "/dashboard/admin" },
       {
-        label: "ვერიფიკაციები",
+        labelKey: "verifications",
         href: "/dashboard/admin/verifications",
       },
       {
-        label: "მომხმარებლები",
+        labelKey: "users",
         href: "/dashboard/admin/clients",
       },
       {
-        label: "განცხადებები",
+        labelKey: "listings",
         href: "/dashboard/admin/listings",
       },
     ],
   },
   {
-    title: "ოპერაციები",
+    titleKey: "operations",
     items: [
       {
-        label: "შეფასებები",
+        labelKey: "reviews",
         href: "/dashboard/admin/reviews",
       },
       {
-        label: "ტარიფები და პაკეტები",
+        labelKey: "tariffsAndPackages",
         href: "/dashboard/admin/settings",
       },
       {
-        label: "ლოკაციის ზონები",
+        labelKey: "locationZones",
         href: "/dashboard/admin/zones",
       },
     ],
   },
   {
-    title: "მონეტიზაცია",
+    titleKey: "monetization",
     items: [
       {
-        label: "ფინანსები",
+        labelKey: "finances",
         href: "/dashboard/admin/finances",
       },
       {
-        label: "რეკლამები",
+        labelKey: "ads",
         href: "/dashboard/admin/moderation",
       },
       {
-        label: "SMS დადასტურება",
+        labelKey: "smsApproval",
         href: "/dashboard/admin/sms-approvals",
       },
     ],
   },
   {
-    title: "მარკეტინგი",
+    titleKey: "marketing",
     items: [
       {
-        label: "მასობრივი დაგზავნა",
+        labelKey: "broadcast",
         href: "/dashboard/admin/broadcast",
       },
       {
-        label: "პრომო კოდები",
+        labelKey: "promoCodes",
         href: "/dashboard/admin/promocodes",
       },
-      { label: "ბანერები", href: "/dashboard/admin/banners" },
-      { label: "სიახლეები", href: "/dashboard/admin/seo" },
+      { labelKey: "banners", href: "/dashboard/admin/banners" },
+      { labelKey: "news", href: "/dashboard/admin/seo" },
     ],
   },
 ];
@@ -91,9 +92,10 @@ function normalizePath(pathname: string) {
 }
 
 export function AdminSidebar({
-  verificationAlerts = 3,
+  verificationAlerts = 0,
   onSignOut,
 }: AdminSidebarProps) {
+  const t = useTranslations("DashboardSidebar");
   const pathname = usePathname();
   const currentPath = normalizePath(pathname);
 
@@ -110,9 +112,9 @@ export function AdminSidebar({
 
       <nav className="flex-1 space-y-0 overflow-y-auto px-4 py-5 pb-2">
         {sections.map((section) => (
-          <div key={section.title} className="mb-4 last:mb-0">
+          <div key={section.titleKey} className="mb-4 last:mb-0">
             <p className="px-3 pb-1.5 pt-4 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#5C6D8F] first:pt-1">
-              {section.title}
+              {t(`sections.${section.titleKey}`)}
             </p>
             <ul className="space-y-0.5">
               {section.items.map((item) => {
@@ -137,7 +139,9 @@ export function AdminSidebar({
                           : "text-[#8D9BB7] hover:bg-[#0E1C45] hover:text-[#DCE6FB]",
                       )}
                     >
-                      <span className="flex-1 truncate">{item.label}</span>
+                      <span className="flex-1 truncate">
+                        {t(`nav.${item.labelKey}`)}
+                      </span>
                       {badge ? (
                         <span className="min-w-6 rounded-md bg-[#EF4444] px-2 py-1 text-center text-[11px] font-extrabold leading-none text-white shadow-sm">
                           {badge}
@@ -158,7 +162,7 @@ export function AdminSidebar({
           className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.55)] transition-colors hover:bg-[#1D4ED8]"
         >
           <Home className="size-[18px]" />
-          მთავარზე დაბრუნება
+          {t("backToHome")}
         </Link>
       </div>
 
@@ -169,7 +173,7 @@ export function AdminSidebar({
           className="flex h-11 w-full items-center gap-2 rounded-xl border border-[#28406D] bg-[#172947] px-4 text-[14px] font-bold text-[#EAF1FF] transition-colors hover:bg-[#1D345A]"
         >
           <span className="h-2.5 w-2.5 rounded-full bg-[#10B981]" />
-          გასვლა
+          {t("adminLogout")}
         </button>
       </div>
     </aside>

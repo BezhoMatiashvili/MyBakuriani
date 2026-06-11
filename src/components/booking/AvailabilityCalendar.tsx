@@ -14,12 +14,21 @@ import {
   subMonths,
   format,
 } from "date-fns";
-import { ka } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { getDateFnsLocale } from "@/lib/utils/format";
 import type { CalendarDate } from "./CalendarGrid";
 
-const DAY_HEADERS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
+const DAY_KEYS = [
+  "day1",
+  "day2",
+  "day3",
+  "day4",
+  "day5",
+  "day6",
+  "day7",
+] as const;
 
 interface Props {
   dates: CalendarDate[];
@@ -34,6 +43,9 @@ export function AvailabilityCalendar({
   onDateClick,
   initialMonth,
 }: Props) {
+  const t = useTranslations("Calendar");
+  const locale = useLocale();
+  const dateFnsLocale = getDateFnsLocale(locale);
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState<Date>(
     initialMonth ?? startOfMonth(today),
@@ -69,7 +81,7 @@ export function AvailabilityCalendar({
     <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)]">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[15px] font-bold capitalize text-[#1E293B]">
-          {format(currentMonth, "LLLL yyyy", { locale: ka })}
+          {format(currentMonth, "LLLL yyyy", { locale: dateFnsLocale })}
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -77,7 +89,7 @@ export function AvailabilityCalendar({
             disabled={!canGoPrev}
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
             className="flex size-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Previous month"
+            aria-label={t("prevMonth")}
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -86,7 +98,7 @@ export function AvailabilityCalendar({
             disabled={!canGoNext}
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
             className="flex size-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Next month"
+            aria-label={t("nextMonth")}
           >
             <ChevronRight className="size-4" />
           </button>
@@ -94,12 +106,12 @@ export function AvailabilityCalendar({
       </div>
 
       <div className="grid grid-cols-7">
-        {DAY_HEADERS.map((d) => (
+        {DAY_KEYS.map((d) => (
           <div
             key={d}
             className="py-2 text-center text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]"
           >
-            {d}
+            {t(d)}
           </div>
         ))}
         {allDays.map((day, idx) => {
@@ -170,15 +182,15 @@ export function AvailabilityCalendar({
       <div className="mt-4 flex items-center gap-6 border-t border-[#E2E8F0] pt-4 text-[12px] font-medium">
         <span className="flex items-center gap-2 text-[#1E293B]">
           <span className="size-2 rounded-full bg-[#1E293B]" />
-          თავისუფალი
+          {t("legendAvailable")}
         </span>
         <span className="flex items-center gap-2 text-[#94A3B8]">
           <span className="size-2 rounded-full bg-[#E2E8F0]" />
-          დაკავებული
+          {t("legendBooked")}
         </span>
         <span className="flex items-center gap-2 text-[#1E293B]">
           <span className="size-2 rounded-full bg-[#2563EB]" />
-          არჩეული
+          {t("legendSelected")}
         </span>
       </div>
     </div>

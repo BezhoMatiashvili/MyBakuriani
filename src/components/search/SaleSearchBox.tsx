@@ -10,11 +10,30 @@ import {
   SlidersHorizontal,
   BedDouble,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/format";
-import type { Zone } from "@/lib/zones/types";
+import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { createClient } from "@/lib/supabase/client";
+
+// Seeded zone slugs have display translations under Zones.<slug>; unknown
+// (admin-created) zones fall back to their Georgian name_ka. Display only —
+// submitted/compared zone values must stay name_ka (zone matching uses it).
+const TRANSLATED_ZONE_SLUGS = new Set<string>(
+  FALLBACK_ZONES.map((z) => z.slug),
+);
+
+function zoneDisplayName(
+  zones: Zone[],
+  tZones: (key: string) => string,
+  nameKa: string,
+): string {
+  const slug = zones.find((z) => z.name_ka === nameKa)?.slug;
+  return slug && TRANSLATED_ZONE_SLUGS.has(slug)
+    ? tZones(`${slug}.name`)
+    : nameKa;
+}
 
 function nearestZoneNameFrom(
   zones: Zone[],
@@ -84,35 +103,39 @@ interface SaleSearchBoxProps {
 }
 
 // ─── Option constants ──────────────────────────────────────────────────
+// `value` fields are data sent to filters/APIs; labels resolve via
+// translation keys at render time.
 
 const PROPERTY_TYPES = [
-  { value: "apartment", label: "საცხოვრებელი ბინა" },
-  { value: "studio", label: "სტუდიო" },
-  { value: "villa", label: "ვილა" },
-  { value: "cottage", label: "ქოხი" },
-  { value: "hotel", label: "სასტუმრო" },
+  { value: "apartment", labelKey: "typeApartment" },
+  { value: "studio", labelKey: "typeStudio" },
+  { value: "villa", labelKey: "typeVilla" },
+  { value: "cottage", labelKey: "typeCottage" },
+  { value: "hotel", labelKey: "typeHotel" },
 ];
 
-const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "new", label: "ახალი" },
-  { value: "progress", label: "მიმდინარე" },
-  { value: "ready", label: "მზადი" },
+const STATUS_OPTIONS: Array<{ value: string; labelKey: string }> = [
+  { value: "new", labelKey: "statusNew" },
+  { value: "progress", labelKey: "statusInProgress" },
+  { value: "ready", labelKey: "statusReady" },
 ];
 
-const PAYMENT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "cash", label: "ნაღდი" },
-  { value: "installment", label: "განვადება" },
-  { value: "mortgage", label: "იპოთეკა" },
+const PAYMENT_OPTIONS: Array<{ value: string; labelKey: string }> = [
+  { value: "cash", labelKey: "paymentCash" },
+  { value: "installment", labelKey: "paymentInstallment" },
+  { value: "mortgage", labelKey: "paymentMortgage" },
 ];
 
 const ROOM_OPTIONS = [1, 2, 3, 4] as const;
 
-const AMENITY_CHIPS: Array<{ value: string; label: string }> = [
-  { value: "აივანი", label: "აივანი" },
-  { value: "ფარდული", label: "ფარდული" },
-  { value: "წყალი", label: "წყალი" },
-  { value: "გაზი", label: "გაზი" },
-  { value: "ავეჯი", label: "ავეჯი" },
+// Chip `value`s are Georgian data values matched against DB amenities —
+// they intentionally stay Georgian; only the visible label is translated.
+const AMENITY_CHIPS: Array<{ value: string; labelKey: string }> = [
+  { value: "აივანი", labelKey: "amenityBalcony" },
+  { value: "ფარდული", labelKey: "amenityShed" },
+  { value: "წყალი", labelKey: "amenityWater" },
+  { value: "გაზი", labelKey: "amenityGas" },
+  { value: "ავეჯი", labelKey: "amenityFurniture" },
 ];
 
 const DEVELOPER_OPTIONS: Array<{ value: string; label: string }> = [
@@ -124,26 +147,26 @@ const DEVELOPER_OPTIONS: Array<{ value: string; label: string }> = [
 
 const SELLER_TYPE_OPTIONS: Array<{
   value: "developer" | "individual";
-  label: string;
+  labelKey: string;
 }> = [
-  { value: "developer", label: "დეველოპერი" },
-  { value: "individual", label: "ფიზიკური პირი" },
+  { value: "developer", labelKey: "sellerDeveloper" },
+  { value: "individual", labelKey: "sellerIndividual" },
 ];
 
 // Investment quick-filter options (from Figma)
-const ROI_OPTIONS: Array<{ value: number | null; label: string }> = [
-  { value: null, label: "მნიშვნელობა არ აქვს" },
-  { value: 5, label: "5% - დან" },
-  { value: 8, label: "8% - დან" },
-  { value: 10, label: "10% - დან" },
+const ROI_OPTIONS: Array<{ value: number | null }> = [
+  { value: null },
+  { value: 5 },
+  { value: 8 },
+  { value: 10 },
 ];
 
 type AreaBucket = "20-40" | "40-70" | "70+" | null;
-const AREA_OPTIONS: Array<{ value: AreaBucket; label: string }> = [
-  { value: null, label: "ნებისმიერი" },
-  { value: "20-40", label: "20-40 მ²" },
-  { value: "40-70", label: "40-70 მ²" },
-  { value: "70+", label: "70+ მ²" },
+const AREA_OPTIONS: Array<{ value: AreaBucket }> = [
+  { value: null },
+  { value: "20-40" },
+  { value: "40-70" },
+  { value: "70+" },
 ];
 
 function areaBucketToRange(b: AreaBucket): { min: number; max: number } {
@@ -159,17 +182,18 @@ function areaBucketToRange(b: AreaBucket): { min: number; max: number } {
   }
 }
 
-const CONSTRUCTION_OPTIONS: Array<{ value: string | null; label: string }> = [
-  { value: null, label: "ყველა" },
-  { value: "completed", label: "მზა (დასრულებული)" },
-  { value: "under_construction", label: "მშენებარე" },
-];
+const CONSTRUCTION_OPTIONS: Array<{ value: string | null; labelKey: string }> =
+  [
+    { value: null, labelKey: "allOption" },
+    { value: "completed", labelKey: "constructionCompleted" },
+    { value: "under_construction", labelKey: "underConstruction" },
+  ];
 
-const RENOVATION_OPTIONS: Array<{ value: string | null; label: string }> = [
-  { value: null, label: "ნებისმიერი" },
-  { value: "black_frame", label: "შავი კარკასი" },
-  { value: "white_frame", label: "თეთრი/მწვანე კარკასი" },
-  { value: "furnished", label: "გარემონტებული ავეჯით" },
+const RENOVATION_OPTIONS: Array<{ value: string | null; labelKey: string }> = [
+  { value: null, labelKey: "anyOption" },
+  { value: "black_frame", labelKey: "renovationBlackFrame" },
+  { value: "white_frame", labelKey: "renovationWhiteFrame" },
+  { value: "furnished", labelKey: "renovationFurnished" },
 ];
 
 const PRICE_MIN = 0;
@@ -205,6 +229,8 @@ export function SaleSearchBox({
   onShowMapChange,
   zones,
 }: SaleSearchBoxProps) {
+  const t = useTranslations("SaleSearchBox");
+  const tZones = useTranslations("Zones");
   // Tabs
   const [tab, setTab] = useState<SaleTab>("search");
 
@@ -324,7 +350,7 @@ export function SaleSearchBox({
           .not("sale_price", "is", null);
 
         if (error) {
-          setAppraisalError("მონაცემების ჩატვირთვა ვერ მოხერხდა");
+          setAppraisalError(t("appraisalLoadError"));
           return;
         }
 
@@ -389,7 +415,7 @@ export function SaleSearchBox({
         setAppraisalLoading(false);
       }
     },
-    [zones],
+    [zones, t],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -426,27 +452,34 @@ export function SaleSearchBox({
     });
   };
 
-  const propertyTypeLabel =
-    PROPERTY_TYPES.find((t) => t.value === propertyType)?.label || "ნებისმიერი";
+  const selectedType = PROPERTY_TYPES.find((o) => o.value === propertyType);
+  const propertyTypeLabel = selectedType
+    ? t(selectedType.labelKey)
+    : t("anyOption");
   const roomsLabel =
     rooms.length === 0
-      ? "ყველა"
+      ? t("allOption")
       : rooms
           .slice()
           .sort((a, b) => a - b)
           .map((n) => (n === 4 ? "4+" : String(n)))
           .join(", ");
 
-  const roiLabel =
-    ROI_OPTIONS.find((o) => o.value === roiMin)?.label ?? "მნიშვნელობა არ აქვს";
-  const areaLabel =
-    AREA_OPTIONS.find((o) => o.value === areaBucket)?.label ?? "ნებისმიერი";
-  const constructionLabel =
-    CONSTRUCTION_OPTIONS.find((o) => o.value === constructionStatus)?.label ??
-    "ყველა";
-  const renovationLabel =
-    RENOVATION_OPTIONS.find((o) => o.value === renovationStatus)?.label ??
-    "ნებისმიერი";
+  const roiOptionLabel = (value: number | null) =>
+    value == null ? t("roiAny") : t("roiFrom", { value });
+  const areaOptionLabel = (value: AreaBucket) =>
+    value == null ? t("anyOption") : t("areaRange", { range: value });
+
+  const roiLabel = roiOptionLabel(roiMin);
+  const areaLabel = areaOptionLabel(areaBucket);
+  const constructionLabel = t(
+    CONSTRUCTION_OPTIONS.find((o) => o.value === constructionStatus)
+      ?.labelKey ?? "allOption",
+  );
+  const renovationLabel = t(
+    RENOVATION_OPTIONS.find((o) => o.value === renovationStatus)?.labelKey ??
+      "anyOption",
+  );
 
   const activeFilterCount =
     propertyTypes.length +
@@ -460,7 +493,9 @@ export function SaleSearchBox({
     developers.length +
     sellerTypes.length;
 
-  const appraisalZoneLabel = appraisalZone || "აირჩიე ზონა";
+  const appraisalZoneLabel = appraisalZone
+    ? zoneDisplayName(zones, tZones, appraisalZone)
+    : t("selectZone");
 
   return (
     <form
@@ -481,7 +516,7 @@ export function SaleSearchBox({
             setActiveDropdown(null);
           }}
         >
-          ყიდვა / ძიება
+          {t("tabBuySearch")}
         </TabButton>
         <TabButton
           active={tab === "appraise"}
@@ -490,7 +525,7 @@ export function SaleSearchBox({
             setActiveDropdown(null);
           }}
         >
-          გაყიდვა / შეფასება
+          {t("tabSellAppraise")}
         </TabButton>
       </div>
 
@@ -499,7 +534,7 @@ export function SaleSearchBox({
           {/* ═══ Mobile: stacked ═══ */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
             <MobileField
-              label="ტიპი"
+              label={t("fieldType")}
               value={propertyTypeLabel}
               onClick={() => toggleDropdown("type")}
               open={activeDropdown === "type"}
@@ -515,13 +550,13 @@ export function SaleSearchBox({
 
             <div>
               <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                ფასი
+                {t("fieldPrice")}
               </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="Min"
+                  placeholder={t("minPlaceholder")}
                   value={priceMin}
                   onChange={(e) =>
                     setPriceMin(e.target.value.replace(/\D/g, ""))
@@ -531,7 +566,7 @@ export function SaleSearchBox({
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="Max"
+                  placeholder={t("maxPlaceholder")}
                   value={priceMax}
                   onChange={(e) =>
                     setPriceMax(e.target.value.replace(/\D/g, ""))
@@ -542,7 +577,7 @@ export function SaleSearchBox({
             </div>
 
             <MobileField
-              label="ოთახები"
+              label={t("fieldRooms")}
               value={roomsLabel}
               onClick={() => toggleDropdown("rooms")}
               open={activeDropdown === "rooms"}
@@ -580,7 +615,7 @@ export function SaleSearchBox({
                 )}
               >
                 <SlidersHorizontal className="size-3.5" />
-                დეტალურად
+                {t("detailed")}
                 {activeFilterCount > 0 && (
                   <span className="flex size-5 items-center justify-center rounded-full bg-[#16A34A] text-[10px] font-black text-white">
                     {activeFilterCount}
@@ -604,7 +639,7 @@ export function SaleSearchBox({
                   )}
                 />
                 <MapIcon className="size-3.5" />
-                რუკა
+                {t("map")}
               </button>
             </div>
 
@@ -614,14 +649,14 @@ export function SaleSearchBox({
               className="h-11 gap-2 bg-[#0A1F2E] px-6 text-white hover:bg-[#0F2A40] disabled:opacity-70"
             >
               <Search className="size-4" />
-              ძებნა
+              {t("searchMobile")}
             </Button>
           </div>
 
           {/* ═══ Desktop: horizontal pill ═══ */}
           <div className="hidden items-center gap-1 md:flex">
             <DesktopField
-              label="ტიპი"
+              label={t("fieldType")}
               value={propertyTypeLabel}
               icon={<Home className="size-4 text-[#94A3B8]" />}
               active={activeDropdown === "type"}
@@ -637,13 +672,13 @@ export function SaleSearchBox({
                   priceMin || priceMax ? "text-[#16A34A]" : "text-[#94A3B8]",
                 )}
               >
-                ფასი ($) (დან-მდე)
+                {t("priceRangeLabel")}
               </span>
               <div className="mt-1 flex items-center gap-2">
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="Min"
+                  placeholder={t("minPlaceholder")}
                   value={priceMin}
                   onChange={(e) =>
                     setPriceMin(e.target.value.replace(/\D/g, ""))
@@ -654,7 +689,7 @@ export function SaleSearchBox({
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="Max"
+                  placeholder={t("maxPlaceholder")}
                   value={priceMax}
                   onChange={(e) =>
                     setPriceMax(e.target.value.replace(/\D/g, ""))
@@ -667,7 +702,7 @@ export function SaleSearchBox({
             <div className="h-10 w-px bg-[#F1F5F9]" />
 
             <DesktopField
-              label="ოთახები"
+              label={t("fieldRooms")}
               value={roomsLabel}
               icon={<BedDouble className="size-4 text-[#94A3B8]" />}
               active={activeDropdown === "rooms"}
@@ -685,7 +720,7 @@ export function SaleSearchBox({
               )}
             >
               <SlidersHorizontal className="size-4" />
-              დეტალურად
+              {t("detailed")}
               {activeFilterCount > 0 && (
                 <span className="flex size-5 items-center justify-center rounded-full bg-[#16A34A] text-[10px] font-black text-white">
                   {activeFilterCount}
@@ -711,21 +746,21 @@ export function SaleSearchBox({
                 )}
               />
               <MapIcon className="size-4" />
-              რუკაზე
+              {t("onMap")}
             </button>
 
             <Button
               type="submit"
               disabled={isPending}
               className="ml-2 h-[52px] shrink-0 gap-2 rounded-full bg-[#0A1F2E] px-7 text-[14px] font-bold text-white hover:bg-[#0F2A40] disabled:opacity-70"
-              aria-label="ძიება"
+              aria-label={t("search")}
             >
               {isPending ? (
                 <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
               ) : (
                 <>
                   <Search className="size-4" />
-                  ძიება
+                  {t("search")}
                 </>
               )}
             </Button>
@@ -735,7 +770,7 @@ export function SaleSearchBox({
           {showInvestmentFilters && (
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
               <QuickSelect
-                label="მინიმალური ROI (%)"
+                label={t("quickRoi")}
                 value={roiLabel}
                 active={activeDropdown === "roi"}
                 onToggle={() => toggleDropdown("roi")}
@@ -743,7 +778,7 @@ export function SaleSearchBox({
                 <OptionList
                   options={ROI_OPTIONS.map((o) => ({
                     key: o.value == null ? "null" : String(o.value),
-                    label: o.label,
+                    label: roiOptionLabel(o.value),
                     selected: o.value === roiMin,
                     onSelect: () => {
                       setRoiMin(o.value);
@@ -754,7 +789,7 @@ export function SaleSearchBox({
               </QuickSelect>
 
               <QuickSelect
-                label="ფართი (მ²)"
+                label={t("quickArea")}
                 value={areaLabel}
                 active={activeDropdown === "area"}
                 onToggle={() => toggleDropdown("area")}
@@ -762,7 +797,7 @@ export function SaleSearchBox({
                 <OptionList
                   options={AREA_OPTIONS.map((o) => ({
                     key: o.value ?? "any",
-                    label: o.label,
+                    label: areaOptionLabel(o.value),
                     selected: o.value === areaBucket,
                     onSelect: () => {
                       setAreaBucket(o.value);
@@ -773,7 +808,7 @@ export function SaleSearchBox({
               </QuickSelect>
 
               <QuickSelect
-                label="სტატუსი"
+                label={t("quickStatus")}
                 value={constructionLabel}
                 active={activeDropdown === "status"}
                 onToggle={() => toggleDropdown("status")}
@@ -781,7 +816,7 @@ export function SaleSearchBox({
                 <OptionList
                   options={CONSTRUCTION_OPTIONS.map((o) => ({
                     key: o.value ?? "any",
-                    label: o.label,
+                    label: t(o.labelKey),
                     selected: o.value === constructionStatus,
                     onSelect: () => {
                       setConstructionStatus(o.value);
@@ -792,7 +827,7 @@ export function SaleSearchBox({
               </QuickSelect>
 
               <QuickSelect
-                label="რემონტი"
+                label={t("quickRenovation")}
                 value={renovationLabel}
                 active={activeDropdown === "renovation"}
                 onToggle={() => toggleDropdown("renovation")}
@@ -800,7 +835,7 @@ export function SaleSearchBox({
                 <OptionList
                   options={RENOVATION_OPTIONS.map((o) => ({
                     key: o.value ?? "any",
-                    label: o.label,
+                    label: t(o.labelKey),
                     selected: o.value === renovationStatus,
                     onSelect: () => {
                       setRenovationStatus(o.value);
@@ -834,6 +869,7 @@ export function SaleSearchBox({
               result={appraisalResult}
               loading={appraisalLoading}
               error={appraisalError}
+              zones={zones}
             />
           )}
         </>
@@ -855,7 +891,7 @@ export function SaleSearchBox({
       {tab === "search" && activeDropdown === "rooms" && (
         <div className="absolute right-[260px] top-full z-50 mt-2 hidden w-[240px] rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
           <p className="mb-2 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
-            ოთახების რაოდენობა
+            {t("roomsCountTitle")}
           </p>
           <div className="flex flex-wrap gap-2">
             {ROOM_OPTIONS.map((n) => {
@@ -1130,6 +1166,7 @@ function TypeList({
   value: string;
   onSelect: (v: string) => void;
 }) {
+  const t = useTranslations("SaleSearchBox");
   return (
     <ul className="flex flex-col">
       <li>
@@ -1141,22 +1178,22 @@ function TypeList({
             !value && "bg-[#F0FDF4] text-[#16A34A]",
           )}
         >
-          ნებისმიერი
+          {t("anyOption")}
           {!value && <Check className="size-4" />}
         </button>
       </li>
-      {PROPERTY_TYPES.map((t) => (
-        <li key={t.value}>
+      {PROPERTY_TYPES.map((option) => (
+        <li key={option.value}>
           <button
             type="button"
-            onClick={() => onSelect(t.value)}
+            onClick={() => onSelect(option.value)}
             className={cn(
               "flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-[14px] font-bold text-[#1E293B] hover:bg-[#F8FAFC]",
-              value === t.value && "bg-[#F0FDF4] text-[#16A34A]",
+              value === option.value && "bg-[#F0FDF4] text-[#16A34A]",
             )}
           >
-            {t.label}
-            {value === t.value && <Check className="size-4" />}
+            {t(option.labelKey)}
+            {value === option.value && <Check className="size-4" />}
           </button>
         </li>
       ))}
@@ -1189,21 +1226,23 @@ function AppraisalPane({
   disabled: boolean;
   zones: Zone[];
 }) {
+  const t = useTranslations("SaleSearchBox");
+  const tZones = useTranslations("Zones");
   return (
     <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:gap-6">
       <div className="max-w-[520px]">
         <h3 className="text-[20px] font-black leading-[26px] text-[#0F172A] md:text-[22px]">
-          გაიგეთ თქვენი ქონების რეალური ფასი
+          {t("appraiseTitle")}
         </h3>
         <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
-          ჩვენი ალგორითმი დაგითვლით ბინის ღირებულებას და პოტენციურ ROI-ს.
+          {t("appraiseSubtitle")}
         </p>
       </div>
 
       <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-[minmax(160px,1fr)_minmax(140px,1fr)_auto]">
         <div className="relative">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-            ლოკაცია / ზონა
+            {t("locationZone")}
           </label>
           <button
             type="button"
@@ -1237,7 +1276,9 @@ function AppraisalPane({
                         selected && "bg-[#F0FDF4] text-[#16A34A]",
                       )}
                     >
-                      {z.name_ka}
+                      {TRANSLATED_ZONE_SLUGS.has(z.slug)
+                        ? tZones(`${z.slug}.name`)
+                        : z.name_ka}
                       {selected && <Check className="size-4" />}
                     </button>
                   </li>
@@ -1249,12 +1290,12 @@ function AppraisalPane({
 
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-            ფართი (მ²)
+            {t("quickArea")}
           </label>
           <input
             type="text"
             inputMode="numeric"
-            placeholder="მაგ: 45"
+            placeholder={t("areaPlaceholder")}
             value={area}
             onChange={(e) => onChangeArea(e.target.value.replace(/\D/g, ""))}
             className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-[13px] font-bold text-[#1E293B] outline-none placeholder:font-medium placeholder:text-[#94A3B8] focus:border-[#16A34A]"
@@ -1266,7 +1307,7 @@ function AppraisalPane({
           disabled={isPending || disabled}
           className="h-11 shrink-0 rounded-lg bg-[#F97316] px-6 text-[13px] font-black text-white hover:bg-[#EA580C] disabled:opacity-70"
         >
-          შეფასება
+          {t("appraise")}
         </Button>
       </div>
     </div>
@@ -1279,6 +1320,7 @@ function AppraisalResults({
   result,
   loading,
   error,
+  zones,
 }: {
   result: {
     avgPrice: number;
@@ -1289,11 +1331,14 @@ function AppraisalResults({
   } | null;
   loading: boolean;
   error: string | null;
+  zones: Zone[];
 }) {
+  const t = useTranslations("SaleSearchBox");
+  const tZones = useTranslations("Zones");
   return (
     <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 md:p-5">
       {loading && (
-        <p className="text-[13px] font-bold text-[#64748B]">იტვირთება…</p>
+        <p className="text-[13px] font-bold text-[#64748B]">{t("loading")}</p>
       )}
 
       {!loading && error && (
@@ -1302,30 +1347,34 @@ function AppraisalResults({
 
       {!loading && !error && result && result.count === 0 && (
         <p className="text-[13px] font-bold text-[#64748B]">
-          ამ ზონაში მონაცემები არ მოიძებნა
+          {t("noZoneData")}
         </p>
       )}
 
       {!loading && !error && result && result.count > 0 && (
         <>
           <p className="mb-3 text-[11px] font-black uppercase tracking-[0.55px] text-[#94A3B8]">
-            ზონა: {result.zone}
+            {t("zoneLabel", {
+              zone: zoneDisplayName(zones, tZones, result.zone),
+            })}
           </p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Stat label="საშუალო ფასი" value={formatGel(result.avgPrice)} />
+            <Stat label={t("avgPrice")} value={formatGel(result.avgPrice)} />
             <Stat
-              label="საშუალო ფასი / მ²"
-              value={`${formatGel(result.avgPricePerSqm)}/მ²`}
+              label={t("avgPricePerSqm")}
+              value={t("perSqmValue", {
+                price: formatGel(result.avgPricePerSqm),
+              })}
             />
             {result.estimatedValue != null && (
               <Stat
-                label="შენი ფართის სავარაუდო ღირებულება"
+                label={t("estimatedValue")}
                 value={formatGel(result.estimatedValue)}
               />
             )}
           </div>
           <p className="mt-3 text-[11px] font-medium text-[#94A3B8]">
-            დაფუძნებულია {result.count} განცხადებაზე
+            {t("basedOnListings", { count: result.count })}
           </p>
         </>
       )}
@@ -1359,6 +1408,7 @@ function PriceRangePanel({
   onChangeMin: (v: number) => void;
   onChangeMax: (v: number) => void;
 }) {
+  const t = useTranslations("SaleSearchBox");
   return (
     <div>
       <div className="relative h-5">
@@ -1397,13 +1447,17 @@ function PriceRangePanel({
       </div>
       <div className="mt-5 flex gap-3">
         <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">MIN</span>
+          <span className="text-[11px] font-bold text-[#94A3B8]">
+            {t("minLabel")}
+          </span>
           <span className="text-[13px] font-extrabold text-[#0F172A]">
             {formatUsd(priceMin)}
           </span>
         </div>
         <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">MAX</span>
+          <span className="text-[11px] font-bold text-[#94A3B8]">
+            {t("maxLabel")}
+          </span>
           <span className="text-[13px] font-extrabold text-[#0F172A]">
             {formatUsd(priceMax)}
           </span>
@@ -1468,10 +1522,11 @@ function FiltersPanel({
   onReset: () => void;
   onApply: () => void;
 }) {
+  const t = useTranslations("SaleSearchBox");
   return (
     <div className="text-left">
       <p className="mb-3 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
-        გამყიდველი
+        {t("seller")}
       </p>
       <div className="mb-6 flex flex-wrap gap-2">
         {SELLER_TYPE_OPTIONS.map((s) => {
@@ -1488,14 +1543,14 @@ function FiltersPanel({
                   : "border border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#1E419A] hover:text-[#1E419A]",
               )}
             >
-              {s.label}
+              {t(s.labelKey)}
             </button>
           );
         })}
       </div>
 
       <p className="mb-3 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
-        სტატუსი
+        {t("quickStatus")}
       </p>
       <div className="mb-6 flex flex-wrap gap-2">
         {STATUS_OPTIONS.map((s) => {
@@ -1512,22 +1567,22 @@ function FiltersPanel({
                   : "border border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#1E419A] hover:text-[#1E419A]",
               )}
             >
-              {s.label}
+              {t(s.labelKey)}
             </button>
           );
         })}
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-        <FilterCell label="ბინის ტიპი">
+        <FilterCell label={t("apartmentType")}>
           <div className="flex flex-col gap-1.5">
-            {PROPERTY_TYPES.map((t) => {
-              const checked = propertyTypes.includes(t.value);
+            {PROPERTY_TYPES.map((option) => {
+              const checked = propertyTypes.includes(option.value);
               return (
                 <button
-                  key={t.value}
+                  key={option.value}
                   type="button"
-                  onClick={() => onToggleType(t.value)}
+                  onClick={() => onToggleType(option.value)}
                   className={cn(
                     "flex items-center gap-2 rounded-full border px-3 py-1.5 text-left text-[12px] font-bold transition-colors",
                     checked
@@ -1545,14 +1600,14 @@ function FiltersPanel({
                   >
                     {checked && <Check className="size-2.5" strokeWidth={3} />}
                   </span>
-                  <span className="truncate">{t.label}</span>
+                  <span className="truncate">{t(option.labelKey)}</span>
                 </button>
               );
             })}
           </div>
         </FilterCell>
 
-        <FilterCell label="გადახდა">
+        <FilterCell label={t("payment")}>
           <div className="flex flex-col gap-1.5">
             {PAYMENT_OPTIONS.map((p) => {
               const checked = payment.includes(p.value);
@@ -1578,14 +1633,14 @@ function FiltersPanel({
                   >
                     {checked && <Check className="size-2.5" strokeWidth={3} />}
                   </span>
-                  <span className="truncate">{p.label}</span>
+                  <span className="truncate">{t(p.labelKey)}</span>
                 </button>
               );
             })}
           </div>
         </FilterCell>
 
-        <FilterCell label="ოთახები">
+        <FilterCell label={t("fieldRooms")}>
           <div className="flex flex-wrap gap-1.5">
             {ROOM_OPTIONS.map((n) => {
               const checked = rooms.includes(n);
@@ -1608,17 +1663,17 @@ function FiltersPanel({
           </div>
         </FilterCell>
 
-        <FilterCell label="საკადასტრო კოდი">
+        <FilterCell label={t("cadastralCode")}>
           <input
             type="text"
             value={cadastralCode}
             onChange={(e) => onChangeCadastral(e.target.value)}
-            placeholder="მაგ. 01.00.0000.000"
+            placeholder={t("cadastralPlaceholder")}
             className="h-[41px] w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-medium text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
           />
         </FilterCell>
 
-        <FilterCell label="ფართობი (მ²)" className="md:col-span-2">
+        <FilterCell label={t("areaLabel")} className="md:col-span-2">
           <AreaRangePanel
             areaMin={areaMin}
             areaMax={areaMax}
@@ -1627,7 +1682,7 @@ function FiltersPanel({
           />
         </FilterCell>
 
-        <FilterCell label="ფასი ($)" className="md:col-span-2">
+        <FilterCell label={t("priceUsd")} className="md:col-span-2">
           <PriceRangePanel
             priceMin={priceMin}
             priceMax={priceMax}
@@ -1636,7 +1691,7 @@ function FiltersPanel({
           />
         </FilterCell>
 
-        <FilterCell label="დეველოპერი" className="md:col-span-2">
+        <FilterCell label={t("developer")} className="md:col-span-2">
           <div className="flex flex-wrap gap-1.5">
             {DEVELOPER_OPTIONS.map((d) => {
               const checked = developers.includes(d.value);
@@ -1659,7 +1714,7 @@ function FiltersPanel({
           </div>
         </FilterCell>
 
-        <FilterCell label="დამატებითი" className="md:col-span-2">
+        <FilterCell label={t("additional")} className="md:col-span-2">
           <div className="flex flex-wrap gap-1.5">
             {AMENITY_CHIPS.map((a) => {
               const checked = amenities.includes(a.value);
@@ -1675,7 +1730,7 @@ function FiltersPanel({
                       : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
                   )}
                 >
-                  {a.label}
+                  {t(a.labelKey)}
                 </button>
               );
             })}
@@ -1689,14 +1744,14 @@ function FiltersPanel({
           onClick={onReset}
           className="h-10 rounded-full px-5 text-[13px] font-bold text-[#64748B] transition-colors hover:text-[#1E293B]"
         >
-          გაუქმება
+          {t("cancel")}
         </button>
         <button
           type="button"
           onClick={onApply}
           className="h-10 rounded-full bg-[#16A34A] px-6 text-[13px] font-bold text-white transition-colors hover:bg-[#15803D]"
         >
-          ფილტრის გამოყენება
+          {t("applyFilter")}
         </button>
       </div>
     </div>
@@ -1733,6 +1788,7 @@ function AreaRangePanel({
   onChangeMin: (v: number) => void;
   onChangeMax: (v: number) => void;
 }) {
+  const t = useTranslations("SaleSearchBox");
   return (
     <div>
       <div className="relative h-5">
@@ -1771,15 +1827,21 @@ function AreaRangePanel({
       </div>
       <div className="mt-5 flex gap-3">
         <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">MIN</span>
+          <span className="text-[11px] font-bold text-[#94A3B8]">
+            {t("minLabel")}
+          </span>
           <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {areaMin} მ²
+            {t("sqmValue", { value: areaMin })}
           </span>
         </div>
         <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">MAX</span>
+          <span className="text-[11px] font-bold text-[#94A3B8]">
+            {t("maxLabel")}
+          </span>
           <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {areaMax === AREA_MAX_SLIDER ? `${areaMax}+ მ²` : `${areaMax} მ²`}
+            {areaMax === AREA_MAX_SLIDER
+              ? t("sqmValuePlus", { value: areaMax })
+              : t("sqmValue", { value: areaMax })}
           </span>
         </div>
       </div>

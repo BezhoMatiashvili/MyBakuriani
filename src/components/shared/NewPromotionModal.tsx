@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Megaphone, X, Zap } from "lucide-react";
 
@@ -24,6 +25,9 @@ export default function NewPromotionModal({
   durationHours = 24,
   onSubmit,
 }: NewPromotionModalProps) {
+  const t = useTranslations("SellerDashboard.promotionModal");
+  const tShared = useTranslations("DashboardShared");
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -91,17 +95,17 @@ export default function NewPromotionModal({
                 </div>
                 <div className="flex-1">
                   <h2 className="text-[22px] font-black leading-[28px] text-[#0F172A]">
-                    ახალი აქცია
+                    {t("title")}
                   </h2>
                   <p className="mt-1 text-[12px] font-medium text-[#64748B]">
-                    დაამატეთ VIP შეთავაზება დღის სიახლეში
+                    {t("subtitle")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-                  aria-label="close"
+                  aria-label={tShared("closeAria")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -110,13 +114,13 @@ export default function NewPromotionModal({
               <div className="mt-6 space-y-4 px-7">
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                    აქციის სათაური <span className="text-[#EF4444]">*</span>
+                    {t("promoTitle")} <span className="text-[#EF4444]">*</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="მაგ: -20% ყველა პიცაზე"
+                    placeholder={t("promoTitlePlaceholder")}
                     className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/15"
                     required
                   />
@@ -124,12 +128,12 @@ export default function NewPromotionModal({
 
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                    მოკლე აღწერა <span className="text-[#EF4444]">*</span>
+                    {t("shortDesc")} <span className="text-[#EF4444]">*</span>
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="მაგ: მოქმედებს მხოლოდ ადგილზე მიტანაზე, 18:00-მდე..."
+                    placeholder={t("shortDescPlaceholder")}
                     rows={3}
                     className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/15"
                     required
@@ -140,7 +144,7 @@ export default function NewPromotionModal({
               <div className="mx-7 mt-5 flex items-center justify-between rounded-2xl border border-[#EEF1F4] bg-[#F8FAFC] px-5 py-4">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                    VIP ხანგრძლივობა ({durationHours} სთ)
+                    {t("vipDuration", { hours: durationHours })}
                   </p>
                   <p className="mt-1 text-[20px] font-black text-[#0F172A]">
                     {costPerDay.toFixed(2)}
@@ -149,7 +153,7 @@ export default function NewPromotionModal({
                 <span aria-hidden className="mx-4 h-10 w-px bg-[#E2E8F0]" />
                 <div className="text-right">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                    თქვენი ბალანსი
+                    {t("yourBalance")}
                   </p>
                   <p
                     className={`mt-1 text-[20px] font-black ${
@@ -174,10 +178,10 @@ export default function NewPromotionModal({
                 >
                   <Zap className="h-4 w-4" fill="currentColor" />
                   {submitting
-                    ? "მიმდინარეობს..."
+                    ? tShared("inProgress")
                     : canAfford
-                      ? "ბალანსიდან გადახდა"
-                      : "არასაკმარისი ბალანსი"}
+                      ? t("payFromBalance")
+                      : t("insufficientBalance")}
                 </button>
               </div>
             </form>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Users, Loader2, Camera } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
@@ -23,19 +24,20 @@ const ROLE_DASHBOARD: Record<string, string> = {
   handyman: "/dashboard/service",
 };
 
-const ROLES: { value: Enums<"user_role">; label: string; icon: string }[] = [
-  { value: "guest", label: "სტუმარი", icon: "🏠" },
-  { value: "renter", label: "გამქირავებელი", icon: "🔑" },
-  { value: "seller", label: "გამყიდველი", icon: "💰" },
-  { value: "cleaner", label: "დამლაგებელი", icon: "🧹" },
-  { value: "food", label: "კვება", icon: "🍽️" },
-  { value: "entertainment", label: "გართობა", icon: "🎿" },
-  { value: "transport", label: "ტრანსპორტი", icon: "🚗" },
-  { value: "employment", label: "დასაქმება", icon: "💼" },
-  { value: "handyman", label: "ხელოსანი", icon: "🔧" },
+const ROLES: { value: Enums<"user_role">; icon: string }[] = [
+  { value: "guest", icon: "🏠" },
+  { value: "renter", icon: "🔑" },
+  { value: "seller", icon: "💰" },
+  { value: "cleaner", icon: "🧹" },
+  { value: "food", icon: "🍽️" },
+  { value: "entertainment", icon: "🎿" },
+  { value: "transport", icon: "🚗" },
+  { value: "employment", icon: "💼" },
+  { value: "handyman", icon: "🔧" },
 ];
 
 export default function RegisterPage() {
+  const t = useTranslations("AuthRegister");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
@@ -91,7 +93,7 @@ export default function RegisterPage() {
 
   async function handleProfileSubmit() {
     if (!displayName.trim()) {
-      setError("გთხოვთ შეიყვანოთ სახელი");
+      setError(t("errors.enterName"));
       return;
     }
     setError(null);
@@ -158,12 +160,12 @@ export default function RegisterPage() {
 
       if (verifyError) throw verifyError;
       if (savedProfile?.role !== selectedRole) {
-        throw new Error("როლის განახლება ვერ მოხერხდა. სცადეთ თავიდან.");
+        throw new Error(t("errors.roleUpdateFailed"));
       }
 
       router.push("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : t("errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -190,12 +192,10 @@ export default function RegisterPage() {
             )}
           </div>
           <h1 className="text-2xl font-bold">
-            {step === 1 ? "პროფილის შექმნა" : "აირჩიეთ როლი"}
+            {step === 1 ? t("createProfile") : t("chooseRole")}
           </h1>
           <p className="mt-2 text-sm text-[#94A3B8]">
-            {step === 1
-              ? "შეავსეთ თქვენი პროფილის ინფორმაცია"
-              : "რა როლით გსურთ პლატფორმის გამოყენება?"}
+            {step === 1 ? t("createProfileHint") : t("chooseRoleHint")}
           </p>
         </div>
 
@@ -218,7 +218,7 @@ export default function RegisterPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={avatarUrl}
-                          alt="ავატარი"
+                          alt={t("avatarAlt")}
                           className="size-full object-cover"
                         />
                       ) : (
@@ -232,7 +232,7 @@ export default function RegisterPage() {
                       className="hidden"
                     />
                     <span className="mt-1 block text-center text-xs text-[#94A3B8]">
-                      ფოტოს ატვირთვა
+                      {t("uploadPhoto")}
                     </span>
                   </label>
                 </div>
@@ -240,24 +240,24 @@ export default function RegisterPage() {
                 {/* Display name */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    სახელი <span className="text-[#EF4444]">*</span>
+                    {t("nameLabel")} <span className="text-[#EF4444]">*</span>
                   </label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="თქვენი სახელი"
+                    placeholder={t("namePlaceholder")}
                     className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50"
                   />
                 </div>
 
                 {/* Bio */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">ბიო</label>
+                  <label className="text-sm font-medium">{t("bioLabel")}</label>
                   <textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    placeholder="მოკლე აღწერა..."
+                    placeholder={t("bioPlaceholder")}
                     rows={3}
                     className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50"
                   />
@@ -271,7 +271,7 @@ export default function RegisterPage() {
                   className="w-full"
                   size="lg"
                 >
-                  შემდეგი
+                  {t("next")}
                 </Button>
               </motion.div>
             ) : (
@@ -295,7 +295,9 @@ export default function RegisterPage() {
                       }`}
                     >
                       <span className="text-2xl">{role.icon}</span>
-                      <span className="text-sm font-medium">{role.label}</span>
+                      <span className="text-sm font-medium">
+                        {t(`roles.${role.value}`)}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -309,7 +311,7 @@ export default function RegisterPage() {
                     className="flex-1"
                     size="lg"
                   >
-                    უკან
+                    {t("back")}
                   </Button>
                   <Button
                     onClick={handleRoleSubmit}
@@ -320,7 +322,7 @@ export default function RegisterPage() {
                     {loading ? (
                       <Loader2 className="mr-2 size-4 animate-spin" />
                     ) : null}
-                    დასრულება
+                    {t("finish")}
                   </Button>
                 </div>
               </motion.div>

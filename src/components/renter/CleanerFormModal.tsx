@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -20,6 +21,9 @@ export default function CleanerFormModal({
   onSaved,
   cleaner,
 }: CleanerFormModalProps) {
+  const t = useTranslations("RenterDashboard.modals.cleanerForm");
+  const tShared = useTranslations("DashboardShared");
+
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -121,13 +125,13 @@ export default function CleanerFormModal({
                   <UserPlus className="h-4 w-4" strokeWidth={2.3} />
                 </span>
                 <h2 className="text-[16px] font-black text-[#0F172A]">
-                  {cleaner ? "დამლაგებლის რედაქტირება" : "ახალი დამლაგებელი"}
+                  {cleaner ? t("editTitle") : t("newTitle")}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
               >
                 <X className="h-4 w-4" />
@@ -135,17 +139,17 @@ export default function CleanerFormModal({
             </div>
 
             <div className="mt-5 space-y-3">
-              <Field label="სახელი">
+              <Field label={tShared("name")}>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ნინო მაისურაძე"
+                  placeholder={t("namePlaceholder")}
                   className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
               </Field>
 
-              <Field label="ტელეფონი">
+              <Field label={tShared("phone")}>
                 <input
                   type="tel"
                   value={phone}
@@ -156,7 +160,7 @@ export default function CleanerFormModal({
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="სტანდარტული დასუფთავება (₾)">
+                <Field label={t("priceStandard")}>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -166,7 +170,7 @@ export default function CleanerFormModal({
                     className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
                 </Field>
-                <Field label="გენერალური დასუფთავება (₾)">
+                <Field label={t("priceGeneral")}>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -185,7 +189,7 @@ export default function CleanerFormModal({
               disabled={!name.trim() || saving}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
             >
-              შენახვა
+              {tShared("save")}
             </button>
           </motion.div>
         </div>

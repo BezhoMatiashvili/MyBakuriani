@@ -29,6 +29,57 @@ function slugifyCode(input: string): string {
   return base ? `${base}-${suffix}` : `pkg-${suffix}`;
 }
 
+// Notifies users affected by subscription-package CRUD: everyone who could buy
+// one (renters/sellers) and, optionally, users holding a purchased subscription
+// of this package. Best-effort — a fan-out failure never fails the CRUD op.
+async function notifySubscriptionAudience(
+  db: ReturnType<typeof createServiceClient>,
+  packageId: string,
+  title: string,
+  message: string,
+  includeSubscribers: boolean,
+) {
+  try {
+    const { data: roleUsers } = await db
+      .from("profiles")
+      .select("id")
+      .in("role", ["renter", "seller"]);
+    const recipients = new Set<string>((roleUsers ?? []).map((r) => r.id));
+
+    if (includeSubscribers) {
+      // Cast: user_subscriptions is defined in migrations and not yet in the
+      // generated DB types; regenerate types to drop this cast.
+      const subsClient = db as unknown as {
+        from(table: "user_subscriptions"): {
+          select(columns: "user_id"): {
+            eq(
+              column: "package_id",
+              value: string,
+            ): Promise<{ data: { user_id: string }[] | null }>;
+          };
+        };
+      };
+      const { data: subs } = await subsClient
+        .from("user_subscriptions")
+        .select("user_id")
+        .eq("package_id", packageId);
+      (subs ?? []).forEach((s) => recipients.add(s.user_id));
+    }
+
+    if (recipients.size === 0) return;
+    const rows = Array.from(recipients).map((user_id) => ({
+      user_id,
+      type: "broadcast",
+      title,
+      message,
+    }));
+    const { error } = await db.from("notifications").insert(rows);
+    if (error) console.error("subscription package notify failed", error);
+  } catch (error) {
+    console.error("subscription package notify failed", error);
+  }
+}
+
 export async function GET() {
   try {
     const guard = await requireAdmin();
@@ -102,11 +153,40 @@ export async function PATCH(req: NextRequest) {
     }
 
     const db = createServiceClient();
-    const { error } = await db
+    const { data: updated, error } = await db
       .from("pricing_packages")
       .update(patch)
-      .eq("id", body.id);
+      .eq("id", body.id)
+      .select("id, category, name, amount_gel, is_enabled")
+      .single();
     if (error) return Response.json({ error: error.message }, { status: 500 });
+
+    if (updated?.category === "subscription") {
+      const changes: string[] = [];
+      if (patch.amount_gel !== undefined) {
+        changes.push(`ახალი ფასი: ${updated.amount_gel} ₾.`);
+      }
+      if (patch.is_enabled === true) {
+        changes.push("პაკეტი კვლავ ხელმისაწვდომია.");
+      }
+      if (patch.is_enabled === false) {
+        changes.push("პაკეტი დროებით შეჩერდა.");
+      }
+      if (patch.meta !== undefined) {
+        changes.push("მოქმედების პერიოდი განახლდა.");
+      }
+      if (changes.length === 0) {
+        changes.push("პაკეტის პირობები განახლდა.");
+      }
+      await notifySubscriptionAudience(
+        db,
+        updated.id,
+        "საწევრო პაკეტი განახლდა",
+        `საწევრო პაკეტი „${updated.name}": ${changes.join(" ")}`,
+        true,
+      );
+    }
+
     return Response.json({ ok: true });
   } catch (error) {
     console.error("PATCH /api/admin/pricing-packages failed", error);
@@ -177,16 +257,76 @@ export async function POST(req: NextRequest) {
       .single();
     if (error) {
       if (error.code === "23505") {
+        // Georgian message kept as a fallback for older clients; UI prefers `code`.
         return Response.json(
-          { error: "ეს კოდი უკვე გამოყენებულია ამ კატეგორიაში" },
+          {
+            error: "ეს კოდი უკვე გამოყენებულია ამ კატეგორიაში",
+            code: "duplicate_package_code",
+          },
           { status: 409 },
         );
       }
       return Response.json({ error: error.message }, { status: 500 });
     }
+
+    if (data && body.category === "subscription") {
+      const meta = (body.meta ?? {}) as Record<string, unknown>;
+      const period =
+        meta.valid_from && meta.valid_to
+          ? ` მოქმედებს ${meta.valid_from} — ${meta.valid_to}.`
+          : "";
+      await notifySubscriptionAudience(
+        db,
+        data.id,
+        "ახალი საწევრო პაკეტი",
+        `დაემატა ახალი საწევრო პაკეტი: „${data.name}" — ${data.amount_gel} ₾.${period}`,
+        false,
+      );
+    }
+
     return Response.json({ package: data });
   } catch (error) {
     console.error("POST /api/admin/pricing-packages failed", error);
+    return Response.json({ error: "internal server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
+
+    const id = req.nextUrl.searchParams.get("id");
+    if (!id) return Response.json({ error: "id required" }, { status: 400 });
+
+    const db = createServiceClient();
+    const { data: pkg, error: readError } = await db
+      .from("pricing_packages")
+      .select("id, category, name")
+      .eq("id", id)
+      .maybeSingle();
+    if (readError) {
+      return Response.json({ error: readError.message }, { status: 500 });
+    }
+    if (!pkg) return Response.json({ error: "not found" }, { status: 404 });
+
+    // Notify before deleting — afterwards the subscriber lookup is gone
+    // (user_subscriptions.package_id is set NULL on delete).
+    if (pkg.category === "subscription") {
+      await notifySubscriptionAudience(
+        db,
+        pkg.id,
+        "საწევრო პაკეტი გაუქმდა",
+        `საწევრო პაკეტი „${pkg.name}" აღარ არის ხელმისაწვდომი.`,
+        true,
+      );
+    }
+
+    const { error } = await db.from("pricing_packages").delete().eq("id", id);
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE /api/admin/pricing-packages failed", error);
     return Response.json({ error: "internal server error" }, { status: 500 });
   }
 }

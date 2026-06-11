@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
@@ -14,9 +15,8 @@ import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import {
   FOOD_AMENITIES,
-  SERVICE_CATEGORY_LABELS,
-  labelForRestaurantType,
-  labelForCuisineType,
+  optionKeyFor,
+  priceUnitPathFor,
 } from "@/lib/constants/listing-options";
 
 interface Props {
@@ -30,16 +30,19 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-// "10:30 - 21:00" → "10:30-დან 21:00-მდე"; falls back to the raw string.
-function formatHoursRange(hours: string | null): string | null {
-  if (!hours) return null;
-  const match = hours.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
-  if (match) return `${match[1]}-დან ${match[2]}-მდე`;
-  return hours;
-}
-
 export default function FoodDetailClient({ service, isMock = false }: Props) {
   const router = useRouter();
+  const t = useTranslations("FoodDetail");
+  const tShared = useTranslations("Shared");
+  const tOpts = useTranslations("ListingOptions");
+
+  // "10:30 - 21:00" → localized "from 10:30 to 21:00"; falls back to the raw string.
+  const formatHoursRange = (hours: string | null): string | null => {
+    if (!hours) return null;
+    const match = hours.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+    if (match) return t("hoursRange", { from: match[1], to: match[2] });
+    return hours;
+  };
 
   useEffect(() => {
     if (isMock) return;
@@ -52,7 +55,17 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service.id, isMock]);
 
-  const categoryLabel = SERVICE_CATEGORY_LABELS[service.category] ?? null;
+  const categoryKey = optionKeyFor("serviceCategories", service.category);
+  const categoryLabel = categoryKey
+    ? tOpts(`serviceCategories.${categoryKey}`)
+    : null;
+
+  // null key → unknown custom DB value, rendered as-is (passthrough).
+  const restaurantTypeKey = optionKeyFor(
+    "restaurantTypes",
+    service.restaurant_type,
+  );
+  const cuisineTypeKey = optionKeyFor("cuisineTypes", service.cuisine_type);
 
   const subtitleZone = service.location ?? null;
   const subtitleHours = formatHoursRange(service.operating_hours);
@@ -64,17 +77,22 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
     return `${value} ₾`;
   };
 
+  const priceUnitPath = priceUnitPathFor(service.price_unit);
+  const priceUnitLabel = priceUnitPath
+    ? tOpts(priceUnitPath)
+    : service.price_unit;
+
   const avgCheckLabel =
     formatAvgCheck(service.avg_check) ??
     (service.price != null
       ? `${formatPrice(service.price)}${
-          service.price_unit ? ` / ${service.price_unit}` : ""
+          priceUnitLabel ? ` / ${priceUnitLabel}` : ""
         }`
       : null);
 
   const amenityTags = FOOD_AMENITIES.filter(
     (a) => (service as unknown as Record<string, unknown>)[a.key] === true,
-  ).map((a) => a.label);
+  ).map((a) => tOpts(`foodAmenities.${a.key}`));
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[88px] sm:py-8 md:pb-8">
@@ -84,7 +102,7 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
         className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
-        უკან დაბრუნება
+        {tShared("back")}
       </motion.button>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
@@ -116,7 +134,7 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
           {service.description && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                აღწერა
+                {t("description")}
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {service.description}
@@ -127,7 +145,7 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
           {amenityTags.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                სერვისები და დეტალები
+                {t("servicesAndDetails")}
               </h2>
               <div className="flex flex-wrap gap-2">
                 {amenityTags.map((tag) => (
@@ -152,10 +170,16 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
         >
           <div className="sticky top-24 space-y-4">
             <FoodInfoCard
-              establishmentType={labelForRestaurantType(
-                service.restaurant_type,
-              )}
-              cuisineType={labelForCuisineType(service.cuisine_type)}
+              establishmentType={
+                restaurantTypeKey
+                  ? tOpts(`restaurantTypes.${restaurantTypeKey}`)
+                  : service.restaurant_type
+              }
+              cuisineType={
+                cuisineTypeKey
+                  ? tOpts(`cuisineTypes.${cuisineTypeKey}`)
+                  : service.cuisine_type
+              }
               zone={service.location}
               rating={null}
               avgCheck={avgCheckLabel}
@@ -174,7 +198,7 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
       <MobileStickyCTA
         primary={avgCheckLabel ?? service.title}
         secondary={service.location ?? undefined}
-        ctaLabel="კონტაქტი"
+        ctaLabel={t("contact")}
         onClick={() =>
           document
             .getElementById("contact-sidebar")

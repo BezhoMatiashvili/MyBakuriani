@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Star, Pencil, User, X } from "lucide-react";
 
@@ -26,6 +27,9 @@ export default function CleanerDetailModal({
   onClose,
   cleaner,
 }: CleanerDetailModalProps) {
+  const t = useTranslations("RenterDashboard.modals.cleanerDetail");
+  const tShared = useTranslations("DashboardShared");
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -63,13 +67,12 @@ export default function CleanerDetailModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={tShared("closeAria")}
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
             >
               <X className="h-4 w-4" />
             </button>
 
-            {/* Header row */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-[15px] font-extrabold text-white">
@@ -102,16 +105,15 @@ export default function CleanerDetailModal({
               </div>
               {cleaner.available && (
                 <span className="inline-flex items-center rounded-lg bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-bold text-[#16A34A]">
-                  თავისუფალია
+                  {t("available")}
                 </span>
               )}
             </div>
 
-            {/* Pricing */}
             <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-2xl bg-[#F8FAFC]">
               <div className="flex flex-col items-start px-5 py-4">
                 <span className="text-[12px] font-semibold text-[#64748B]">
-                  სტანდარტული
+                  {t("standard")}
                 </span>
                 <span className="mt-1 text-[22px] font-black text-[#0F172A]">
                   {cleaner.priceStandard} ₾
@@ -120,7 +122,7 @@ export default function CleanerDetailModal({
               <div className="relative flex flex-col items-start px-5 py-4">
                 <span className="absolute left-0 top-1/2 h-8 -translate-y-1/2 border-l border-[#E2E8F0]" />
                 <span className="text-[12px] font-semibold text-[#64748B]">
-                  გენერალური
+                  {t("general")}
                 </span>
                 <span className="mt-1 text-[22px] font-black text-[#0F172A]">
                   {cleaner.priceGeneral} ₾
@@ -128,12 +130,11 @@ export default function CleanerDetailModal({
               </div>
             </div>
 
-            {/* Footer actions */}
             <div className="mt-6 flex items-center gap-3">
               <button
                 type="button"
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
-                aria-label="პროფილი"
+                aria-label={tShared("profile")}
               >
                 <User className="h-4 w-4" />
               </button>
@@ -142,7 +143,7 @@ export default function CleanerDetailModal({
                 className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#2563EB] text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF]"
               >
                 <Pencil className="h-4 w-4" strokeWidth={2.4} />
-                დარეკვა
+                {tShared("call")}
               </button>
             </div>
           </motion.div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface SalePaginationProps {
@@ -14,6 +15,7 @@ export function SalePagination({
   totalPages,
   onPageChange,
 }: SalePaginationProps) {
+  const t = useTranslations("SalePagination");
   if (totalPages <= 1) return null;
 
   const pages: (number | "...")[] = [];
@@ -36,7 +38,7 @@ export function SalePagination({
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
         className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
-        aria-label="წინა გვერდი"
+        aria-label={t("prevPage")}
       >
         <ChevronLeft className="size-5" />
       </button>
@@ -69,7 +71,7 @@ export function SalePagination({
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
         className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
-        aria-label="შემდეგი გვერდი"
+        aria-label={t("nextPage")}
       >
         <ChevronRight className="size-5" />
       </button>

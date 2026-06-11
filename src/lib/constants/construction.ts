@@ -4,23 +4,23 @@
 
 export interface ConstructionStage {
   key: string;
-  label: string;
   weight: number; // weights across all stages sum to 100
 }
 
 // Order matters: the first four stages sum to 45 (matches the design's
-// "4 checked → 45%"). Weights total 100.
+// "4 checked → 45%"). Weights total 100. Labels live in messages under
+// SellerDashboard.constructionModal.stages.<key>.
 export const CONSTRUCTION_STAGES: readonly ConstructionStage[] = [
-  { key: "permit", label: "მშენებლობის ნებართვა", weight: 5 },
-  { key: "earthworks", label: "მიწის სამუშაოები", weight: 5 },
-  { key: "foundation", label: "საძირკველი", weight: 10 },
-  { key: "rc_frame", label: "რკინა-ბეტონის კარკასი", weight: 25 },
-  { key: "walls", label: "გარე და შიდა კედლები", weight: 12 },
-  { key: "roofing", label: "გადახურვა", weight: 10 },
-  { key: "windows_doors", label: "ფანჯრები / კარები", weight: 8 },
-  { key: "utilities", label: "კომუნიკაციები (ელ. წყალი)", weight: 10 },
-  { key: "finishing", label: "მოპირკეთება (ლიფტი/კიბე)", weight: 10 },
-  { key: "commissioning", label: "ექსპლუატაციაში მიღება", weight: 5 },
+  { key: "permit", weight: 5 },
+  { key: "earthworks", weight: 5 },
+  { key: "foundation", weight: 10 },
+  { key: "rc_frame", weight: 25 },
+  { key: "walls", weight: 12 },
+  { key: "roofing", weight: 10 },
+  { key: "windows_doors", weight: 8 },
+  { key: "utilities", weight: 10 },
+  { key: "finishing", weight: 10 },
+  { key: "commissioning", weight: 5 },
 ];
 
 /** Derive the construction progress percent (0–100) from completed stage keys. */
@@ -48,14 +48,6 @@ export function stagesUpToPercent(percent: number): string[] {
   }
   return keys;
 }
-
-// Status of the construction/progress update (used in the dialog dropdown).
-export const STATUS_OPTIONS: readonly { value: string; label: string }[] = [
-  { value: "on_schedule", label: "მიმდინარეობს გრაფიკით" },
-  { value: "delayed", label: "შეფერხებით" },
-  { value: "paused", label: "შეჩერებულია" },
-  { value: "completed", label: "დასრულდა" },
-];
 
 export interface UnitsLike {
   units_total: number | null;

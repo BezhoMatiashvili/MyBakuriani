@@ -44,17 +44,10 @@ interface PropertyCardProps {
   priority?: boolean;
 }
 
-function formatLocationWithDistance(
-  location: string,
-  distanceToSlopeM?: number | null,
-): string {
-  const zone = location.includes(",")
+function extractZone(location: string): string {
+  return location.includes(",")
     ? location.split(",").pop()?.trim() || location
     : location;
-  if (distanceToSlopeM != null && distanceToSlopeM > 0) {
-    return `${zone} • ${distanceToSlopeM}მ ტრასამდე`;
-  }
-  return location;
 }
 
 export default function PropertyCard(props: PropertyCardProps) {
@@ -93,7 +86,9 @@ export default function PropertyCard(props: PropertyCardProps) {
     constructionProgressPercent != null;
   const displayLocation = isHotel
     ? location
-    : formatLocationWithDistance(location, distanceToSlopeM);
+    : distanceToSlopeM != null && distanceToSlopeM > 0
+      ? `${extractZone(location)} • ${t("distanceToSlope", { distance: distanceToSlopeM })}`
+      : location;
   const href = isHotel
     ? `/hotels/${id}`
     : isForSale
@@ -224,7 +219,7 @@ export default function PropertyCard(props: PropertyCardProps) {
             type="button"
             onClick={toggleFavorite}
             disabled={favoriteBusy}
-            aria-label={favoriteId ? "რჩეულებიდან წაშლა" : "რჩეულებში დამატება"}
+            aria-label={favoriteId ? t("favoriteRemove") : t("favoriteAdd")}
             aria-pressed={favoriteId != null}
             className={`absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors ${
               favoriteId
@@ -304,7 +299,7 @@ export default function PropertyCard(props: PropertyCardProps) {
             <div className="mt-3">
               <ConstructionProgressBar
                 percent={constructionProgressPercent!}
-                label="მშენებლობა"
+                label={t("construction")}
                 size="sm"
               />
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -30,23 +31,24 @@ type CalendarBlock = Tables<"calendar_blocks">;
 type Property = Tables<"properties">;
 type PriceOverrideRow = Tables<"price_overrides">;
 
-const DAY_NAMES = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
-const WEEKEND_INDICES = [4, 5, 6];
+const MONTH_KEYS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+] as const;
 
-const MONTH_NAMES = [
-  "იანვარი",
-  "თებერვალი",
-  "მარტი",
-  "აპრილი",
-  "მაისი",
-  "ივნისი",
-  "ივლისი",
-  "აგვისტო",
-  "სექტემბერი",
-  "ოქტომბერი",
-  "ნოემბერი",
-  "დეკემბერი",
-];
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+const WEEKEND_INDICES = [4, 5, 6];
 
 interface DayMeta {
   date: string;
@@ -77,6 +79,9 @@ function getFirstDayOfMonth(year: number, month: number) {
 }
 
 export default function RenterCalendarPage() {
+  const t = useTranslations("RenterCalendar");
+  const tMonths = useTranslations("DateRangeFilter.months");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -661,25 +666,25 @@ export default function RenterCalendarPage() {
                   />
                 </span>
               }
-              label="თავისუფალი"
+              label={t("legendFree")}
             />
             <LegendItem
               swatch={
                 <span className="h-3.5 w-3.5 rounded-[3px] bg-[#FEE2E2]" />
               }
-              label="დაკავშინილი"
+              label={t("legendBooked")}
             />
             <LegendItem
               swatch={
                 <span className="h-3.5 w-3.5 rounded-[3px] bg-[#FEF3C7]" />
               }
-              label="გათიშული"
+              label={t("legendBlocked")}
             />
             <LegendItem
               swatch={
                 <span className="h-3.5 w-3.5 rounded-full bg-[#F97316]" />
               }
-              label="ფასი შეცვლილია"
+              label={t("legendPriceChanged")}
             />
           </div>
         </div>
@@ -689,18 +694,18 @@ export default function RenterCalendarPage() {
             <button
               type="button"
               onClick={handlePrevMonth}
-              aria-label="Previous month"
+              aria-label={t("prevMonth")}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="px-3 text-[13px] font-black text-[#0F172A]">
-              {MONTH_NAMES[month]} {year}
+              {tMonths(MONTH_KEYS[month])} {year}
             </span>
             <button
               type="button"
               onClick={handleNextMonth}
-              aria-label="Next month"
+              aria-label={t("nextMonth")}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
             >
               <ChevronRight className="h-4 w-4" />
@@ -714,7 +719,7 @@ export default function RenterCalendarPage() {
             className="inline-flex items-center gap-2 rounded-xl border border-[#F97316] bg-white px-4 py-2.5 text-[13px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50"
           >
             <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-            დიაპაზონი
+            {t("range")}
           </button>
 
           <button
@@ -727,7 +732,7 @@ export default function RenterCalendarPage() {
             className="inline-flex items-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50"
           >
             <Plus className="h-4 w-4" strokeWidth={2.6} />
-            დამატება
+            {tShared("add")}
           </button>
         </div>
       </div>
@@ -743,15 +748,15 @@ export default function RenterCalendarPage() {
 
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 border-b border-[#EEF1F4]">
-        {DAY_NAMES.map((name, i) => (
+        {DAY_KEYS.map((key, i) => (
           <div
-            key={name}
+            key={key}
             className={cn(
               "py-3 text-center text-[11px] font-bold uppercase tracking-wide",
               WEEKEND_INDICES.includes(i) ? "text-[#EF4444]" : "text-[#94A3B8]",
             )}
           >
-            {name}
+            {t(`daysShort.${key}`)}
           </div>
         ))}
       </div>
@@ -788,11 +793,7 @@ export default function RenterCalendarPage() {
         ))}
       </motion.div>
 
-      <p className="text-[11px] text-[#94A3B8] md:text-[12px]">
-        💡 აირჩიეთ დღეები დაკლიკით (შეიძლება არამიმდევრობით) ან გადაიტანეთ მაუსი
-        დიაპაზონისთვის. გათიშეთ დღეები, რომ სტუმრებმა ვერ დაჯავშნონ. ჯავშნის
-        დასამატებლად — ორმაგი დაკლიკება.
-      </p>
+      <p className="text-[11px] text-[#94A3B8] md:text-[12px]">{t("hint")}</p>
 
       {/* Selection action bar */}
       <AnimatePresence>
@@ -810,21 +811,26 @@ export default function RenterCalendarPage() {
                   type="button"
                   onClick={clearSelection}
                   className="flex h-9 w-9 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9]"
-                  aria-label="გაუქმება"
+                  aria-label={tShared("cancel")}
                 >
                   <X className="h-4 w-4" />
                 </button>
                 <div className="text-[13px]">
                   <div className="font-black text-[#0F172A]">
                     {freeSelected.length > 0 && blockedSelected.length > 0
-                      ? `${freeSelected.length} თავისუფალი • ${blockedSelected.length} გათიშული`
+                      ? t("selectionMixed", {
+                          free: freeSelected.length,
+                          blocked: blockedSelected.length,
+                        })
                       : freeSelected.length > 0
-                        ? `${freeSelected.length} დღე არჩეული`
-                        : `${blockedSelected.length} გათიშული არჩეული`}
+                        ? t("selectionFree", { count: freeSelected.length })
+                        : t("selectionBlocked", {
+                            count: blockedSelected.length,
+                          })}
                   </div>
                   {freeSelected.length > 0 && (
                     <div className="text-[11px] font-semibold text-[#64748B]">
-                      საშუალო ფასი: {avgCurrentPrice}₾
+                      {t("avgPrice", { price: avgCurrentPrice })}
                     </div>
                   )}
                 </div>
@@ -839,7 +845,7 @@ export default function RenterCalendarPage() {
                     className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#16A34A] bg-white px-4 text-[13px] font-black text-[#16A34A] transition-colors hover:bg-[#F0FDF4] disabled:opacity-50"
                   >
                     <Unlock className="h-4 w-4" strokeWidth={2.4} />
-                    ჩართვა ({blockedSelected.length})
+                    {t("turnOn", { count: blockedSelected.length })}
                   </button>
                 )}
                 {freeSelected.length > 0 && (
@@ -851,7 +857,7 @@ export default function RenterCalendarPage() {
                       className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#D97706] px-4 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(217,119,6,0.3)] transition-colors hover:bg-[#B45309] disabled:opacity-50"
                     >
                       <Lock className="h-4 w-4" strokeWidth={2.4} />
-                      გათიშვა ({freeSelected.length})
+                      {t("turnOff", { count: freeSelected.length })}
                     </button>
                     <div className="relative flex-1 md:max-w-[180px]">
                       <input
@@ -860,7 +866,7 @@ export default function RenterCalendarPage() {
                         inputMode="numeric"
                         value={priceInput}
                         onChange={(e) => setPriceInput(e.target.value)}
-                        placeholder="ახალი ფასი"
+                        placeholder={t("newPricePlaceholder")}
                         className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-3 pr-8 text-[14px] font-semibold text-[#0F172A] outline-none focus:border-[#F97316]"
                       />
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
@@ -879,17 +885,17 @@ export default function RenterCalendarPage() {
                       className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#F97316] px-4 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
                     >
                       <Check className="h-4 w-4" strokeWidth={2.6} />
-                      გადატარება
+                      {t("applyPrice")}
                     </button>
                     <button
                       type="button"
                       disabled={savingPrice}
                       onClick={resetToDefault}
                       className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9] disabled:opacity-50"
-                      title="ფასი ნაგულისხმევზე დაბრუნება"
+                      title={t("resetDefaultTitle")}
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      ნაგულისხმევზე
+                      {t("resetDefault")}
                     </button>
                   </>
                 )}

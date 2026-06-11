@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   LayoutGrid,
   Heart,
@@ -26,35 +27,39 @@ interface GuestSidebarProps {
 }
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: LucideIcon;
 }
 
 interface NavGroup {
-  title: string;
+  titleKey: string;
   items: NavItem[];
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: "მთავარი",
+    titleKey: "main",
     items: [
-      { label: "მთავარი გვერდი", href: "/dashboard/guest", icon: LayoutGrid },
-      { label: "რჩეულები", href: "/dashboard/guest/favorites", icon: Heart },
+      { labelKey: "homePage", href: "/dashboard/guest", icon: LayoutGrid },
+      {
+        labelKey: "favorites",
+        href: "/dashboard/guest/favorites",
+        icon: Heart,
+      },
     ],
   },
   {
-    title: "აქტივობა",
+    titleKey: "activity",
     items: [
-      { label: "ისტორია", href: "/dashboard/guest/reviews", icon: MapPin },
+      { labelKey: "history", href: "/dashboard/guest/reviews", icon: MapPin },
     ],
   },
   {
-    title: "პროფილი",
+    titleKey: "profile",
     items: [
       {
-        label: "პარამეტრები",
+        labelKey: "settings",
         href: "/dashboard/guest/profile",
         icon: Settings,
       },
@@ -95,6 +100,7 @@ export function GuestSidebar({
   onSignOut,
   availableCabinets,
 }: GuestSidebarProps) {
+  const t = useTranslations("DashboardSidebar");
   const initials = userName
     .split(" ")
     .map((n) => n[0])
@@ -127,7 +133,7 @@ export function GuestSidebar({
             {userName}
           </p>
           <span className="mt-1 inline-flex items-center rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] font-bold text-[#16A34A]">
-            დამსვენებელი
+            {t("roles.visitor")}
           </span>
         </div>
       </CabinetSwitcher>
@@ -136,9 +142,11 @@ export function GuestSidebar({
 
       <nav className="mt-4 flex-1 overflow-y-auto px-4">
         {NAV_GROUPS.map((group) => (
-          <div key={group.title} className="mb-5">
+          <div key={group.titleKey} className="mb-5">
             <p className="mb-2 px-4 text-[10px] font-bold uppercase tracking-[0.1em] text-[#94A3B8]">
-              {group.title}
+              {group.titleKey === "profile"
+                ? t("nav.profile")
+                : t(`sections.${group.titleKey}`)}
             </p>
             <ul className="space-y-1">
               {group.items.map((item) => {
@@ -162,7 +170,9 @@ export function GuestSidebar({
                         />
                       )}
                       <Icon className="size-[18px] shrink-0" />
-                      <span className="flex-1 truncate">{item.label}</span>
+                      <span className="flex-1 truncate">
+                        {t(`nav.${item.labelKey}`)}
+                      </span>
                     </Link>
                   </li>
                 );
@@ -178,7 +188,7 @@ export function GuestSidebar({
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8]"
         >
           <Home className="size-[18px]" />
-          მთავარზე დაბრუნება
+          {t("backToHome")}
         </Link>
       </div>
 
@@ -189,7 +199,7 @@ export function GuestSidebar({
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
         >
           <LogOut className="size-[18px]" />
-          გამოსვლა
+          {t("logout")}
         </button>
       </div>
     </motion.aside>

@@ -1,60 +1,66 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, CheckCircle2, Calendar, ArrowRight } from "lucide-react";
+import { Calendar, Check, Clock, MapPin, Play, User } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice, formatTime } from "@/lib/utils/format";
+import { formatDateShort, formatNumber, formatTime } from "@/lib/utils/format";
+import { optionKeyFor } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 
 type TaskRow = Tables<"cleaning_tasks"> & {
   properties: Pick<Tables<"properties">, "title" | "location"> | null;
+  profiles: Pick<Tables<"profiles">, "display_name" | "phone"> | null;
 };
 
-const GE_DAY = ["კვი", "ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შბ"];
-const GE_MONTH = [
-  "იან",
-  "თებ",
-  "მარ",
-  "აპრ",
-  "მაი",
-  "ივნ",
-  "ივლ",
-  "აგვ",
-  "სექ",
-  "ოქტ",
-  "ნოე",
-  "დეკ",
-];
+const TAB_LABEL_KEYS = ["today", "tomorrow", "dayAfterTomorrow"] as const;
 
 function dayBucket(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+function dayPartKey(d: Date): "morning" | "afternoon" | "evening" {
+  const h = d.getHours();
+  if (h < 12) return "morning";
+  if (h < 18) return "afternoon";
+  return "evening";
+}
+
+function toInputDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function CleanerSchedulePage() {
+  const t = useTranslations("CleanerSchedule");
+  const tOpts = useTranslations("ListingOptions");
+  const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
 
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeDay, setActiveDay] = useState<string>(dayBucket(new Date()));
+  const [activeDate, setActiveDate] = useState<Date>(() => new Date());
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
     async function fetchData() {
       const { data } = await supabase
         .from("cleaning_tasks")
-        .select("*, properties(title, location)")
+        .select(
+          "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone)",
+        )
         .eq("cleaner_id", user!.id)
+        .in("status", ["accepted", "in_progress", "completed"])
         .order("scheduled_at", { ascending: true });
       if (data) setTasks(data as TaskRow[]);
       setLoading(false);
     }
     fetchData();
 
-    // Live: newly assigned / updated tasks appear on the schedule without refresh.
     const channel = supabase
       .channel("cleaner-schedule-rt")
       .on(
@@ -75,11 +81,11 @@ export default function CleanerSchedulePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const upcomingDays = useMemo(() => {
+  const dayTabs = useMemo(() => {
     const days: Date[] = [];
     const base = new Date();
     base.setHours(0, 0, 0, 0);
-    for (let i = 0; i < 5; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       days.push(d);
@@ -87,29 +93,68 @@ export default function CleanerSchedulePage() {
     return days;
   }, []);
 
-  const tasksForActive = useMemo(
+  const isCustomDate = !dayTabs.some(
+    (d) => dayBucket(d) === dayBucket(activeDate),
+  );
+
+  const tasksForDay = useMemo(
     () =>
       tasks
-        .filter((t) =>
-          t.scheduled_at
-            ? dayBucket(new Date(t.scheduled_at)) === activeDay
-            : false,
+        .filter(
+          (task) =>
+            dayBucket(new Date(task.scheduled_at)) === dayBucket(activeDate),
         )
         .sort(
           (a, b) =>
-            new Date(a.scheduled_at ?? 0).getTime() -
-            new Date(b.scheduled_at ?? 0).getTime(),
+            new Date(a.scheduled_at).getTime() -
+            new Date(b.scheduled_at).getTime(),
         ),
-    [tasks, activeDay],
+    [tasks, activeDate],
   );
 
-  async function markDone(id: string) {
+  function openCalendar() {
+    const input = dateInputRef.current;
+    if (!input) return;
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+    } else {
+      input.click();
+    }
+  }
+
+  function handleDatePick(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.value) return;
+    const [y, m, d] = e.target.value.split("-").map(Number);
+    setActiveDate(new Date(y, m - 1, d));
+  }
+
+  async function startTask(id: string) {
+    const startedAt = new Date().toISOString();
     await supabase
       .from("cleaning_tasks")
-      .update({ status: "completed" })
+      .update({ status: "in_progress", started_at: startedAt })
       .eq("id", id);
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "completed" } : t)),
+      prev.map((task) =>
+        task.id === id
+          ? { ...task, status: "in_progress", started_at: startedAt }
+          : task,
+      ),
+    );
+  }
+
+  async function completeTask(id: string) {
+    const completedAt = new Date().toISOString();
+    await supabase
+      .from("cleaning_tasks")
+      .update({ status: "completed", completed_at: completedAt })
+      .eq("id", id);
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id
+          ? { ...task, status: "completed", completed_at: completedAt }
+          : task,
+      ),
     );
   }
 
@@ -118,140 +163,251 @@ export default function CleanerSchedulePage() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
-        <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          ჩემი გრაფიკი
-        </h1>
-        <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          დაგეგმე დღე, ნახე დავალებების დრო და ადგილმდებარეობა.
-        </p>
-      </motion.div>
+        <div>
+          <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+            {t("title")}
+          </h1>
+          <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+            {t("subtitle")}
+          </p>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {upcomingDays.map((d) => {
-          const key = dayBucket(d);
-          const active = key === activeDay;
-          const isToday = key === dayBucket(new Date());
-          return (
+        <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-[#EEF1F4] bg-white p-1.5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
+          {dayTabs.map((d, idx) => {
+            const active =
+              !isCustomDate && dayBucket(d) === dayBucket(activeDate);
+            return (
+              <button
+                key={dayBucket(d)}
+                type="button"
+                onClick={() => setActiveDate(d)}
+                className={`rounded-xl px-4 py-2 text-center transition-colors ${
+                  active
+                    ? "bg-[#2563EB] text-white"
+                    : "text-[#0F172A] hover:bg-[#F8FAFC]"
+                }`}
+              >
+                <span
+                  className={`block text-[10px] font-bold ${
+                    active ? "text-white/70" : "text-[#94A3B8]"
+                  }`}
+                >
+                  {t(TAB_LABEL_KEYS[idx])}
+                </span>
+                <span className="block text-[15px] font-black leading-tight">
+                  {formatDateShort(d, locale)}
+                </span>
+              </button>
+            );
+          })}
+          <span
+            aria-hidden
+            className="mx-1 hidden h-8 w-px bg-[#EEF1F4] sm:block"
+          />
+          <div className="relative">
             <button
-              key={key}
               type="button"
-              onClick={() => setActiveDay(key)}
-              className={`flex min-w-[70px] flex-col items-center rounded-2xl border px-4 py-2 transition-colors ${
-                active
-                  ? "border-[#0F172A] bg-[#0F172A] text-white"
-                  : "border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#0F172A]"
+              onClick={openCalendar}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-[13px] font-bold transition-colors ${
+                isCustomDate
+                  ? "bg-[#2563EB] text-white"
+                  : "text-[#2563EB] hover:bg-[#EFF6FF]"
               }`}
             >
-              <span
-                className={`text-[10px] font-bold uppercase ${
-                  active ? "text-white/70" : "text-[#94A3B8]"
-                }`}
-              >
-                {GE_DAY[d.getDay()]}
-              </span>
-              <span className="mt-0.5 text-[18px] font-black leading-none">
-                {d.getDate()}
-              </span>
-              <span
-                className={`mt-0.5 text-[10px] font-medium ${
-                  active ? "text-white/70" : "text-[#94A3B8]"
-                }`}
-              >
-                {isToday ? "დღეს" : GE_MONTH[d.getMonth()]}
-              </span>
+              <Calendar className="h-4 w-4" />
+              {isCustomDate
+                ? formatDateShort(activeDate, locale)
+                : t("calendar")}
             </button>
-          );
-        })}
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-      >
-        {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-xl" />
-            ))}
-          </div>
-        ) : tasksForActive.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Calendar className="h-10 w-10 text-[#CBD5E1]" />
-            <p className="mt-3 text-[14px] font-bold text-[#0F172A]">
-              დავალება არ გაქვს
-            </p>
-            <p className="mt-1 text-[12px] text-[#94A3B8]">
-              არჩეული დღისთვის დაგეგმილი დავალებები აქ გამოჩნდება.
-            </p>
-          </div>
-        ) : (
-          <ul className="relative">
-            <span
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={toInputDate(activeDate)}
+              onChange={handleDatePick}
+              className="sr-only"
+              tabIndex={-1}
               aria-hidden
-              className="absolute left-[58px] top-6 bottom-6 w-px bg-[#E2E8F0]"
             />
-            {tasksForActive.map((t, idx) => {
-              const d = t.scheduled_at ? new Date(t.scheduled_at) : null;
-              const isDone = t.status === "completed";
-              return (
-                <li key={t.id} className="relative flex gap-4 py-4">
-                  <div className="w-[48px] shrink-0 text-right">
-                    <p className="text-[13px] font-black text-[#0F172A]">
-                      {d ? formatTime(d) : "—"}
-                    </p>
-                  </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {loading ? (
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex gap-4">
+              <Skeleton className="h-10 w-12 rounded-xl" />
+              <Skeleton className="h-[180px] flex-1 rounded-[20px]" />
+            </div>
+          ))}
+        </div>
+      ) : tasksForDay.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 text-center shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
+        >
+          <Calendar className="h-10 w-10 text-[#CBD5E1]" />
+          <p className="mt-3 text-[14px] font-bold text-[#0F172A]">
+            {t("emptyDayTitle")}
+          </p>
+          <p className="mt-1 text-[12px] text-[#94A3B8]">{t("emptyDayDesc")}</p>
+        </motion.div>
+      ) : (
+        <div>
+          {tasksForDay.map((task, idx) => {
+            const d = new Date(task.scheduled_at);
+            const isDone = task.status === "completed";
+            const isLast = idx === tasksForDay.length - 1;
+            const isUrgent =
+              !isDone && d.getTime() - Date.now() < 2 * 60 * 60 * 1000;
+            const typeKey = optionKeyFor("cleaningTypes", task.cleaning_type);
+            const typeLabel = typeKey
+              ? tOpts(`cleaningTypes.${typeKey}`)
+              : task.cleaning_type;
+
+            return (
+              <motion.div
+                key={task.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="flex gap-3 pb-6 sm:gap-4"
+              >
+                <div className="w-12 shrink-0 pt-1 text-right">
+                  <p className="text-[14px] font-black leading-tight text-[#0F172A]">
+                    {formatTime(d)}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
+                    {t(`dayParts.${dayPartKey(d)}`)}
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-center pt-1.5">
                   <span
-                    className={`relative z-10 mt-1.5 h-[10px] w-[10px] shrink-0 rounded-full border-2 border-white ${
+                    className={`h-4 w-4 shrink-0 rounded-full ${
                       isDone
                         ? "bg-[#10B981]"
-                        : idx === 0
-                          ? "bg-[#0F172A]"
-                          : "bg-[#CBD5E1]"
+                        : "border-[3px] border-[#2563EB] bg-white"
                     }`}
                   />
-                  <div className="min-w-0 flex-1 rounded-2xl border border-[#EEF1F4] bg-[#F8FAFC] p-4">
-                    <div className="flex items-start justify-between gap-2">
+                  {!isLast && (
+                    <span
+                      aria-hidden
+                      className={`mt-1 min-h-4 flex-1 ${
+                        isDone
+                          ? "w-[2px] bg-[#10B981]"
+                          : "w-0 border-l-2 border-dashed border-[#CBD5E1]"
+                      }`}
+                    />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1 rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[17px] font-black text-[#0F172A]">
+                        {task.properties?.title ?? t("listingFallback")}
+                      </h3>
+                      <p className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {task.address ?? task.properties?.location ?? "—"}
+                        </span>
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold ${
+                        typeKey === "general"
+                          ? "bg-[#E0F2FE] text-[#0284C7]"
+                          : "bg-[#EFF6FF] text-[#2563EB]"
+                      }`}
+                    >
+                      {typeLabel}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 rounded-2xl bg-[#F8FAFC] p-4 sm:grid-cols-2">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-[0px_1px_3px_rgba(0,0,0,0.06)]">
+                        <User className="h-4 w-4 text-[#64748B]" />
+                      </span>
                       <div className="min-w-0">
-                        <h3 className="truncate text-[14px] font-black text-[#0F172A]">
-                          {t.properties?.title ?? "ობიექტი"}
-                        </h3>
-                        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-[#64748B]">
-                          <MapPin className="h-3 w-3" />
-                          {t.properties?.location ?? "—"}
+                        <p className="text-[11px] font-medium text-[#94A3B8]">
+                          {t("owner")}
+                        </p>
+                        <p className="truncate text-[13px] font-bold text-[#0F172A]">
+                          {task.profiles?.display_name ?? "—"}
+                          {task.profiles?.phone
+                            ? ` (${task.profiles.phone})`
+                            : ""}
                         </p>
                       </div>
-                      {t.price != null && (
-                        <span className="shrink-0 text-[13px] font-black text-[#0F8F60]">
-                          {formatPrice(Number(t.price))}
-                        </span>
-                      )}
                     </div>
-                    <div className="mt-3 flex items-center justify-end gap-2">
-                      {isDone ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#DCFCE7] px-3 py-1 text-[11px] font-bold text-[#16A34A]">
-                          <CheckCircle2 className="h-3 w-3" />
-                          დასრულებული
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => markDone(t.id)}
-                          className="inline-flex items-center gap-1 rounded-xl bg-[#0F172A] px-4 py-2 text-[11px] font-bold text-white hover:bg-[#1E293B]"
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-[0px_1px_3px_rgba(0,0,0,0.06)]">
+                        <Clock className="h-4 w-4 text-[#64748B]" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium text-[#94A3B8]">
+                          {t("dueBy")}
+                        </p>
+                        <p
+                          className={`text-[13px] font-bold ${
+                            isUrgent ? "text-[#EF4444]" : "text-[#0F172A]"
+                          }`}
                         >
-                          დასრულება
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                      )}
+                          {t("atTime", { time: formatTime(d) })}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </motion.div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#EEF1F4] pt-4">
+                    {task.price != null ? (
+                      <p className="text-[22px] font-black leading-none text-[#16A34A]">
+                        {formatNumber(Number(task.price))}{" "}
+                        <span className="text-[12px] font-bold text-[#94A3B8]">
+                          ₾
+                        </span>
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+
+                    {isDone ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#BBF7D0] bg-[#DCFCE7] px-4 py-2.5 text-[12px] font-bold text-[#16A34A]">
+                        <Check className="h-4 w-4" />
+                        {t("completedBadge")}
+                      </span>
+                    ) : task.status === "in_progress" ? (
+                      <button
+                        type="button"
+                        onClick={() => completeTask(task.id)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#16A34A] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]"
+                      >
+                        <Check className="h-4 w-4" />
+                        {t("markCompleted")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startTask(task.id)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+                      >
+                        <Play className="h-4 w-4" />
+                        {t("start")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,29 +1,23 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Search, Car, ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 
-const VEHICLE_TYPES = [
-  { value: "all", label: "ყველა" },
-  { value: "minivan", label: "მინივენი" },
-  { value: "taxi", label: "ტაქსი" },
-  { value: "microbus", label: "მიკროავტობუსი" },
-  { value: "other", label: "სხვა" },
-] as const;
+const VEHICLE_TYPES = ["all", "minivan", "taxi", "microbus", "other"] as const;
 
+// `value` is matched against DB `routes`/`route` values and must stay Georgian.
 const ROUTE_FILTERS = [
-  { value: "all", label: "ყველა" },
-  { value: "შიდა გადაადგილება (ტაქსი)", label: "შიდა გადაადგილება (ტაქსი)" },
-  {
-    value: "თბილისი - ბაკურიანი - თბილისი",
-    label: "თბილისი - ბაკურიანი",
-  },
-  { value: "აეროპორტის ტრანსფერი", label: "აეროპორტის ტრანსფერი" },
-  { value: "other", label: "სხვა" },
+  { value: "all", key: "all" },
+  { value: "შიდა გადაადგილება (ტაქსი)", key: "local" },
+  { value: "თბილისი - ბაკურიანი - თბილისი", key: "tbilisi" },
+  { value: "აეროპორტის ტრანსფერი", key: "airport" },
+  { value: "other", key: "other" },
 ] as const;
 
+// DB `routes`/`route` values — matching data, must stay Georgian.
 const KNOWN_ROUTES = new Set([
   "შიდა გადაადგილება (ტაქსი)",
   "თბილისი - ბაკურიანი - თბილისი",
@@ -41,6 +35,8 @@ interface Props {
 }
 
 export default function TransportPageClient({ services }: Props) {
+  const t = useTranslations("TransportPage");
+  const tShared = useTranslations("Shared");
   const [activeVehicle, setActiveVehicle] = useState<string>("all");
   const [activeRoute, setActiveRoute] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,13 +85,12 @@ export default function TransportPageClient({ services }: Props) {
         <div className="mx-auto max-w-3xl">
           <ScrollReveal>
             <h1 className="text-[36px] font-black leading-[44px] sm:text-[48px] sm:leading-[56px]">
-              <span className="text-[#60A5FA]">ტრანსპორტი</span>{" "}
-              <span className="text-white">და</span>{" "}
-              <span className="text-white">ტრანსფერები</span>
+              <span className="text-[#60A5FA]">{t("heroTitle1")}</span>{" "}
+              <span className="text-white">{t("heroTitle2")}</span>{" "}
+              <span className="text-white">{t("heroTitle3")}</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/70">
-              უსაფრთხო და კომფორტული გადაადგილება ბაკურიანში და მის ფარგლებს
-              გარეთ.
+              {t("heroSubtitle")}
             </p>
           </ScrollReveal>
           <div className="mx-auto mt-8 flex max-w-[720px] items-center gap-2 rounded-full bg-white p-2 shadow-lg">
@@ -108,7 +103,7 @@ export default function TransportPageClient({ services }: Props) {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="რას ეძებთ?..."
+                placeholder={t("searchPlaceholder")}
                 className="h-10 w-full border-0 bg-transparent text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
               />
             </div>
@@ -116,7 +111,7 @@ export default function TransportPageClient({ services }: Props) {
               type="button"
               className="h-10 shrink-0 rounded-full bg-[#2563EB] px-6 text-sm font-bold text-white transition-colors hover:bg-[#1D4ED8]"
             >
-              ძიება
+              {t("search")}
             </button>
           </div>
         </div>
@@ -127,23 +122,23 @@ export default function TransportPageClient({ services }: Props) {
         <div className="relative z-10 mx-auto -mt-16 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[160px]">
-              ტრანსპორტის ტიპი:
+              {t("vehicleTypeLabel")}
             </span>
             <div className="flex flex-1 flex-wrap gap-2">
-              {VEHICLE_TYPES.map((cat) => (
+              {VEHICLE_TYPES.map((value) => (
                 <button
-                  key={cat.value}
+                  key={value}
                   onClick={() => {
-                    setActiveVehicle(cat.value);
+                    setActiveVehicle(value);
                     setCurrentPage(1);
                   }}
                   className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
-                    activeVehicle === cat.value
+                    activeVehicle === value
                       ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
                   }`}
                 >
-                  {cat.label}
+                  {t(`vehicleTypes.${value}`)}
                 </button>
               ))}
             </div>
@@ -151,7 +146,7 @@ export default function TransportPageClient({ services }: Props) {
           <div className="my-5 h-px w-full bg-[#E2E8F0]" />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[160px]">
-              მიმართულება:
+              {t("routeLabel")}
             </span>
             <div className="flex flex-1 flex-wrap gap-2">
               {ROUTE_FILTERS.map((cat) => (
@@ -167,7 +162,7 @@ export default function TransportPageClient({ services }: Props) {
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
                   }`}
                 >
-                  {cat.label}
+                  {t(`routes.${cat.key}`)}
                 </button>
               ))}
             </div>
@@ -178,7 +173,7 @@ export default function TransportPageClient({ services }: Props) {
       {/* Results */}
       <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-12">
         <h2 className="mb-6 text-[28px] font-black leading-[34px] text-[#1E293B]">
-          შედეგები ({filtered.length})
+          {t("results", { count: filtered.length })}
         </h2>
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -186,10 +181,10 @@ export default function TransportPageClient({ services }: Props) {
               <Car className="h-8 w-8 text-[#64748B]" />
             </div>
             <h3 className="text-[17px] font-black text-[#1E293B]">
-              ტრანსპორტი ვერ მოიძებნა
+              {t("noResults")}
             </h3>
             <p className="mt-1 text-sm text-[#64748B]">
-              სცადეთ ფილტრების შეცვლა
+              {tShared("tryChangeFilters")}
             </p>
           </div>
         ) : (

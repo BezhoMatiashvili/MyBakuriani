@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { CigaretteOff, PawPrint, UtensilsCrossed } from "lucide-react";
@@ -15,27 +16,27 @@ import PhoneInput from "@/components/forms/PhoneInput";
 import AvailabilityWizardStep from "@/components/forms/AvailabilityWizardStep";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
-import {
-  AMENITY_GROUPS,
-  HOSTING_LANGS,
-  PROPERTY_TYPE_LABELS,
-} from "@/lib/constants/listing-options";
+import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { AvailabilityStatus, buildNext30Days } from "@/lib/utils/availability";
 
-const PROPERTY_TYPES: { value: Enums<"property_type">; label: string }[] = (
-  ["apartment", "studio", "cottage", "hotel", "villa"] as const
-).map((value) => ({ value, label: PROPERTY_TYPE_LABELS[value] ?? value }));
-
-const STEP_TITLES = [
-  "ძირითადი ინფორმაცია",
-  "ბინის დეტალები და მდებარეობა",
-  "კეთილმოწყობა და დეტალები",
-  "ფასი და ხელმისაწვდომობა",
-  "ფოტოები და კონტაქტი",
+const PROPERTY_TYPES: Enums<"property_type">[] = [
+  "apartment",
+  "studio",
+  "cottage",
+  "hotel",
+  "villa",
 ];
+
+const STEP_TITLE_KEYS = [
+  "basicInfo",
+  "detailsLocation",
+  "amenitiesDetails",
+  "priceAvailability",
+  "photosContact",
+] as const;
 
 function buildDefaultAvailability(): Map<string, AvailabilityStatus> {
   return buildNext30Days().reduce((acc, d) => {
@@ -73,6 +74,8 @@ export default function CreateRentalPage() {
 }
 
 function CreateRentalPageInner() {
+  const t = useTranslations("CreateRental");
+  const tOpts = useTranslations("ListingOptions");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -152,7 +155,7 @@ function CreateRentalPageInner() {
       if (cancelled) return;
 
       if (fetchError || !data) {
-        setError("ბინა ვერ მოიძებნა");
+        setError(t("notFound"));
         setHydrating(false);
         return;
       }
@@ -304,31 +307,30 @@ function CreateRentalPageInner() {
     try {
       const titleTrimmed = title.trim();
       const locationTrimmed = location.trim();
-      if (!titleTrimmed) throw new Error("არასწორი სათაური");
-      if (!locationTrimmed) throw new Error("არასწორი მდებარეობა");
+      if (!titleTrimmed) throw new Error(t("invalidTitle"));
+      if (!locationTrimmed) throw new Error(t("invalidLocation"));
 
       const priceNum = Number(pricePerNight);
       if (!Number.isFinite(priceNum) || priceNum <= 0 || priceNum > 100000) {
-        throw new Error("არასწორი ფასი");
+        throw new Error(t("invalidPrice"));
       }
 
       if (smokingAllowed === null || petsAllowed === null) {
-        throw new Error("აირჩიეთ სახლის წესები");
+        throw new Error(t("selectHouseRules"));
       }
 
       if (propertyType === "hotel" && mealsIncluded === null) {
-        throw new Error("მიუთითეთ, შედის თუ არა კვება ფასში");
+        throw new Error(t("specifyMeals"));
       }
 
       if (!phone.trim()) {
-        throw new Error("მიუთითეთ ტელეფონის ნომერი");
+        throw new Error(t("phoneRequired"));
       }
 
       const parseOptionalPositive = (v: string): number | null => {
         if (!v) return null;
         const n = Number(v);
-        if (!Number.isFinite(n) || n < 0)
-          throw new Error("არასწორი მნიშვნელობა");
+        if (!Number.isFinite(n) || n < 0) throw new Error(t("invalidValue"));
         return n;
       };
 
@@ -387,7 +389,7 @@ function CreateRentalPageInner() {
           .single();
 
         if (insertError) throw insertError;
-        if (!inserted) throw new Error("შეცდომა. სცადეთ თავიდან.");
+        if (!inserted) throw new Error(t("submitError"));
         propertyId = inserted.id;
       }
 
@@ -414,9 +416,7 @@ function CreateRentalPageInner() {
           .upsert(rowsToUpsert, { onConflict: "property_id,date" });
 
         if (availabilityError) {
-          throw new Error(
-            "ხელმისაწვდომობის შენახვა ვერ მოხერხდა, სცადეთ თავიდან",
-          );
+          throw new Error(t("availabilitySaveError"));
         }
       }
 
@@ -445,7 +445,7 @@ function CreateRentalPageInner() {
           .upsert(overrideRowsToUpsert, { onConflict: "property_id,date" });
 
         if (overrideError) {
-          throw new Error("ფასების შენახვა ვერ მოხერხდა, სცადეთ თავიდან");
+          throw new Error(t("priceSaveError"));
         }
       }
 
@@ -457,26 +457,27 @@ function CreateRentalPageInner() {
           .in("date", overrideDatesToDelete);
 
         if (deleteError) {
-          throw new Error("ფასების განახლება ვერ მოხერხდა, სცადეთ თავიდან");
+          throw new Error(t("priceUpdateError"));
         }
       }
 
       router.push(editId ? "/dashboard/renter" : "/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : t("submitError"));
     } finally {
       setLoading(false);
     }
   }
 
   const currentStepNumber = step + 1;
-  const totalSteps = STEP_TITLES.length;
+  const totalSteps = STEP_TITLE_KEYS.length;
   const isFinalStep = step === totalSteps - 1;
+  const stepTitle = t(`steps.${STEP_TITLE_KEYS[step]}`);
 
   return (
     <WizardShell
-      title={STEP_TITLES[step]}
-      stepTitle={STEP_TITLES[step]}
+      title={stepTitle}
+      stepTitle={stepTitle}
       accent="blue"
       currentStep={currentStepNumber}
       totalSteps={totalSteps}
@@ -498,9 +499,9 @@ function CreateRentalPageInner() {
           submitLabel={
             isFinalStep
               ? isEditMode
-                ? "შენახვა"
-                : "გამოქვეყნება"
-              : "გაგრძელება"
+                ? t("save")
+                : t("publish")
+              : t("continue")
           }
           error={error}
         />
@@ -521,7 +522,7 @@ function CreateRentalPageInner() {
           >
             {step === 0 && (
               <WizardSection>
-                <Field label="ბინის ტიპი" required>
+                <Field label={t("propertyType")} required>
                   <select
                     value={propertyType}
                     onChange={(e) =>
@@ -529,22 +530,22 @@ function CreateRentalPageInner() {
                     }
                     className={inputClass}
                   >
-                    {PROPERTY_TYPES.map((pt) => (
-                      <option key={pt.value} value={pt.value}>
-                        {pt.label}
+                    {PROPERTY_TYPES.map((value) => (
+                      <option key={value} value={value}>
+                        {tOpts(`propertyTypes.${value}`)}
                       </option>
                     ))}
                   </select>
                 </Field>
 
-                <Field label="ლოკაცია" required>
+                <Field label={t("location")} required>
                   <select
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     className={inputClass}
                   >
                     <option value="" disabled>
-                      აირჩიე ზონა
+                      {t("selectLocation")}
                     </option>
                     {zones.map((zone) => (
                       <option key={zone.id} value={zone.name_ka}>
@@ -554,7 +555,7 @@ function CreateRentalPageInner() {
                   </select>
                 </Field>
 
-                <Field label="საკადასტრო კოდი">
+                <Field label={t("cadastralCode")}>
                   <input
                     type="text"
                     value={cadastralCode}
@@ -564,11 +565,11 @@ function CreateRentalPageInner() {
                   />
                 </Field>
 
-                <Field label="აღწერა">
+                <Field label={t("description")}>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="დეტალური აღწერა..."
+                    placeholder={t("descriptionPlaceholder")}
                     rows={4}
                     className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                   />
@@ -581,8 +582,8 @@ function CreateRentalPageInner() {
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div className="space-y-5">
                     <Field
-                      label="სათაური"
-                      helper={`მაქსიმუმ ${TITLE_MAX} სიმბოლო`}
+                      label={t("title")}
+                      helper={t("titleMaxHelper", { max: TITLE_MAX })}
                     >
                       <input
                         type="text"
@@ -590,12 +591,12 @@ function CreateRentalPageInner() {
                         onChange={(e) =>
                           setTitle(e.target.value.slice(0, TITLE_MAX))
                         }
-                        placeholder="მაგ: მეორე კატეგორიის დიდველზე"
+                        placeholder={t("titlePlaceholder")}
                         className={inputClass}
                       />
                     </Field>
 
-                    <Field label="ბინის ტიპი">
+                    <Field label={t("propertyType")}>
                       <select
                         value={propertyType}
                         onChange={(e) =>
@@ -605,22 +606,22 @@ function CreateRentalPageInner() {
                         }
                         className={inputClass}
                       >
-                        {PROPERTY_TYPES.map((pt) => (
-                          <option key={pt.value} value={pt.value}>
-                            {pt.label}
+                        {PROPERTY_TYPES.map((value) => (
+                          <option key={value} value={value}>
+                            {tOpts(`propertyTypes.${value}`)}
                           </option>
                         ))}
                       </select>
                     </Field>
 
-                    <Field label="ლოკაცია">
+                    <Field label={t("location")}>
                       <select
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
                         className={inputClass}
                       >
                         <option value="" disabled>
-                          აირჩიე ზონა
+                          {t("selectLocation")}
                         </option>
                         {zones.map((zone) => (
                           <option key={zone.id} value={zone.name_ka}>
@@ -631,7 +632,7 @@ function CreateRentalPageInner() {
                     </Field>
                   </div>
                   <div className="space-y-5">
-                    <Field label="ზუსტი მდებარეობა რუკაზე">
+                    <Field label={t("exactLocation")}>
                       <ExactLocationPicker
                         value={exactLocation}
                         onChange={setExactLocation}
@@ -643,34 +644,34 @@ function CreateRentalPageInner() {
             )}
 
             {step === 2 && (
-              <WizardSection title="კეთილმოწყობა და დეტალები">
+              <WizardSection title={t("steps.amenitiesDetails")}>
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                  <Field label="ოთახების რაოდენობა">
+                  <Field label={t("rooms")}>
                     <input
                       type="number"
                       value={rooms}
                       onChange={(e) => setRooms(e.target.value)}
-                      placeholder="მაგ: 2"
+                      placeholder={t("egValue", { value: 2 })}
                       min="0"
                       className={inputClass}
                     />
                   </Field>
-                  <Field label="მაქს. სტუმრების რაოდენობა">
+                  <Field label={t("capacity")}>
                     <input
                       type="number"
                       value={capacity}
                       onChange={(e) => setCapacity(e.target.value)}
-                      placeholder="მაგ: 4"
+                      placeholder={t("egValue", { value: 4 })}
                       min="0"
                       className={inputClass}
                     />
                   </Field>
-                  <Field label="ბინის საერთო ფართობი (მ²)">
+                  <Field label={t("area")}>
                     <input
                       type="number"
                       value={areaSqm}
                       onChange={(e) => setAreaSqm(e.target.value)}
-                      placeholder="მაგ: 55"
+                      placeholder={t("egValue", { value: 55 })}
                       min="0"
                       className={inputClass}
                     />
@@ -678,12 +679,12 @@ function CreateRentalPageInner() {
                 </div>
 
                 <div className="space-y-4 pt-2">
-                  <Field label="სველი წერტილები">
+                  <Field label={t("bathroom")}>
                     <input
                       type="number"
                       value={bathrooms}
                       onChange={(e) => setBathrooms(e.target.value)}
-                      placeholder="მაგ: 1"
+                      placeholder={t("egValue", { value: 1 })}
                       min="0"
                       className={inputClass}
                     />
@@ -693,7 +694,7 @@ function CreateRentalPageInner() {
                     {AMENITY_GROUPS.map((group) => (
                       <div key={group.key} className="space-y-3">
                         <label className="text-[13px] font-bold text-[#334155]">
-                          {group.label}
+                          {tOpts(`amenityGroupLabels.${group.key}`)}
                         </label>
                         <div className="flex flex-wrap gap-2">
                           {group.options.map((opt) => {
@@ -709,7 +710,7 @@ function CreateRentalPageInner() {
                                     : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
                                 }`}
                               >
-                                {opt.label}
+                                {tOpts(`amenities.${opt.key}`)}
                               </button>
                             );
                           })}
@@ -721,32 +722,36 @@ function CreateRentalPageInner() {
 
                 <div className="space-y-4 pt-2">
                   <label className="text-[13px] font-bold text-[#334155]">
-                    სახლის წესები
+                    {t("houseRules")}
                     <span className="ml-0.5 text-[#EF4444]">*</span>
                   </label>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <HouseRuleField
                       icon={<CigaretteOff className="h-5 w-5 text-[#EF4444]" />}
-                      label="მოწევა"
+                      label={t("smokingAllowed")}
                       value={smokingAllowed}
                       onChange={setSmokingAllowed}
+                      trueLabel={t("allowed")}
+                      falseLabel={t("forbidden")}
                     />
                     <HouseRuleField
                       icon={<PawPrint className="h-5 w-5 text-[#16A34A]" />}
-                      label="ცხოველები"
+                      label={t("petsAllowed")}
                       value={petsAllowed}
                       onChange={setPetsAllowed}
+                      trueLabel={t("allowed")}
+                      falseLabel={t("forbidden")}
                     />
                     {propertyType === "hotel" && (
                       <HouseRuleField
                         icon={
                           <UtensilsCrossed className="h-5 w-5 text-[#F59E0B]" />
                         }
-                        label="კვება ფასში?"
+                        label={t("mealsIncludedQuestion")}
                         value={mealsIncluded}
                         onChange={setMealsIncluded}
-                        trueLabel="შედის"
-                        falseLabel="არ შედის"
+                        trueLabel={t("included")}
+                        falseLabel={t("notIncluded")}
                       />
                     )}
                   </div>
@@ -757,7 +762,7 @@ function CreateRentalPageInner() {
             {step === 3 && (
               <WizardSection>
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <Field label="ფასი 1 ღამეზე (GEL)" required>
+                  <Field label={t("pricePerNight")} required>
                     <input
                       type="number"
                       value={pricePerNight}
@@ -768,18 +773,20 @@ function CreateRentalPageInner() {
                     />
                   </Field>
 
-                  <Field label="მინიმალური დღეები">
+                  <Field label={t("minBookingDays")}>
                     <select
                       value={minBookingDays}
                       onChange={(e) => setMinBookingDays(e.target.value)}
                       className={inputClass}
                     >
                       <option value="" disabled>
-                        აირჩიე რაოდენობა
+                        {t("selectQuantity")}
                       </option>
                       {["1", "2", "3", "4", "5"].map((v) => (
                         <option key={v} value={v}>
-                          {v === "5" ? "5+ დღე" : `${v} დღე`}
+                          {v === "5"
+                            ? t("days5plus")
+                            : t("daysCount", { count: Number(v) })}
                         </option>
                       ))}
                     </select>
@@ -801,7 +808,7 @@ function CreateRentalPageInner() {
               <WizardSection>
                 <div className="space-y-2">
                   <label className="text-[13px] font-bold text-[#334155]">
-                    მასპინძლობის ენა
+                    {t("hostingLanguage")}
                   </label>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {HOSTING_LANGS.map((lang) => {
@@ -842,7 +849,7 @@ function CreateRentalPageInner() {
                               </svg>
                             )}
                           </span>
-                          {lang.label}
+                          {tOpts(`hostingLangs.${lang.key}`)}
                         </button>
                       );
                     })}
@@ -851,13 +858,16 @@ function CreateRentalPageInner() {
 
                 <div className="space-y-4 pt-2">
                   <label className="text-[13px] font-bold text-[#334155]">
-                    საკონტაქტო ინფორმაცია
+                    {t("contactInfo")}
                   </label>
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label="ტელეფონის ნომერი" required>
+                    <Field label={t("phoneNumber")} required>
                       <PhoneInput value={phone} onChange={setPhone} />
                     </Field>
-                    <Field label="WhatsApp ნომერი" helper="სურვილისამებრ">
+                    <Field
+                      label={t("whatsappNumber")}
+                      helper={t("optionalHelper")}
+                    >
                       <PhoneInput value={whatsapp} onChange={setWhatsapp} />
                     </Field>
                   </div>
@@ -866,10 +876,10 @@ function CreateRentalPageInner() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-[13px] font-bold text-[#334155]">
-                      ფოტოების ატვირთვა
+                      {t("photos")}
                     </label>
                     <span className="text-xs font-medium text-[#EF4444]">
-                      ⚠ გამოიყენეთ Landscape ფოტოები
+                      {t("landscapeWarning")}
                     </span>
                   </div>
                   <PhotoUploader
@@ -922,15 +932,15 @@ function HouseRuleField({
   label,
   value,
   onChange,
-  trueLabel = "დაშვებულია",
-  falseLabel = "აკრძალულია",
+  trueLabel,
+  falseLabel,
 }: {
   icon: React.ReactNode;
   label: string;
   value: boolean | null;
   onChange: (v: boolean) => void;
-  trueLabel?: string;
-  falseLabel?: string;
+  trueLabel: string;
+  falseLabel: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">

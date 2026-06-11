@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { ChevronRight, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { LanguageSelector } from "@/components/LanguageSelector";
 
 export function CreateHeader() {
+  const t = useTranslations("CreateHeader");
   const { user } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
 
@@ -52,7 +54,7 @@ export function CreateHeader() {
             className="inline-flex h-[40px] items-center gap-1.5 rounded-xl bg-[#F97316] px-4 text-[13px] font-bold text-white shadow-[0px_6px_14px_-4px_rgba(249,115,22,0.45)] transition-colors hover:bg-[#EA6C0E]"
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />
-            განცხადების დამატება
+            {t("addListing")}
           </Link>
 
           {user ? (
@@ -60,7 +62,7 @@ export function CreateHeader() {
               href="/dashboard/renter/balance"
               className="inline-flex h-[40px] items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
             >
-              <span className="text-[#64748B]">ბალანსი</span>
+              <span className="text-[#64748B]">{t("balance")}</span>
               <span className="font-bold text-[#0F172A]">
                 ₾ {(balance ?? 0).toFixed(2)}
               </span>
@@ -72,7 +74,7 @@ export function CreateHeader() {
             href={user ? "/dashboard" : "/auth/login"}
             className="inline-flex h-[40px] items-center rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#2563EB] transition-colors hover:border-[#CBD5E1] hover:bg-[#F8FAFC]"
           >
-            {user ? "კაბინეტი" : "შესვლა"}
+            {user ? t("cabinet") : t("signIn")}
           </Link>
         </div>
       </div>

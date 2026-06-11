@@ -215,7 +215,7 @@ export function SmsCenterClient({
           },
         );
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error ?? "შესყიდვა ვერ მოხერხდა");
+        if (!res.ok) throw new Error(json?.error ?? t("purchaseFailed"));
         toast.success(`+${smsCount(pkg)} SMS`);
         await reloadBalance();
       } catch (err) {
@@ -251,7 +251,7 @@ export function SmsCenterClient({
       setMessage("");
       await Promise.all([reloadHistory(), reloadBalance()]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setSending(false);
     }

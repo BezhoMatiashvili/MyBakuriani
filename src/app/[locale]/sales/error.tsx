@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 export default function SalesError({
@@ -12,6 +13,7 @@ export default function SalesError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("Error");
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -22,23 +24,22 @@ export default function SalesError({
         <AlertTriangle className="h-8 w-8 text-red-500" />
       </div>
       <h2 className="mt-4 text-[28px] font-black text-[#0F172A]">
-        დაფიქსირდა შეცდომა
+        {t("title")}
       </h2>
       <p className="mt-2 max-w-md text-[15px] leading-[24px] text-[#64748B]">
-        სამწუხაროდ, რაღაც არასწორად წავიდა. გთხოვთ, სცადეთ თავიდან ან
-        დაუკავშირდით მხარდაჭერის გუნდს.
+        {t("description")}
       </p>
       <Button
         onClick={reset}
         className="mt-6 h-[48px] rounded-xl bg-[#2563EB] px-8 text-[15px] font-bold text-white hover:bg-[#1D4ED8]"
       >
-        სცადეთ თავიდან
+        {t("retry")}
       </Button>
       <Link
         href="/"
         className="mt-4 text-[15px] font-medium text-[#2563EB] hover:underline"
       >
-        მთავარ გვერდზე დაბრუნება
+        {t("backToHome")}
       </Link>
     </div>
   );

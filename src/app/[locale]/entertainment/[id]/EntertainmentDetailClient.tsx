@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import {
@@ -13,12 +13,18 @@ import {
   Star,
   ShieldCheck,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
+import {
+  optionKeyFor,
+  priceUnitPathFor,
+  type OptionGroup,
+} from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 
 type ServiceWithOwner = Tables<"services"> & {
@@ -41,6 +47,17 @@ export default function EntertainmentDetailClient({
   isMock = false,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("EntertainmentDetail");
+  const tShared = useTranslations("Shared");
+  const tCard = useTranslations("ServiceCard");
+  const tOpts = useTranslations("ListingOptions");
+  // Translates a stored DB option value; falls through to the raw value for
+  // custom/free-text entries.
+  const optionLabel = (group: OptionGroup, value: string | null) => {
+    const key = optionKeyFor(group, value);
+    return key ? tOpts(`${group}.${key}`) : value;
+  };
+  const priceUnitPath = priceUnitPathFor(service.price_unit);
   const photos = service.photos ?? [];
   const mainPhoto = photos[0];
 
@@ -77,7 +94,7 @@ export default function EntertainmentDetailClient({
           className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-2 text-[13px] font-bold text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
         >
           <ArrowLeft className="h-4 w-4" />
-          უკან დაბრუნება
+          {tShared("back")}
         </button>
         {photos.length > 0 && (
           <button
@@ -85,7 +102,7 @@ export default function EntertainmentDetailClient({
             className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[13px] font-bold text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
           >
             <ImageIcon className="h-4 w-4" />
-            ფოტო გალერია ({photos.length})
+            {t("photoGallery", { count: photos.length })}
           </button>
         )}
       </motion.div>
@@ -97,9 +114,12 @@ export default function EntertainmentDetailClient({
         className="mt-6"
       >
         <div className="mb-2 text-[12px] font-bold uppercase tracking-[1px] text-[#2563EB]">
-          {[service.activity_type, service.activity_category]
+          {[
+            optionLabel("entertainmentTypes", service.activity_type),
+            optionLabel("entertainmentCategories", service.activity_category),
+          ]
             .filter(Boolean)
-            .join(" / ") || "გართობა"}
+            .join(" / ") || tCard("categories.entertainment")}
         </div>
         <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[36px] sm:leading-[44px]">
           {service.title}
@@ -110,7 +130,7 @@ export default function EntertainmentDetailClient({
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
               {service.rating.toFixed(1)}
               <span className="font-medium text-[#94A3B8]">
-                ({service.reviews_count ?? 0} შეფასება)
+                {t("reviewsCount", { count: service.reviews_count ?? 0 })}
               </span>
             </span>
           )}
@@ -131,7 +151,7 @@ export default function EntertainmentDetailClient({
           className="mt-8"
         >
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-            რას გთავაზობთ
+            {t("whatWeOffer")}
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
@@ -149,10 +169,10 @@ export default function EntertainmentDetailClient({
           <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Clock className="h-3.5 w-3.5" />
-              ხანგრძლივობა
+              {t("duration")}
             </span>
             <span className="text-[16px] font-black text-[#1E293B]">
-              {service.duration}
+              {optionLabel("durations", service.duration)}
             </span>
           </div>
         )}
@@ -160,10 +180,10 @@ export default function EntertainmentDetailClient({
           <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Users className="h-3.5 w-3.5" />
-              ასაკი
+              {t("age")}
             </span>
             <span className="text-[16px] font-black text-[#1E293B]">
-              {service.age_min}
+              {optionLabel("ageOptions", service.age_min)}
             </span>
           </div>
         )}
@@ -171,10 +191,10 @@ export default function EntertainmentDetailClient({
           <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              ხელმისაწვდომობა
+              {t("availability")}
             </span>
             <span className="text-[16px] font-black text-[#1E293B]">
-              {service.good_for}
+              {optionLabel("audienceOptions", service.good_for)}
             </span>
           </div>
         )}
@@ -182,7 +202,7 @@ export default function EntertainmentDetailClient({
           <div className="flex flex-col gap-1.5 rounded-[16px] border border-[#E2E8F0] bg-white p-5">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               <Clock className="h-3.5 w-3.5" />
-              საათები
+              {t("hours")}
             </span>
             <span className="text-[16px] font-black text-[#1E293B]">
               {service.operating_hours}
@@ -203,7 +223,7 @@ export default function EntertainmentDetailClient({
           </span>
           <div>
             <h3 className="text-[15px] font-black text-[#1E293B]">
-              უსაფრთხოება და პირობები
+              {t("safetyAndConditions")}
             </h3>
             <p className="mt-1 whitespace-pre-line text-[14px] font-medium leading-[22px] text-[#475569]">
               {service.safety_notes}
@@ -226,7 +246,10 @@ export default function EntertainmentDetailClient({
                 {formatPrice(service.price)}
               </span>
               <span className="ml-1 text-sm text-[#94A3B8]">
-                / {service.price_unit ?? "1 საათი"}
+                /{" "}
+                {priceUnitPath
+                  ? tOpts(priceUnitPath)
+                  : (service.price_unit ?? t("oneHour"))}
               </span>
             </div>
           )}
@@ -236,7 +259,7 @@ export default function EntertainmentDetailClient({
           <CallButton
             phone={service.phone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#1E293B] px-8 text-[15px] font-bold text-white hover:bg-[#0F172A] sm:flex-none"
-            label="დარეკვა / დაჯავშნა"
+            label={t("callOrBook")}
             onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={service.id}
           />
@@ -245,9 +268,9 @@ export default function EntertainmentDetailClient({
 
       {service.price != null && (
         <MobileStickyCTA
-          primary={`${formatPrice(service.price)} / ${service.price_unit ?? "1 საათი"}`}
+          primary={`${formatPrice(service.price)} / ${priceUnitPath ? tOpts(priceUnitPath) : (service.price_unit ?? t("oneHour"))}`}
           secondary={service.location ?? undefined}
-          ctaLabel="დარეკვა"
+          ctaLabel={tCard("call")}
           onClick={() =>
             document
               .getElementById("contact-sidebar")

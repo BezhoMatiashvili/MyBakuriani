@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +20,7 @@ import {
   type MatchProperty,
   type MatchRequest,
 } from "@/lib/smart-match/match";
+import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import type { Tables } from "@/lib/types/database";
 
 type SmartMatchRequest = Tables<"smart_match_requests"> & {
@@ -43,46 +45,48 @@ function toMatchRequest(r: SmartMatchRequest): MatchRequest {
   };
 }
 
-function postedAgo(iso: string | null): string {
-  if (!iso) return "ახლახან";
-  const diff = Date.now() - new Date(iso).getTime();
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 1) return "ახლახან";
-  if (hours < 24) return `${hours} სთ-ის წინ`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "გუშინ";
-  return `${days} დღის წინ`;
+function postedAgo(
+  t: ReturnType<typeof useTranslations<"DashboardShared">>,
+  iso: string | null,
+): string {
+  if (!iso) return t("timeJustNow");
+  return formatRelativeTime(t, iso);
 }
 
-function formatDates(checkIn: string | null, checkOut: string | null): string {
+const MONTH_KEYS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+] as const;
+
+function formatDates(
+  tSchedule: ReturnType<typeof useTranslations<"CleanerSchedule">>,
+  checkIn: string | null,
+  checkOut: string | null,
+): string {
   if (!checkIn && !checkOut) return "—";
   const fmt = (d: string | null) => {
     if (!d) return "?";
     const [, m, day] = d.split("-");
-    return `${parseInt(day)} ${monthAbbr(parseInt(m))}`;
+    const monthKey = MONTH_KEYS[parseInt(m, 10) - 1];
+    return `${parseInt(day, 10)} ${tSchedule(`monthsShort.${monthKey}`)}`;
   };
   return `${fmt(checkIn)} – ${fmt(checkOut)}`;
 }
 
-function monthAbbr(m: number): string {
-  const months = [
-    "იან",
-    "თებ",
-    "მარ",
-    "აპრ",
-    "მაი",
-    "ივნ",
-    "ივლ",
-    "აგვ",
-    "სექ",
-    "ოქტ",
-    "ნოე",
-    "დეკ",
-  ];
-  return months[m - 1] ?? "";
-}
-
 export default function RenterSmartMatchPage() {
+  const t = useTranslations("RenterSmartMatch");
+  const tShared = useTranslations("DashboardShared");
+  const tSchedule = useTranslations("CleanerSchedule");
   const { user } = useAuth();
   const supabase = createClient();
   const { zones: activeZones } = useActiveZones();
@@ -219,7 +223,7 @@ export default function RenterSmartMatchPage() {
     const scored = requests
       .filter((r) => !submittedRequestIds.has(r.id))
       .map((r) => {
-        const guestName = r.profiles?.display_name ?? "სტუმარი";
+        const guestName = r.profiles?.display_name ?? tShared("defaultGuest");
         const initials = guestName
           .split(" ")
           .map((n) => n[0])
@@ -236,11 +240,13 @@ export default function RenterSmartMatchPage() {
           id: shortRequestId(r.id),
           guestName,
           initials: initials || "?",
-          postedAgo: postedAgo(r.created_at),
+          postedAgo: postedAgo(tShared, r.created_at),
           matchPercent,
-          zone: r.zone ?? "ყველა",
-          dates: formatDates(r.check_in, r.check_out),
-          guests: r.guests_count ? `${r.guests_count} სტუმარი` : "—",
+          zone: r.zone ?? t("allZones"),
+          dates: formatDates(tSchedule, r.check_in, r.check_out),
+          guests: r.guests_count
+            ? t("guestsCount", { count: r.guests_count })
+            : "—",
           clientBudget,
           belowOwnerPrice,
           capacityShort,
@@ -257,7 +263,7 @@ export default function RenterSmartMatchPage() {
         (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
     );
     return scored.map((s) => s.item);
-  }, [requests, submittedRequestIds, ownerMatchProps]);
+  }, [requests, submittedRequestIds, ownerMatchProps, t, tShared, tSchedule]);
 
   async function handleSubmitOffer({
     requestId,
@@ -308,24 +314,24 @@ export default function RenterSmartMatchPage() {
           Smart Match
         </h1>
         <p className="mt-1 text-sm font-medium text-[#64748B]">
-          სტუმრების მოთხოვნები რომლებიც შეესატყვისება თქვენს ობიექტებს
+          {t("subtitle")}
         </p>
       </motion.div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           {
-            label: "შემოსავალი მოთხოვნები",
+            label: t("statIncoming"),
             value: incomingCount,
             color: "bg-green-100 text-green-600",
           },
           {
-            label: "გაგზავნილი შეთავაზებები",
+            label: t("statSent"),
             value: submittedRequestIds.size,
             color: "bg-brand-accent-light text-brand-accent",
           },
           {
-            label: "თქვენი ზონები",
+            label: t("statZones"),
             value: ownerZones.size,
             color: "bg-purple-100 text-purple-600",
           },
@@ -355,11 +361,11 @@ export default function RenterSmartMatchPage() {
         </span>
         <h2 className="mt-3 text-[24px] font-black leading-[30px]">
           {incomingCount > 0
-            ? `${incomingCount} ახალი მოთხოვნა თქვენი ზონისთვის`
-            : "ჯერ არ არის შემოსავალი მოთხოვნები"}
+            ? t("bannerNew", { count: incomingCount })
+            : t("bannerEmpty")}
         </h2>
         <p className="mt-2 max-w-xl text-[13px] font-medium text-white/80">
-          ნახეთ სტუმრების მოთხოვნები და გაუგზავნეთ პერსონალური შეთავაზებები.
+          {t("bannerDesc")}
         </p>
         <button
           type="button"
@@ -367,16 +373,14 @@ export default function RenterSmartMatchPage() {
           onClick={() => setModalOpen(true)}
           className="mt-5 rounded-xl bg-white px-5 py-2.5 text-[13px] font-black text-[#0F172A] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
-          ნახე მოთხოვნები
+          {t("viewRequests")}
         </button>
       </motion.div>
 
       {!loading && incomingCount === 0 && (
         <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
           <Inbox className="h-12 w-12 text-[#94A3B8]" />
-          <p className="mt-3 text-sm text-[#94A3B8]">
-            ახალი მოთხოვნები ჯერ არ არის
-          </p>
+          <p className="mt-3 text-sm text-[#94A3B8]">{t("empty")}</p>
         </div>
       )}
 

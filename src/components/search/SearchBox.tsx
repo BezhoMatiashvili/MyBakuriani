@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import type { Locale } from "date-fns";
@@ -8,7 +9,7 @@ import { Search, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDateShort } from "@/lib/utils/format";
-import type { Zone } from "@/lib/zones/types";
+import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 
@@ -23,6 +24,13 @@ export interface SearchFilters {
 
 export type ActiveDropdown = "calendar" | "location" | "filters" | null;
 type DateRange = { from: Date | undefined; to?: Date };
+
+// Seeded zone slugs have display translations under Zones.<slug>; unknown
+// (admin-created) zones fall back to their Georgian name_ka. Display only —
+// submitted/compared zone values must stay name_ka (zone matching uses it).
+const TRANSLATED_ZONE_SLUGS = new Set<string>(
+  FALLBACK_ZONES.map((z) => z.slug),
+);
 
 const Calendar = dynamic(
   () => import("@/components/ui/calendar").then((mod) => mod.Calendar),
@@ -52,19 +60,25 @@ interface SearchBoxProps {
 }
 
 // ─── Filter constants ────────────────────────────────────────────────
-const CAPACITY_OPTIONS = ["2 სტუმარი", "4 სტუმარი", "6 სტუმარი", "8+ სტუმარი"];
+// Values are canonical; labels resolve from the SearchBox messages namespace.
+const CAPACITY_OPTIONS = [
+  { value: "2", labelKey: "guest2" },
+  { value: "4", labelKey: "guest4" },
+  { value: "6", labelKey: "guest6" },
+  { value: "8+", labelKey: "guest8plus" },
+] as const;
 const BEDROOM_OPTIONS = ["1", "2", "3", "4+"];
 const BATHROOM_OPTIONS = ["1", "2", "3+"];
 const AMENITIES = [
-  "Wi-Fi",
-  "ცენტრალური გათბობა",
-  "თხილამურების სათავსო",
-  "ცხელი წყალი",
-  "ბუხარი",
-  "პარკინგი",
-  "სარეცხი მანქანა",
-  "ჭურჭელი",
-];
+  { key: "wifi", labelKey: "wifi" },
+  { key: "central_heating", labelKey: "centralHeating" },
+  { key: "ski_storage", labelKey: "skiStorage" },
+  { key: "hot_water", labelKey: "hotWater" },
+  { key: "fireplace", labelKey: "fireplace" },
+  { key: "parking", labelKey: "parking" },
+  { key: "washing_machine", labelKey: "washingMachine" },
+  { key: "kitchenware", labelKey: "kitchenware" },
+] as const;
 
 interface FilterState {
   priceMin: number;
@@ -84,17 +98,6 @@ const DEFAULT_FILTERS: FilterState = {
   capacity: null,
   amenities: [],
   verifiedOnly: false,
-};
-
-const AMENITY_LABEL_TO_KEY: Record<string, string> = {
-  "Wi-Fi": "wifi",
-  "ცენტრალური გათბობა": "central_heating",
-  "თხილამურების სათავსო": "ski_storage",
-  "ცხელი წყალი": "hot_water",
-  ბუხარი: "fireplace",
-  პარკინგი: "parking",
-  "სარეცხი მანქანა": "washing_machine",
-  ჭურჭელი: "kitchenware",
 };
 
 function toIsoDate(value: Date) {
@@ -148,6 +151,7 @@ export function SearchBox({
   isPending = false,
   zones,
 }: SearchBoxProps) {
+  const t = useTranslations("SearchBox");
   const [location, setLocation] = useState(defaultLocation);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     if (defaultCheckIn) {
@@ -317,14 +321,11 @@ export function SearchBox({
 
   const handleApplyFilters = () => {
     const capacityGuests =
-      filters.capacity === "8+ სტუმარი"
+      filters.capacity === "8+"
         ? 8
         : filters.capacity
           ? Number.parseInt(filters.capacity, 10)
           : "";
-    const normalizedAmenities = filters.amenities.map(
-      (amenity) => AMENITY_LABEL_TO_KEY[amenity] ?? amenity,
-    );
     setGuests(capacityGuests || "");
     setActiveDropdown(null);
     onSearch({
@@ -333,10 +334,7 @@ export function SearchBox({
       checkOut: dateRange?.to ? toIsoDate(dateRange.to) : "",
       guests: capacityGuests || guests,
       keyword,
-      advancedFilters: {
-        ...filters,
-        amenities: normalizedAmenities,
-      },
+      advancedFilters: filters,
     });
   };
 
@@ -355,13 +353,13 @@ export function SearchBox({
         {/* Keyword search */}
         <div className="relative">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-            სიტყვით ძიება
+            {t("keywordSearch")}
           </label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
             <input
               type="text"
-              placeholder="მაგ. ბუხარი, კოხტა, რესტორანი..."
+              placeholder={t("keywordPlaceholder")}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
@@ -372,7 +370,7 @@ export function SearchBox({
         {/* Location */}
         <div className="relative">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-            ლოკაცია
+            {t("location")}
           </label>
           <button
             type="button"
@@ -380,7 +378,7 @@ export function SearchBox({
             className="flex h-10 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none"
           >
             <span className={location ? "text-[#1E293B]" : "text-[#94A3B8]"}>
-              {location || "მაგ. ბაკურიანი"}
+              {location || t("locationPlaceholder")}
             </span>
             <ChevronDown className="size-4 text-[#94A3B8]" />
           </button>
@@ -399,7 +397,7 @@ export function SearchBox({
         {/* Date Range Picker */}
         <div className="relative">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-            თარიღი
+            {t("date")}
           </label>
           <button
             type="button"
@@ -409,7 +407,7 @@ export function SearchBox({
               !dateLabel && "text-[#94A3B8]",
             )}
           >
-            {dateLabel || "შეარჩიეთ თარიღი"}
+            {dateLabel || t("selectDate")}
           </button>
           {activeDropdown === "calendar" && isMobile && (
             <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-2rem)] rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
@@ -429,14 +427,14 @@ export function SearchBox({
                   onClick={() => setDateRange(undefined)}
                   className="text-[14px] font-medium text-[#64748B] hover:text-[#1E293B]"
                 >
-                  გასუფთავება
+                  {t("clear")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveDropdown(null)}
                   className="h-[38px] rounded-xl bg-[#E8612D] px-5 text-[12px] font-bold text-white hover:bg-[#D4551F]"
                 >
-                  დადასტურება
+                  {t("confirm")}
                 </button>
               </div>
             </div>
@@ -446,14 +444,14 @@ export function SearchBox({
         {/* Filters */}
         <div className="relative">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-            ფილტრები
+            {t("filters")}
           </label>
           <button
             type="button"
             onClick={() => toggleDropdown("filters")}
             className="flex h-10 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#94A3B8] outline-none"
           >
-            ფასი, თევადობა...
+            {t("priceCapacity")}
             <ChevronDown className="size-4" />
           </button>
         </div>
@@ -469,7 +467,7 @@ export function SearchBox({
             ) : (
               <Search className="size-4" />
             )}
-            ძებნა
+            {t("search")}
           </Button>
         </div>
       </div>
@@ -486,7 +484,7 @@ export function SearchBox({
                 : "text-[#94A3B8]",
             )}
           >
-            თარიღები
+            {t("dates")}
           </span>
           <button
             type="button"
@@ -500,7 +498,7 @@ export function SearchBox({
                   : "text-[#94A3B8]",
             )}
           >
-            {dateLabel || "შეარჩიეთ თარიღი"}
+            {dateLabel || t("selectDate")}
           </button>
         </div>
 
@@ -517,7 +515,7 @@ export function SearchBox({
                 : "text-[#94A3B8]",
             )}
           >
-            ლოკაცია (ზონა)
+            {t("locationZone")}
           </span>
           <button
             type="button"
@@ -531,7 +529,7 @@ export function SearchBox({
                   : "text-[#94A3B8]",
             )}
           >
-            {location || "დიდველი / კრისტალი"}
+            {location || t("zones.didveli")}
             <ChevronDown
               className={cn(
                 "size-4 shrink-0",
@@ -556,7 +554,7 @@ export function SearchBox({
                 : "text-[#94A3B8]",
             )}
           >
-            ფილტრები
+            {t("filters")}
           </span>
           <button
             type="button"
@@ -568,7 +566,7 @@ export function SearchBox({
                 : "text-[#94A3B8]",
             )}
           >
-            ფასი, თევადობა...
+            {t("priceCapacity")}
             <ChevronDown
               className={cn(
                 "size-4 shrink-0",
@@ -586,7 +584,7 @@ export function SearchBox({
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
             <input
               type="text"
-              placeholder="სიტყვით ძიება..."
+              placeholder={t("keywordSearchShort")}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               className="h-[45.5px] w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-5 text-[13px] font-medium text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white"
@@ -651,14 +649,14 @@ export function SearchBox({
                 onClick={() => setDateRange(undefined)}
                 className="text-[14px] font-medium text-[#64748B] hover:text-[#1E293B]"
               >
-                გასუფთავება
+                {t("clear")}
               </button>
               <button
                 type="button"
                 onClick={() => setActiveDropdown(null)}
                 className="h-[44px] rounded-xl bg-[#E8612D] px-8 text-[14px] font-bold text-white hover:bg-[#D4551F]"
               >
-                დადასტურება
+                {t("confirm")}
               </button>
             </div>
           </div>
@@ -726,6 +724,7 @@ function LocationDropdown({
   inline?: boolean;
   zones: Zone[];
 }) {
+  const tZones = useTranslations("Zones");
   return (
     <div
       className={cn(
@@ -752,10 +751,14 @@ function LocationDropdown({
             </div>
             <div className="flex-1">
               <div className="text-[14px] font-bold leading-5 text-[#1E293B]">
-                {zone.name_ka}
+                {TRANSLATED_ZONE_SLUGS.has(zone.slug)
+                  ? tZones(`${zone.slug}.name`)
+                  : zone.name_ka}
               </div>
               <div className="text-[12px] leading-4 text-[#64748B]">
-                {zone.description_ka}
+                {TRANSLATED_ZONE_SLUGS.has(zone.slug)
+                  ? tZones(`${zone.slug}.description`)
+                  : zone.description_ka}
               </div>
             </div>
             {isSelected && <Check className="size-5 text-[#2563EB]" />}
@@ -782,6 +785,7 @@ function FiltersDropdown({
   mobile?: boolean;
   inline?: boolean;
 }) {
+  const t = useTranslations("SearchBox");
   const updateFilter = <K extends keyof FilterState>(
     key: K,
     value: FilterState[K],
@@ -817,7 +821,7 @@ function FiltersDropdown({
           {/* Price range */}
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
-              ფასი (ღამე)
+              {t("pricePerNight")}
             </span>
             <div className="mt-4">
               <div className="relative h-5">
@@ -882,7 +886,7 @@ function FiltersDropdown({
           {/* Bedrooms */}
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
-              საძინებლები
+              {t("bedrooms")}
             </span>
             <div className="mt-4 flex flex-wrap gap-2">
               {BEDROOM_OPTIONS.map((opt) => (
@@ -904,7 +908,7 @@ function FiltersDropdown({
           {/* Bathrooms */}
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
-              სველი წერტილი
+              {t("bathrooms")}
             </span>
             <div className="mt-4 flex flex-wrap gap-2">
               {BATHROOM_OPTIONS.map((opt) => (
@@ -929,18 +933,18 @@ function FiltersDropdown({
           {/* Capacity */}
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
-              თევადობა (სტუმრები)
+              {t("capacityGuests")}
             </span>
             <div className="mt-4 grid grid-cols-2 gap-2">
               {CAPACITY_OPTIONS.map((opt) => (
                 <Chip
-                  key={opt}
-                  label={opt}
-                  selected={filters.capacity === opt}
+                  key={opt.value}
+                  label={t(opt.labelKey)}
+                  selected={filters.capacity === opt.value}
                   onClick={() =>
                     updateFilter(
                       "capacity",
-                      filters.capacity === opt ? null : opt,
+                      filters.capacity === opt.value ? null : opt.value,
                     )
                   }
                 />
@@ -952,10 +956,10 @@ function FiltersDropdown({
           <div className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-4 py-3">
             <div>
               <span className="text-[13px] font-extrabold text-[#0F172A]">
-                მხოლოდ ვერიფიცირებული
+                {t("verifiedOnly")}
               </span>
               <p className="text-[11px] font-medium text-[#94A3B8]">
-                სანდო მესაკუთრეები
+                {t("trustedOwners")}
               </p>
             </div>
             <button
@@ -980,15 +984,15 @@ function FiltersDropdown({
           {/* Amenities */}
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
-              საბაზისო კომფორტი
+              {t("basicComfort")}
             </span>
             <div className="mt-4 flex flex-wrap gap-2">
               {AMENITIES.map((a) => (
                 <Chip
-                  key={a}
-                  label={a}
-                  selected={filters.amenities.includes(a)}
-                  onClick={() => toggleAmenity(a)}
+                  key={a.key}
+                  label={t(`amenities.${a.labelKey}`)}
+                  selected={filters.amenities.includes(a.key)}
+                  onClick={() => toggleAmenity(a.key)}
                 />
               ))}
             </div>
@@ -1003,14 +1007,14 @@ function FiltersDropdown({
           onClick={onClear}
           className="text-[14px] font-bold text-[#64748B] hover:text-[#1E293B]"
         >
-          გასუფთავება
+          {t("clear")}
         </button>
         <Button
           type="button"
           onClick={onApply}
           className="h-[47px] rounded-[12px] bg-[#2563EB] px-8 text-[14px] font-bold text-white shadow-[0px_4px_12px_rgba(37,99,235,0.2)] hover:bg-[#1D4ED8]"
         >
-          შედეგების ჩვენება
+          {t("showResults")}
         </Button>
       </div>
     </div>

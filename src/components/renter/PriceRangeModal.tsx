@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, CalendarDays, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -31,7 +32,6 @@ function enumerateDates(from: string, to: string, filter: Filter): string[] {
   const out: string[] = [];
   const cur = new Date(start);
   while (cur <= end) {
-    // JS getDay(): Sun=0, Mon=1 ... Sat=6 → convert to Mon-indexed (0..6)
     const monIdx = (cur.getDay() + 6) % 7;
     const isWeekend = WEEKEND_INDICES.includes(monIdx);
     if (
@@ -53,6 +53,9 @@ export default function PriceRangeModal({
   basePrice,
   onSaved,
 }: PriceRangeModalProps) {
+  const t = useTranslations("RenterDashboard.modals.priceRange");
+  const tShared = useTranslations("DashboardShared");
+
   const supabase = createClient();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -147,17 +150,17 @@ export default function PriceRangeModal({
                 </span>
                 <div>
                   <h2 className="text-[16px] font-black text-[#0F172A]">
-                    ფასი დიაპაზონისთვის
+                    {t("title")}
                   </h2>
                   <p className="mt-0.5 text-[12px] font-medium text-[#64748B]">
-                    დააყენე სეზონური ან კვირის ფასი ერთბაშად
+                    {t("subtitle")}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
               >
                 <X className="h-4 w-4" />
@@ -165,16 +168,16 @@ export default function PriceRangeModal({
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <Field label="დან">
+              <Field label={tShared("from")}>
                 <DateInput value={from} onChange={setFrom} />
               </Field>
-              <Field label="მდე">
+              <Field label={tShared("to")}>
                 <DateInput value={to} onChange={setTo} min={from} />
               </Field>
             </div>
 
             <div className="mt-3">
-              <Field label="ფასი ერთ ღამეზე (₾)">
+              <Field label={t("pricePerNight")}>
                 <div className="relative">
                   <input
                     type="number"
@@ -193,36 +196,31 @@ export default function PriceRangeModal({
             </div>
 
             <div className="mt-3">
-              <Field label="გამოყენება">
+              <Field label={t("applyTo")}>
                 <div className="grid grid-cols-3 gap-2">
                   <FilterButton
                     active={filter === "all"}
                     onClick={() => setFilter("all")}
-                    label="ყველა"
+                    label={tShared("allDays")}
                   />
                   <FilterButton
                     active={filter === "weekdays"}
                     onClick={() => setFilter("weekdays")}
-                    label="სამუშაო"
+                    label={tShared("weekdays")}
                   />
                   <FilterButton
                     active={filter === "weekends"}
                     onClick={() => setFilter("weekends")}
-                    label="შაბ-კვი"
+                    label={tShared("weekends")}
                   />
                 </div>
               </Field>
             </div>
 
             <div className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-3 text-[12px] font-semibold text-[#64748B]">
-              {from && to && from <= to ? (
-                <>
-                  იცვლება <b className="text-[#0F172A]">{dates.length}</b> დღის
-                  ფასი
-                </>
-              ) : (
-                <>აირჩიე თარიღების დიაპაზონი</>
-              )}
+              {from && to && from <= to
+                ? tShared("daysPriceChange", { count: dates.length })
+                : tShared("selectDateRange")}
             </div>
 
             {error && (
@@ -237,7 +235,7 @@ export default function PriceRangeModal({
               onClick={handleSubmit}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
             >
-              {saving ? "ინახება…" : "გადატარება"}
+              {saving ? tShared("saving") : tShared("apply")}
             </button>
           </motion.div>
         </div>

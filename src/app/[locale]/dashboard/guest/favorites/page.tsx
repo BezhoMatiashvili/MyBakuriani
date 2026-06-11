@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
@@ -9,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
+import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 
 type Property = Tables<"properties">;
@@ -21,6 +23,7 @@ interface FavoriteRow {
 }
 
 export default function GuestFavoritesPage() {
+  const t = useTranslations("GuestFavorites");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -92,10 +95,10 @@ export default function GuestFavoritesPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          ჩემი რჩეულები
+          {t("title")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          აქ ინახება ყველა სახის უძრავი ქონება და საინტერესო წინადადება.
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -111,16 +114,14 @@ export default function GuestFavoritesPage() {
             <Heart className="h-6 w-6 text-[#0F8F60]" />
           </div>
           <p className="mt-3 text-[14px] font-bold text-[#0F172A]">
-            ჯერ არ გაქვთ რჩეული
+            {t("emptyTitle")}
           </p>
-          <p className="mt-1 text-[12px] text-[#94A3B8]">
-            დაამატეთ ქონება ან სერვისი გულის ხატულით ნახვის გვერდიდან.
-          </p>
+          <p className="mt-1 text-[12px] text-[#94A3B8]">{t("emptyDesc")}</p>
           <Link
             href="/apartments"
             className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-[#0F8F60] px-5 py-2.5 text-[13px] font-bold text-white hover:bg-[#0B7A52]"
           >
-            ნახე განცხადებები
+            {t("browseListings")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -133,13 +134,13 @@ export default function GuestFavoritesPage() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-[18px] font-black text-[#0F172A]">
-                  აპარტამენტები და კოტეჯები
+                  {t("sectionProperties")}
                 </h2>
                 <Link
                   href="/apartments"
                   className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
                 >
-                  ყველას ნახვა
+                  {t("viewAll")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -163,13 +164,13 @@ export default function GuestFavoritesPage() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-[18px] font-black text-[#0F172A]">
-                  ტრანსპორტი და გართობა
+                  {t("sectionServices")}
                 </h2>
                 <Link
                   href="/services"
                   className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
                 >
-                  ყველას ნახვა
+                  {t("viewAll")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -197,6 +198,7 @@ function FavoritePropertyCard({
   property: Property;
   onRemove: () => void;
 }) {
+  const t = useTranslations("GuestFavorites");
   const photo = (property.photos ?? [])[0] ?? null;
   const href = property.is_for_sale
     ? `/sales/${property.id}`
@@ -226,7 +228,7 @@ function FavoritePropertyCard({
       <button
         type="button"
         onClick={onRemove}
-        aria-label="წაშლა რჩეულებიდან"
+        aria-label={t("removeFromFavorites")}
         className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#EF4444] shadow-sm transition-colors hover:bg-white"
       >
         <Trash2 className="h-4 w-4" />
@@ -245,14 +247,14 @@ function FavoritePropertyCard({
               {formatPrice(Number(property.price_per_night ?? 0))}
             </span>
             <span className="text-[11px] font-medium text-[#94A3B8]">
-              /ღამე
+              {t("perNight")}
             </span>
           </div>
           <Link
             href={href}
             className="inline-flex items-center gap-1 rounded-xl border border-[#0F8F60] bg-white px-3 py-1.5 text-[12px] font-bold text-[#0F8F60] hover:bg-[#ECFDF5]"
           >
-            ნახვა
+            {t("view")}
           </Link>
         </div>
       </div>
@@ -267,6 +269,9 @@ function FavoriteServiceCard({
   service: Service;
   onRemove: () => void;
 }) {
+  const t = useTranslations("GuestFavorites");
+  const tOpts = useTranslations("ListingOptions");
+  const priceUnitPath = priceUnitPathFor(service.price_unit);
   const photo = (service.photos ?? [])[0] ?? null;
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]">
@@ -287,7 +292,7 @@ function FavoriteServiceCard({
       <button
         type="button"
         onClick={onRemove}
-        aria-label="წაშლა რჩეულებიდან"
+        aria-label={t("removeFromFavorites")}
         className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#EF4444] shadow-sm transition-colors hover:bg-white"
       >
         <Trash2 className="h-4 w-4" />
@@ -310,7 +315,7 @@ function FavoriteServiceCard({
               </span>
               {service.price_unit && (
                 <span className="text-[11px] font-medium text-[#94A3B8]">
-                  /{service.price_unit}
+                  /{priceUnitPath ? tOpts(priceUnitPath) : service.price_unit}
                 </span>
               )}
             </div>
@@ -321,7 +326,7 @@ function FavoriteServiceCard({
             href={`/services/${service.id}`}
             className="inline-flex items-center gap-1 rounded-xl border border-[#0F8F60] bg-white px-3 py-1.5 text-[12px] font-bold text-[#0F8F60] hover:bg-[#ECFDF5]"
           >
-            ნახვა
+            {t("view")}
           </Link>
         </div>
       </div>

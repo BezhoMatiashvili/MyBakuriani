@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { MapPin } from "lucide-react";
 import {
   WizardShell,
@@ -31,44 +32,44 @@ const ExactLocationPicker = dynamic(
 );
 
 const ACTIVITY_TYPES = [
-  { value: "extreme", label: "ექსტრემალური" },
-  { value: "sport", label: "სპორტული" },
-  { value: "kids", label: "ბავშვებისთვის" },
-  { value: "family", label: "ოჯახისთვის" },
-  { value: "other", label: "სხვა" },
+  { value: "extreme", dbLabel: "ექსტრემალური" },
+  { value: "sport", dbLabel: "სპორტული" },
+  { value: "kids", dbLabel: "ბავშვებისთვის" },
+  { value: "family", dbLabel: "ოჯახისთვის" },
+  { value: "other", dbLabel: "სხვა" },
 ] as const;
 
 const ACTIVITY_CATEGORIES = [
-  { value: "inventory_rent", label: "ინვენტარი" },
-  { value: "horses", label: "ცხენები" },
-  { value: "buggies", label: "ბურანები" },
-  { value: "quad_bikes", label: "კვადროციკლები" },
-  { value: "buggy", label: "ბაგი" },
-  { value: "other", label: "სხვა" },
+  { value: "inventory_rent", dbLabel: "ინვენტარი" },
+  { value: "horses", dbLabel: "ცხენები" },
+  { value: "buggies", dbLabel: "ბურანები" },
+  { value: "quad_bikes", dbLabel: "კვადროციკლები" },
+  { value: "buggy", dbLabel: "ბაგი" },
+  { value: "other", dbLabel: "სხვა" },
 ] as const;
 
 const DURATIONS = [
-  { value: "15min", label: "15 წუთი" },
-  { value: "30min", label: "30 წუთი" },
-  { value: "1h", label: "1 საათი" },
-  { value: "1h+", label: "1+ საათი" },
+  { value: "15min", dbLabel: "15 წუთი" },
+  { value: "30min", dbLabel: "30 წუთი" },
+  { value: "1h", dbLabel: "1 საათი" },
+  { value: "1h+", dbLabel: "1+ საათი" },
 ] as const;
 
 const AGES = [
-  { value: "any", label: "ნებისმიერი" },
-  { value: "12+", label: "12+" },
-  { value: "16+", label: "16+" },
+  { value: "any", dbLabel: "ნებისმიერი" },
+  { value: "12+", dbLabel: "12+" },
+  { value: "16+", dbLabel: "16+" },
 ] as const;
 
 const GOOD_FOR = [
-  { value: "all", label: "ყველასთვის" },
-  { value: "extreme_lovers", label: "ექსტრემის მოყვარულთა" },
+  { value: "all", dbLabel: "ყველასთვის" },
+  { value: "extreme_lovers", dbLabel: "ექსტრემის მოყვარულთა" },
 ] as const;
 
 const PRICE_UNITS = [
-  { value: "15min", label: "15 წუთზე" },
-  { value: "1h", label: "1 საათზე" },
-  { value: "full_day", label: "სრულ დღეზე" },
+  { value: "15min", dbLabel: "15 წუთზე" },
+  { value: "1h", dbLabel: "1 საათზე" },
+  { value: "full_day", dbLabel: "სრულ დღეზე" },
 ] as const;
 
 type ActivityType = (typeof ACTIVITY_TYPES)[number]["value"];
@@ -80,13 +81,20 @@ type PriceUnit = (typeof PRICE_UNITS)[number]["value"];
 
 const MAX_PHOTOS = 5;
 
-// Stored values are the Georgian labels, so hydration reverse-maps label → value.
-function findValueByLabel<T extends string>(
-  options: readonly { value: T; label: string }[],
-  label: string | null | undefined,
+function findValueByDbLabel<T extends string>(
+  options: readonly { value: T; dbLabel: string }[],
+  stored: string | null | undefined,
 ): T | null {
-  if (!label) return null;
-  return options.find((o) => o.label === label)?.value ?? null;
+  if (!stored) return null;
+  return (
+    options.find((o) => o.dbLabel === stored || o.value === stored)?.value ??
+    null
+  );
+}
+
+function ageDisplayLabel(value: Age, tOpts: (key: string) => string): string {
+  if (value === "any") return tOpts("ageOptions.any");
+  return value;
 }
 
 export default function CreateEntertainmentPage() {
@@ -104,6 +112,11 @@ export default function CreateEntertainmentPage() {
 }
 
 function CreateEntertainmentPageInner() {
+  const t = useTranslations("CreateEntertainment");
+  const tShared = useTranslations("CreateShared");
+  const tOpts = useTranslations("ListingOptions");
+  const tFood = useTranslations("CreateFood");
+  const tService = useTranslations("CreateService");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -115,6 +128,60 @@ function CreateEntertainmentPageInner() {
     value: z.name_ka,
     label: z.name_ka,
   }));
+
+  const activityTypeOptions = useMemo(
+    () =>
+      ACTIVITY_TYPES.map((o) => ({
+        value: o.value,
+        label: tOpts(`entertainmentTypes.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      ACTIVITY_CATEGORIES.map((o) => ({
+        value: o.value,
+        label: tOpts(`entertainmentCategories.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const durationOptions = useMemo(
+    () =>
+      DURATIONS.map((o) => ({
+        value: o.value,
+        label: tOpts(`durations.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const ageOptions = useMemo(
+    () =>
+      AGES.map((o) => ({
+        value: o.value,
+        label: ageDisplayLabel(o.value, tOpts),
+      })),
+    [tOpts],
+  );
+
+  const goodForOptions = useMemo(
+    () =>
+      GOOD_FOR.map((o) => ({
+        value: o.value,
+        label: tOpts(`audienceOptions.${o.value}`),
+      })),
+    [tOpts],
+  );
+
+  const priceUnitOptions = useMemo(
+    () =>
+      PRICE_UNITS.map((o) => ({
+        value: o.value,
+        label: tOpts(`pricePerOptions.${o.value}`),
+      })),
+    [tOpts],
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +226,7 @@ function CreateEntertainmentPageInner() {
       if (cancelled) return;
 
       if (fetchError || !data) {
-        setError("განცხადება ვერ მოიძებნა");
+        setError(tShared("listingNotFound"));
         setHydrating(false);
         return;
       }
@@ -167,17 +234,20 @@ function CreateEntertainmentPageInner() {
       setTitle(data.title ?? "");
       setDescription(data.description ?? "");
 
-      const at = findValueByLabel(ACTIVITY_TYPES, data.activity_type);
+      const at = findValueByDbLabel(ACTIVITY_TYPES, data.activity_type);
       if (at) setActivityType(at);
-      const cat = findValueByLabel(ACTIVITY_CATEGORIES, data.activity_category);
+      const cat = findValueByDbLabel(
+        ACTIVITY_CATEGORIES,
+        data.activity_category,
+      );
       if (cat) setCategory(cat);
-      const dur = findValueByLabel(DURATIONS, data.duration);
+      const dur = findValueByDbLabel(DURATIONS, data.duration);
       if (dur) setDuration(dur);
-      const age = findValueByLabel(AGES, data.age_min);
+      const age = findValueByDbLabel(AGES, data.age_min);
       if (age) setAgeMin(age);
-      const gf = findValueByLabel(GOOD_FOR, data.good_for);
+      const gf = findValueByDbLabel(GOOD_FOR, data.good_for);
       if (gf) setGoodFor(gf);
-      const pu = findValueByLabel(PRICE_UNITS, data.price_unit);
+      const pu = findValueByDbLabel(PRICE_UNITS, data.price_unit);
       if (pu) setPriceUnit(pu);
 
       setSafetyNotes(data.safety_notes ?? "");
@@ -216,7 +286,7 @@ function CreateEntertainmentPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [editId, user, supabase]);
+  }, [editId, user, supabase, tShared]);
 
   const requiredFilled = [
     title.trim().length > 0,
@@ -241,17 +311,19 @@ function CreateEntertainmentPageInner() {
 
     try {
       const activityTypeLabel = ACTIVITY_TYPES.find(
-        (t) => t.value === activityType,
-      )?.label;
+        (item) => item.value === activityType,
+      )?.dbLabel;
       const categoryLabel = ACTIVITY_CATEGORIES.find(
         (c) => c.value === category,
-      )?.label;
-      const durationLabel = DURATIONS.find((d) => d.value === duration)?.label;
-      const ageLabel = AGES.find((a) => a.value === ageMin)?.label;
-      const goodForLabel = GOOD_FOR.find((g) => g.value === goodFor)?.label;
+      )?.dbLabel;
+      const durationLabel = DURATIONS.find(
+        (d) => d.value === duration,
+      )?.dbLabel;
+      const ageLabel = AGES.find((a) => a.value === ageMin)?.dbLabel;
+      const goodForLabel = GOOD_FOR.find((g) => g.value === goodFor)?.dbLabel;
       const priceUnitLabel = PRICE_UNITS.find(
         (p) => p.value === priceUnit,
-      )?.label;
+      )?.dbLabel;
 
       const payload: Record<string, unknown> = {
         category: "entertainment",
@@ -294,7 +366,7 @@ function CreateEntertainmentPageInner() {
 
       router.push(editId ? "/dashboard/service" : "/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : tShared("genericError"));
     } finally {
       setLoading(false);
     }
@@ -310,8 +382,8 @@ function CreateEntertainmentPageInner() {
 
   return (
     <WizardShell
-      title="გართობა და აქტივობები"
-      subtitle="ტურიზმი, ტურები და ინვენტარის გაქირავება"
+      title={t("pageTitle")}
+      subtitle={t("subtitle")}
       accent="blue"
       progressPercent={progressPercent}
       footer={
@@ -319,67 +391,67 @@ function CreateEntertainmentPageInner() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
+          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
         />
       }
     >
-      {/* Section 1 — Basic info */}
-      <WizardInnerCard number={1} title="ძირითადი ინფორმაცია" accent="blue">
-        <Field label="სათაური" required>
+      <WizardInnerCard number={1} title={tShared("basicInfo")} accent="blue">
+        <Field label={t("title")} required>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="ექსტრემალური ტური თოვლის ბურანით"
+            placeholder={t("titlePlaceholder")}
             className={inputClass}
           />
         </Field>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="გართობის ტიპი" required>
+          <Field label={t("entertainmentType")} required>
             <StyledSelect
               value={activityType}
               onValueChange={(v) => setActivityType(v as ActivityType)}
-              options={ACTIVITY_TYPES}
+              options={activityTypeOptions}
               accent="blue"
             />
           </Field>
-          <Field label="კატეგორია" required>
+          <Field label={t("category")} required>
             <StyledSelect
               value={category}
               onValueChange={(v) => setCategory(v as ActivityCategory)}
-              options={ACTIVITY_CATEGORIES}
+              options={categoryOptions}
               accent="blue"
             />
           </Field>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="ზონა / ტრასა" required>
+          <Field label={t("zoneTrack")} required>
             <StyledSelect
               value={zone}
               onValueChange={(v) => setZone(v)}
               options={zoneOptions}
+              placeholder={tShared("chooseZone")}
               accent="blue"
             />
           </Field>
-          <Field label="ზუსტი ლოკაცია">
+          <Field label={t("exactLocation")}>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={exactLocation}
                 onChange={(e) => setExactLocation(e.target.value)}
-                placeholder="მაგ: ცენტრალური პარკის შესასვლელთან"
+                placeholder={tFood("exactLocationPlaceholder")}
                 className={`${inputClass} flex-1`}
               />
               <button
                 type="button"
                 onClick={() => setShowMap((v) => !v)}
                 className="flex size-[48px] shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white transition-colors hover:bg-[#1D4ED8]"
-                aria-label="რუკაზე არჩევა"
+                aria-label={tShared("pickOnMap")}
                 aria-pressed={showMap}
               >
                 <MapPin className="size-5" />
@@ -390,45 +462,44 @@ function CreateEntertainmentPageInner() {
 
         {showMap && <ExactLocationPicker value={coords} onChange={setCoords} />}
 
-        <Field label="აღწერა (რას გთავაზობთ)" required>
+        <Field label={t("descriptionLabel")} required>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="დაუვიწყარი 1 საათიანი ექსტრემალური ტური დიდველის დათოვლილ ტყეში..."
+            placeholder={t("descriptionPlaceholder")}
             rows={4}
             className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </Field>
       </WizardInnerCard>
 
-      {/* Section 2 — Attributes */}
-      <WizardInnerCard number={2} title="მახასიათებლები" accent="blue">
+      <WizardInnerCard number={2} title={t("sectionFeatures")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-          <Field label="ხანგრძლივობა">
+          <Field label={t("duration")}>
             <StyledSelect
               value={duration}
               onValueChange={(v) => setDuration(v as Duration)}
-              options={DURATIONS}
+              options={durationOptions}
               accent="blue"
             />
           </Field>
-          <Field label="ასაკი">
+          <Field label={t("age")}>
             <StyledSelect
               value={ageMin}
               onValueChange={(v) => setAgeMin(v as Age)}
-              options={AGES}
+              options={ageOptions}
               accent="blue"
             />
           </Field>
-          <Field label="ვისთვის არის">
+          <Field label={t("audience")}>
             <StyledSelect
               value={goodFor}
               onValueChange={(v) => setGoodFor(v as GoodFor)}
-              options={GOOD_FOR}
+              options={goodForOptions}
               accent="blue"
             />
           </Field>
-          <Field label="სამუშაო საათები">
+          <Field label={tService("workingHours")}>
             <input
               type="text"
               value={workingHours}
@@ -439,21 +510,20 @@ function CreateEntertainmentPageInner() {
           </Field>
         </div>
 
-        <Field label="უსაფრთხოება და პირობები">
+        <Field label={t("safetyConditions")}>
           <textarea
             value={safetyNotes}
             onChange={(e) => setSafetyNotes(e.target.value)}
-            placeholder="მაგ: ჩაიცვით შესაბამისი დასაცავი აღჭურვილობა, ტურს ახლავს პროფესიონალი ინსტრუქტორი"
+            placeholder={t("safetyPlaceholder")}
             rows={3}
             className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </Field>
       </WizardInnerCard>
 
-      {/* Section 3 — Tariff */}
-      <WizardInnerCard number={3} title="ტარიფი" accent="blue">
+      <WizardInnerCard number={3} title={t("sectionTariff")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="ტარიფი (GEL)" required>
+          <Field label={t("tariff")} required>
             <div className="relative">
               <input
                 type="number"
@@ -468,17 +538,17 @@ function CreateEntertainmentPageInner() {
               </span>
             </div>
           </Field>
-          <Field label="ფასი მოცემულია" required>
+          <Field label={t("priceGivenFor")} required>
             <StyledSelect
               value={priceUnit}
               onValueChange={(v) => setPriceUnit(v as PriceUnit)}
-              options={PRICE_UNITS}
+              options={priceUnitOptions}
               accent="blue"
             />
           </Field>
         </div>
 
-        <Field label="ფოტოების ატვირთვა" required>
+        <Field label={t("uploadPhotos")} required>
           <PhotoUploader
             photos={photos}
             onPhotosChange={setPhotos}
@@ -488,13 +558,12 @@ function CreateEntertainmentPageInner() {
         </Field>
       </WizardInnerCard>
 
-      {/* Section 4 — Contact */}
-      <WizardInnerCard number={4} title="კონტაქტი" accent="blue">
+      <WizardInnerCard number={4} title={t("sectionContact")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="ტელეფონი" required>
+          <Field label={t("phone")} required>
             <PhoneInput value={phone} onChange={setPhone} />
           </Field>
-          <Field label="WhatsApp">
+          <Field label={tShared("whatsappNumber")}>
             <PhoneInput value={whatsapp} onChange={setWhatsapp} />
           </Field>
         </div>

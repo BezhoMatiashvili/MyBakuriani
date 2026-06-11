@@ -1,8 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, CalendarDays, Briefcase, ChevronDown } from "lucide-react";
+
+const clientListKeys = ["platform", "booking", "social", "direct"] as const;
+type ClientListKey = (typeof clientListKeys)[number];
+
+// Exact DB payload values for manual_bookings.client_list — must stay
+// byte-identical to the pre-i18n stored values regardless of UI locale.
+const CLIENT_LIST_DB_VALUES: Record<ClientListKey, string> = {
+  platform: "MyBakuriani.ge",
+  booking: "Booking.com",
+  social: "სოციალური მედია",
+  direct: "პირდაპირი კავშირი",
+};
 
 export interface AddBookingPayload {
   checkIn: string;
@@ -21,13 +34,6 @@ interface AddBookingModalProps {
   initialCheckOut?: string;
 }
 
-const CLIENT_LISTS = [
-  "MyBakuriani.ge",
-  "Booking.com",
-  "სოციალური მედია",
-  "პირდაპირი კავშირი",
-];
-
 export default function AddBookingModal({
   isOpen,
   onClose,
@@ -35,12 +41,15 @@ export default function AddBookingModal({
   initialCheckIn = "",
   initialCheckOut = "",
 }: AddBookingModalProps) {
+  const t = useTranslations("RenterDashboard.modals.addBooking");
+  const tShared = useTranslations("DashboardShared");
+
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [source, setSource] = useState("");
   const [guestName, setGuestName] = useState("");
   const [status, setStatus] = useState<"booked" | "manual">("manual");
-  const [clientList, setClientList] = useState(CLIENT_LISTS[0]);
+  const [clientListKey, setClientListKey] = useState<ClientListKey>("platform");
 
   useEffect(() => {
     setCheckIn(initialCheckIn);
@@ -88,17 +97,17 @@ export default function AddBookingModal({
                 </span>
                 <div>
                   <h2 className="text-[16px] font-black text-[#0F172A]">
-                    ახალი ჯავშნის ჩამატება
+                    {t("title")}
                   </h2>
                   <p className="mt-0.5 text-[12px] font-medium text-[#64748B]">
-                    იხ. ყველა ხელით დამატებული ჯავშანი
+                    {t("subtitle")}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
               >
                 <X className="h-4 w-4" />
@@ -106,45 +115,45 @@ export default function AddBookingModal({
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <Field label="CHECK-IN">
+              <Field label={tShared("checkIn")}>
                 <DateInput
                   value={checkIn}
                   onChange={setCheckIn}
-                  placeholder="dd / mm / yy"
+                  placeholder={t("datePlaceholder")}
                 />
               </Field>
-              <Field label="CHECK-OUT">
+              <Field label={tShared("checkOut")}>
                 <DateInput
                   value={checkOut}
                   onChange={setCheckOut}
-                  placeholder="dd / mm / yy"
+                  placeholder={t("datePlaceholder")}
                 />
               </Field>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <Field label="ჯავშნის წყარო / ოთახი">
+              <Field label={t("sourceLabel")}>
                 <input
                   type="text"
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
-                  placeholder="რა. #101"
+                  placeholder={t("sourcePlaceholder")}
                   className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
               </Field>
-              <Field label="სტუმარი">
+              <Field label={tShared("guest")}>
                 <input
                   type="text"
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="ნინო"
+                  placeholder={t("guestPlaceholder")}
                   className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
               </Field>
             </div>
 
             <div className="mt-3">
-              <Field label="ჯავშნის სტატუსი">
+              <Field label={t("statusLabel")}>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -155,7 +164,7 @@ export default function AddBookingModal({
                         : "border-[#E2E8F0] bg-white text-[#64748B]"
                     }`}
                   >
-                    ხელით დამატებული
+                    {t("manual")}
                   </button>
                   <button
                     type="button"
@@ -166,23 +175,25 @@ export default function AddBookingModal({
                         : "border-[#E2E8F0] bg-white text-[#64748B]"
                     }`}
                   >
-                    დაკავშინილი
+                    {t("booked")}
                   </button>
                 </div>
               </Field>
             </div>
 
             <div className="mt-3">
-              <Field label="კლიენტის სია">
+              <Field label={t("clientList")}>
                 <div className="relative">
                   <select
-                    value={clientList}
-                    onChange={(e) => setClientList(e.target.value)}
+                    value={clientListKey}
+                    onChange={(e) =>
+                      setClientListKey(e.target.value as ClientListKey)
+                    }
                     className="w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   >
-                    {CLIENT_LISTS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    {clientListKeys.map((key) => (
+                      <option key={key} value={key}>
+                        {t(`clientLists.${key}`)}
                       </option>
                     ))}
                   </select>
@@ -200,13 +211,13 @@ export default function AddBookingModal({
                   source,
                   guestName,
                   status,
-                  clientList,
+                  clientList: CLIENT_LIST_DB_VALUES[clientListKey],
                 });
                 onClose();
               }}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF]"
             >
-              დამატება
+              {tShared("add")}
             </button>
           </motion.div>
         </div>

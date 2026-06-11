@@ -14,6 +14,9 @@ export interface Zone {
 
 // Last-resort fallback list. Matches the 4 seeded zones in
 // 20260517120000_zones_table.sql. Safe to import from client or server.
+// NOTE (i18n): name_ka / description_ka are data values mirroring DB rows —
+// resolveZone() matches listing free-text against name_ka, so these must
+// stay Georgian and are intentionally not moved to translation messages.
 export const FALLBACK_ZONES: Zone[] = [
   {
     id: "fallback-didveli",

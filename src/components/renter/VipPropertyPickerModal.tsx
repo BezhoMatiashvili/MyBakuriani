@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Home, CreditCard } from "lucide-react";
@@ -18,18 +19,14 @@ export interface PickerProperty {
   badgeColor?: "blue" | "orange" | "green";
 }
 
-const TIER_META: Record<
+const TIER_KEYS: Record<
   VipInfoTier,
-  { title: string; price: string; unit: string }
+  { titleKey: "superVip" | "vip" | "discount" | "sms"; price: string }
 > = {
-  "super-vip": {
-    title: "SUPER VIP",
-    price: "5.00 ₾",
-    unit: "/ 24სთ",
-  },
-  vip: { title: "VIP", price: "1.50 ₾", unit: "/ დღე" },
-  discount: { title: "ფასდაკლების ბეჯი", price: "1.00 ₾", unit: "/ დღე" },
-  sms: { title: "SMS პაკეტი", price: "10.00 ₾", unit: "/ 200 SMS" },
+  "super-vip": { titleKey: "superVip", price: "5.00 ₾" },
+  vip: { titleKey: "vip", price: "1.50 ₾" },
+  discount: { titleKey: "discount", price: "1.00 ₾" },
+  sms: { titleKey: "sms", price: "10.00 ₾" },
 };
 
 interface VipPropertyPickerModalProps {
@@ -58,6 +55,11 @@ export default function VipPropertyPickerModal({
   loading,
   flat,
 }: VipPropertyPickerModalProps) {
+  const t = useTranslations("RenterDashboard.modals.vipPicker");
+  const tInfo = useTranslations("RenterDashboard.modals.vipInfo.tiers");
+  const tShared = useTranslations("DashboardShared");
+  const tRenter = useTranslations("RenterDashboard");
+
   const [selectedId, setSelectedId] = useState<string>(properties[0]?.id ?? "");
 
   useEffect(() => {
@@ -82,7 +84,22 @@ export default function VipPropertyPickerModal({
     return () => window.removeEventListener("keydown", h);
   }, [isOpen, onClose]);
 
-  const meta = TIER_META[tier];
+  const tierMeta = TIER_KEYS[tier];
+  const title =
+    tier === "vip"
+      ? "VIP"
+      : tier === "super-vip"
+        ? "SUPER VIP"
+        : tInfo(`${tierMeta.titleKey}.title`);
+
+  const meta = useMemo(
+    () => ({
+      title,
+      price: tierMeta.price,
+      unit: t(`units.${tierMeta.titleKey}`),
+    }),
+    [title, tierMeta.price, tierMeta.titleKey, t],
+  );
 
   return (
     <AnimatePresence>
@@ -105,16 +122,16 @@ export default function VipPropertyPickerModal({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[17px] font-black text-[#0F172A]">
-                  აირჩიეთ განცხადება
+                  {tShared("selectListing")}
                 </h2>
                 <p className="mt-1 text-[12px] font-medium text-[#64748B]">
-                  შეიძინეთ {meta.title} თქვენი ობიექტისთვის.
+                  {t("subtitle", { tier: meta.title })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
               >
                 <X className="h-4 w-4" />
@@ -124,7 +141,7 @@ export default function VipPropertyPickerModal({
             <div className="mt-5 max-h-[320px] space-y-2 overflow-y-auto pr-1">
               {properties.length === 0 && (
                 <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#FAFBFC] px-4 py-6 text-center text-[13px] text-[#94A3B8]">
-                  აქტიური ობიექტი ვერ მოიძებნა
+                  {tShared("noActiveProperty")}
                 </div>
               )}
               {(() => {
@@ -174,7 +191,9 @@ export default function VipPropertyPickerModal({
                               }`}
                             >
                               {p.badgeLabel ??
-                                (p.isForSale ? "გაყიდვა" : "გაქირავება")}
+                                (p.isForSale
+                                  ? tRenter("forSale")
+                                  : tRenter("forRent"))}
                             </span>
                           )}
                         </div>
@@ -208,7 +227,7 @@ export default function VipPropertyPickerModal({
                     {rentals.length > 0 && (
                       <>
                         <p className="px-1 pb-1 pt-0 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
-                          გასაქირავებელი
+                          {tShared("forRentSection")}
                         </p>
                         {rentals.map(renderRow)}
                       </>
@@ -216,7 +235,7 @@ export default function VipPropertyPickerModal({
                     {sales.length > 0 && (
                       <>
                         <p className="px-1 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
-                          გასაყიდი
+                          {tShared("forSaleSection")}
                         </p>
                         {sales.map(renderRow)}
                       </>
@@ -229,7 +248,7 @@ export default function VipPropertyPickerModal({
             <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#EEF1F4] pt-5">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
-                  {meta.title}-ის ფასი
+                  {tShared("tierPrice", { tier: meta.title })}
                 </p>
                 <p className="mt-1 text-[20px] font-black text-[#0F172A]">
                   {meta.price}
@@ -250,7 +269,7 @@ export default function VipPropertyPickerModal({
                 className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
               >
                 <CreditCard className="h-4 w-4" />
-                გადახდა
+                {tShared("pay")}
               </button>
             </div>
           </motion.div>

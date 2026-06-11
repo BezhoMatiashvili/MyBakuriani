@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
 
 const DISMISS_KEY = "mybakuriani:sticky_news:dismissed";
 
 export function StickyNewsBar() {
+  const t = useTranslations("Shared");
   const [banners, setBanners] = useState<LandingBanner[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -93,7 +95,7 @@ export function StickyNewsBar() {
           <button
             type="button"
             onClick={() => dismiss(visible.id)}
-            aria-label="დახურვა"
+            aria-label={t("close")}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border bg-white"
             style={{ borderColor: tone.ctaBorder, color: tone.text }}
           >

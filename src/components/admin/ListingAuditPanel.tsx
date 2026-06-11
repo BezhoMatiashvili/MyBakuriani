@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import {
   AlertCircle,
   BadgeCheck,
@@ -22,12 +23,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import {
-  AMENITY_GROUPS,
   FOOD_AMENITIES,
   HOSTING_LANGS,
-  LISTING_STATUS_LABELS,
-  PROPERTY_TYPE_LABELS,
-  SERVICE_CATEGORY_LABELS,
+  optionKeyFor,
+  type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { formatPhone } from "@/lib/utils/format";
 import type {
@@ -83,26 +82,50 @@ const SERVICE_CATEGORY_OPTIONS: Enums<"service_category">[] = [
   "cleaning",
 ];
 
-const CONSTRUCTION_STATUS_OPTIONS = [
-  { value: "ready", label: "მზად ჩასახლებისთვის" },
-  { value: "under_construction", label: "მშენებარე" },
-  { value: "planned", label: "დაგეგმილი" },
-];
+const CONSTRUCTION_STATUS_VALUES = [
+  "ready",
+  "under_construction",
+  "planned",
+] as const;
 
-const RENOVATION_STATUS_OPTIONS = [
-  { value: "new_renovation", label: "ახალი რემონტი" },
-  { value: "old_renovation", label: "ძველი რემონტი" },
-  { value: "black_frame", label: "შავი კარკასი" },
-  { value: "white_frame", label: "თეთრი კარკასი" },
-  { value: "green_frame", label: "მწვანე კარკასი" },
-];
+const RENOVATION_STATUS_VALUES = [
+  "new_renovation",
+  "old_renovation",
+  "black_frame",
+  "white_frame",
+  "green_frame",
+] as const;
 
-const ROOM_TYPE_OPTIONS = [
-  { value: "studio", label: "სტუდიო" },
-  { value: "1_bedroom", label: "1 საძინებელი" },
-  { value: "2_bedroom", label: "2 საძინებელი" },
-  { value: "3_bedroom", label: "3 საძინებელი" },
-  { value: "4_plus_bedroom", label: "4+ საძინებელი" },
+const ROOM_TYPE_VALUES = [
+  "studio",
+  "1_bedroom",
+  "2_bedroom",
+  "3_bedroom",
+  "4_plus_bedroom",
+] as const;
+
+// Mirrors AMENITY_GROUPS in listing-options; labels render from the
+// ListingOptions.{amenityGroupLabels,amenities} messages.
+const AMENITY_GROUP_KEYS: { key: string; options: string[] }[] = [
+  {
+    key: "winter",
+    options: ["ski_in_out", "ski_storage", "backup_generator", "fireplace"],
+  },
+  { key: "comfort", options: ["parking", "wifi", "central_heating", "tv"] },
+  {
+    key: "kitchen",
+    options: ["washing_machine", "dishwasher", "full_kitchen", "coffee_maker"],
+  },
+  {
+    key: "outdoor",
+    options: [
+      "no_balcony",
+      "french_balcony",
+      "standard_balcony",
+      "large_terrace",
+      "yard",
+    ],
+  },
 ];
 
 export default function ListingAuditPanel({
@@ -111,6 +134,8 @@ export default function ListingAuditPanel({
   onModerated,
   onChange,
 }: Props) {
+  const t = useTranslations("AdminShared.listingAudit");
+  const tShared = useTranslations("AdminShared");
   const [data, setData] = useState<AuditPayload | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
@@ -130,18 +155,18 @@ export default function ListingAuditPanel({
         );
         const payload = await res.json();
         if (!active) return;
-        if (!res.ok) throw new Error(payload.error ?? "დეტალები ვერ ჩაიტვირთა");
+        if (!res.ok) throw new Error(payload.error ?? t("loadFailed"));
         setData(payload as AuditPayload);
       } catch (err) {
         if (!active) return;
-        setLoadErr(err instanceof Error ? err.message : "შეცდომა");
+        setLoadErr(err instanceof Error ? err.message : tShared("error"));
       }
     }
     load();
     return () => {
       active = false;
     };
-  }, [kind, id, reloadToken]);
+  }, [kind, id, reloadToken, t, tShared]);
 
   const dirtyPatch = useMemo(() => {
     if (!data) return {};
@@ -184,7 +209,7 @@ export default function ListingAuditPanel({
       throw new Error(
         detail
           ? `${detail.field}: ${detail.reason}`
-          : payload?.error || "შენახვა ვერ მოხერხდა",
+          : payload?.error || tShared("saveFailed"),
       );
     }
     return true;
@@ -211,13 +236,15 @@ export default function ListingAuditPanel({
         }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? "შეცდომა");
+      if (!res.ok) throw new Error(payload.error ?? tShared("error"));
       toast.success(
-        action === "approve" ? "განცხადება დამტკიცდა" : "განცხადება უარყოფილია",
+        action === "approve"
+          ? tShared("listingApproved")
+          : tShared("listingRejected"),
       );
       onModerated?.(action);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setBusy(null);
     }
@@ -229,12 +256,12 @@ export default function ListingAuditPanel({
     try {
       const count = Object.keys(dirtyPatch).length;
       await saveDirty();
-      toast.success(`შენახულია ${count} ცვლილება`);
+      toast.success(t("savedChanges", { count }));
       setDraft({});
       setReloadToken((n) => n + 1);
       onChange?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setBusy(null);
     }
@@ -331,34 +358,79 @@ function shallowEqual(a: unknown, b: unknown): boolean {
   return false;
 }
 
+// Legacy production rows store Georgian labels ("პარკინგი", "ქართული") while
+// the panel's chips use codes ("parking", "ka"). A chip is active if any
+// stored value normalizes to its code; toggling off removes every such value,
+// toggling on appends the code. Unrecognized free-text values are never touched.
+function chipIsActive(group: OptionGroup, selected: string[], key: string) {
+  return selected.some((v) => v === key || optionKeyFor(group, v) === key);
+}
+
+function chipToggle(
+  group: OptionGroup,
+  selected: string[],
+  key: string,
+): string[] {
+  return chipIsActive(group, selected, key)
+    ? selected.filter((v) => v !== key && optionKeyFor(group, v) !== key)
+    : [...selected, key];
+}
+
+// Selects write codes, but the stored value may be a legacy Georgian label.
+// Map it onto its code option when one exists; otherwise append a passthrough
+// option (key ? translated label : raw value) so the current value stays
+// visible and unchanged until the admin explicitly picks a code.
+function resolveLegacySelect(
+  group: OptionGroup,
+  raw: string,
+  options: { value: string; label: string }[],
+  legacyLabel: (key: string) => string,
+): { value: string; options: { value: string; label: string }[] } {
+  if (!raw || options.some((o) => o.value === raw)) {
+    return { value: raw, options };
+  }
+  const key = optionKeyFor(group, raw);
+  if (key && options.some((o) => o.value === key)) {
+    return { value: key, options };
+  }
+  return {
+    value: raw,
+    options: [...options, { value: raw, label: key ? legacyLabel(key) : raw }],
+  };
+}
+
 // ---------- Owner & NAPR ----------
 
 function OwnerCard({ owner }: { owner: AuditPayload["owner"] }) {
+  const t = useTranslations("AdminShared.listingAudit");
+  const tDash = useTranslations("DashboardShared");
+  const tGuest = useTranslations("GuestProfile");
+
   return (
     <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
       <div className="mb-4 flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.6px] text-[#475569]">
         <UserIcon className="h-4 w-4" />
-        მესაკუთრის ინფო
+        {t("ownerInfo")}
         {owner.is_verified && (
           <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-bold text-[#047857]">
             <BadgeCheck className="h-3 w-3" />
-            ვერიფიცირებული
+            {t("verified")}
           </span>
         )}
       </div>
       <dl className="space-y-3 text-sm">
-        <RowLine icon={<UserIcon className="h-4 w-4" />} label="სახელი">
+        <RowLine icon={<UserIcon className="h-4 w-4" />} label={tDash("name")}>
           {owner.display_name ?? "—"}
         </RowLine>
-        <RowLine icon={<Phone className="h-4 w-4" />} label="ტელეფონი">
+        <RowLine icon={<Phone className="h-4 w-4" />} label={tDash("phone")}>
           {formatPhone(owner.phone)}
         </RowLine>
-        <RowLine icon={<Mail className="h-4 w-4" />} label="ელ-ფოსტა">
+        <RowLine icon={<Mail className="h-4 w-4" />} label={tGuest("email")}>
           {owner.email ?? "—"}
         </RowLine>
         <RowLine
           icon={<ShieldCheck className="h-4 w-4" />}
-          label="პირადი ნომერი"
+          label={t("personalId")}
         >
           <span className="font-mono">{owner.personal_id ?? "—"}</span>
         </RowLine>
@@ -374,22 +446,24 @@ function NaprCard({
   cadastralCode: string | null;
   onChange: (v: string) => void;
 }) {
+  const t = useTranslations("AdminShared.listingAudit");
+
   return (
     <div className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-5">
       <div className="mb-4 flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.6px] text-[#1D4ED8]">
         <Building2 className="h-4 w-4" />
-        იურიდიული (NAPR)
+        {t("legalNapr")}
       </div>
       <div className="space-y-3 text-sm">
         <label className="block">
           <span className="mb-1 block text-[12px] font-bold text-[#475569]">
-            საკადასტრო კოდი
+            {t("cadastralCode")}
           </span>
           <input
             type="text"
             value={cadastralCode ?? ""}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="00.00.0000.000"
+            placeholder={t("cadastralPlaceholder")}
             className="w-full rounded-xl border border-[#BFDBFE] bg-white px-3 py-2 font-mono text-[15px] font-bold text-[#0F172A] focus:border-[#2563EB] focus:outline-none"
           />
         </label>
@@ -399,7 +473,7 @@ function NaprCard({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-[12px] font-bold text-[#1D4ED8] hover:underline"
         >
-          napr.gov.ge შემოწმება
+          {t("naprCheck")}
           <ExternalLink className="h-3 w-3" />
         </a>
       </div>
@@ -424,6 +498,8 @@ function PropertyForm({
   setField: FieldSetters["setField"];
   effective: FieldSetters["effective"];
 }) {
+  const t = useTranslations("AdminShared.listingAudit");
+  const tOpts = useTranslations("ListingOptions");
   const houseRules = effective<Record<string, unknown> | null>(
     "house_rules",
     null,
@@ -447,58 +523,84 @@ function PropertyForm({
 
   const isForSale = effective<boolean>("is_for_sale", !!listing.is_for_sale);
 
+  const constructionSelect = resolveLegacySelect(
+    "constructionStatuses",
+    effective<string | null>("construction_status", null) ?? "",
+    [
+      { value: "", label: "—" },
+      ...CONSTRUCTION_STATUS_VALUES.map((value) => ({
+        value,
+        label: t(`constructionStatuses.${value}`),
+      })),
+    ],
+    (key) => tOpts(`constructionStatuses.${key}`),
+  );
+
+  const renovationSelect = resolveLegacySelect(
+    "renovationStatuses",
+    effective<string | null>("renovation_status", null) ?? "",
+    [
+      { value: "", label: "—" },
+      ...RENOVATION_STATUS_VALUES.map((value) => ({
+        value,
+        label: t(`renovationStatuses.${value}`),
+      })),
+    ],
+    (key) => tOpts(`renovationStatuses.${key}`),
+  );
+
   return (
     <div className="space-y-4">
-      <Section title="ძირითადი ინფო" defaultOpen>
+      <Section title={t("basicInfo")} defaultOpen>
         <Grid2>
           <TextField
-            label="სათაური"
+            label={t("title")}
             required
             value={effective<string>("title", "")}
             onChange={(v) => setField("title", v)}
           />
           <SelectField
-            label="ბინის ტიპი"
+            label={t("propertyType")}
             value={effective<string>("type", listing.type)}
             onChange={(v) => setField("type", v)}
-            options={PROPERTY_TYPE_OPTIONS.map((t) => ({
-              value: t,
-              label: PROPERTY_TYPE_LABELS[t] ?? t,
+            options={PROPERTY_TYPE_OPTIONS.map((type) => ({
+              value: type,
+              label: tOpts(`propertyTypes.${type}`),
             }))}
           />
         </Grid2>
         <TextAreaField
-          label="აღწერა"
+          label={t("description")}
           value={effective<string | null>("description", null) ?? ""}
           onChange={(v) => setField("description", v)}
           rows={5}
         />
         <Grid2>
           <ToggleField
-            label="გასაყიდი ობიექტი"
-            help="ჩართე თუ ეს არის გასაყიდი, არა გასაქირავებელი"
+            label={t("forSaleObject")}
+            help={t("forSaleHelp")}
             value={isForSale}
             onChange={(v) => setField("is_for_sale", v)}
           />
         </Grid2>
       </Section>
 
-      <Section title="მდებარეობა" defaultOpen>
+      <Section title={t("location")} defaultOpen>
         <TextField
-          label="მისამართი"
+          label={t("address")}
           required
           value={effective<string>("location", "")}
           onChange={(v) => setField("location", v)}
         />
         <Grid2>
           <NumberField
-            label="ფართობი (მ²)"
+            label={t("areaSqm")}
             value={effective<number | null>("area_sqm", null)}
             onChange={(v) => setField("area_sqm", v)}
             step="0.1"
           />
           <NumberField
-            label="მანძილი ფერდამდე (მ)"
+            label={t("distanceToSlope")}
             value={effective<number | null>("distance_to_slope_m", null)}
             onChange={(v) => setField("distance_to_slope_m", v)}
           />
@@ -506,7 +608,7 @@ function PropertyForm({
         <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
           <p className="mb-2 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
             <MapPin className="h-4 w-4" />
-            ზუსტი მდებარეობა
+            {t("exactLocation")}
           </p>
           <div className="h-[280px] w-full">
             <ExactLocationPicker
@@ -528,47 +630,53 @@ function PropertyForm({
         </div>
       </Section>
 
-      <Section title="სპეციფიკაცია" defaultOpen>
+      <Section title={t("specification")} defaultOpen>
         <Grid3>
           <NumberField
-            label="ოთახი"
+            label={t("rooms")}
             value={effective<number | null>("rooms", null)}
             onChange={(v) => setField("rooms", v)}
           />
           <NumberField
-            label="სველი წერტილი"
+            label={t("bathrooms")}
             value={effective<number | null>("bathrooms", null)}
             onChange={(v) => setField("bathrooms", v)}
           />
           <NumberField
-            label="ტევადობა"
+            label={t("capacity")}
             value={effective<number | null>("capacity", null)}
             onChange={(v) => setField("capacity", v)}
           />
           <SelectField
-            label="ოთახის ტიპი"
+            label={t("roomType")}
             value={effective<string | null>("room_type", null) ?? ""}
             onChange={(v) => setField("room_type", v || null)}
-            options={[{ value: "", label: "—" }, ...ROOM_TYPE_OPTIONS]}
+            options={[
+              { value: "", label: "—" },
+              ...ROOM_TYPE_VALUES.map((value) => ({
+                value,
+                label: t(`roomTypes.${value}`),
+              })),
+            ]}
           />
           <NumberField
-            label="ვარსკვლავი (სასტუმრო)"
+            label={t("hotelStars")}
             value={effective<number | null>("hotel_stars", null)}
             onChange={(v) => setField("hotel_stars", v)}
           />
           <NumberField
-            label="მინ. ღამე"
+            label={t("minNights")}
             value={effective<number | null>("min_booking_days", null)}
             onChange={(v) => setField("min_booking_days", v)}
           />
         </Grid3>
       </Section>
 
-      <Section title="ფასი">
+      <Section title={t("price")}>
         <Grid3>
           {!isForSale && (
             <NumberField
-              label="ფასი / ღამე"
+              label={t("pricePerNight")}
               value={effective<number | null>("price_per_night", null)}
               onChange={(v) => setField("price_per_night", v)}
               step="0.01"
@@ -576,31 +684,31 @@ function PropertyForm({
           )}
           {isForSale && (
             <NumberField
-              label="გასაყიდი ფასი"
+              label={t("salePrice")}
               value={effective<number | null>("sale_price", null)}
               onChange={(v) => setField("sale_price", v)}
               step="0.01"
             />
           )}
           <TextField
-            label="ვალუტა"
+            label={t("currency")}
             value={effective<string | null>("currency", null) ?? ""}
             onChange={(v) => setField("currency", v)}
             placeholder="₾"
           />
           <NumberField
-            label="ფასდაკლება %"
+            label={t("discountPercent")}
             value={effective<number | null>("discount_percent", null)}
             onChange={(v) => setField("discount_percent", v)}
           />
           <NumberField
-            label="დასუფთავების საფასური"
+            label={t("cleaningFee")}
             value={effective<number | null>("cleaning_fee", null)}
             onChange={(v) => setField("cleaning_fee", v)}
             step="0.01"
           />
           <NumberField
-            label="ROI %"
+            label={t("roiPercent")}
             value={effective<number | null>("roi_percent", null)}
             onChange={(v) => setField("roi_percent", v)}
             step="0.1"
@@ -608,9 +716,9 @@ function PropertyForm({
         </Grid3>
       </Section>
 
-      <Section title="კეთილმოწყობა და წესები">
+      <Section title={t("amenitiesRules")}>
         <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
-          კეთილმოწყობა
+          {t("amenities")}
         </p>
         <AmenityChips
           selected={effective<string[]>("amenities", []) as string[]}
@@ -619,10 +727,14 @@ function PropertyForm({
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div>
             <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
-              მასპინძლის ენები
+              {t("hostLanguages")}
             </p>
             <ChipsField
-              options={HOSTING_LANGS}
+              group="hostingLangs"
+              options={HOSTING_LANGS.map((lang) => ({
+                key: lang.key,
+                label: tOpts(`hostingLangs.${lang.key}`),
+              }))}
               selected={hostingLangs}
               onChange={(next) =>
                 updateRule({
@@ -633,16 +745,16 @@ function PropertyForm({
           </div>
           <div>
             <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
-              სახლის წესები
+              {t("houseRules")}
             </p>
             <div className="flex flex-col gap-2">
               <TriState
-                label="მოწევა დაშვებულია"
+                label={t("smokingAllowed")}
                 value={smoking}
                 onChange={(v) => updateRule({ smoking: v })}
               />
               <TriState
-                label="ცხოველები დაშვებულია"
+                label={t("petsAllowed")}
                 value={pets}
                 onChange={(v) => updateRule({ pets: v })}
               />
@@ -651,7 +763,7 @@ function PropertyForm({
         </div>
       </Section>
 
-      <Section title="ფოტოები">
+      <Section title={t("photos")}>
         <PhotoUploader
           photos={effective<string[]>("photos", []) as string[]}
           onPhotosChange={(next) => setField("photos", next)}
@@ -659,15 +771,15 @@ function PropertyForm({
         />
       </Section>
 
-      <Section title="სტატუსი და ხილვადობა" defaultOpen>
+      <Section title={t("statusVisibility")} defaultOpen>
         <Grid3>
           <SelectField
-            label="სტატუსი"
+            label={t("status")}
             value={effective<string | null>("status", null) ?? "pending"}
             onChange={(v) => setField("status", v)}
             options={STATUS_OPTIONS.map((s) => ({
               value: s,
-              label: LISTING_STATUS_LABELS[s] ?? s,
+              label: tOpts(`listingStatuses.${s}`),
             }))}
           />
           <ToggleField
@@ -681,41 +793,36 @@ function PropertyForm({
             onChange={(v) => setField("is_super_vip", v)}
           />
           <ToggleField
-            label="B2B პარტნიორი"
+            label={t("b2bPartner")}
             value={effective<boolean | null>("is_b2b_partner", null) === true}
             onChange={(v) => setField("is_b2b_partner", v)}
           />
           <DateField
-            label="VIP ვადა"
+            label={t("vipExpiry")}
             value={effective<string | null>("vip_expires_at", null)}
             onChange={(v) => setField("vip_expires_at", v)}
           />
         </Grid3>
         <TextAreaField
-          label="ადმინისტრატორის კომენტარი"
+          label={t("adminComment")}
           value={effective<string | null>("admin_notes", null) ?? ""}
           onChange={(v) => setField("admin_notes", v)}
           rows={3}
-          placeholder="დაამატე შენიშვნა (გამოგზავნდება მესაკუთრეს დადასტურების/უარყოფის შემთხვევაში)"
+          placeholder={t("adminCommentPlaceholder")}
         />
       </Section>
 
       {isForSale && (
-        <Section title="მშენებლობის სტატუსი">
+        <Section title={t("constructionStatus")}>
           <Grid3>
             <SelectField
-              label="მშენებლობის სტატუსი"
-              value={
-                effective<string | null>("construction_status", null) ?? ""
-              }
+              label={t("constructionStatusLabel")}
+              value={constructionSelect.value}
               onChange={(v) => setField("construction_status", v || null)}
-              options={[
-                { value: "", label: "—" },
-                ...CONSTRUCTION_STATUS_OPTIONS,
-              ]}
+              options={constructionSelect.options}
             />
             <NumberField
-              label="პროგრესი %"
+              label={t("progressPercent")}
               value={effective<number | null>(
                 "construction_progress_percent",
                 null,
@@ -723,27 +830,24 @@ function PropertyForm({
               onChange={(v) => setField("construction_progress_percent", v)}
             />
             <NumberField
-              label="დასრულების წელი"
+              label={t("completionYear")}
               value={effective<number | null>("completion_year", null)}
               onChange={(v) => setField("completion_year", v)}
             />
             <TextField
-              label="დეველოპერი"
+              label={t("developer")}
               value={effective<string | null>("developer", null) ?? ""}
               onChange={(v) => setField("developer", v)}
             />
             <SelectField
-              label="რემონტის სტატუსი"
-              value={effective<string | null>("renovation_status", null) ?? ""}
+              label={t("renovationStatus")}
+              value={renovationSelect.value}
               onChange={(v) => setField("renovation_status", v || null)}
-              options={[
-                { value: "", label: "—" },
-                ...RENOVATION_STATUS_OPTIONS,
-              ]}
+              options={renovationSelect.options}
             />
           </Grid3>
           <TextAreaField
-            label="პროგრესის შენიშვნა"
+            label={t("progressNote")}
             value={effective<string | null>("progress_note", null) ?? ""}
             onChange={(v) => setField("progress_note", v)}
             rows={2}
@@ -766,6 +870,9 @@ function ServiceForm({
   setField: FieldSetters["setField"];
   effective: FieldSetters["effective"];
 }) {
+  const t = useTranslations("AdminShared.listingAudit");
+  const tDash = useTranslations("DashboardShared");
+  const tOpts = useTranslations("ListingOptions");
   const category = effective<Enums<"service_category">>(
     "category",
     listing.category,
@@ -776,41 +883,41 @@ function ServiceForm({
 
   return (
     <div className="space-y-4">
-      <Section title="ძირითადი ინფო" defaultOpen>
+      <Section title={t("basicInfo")} defaultOpen>
         <Grid2>
           <TextField
-            label="სათაური"
+            label={t("title")}
             required
             value={effective<string>("title", "")}
             onChange={(v) => setField("title", v)}
           />
           <SelectField
-            label="კატეგორია"
+            label={t("category")}
             value={category}
             onChange={(v) => setField("category", v)}
             options={SERVICE_CATEGORY_OPTIONS.map((c) => ({
               value: c,
-              label: SERVICE_CATEGORY_LABELS[c] ?? c,
+              label: tOpts(`serviceCategories.${c}`),
             }))}
           />
         </Grid2>
         <TextAreaField
-          label="აღწერა"
+          label={t("description")}
           value={effective<string | null>("description", null) ?? ""}
           onChange={(v) => setField("description", v)}
           rows={5}
         />
       </Section>
 
-      <Section title="კონტაქტი და მდებარეობა" defaultOpen>
+      <Section title={t("contactLocation")} defaultOpen>
         <Grid2>
           <TextField
-            label="მისამართი"
+            label={t("address")}
             value={effective<string | null>("location", null) ?? ""}
             onChange={(v) => setField("location", v)}
           />
           <TextField
-            label="ტელეფონი"
+            label={tDash("phone")}
             value={effective<string | null>("phone", null) ?? ""}
             onChange={(v) => setField("phone", v)}
             placeholder="+995 5XX XX XX XX"
@@ -818,28 +925,28 @@ function ServiceForm({
         </Grid2>
       </Section>
 
-      <Section title="ფასი">
+      <Section title={t("price")}>
         <Grid3>
           <NumberField
-            label="ფასი"
+            label={t("price")}
             value={effective<number | null>("price", null)}
             onChange={(v) => setField("price", v)}
             step="0.01"
           />
           <TextField
-            label="ფასის ერთეული"
+            label={t("priceUnit")}
             value={effective<string | null>("price_unit", null) ?? ""}
             onChange={(v) => setField("price_unit", v)}
-            placeholder="საათი, ადამიანი, კმ..."
+            placeholder={t("priceUnitPlaceholder")}
           />
           <TextField
-            label="ვალუტა"
+            label={t("currency")}
             value={effective<string | null>("currency", null) ?? ""}
             onChange={(v) => setField("currency", v)}
             placeholder="₾"
           />
           <NumberField
-            label="ფასდაკლება %"
+            label={t("discountPercent")}
             value={effective<number | null>("discount_percent", null)}
             onChange={(v) => setField("discount_percent", v)}
           />
@@ -847,35 +954,35 @@ function ServiceForm({
       </Section>
 
       {isFood && (
-        <Section title="კვების სპეციფიკაცია" defaultOpen>
+        <Section title={t("foodSpec")} defaultOpen>
           <Grid2>
             <TextField
-              label="სამზარეულოს ტიპი"
+              label={t("cuisineType")}
               value={effective<string | null>("cuisine_type", null) ?? ""}
               onChange={(v) => setField("cuisine_type", v)}
             />
             <TextField
-              label="საშუალო ჩეკი"
+              label={t("avgCheck")}
               value={effective<string | null>("avg_check", null) ?? ""}
               onChange={(v) => setField("avg_check", v)}
             />
             <TextField
-              label="სამუშაო საათები"
+              label={t("operatingHours")}
               value={effective<string | null>("operating_hours", null) ?? ""}
               onChange={(v) => setField("operating_hours", v)}
             />
             <TextField
-              label="მენიუს URL"
+              label={t("menuUrl")}
               value={effective<string | null>("menu_url", null) ?? ""}
               onChange={(v) => setField("menu_url", v)}
             />
             <TextField
-              label="საცხოვრებელი"
+              label={t("accommodation")}
               value={effective<string | null>("accommodation", null) ?? ""}
               onChange={(v) => setField("accommodation", v)}
             />
             <TextField
-              label="კერძები"
+              label={t("meals")}
               value={effective<string | null>("meals", null) ?? ""}
               onChange={(v) => setField("meals", v)}
             />
@@ -884,7 +991,7 @@ function ServiceForm({
             {FOOD_AMENITIES.map((a) => (
               <ToggleField
                 key={a.key}
-                label={a.label}
+                label={tOpts(`foodAmenities.${a.key}`)}
                 value={effective<boolean | null>(a.key, null) === true}
                 onChange={(v) => setField(a.key, v)}
               />
@@ -894,36 +1001,36 @@ function ServiceForm({
       )}
 
       {isTransport && (
-        <Section title="ტრანსპორტის სპეციფიკაცია" defaultOpen>
+        <Section title={t("transportSpec")} defaultOpen>
           <Grid2>
             <TextField
-              label="მძღოლის სახელი"
+              label={t("driverName")}
               value={effective<string | null>("driver_name", null) ?? ""}
               onChange={(v) => setField("driver_name", v)}
             />
             <TextField
-              label="ავტომობილი"
+              label={t("vehicle")}
               value={effective<string | null>("vehicle_make", null) ?? ""}
               onChange={(v) => setField("vehicle_make", v)}
             />
             <NumberField
-              label="ადგილების რაოდენობა"
+              label={t("vehicleCapacity")}
               value={effective<number | null>("vehicle_capacity", null)}
               onChange={(v) => setField("vehicle_capacity", v)}
             />
             <TextField
-              label="ტრანსპორტის ტიპი"
+              label={t("transportType")}
               value={effective<string | null>("transport_type", null) ?? ""}
               onChange={(v) => setField("transport_type", v)}
             />
             <TextField
-              label="ძირითადი მარშრუტი"
+              label={t("mainRoute")}
               value={effective<string | null>("route", null) ?? ""}
               onChange={(v) => setField("route", v)}
             />
           </Grid2>
           <ListField
-            label="დამატებითი მარშრუტები"
+            label={t("extraRoutes")}
             value={effective<string[] | null>("routes", null) ?? []}
             onChange={(next) => setField("routes", next)}
           />
@@ -931,73 +1038,73 @@ function ServiceForm({
       )}
 
       {isEmployment && (
-        <Section title="დასაქმების სპეციფიკაცია" defaultOpen>
+        <Section title={t("employmentSpec")} defaultOpen>
           <Grid2>
             <TextField
-              label="პოზიცია"
+              label={t("position")}
               value={effective<string | null>("position", null) ?? ""}
               onChange={(v) => setField("position", v)}
             />
             <TextField
-              label="ანაზღაურების დიაპაზონი"
+              label={t("salaryRange")}
               value={effective<string | null>("salary_range", null) ?? ""}
               onChange={(v) => setField("salary_range", v)}
               placeholder="500-1000"
             />
             <NumberField
-              label="ანაზღაურება (მინ)"
+              label={t("salaryMin")}
               value={effective<number | null>("salary_min", null)}
               onChange={(v) => setField("salary_min", v)}
             />
             <NumberField
-              label="ანაზღაურება (მაქს)"
+              label={t("salaryMax")}
               value={effective<number | null>("salary_max", null)}
               onChange={(v) => setField("salary_max", v)}
             />
             <NumberField
-              label="დღიური ანაზღაურება"
+              label={t("salaryDaily")}
               value={effective<number | null>("salary_daily", null)}
               onChange={(v) => setField("salary_daily", v)}
             />
             <TextField
-              label="ანაზღაურების ტიპი"
+              label={t("salaryType")}
               value={effective<string | null>("salary_type", null) ?? ""}
               onChange={(v) => setField("salary_type", v)}
-              placeholder="monthly / daily / hourly"
+              placeholder={t("salaryTypePlaceholder")}
             />
             <TextField
-              label="გამოცდილების მოთხოვნა"
+              label={t("experienceRequired")}
               value={
                 effective<string | null>("experience_required", null) ?? ""
               }
               onChange={(v) => setField("experience_required", v)}
             />
             <TextField
-              label="დასაქმების ტიპი"
+              label={t("employmentType")}
               value={effective<string | null>("employment_type", null) ?? ""}
               onChange={(v) => setField("employment_type", v)}
-              placeholder="full-time / part-time"
+              placeholder={t("employmentTypePlaceholder")}
             />
             <TextField
-              label="დასაქმების გრაფიკი"
+              label={t("employmentSchedule")}
               value={
                 effective<string | null>("employment_schedule", null) ?? ""
               }
               onChange={(v) => setField("employment_schedule", v)}
             />
             <TextField
-              label="სამუშაო გრაფიკი"
+              label={t("workSchedule")}
               value={effective<string | null>("work_schedule", null) ?? ""}
               onChange={(v) => setField("work_schedule", v)}
             />
             <TextField
-              label="ცვლა / ცხრილი"
+              label={t("shiftSchedule")}
               value={effective<string | null>("schedule", null) ?? ""}
               onChange={(v) => setField("schedule", v)}
             />
           </Grid2>
           <TextAreaField
-            label="მოთხოვნები"
+            label={t("requirements")}
             value={effective<string | null>("requirements", null) ?? ""}
             onChange={(v) => setField("requirements", v)}
             rows={3}
@@ -1005,20 +1112,20 @@ function ServiceForm({
         </Section>
       )}
 
-      <Section title="დამატებითი ინფო">
+      <Section title={t("extraInfo")}>
         <ListField
-          label="ენები"
+          label={t("languages")}
           value={effective<string[] | null>("languages", null) ?? []}
           onChange={(next) => setField("languages", next)}
         />
         <ListField
-          label="აღჭურვილობა"
+          label={t("equipment")}
           value={effective<string[] | null>("equipment", null) ?? []}
           onChange={(next) => setField("equipment", next)}
         />
       </Section>
 
-      <Section title="ფოტოები">
+      <Section title={t("photos")}>
         <PhotoUploader
           photos={effective<string[]>("photos", []) as string[]}
           onPhotosChange={(next) => setField("photos", next)}
@@ -1026,15 +1133,15 @@ function ServiceForm({
         />
       </Section>
 
-      <Section title="სტატუსი და ხილვადობა" defaultOpen>
+      <Section title={t("statusVisibility")} defaultOpen>
         <Grid3>
           <SelectField
-            label="სტატუსი"
+            label={t("status")}
             value={effective<string | null>("status", null) ?? "pending"}
             onChange={(v) => setField("status", v)}
             options={STATUS_OPTIONS.map((s) => ({
               value: s,
-              label: LISTING_STATUS_LABELS[s] ?? s,
+              label: tOpts(`listingStatuses.${s}`),
             }))}
           />
           <ToggleField
@@ -1043,17 +1150,17 @@ function ServiceForm({
             onChange={(v) => setField("is_vip", v)}
           />
           <ToggleField
-            label="„ახალი“ ნიშანი"
+            label={t("newBadge")}
             value={effective<boolean | null>("is_new", null) === true}
             onChange={(v) => setField("is_new", v)}
           />
         </Grid3>
         <TextAreaField
-          label="ადმინისტრატორის კომენტარი"
+          label={t("adminComment")}
           value={effective<string | null>("admin_notes", null) ?? ""}
           onChange={(v) => setField("admin_notes", v)}
           rows={3}
-          placeholder="დაამატე შენიშვნა (გამოგზავნდება მესაკუთრეს დადასტურების/უარყოფის შემთხვევაში)"
+          placeholder={t("adminCommentPlaceholder")}
         />
       </Section>
     </div>
@@ -1077,10 +1184,14 @@ function ActionBar({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const t = useTranslations("AdminShared.listingAudit");
+  const tShared = useTranslations("AdminShared");
+  const tDash = useTranslations("DashboardShared");
+
   return (
     <div className="sticky bottom-0 -mx-6 -mb-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#E2E8F0] bg-white/95 px-6 py-4 backdrop-blur">
       <p className="text-[12px] font-bold text-[#64748B]">
-        {isDirty ? "გაქვს შეუნახავი ცვლილებები" : "ცვლილებები არ არის"}
+        {isDirty ? t("unsavedChanges") : t("noChanges")}
       </p>
       <div className="flex flex-wrap gap-3">
         <button
@@ -1094,7 +1205,7 @@ function ActionBar({
           ) : (
             <Save className="h-4 w-4" />
           )}
-          შენახვა
+          {tDash("save")}
         </button>
         <button
           type="button"
@@ -1107,7 +1218,7 @@ function ActionBar({
           ) : (
             <X className="h-4 w-4" />
           )}
-          ვარყოფ
+          {t("reject")}
         </button>
         <button
           type="button"
@@ -1120,7 +1231,7 @@ function ActionBar({
           ) : (
             <Check className="h-4 w-4" />
           )}
-          დადასტურება
+          {tShared("approve")}
         </button>
       </div>
     </div>
@@ -1362,6 +1473,8 @@ function TriState({
   value: boolean | null;
   onChange: (v: boolean) => void;
 }) {
+  const tDash = useTranslations("DashboardShared");
+
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2">
       <span className="text-[13px] font-bold text-[#0F172A]">{label}</span>
@@ -1375,7 +1488,7 @@ function TriState({
               : "bg-[#F1F5F9] text-[#475569]"
           }`}
         >
-          კი
+          {tDash("yes")}
         </button>
         <button
           type="button"
@@ -1386,7 +1499,7 @@ function TriState({
               : "bg-[#F1F5F9] text-[#475569]"
           }`}
         >
-          არა
+          {tDash("no")}
         </button>
       </div>
     </div>
@@ -1419,30 +1532,25 @@ function DateField({
 }
 
 function ChipsField({
+  group,
   options,
   selected,
   onChange,
 }: {
+  group: OptionGroup;
   options: { key: string; label: string }[];
   selected: string[];
   onChange: (next: string[]) => void;
 }) {
-  function toggle(key: string) {
-    if (selected.includes(key)) {
-      onChange(selected.filter((s) => s !== key));
-    } else {
-      onChange([...selected, key]);
-    }
-  }
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((opt) => {
-        const active = selected.includes(opt.key);
+        const active = chipIsActive(group, selected, opt.key);
         return (
           <button
             key={opt.key}
             type="button"
-            onClick={() => toggle(opt.key)}
+            onClick={() => onChange(chipToggle(group, selected, opt.key))}
             className={`rounded-full border px-4 py-1.5 text-[12px] font-bold transition-colors ${
               active
                 ? "border-[#2563EB] bg-[#2563EB] text-white"
@@ -1464,35 +1572,32 @@ function AmenityChips({
   selected: string[];
   onChange: (next: string[]) => void;
 }) {
-  function toggle(key: string) {
-    if (selected.includes(key)) {
-      onChange(selected.filter((s) => s !== key));
-    } else {
-      onChange([...selected, key]);
-    }
-  }
+  const tOpts = useTranslations("ListingOptions");
+
   return (
     <div className="space-y-3">
-      {AMENITY_GROUPS.map((group) => (
+      {AMENITY_GROUP_KEYS.map((group) => (
         <div key={group.key}>
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            {group.label}
+            {tOpts(`amenityGroupLabels.${group.key}`)}
           </p>
           <div className="flex flex-wrap gap-2">
-            {group.options.map((opt) => {
-              const active = selected.includes(opt.key);
+            {group.options.map((key) => {
+              const active = chipIsActive("amenities", selected, key);
               return (
                 <button
-                  key={opt.key}
+                  key={key}
                   type="button"
-                  onClick={() => toggle(opt.key)}
+                  onClick={() =>
+                    onChange(chipToggle("amenities", selected, key))
+                  }
                   className={`rounded-full border px-3 py-1 text-[12px] font-bold transition-colors ${
                     active
                       ? "border-[#2563EB] bg-[#2563EB] text-white"
                       : "border-[#E2E8F0] bg-white text-[#475569] hover:border-[#CBD5E1]"
                   }`}
                 >
-                  {opt.label}
+                  {tOpts(`amenities.${key}`)}
                 </button>
               );
             })}
@@ -1512,6 +1617,8 @@ function ListField({
   value: string[];
   onChange: (next: string[]) => void;
 }) {
+  const t = useTranslations("AdminShared.listingAudit");
+  const tDash = useTranslations("DashboardShared");
   const [draft, setDraft] = useState("");
 
   function add() {
@@ -1532,7 +1639,7 @@ function ListField({
       </span>
       <div className="mb-2 flex flex-wrap gap-2">
         {value.length === 0 && (
-          <span className="text-[12px] text-[#94A3B8]">ცარიელია</span>
+          <span className="text-[12px] text-[#94A3B8]">{tDash("empty")}</span>
         )}
         {value.map((v) => (
           <span
@@ -1544,7 +1651,7 @@ function ListField({
               type="button"
               onClick={() => onChange(value.filter((x) => x !== v))}
               className="text-[#94A3B8] hover:text-[#DC2626]"
-              aria-label={`წაშლა: ${v}`}
+              aria-label={t("removeItem", { value: v })}
             >
               <X className="h-3 w-3" />
             </button>
@@ -1562,7 +1669,7 @@ function ListField({
               add();
             }
           }}
-          placeholder="დაამატე ერთეული და დააჭირე Enter"
+          placeholder={t("addItemPlaceholder")}
           className={inputClass}
         />
         <button
@@ -1570,7 +1677,7 @@ function ListField({
           onClick={add}
           className="rounded-xl border border-[#2563EB] bg-[#EFF6FF] px-4 text-[12px] font-bold text-[#1D4ED8] hover:bg-[#DBEAFE]"
         >
-          დამატება
+          {tDash("add")}
         </button>
       </div>
     </div>

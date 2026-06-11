@@ -2,6 +2,7 @@
 
 import { Link } from "@/i18n/navigation";
 import { MessageSquare, Plus, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { LanguageSelector } from "@/components/LanguageSelector";
 
@@ -18,10 +19,13 @@ export function SellerTopbar({
   balance,
   smsRemaining,
   smsTotal,
-  searchPlaceholder = "ძიება...",
+  searchPlaceholder,
   onSearchChange,
   searchValue,
 }: SellerTopbarProps) {
+  const t = useTranslations("DashboardLayout");
+  const placeholder = searchPlaceholder ?? t("topbar.searchDefault");
+
   return (
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
       <div className="flex w-full items-center gap-4">
@@ -31,7 +35,7 @@ export function SellerTopbar({
             type="text"
             value={searchValue ?? ""}
             onChange={(e) => onSearchChange?.(e.target.value)}
-            placeholder={searchPlaceholder}
+            placeholder={placeholder}
             className="h-[44px] w-full rounded-full border border-[#E2E8F0] bg-white pl-11 pr-5 text-[13px] font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
           />
         </label>
@@ -57,7 +61,9 @@ export function SellerTopbar({
             />
             <span>
               <span className="text-[#0F172A]">{smsRemaining}</span>
-              <span className="text-[#94A3B8]"> / {smsTotal} SMS</span>
+              <span className="text-[#94A3B8]">
+                {t("topbar.smsSuffix", { total: smsTotal })}
+              </span>
             </span>
           </div>
         </div>

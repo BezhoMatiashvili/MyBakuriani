@@ -1,12 +1,21 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 import SalesGridClient from "./SalesGridClient";
 
-export const metadata: Metadata = {
-  title: "იყიდება ბინები ბაკურიანში — MyBakuriani",
-  description:
-    "გასაყიდი უძრავი ქონება ბაკურიანში. საინვესტიციო ობიექტები, ROI მონაცემები და ვერიფიცირებული განცხადებები.",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
+  return {
+    title: t("salesAll"),
+    description: t("salesAllDesc"),
+  };
+}
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -22,7 +31,10 @@ function toCsv(value: string | string[] | undefined): string[] | undefined {
 
 export default async function SalesGridPage({ searchParams }: Props) {
   const sp = await searchParams;
-  const supabase = await createClient();
+  // No cookies needed — filtering happens client-side from searchParams, so use
+  // the anon client to avoid the auth overhead. (Page stays dynamic because it
+  // reads searchParams.)
+  const supabase = createPublicClient();
 
   const { data: properties, error } = await supabase
     .from("properties")
@@ -31,7 +43,8 @@ export default async function SalesGridPage({ searchParams }: Props) {
     .eq("is_for_sale", true)
     .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   if (error) {
     console.error("[sales/all] failed to load properties", error.message);

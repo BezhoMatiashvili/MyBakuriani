@@ -5,49 +5,88 @@ import type { Database } from "@/lib/types/database";
 
 export const runtime = "nodejs";
 
-const PAGE_SIZE = 10;
+const FETCH_LIMIT = 50;
 
 type ServiceCategory = Database["public"]["Enums"]["service_category"];
+
+// Per-filter service categories; "all" and "property" are handled separately.
+const SERVICE_CATEGORY_MAP: Record<string, ServiceCategory[]> = {
+  transport: ["transport"],
+  services: ["cleaning", "handyman"],
+  food: ["food"],
+  entertainment: ["entertainment"],
+  employment: ["employment"],
+};
 
 export async function GET(req: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
   const { searchParams } = req.nextUrl;
   const category = searchParams.get("category") ?? "all";
-  const page = Math.max(1, Number(searchParams.get("page") ?? 1));
   const db = createServiceClient();
 
-  if (category === "transport" || category === "services") {
-    const serviceCategories: ServiceCategory[] =
-      category === "transport" ? ["transport"] : ["cleaning", "handyman"];
-    const { data, error, count } = await db
+  const propertiesQuery = () =>
+    db
+      .from("properties")
+      .select("*, owner:profiles!properties_owner_id_fkey(display_name)", {
+        count: "exact",
+      })
+      .order("created_at", { ascending: false })
+      .limit(FETCH_LIMIT);
+
+  const servicesQuery = (categories?: ServiceCategory[]) => {
+    let q = db
       .from("services")
       .select("*, owner:profiles!services_owner_id_fkey(display_name)", {
         count: "exact",
-      })
-      .in("category", serviceCategories)
-      .order("created_at", { ascending: false })
-      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      });
+    if (categories) q = q.in("category", categories);
+    return q.order("created_at", { ascending: false }).limit(FETCH_LIMIT);
+  };
+
+  if (category === "property") {
+    const { data, error, count } = await propertiesQuery();
     if (error) return Response.json({ error: error.message }, { status: 500 });
     return Response.json({
-      rows: data ?? [],
+      rows: (data ?? []).map((row) => ({ ...row, kind: "property" })),
       total: count ?? 0,
-      kind: "service",
     });
   }
 
-  const { data, error, count } = await db
-    .from("properties")
-    .select("*, owner:profiles!properties_owner_id_fkey(display_name)", {
-      count: "exact",
-    })
-    .order("created_at", { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (category in SERVICE_CATEGORY_MAP) {
+    const { data, error, count } = await servicesQuery(
+      SERVICE_CATEGORY_MAP[category],
+    );
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({
+      rows: (data ?? []).map((row) => ({ ...row, kind: "service" })),
+      total: count ?? 0,
+    });
+  }
+
+  // "all": newest properties AND services across the whole platform, merged.
+  const [propsRes, servicesRes] = await Promise.all([
+    propertiesQuery(),
+    servicesQuery(),
+  ]);
+  if (propsRes.error || servicesRes.error) {
+    const message =
+      propsRes.error?.message ?? servicesRes.error?.message ?? "error";
+    return Response.json({ error: message }, { status: 500 });
+  }
+
+  const rows = [
+    ...(propsRes.data ?? []).map((row) => ({ ...row, kind: "property" })),
+    ...(servicesRes.data ?? []).map((row) => ({ ...row, kind: "service" })),
+  ].sort((a, b) => {
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return tb - ta;
+  });
+
   return Response.json({
-    rows: data ?? [],
-    total: count ?? 0,
-    kind: "property",
+    rows,
+    total: (propsRes.count ?? 0) + (servicesRes.count ?? 0),
   });
 }
 

@@ -55,30 +55,6 @@ export const HOSTING_LANGS: { key: string; label: string }[] = [
   { key: "ar", label: "Arabic" },
 ];
 
-export const PROPERTY_TYPE_LABELS: Record<string, string> = {
-  apartment: "აპარტამენტი",
-  studio: "სტუდიო",
-  cottage: "კოტეჯი",
-  hotel: "სასტუმრო ოთახი",
-  villa: "ვილა",
-};
-
-export const SERVICE_CATEGORY_LABELS: Record<string, string> = {
-  food: "კვება",
-  transport: "ტრანსპორტი",
-  entertainment: "გართობა",
-  employment: "სამუშაო",
-  handyman: "ხელოსანი",
-  cleaning: "დასუფთავება",
-};
-
-export const LISTING_STATUS_LABELS: Record<string, string> = {
-  active: "აქტიური",
-  blocked: "დაბლოკილი",
-  pending: "მოლოდინში",
-  draft: "შავი ვარიანტი",
-};
-
 export const FOOD_AMENITIES = [
   { key: "has_kids_area", label: "საბავშვო სივრცე" },
   { key: "has_lounge", label: "მოწევის ზონა" },
@@ -111,29 +87,6 @@ export const AVG_CHECK_OPTIONS = [
   { value: "60-100", label: "60-100 ₾" },
   { value: "100+", label: "100 ₾+" },
 ];
-
-// Resolve a stored value to its Georgian label. The create form saves labels,
-// while seed/legacy rows store raw codes (e.g. "georgian"). Handles both, and
-// passes through any unknown custom value unchanged.
-function resolveLabel(
-  options: ReadonlyArray<{ value: string; label: string }>,
-  value: string | null,
-): string | null {
-  if (!value) return null;
-  return (
-    options.find((o) => o.value === value)?.label ??
-    options.find((o) => o.label === value)?.label ??
-    value
-  );
-}
-
-export function labelForRestaurantType(value: string | null): string | null {
-  return resolveLabel(RESTAURANT_TYPES, value);
-}
-
-export function labelForCuisineType(value: string | null): string | null {
-  return resolveLabel(CUISINE_TYPES, value);
-}
 
 // Comprehensive car-brand list for the /create/transport form (alphabetical,
 // Latin names), with "სხვა" (Other) always last so owners can pick anything
@@ -227,32 +180,296 @@ export const VEHICLE_MAKES: { value: string; label: string }[] = [
   { value: "სხვა", label: "სხვა" },
 ];
 
-// Vehicle color options for the /create/transport form. Stored as Georgian
-// labels (value === label), so cards render the value directly without a
-// resolver — mirrors how routes/equipment/languages are stored.
-export const VEHICLE_COLORS: { value: string; label: string }[] = [
-  "თეთრი",
-  "შავი",
-  "ნაცრისფერი",
-  "ვერცხლისფერი",
-  "წითელი",
-  "ლურჯი",
-  "ცისფერი",
-  "მწვანე",
-  "ყვითელი",
-  "ნარინჯისფერი",
-  "ყავისფერი",
-  "ოქროსფერი",
-  "სხვა",
-].map((c) => ({ value: c, label: c }));
+// ---------------------------------------------------------------------------
+// DB-value → message-key resolution.
+//
+// Create forms historically store Georgian labels in the services/properties
+// tables (payloads stay unchanged — production data is live); newer fields
+// store raw codes. Display sites resolve either form to a message key under
+// `ListingOptions.<group>.<key>` via optionKeyFor(); unknown custom values
+// resolve to null so callers can fall back to rendering the raw value.
+// Maps mirror the messages/ka.json group values — keep them in sync.
+// ---------------------------------------------------------------------------
 
-// Transport comfort features (amenities), shown as badges on transport cards.
-// Distinct from `equipment` (winter tires, chains). Stored as Georgian labels.
-export const TRANSPORT_FEATURES: string[] = [
-  "კონდიციონერი",
-  "Wi-Fi",
-  "USB დამტენი",
-  "მუსიკა",
-  "წყალი",
-  "ბავშვის სავარძელი",
-];
+const DB_VALUE_KEYS = {
+  transportTypes: {
+    მინივენი: "minivan",
+    ტაქსი: "taxi",
+    მიკროავტობუსი: "microbus",
+    სხვა: "other",
+  },
+  priceUnits: {
+    "მთლიანი მანქანა": "whole_car",
+    გამოძახება: "on_demand",
+    "ერთ კაცზე": "per_person",
+    // Legacy free-text values present in production rows.
+    "ერთი მიმართულება": "one_way",
+    "ერთი ტური": "per_tour",
+    მგზავრობა: "per_ride",
+    "ერთი დღე": "per_day",
+  },
+  transportRoutes: {
+    "შიდა გადაადგილება (ტაქსი)": "local",
+    "თბილისი - ბაკურიანი - თბილისი": "tbilisi_roundtrip",
+    "აეროპორტის ტრანსფერი": "airport",
+    სხვა: "other",
+    // Legacy free-text routes present in production rows.
+    "თბილისი - ბაკურიანი": "tbilisi_oneway",
+    "ბაკურიანის ტერიტორია": "bakuriani_area",
+    "ტურები რეგიონში": "region_tours",
+    "ტაბაწყური / მიტარბი": "tabatskuri_mitarbi",
+  },
+  vehicleEquipment: {
+    "ზამთრის საბურავები": "winter_tires",
+    "მოცურების ჯაჭვები": "chains",
+    "თხილამურის საბარგული": "ski_rack",
+    "დამატებითი საბარგული": "extra_rack",
+    "ბავშვის სავარძელი": "child_seat",
+  },
+  vehicleColors: {
+    თეთრი: "white",
+    შავი: "black",
+    ნაცრისფერი: "gray",
+    ვერცხლისფერი: "silver",
+    წითელი: "red",
+    ლურჯი: "blue",
+    ცისფერი: "light_blue",
+    მწვანე: "green",
+    ყვითელი: "yellow",
+    ნარინჯისფერი: "orange",
+    ყავისფერი: "brown",
+    ოქროსფერი: "gold",
+    სხვა: "other",
+  },
+  transportFeatures: {
+    კონდიციონერი: "ac",
+    "Wi-Fi": "wifi",
+    "USB დამტენი": "usb",
+    მუსიკა: "music",
+    წყალი: "water",
+    "ბავშვის სავარძელი": "child_seat",
+  },
+  // Includes native-name aliases written by /create/transport ("English", "Русский").
+  languages: {
+    ქართული: "ka",
+    ინგლისური: "en",
+    რუსული: "ru",
+    სხვა: "other",
+    English: "en",
+    Русский: "ru",
+  },
+  restaurantTypes: {
+    რესტორანი: "restaurant",
+    "კაფე / საკონდიტრო": "cafe",
+    "ბარი / პაბი": "bar",
+    "სწრაფი კვება": "fast_food",
+    სხვა: "other",
+  },
+  cuisineTypes: {
+    ქართული: "georgian",
+    ევროპული: "european",
+    აზიური: "asian",
+    შერეული: "mixed",
+  },
+  serviceSpheres: {
+    "დასუფთავება/დამლაგებელი": "cleaning",
+    ხელოსნები: "handymen",
+    "მომსახურე პერსონალი": "staff",
+    ტურიზმი: "tourism",
+    "გაყიდვები/ვაჭრობა": "sales",
+    სხვა: "other",
+  },
+  coverageZones: {
+    "მთლიანი ბაკურიანი": "all_bakuriani",
+    მიტარბი: "mitarbi",
+    წალვერი: "tsalgeri",
+  },
+  entertainmentTypes: {
+    ექსტრემალური: "extreme",
+    სპორტული: "sport",
+    ბავშვებისთვის: "kids",
+    ოჯახისთვის: "family",
+    სხვა: "other",
+  },
+  entertainmentCategories: {
+    ინვენტარი: "inventory_rent",
+    ცხენები: "horses",
+    ბურანები: "buggies",
+    კვადროციკლები: "quad_bikes",
+    ბაგი: "buggy",
+    სხვა: "other",
+  },
+  durations: {
+    "15 წუთი": "15min",
+    "30 წუთი": "30min",
+    "1 საათი": "1h",
+    "1+ საათი": "1h+",
+  },
+  ageOptions: { ნებისმიერი: "any" },
+  audienceOptions: {
+    ყველასთვის: "all",
+    "ექსტრემის მოყვარულთა": "extreme_lovers",
+  },
+  pricePerOptions: {
+    "15 წუთზე": "15min",
+    "1 საათზე": "1h",
+    "სრულ დღეზე": "full_day",
+  },
+  employmentTypes: {
+    "სრული განაკვეთი": "full_time",
+    "ნახევარი განაკვეთი": "part_time",
+    მოქნილი: "flexible",
+  },
+  salaryTypes: {
+    ფიქსირებული: "fixed",
+    "ფიქსირებული + ბონუსი/Tips": "fixed_bonus",
+    "გამომუშავებით (%)": "commission",
+    შეთანხმებით: "negotiable",
+  },
+  experienceOptions: {
+    სასურველია: "preferred",
+    "არ არის აუცილებელი": "not_required",
+    "1 წელი": "one_year",
+    "1+ წელი": "one_plus_year",
+  },
+  accommodationOptions: { კი: "yes", არა: "no", შეთანხმებით: "negotiable" },
+  mealsOptions: {
+    "სრული კვება": "full",
+    "ერთჯერადი კვება": "single",
+    "არ შედის": "not_included",
+  },
+  salePropertyTypes: {
+    სტუდიო: "studio",
+    აპარტამენტი: "apartment",
+    კოტეჯი: "cottage",
+    "მიწის ნაკვეთი": "villa",
+    "სასტუმრო ოთახი": "hotel",
+  },
+  constructionStatuses: {
+    მშენებარე: "under_construction",
+    "ახალი აშენებული/დასრულებული": "completed",
+    // Codes written by the admin listing-audit panel (distinct vocabulary).
+    "მზად ჩასახლებისთვის": "ready",
+    დაგეგმილი: "planned",
+  },
+  handoverOptions: {
+    "უკვე ჩაბარებული": "delivered",
+    "2024 ბოლო": "2024_end",
+    "2025 გაზაფხული": "2025_spring",
+    "2026 ბოლო": "2026_end",
+  },
+  renovationStatuses: {
+    "შავი კარკასი": "black_frame",
+    "თეთრი კარკასი": "white_frame",
+    "მწვანე კარკასი": "green_frame",
+    გარემონტებული: "renovated",
+    "სრულად მოწყობილი": "fully_furnished",
+    // Codes written by the admin listing-audit panel (distinct vocabulary).
+    "ახალი რემონტი": "new_renovation",
+    "ძველი რემონტი": "old_renovation",
+  },
+  managementServices: {
+    "აქვს კომპლექსის მენეჯმენტი": "complex_management",
+    "არ აქვს": "none",
+  },
+  cleaningTypes: { სტანდარტული: "standard", გენერალური: "general" },
+  // services.price_unit written by /create/service ("საათი"); the rest are
+  // legacy free-text units present in production/mock rows.
+  servicePriceUnits: {
+    საათი: "hour",
+    დღე: "day",
+    ვიზიტი: "visit",
+    პიროვნება: "person",
+    სეანსი: "session",
+    გაკვეთილი: "lesson",
+    სეირნობა: "ride",
+    კერძი: "dish",
+    სასმელი: "drink",
+    მგზავრი: "passenger",
+    ტური: "tour",
+  },
+  propertyTypes: {
+    აპარტამენტი: "apartment",
+    სტუდიო: "studio",
+    კოტეჯი: "cottage",
+    "სასტუმრო ოთახი": "hotel",
+    ვილა: "villa",
+  },
+  serviceCategories: {
+    კვება: "food",
+    ტრანსპორტი: "transport",
+    გართობა: "entertainment",
+    სამუშაო: "employment",
+    ხელოსანი: "handyman",
+    დასუფთავება: "cleaning",
+  },
+  listingStatuses: {
+    აქტიური: "active",
+    დაბლოკილი: "blocked",
+    მოლოდინში: "pending",
+    "შავი ვარიანტი": "draft",
+  },
+  amenities: {
+    "Ski-in / Ski-out": "ski_in_out",
+    "თხილამურების სათავსო": "ski_storage",
+    "სარეზერვო გენერატორი": "backup_generator",
+    ბუხარი: "fireplace",
+    პარკინგი: "parking",
+    "უფასო Wi-Fi": "wifi",
+    "ცენტრალური გათბობა": "central_heating",
+    ტელევიზორი: "tv",
+    "სარეცხი მანქანა": "washing_machine",
+    "ჭურჭლის სარეცხი მანქანა": "dishwasher",
+    "სრულად აღჭურვილი სამზარეულო": "full_kitchen",
+    "ყავის აპარატი": "coffee_maker",
+    "არ აქვს": "no_balcony",
+    "ფრანგული აივანი": "french_balcony",
+    "სტანდარტული აივანი": "standard_balcony",
+    "დიდი ტერასა": "large_terrace",
+    ეზო: "yard",
+  },
+  hostingLangs: { ქართული: "ka", English: "en", Русский: "ru", Arabic: "ar" },
+} satisfies Record<string, Record<string, string>>;
+
+export type OptionGroup = keyof typeof DB_VALUE_KEYS;
+
+/** Stored DB value (Georgian label or raw code) → `ListingOptions.<group>` message key. */
+export function optionKeyFor(
+  group: OptionGroup,
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null;
+  const map: Record<string, string> = DB_VALUE_KEYS[group];
+  if (Object.hasOwn(map, value)) return map[value];
+  return Object.values(map).includes(value) ? value : null;
+}
+
+/**
+ * Ordered form options: the exact DB payload value + its message key.
+ * Not suitable for `languages` (contains alias entries for legacy payloads).
+ */
+export function dbOptionsFor(
+  group: OptionGroup,
+): { value: string; key: string }[] {
+  return Object.entries(DB_VALUE_KEYS[group] as Record<string, string>).map(
+    ([value, key]) => ({ value, key }),
+  );
+}
+
+// price_unit is written by three forms — transport (codes), entertainment
+// (Georgian pricePerOptions labels), service ("საათი") — so resolve across all
+// groups, returning a full `ListingOptions` sub-path, e.g. "priceUnits.whole_car".
+export function priceUnitPathFor(
+  value: string | null | undefined,
+): string | null {
+  for (const group of [
+    "priceUnits",
+    "pricePerOptions",
+    "servicePriceUnits",
+    "durations",
+  ] as const) {
+    const key = optionKeyFor(group, value);
+    if (key) return `${group}.${key}`;
+  }
+  return null;
+}

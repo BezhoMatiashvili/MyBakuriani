@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 import {
   getServiceById,
   getServiceMetadataById,
@@ -7,20 +9,22 @@ import {
 import TransportDetailClient from "./TransportDetailClient";
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: AppLocale; id: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+  const { locale, id } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
   const data = await getServiceMetadataById(id);
 
   if (!data) {
-    return { title: "ტრანსპორტი ვერ მოიძებნა — MyBakuriani" };
+    return { title: t("detail.transportNotFound") };
   }
 
   return {
-    title: `${data.title} — ტრანსპორტი ბაკურიანში | MyBakuriani`,
-    description: data.description ?? `${data.title} — ტრანსპორტი ბაკურიანში`,
+    title: t("detail.transportTitle", { title: data.title }),
+    description:
+      data.description ?? t("detail.transportDesc", { title: data.title }),
   };
 }
 

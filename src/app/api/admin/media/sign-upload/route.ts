@@ -55,8 +55,13 @@ export async function POST(req: NextRequest) {
   const maxBytes = isImage ? IMAGE_MAX_BYTES : VIDEO_MAX_BYTES;
   if (body.sizeBytes > maxBytes) {
     const mb = (maxBytes / 1024 / 1024).toFixed(0);
+    // Georgian message kept as a fallback for older clients; UI prefers `code`.
     return Response.json(
-      { error: `ფაილი ძალიან დიდია. მაქსიმუმი: ${mb}MB` },
+      {
+        error: `ფაილი ძალიან დიდია. მაქსიმუმი: ${mb}MB`,
+        code: "file_too_large",
+        maxMb: mb,
+      },
       { status: 413 },
     );
   }

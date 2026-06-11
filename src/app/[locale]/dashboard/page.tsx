@@ -1,10 +1,5 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/hooks/useAuth";
-import { createClient } from "@/lib/supabase/client";
-import { SkierLoader } from "@/components/shared/SkierLoader";
+import { redirect } from "next/navigation";
+import { getCurrentProfile } from "@/lib/auth/current-user";
 
 const roleToDashboard: Record<string, string> = {
   guest: "/dashboard/guest",
@@ -19,29 +14,15 @@ const roleToDashboard: Record<string, string> = {
   admin: "/dashboard/admin",
 };
 
-export default function DashboardRedirect() {
-  const router = useRouter();
-  const { user, loading } = useAuth();
+// Route to the role-specific dashboard on the server — no client mount,
+// no extra "fetch role then redirect" round-trips, no loader flash.
+// getCurrentProfile() is already memoized by the dashboard layout's call.
+export default async function DashboardRedirect() {
+  const profile = await getCurrentProfile();
 
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.replace("/auth/login");
-      return;
-    }
+  if (!profile) {
+    redirect("/auth/login");
+  }
 
-    const supabase = createClient();
-    supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => {
-        const role = data?.role ?? "guest";
-        router.replace(roleToDashboard[role] ?? "/dashboard/guest");
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading]);
-
-  return <SkierLoader />;
+  redirect(roleToDashboard[profile.role] ?? "/dashboard/guest");
 }

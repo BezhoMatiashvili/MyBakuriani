@@ -11,6 +11,7 @@ import {
   Heart,
   Image as ImageIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { shareListing } from "@/lib/share";
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
 }
 
 export function FoodPhotoGallery({ photos, title }: Props) {
+  const t = useTranslations("PhotoGallery");
+  const tShare = useTranslations("ShareListing");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const openLightbox = useCallback((index: number) => {
@@ -46,7 +49,7 @@ export function FoodPhotoGallery({ photos, title }: Props) {
   if (photos.length === 0) {
     return (
       <div className="aspect-[16/9] w-full rounded-[24px] bg-[#F8FAFC] flex items-center justify-center">
-        <span className="text-[#94A3B8]">ფოტო არ არის</span>
+        <span className="text-[#94A3B8]">{t("noPhotos")}</span>
       </div>
     );
   }
@@ -61,16 +64,21 @@ export function FoodPhotoGallery({ photos, title }: Props) {
       <div className="mb-3 flex items-center justify-end gap-2">
         <button
           type="button"
-          onClick={() => shareListing(title)}
+          onClick={() =>
+            shareListing(title, {
+              copied: tShare("copied"),
+              error: tShare("error"),
+            })
+          }
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
-          aria-label="გაზიარება"
+          aria-label={t("share")}
         >
           <Share2 className="h-[18px] w-[18px]" />
         </button>
         <button
           type="button"
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-red-500"
-          aria-label="ფავორიტებში დამატება"
+          aria-label={t("addToFavorites")}
         >
           <Heart className="h-[18px] w-[18px]" />
         </button>
@@ -125,7 +133,7 @@ export function FoodPhotoGallery({ photos, title }: Props) {
               className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[13px] font-bold text-[#1E293B] shadow-md backdrop-blur-sm transition-colors hover:bg-white"
             >
               <ImageIcon className="h-4 w-4" />
-              ყველა ფოტო ({photos.length})
+              {t("allPhotos", { count: photos.length })}
             </button>
           )}
         </div>
@@ -136,7 +144,7 @@ export function FoodPhotoGallery({ photos, title }: Props) {
             onClick={() => openLightbox(0)}
             className="mt-2 text-sm font-medium text-brand-accent underline md:hidden"
           >
-            ყველა ფოტოს ნახვა ({photos.length})
+            {t("viewAllPhotos", { count: photos.length })}
           </button>
         )}
       </div>

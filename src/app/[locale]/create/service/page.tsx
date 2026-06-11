@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { Check, Clock, ImageIcon } from "lucide-react";
 import {
@@ -10,6 +11,7 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhoneInput from "@/components/forms/PhoneInput";
+import { SkierLoader } from "@/components/shared/SkierLoader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
@@ -17,25 +19,34 @@ import { cn } from "@/lib/utils";
 import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
 
 const SERVICE_SPHERES = [
-  { value: "cleaning", label: "დასუფთავება/დამლაგებელი" },
-  { value: "handymen", label: "ხელოსნები" },
-  { value: "staff", label: "მომსახურე პერსონალი" },
-  { value: "tourism", label: "ტურიზმი" },
-  { value: "sales", label: "გაყიდვები/ვაჭრობა" },
-  { value: "other", label: "სხვა" },
+  { value: "cleaning", dbLabel: "დასუფთავება/დამლაგებელი" },
+  { value: "handymen", dbLabel: "ხელოსნები" },
+  { value: "staff", dbLabel: "მომსახურე პერსონალი" },
+  { value: "tourism", dbLabel: "ტურიზმი" },
+  { value: "sales", dbLabel: "გაყიდვები/ვაჭრობა" },
+  { value: "other", dbLabel: "სხვა" },
 ] as const;
 
 type SphereValue = (typeof SERVICE_SPHERES)[number]["value"];
 
-const COVERAGE_ZONES = ["მთლიანი ბაკურიანი", "მიტარბი", "წალვერი"] as const;
-const LANGUAGES = ["ქართული", "ინგლისური", "რუსული"] as const;
+const COVERAGE_ZONES = [
+  { value: "მთლიანი ბაკურიანი", key: "all_bakuriani" },
+  { value: "მიტარბი", key: "mitarbi" },
+  { value: "წალვერი", key: "tsalgeri" },
+] as const;
+
+const LANGUAGES = [
+  { value: "ქართული", key: "ka" },
+  { value: "ინგლისური", key: "en" },
+  { value: "რუსული", key: "ru" },
+] as const;
 
 export default function CreateServicePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[320px] items-center justify-center text-sm font-medium text-[#64748B]">
-          იტვირთება...
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
         </div>
       }
     >
@@ -45,12 +56,24 @@ export default function CreateServicePage() {
 }
 
 function CreateServicePageInner() {
+  const t = useTranslations("CreateService");
+  const tShared = useTranslations("CreateShared");
+  const tOpts = useTranslations("ListingOptions");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
   const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
+
+  const sphereOptions = useMemo(
+    () =>
+      SERVICE_SPHERES.map((s) => ({
+        value: s.value,
+        label: tOpts(`serviceSpheres.${s.value}`),
+      })),
+    [tOpts],
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +112,7 @@ function CreateServicePageInner() {
       if (cancelled) return;
 
       if (fetchError || !data) {
-        setError("განცხადება ვერ მოიძებნა");
+        setError(tShared("listingNotFound"));
         setHydrating(false);
         return;
       }
@@ -102,7 +125,7 @@ function CreateServicePageInner() {
       );
 
       const matchedSphere = SERVICE_SPHERES.find(
-        (s) => s.label === data.service_field,
+        (s) => s.dbLabel === data.service_field,
       );
       if (matchedSphere) {
         setSphere(matchedSphere.value);
@@ -143,7 +166,7 @@ function CreateServicePageInner() {
     return () => {
       cancelled = true;
     };
-  }, [editId, user, supabase]);
+  }, [editId, user, supabase, tShared]);
 
   const requiredFilled = [
     name.trim().length > 0,
@@ -182,7 +205,7 @@ function CreateServicePageInner() {
       const resolvedCategory =
         editId && loadedCategory ? loadedCategory : categoryValue;
       const sphereLabel =
-        SERVICE_SPHERES.find((s) => s.value === sphere)?.label ?? null;
+        SERVICE_SPHERES.find((s) => s.value === sphere)?.dbLabel ?? null;
 
       const payload: Record<string, unknown> = {
         category: resolvedCategory,
@@ -195,6 +218,7 @@ function CreateServicePageInner() {
         schedule: is24_7 ? "24/7" : workingHours.trim() || null,
         operating_hours: is24_7 ? "24/7" : workingHours.trim() || null,
         location: coverageZones.join(", ") || null,
+        languages: languages.length > 0 ? languages : null,
         experience_required: experienceYears ? `${experienceYears} წელი` : null,
         photos: profilePhoto ? [profilePhoto] : [],
         phone: phone ? `+995${phone}` : null,
@@ -210,7 +234,11 @@ function CreateServicePageInner() {
           .eq("owner_id", user.id);
 
         if (updateError) throw updateError;
-        router.push("/dashboard/service");
+        router.push(
+          resolvedCategory === "cleaning"
+            ? "/dashboard/cleaner"
+            : "/dashboard/service",
+        );
       } else {
         const { error: insertError } = await supabase
           .from("services")
@@ -218,10 +246,12 @@ function CreateServicePageInner() {
           .insert({ ...payload, owner_id: user.id, status: "pending" } as any);
 
         if (insertError) throw insertError;
-        router.push("/dashboard");
+        router.push(
+          categoryValue === "cleaning" ? "/dashboard/cleaner" : "/dashboard",
+        );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა. სცადეთ თავიდან.");
+      setError(err instanceof Error ? err.message : tShared("genericError"));
     } finally {
       setLoading(false);
     }
@@ -240,7 +270,7 @@ function CreateServicePageInner() {
 
   return (
     <WizardShell
-      title="სერვისები და ხელოსნები"
+      title={t("pageTitle")}
       accent="blue"
       progressPercent={progressPercent}
       footer={
@@ -248,7 +278,7 @@ function CreateServicePageInner() {
           accent="blue"
           backHref="/create"
           onSubmit={handleSubmit}
-          submitLabel={isEditMode ? "შენახვა" : "განცხადების გამოქვეყნება"}
+          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={submitDisabled}
           loading={loading}
           error={error}
@@ -256,49 +286,52 @@ function CreateServicePageInner() {
       }
     >
       {hydrating ? (
-        <div className="flex min-h-[320px] items-center justify-center text-sm font-medium text-[#64748B]">
-          იტვირთება...
+        <div className="flex min-h-[320px] items-center justify-center">
+          <SkierLoader variant="inline" />
         </div>
       ) : (
         <>
-          {/* Section 1 — Sphere & Profile */}
-          <WizardInnerCard number={1} title="სფერო და პროფილი" accent="blue">
+          <WizardInnerCard
+            number={1}
+            title={t("sectionSphereProfile")}
+            accent="blue"
+          >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="სახელი / კომპანია" required>
+              <Field label={t("nameOrCompany")} required>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ნინო"
+                  placeholder={t("namePlaceholder")}
                   className={inputClass}
                 />
               </Field>
-              <Field label="გამოცდილება" required>
+              <Field label={t("experience")} required>
                 <input
                   type="text"
                   value={experienceYears}
                   onChange={(e) => setExperienceYears(e.target.value)}
-                  placeholder="8 წელი"
+                  placeholder={t("experiencePlaceholder")}
                   className={inputClass}
                 />
               </Field>
             </div>
 
-            <Field label="მომსახურების სფერო" required>
+            <Field label={t("serviceSphere")} required>
               <StyledSelect
                 value={sphere}
                 onValueChange={(v) => setSphere(v as SphereValue)}
-                options={SERVICE_SPHERES}
+                options={sphereOptions}
                 accent="blue"
               />
             </Field>
 
-            <Field label="სათაური" required>
+            <Field label={t("serviceTitle")} required>
               <input
                 type="text"
                 value={serviceTitle}
                 onChange={(e) => setServiceTitle(e.target.value)}
-                placeholder="პროფესიონალი დამლაგებელი"
+                placeholder={t("titlePlaceholder")}
                 className={inputClass}
               />
             </Field>
@@ -309,55 +342,53 @@ function CreateServicePageInner() {
             />
           </WizardInnerCard>
 
-          {/* Section 2 — Details & Description */}
-          <WizardInnerCard number={2} title="დეტალები და აღწერა" accent="blue">
-            <Field label="დაფარვის ზონა" required uppercase>
+          <WizardInnerCard number={2} title={t("sectionDetails")} accent="blue">
+            <Field label={t("coverageZone")} required uppercase>
               <div className="flex flex-wrap gap-2">
                 {COVERAGE_ZONES.map((zone) => (
                   <ChipToggle
-                    key={zone}
-                    selected={coverageZones.includes(zone)}
-                    onClick={() => toggleZone(zone)}
+                    key={zone.value}
+                    selected={coverageZones.includes(zone.value)}
+                    onClick={() => toggleZone(zone.value)}
                   >
-                    {zone}
+                    {tOpts(`coverageZones.${zone.key}`)}
                   </ChipToggle>
                 ))}
               </div>
             </Field>
 
-            <Field label="სასაუბრო ენები" uppercase>
+            <Field label={t("spokenLanguages")} uppercase>
               <div className="flex flex-wrap gap-3">
                 {LANGUAGES.map((lang) => (
                   <LanguageChip
-                    key={lang}
-                    selected={languages.includes(lang)}
-                    onClick={() => toggleLanguage(lang)}
+                    key={lang.value}
+                    selected={languages.includes(lang.value)}
+                    onClick={() => toggleLanguage(lang.value)}
                   >
-                    {lang}
+                    {tOpts(`languages.${lang.key}`)}
                   </LanguageChip>
                 ))}
               </div>
             </Field>
 
-            <Field label="დეტალური აღწერა" required>
+            <Field label={t("detailedDescription")} required>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="ვასუფთავებ როგორც აპარტამენტებს, ისე კერძო კოტეჯებს..."
+                placeholder={t("descriptionPlaceholder")}
                 rows={4}
                 className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
               />
             </Field>
           </WizardInnerCard>
 
-          {/* Section 3 — Schedule, Price & Contact */}
           <WizardInnerCard
             number={3}
-            title="გრაფიკი, ფასი და კონტაქტი"
+            title={t("sectionSchedulePrice")}
             accent="blue"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="სამუშაო საათები" required uppercase>
+              <Field label={t("workingHours")} required uppercase>
                 <input
                   type="text"
                   value={workingHours}
@@ -385,10 +416,10 @@ function CreateServicePageInner() {
                   </span>
                   <span className="flex-1 text-left">
                     <span className="block text-sm font-bold text-[#0F172A]">
-                      24/7 რეჟიმი
+                      {t("mode247")}
                     </span>
                     <span className="block text-xs font-medium text-[#64748B]">
-                      მუშაობს ღამითაც
+                      {t("worksAtNight")}
                     </span>
                   </span>
                   <span
@@ -408,7 +439,7 @@ function CreateServicePageInner() {
               </div>
             </div>
 
-            <Field label="საწყისი ფასი / ტარიფი" required uppercase>
+            <Field label={t("startingPrice")} required uppercase>
               <div className="relative">
                 <input
                   type="number"
@@ -425,10 +456,10 @@ function CreateServicePageInner() {
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="ტელეფონის ნომერი" required uppercase>
+              <Field label={tShared("phoneNumber")} required uppercase>
                 <PhoneInput value={phone} onChange={setPhone} />
               </Field>
-              <Field label="WhatsApp ნომერი" uppercase>
+              <Field label={tShared("whatsappNumber")} uppercase>
                 <PhoneInput value={whatsapp} onChange={setWhatsapp} />
               </Field>
             </div>
@@ -538,6 +569,8 @@ function ProfilePhotoUpload({
   value: string | null;
   onChange: (v: string | null) => void;
 }) {
+  const t = useTranslations("CreateService");
+  const tShared = useTranslations("CreateShared");
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File | undefined) {
@@ -559,7 +592,7 @@ function ProfilePhotoUpload({
             ? "border-[#2563EB] bg-white"
             : "border-[#93C5FD] bg-[#EFF6FF] hover:border-[#2563EB]",
         )}
-        aria-label="ატვირთეთ პროფილის ფოტო"
+        aria-label={t("uploadProfilePhoto")}
       >
         {value ? (
           <Image
@@ -575,9 +608,9 @@ function ProfilePhotoUpload({
         )}
       </button>
       <div className="flex-1">
-        <p className="text-sm font-bold text-[#0F172A]">პროფილის ფოტო</p>
+        <p className="text-sm font-bold text-[#0F172A]">{t("profilePhoto")}</p>
         <p className="mt-0.5 text-xs font-medium text-[#64748B]">
-          ატვირთეთ თქვენი ან კომპანიის ლოგოს ფოტო (სავალდებულოა)
+          {t("profilePhotoHint")}
         </p>
         {value && (
           <button
@@ -585,7 +618,7 @@ function ProfilePhotoUpload({
             onClick={() => onChange(null)}
             className="mt-1.5 text-xs font-semibold text-[#EF4444] hover:underline"
           >
-            წაშლა
+            {tShared("delete")}
           </button>
         )}
       </div>

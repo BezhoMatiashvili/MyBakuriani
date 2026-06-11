@@ -29,12 +29,6 @@ export type LandingBanner = {
 
 export const BANNER_KINDS: BannerKind[] = ["info", "promo", "sticky_news"];
 
-export const BANNER_KIND_LABELS: Record<BannerKind, string> = {
-  info: "ინფო ბანერი (ზედა)",
-  promo: "პრომო ბანერი (კარტი)",
-  sticky_news: "სიახლე (ქვედა მიკრული)",
-};
-
 export const BANNER_TONES: BannerTone[] = [
   "orange",
   "amber",
@@ -43,15 +37,6 @@ export const BANNER_TONES: BannerTone[] = [
   "red",
   "slate",
 ];
-
-export const BANNER_TONE_LABELS: Record<BannerTone, string> = {
-  orange: "ნარინჯისფერი",
-  amber: "ქარვისფერი",
-  blue: "ლურჯი",
-  green: "მწვანე",
-  red: "წითელი",
-  slate: "მუქი ნაცრისფერი",
-};
 
 type TonePalette = {
   bg: string;

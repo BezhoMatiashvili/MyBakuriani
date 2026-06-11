@@ -36,6 +36,17 @@ export interface PackageDisplay {
   unit: string;
 }
 
+/** Unit fragments rendered next to the GEL price (e.g. "₾ / 24სთ"). */
+const UNIT_LABELS: Record<"ka" | "en" | "ru", { hour: string; day: string }> = {
+  ka: { hour: "სთ", day: "დღე" },
+  en: { hour: "h", day: "day" },
+  ru: { hour: "ч", day: "день" },
+};
+
+function unitLabels(locale?: string): { hour: string; day: string } {
+  return UNIT_LABELS[locale === "en" || locale === "ru" ? locale : "ka"];
+}
+
 function metaString(
   meta: Record<string, unknown> | null,
   key: string,
@@ -59,7 +70,10 @@ function metaNumber(
   return null;
 }
 
-export function getPackageDisplay(pkg: PricingPackage): PackageDisplay {
+export function getPackageDisplay(
+  pkg: PricingPackage,
+  locale?: string,
+): PackageDisplay {
   if (pkg.category === "vip") {
     const tier = metaString(pkg.meta, "tier");
     if (tier === "super") {
@@ -68,7 +82,7 @@ export function getPackageDisplay(pkg: PricingPackage): PackageDisplay {
         iconBg: "bg-[#DCFCE7]",
         iconColor: "text-[#16A34A]",
         ctaColor: "bg-[#F97316] hover:bg-[#EA580C] text-white",
-        unit: vipUnit(pkg),
+        unit: vipUnit(pkg, locale),
       };
     }
     if (tier === "discount") {
@@ -77,7 +91,7 @@ export function getPackageDisplay(pkg: PricingPackage): PackageDisplay {
         iconBg: "bg-[#DCFCE7]",
         iconColor: "text-[#16A34A]",
         ctaColor: "bg-[#22C55E] hover:bg-[#16A34A] text-white",
-        unit: vipUnit(pkg),
+        unit: vipUnit(pkg, locale),
       };
     }
     if (tier === "standard") {
@@ -86,7 +100,7 @@ export function getPackageDisplay(pkg: PricingPackage): PackageDisplay {
         iconBg: "bg-[#FFEDD5]",
         iconColor: "text-[#F97316]",
         ctaColor: "bg-[#EC4899] hover:bg-[#DB2777] text-white",
-        unit: vipUnit(pkg),
+        unit: vipUnit(pkg, locale),
       };
     }
     return {
@@ -94,7 +108,7 @@ export function getPackageDisplay(pkg: PricingPackage): PackageDisplay {
       iconBg: "bg-[#FFEDD5]",
       iconColor: "text-[#F97316]",
       ctaColor: "bg-[#F97316] hover:bg-[#EA580C] text-white",
-      unit: vipUnit(pkg),
+      unit: vipUnit(pkg, locale),
     };
   }
 
@@ -138,11 +152,11 @@ export function getPackageDisplay(pkg: PricingPackage): PackageDisplay {
   };
 }
 
-function vipUnit(pkg: PricingPackage): string {
+function vipUnit(pkg: PricingPackage, locale?: string): string {
+  const { hour, day } = unitLabels(locale);
   const hours = metaNumber(pkg.meta, "duration_hours");
-  if (hours && hours === 24) return "₾ / 24სთ";
-  if (hours) return `₾ / ${hours}სთ`;
-  return "₾ / დღე";
+  if (hours) return `₾ / ${hours}${hour}`;
+  return `₾ / ${day}`;
 }
 
 export async function fetchPricingPackages(

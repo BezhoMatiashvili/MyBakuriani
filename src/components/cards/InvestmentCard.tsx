@@ -4,12 +4,27 @@ import { motion } from "framer-motion";
 import { Heart, MapPin, Tag } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { formatNumber } from "@/lib/utils/format";
+import { FALLBACK_ZONES } from "@/lib/zones/types";
+import {
+  optionKeyFor,
+  type OptionGroup,
+} from "@/lib/constants/listing-options";
 
 function formatUsd(n: number): string {
   return `$${formatNumber(n)}`;
 }
 
+// Seeded zone names get translated display labels (Zones.<slug>.name);
+// free-text / non-seeded locations pass through raw. Display only — the
+// stored location value itself must stay Georgian (zone matching uses it).
+const ZONE_SLUG_BY_NAME_KA = new Map(
+  FALLBACK_ZONES.map((z) => [z.name_ka, z.slug]),
+);
+
+// Data values matched against the free-text construction_status DB column —
+// intentionally kept Georgian (not UI copy).
 const COMPLETED_STATUSES = new Set([
   "დასრულებული",
   "completed",
@@ -40,16 +55,28 @@ export default function InvestmentCard({
   constructionStatus,
   frameType,
 }: InvestmentCardProps) {
+  const t = useTranslations("InvestmentCard");
+  const tZones = useTranslations("Zones");
+  const tOpts = useTranslations("ListingOptions");
+  const zoneSlug = ZONE_SLUG_BY_NAME_KA.get(location);
+  const locationLabel = zoneSlug ? tZones(`${zoneSlug}.name`) : location;
   const isCompleted =
     constructionStatus != null &&
     (COMPLETED_STATUSES.has(constructionStatus.trim()) ||
       COMPLETED_STATUSES.has(constructionStatus.trim().toLowerCase()));
 
+  // DB stores Georgian labels / panel codes; translate known values, pass
+  // free text through raw.
+  const optLabel = (group: OptionGroup, value: string) => {
+    const key = optionKeyFor(group, value.trim());
+    return key ? tOpts(`${group}.${key}`) : value;
+  };
+
   const subtitleParts: string[] = [];
-  if (frameType) subtitleParts.push(frameType);
+  if (frameType) subtitleParts.push(optLabel("renovationStatuses", frameType));
   if (constructionStatus && !isCompleted)
-    subtitleParts.push(constructionStatus);
-  if (areaSqm) subtitleParts.push(`${areaSqm}მ²`);
+    subtitleParts.push(optLabel("constructionStatuses", constructionStatus));
+  if (areaSqm) subtitleParts.push(t("areaSqm", { area: areaSqm }));
   const subtitle = subtitleParts.join(" • ");
 
   const pricePerSqm =
@@ -80,14 +107,14 @@ export default function InvestmentCard({
 
           <span className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-[#16A34A] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
             <Tag className="h-3 w-3" />
-            იყიდება
+            {t("forSale")}
           </span>
 
           <button
             type="button"
             onClick={(e) => e.preventDefault()}
             className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors hover:text-[#F97316]"
-            aria-label="Favorite"
+            aria-label={t("favoriteAria")}
           >
             <Heart className="h-4 w-4" />
           </button>
@@ -97,7 +124,7 @@ export default function InvestmentCard({
           <div className="flex items-center justify-between gap-2">
             <p className="flex min-w-0 items-center gap-1 text-[12px] font-medium text-[#94A3B8]">
               <MapPin className="h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
-              <span className="truncate">{location}</span>
+              <span className="truncate">{locationLabel}</span>
             </p>
             {roiPercent != null && roiPercent > 0 ? (
               <span className="shrink-0 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-bold text-[#16A34A]">
@@ -105,7 +132,7 @@ export default function InvestmentCard({
               </span>
             ) : isCompleted ? (
               <span className="shrink-0 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-bold text-[#B45309]">
-                დასრულებული
+                {t("completed")}
               </span>
             ) : null}
           </div>
@@ -129,12 +156,12 @@ export default function InvestmentCard({
               ) : null}
               {pricePerSqm != null && (
                 <span className="mt-0.5 block text-[12px] font-medium text-[#94A3B8]">
-                  {formatUsd(pricePerSqm)} / მ²
+                  {t("pricePerSqm", { price: formatUsd(pricePerSqm) })}
                 </span>
               )}
             </div>
             <span className="shrink-0 rounded-[12px] bg-[#16A34A] px-5 py-2 text-[13px] font-bold text-white transition-colors group-hover:bg-[#15803D]">
-              დეტალები
+              {t("details")}
             </span>
           </div>
         </div>

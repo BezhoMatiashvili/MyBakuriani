@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
@@ -29,7 +30,7 @@ import { formatNumber } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { MOCK_SALES } from "@/lib/mock/properties";
-import type { Zone } from "@/lib/zones/types";
+import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
@@ -49,10 +50,11 @@ interface SaleLandingBodyProps {
   zones: Zone[];
 }
 
-function formatPricePerSqm(avg: number | null | undefined): string {
-  if (avg == null || !Number.isFinite(avg)) return "—";
-  return `${formatNumber(avg)} ₾/მ²`;
-}
+// Seeded zone slugs have display translations under Zones.<slug>; unknown
+// (admin-created) zones fall back to their Georgian name_ka.
+const TRANSLATED_ZONE_SLUGS = new Set<string>(
+  FALLBACK_ZONES.map((z) => z.slug),
+);
 
 function renderZoneIcon(icon: string, isLast: boolean) {
   return (
@@ -82,16 +84,14 @@ function estimatedRoi(id: string): number {
 
 // Mock sale properties (used when DB is empty) sourced from @/lib/mock/properties
 
-// Hero featured inventory cards (rotated in the carousel)
+// Hero featured inventory cards (rotated in the carousel).
+// Texts live in messages under Landing.sale.featured.<messageKey>.
 const FEATURED_INVENTORY_ITEMS = [
   {
     id: "featured-mziuri",
-    title: "Mziuri Gardens • პრემიუმ ვილა",
-    location: "ლოკაცია: ბაკურიანის ცენტრი",
+    messageKey: "mziuri",
     area: 185,
     rooms: 5,
-    description:
-      "სრულად გარემონტებული, ევროპული სტანდარტის ვილა და ჩართული ავეჯით. კომპლექსში მოქმედებს 5-ვარსკვლავიანი ინფრასტრუქტურა.",
     priceUsd: 280_000,
     roi: 12,
     photo:
@@ -99,12 +99,9 @@ const FEATURED_INVENTORY_ITEMS = [
   },
   {
     id: "featured-didveli",
-    title: "Didveli Heights • პრემიუმ აპარტამენტი",
-    location: "ლოკაცია: დიდველი, 80 მ ტრასამდე",
+    messageKey: "didveli",
     area: 120,
     rooms: 3,
-    description:
-      "სათხილამურო ტრასასთან, პანორამული ხედით კოხტას მთაზე. გარემონტებული Smart-Home სისტემით და ცენტრალური გათბობით.",
     priceUsd: 195_000,
     roi: 14,
     photo:
@@ -112,18 +109,15 @@ const FEATURED_INVENTORY_ITEMS = [
   },
   {
     id: "featured-kokhta",
-    title: "Kokhta Suites • A-Frame კომპლექსი",
-    location: "ლოკაცია: კოხტა, ტყის პირას",
+    messageKey: "kokhta",
     area: 95,
     rooms: 2,
-    description:
-      "მოდერნული A-Frame არქიტექტურა, ბუხრით და ფართო ტერასით. იდეალური მცირე-ოჯახური ან Airbnb ინვესტიციისთვის.",
     priceUsd: 145_000,
     roi: 16,
     photo:
       "https://images.unsplash.com/photo-1518602164578-cd0074062767?w=1400&h=900&fit=crop",
   },
-];
+] as const;
 
 const INVENTORY_AUTO_ADVANCE_MS = 5000;
 
@@ -136,8 +130,15 @@ export default function SaleLandingBody({
   pricePerSqmByZone,
   zones,
 }: SaleLandingBodyProps) {
+  const t = useTranslations("Landing");
+  const tZones = useTranslations("Zones");
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
+
+  const formatPricePerSqm = (avg: number | null | undefined): string => {
+    if (avg == null || !Number.isFinite(avg)) return "—";
+    return t("sale.pricePerSqm", { price: formatNumber(avg) });
+  };
 
   useEffect(() => {
     setListingMode(mode);
@@ -270,9 +271,11 @@ export default function SaleLandingBody({
         <div className="relative z-10 mx-auto w-full max-w-[1180px] text-center">
           <ScrollReveal>
             <h1 className="text-4xl font-black leading-[1.05] tracking-[-1.25px] text-white sm:text-5xl md:text-[64px] md:leading-[68px]">
-              აღმოაჩინე ბაკურიანში
+              {t("sale.heroTitleTop")}
               <br />
-              <span className="text-[#6EE7B7]">შენი ახალი სახლი</span>
+              <span className="text-[#6EE7B7]">
+                {t("sale.heroTitleHighlight")}
+              </span>
             </h1>
           </ScrollReveal>
 
@@ -300,7 +303,12 @@ export default function SaleLandingBody({
             {zones.map((zone, i) => (
               <StatCard
                 key={zone.id}
-                label={zone.name_ka}
+                label={
+                  TRANSLATED_ZONE_SLUGS.has(zone.slug)
+                    ? tZones(`${zone.slug}.name`)
+                    : zone.name_ka
+                }
+                // pricePerSqmByZone is keyed by the DB name_ka — keep as-is.
                 value={formatPricePerSqm(pricePerSqmByZone?.[zone.name_ka])}
                 icon={renderZoneIcon(zone.icon, i === zones.length - 1)}
                 highlight={i === zones.length - 1}
@@ -310,7 +318,7 @@ export default function SaleLandingBody({
         </div>
       </section>
 
-      {/* ═══ Inline map (toggled by რუკაზე in SaleSearchBox) ═══ */}
+      {/* ═══ Inline map (toggled by the map button in SaleSearchBox) ═══ */}
       {showMap && (
         <div className="mx-auto w-full max-w-[1180px] px-4 pt-6">
           <div className="overflow-hidden rounded-[24px] border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
@@ -333,17 +341,17 @@ export default function SaleLandingBody({
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <span className="mb-2 block text-[11px] font-black uppercase tracking-[1.2px] text-[#16A34A]">
-                Selected Inventory
+                {t("sale.selectedInventoryEyebrow")}
               </span>
               <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                საინვესტიციო ობიექტები
+                {t("sale.investmentProperties")}
               </h2>
             </div>
             <div className="hidden gap-2 sm:flex">
               <button
                 type="button"
                 onClick={prevInventory}
-                aria-label="წინა"
+                aria-label={t("sale.prev")}
                 className="flex size-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#1E293B] transition-colors hover:border-[#16A34A] hover:text-[#16A34A]"
               >
                 <ArrowLeft className="size-4" />
@@ -351,7 +359,7 @@ export default function SaleLandingBody({
               <button
                 type="button"
                 onClick={nextInventory}
-                aria-label="შემდეგი"
+                aria-label={t("sale.next")}
                 className="flex size-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#1E293B] transition-colors hover:border-[#16A34A] hover:text-[#16A34A]"
               >
                 <ArrowRight className="size-4" />
@@ -399,6 +407,15 @@ export default function SaleLandingBody({
             >
               <FeaturedInventoryCard
                 {...FEATURED_INVENTORY_ITEMS[inventoryIdx]}
+                title={t(
+                  `sale.featured.${FEATURED_INVENTORY_ITEMS[inventoryIdx].messageKey}.title`,
+                )}
+                location={t(
+                  `sale.featured.${FEATURED_INVENTORY_ITEMS[inventoryIdx].messageKey}.location`,
+                )}
+                description={t(
+                  `sale.featured.${FEATURED_INVENTORY_ITEMS[inventoryIdx].messageKey}.description`,
+                )}
               />
             </motion.div>
           </AnimatePresence>
@@ -412,10 +429,10 @@ export default function SaleLandingBody({
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                  იყიდება ბინები ბაკურიანში
+                  {t("sale.forSaleTitle")}
                 </h2>
                 <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                  მაღალი ROI და მაქსიმალური საზღვრული საინვესტიციო აქცენტი.
+                  {t("sale.forSaleSubtitle")}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -424,13 +441,13 @@ export default function SaleLandingBody({
                   className="inline-flex items-center gap-1.5 rounded-full bg-[#16A34A] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_4px_10px_-2px_rgba(22,163,74,0.35)] transition-colors hover:bg-[#15803D]"
                 >
                   <Plus className="size-4" />
-                  დამატე
+                  {t("sale.add")}
                 </Link>
                 <Link
                   href="/sales"
                   className="inline-flex items-center gap-1 rounded-full border border-[#16A34A] bg-white px-4 py-2 text-[13px] font-bold text-[#16A34A] hover:bg-[#F0FDF4]"
                 >
-                  ყველას ნახვა <ArrowRight className="h-4 w-4" />
+                  {t("sale.viewAll")} <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -453,22 +470,19 @@ export default function SaleLandingBody({
             <div>
               <ScrollReveal>
                 <span className="mb-3 block text-[11px] font-black uppercase tracking-[1.2px] text-[#16A34A]">
-                  Q3 2024 Research
+                  {t("sale.researchEyebrow")}
                 </span>
                 <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B] md:text-[30px] md:leading-[36px]">
-                  რატომ არის ბაკურიანი საუკეთესო ინვესტიცია?
+                  {t("sale.whyInvest")}
                 </h2>
                 <p className="mt-3 text-[14px] font-medium leading-[22px] text-[#64748B]">
-                  ჩვენი უახლესი კვლევის მიხედვით, ბაკურიანში ყველაზე სარფიანი
-                  ფორმატია მცირე ზომის ბინები (26-50მ²), ეს სტანდარტების 78.6%
-                  იავარელი გარკვეულ შე-კოფიცატურობისთვის, საშუა წლიური ამონაგები
-                  (ROI) სტაბილურად.
+                  {t("sale.researchBody")}
                 </p>
               </ScrollReveal>
 
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <ResearchStat value="10-15%" label="საშუალო ROI" />
-                <ResearchStat value="<$1,000" label="მინიმალური საწყისი" />
+                <ResearchStat value="10-15%" label={t("sale.avgRoi")} />
+                <ResearchStat value="<$1,000" label={t("sale.minInitial")} />
               </div>
             </div>
 
@@ -476,23 +490,27 @@ export default function SaleLandingBody({
               <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:justify-end lg:gap-10">
                 <div className="flex flex-col items-center gap-4">
                   <span className="text-[12px] font-bold text-[#64748B]">
-                    მიწოდების სტრუქტურა (ბინის ზომა)
+                    {t("sale.supplyStructure")}
                   </span>
                   <DonutChart
                     segments={[
-                      { value: 72, color: "#16A34A", label: "მცირე ბინები" },
-                      { value: 28, color: "#D1FAE5", label: "სხვა" },
+                      {
+                        value: 72,
+                        color: "#16A34A",
+                        label: t("sale.smallApartments"),
+                      },
+                      { value: 28, color: "#D1FAE5", label: t("sale.other") },
                     ]}
                   />
                 </div>
                 <ul className="flex flex-col gap-3">
                   <li className="flex items-center gap-2 text-[13px] font-bold text-[#1E293B]">
                     <span className="size-3 rounded-sm bg-[#16A34A]" />
-                    მცირე ბინები (26-50მ²)
+                    {t("sale.smallApartmentsLegend")}
                   </li>
                   <li className="flex items-center gap-2 text-[13px] font-bold text-[#64748B]">
                     <span className="size-3 rounded-sm bg-[#D1FAE5]" />
-                    სხვა ფორმატები (&gt;50მ²)
+                    {t("sale.otherFormatsLegend")}
                   </li>
                 </ul>
               </div>
@@ -595,6 +613,7 @@ function FeaturedInventoryCard({
   roi: number;
   photo: string;
 }) {
+  const t = useTranslations("Landing");
   return (
     <article className="overflow-hidden rounded-[24px] border border-[#E7EEE9] bg-white shadow-[0px_4px_20px_-2px_rgba(15,61,46,0.08)]">
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -608,10 +627,10 @@ function FeaturedInventoryCard({
           />
           <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.6px] text-white shadow-[0px_4px_10px_-2px_rgba(249,115,22,0.45)]">
             <Sparkles className="size-3" />
-            Super VIP • ექსკლუზივი
+            {t("sale.superVipExclusive")}
           </span>
           <span className="absolute bottom-4 left-4 rounded-full bg-[#052E16]/90 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.6px] text-[#6EE7B7] backdrop-blur">
-            გარანტირებული ROI: {roi}%
+            {t("sale.guaranteedRoi", { roi })}
           </span>
         </div>
 
@@ -628,15 +647,15 @@ function FeaturedInventoryCard({
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.6px] text-[#64748B]">
-                  ფართი
+                  {t("sale.areaLabel")}
                 </span>
                 <span className="block text-[14px] font-black text-[#0F172A]">
-                  {area} მ² • {rooms} ოთახი
+                  {t("sale.areaRooms", { area, rooms })}
                 </span>
               </div>
               <div className="inline-flex items-center gap-1.5 rounded-[12px] border border-[#DCFCE7] bg-[#F0FDF4] px-4 py-2 text-[12px] font-bold text-[#16A34A]">
                 <CheckCircle2 className="size-4" />
-                დადასტურებული
+                {t("sale.verified")}
               </div>
             </div>
 
@@ -648,7 +667,7 @@ function FeaturedInventoryCard({
           <div className="flex items-end justify-between gap-4 border-t border-[#F1F5F9] pt-5">
             <div>
               <span className="block text-[11px] font-bold uppercase tracking-[0.6px] text-[#64748B]">
-                დასაბუთი ფასი
+                {t("sale.priceLabel")}
               </span>
               <span className="block text-[28px] font-black leading-[34px] text-[#16A34A]">
                 ${formatNumber(priceUsd)}
@@ -658,7 +677,7 @@ function FeaturedInventoryCard({
               href={`/sales/${id}`}
               className="inline-flex items-center gap-1 rounded-[12px] bg-[#0A1F2E] px-5 py-3 text-[13px] font-bold text-white transition-colors hover:bg-[#0F2A40]"
             >
-              დეტალები
+              {t("sale.details")}
               <ArrowRight className="size-4" />
             </Link>
           </div>

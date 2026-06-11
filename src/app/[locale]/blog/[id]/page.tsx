@@ -4,11 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { cache } from "react";
+import { getLocale, getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 import { createPublicClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils/format";
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: AppLocale; id: string }>;
 }
 
 export const revalidate = 120;
@@ -33,21 +35,24 @@ const getBlogPostDetail = cache(async (id: string) => {
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+  const { locale, id } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
   const { data } = await getBlogPostMetadata(id);
 
   if (!data) {
-    return { title: "სტატია ვერ მოიძებნა — MyBakuriani" };
+    return { title: t("detail.blogNotFound") };
   }
 
   return {
-    title: `${data.title} — MyBakuriani ბლოგი`,
+    title: t("detail.blogTitle", { title: data.title }),
     description: data.excerpt ?? data.title,
   };
 }
 
 export default async function BlogDetailPage({ params }: Props) {
   const { id } = await params;
+  const t = await getTranslations("BlogPage");
+  const locale = await getLocale();
 
   try {
     const { data: post } = await getBlogPostDetail(id);
@@ -69,7 +74,7 @@ export default async function BlogDetailPage({ params }: Props) {
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
         >
           <ArrowLeft className="h-4 w-4" />
-          ბლოგზე დაბრუნება
+          {t("backToBlog")}
         </Link>
 
         {/* Title */}
@@ -79,7 +84,9 @@ export default async function BlogDetailPage({ params }: Props) {
 
         {/* Meta */}
         <div className="mt-4 flex items-center gap-3 text-sm text-[#64748B]">
-          {post.published_at && <time>{formatDate(post.published_at)}</time>}
+          {post.published_at && (
+            <time>{formatDate(post.published_at, locale)}</time>
+          )}
           {author && (
             <>
               <span>·</span>

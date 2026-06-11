@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Star, CheckCircle2, Sparkles, Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -23,28 +24,35 @@ interface ReviewRow {
   } | null;
 }
 
-const MONTHS_KA = [
-  "იან.",
-  "თებ.",
-  "მარ.",
-  "აპრ.",
-  "მაი.",
-  "ივნ.",
-  "ივლ.",
-  "აგვ.",
-  "სექ.",
-  "ოქტ.",
-  "ნოე.",
-  "დეკ.",
-];
+const MONTH_KEYS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+] as const;
 
-function formatDateKa(iso: string | null): string {
+function formatReviewDate(
+  tSchedule: ReturnType<typeof useTranslations<"CleanerSchedule">>,
+  iso: string | null,
+): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS_KA[d.getMonth()]} ${d.getFullYear()}`;
+  const monthKey = MONTH_KEYS[d.getMonth()];
+  return `${d.getDate()} ${tSchedule(`monthsShort.${monthKey}`)}. ${d.getFullYear()}`;
 }
 
 export default function RenterReviewsPage() {
+  const t = useTranslations("RenterReviews");
+  const tShared = useTranslations("DashboardShared");
+  const tSchedule = useTranslations("CleanerSchedule");
   const { user } = useAuth();
   const supabase = createClient();
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
@@ -103,11 +111,10 @@ export default function RenterReviewsPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          შეფასებები
+          {t("title")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          რეალური სტუმრების მიმოხილვები, რომლებიც დარჩენის შემდეგ შეფასების
-          ბმულზე გადავიდნენ.
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -126,13 +133,8 @@ export default function RenterReviewsPage() {
         ) : totalReviews === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
             <Bell className="h-10 w-10 text-[#CBD5E1]" />
-            <p className="mt-3 text-sm text-[#94A3B8]">
-              ჯერ არ გაქვთ შეფასებები
-            </p>
-            <p className="mt-1 text-xs text-[#CBD5E1]">
-              როცა სტუმარი დატოვებს თქვენს ბინას, მას ავტომატურად მიეგზავნება
-              შეფასების ბმული.
-            </p>
+            <p className="mt-3 text-sm text-[#94A3B8]">{t("empty")}</p>
+            <p className="mt-1 text-xs text-[#CBD5E1]">{t("emptyHint")}</p>
           </div>
         ) : (
           <>
@@ -152,7 +154,7 @@ export default function RenterReviewsPage() {
                   ))}
                 </div>
                 <p className="mt-1 text-[13px] font-medium text-[#64748B]">
-                  {totalReviews} დადასტურებული შეფასება
+                  {t("approvedCount", { count: totalReviews })}
                 </p>
               </div>
             </div>
@@ -169,11 +171,11 @@ export default function RenterReviewsPage() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[14px] font-extrabold text-[#0F172A]">
-                          {r.profiles?.display_name ?? "სტუმარი"}
+                          {r.profiles?.display_name ?? tShared("defaultGuest")}
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-md bg-[#DCFCE7] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#16A34A]">
                           <CheckCircle2 className="h-3 w-3" />
-                          დადასტურებული
+                          {t("approved")}
                         </span>
                       </div>
                       <div className="mt-1 flex items-center gap-0.5">
@@ -193,7 +195,7 @@ export default function RenterReviewsPage() {
                       )}
                     </div>
                     <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">
-                      {formatDateKa(r.created_at)}
+                      {formatReviewDate(tSchedule, r.created_at)}
                     </span>
                   </div>
 
@@ -208,14 +210,14 @@ export default function RenterReviewsPage() {
                       type="button"
                       className="text-[12px] font-bold text-[#2563EB] hover:underline"
                     >
-                      პასუხის გაცემა
+                      {t("reply")}
                     </button>
                     <button
                       type="button"
                       className="inline-flex items-center gap-1 rounded-md bg-[#F3E8FF] px-2.5 py-1 text-[11px] font-bold text-[#9333EA] transition-colors hover:bg-[#E9D5FF]"
                     >
                       <Sparkles className="h-3 w-3" />
-                      AI პასუხი
+                      {t("aiReply")}
                     </button>
                   </div>
                 </article>

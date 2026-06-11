@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import PropertyCard from "@/components/cards/PropertyCard";
 
@@ -30,6 +31,7 @@ interface TrackProps {
 }
 
 function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
+  const t = useTranslations("HotOffersCarousel");
   const [page, setPage] = useState(0);
   const paused = useRef(false);
 
@@ -98,7 +100,7 @@ function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
         <button
           type="button"
           onClick={() => setPage((p) => (p - 1 + pages.length) % pages.length)}
-          aria-label="წინა"
+          aria-label={t("prev")}
           className="absolute -left-5 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1A202C] shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 active:scale-95 md:-left-10"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -106,7 +108,7 @@ function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
         <button
           type="button"
           onClick={() => setPage((p) => (p + 1) % pages.length)}
-          aria-label="შემდეგი"
+          aria-label={t("next")}
           className="absolute -right-5 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1A202C] shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-transform hover:scale-105 active:scale-95 md:-right-10"
         >
           <ChevronRight className="h-5 w-5" />
@@ -118,7 +120,7 @@ function CarouselTrack({ pages, gridClassName, reduceMotion }: TrackProps) {
             key={idx}
             type="button"
             onClick={() => setPage(idx)}
-            aria-label={`გვერდი ${idx + 1}`}
+            aria-label={t("page", { page: idx + 1 })}
             aria-current={idx === safePage ? "true" : undefined}
             className={`h-2 rounded-full transition-all duration-300 ${
               idx === safePage ? "w-8 bg-[#1A202C]" : "w-2 bg-[#E2E8F0]"

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Send, X, MapPin, ChevronDown, Calendar, Plus } from "lucide-react";
 import { useActiveZones } from "@/lib/zones/client";
@@ -21,14 +22,22 @@ interface Props {
 }
 
 export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
+  const t = useTranslations("GuestDashboard.newRequestModal");
+  const tGuest = useTranslations("GuestDashboard");
+  const tShared = useTranslations("DashboardShared");
+
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
   const { zones } = useActiveZones();
-  const ZONE_OPTIONS: { value: NewRequestPayload["zone"]; label: string }[] = [
-    { value: "all", label: "ყველა ზონა (ბაკურიანი)" },
-    ...zones.map((z) => ({ value: z.name_ka, label: z.name_ka })),
-  ];
+  const ZONE_OPTIONS: { value: NewRequestPayload["zone"]; label: string }[] =
+    useMemo(
+      () => [
+        { value: "all", label: t("allZones") },
+        ...zones.map((z) => ({ value: z.name_ka, label: z.name_ka })),
+      ],
+      [zones, t],
+    );
 
   const [zone, setZone] = useState<NewRequestPayload["zone"]>("all");
   const [zoneOpen, setZoneOpen] = useState(false);
@@ -57,7 +66,6 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
     return () => window.removeEventListener("keydown", h);
   }, [isOpen, onClose]);
 
-  // Reset on close
   useEffect(() => {
     if (isOpen) return;
     setZoneOpen(false);
@@ -106,30 +114,27 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
             className="relative z-10 w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-t-2xl bg-white shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)] sm:max-w-md sm:rounded-2xl"
           >
             <form onSubmit={handleSubmit}>
-              {/* Header */}
               <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-6">
                 <h2 className="text-[20px] font-black leading-[26px] text-[#0F172A]">
-                  ახალი მოთხოვნა
+                  {tGuest("newRequest")}
                 </h2>
                 <button
                   type="button"
                   onClick={onClose}
                   className="flex size-8 shrink-0 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
-                  aria-label="დახურვა"
+                  aria-label={tShared("closeAria")}
                 >
                   <X className="size-4" />
                 </button>
               </div>
               <p className="px-6 pb-5 text-[13px] font-medium text-[#64748B]">
-                გვაცნობეთ თქვენი პირობები შეთავაზებების მისაღებად
+                {t("subtitle")}
               </p>
 
-              {/* Body */}
               <div className="space-y-4 px-6 pb-6">
-                {/* Zone */}
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                    ლოკაცია და მარშრუტი
+                    {t("locationLabel")}
                   </label>
                   <div className="relative">
                     <button
@@ -182,11 +187,10 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                   </div>
                 </div>
 
-                {/* Dates */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                      შესვლა
+                      {t("checkIn")}
                     </label>
                     <div className="relative">
                       <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
@@ -211,7 +215,7 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                      გასვლა
+                      {t("checkOut")}
                     </label>
                     <div className="relative">
                       <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
@@ -226,7 +230,6 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                   </div>
                 </div>
 
-                {/* Advanced toggle */}
                 <button
                   type="button"
                   onClick={() => setAdvancedOpen((v) => !v)}
@@ -237,7 +240,7 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                       advancedOpen ? "rotate-45" : ""
                     }`}
                   />
-                  {advancedOpen ? "დამატებითის დამალვა" : "დამატებითი პირობები"}
+                  {advancedOpen ? t("hideAdvanced") : t("showAdvanced")}
                 </button>
 
                 <AnimatePresence>
@@ -252,12 +255,12 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                       <div className="space-y-3 pt-1">
                         <div>
                           <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                            სტუმრების რაოდენობა
+                            {t("guestsCount")}
                           </label>
                           <input
                             type="number"
                             min={1}
-                            placeholder="მაგ. 4"
+                            placeholder={t("guestsPlaceholder")}
                             value={guestsCount}
                             onChange={(e) => setGuestsCount(e.target.value)}
                             className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#0F8F60] focus:outline-none"
@@ -266,7 +269,7 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                              ბიუჯეტი min (₾)
+                              {t("budgetMin")}
                             </label>
                             <input
                               type="number"
@@ -279,7 +282,7 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                           </div>
                           <div>
                             <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
-                              ბიუჯეტი max (₾)
+                              {t("budgetMax")}
                             </label>
                             <input
                               type="number"
@@ -296,16 +299,13 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                   )}
                 </AnimatePresence>
 
-                {/* Submit */}
                 <button
                   type="submit"
                   disabled={submitting || !checkIn || !checkOut}
                   className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-[13px] font-black text-white shadow-[0px_8px_20px_-6px_rgba(37,99,235,0.45)] transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   <Send className="h-4 w-4" />
-                  {submitting
-                    ? "გაგზავნა..."
-                    : "მოთხოვნის გაგზავნა ( 24 საათუმდე )"}
+                  {submitting ? tShared("sending") : t("submit")}
                   {!submitting && <span className="ml-0.5">✈️</span>}
                 </button>
               </div>

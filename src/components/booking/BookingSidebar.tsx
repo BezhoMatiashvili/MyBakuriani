@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import {
   BadgeCheck,
@@ -59,8 +60,15 @@ interface BookingSidebarProps {
 }
 
 /* ── Inline mini-calendar (rendered inside the sidebar dropdown) ── */
-const MINI_CAL_DAYS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვი"];
-const MINI_CAL_DAYS_SHORT = ["ო", "ს", "ო", "ხ", "პ", "შ", "კ"];
+const MINI_CAL_DAY_KEYS = [
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+  "sun",
+] as const;
 
 function MiniCalendar({
   selectedRange,
@@ -71,6 +79,7 @@ function MiniCalendar({
   onDateClick: (date: Date) => void;
   calendarDates?: BlockedDate[];
 }) {
+  const t = useTranslations("BookingSidebar");
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today);
   const monthDate = currentMonth;
@@ -128,13 +137,13 @@ function MiniCalendar({
         </button>
       </div>
       <div className="grid grid-cols-7 gap-0.5">
-        {MINI_CAL_DAYS.map((d, i) => (
+        {MINI_CAL_DAY_KEYS.map((key) => (
           <div
-            key={d}
+            key={key}
             className="py-1 text-center text-[10px] font-bold uppercase text-[#94A3B8]"
           >
-            <span className="md:hidden">{MINI_CAL_DAYS_SHORT[i]}</span>
-            <span className="hidden md:inline">{d}</span>
+            <span className="md:hidden">{t(`daysShort.${key}`)}</span>
+            <span className="hidden md:inline">{t(`days.${key}`)}</span>
           </div>
         ))}
         {allDays.map((day) => {
@@ -190,6 +199,7 @@ export function BookingSidebar({
   showGuestCount = true,
   priceOverrides,
 }: BookingSidebarProps) {
+  const t = useTranslations("BookingSidebar");
   const { start, end } = selectedRange;
   const nights = start && end ? differenceInDays(end, start) : 0;
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -251,7 +261,7 @@ export function BookingSidebar({
             </span>
             <span className="text-[15px] font-medium text-[#64748B]">
               {" "}
-              / ღამე
+              {t("perNight")}
             </span>
           </div>
           {rating != null && (
@@ -268,20 +278,22 @@ export function BookingSidebar({
           >
             <div className="border-r border-[#CBD5E1] px-4 py-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.5px] text-[#F97316]">
-                შესვლა
+                {t("checkIn")}
               </span>
               <p className="mt-0.5 text-[13px] font-bold text-[#1E293B]">
                 {start
                   ? format(start, "d MMM, yyyy", { locale: ka })
-                  : "თარიღი"}
+                  : t("datePlaceholder")}
               </p>
             </div>
             <div className="px-4 py-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.5px] text-[#F97316]">
-                გამოსვლა
+                {t("checkOut")}
               </span>
               <p className="mt-0.5 text-[13px] font-bold text-[#1E293B]">
-                {end ? format(end, "d MMM, yyyy", { locale: ka }) : "თარიღი"}
+                {end
+                  ? format(end, "d MMM, yyyy", { locale: ka })
+                  : t("datePlaceholder")}
               </p>
             </div>
           </button>
@@ -304,10 +316,10 @@ export function BookingSidebar({
             >
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-                  რაოდენობა
+                  {t("guestsLabel")}
                 </span>
                 <p className="mt-0.5 text-[13px] font-bold text-[#1E293B]">
-                  {guestCount} ადამიანი
+                  {t("personCount", { count: guestCount })}
                 </p>
               </div>
               <ChevronDown
@@ -330,7 +342,7 @@ export function BookingSidebar({
                         : "text-[#1E293B] hover:bg-[#F8FAFC]"
                     }`}
                   >
-                    {n} ადამიანი
+                    {t("personCount", { count: n })}
                   </button>
                 ))}
               </div>
@@ -342,10 +354,13 @@ export function BookingSidebar({
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-[#64748B]">
                 {hasMixedPricing
-                  ? `≈${formatPrice(avgNightly)} x ${nights} ღამე`
-                  : `${formatPrice(pricePerNight)} x ${nights} ღამე`}
+                  ? `≈${t("nightsLine", { price: formatPrice(avgNightly), count: nights })}`
+                  : t("nightsLine", {
+                      price: formatPrice(pricePerNight),
+                      count: nights,
+                    })}
                 {showGuestCount && perPersonPricing
-                  ? ` x ${guestCount} ადამიანი`
+                  ? ` x ${t("personCount", { count: guestCount })}`
                   : ""}
               </span>
               <span className="font-bold text-[#1E293B]">
@@ -354,13 +369,13 @@ export function BookingSidebar({
             </div>
             {hasMixedPricing && (
               <p className="text-[11px] font-medium text-[#94A3B8]">
-                ფასი იცვლება დღეების მიხედვით
+                {t("mixedPricingNote")}
               </p>
             )}
             <div className="border-t border-[#E2E8F0] pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-black italic text-[#1E293B]">
-                  ჯამში
+                  {t("total")}
                 </span>
                 <span className="text-[22px] font-black text-[#1E293B]">
                   {formatPrice(total)}
@@ -370,13 +385,13 @@ export function BookingSidebar({
           </div>
         )}
         <p className="mt-3 text-center text-[11px] font-medium text-[#94A3B8]">
-          მინ. ჯავშანი: {minBookingDays} დღე
+          {t("minBookingNotice", { count: minBookingDays })}
         </p>
         <div className="mt-5 flex gap-2">
           <CallButton
             phone={ownerPhone}
             className="h-12 flex-1 gap-2 rounded-full bg-[#F97316] text-[14px] font-bold text-white shadow-[0px_8px_20px_rgba(249,115,22,0.25)] hover:bg-[#EA580C]"
-            label="დარეკვა მესაკუთრეთან"
+            label={t("callOwner")}
             onNoPhoneClick={onBook}
             propertyId={propertyId}
           />
@@ -410,7 +425,7 @@ export function BookingSidebar({
           <div>
             {isOwnerVerified && (
               <p className="text-[9px] font-bold uppercase tracking-[0.5px] text-[#10B981]">
-                ვერიფიცირებული მესაკუთრე
+                {t("verifiedOwner")}
               </p>
             )}
             <p className="text-[15px] font-black text-[#1E293B]">{ownerName}</p>

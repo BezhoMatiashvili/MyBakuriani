@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Settings as SettingsIcon, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +12,8 @@ import type { Tables } from "@/lib/types/database";
 type ProfileType = "personal" | "company";
 
 export default function RenterSettingsPage() {
+  const t = useTranslations("RenterProfile");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -57,7 +60,7 @@ export default function RenterSettingsPage() {
     if (!user) return;
     const normalizedPhone = phone.replace(/\s+/g, "");
     if (!normalizedPhone || !/^\+9955\d{8}$/.test(normalizedPhone)) {
-      setErrorMsg("გთხოვთ მიუთითოთ სწორი ნომერი (+995 5XX XX XX XX)");
+      setErrorMsg(t("phoneError"));
       return;
     }
 
@@ -76,10 +79,10 @@ export default function RenterSettingsPage() {
 
     if (!error) {
       setProfile((prev) => (prev ? { ...prev, phone: normalizedPhone } : prev));
-      setSuccessMsg("პროფილი წარმატებით განახლდა");
+      setSuccessMsg(t("success"));
       setTimeout(() => setSuccessMsg(""), 3000);
     } else {
-      setErrorMsg("პროფილის განახლება ვერ მოხერხდა. სცადეთ თავიდან.");
+      setErrorMsg(t("error"));
     }
     setSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,10 +108,10 @@ export default function RenterSettingsPage() {
       >
         <h1 className="flex items-center gap-3 text-[36px] font-black leading-[44px] text-[#0F172A]">
           <SettingsIcon className="h-8 w-8 text-[#94A3B8]" />
-          პარამეტრები
+          {tShared("settingsTitle")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          პროფილის დეტალები და ნოტიფიკაციების კონტროლი.
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -121,11 +124,11 @@ export default function RenterSettingsPage() {
           className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
         >
           <h2 className="text-[16px] font-black text-[#0F172A]">
-            პროფილის ტიპი და დეტალები
+            {t("profileTypeDetails")}
           </h2>
 
           <div className="mt-5 space-y-4">
-            <Field label="პროფილის ტიპი">
+            <Field label={tShared("profileType")}>
               <div className="relative">
                 <select
                   value={profileType}
@@ -134,24 +137,24 @@ export default function RenterSettingsPage() {
                   }
                   className="w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 >
-                  <option value="personal">ფიზიკური პირი</option>
-                  <option value="company">იურიდიული პირი</option>
+                  <option value="personal">{tShared("personalProfile")}</option>
+                  <option value="company">{tShared("companyProfile")}</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
               </div>
             </Field>
 
-            <Field label="სახელი / კომპანია">
+            <Field label={tShared("nameOrCompany")}>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                placeholder="გიორგი მახარაძე"
+                placeholder={t("namePlaceholder")}
               />
             </Field>
 
-            <Field label="საკონტაქტო ნომერი (საჯარო)">
+            <Field label={tShared("publicPhone")}>
               <input
                 type="tel"
                 value={phone}
@@ -161,7 +164,7 @@ export default function RenterSettingsPage() {
               />
             </Field>
 
-            <Field label="პირადი ნომერი">
+            <Field label={tShared("personalId")}>
               <input
                 type="text"
                 value={personalId}
@@ -185,7 +188,7 @@ export default function RenterSettingsPage() {
                 <WhatsAppIcon
                   className={whatsapp ? "text-[#16A34A]" : "text-[#94A3B8]"}
                 />
-                WHATSAPP ნომერი
+                {t("whatsappLabel")}
               </span>
               <Toggle on={whatsapp} tone="success" />
             </button>
@@ -207,7 +210,7 @@ export default function RenterSettingsPage() {
               disabled={saving}
               className="mt-2 w-full rounded-xl bg-[#0F172A] py-3.5 text-[14px] font-black text-white transition-colors hover:bg-[#1E293B] disabled:opacity-60"
             >
-              {saving ? "ინახება..." : "შენახვა"}
+              {saving ? t("saving") : tShared("save")}
             </button>
           </div>
         </motion.section>
@@ -220,25 +223,25 @@ export default function RenterSettingsPage() {
           className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
         >
           <h2 className="text-[16px] font-black text-[#0F172A]">
-            შეტყობინებების მართვა
+            {tShared("notifManagement")}
           </h2>
 
           <div className="mt-5 space-y-3">
             <NotifRow
-              title="ახალი მოთხოვნა"
-              sub="ვებ-შეტყობინება და SMS (პრემიუმი)"
+              title={tShared("notifNewRequest")}
+              sub={tShared("channelWebSmsPremium")}
               on={notifNewRequest}
               onToggle={() => setNotifNewRequest((v) => !v)}
             />
             <NotifRow
-              title="რჩეულებში დამატება"
-              sub="მხოლოდ ვებ-შეტყობინება"
+              title={tShared("notifAddFavorite")}
+              sub={tShared("channelWebOnly")}
               on={notifAddFavorite}
               onToggle={() => setNotifAddFavorite((v) => !v)}
             />
             <NotifRow
-              title="ყოველთვიური რეპორტი"
-              sub="მხოლოდ ელ-ფოსტა"
+              title={tShared("notifMonthlyReport")}
+              sub={tShared("channelEmailOnly")}
               on={notifMonthlyReport}
               onToggle={() => setNotifMonthlyReport((v) => !v)}
             />

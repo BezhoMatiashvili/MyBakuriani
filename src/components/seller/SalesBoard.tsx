@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, AlertCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { leadsClient } from "@/lib/supabase/leads";
 import { formatNumber } from "@/lib/utils/format";
+import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import AddLeadModal, {
   type LeadInput,
   type LeadStage,
@@ -32,7 +34,6 @@ interface Lead {
 
 const STAGES: {
   value: LeadStage;
-  label: string;
   dot: string;
   cardBg: string;
   cardBorder: string;
@@ -40,7 +41,6 @@ const STAGES: {
 }[] = [
   {
     value: "new",
-    label: "ახალი მოთხოვნა",
     dot: "bg-[#2563EB]",
     cardBg: "bg-[#F0F7FF]",
     cardBorder: "border-[#BFDBFE]",
@@ -48,7 +48,6 @@ const STAGES: {
   },
   {
     value: "contacted",
-    label: "დავუკავშირდი",
     dot: "bg-[#F59E0B]",
     cardBg: "bg-[#FFFBEB]",
     cardBorder: "border-[#FCD34D]",
@@ -56,7 +55,6 @@ const STAGES: {
   },
   {
     value: "shown",
-    label: "ვაჩვენე ობიექტი",
     dot: "bg-[#9333EA]",
     cardBg: "bg-[#FAF5FF]",
     cardBorder: "border-[#E9D5FF]",
@@ -64,7 +62,6 @@ const STAGES: {
   },
   {
     value: "negotiating",
-    label: "მოლაპარაკება",
     dot: "bg-[#0EA5E9]",
     cardBg: "bg-[#F0FDFA]",
     cardBorder: "border-[#BAE6FD]",
@@ -72,7 +69,6 @@ const STAGES: {
   },
   {
     value: "closed",
-    label: "გაფორმდა",
     dot: "bg-[#10B981]",
     cardBg: "bg-[#F0FDF4]",
     cardBorder: "border-[#A7F3D0]",
@@ -82,25 +78,14 @@ const STAGES: {
 
 const HIGH_PRIORITY_CHIP = "bg-[#DCFCE7] text-[#15803D]";
 
-const SOURCE_LABEL: Record<string, string> = {
-  smart_match: "ჭკვიანი ძიება",
-  direct: "პირდაპირი",
-  call: "ზარი",
-  walk_in: "ვიზიტი",
-  referral: "რეკომენდაცია",
-  other: "სხვა",
-};
-
-function relativeTimeKa(createdAt: string): string {
-  const diffMs = Date.now() - new Date(createdAt).getTime();
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "ახლა";
-  if (mins < 60) return `${mins} წთ წინ`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} სთ წინ`;
-  const days = Math.floor(hours / 24);
-  return `${days} დღის წინ`;
-}
+const SOURCE_KEYS = [
+  "smart_match",
+  "direct",
+  "call",
+  "walk_in",
+  "referral",
+  "other",
+] as const;
 
 function formatBudget(
   min: number | null,
@@ -122,12 +107,17 @@ interface SalesBoardProps {
 }
 
 export default function SalesBoard({
-  heading = "გაყიდვების დაფა",
-  subtitle = "მართეთ მოთხოვნები ეტაპების მიხედვით (გადატრევის პრინციპით).",
+  heading,
+  subtitle,
   showHeading = true,
 }: SalesBoardProps) {
+  const t = useTranslations("SellerDashboard.salesBoard");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
+
+  const displayHeading = heading ?? t("title");
+  const displaySubtitle = subtitle ?? t("subtitle");
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -269,10 +259,10 @@ export default function SalesBoard({
         >
           <div>
             <h1 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
-              {heading}
+              {displayHeading}
             </h1>
             <p className="mt-1 text-sm font-medium text-[#64748B]">
-              {subtitle}
+              {displaySubtitle}
             </p>
           </div>
           <button
@@ -281,7 +271,7 @@ export default function SalesBoard({
             className="flex items-center gap-2 self-start rounded-xl bg-[#0F172A] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,23,42,0.3)] hover:bg-[#1E293B]"
           >
             <Plus className="h-4 w-4" />
-            მოთხოვნის დამატება
+            {t("addLead")}
           </button>
         </motion.div>
       )}
@@ -290,13 +280,11 @@ export default function SalesBoard({
         <div className="flex items-start gap-3 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-5 py-4">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#F59E0B]" />
           <div className="text-[13px] text-[#78350F]">
-            <p className="font-bold">Leads ცხრილი არ არსებობს ბაზაში.</p>
+            <p className="font-bold">{t("tableMissingTitle")}</p>
             <p className="mt-0.5 text-[12px] text-[#92400E]">
-              მოთხოვნები დროებით ინახება ბრაუზერში. გასაშვებად გაუშვით მიგრაცია{" "}
-              <code className="rounded bg-white px-1 py-0.5 font-mono text-[11px]">
-                supabase/migrations/013_leads.sql
-              </code>
-              .
+              {t("tableMissingDesc", {
+                migration: "supabase/migrations/013_leads.sql",
+              })}
             </p>
           </div>
         </div>
@@ -317,7 +305,7 @@ export default function SalesBoard({
                     aria-hidden
                   />
                   <span className="text-[12px] font-bold text-[#0F172A]">
-                    {stage.label}
+                    {t(`stages.${stage.value}`)}
                   </span>
                 </div>
                 <span className="flex h-5 min-w-[20px] items-center justify-center rounded-md bg-white px-1.5 text-[11px] font-bold text-[#64748B]">
@@ -330,7 +318,7 @@ export default function SalesBoard({
                   <div className="h-24 animate-pulse rounded-xl bg-white" />
                 ) : stageLeads.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-white/50 py-8 text-center text-[11px] text-[#94A3B8]">
-                    ცარიელია
+                    {tShared("empty")}
                   </div>
                 ) : (
                   stageLeads.map((lead) => {
@@ -341,9 +329,15 @@ export default function SalesBoard({
                     );
                     const topChipText =
                       lead.priority === "high"
-                        ? "ცხელი ქეისი"
+                        ? t("hotCase")
                         : lead.source
-                          ? (SOURCE_LABEL[lead.source] ?? lead.source)
+                          ? SOURCE_KEYS.includes(
+                              lead.source as (typeof SOURCE_KEYS)[number],
+                            )
+                            ? t(
+                                `sources.${lead.source as (typeof SOURCE_KEYS)[number]}`,
+                              )
+                            : lead.source
                           : null;
                     return (
                       <div
@@ -363,7 +357,7 @@ export default function SalesBoard({
                             </span>
                           )}
                           <span className="text-[10px] text-[#94A3B8]">
-                            {relativeTimeKa(lead.created_at)}
+                            {formatRelativeTime(tShared, lead.created_at)}
                           </span>
                         </div>
                         <p className="mt-2 truncate text-[16px] font-extrabold text-[#0F172A]">
@@ -377,7 +371,7 @@ export default function SalesBoard({
                         {budget && (
                           <div className="mt-2.5 flex items-center justify-between rounded-lg bg-white/70 px-3 py-1.5">
                             <span className="text-[10px] font-bold uppercase text-[#64748B]">
-                              ბიუჯეტი
+                              {t("budget")}
                             </span>
                             <span className="text-[12px] font-black text-[#0F172A]">
                               {budget}
@@ -392,7 +386,7 @@ export default function SalesBoard({
                         {lead.next_action_at && (
                           <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-[11px] font-bold text-[#0F172A]">
                             <span aria-hidden>📅</span>
-                            {relativeTimeKa(lead.next_action_at)}
+                            {formatRelativeTime(tShared, lead.next_action_at)}
                           </div>
                         )}
                       </div>

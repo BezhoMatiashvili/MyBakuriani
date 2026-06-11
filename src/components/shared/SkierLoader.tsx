@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 
 type Variant = "page" | "fullscreen" | "inline";
 
@@ -11,13 +12,13 @@ interface SkierLoaderProps {
   className?: string;
 }
 
-const DEFAULT_LABEL = "იტვირთება";
-
 export function SkierLoader({
   variant = "page",
-  label = DEFAULT_LABEL,
+  label,
   className,
 }: SkierLoaderProps) {
+  const t = useTranslations("Shared");
+  const resolvedLabel = label ?? t("loading");
   const wrapperClass = wrapperByVariant[variant];
   const skierWidth = variant === "inline" ? "w-32" : "w-56";
 
@@ -27,10 +28,10 @@ export function SkierLoader({
         <div className={`${skierWidth} relative translate-y-2`}>
           <SkierSvg />
         </div>
-        {variant !== "inline" && label ? (
+        {variant !== "inline" && resolvedLabel ? (
           <div className="flex items-end gap-1">
             <span className="text-xl font-medium leading-none tracking-tight text-slate-800 md:text-2xl">
-              {label}
+              {resolvedLabel}
             </span>
             <span className="ml-1 flex gap-1 pb-1">
               <span

@@ -74,6 +74,8 @@ interface DashboardShellProps {
   smsRemaining: number;
   smartMatchCount: number;
   availableCabinets: string[];
+  /** Cleaner availability toggle initial state (defaults to the DB default). */
+  cleanerOnline?: boolean;
   children: React.ReactNode;
 }
 
@@ -87,6 +89,7 @@ export function DashboardShell({
   smsRemaining,
   smartMatchCount: initialSmartMatchCount,
   availableCabinets,
+  cleanerOnline = true,
   children,
 }: DashboardShellProps) {
   const pathname = usePathname();
@@ -97,7 +100,20 @@ export function DashboardShell({
     initialSmartMatchCount,
   );
   const [leadsCount, setLeadsCount] = useState(0);
+  const [verificationCount, setVerificationCount] = useState(0);
+  const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
   const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function handleCleanerAvailableChange(v: boolean) {
+    setCleanerAvailable(v);
+    const supabase = createClient();
+    const { error } = await supabase.from("cleaner_profiles").upsert({
+      id: userId,
+      is_online: v,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) setCleanerAvailable(!v);
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -173,6 +189,20 @@ export function DashboardShell({
       });
   }, [role, userId]);
 
+  // Real pending-verifications count for the admin sidebar badge; refreshed on
+  // navigation so it stays current after approving/rejecting listings.
+  useEffect(() => {
+    if (role !== "admin") return;
+    fetch("/api/admin/listings/pending/count", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: { count?: number } | null) => {
+        if (payload && typeof payload.count === "number") {
+          setVerificationCount(payload.count);
+        }
+      })
+      .catch(() => {});
+  }, [role, pathname]);
+
   async function handleSignOut() {
     try {
       const supabase = createClient();
@@ -208,7 +238,10 @@ export function DashboardShell({
   if (isAdmin) {
     return (
       <div className="flex h-screen w-full overflow-hidden bg-[#02060E]">
-        <AdminSidebar verificationAlerts={3} onSignOut={handleSignOut} />
+        <AdminSidebar
+          verificationAlerts={verificationCount}
+          onSignOut={handleSignOut}
+        />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
           <AdminTopbar userName={displayName} />
           <main className="h-0 w-full flex-1 overflow-y-auto p-5 sm:p-8 xl:p-10">
@@ -304,13 +337,18 @@ export function DashboardShell({
       <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
         <CleanerSidebar
           userName={displayName}
+          userId={userId}
           avatarUrl={avatarUrl ?? undefined}
           currentPath={pathname}
           onSignOut={handleSignOut}
           availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <CleanerTopbar notificationCount={notificationCount} available />
+          <CleanerTopbar
+            notificationCount={notificationCount}
+            available={cleanerAvailable}
+            onAvailableChange={handleCleanerAvailableChange}
+          />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-20 md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>

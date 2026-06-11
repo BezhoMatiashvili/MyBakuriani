@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Send, CalendarDays, Clock } from "lucide-react";
 
@@ -21,17 +22,20 @@ interface RentOutModalProps {
   }) => void;
 }
 
-const DEFAULT_PROPERTIES: PropertyOption[] = [
-  { id: "pr-8842", title: "VIP აპარტამენტი კრისტალში" },
-];
-
 export default function RentOutModal({
   isOpen,
   onClose,
-  properties = DEFAULT_PROPERTIES,
+  properties,
   onSubmit,
 }: RentOutModalProps) {
-  const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
+  const t = useTranslations("RenterDashboard.modals.rentOut");
+  const tShared = useTranslations("DashboardShared");
+
+  const propertyOptions = properties ?? [
+    { id: "pr-8842", title: t("demoProperty") },
+  ];
+
+  const [propertyId, setPropertyId] = useState(propertyOptions[0]?.id ?? "");
   const [date, setDate] = useState("2026-03-10");
   const [time, setTime] = useState("12:00");
   const [durationDays, setDurationDays] = useState(3);
@@ -73,16 +77,16 @@ export default function RentOutModal({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-[17px] font-black text-[#0F172A]">
-                  დაქირავების გაცემა
+                  {t("title")}
                 </h2>
                 <p className="mt-1 text-[12px] font-medium text-[#64748B]">
-                  შეავსეთ დეტალები და გააგზავნეთ ბმა.
+                  {t("subtitle")}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
               >
                 <X className="h-4 w-4" />
@@ -92,14 +96,14 @@ export default function RentOutModal({
             <div className="mt-5 space-y-4">
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                  აირჩიეთ ობიექტი
+                  {tShared("selectProperty")}
                 </label>
                 <select
                   value={propertyId}
                   onChange={(e) => setPropertyId(e.target.value)}
                   className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 >
-                  {properties.map((p) => (
+                  {propertyOptions.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.title}
                     </option>
@@ -110,7 +114,7 @@ export default function RentOutModal({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                    თარიღი
+                    {tShared("date")}
                   </label>
                   <div className="relative">
                     <input
@@ -124,7 +128,7 @@ export default function RentOutModal({
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                    დრო
+                    {tShared("time")}
                   </label>
                   <div className="relative">
                     <input
@@ -140,7 +144,7 @@ export default function RentOutModal({
 
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                  ხანგრძლივობა (დღე)
+                  {tShared("durationDays")}
                 </label>
                 <div className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-4 py-3">
                   <button
@@ -172,7 +176,7 @@ export default function RentOutModal({
                 className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3.5 text-[14px] font-black text-white transition-colors hover:bg-[#1E40AF]"
               >
                 <Send className="h-4 w-4" />
-                გაგზავნა
+                {tShared("send")}
               </button>
             </div>
           </motion.div>

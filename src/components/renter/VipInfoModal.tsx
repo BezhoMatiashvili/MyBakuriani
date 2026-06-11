@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Rocket, Ticket, Percent, MessageSquare } from "lucide-react";
 import type { PricingPackage } from "@/lib/pricing-packages";
@@ -16,53 +17,43 @@ export function inferVipInfoTier(pkg: PricingPackage): VipInfoTier {
   return "vip";
 }
 
-const TIER_CONFIG: Record<
+const TIER_STYLE: Record<
   VipInfoTier,
   {
-    title: string;
+    tierKey: "superVip" | "vip" | "discount" | "sms";
     chipBg: string;
     chipText: string;
     icon: typeof Rocket;
     iconColor: string;
-    what: string;
-    how: string;
   }
 > = {
   "super-vip": {
-    title: "SUPER VIP",
+    tierKey: "superVip",
     chipBg: "bg-[#DCFCE7]",
     chipText: "text-[#16A34A]",
     icon: Rocket,
     iconColor: "text-[#16A34A]",
-    what: "ეს არის მაქსიმალური დაწინაურების პაკეტი. თქვენი ობიექტი გამოჩნდება ძიების პირველ ადგილებზე და მთავარ გვერდზე SUPER VIP სექციაში 24 საათის განმავლობაში.",
-    how: "შეძენის შემდეგ სისტემა ავტომატურად გადაწევს თქვენს განცხადებას დაწინაურების სიაში. ობიექტი ჩანს პრიორიტეტული ბეჯით და მიიღებს მაქსიმალურ ხილვადობას ნებისმიერი ძიების დროს.",
   },
   vip: {
-    title: "VIP სტატუსი",
+    tierKey: "vip",
     chipBg: "bg-[#FCE7F3]",
     chipText: "text-[#BE185D]",
     icon: Ticket,
     iconColor: "text-[#BE185D]",
-    what: "VIP სტატუსი აძლევს თქვენს ობიექტს ყურადღების მისაქცევ ფერად ბეჯს და დაიკავებს უპირატეს პოზიციას მთავარი სიის გვერდზე.",
-    how: "სტატუსის შეძენის შემდეგ VIP ბეჯი ავტომატურად ეკიდება ობიექტს საჯარო ხედში. სტატუსის ხანგრძლივობის მართვა შესაძლებელია „ბალანსი და VIP“ გვერდიდან.",
   },
   discount: {
-    title: "ფასდაკლების ბეჯი",
+    tierKey: "discount",
     chipBg: "bg-[#DCFCE7]",
     chipText: "text-[#16A34A]",
     icon: Percent,
     iconColor: "text-[#16A34A]",
-    what: "ფასდაკლების ბეჯი ობიექტს ანიჭებს კაშკაშა ნიშანს, რომელიც სტუმარს ამცნობს განსაკუთრებულ შეთავაზებას.",
-    how: "ბეჯის გააქტიურებისას შეარჩიეთ ფასდაკლების პროცენტი. ობიექტი გამოჩნდება „ცხელი შეთავაზებების“ სექციაში მაძიებელი სტუმრებისთვის.",
   },
   sms: {
-    title: "SMS პაკეტი",
+    tierKey: "sms",
     chipBg: "bg-[#DBEAFE]",
     chipText: "text-[#2563EB]",
     icon: MessageSquare,
     iconColor: "text-[#2563EB]",
-    what: "SMS პაკეტი გაძლევთ შესაძლებლობას გაუგზავნოთ სტუმრებს სერვისული და სარეკლამო შეტყობინებები მათ მობილურ ნომერზე.",
-    how: "პაკეტი დაემატება თქვენს ანგარიშს და ის იხარჯება ავტომატურად ნებისმიერ დაგზავნაზე. დარჩენილი რაოდენობა ჩანს ზედა პანელზე და „ბალანსი და VIP“ გვერდზე.",
   },
 };
 
@@ -77,8 +68,21 @@ export default function VipInfoModal({
   onClose,
   tier,
 }: VipInfoModalProps) {
-  const config = TIER_CONFIG[tier];
-  const IconCmp = config.icon;
+  const t = useTranslations("RenterDashboard.modals.vipInfo");
+  const tShared = useTranslations("DashboardShared");
+
+  const style = TIER_STYLE[tier];
+  const IconCmp = style.icon;
+  const tierKey = style.tierKey;
+
+  const config = useMemo(
+    () => ({
+      title: t(`tiers.${tierKey}.title`),
+      what: t(`tiers.${tierKey}.what`),
+      how: t(`tiers.${tierKey}.how`),
+    }),
+    [t, tierKey],
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -117,15 +121,14 @@ export default function VipInfoModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={tShared("closeAria")}
               className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
             >
               <X className="h-4 w-4" />
             </button>
 
-            {/* Header chip */}
             <div
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 ${config.chipBg} ${config.chipText}`}
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 ${style.chipBg} ${style.chipText}`}
             >
               <IconCmp className="h-4 w-4" strokeWidth={2.3} />
               <span className="text-[13px] font-black uppercase tracking-wide">
@@ -133,11 +136,10 @@ export default function VipInfoModal({
               </span>
             </div>
 
-            {/* Two columns */}
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <h3 className="text-[14px] font-black text-[#0F172A]">
-                  რა არის?
+                  {tShared("whatIs")}
                 </h3>
                 <p className="mt-2 text-[13px] leading-[20px] text-[#475569]">
                   {config.what}
@@ -145,7 +147,7 @@ export default function VipInfoModal({
               </div>
               <div>
                 <h3 className="text-[14px] font-black text-[#0F172A]">
-                  როგორ მუშაობს?
+                  {tShared("howDoesItWork")}
                 </h3>
                 <p className="mt-2 text-[13px] leading-[20px] text-[#475569]">
                   {config.how}

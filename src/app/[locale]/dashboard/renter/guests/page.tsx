@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { List, Ban, Pencil, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -14,6 +15,8 @@ type Guest = Tables<"renter_guests">;
 type Tab = "all" | "blacklist";
 
 export default function RenterGuestsPage() {
+  const t = useTranslations("RenterGuests");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -61,10 +64,10 @@ export default function RenterGuestsPage() {
       >
         <div>
           <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-            სტუმრების ბაზა
+            {t("title")}
           </h1>
           <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-            თქვენი ლოიალური კლიენტები და შავი სია.
+            {t("subtitle")}
           </p>
         </div>
         <button
@@ -73,7 +76,7 @@ export default function RenterGuestsPage() {
           className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF]"
         >
           <UserPlus className="h-4 w-4" strokeWidth={2.3} />
-          დამატება
+          {tShared("add")}
         </button>
       </motion.div>
 
@@ -89,24 +92,24 @@ export default function RenterGuestsPage() {
             active={tab === "all"}
             onClick={() => setTab("all")}
             icon={<List className="h-4 w-4" />}
-            label="ყველა"
+            label={t("tabAll")}
             tone="primary"
           />
           <TabButton
             active={tab === "blacklist"}
             onClick={() => setTab("blacklist")}
             icon={<Ban className="h-4 w-4" />}
-            label="შავი სია"
+            label={t("tabBlacklist")}
             tone="danger"
           />
         </div>
 
         {/* Table header */}
         <div className="grid grid-cols-[1.6fr_1fr_2fr_auto] gap-4 px-6 py-4 text-[12px] font-semibold text-[#94A3B8]">
-          <span>სტუმარი</span>
-          <span>ვიზიტი</span>
-          <span>შენიშვნა</span>
-          <span className="pl-6 text-right">მოქმედება</span>
+          <span>{t("colGuest")}</span>
+          <span>{t("colVisit")}</span>
+          <span>{t("colNote")}</span>
+          <span className="pl-6 text-right">{t("colAction")}</span>
         </div>
 
         {/* Rows */}
@@ -137,7 +140,7 @@ export default function RenterGuestsPage() {
               ))}
               {visibleGuests.length === 0 && (
                 <div className="px-6 py-10 text-center text-sm text-[#94A3B8]">
-                  ჩანაწერები ვერ მოიძებნა
+                  {t("notFound")}
                 </div>
               )}
             </>
@@ -203,6 +206,9 @@ function GuestRow({
   onBlacklist: () => void;
   onRestore: () => void;
 }) {
+  const t = useTranslations("RenterGuests");
+  const tShared = useTranslations("DashboardShared");
+
   return (
     <div
       className={`grid grid-cols-[1.6fr_1fr_2fr_auto] items-center gap-4 px-6 py-5 ${
@@ -232,7 +238,7 @@ function GuestRow({
               : "bg-[#DCFCE7] text-[#16A34A]"
           }`}
         >
-          {guest.blacklisted ? "BLACKLIST" : "სტუმარი"}
+          {guest.blacklisted ? "BLACKLIST" : t("badgeGuest")}
         </span>
       </div>
       <p
@@ -249,7 +255,7 @@ function GuestRow({
               type="button"
               onClick={onEdit}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF]"
-              aria-label="რედაქტირება"
+              aria-label={tShared("edit")}
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -257,7 +263,7 @@ function GuestRow({
               type="button"
               onClick={onBlacklist}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA]"
-              aria-label="დაბლოკვა"
+              aria-label={t("block")}
             >
               <Ban className="h-3.5 w-3.5" />
             </button>
@@ -268,7 +274,7 @@ function GuestRow({
             onClick={onRestore}
             className="text-[12px] font-bold text-[#64748B] hover:text-[#2563EB] hover:underline"
           >
-            აღდგენა
+            {t("restore")}
           </button>
         )}
       </div>

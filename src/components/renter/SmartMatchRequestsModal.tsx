@@ -45,6 +45,7 @@ export default function SmartMatchRequestsModal({
   onSubmitOffer,
 }: SmartMatchRequestsModalProps) {
   const t = useTranslations("SmartMatchModal");
+  const tShared = useTranslations("DashboardShared");
 
   useEffect(() => {
     if (isOpen) {
@@ -93,7 +94,7 @@ export default function SmartMatchRequestsModal({
               <button
                 onClick={onClose}
                 className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-[#94A3B8] hover:bg-[#F1F5F9]"
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
               >
                 <X className="size-4" />
               </button>
@@ -112,7 +113,7 @@ export default function SmartMatchRequestsModal({
               {requests.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#FAFBFC] py-12 text-center">
                   <p className="text-[13px] font-bold text-[#64748B]">
-                    ჯერ არ არის ახალი მოთხოვნები
+                    {t("emptyRequests")}
                   </p>
                 </div>
               ) : (
@@ -184,11 +185,9 @@ function RequestCard({
     return (
       <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-5 text-center">
         <p className="text-[14px] font-extrabold text-[#16A34A]">
-          ✓ შეთავაზება გაგზავნილია
+          {t("offerSent")}
         </p>
-        <p className="mt-1 text-[12px] text-[#64748B]">
-          სტუმარი ნახავს თქვენს შეთავაზებას თავის კაბინეტში.
-        </p>
+        <p className="mt-1 text-[12px] text-[#64748B]">{t("offerSentHint")}</p>
       </div>
     );
   }
@@ -254,7 +253,7 @@ function RequestCard({
       {selectedProperty && (
         <div className="mt-4">
           <label className="mb-1.5 block text-[11px] font-bold text-[#64748B]">
-            თქვენი ფასი (კონფიდენ-მფარული):
+            {t("yourPriceLabel")}
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -266,7 +265,7 @@ function RequestCard({
               className="h-11 w-32 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[14px] font-extrabold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#0F8F60] focus:outline-none"
             />
             <span className="text-[12px] font-medium text-[#94A3B8]">
-              ₾ /ღამე
+              {t("perNight")}
             </span>
           </div>
         </div>
@@ -275,7 +274,7 @@ function RequestCard({
       {/* Property picker + send */}
       <div className="mt-4">
         <p className="mb-1.5 text-[11px] font-bold text-[#64748B]">
-          აირჩიეთ ბინა შესათავაზებლად:
+          {t("pickProperty")}
         </p>
         <div className="flex flex-col items-stretch gap-2 sm:flex-row">
           <div className="relative flex-1">
@@ -285,7 +284,7 @@ function RequestCard({
               className="h-11 w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white pl-4 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
             >
               {ownerProperties.length === 0 && (
-                <option value="">— ჯერ არ გაქვთ ობიექტი —</option>
+                <option value="">{t("noPropertyOption")}</option>
               )}
               {ownerProperties.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -312,7 +311,7 @@ function RequestCard({
             }`}
           >
             <Send className="h-3.5 w-3.5" />
-            {submitting ? "გაგზავნა..." : "გავუგზავნე"}
+            {submitting ? t("sending") : t("sendOffer")}
           </button>
         </div>
       </div>

@@ -11,14 +11,13 @@ import {
 } from "react";
 import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import MediaUploader, {
   type MediaValue,
 } from "@/components/forms/MediaUploader";
 import {
-  BANNER_KIND_LABELS,
   BANNER_KINDS,
-  BANNER_TONE_LABELS,
   BANNER_TONE_STYLES,
   BANNER_TONES,
   type BannerKind,
@@ -76,6 +75,9 @@ function fromLocalInput(value: string): string | null {
 }
 
 export default function AdminBannersPage() {
+  const t = useTranslations("AdminBanners");
+  const tShared = useTranslations("AdminShared");
+  const tDash = useTranslations("DashboardShared");
   const [loading, setLoading] = useState(true);
   const [banners, setBanners] = useState<LandingBanner[]>([]);
   const [open, setOpen] = useState(false);
@@ -88,13 +90,13 @@ export default function AdminBannersPage() {
     const res = await fetch("/api/admin/banners", { cache: "no-store" });
     const payload = await res.json();
     if (!res.ok) {
-      toast.error(payload.error ?? "ჩატვირთვა ვერ მოხერხდა");
+      toast.error(payload.error ?? tShared("loadFailed"));
       setBanners([]);
     } else {
       setBanners(payload.banners as LandingBanner[]);
     }
     setLoading(false);
-  }, []);
+  }, [tShared]);
 
   useEffect(() => {
     load();
@@ -211,11 +213,11 @@ export default function AdminBannersPage() {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!form.title.trim()) {
-      setError("სათაური სავალდებულოა.");
+      setError(t("titleRequired"));
       return;
     }
     if (form.cta_label.trim() && !form.cta_href.trim()) {
-      setError("ღილაკის ლინკი (URL) აუცილებელია, თუ ღილაკის ტექსტი არსებობს.");
+      setError(t("ctaUrlRequired"));
       return;
     }
     if (
@@ -223,7 +225,7 @@ export default function AdminBannersPage() {
       form.end_at &&
       new Date(form.end_at) < new Date(form.start_at)
     ) {
-      setError("დასრულების თარიღი არ შეიძლება იყოს დაწყებამდე.");
+      setError(t("endBeforeStart"));
       return;
     }
 
@@ -254,13 +256,13 @@ export default function AdminBannersPage() {
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "შენახვა ვერ მოხერხდა");
-      toast.success(form.id ? "ბანერი განახლდა" : "ბანერი შეიქმნა");
+      if (!res.ok) throw new Error(data.error ?? tShared("saveFailed"));
+      toast.success(form.id ? t("updated") : t("created"));
       setOpen(false);
       setForm(EMPTY_FORM);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "შეცდომა");
+      setError(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setSubmitting(false);
     }
@@ -274,22 +276,22 @@ export default function AdminBannersPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast.error(data.error ?? "ცვლილება ვერ მოხერხდა");
+      toast.error(data.error ?? tShared("changeFailed"));
       return;
     }
-    toast.success(b.active ? "გათიშულია" : "ჩართულია");
+    toast.success(b.active ? t("disabled") : t("enabled"));
     await load();
   }
 
   async function remove(b: LandingBanner) {
-    if (!confirm(`წავშალოთ "${b.title}"? ეს ქმედება შეუქცევადია.`)) return;
+    if (!confirm(t("deleteConfirm", { title: b.title }))) return;
     const res = await fetch(`/api/admin/banners/${b.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast.error(data.error ?? "წაშლა ვერ მოხერხდა");
+      toast.error(data.error ?? tShared("deleteFailed"));
       return;
     }
-    toast.success("წაიშალა");
+    toast.success(t("deleted"));
     await load();
   }
 
@@ -299,11 +301,10 @@ export default function AdminBannersPage() {
         <div className="flex flex-wrap items-end justify-between gap-6 pb-2">
           <div className="space-y-2">
             <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
-              ბანერები და სიახლეები
+              {t("title")}
             </h1>
             <p className="text-[14px] font-medium leading-[21px] text-[#64748B]">
-              მართეთ მთავარი გვერდის ბანერები და ქვედა მიკრული სიახლეები
-              საიტისთვის.
+              {t("subtitle")}
             </p>
           </div>
         </div>
@@ -320,10 +321,10 @@ export default function AdminBannersPage() {
               <div className="flex items-end justify-between gap-3">
                 <div>
                   <h2 className="text-[20px] font-black leading-7 text-[#1E293B]">
-                    {BANNER_KIND_LABELS[kind]}
+                    {t(`kinds.${kind}`)}
                   </h2>
                   <p className="text-[12px] font-medium leading-[18px] text-[#94A3B8]">
-                    {kindHint(kind)}
+                    {t(`kindDescriptions.${kind}`)}
                   </p>
                 </div>
                 <button
@@ -332,13 +333,13 @@ export default function AdminBannersPage() {
                   className="inline-flex h-[44px] min-h-[44px] items-center gap-2 rounded-xl bg-[#0F172A] px-4 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
                 >
                   <Plus className="h-[13px] w-[13px]" strokeWidth={2.8} />
-                  დამატება
+                  {t("add")}
                 </button>
               </div>
 
               {grouped[kind].length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#E2E8F0] bg-white py-10 text-center text-sm font-medium text-[#94A3B8]">
-                  ჯერ არ არის ბანერი.
+                  {t("empty")}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -371,17 +372,17 @@ export default function AdminBannersPage() {
             <div className="flex items-start justify-between gap-4 pb-6">
               <div className="space-y-1">
                 <h2 className="text-2xl font-black leading-7 tracking-[-0.6px] text-[#1E293B]">
-                  {form.id ? "ბანერის რედაქტირება" : "ახალი ბანერი"}
+                  {form.id ? t("editTitle") : t("newTitle")}
                 </h2>
                 <p className="text-xs font-medium leading-[18px] text-[#64748B]">
-                  {BANNER_KIND_LABELS[form.kind]}
+                  {t(`kinds.${form.kind}`)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={close}
                 className="inline-flex h-10 min-h-[44px] w-10 items-center justify-center rounded-full border border-[#F1F5F9] bg-[#F8FAFC] text-[#64748B]"
-                aria-label="დახურვა"
+                aria-label={tShared("close")}
               >
                 <X className="h-[18px] w-[18px]" />
               </button>
@@ -389,7 +390,7 @@ export default function AdminBannersPage() {
 
             <form className="space-y-5" onSubmit={submit}>
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field label="ტიპი">
+                <Field label={t("type")}>
                   <select
                     name="kind"
                     value={form.kind}
@@ -398,65 +399,65 @@ export default function AdminBannersPage() {
                   >
                     {BANNER_KINDS.map((k) => (
                       <option key={k} value={k}>
-                        {BANNER_KIND_LABELS[k]}
+                        {t(`kinds.${k}`)}
                       </option>
                     ))}
                   </select>
                 </Field>
-                <Field label="ფერი">
+                <Field label={t("color")}>
                   <select
                     name="tone"
                     value={form.tone}
                     onChange={onField}
                     className={selectCls}
                   >
-                    {BANNER_TONES.map((t) => (
-                      <option key={t} value={t}>
-                        {BANNER_TONE_LABELS[t]}
+                    {BANNER_TONES.map((tone) => (
+                      <option key={tone} value={tone}>
+                        {t(`tones.${tone}`)}
                       </option>
                     ))}
                   </select>
                 </Field>
               </div>
 
-              <Field label="სათაური">
+              <Field label={t("bannerTitle")}>
                 <input
                   name="title"
                   value={form.title}
                   onChange={onField}
                   className={inputCls}
-                  placeholder="მაგ: გადამოწმებულ განცხადებებს ენიჭება ოქროს ფერი"
+                  placeholder={t("titlePlaceholder")}
                 />
               </Field>
 
-              <Field label="ტექსტი (სურვილისამებრ)">
+              <Field label={t("bodyOptional")}>
                 <textarea
                   name="body"
                   value={form.body}
                   onChange={onField}
                   rows={3}
                   className={`${inputCls} h-auto min-h-[80px] resize-none py-3`}
-                  placeholder="დამატებითი აღწერა"
+                  placeholder={t("bodyPlaceholder")}
                 />
               </Field>
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field label="ღილაკის ტექსტი">
+                <Field label={t("ctaText")}>
                   <input
                     name="cta_label"
                     value={form.cta_label}
                     onChange={onField}
                     className={inputCls}
-                    placeholder="კიდევ ნახე"
+                    placeholder={t("ctaTextPlaceholder")}
                   />
                 </Field>
-                <Field label="ღილაკის ლინკი (URL)">
+                <Field label={t("ctaUrl")}>
                   <input
                     name="cta_href"
                     value={form.cta_href}
                     onChange={onField}
                     className={inputCls}
-                    placeholder="/services ან https://..."
+                    placeholder={t("ctaUrlPlaceholder")}
                   />
                 </Field>
               </div>
@@ -470,7 +471,7 @@ export default function AdminBannersPage() {
               />
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field label="დაწყება (სურვილისამებრ)">
+                <Field label={t("startOptional")}>
                   <input
                     type="datetime-local"
                     name="start_at"
@@ -479,7 +480,7 @@ export default function AdminBannersPage() {
                     className={inputCls}
                   />
                 </Field>
-                <Field label="დასრულება (სურვილისამებრ)">
+                <Field label={t("endOptional")}>
                   <input
                     type="datetime-local"
                     name="end_at"
@@ -491,7 +492,7 @@ export default function AdminBannersPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field label="თანმიმდევრობა">
+                <Field label={t("sortOrder")}>
                   <input
                     type="number"
                     name="sort_order"
@@ -509,7 +510,7 @@ export default function AdminBannersPage() {
                     className="h-4 w-4 accent-[#2563EB]"
                   />
                   <span className="text-sm font-bold text-[#1E293B]">
-                    ჩართულია
+                    {t("enabledLabel")}
                   </span>
                 </label>
               </div>
@@ -528,7 +529,7 @@ export default function AdminBannersPage() {
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
-                {form.id ? "შენახვა" : "შექმნა"}
+                {form.id ? tDash("save") : t("create")}
               </button>
             </form>
           </div>
@@ -560,17 +561,6 @@ function Field({
   );
 }
 
-function kindHint(kind: BannerKind): string {
-  switch (kind) {
-    case "info":
-      return "მცირე საინფორმაციო ზოლი მთავარ გვერდზე ცხელი შეთავაზებების ზემოთ.";
-    case "promo":
-      return "სურათიანი პრომო კარტი მთავარ გვერდზე — სასტუმროების სექციის შემდეგ.";
-    case "sticky_news":
-      return "ქვედა მიკრული სიახლე, ხილული საიტის ყველა საჯარო გვერდზე.";
-  }
-}
-
 function BannerRow({
   banner,
   onEdit,
@@ -582,6 +572,9 @@ function BannerRow({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("AdminBanners");
+  const tDash = useTranslations("DashboardShared");
+  const tCreate = useTranslations("CreateShared");
   const tone = BANNER_TONE_STYLES[banner.tone];
   return (
     <article
@@ -635,14 +628,14 @@ function BannerRow({
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
               <span className="rounded bg-white/70 px-2 py-1">
-                {BANNER_KIND_LABELS[banner.kind]}
+                {t(`kinds.${banner.kind}`)}
               </span>
               <span className="rounded bg-white/70 px-2 py-1">
-                {BANNER_TONE_LABELS[banner.tone]}
+                {t(`tones.${banner.tone}`)}
               </span>
               {!banner.active && (
                 <span className="rounded bg-[#EF4444] px-2 py-1 text-white">
-                  გათიშული
+                  {t("disabledBadge")}
                 </span>
               )}
               {banner.cta_label && banner.cta_href && (
@@ -661,11 +654,11 @@ function BannerRow({
           >
             {banner.active ? (
               <>
-                <EyeOff className="h-3.5 w-3.5" /> გათიშვა
+                <EyeOff className="h-3.5 w-3.5" /> {t("disable")}
               </>
             ) : (
               <>
-                <Eye className="h-3.5 w-3.5" /> ჩართვა
+                <Eye className="h-3.5 w-3.5" /> {t("enable")}
               </>
             )}
           </button>
@@ -674,14 +667,14 @@ function BannerRow({
             onClick={onEdit}
             className="inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#475569]"
           >
-            <Pencil className="h-3.5 w-3.5" /> რედაქტირება
+            <Pencil className="h-3.5 w-3.5" /> {tDash("edit")}
           </button>
           <button
             type="button"
             onClick={onDelete}
             className="inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-lg border border-[#FECACA] bg-white px-3 text-[11px] font-bold text-[#B91C1C]"
           >
-            <Trash2 className="h-3.5 w-3.5" /> წაშლა
+            <Trash2 className="h-3.5 w-3.5" /> {tCreate("delete")}
           </button>
         </div>
       </div>

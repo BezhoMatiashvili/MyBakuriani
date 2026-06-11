@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowRight, Car, Mountain, Plus, Video } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -56,32 +57,44 @@ interface LandingPageProps {
 const MOCK_BLOG_POSTS = [
   {
     id: "1",
-    title: "ბაკურიანის სეზონი 2026 — რა სიახლეებია?",
-    excerpt:
-      "წელს ბაკურიანში მრავალი სიახლე გელოდებათ. ახალი ტრასები, საბაგირო ხაზები და გაუმჯობესებული ინფრასტრუქტურა.",
+    titleKey: "post1Title",
+    excerptKey: "post1Excerpt",
     image:
       "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&h=600&fit=crop",
     date: "2026-03-20",
   },
   {
     id: "2",
-    title: "როგორ ავირჩიოთ საუკეთესო აპარტამენტი ბაკურიანში",
-    excerpt:
-      "გაიგეთ რა კრიტერიუმებით უნდა აირჩიოთ საუკეთესო აპარტამენტი ბაკურიანში თქვენი დასვენებისთვის.",
+    titleKey: "post2Title",
+    excerptKey: "post2Excerpt",
     image:
       "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
     date: "2026-03-15",
   },
   {
     id: "3",
-    title: "დიდველის ახალი ტრასები — სრული გზამკვლევი",
-    excerpt:
-      "დიდველის სათხილამურო კურორტმა ახალი ტრასები გახსნა — აი რა უნდა იცოდეთ მათ შესახებ.",
+    titleKey: "post3Title",
+    excerptKey: "post3Excerpt",
     image:
       "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=800&h=600&fit=crop",
     date: "2026-03-10",
   },
-];
+] as const;
+
+const MONTH_KEYS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+] as const;
 
 // ─── Component ───────────────────────────────────────────────────────────
 
@@ -97,6 +110,7 @@ export default function LandingPage({
   promoBanners = [],
   pricePerSqmByZone,
 }: LandingPageProps) {
+  const t = useTranslations("Landing");
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
@@ -269,24 +283,16 @@ export default function LandingPage({
             const d = new Date(
               bp.published_at ?? bp.created_at ?? new Date().toISOString(),
             );
-            const months = [
-              "იანვარი",
-              "თებერვალი",
-              "მარტი",
-              "აპრილი",
-              "მაისი",
-              "ივნისი",
-              "ივლისი",
-              "აგვისტო",
-              "სექტემბერი",
-              "ოქტომბერი",
-              "ნოემბერი",
-              "დეკემბერი",
-            ];
-            return `${d.getUTCDate()} ${months[d.getUTCMonth()]}, ${d.getUTCFullYear()}`;
+            return `${d.getUTCDate()} ${t(`months.${MONTH_KEYS[d.getUTCMonth()]}`)}, ${d.getUTCFullYear()}`;
           })(),
         }))
-      : MOCK_BLOG_POSTS;
+      : MOCK_BLOG_POSTS.map((post) => ({
+          id: post.id,
+          title: t(`mockBlog.${post.titleKey}`),
+          excerpt: t(`mockBlog.${post.excerptKey}`),
+          image: post.image,
+          date: post.date,
+        }));
 
   if (mode === "sale") {
     return (
@@ -327,8 +333,8 @@ export default function LandingPage({
         <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
           <ScrollReveal>
             <h1 className="text-2xl font-black leading-[1] tracking-[-1.25px] text-white sm:text-4xl md:text-[50px] md:leading-[50px]">
-              ყველაზე სანდო გზამკვლევი{" "}
-              <span className="text-[#38BDF8]">ბაკურიანში</span>
+              {t("trustedGuide")}{" "}
+              <span className="text-[#38BDF8]">{t("inBakuriani")}</span>
             </h1>
           </ScrollReveal>
 
@@ -371,10 +377,10 @@ export default function LandingPage({
                     <div className="flex flex-col gap-1">
                       <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
                         <span className="size-2 rounded-full bg-[#EF4444]" />
-                        კამერები
+                        {t("cameras")}
                       </span>
                       <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                        2 ლოკაცია
+                        {t("cameraLocations")}
                         <Video className="size-[18px] text-[#CBD5E1]" />
                       </span>
                     </div>
@@ -384,13 +390,13 @@ export default function LandingPage({
                     type="button"
                     className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
                   >
-                    კუპონის აღება
+                    {t("getCoupon")}
                   </button>
                   {/* Discount toggle */}
                   <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
                     <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
                       <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                      მხოლოდ ფასდაკლებები
+                      {t("discountsOnly")}
                     </span>
                     <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
                       <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
@@ -406,7 +412,7 @@ export default function LandingPage({
             <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                  ამინდი
+                  {t("weather")}
                 </span>
                 <span className="text-[20px] font-black leading-[28px] text-white">
                   -4°C
@@ -416,10 +422,10 @@ export default function LandingPage({
             <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                  საბაგიროები
+                  {t("lifts")}
                 </span>
                 <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
-                  3/5 ღია
+                  {t("liftsOpen")}
                   <Mountain className="size-[18px] text-[#CBD5E1]" />
                 </span>
               </div>
@@ -427,10 +433,10 @@ export default function LandingPage({
             <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                  გზა თბილისიდან
+                  {t("roadFromTbilisi")}
                 </span>
                 <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
-                  თავისუფალი
+                  {t("roadFree")}
                   <Car className="size-[18px] text-[#CBD5E1]" />
                 </span>
               </div>
@@ -439,10 +445,10 @@ export default function LandingPage({
               <div className="flex flex-col gap-1">
                 <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
                   <span className="size-2 rounded-full bg-[#EF4444]" />
-                  კამერები
+                  {t("cameras")}
                 </span>
                 <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
-                  2 ლოკაცია
+                  {t("cameraLocations")}
                   <Video className="size-[18px] text-[#CBD5E1]" />
                 </span>
               </div>
@@ -461,10 +467,10 @@ export default function LandingPage({
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                  ცხელი შეთავაზებები
+                  {t("hotOffers")}
                 </h2>
                 <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                  მხოლოდ ვერიფიცირებული და სანდო მესაკუთრეები.
+                  {t("verifiedOwners")}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -472,7 +478,7 @@ export default function LandingPage({
                   href="/apartments"
                   className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-black text-[#1E293B] transition-colors hover:text-[#F97316]"
                 >
-                  ნახე ყველა
+                  {t("viewAll")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <button
@@ -488,7 +494,7 @@ export default function LandingPage({
                 >
                   <span className="flex items-center gap-1.5">
                     <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                    მხოლოდ ფასდაკლებები
+                    {t("discountsOnly")}
                   </span>
                   <span
                     className={cn(
@@ -516,8 +522,8 @@ export default function LandingPage({
 
       {/* ═══ 4. Apartments Section ═══ */}
       <PropertySection
-        title="აპარტამენტები და კოტეჯები"
-        subtitle="საუკეთესო არჩევანი თქვენი დასვენებისთვის"
+        title={t("apartmentsAndCottages")}
+        subtitle={t("apartmentsSubtitle")}
         properties={hotOfferCards.slice(0, 4)}
         href="/apartments"
         showDiscountToggle
@@ -526,8 +532,8 @@ export default function LandingPage({
 
       {/* ═══ 5. Hotels Section ═══ */}
       <PropertySection
-        title="სასტუმროები"
-        subtitle="სრული სერვისი: საუზმე, აუზი, სპა"
+        title={t("hotels")}
+        subtitle={t("hotelsSubtitle")}
         properties={hotelCards}
         href="/hotels"
         muted
@@ -540,8 +546,8 @@ export default function LandingPage({
 
       {/* ═══ 6. Transport Section ═══ */}
       <ServiceSection
-        title="ტრანსპორტი და ტრანსფერები"
-        subtitle="უსაფრთხო გადაადგილება ბაკურიანში და მის ფარგლებს გარეთ"
+        title={t("transportAndTransfers")}
+        subtitle={t("transportSubtitle")}
         cards={servicesByCategory("transport")}
         href="/transport"
         muted
@@ -550,8 +556,8 @@ export default function LandingPage({
 
       {/* ═══ 7. Services Section ═══ */}
       <ServiceSection
-        title="სერვისები და ხელოსნები"
-        subtitle="სწრაფი და საიმედო სერვისები თქვენი კომფორტისთვის"
+        title={t("servicesAndHandymen")}
+        subtitle={t("servicesSubtitle")}
         cards={servicesByCategory("handyman")}
         href="/services"
         showAddButton
@@ -560,8 +566,8 @@ export default function LandingPage({
 
       {/* ═══ 8. Entertainment Section ═══ */}
       <ServiceSection
-        title="გართობა და აქტივობები"
-        subtitle="საუკეთესო გართობა და აქტივობები ბაკურიანში"
+        title={t("entertainmentAndActivities")}
+        subtitle={t("entertainmentSubtitle")}
         cards={servicesByCategory("entertainment")}
         href="/entertainment"
         muted
@@ -570,8 +576,8 @@ export default function LandingPage({
 
       {/* ═══ 9. Food Section ═══ */}
       <ServiceSection
-        title="კვება & რესტორნები"
-        subtitle="საუკეთესო რესტორნები და კაფეები ბაკურიანში"
+        title={t("foodAndRestaurants")}
+        subtitle={t("foodSubtitle")}
         cards={servicesByCategory("food")}
         href="/food"
         showAddButton
@@ -589,22 +595,22 @@ export default function LandingPage({
           <ScrollReveal>
             <div className="mb-8 flex items-center justify-between">
               <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                ბლოგი და სიახლეები
+                {t("blogAndNews")}
               </h2>
               <Link
                 href="/blog"
                 className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
               >
-                ნახე ყველა <ArrowRight className="h-4 w-4" />
+                {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </ScrollReveal>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {blogItems.map((post, i) => {
               const chipPalette = [
-                { bg: "#DBEAFE", fg: "#1D4ED8", label: "სიახლეები" },
-                { bg: "#DCFCE7", fg: "#166534", label: "გზამკვლევი" },
-                { bg: "#FFEDD5", fg: "#C2410C", label: "სეზონი" },
+                { bg: "#DBEAFE", fg: "#1D4ED8", label: t("blogChips.news") },
+                { bg: "#DCFCE7", fg: "#166534", label: t("blogChips.guide") },
+                { bg: "#FFEDD5", fg: "#C2410C", label: t("blogChips.season") },
               ];
               const chip = chipPalette[i % chipPalette.length];
               const fallbackPhotos = [
@@ -661,16 +667,16 @@ export default function LandingPage({
         <div className="mx-auto max-w-3xl text-center">
           <ScrollReveal>
             <h2 className="text-2xl font-black md:text-3xl">
-              გქონდეთ ობიექტი ბაკურიანში?
+              {t("havePropertyInBakuriani")}
             </h2>
             <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
-              დაამატეთ თქვენი განცხადება და მიიღეთ შეკვეთები დღესვე
+              {t("addListingCTA")}
             </p>
             <Link
               href="/create"
               className="mt-6 inline-flex h-12 items-center justify-center rounded-full bg-brand-accent px-8 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] transition-colors hover:bg-brand-accent-hover"
             >
-              განცხადების დამატება
+              {t("addListing")}
             </Link>
           </ScrollReveal>
         </div>
@@ -716,6 +722,7 @@ function ServiceSection({
   showDiscountToggle?: boolean;
   showAddButton?: boolean;
 }) {
+  const t = useTranslations("Landing");
   const [discountOnly, setDiscountOnly] = useState(false);
   const filteredCards = useMemo(
     () =>
@@ -752,7 +759,7 @@ function ServiceSection({
                 >
                   <span className="flex items-center gap-1.5">
                     <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                    მხოლოდ ფასდაკლებები
+                    {t("discountsOnly")}
                   </span>
                   <span
                     className={cn(
@@ -775,14 +782,14 @@ function ServiceSection({
                   className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] px-4 py-2 text-[13px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
                 >
                   <Plus className="h-4 w-4" />
-                  დამატება
+                  {t("add")}
                 </Link>
               )}
               <Link
                 href={href}
                 className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
               >
-                ნახე ყველა <ArrowRight className="h-4 w-4" />
+                {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -816,19 +823,20 @@ function EmploymentSection({
   }>;
   href: string;
 }) {
+  const t = useTranslations("Landing");
   const postedLabels = [
-    "დღეს",
-    "1 დღის წინ",
-    "3 დღის წინ",
-    "5 დღის წინ",
-    "1 კვირის წინ",
+    t("posted.today"),
+    t("posted.daysAgo1"),
+    t("posted.daysAgo3"),
+    t("posted.daysAgo5"),
+    t("posted.weekAgo1"),
   ];
   const availabilities = [
-    "დღიური",
-    "სრული განაკვეთი",
-    "მოქნილი",
-    "ნახევარი განაკვეთი",
-    "სეზონური",
+    t("schedule.daily"),
+    t("schedule.fullTime"),
+    t("schedule.flexible"),
+    t("schedule.partTime"),
+    t("schedule.seasonal"),
   ];
 
   return (
@@ -838,10 +846,10 @@ function EmploymentSection({
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                დასაქმება ბაკურიანში
+                {t("employmentInBakuriani")}
               </h2>
               <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                მოძებნე კადრი ან იპოვე სამსახური სეზონზე
+                {t("employmentSubtitle")}
               </p>
             </div>
             <div className="hidden items-center gap-4 sm:flex">
@@ -850,13 +858,13 @@ function EmploymentSection({
                 className="inline-flex items-center gap-1 rounded-full bg-[#DBEAFE] px-4 py-2 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#BFDBFE]"
               >
                 <Plus className="h-4 w-4" />
-                დამატება
+                {t("add")}
               </Link>
               <Link
                 href={href}
                 className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
               >
-                ნახე ყველა <ArrowRight className="h-4 w-4" />
+                {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -927,6 +935,7 @@ function PropertySection({
   showDiscountToggle?: boolean;
   showAddButton?: boolean;
 }) {
+  const t = useTranslations("Landing");
   const [discountOnly, setDiscountOnly] = useState(false);
   const filteredProperties = useMemo(
     () =>
@@ -965,7 +974,7 @@ function PropertySection({
                 >
                   <span className="flex items-center gap-1.5">
                     <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                    მხოლოდ ფასდაკლებები
+                    {t("discountsOnly")}
                   </span>
                   <span
                     className={cn(
@@ -988,14 +997,14 @@ function PropertySection({
                   className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] px-4 py-2 text-[13px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
                 >
                   <Plus className="h-4 w-4" />
-                  დამატება
+                  {t("add")}
                 </Link>
               )}
               <Link
                 href={href}
                 className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
               >
-                ნახე ყველა <ArrowRight className="h-4 w-4" />
+                {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +35,8 @@ function formatDateTime(input: string | null) {
 }
 
 export default function AdminFinancesPage() {
+  const t = useTranslations("AdminFinances");
+  const tShared = useTranslations("AdminShared");
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -45,13 +48,13 @@ export default function AdminFinancesPage() {
     });
     const payload = await res.json();
     if (!res.ok) {
-      toast.error(payload.error ?? "ჩატვირთვა ვერ მოხერხდა");
+      toast.error(payload.error ?? tShared("loadFailed"));
       setSummary(null);
     } else {
       setSummary(payload as FinanceSummary);
     }
     setLoading(false);
-  }, []);
+  }, [tShared]);
 
   useEffect(() => {
     load();
@@ -63,13 +66,13 @@ export default function AdminFinancesPage() {
     try {
       const header = "date,user,type,description,amount\n";
       const rows = summary.recent
-        .map((t) =>
+        .map((tx) =>
           [
-            t.created_at,
-            t.user?.display_name ?? "",
-            t.type,
-            (t.description ?? "").replace(/,/g, ";"),
-            t.amount,
+            tx.created_at,
+            tx.user?.display_name ?? "",
+            tx.type,
+            (tx.description ?? "").replace(/,/g, ";"),
+            tx.amount,
           ].join(","),
         )
         .join("\n");
@@ -87,21 +90,21 @@ export default function AdminFinancesPage() {
 
   const metrics = [
     {
-      label: "მთლიანი შემოსავალი",
+      label: t("grossRevenue"),
       value: summary ? `${formatPrice(summary.gross)}` : "—",
       containerClassName: "border-[#E2E8F0] bg-white",
       labelClassName: "text-[#94A3B8]",
       valueClassName: "text-[#1E293B]",
     },
     {
-      label: "სუფთა შემოსავალი",
+      label: t("netRevenue"),
       value: summary ? `${formatPrice(summary.net)}` : "—",
       containerClassName: "border-[#A7F3D0] bg-[#ECFDF5]",
       labelClassName: "text-[#059669]",
       valueClassName: "text-[#047857]",
     },
     {
-      label: "შემოსავალი ობიექტზე",
+      label: t("revenuePerListing"),
       value: summary ? `${formatPrice(summary.perListing)}` : "—",
       containerClassName: "border-[#1E293B] bg-[#0F172A]",
       labelClassName: "text-[#CBD5E1]",
@@ -115,10 +118,10 @@ export default function AdminFinancesPage() {
         <div className="flex flex-col gap-5 pb-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
-              ფინანსური მიმოხილვა
+              {t("title")}
             </h1>
             <p className="text-[14px] font-medium leading-[21px] text-[#64748B]">
-              ფულადი ნაკადების და საშუალო შემოსავლის მართვა.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -133,7 +136,7 @@ export default function AdminFinancesPage() {
             ) : (
               <Download className="h-[13px] w-[13px]" />
             )}
-            CSV ექსპორტი
+            {t("exportCsv")}
           </button>
         </div>
 
@@ -160,7 +163,7 @@ export default function AdminFinancesPage() {
         <section className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
           <header className="flex items-center bg-[#F8FAFC] px-6 py-6">
             <h2 className="text-[16px] font-black leading-6 text-[#1E293B]">
-              ბოლო ტრანზაქციები
+              {t("recentTransactions")}
             </h2>
           </header>
 
@@ -171,7 +174,7 @@ export default function AdminFinancesPage() {
               ))
             ) : !summary || summary.recent.length === 0 ? (
               <div className="flex h-40 items-center justify-center text-sm text-[#94A3B8]">
-                ტრანზაქცია ჯერ არ არის
+                {t("noTransactions")}
               </div>
             ) : (
               summary.recent.map((transaction) => {

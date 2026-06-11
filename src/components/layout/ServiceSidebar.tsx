@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   LayoutGrid,
-  ListChecks,
   Wallet,
   Bell,
   Settings,
@@ -29,32 +29,27 @@ interface ServiceSidebarProps {
 }
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   href: string;
   icon: LucideIcon;
   badgeKind?: "notifications";
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "ჩემი კაბინეტი", href: "/dashboard/service", icon: LayoutGrid },
+  { labelKey: "myCabinet", href: "/dashboard/service", icon: LayoutGrid },
   {
-    label: "ჩემი განცხადებები",
-    href: "/dashboard/service/orders",
-    icon: ListChecks,
-  },
-  {
-    label: "ბალანსი და VIP",
+    labelKey: "balanceAndVip",
     href: "/dashboard/service/balance",
     icon: Wallet,
   },
   {
-    label: "შეტყობინებები",
+    labelKey: "notificationsItem",
     href: "/dashboard/service/notifications",
     icon: Bell,
     badgeKind: "notifications",
   },
   {
-    label: "პარამეტრები",
+    labelKey: "settings",
     href: "/dashboard/service/parameters",
     icon: Settings,
   },
@@ -87,7 +82,7 @@ function isItemActive(href: string, current: string) {
 
 export function ServiceSidebar({
   userName,
-  userSubtitle = "სერვისის პროვაიდერი",
+  userSubtitle,
   avatarUrl,
   isVerified = true,
   currentPath,
@@ -95,11 +90,13 @@ export function ServiceSidebar({
   onSignOut,
   availableCabinets,
 }: ServiceSidebarProps) {
+  const t = useTranslations("DashboardSidebar");
   const initials = userName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
+  const subtitle = userSubtitle ?? t("roles.serviceProvider");
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
@@ -126,7 +123,7 @@ export function ServiceSidebar({
             {userName}
           </p>
           <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
-            {userSubtitle}
+            {subtitle}
           </p>
         </div>
       </CabinetSwitcher>
@@ -158,7 +155,9 @@ export function ServiceSidebar({
                     />
                   )}
                   <Icon className="size-[18px] shrink-0" />
-                  <span className="flex-1 truncate">{item.label}</span>
+                  <span className="flex-1 truncate">
+                    {t(`nav.${item.labelKey}`)}
+                  </span>
                   {showBadge && (
                     <span className="flex h-[20px] min-w-[24px] items-center justify-center rounded-md bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">
                       {notificationCount > 9 ? "9+" : notificationCount}
@@ -177,7 +176,7 @@ export function ServiceSidebar({
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8]"
         >
           <Home className="size-[18px]" />
-          მთავარზე დაბრუნება
+          {t("backToHome")}
         </Link>
       </div>
 
@@ -188,7 +187,7 @@ export function ServiceSidebar({
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
         >
           <LogOut className="size-[18px]" />
-          გამოსვლა
+          {t("logout")}
         </button>
       </div>
     </motion.aside>

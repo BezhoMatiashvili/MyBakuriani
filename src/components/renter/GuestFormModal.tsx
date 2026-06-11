@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -20,6 +21,9 @@ export default function GuestFormModal({
   onSaved,
   guest,
 }: GuestFormModalProps) {
+  const t = useTranslations("RenterDashboard.modals.guestForm");
+  const tShared = useTranslations("DashboardShared");
+
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -110,17 +114,17 @@ export default function GuestFormModal({
                 </span>
                 <div>
                   <h2 className="text-[16px] font-black text-[#0F172A]">
-                    {isEdit ? "სტუმრის რედაქტირება" : "ახალი სტუმარი"}
+                    {isEdit ? t("editTitle") : t("newTitle")}
                   </h2>
                   <p className="mt-0.5 text-[12px] font-medium text-[#64748B]">
-                    შეინახეთ თქვენი სტუმრების ინფორმაცია
+                    {t("subtitle")}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={tShared("closeAria")}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
               >
                 <X className="h-4 w-4" />
@@ -128,17 +132,17 @@ export default function GuestFormModal({
             </div>
 
             <div className="mt-5 space-y-3">
-              <Field label="სახელი">
+              <Field label={tShared("name")}>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ნინო მახარაძე"
+                  placeholder={t("namePlaceholder")}
                   className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
               </Field>
 
-              <Field label="ტელეფონი">
+              <Field label={tShared("phone")}>
                 <input
                   type="tel"
                   value={phone}
@@ -148,22 +152,22 @@ export default function GuestFormModal({
                 />
               </Field>
 
-              <Field label="ვიზიტის თარიღები">
+              <Field label={t("visitDates")}>
                 <input
                   type="text"
                   value={visitDates}
                   onChange={(e) => setVisitDates(e.target.value)}
-                  placeholder="10-12 თებ."
+                  placeholder={t("visitDatesPlaceholder")}
                   className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
               </Field>
 
-              <Field label="შენიშვნა">
+              <Field label={tShared("note")}>
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={3}
-                  placeholder="მშვიდი, სუფთა სტუმარია."
+                  placeholder={t("notePlaceholder")}
                   className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
               </Field>
@@ -175,7 +179,7 @@ export default function GuestFormModal({
               disabled={!name.trim() || saving}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
             >
-              {saving ? "..." : "შენახვა"}
+              {saving ? tShared("saving") : tShared("save")}
             </button>
           </motion.div>
         </div>

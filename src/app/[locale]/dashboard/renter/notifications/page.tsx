@@ -1,21 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ICON_STYLES,
-  iconForType,
-  relativeTime,
-} from "@/lib/utils/notifications";
+import { formatRelativeTime } from "@/lib/i18n/relativeTime";
+import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
 import type { Tables } from "@/lib/types/database";
 
 type DBNotification = Tables<"notifications">;
 
 export default function RenterNotificationsPage() {
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
   const [items, setItems] = useState<DBNotification[]>([]);
@@ -83,10 +82,10 @@ export default function RenterNotificationsPage() {
       >
         <h1 className="flex items-center gap-3 text-[36px] font-black leading-[44px] text-[#0F172A]">
           <Bell className="h-8 w-8 text-[#2563EB]" fill="#2563EB" />
-          შეტყობინებები
+          {tShared("notifTitle")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          სისტემური შეტყობინებები და მნიშვნელოვანი სიახლეები.
+          {tShared("notifSubtitleSystem")}
         </p>
       </motion.div>
 
@@ -98,14 +97,14 @@ export default function RenterNotificationsPage() {
       >
         <div className="flex items-center justify-between border-b border-[#EEF1F4] px-6 py-4">
           <span className="text-[13px] font-semibold text-[#94A3B8]">
-            ბოლო 30 დღე
+            {tShared("last30Days")}
           </span>
           <button
             type="button"
             onClick={markAllRead}
             className="text-[12px] font-bold text-[#2563EB] hover:underline"
           >
-            ყველას ნაკითხულად მონიშვნა
+            {tShared("markAllRead")}
           </button>
         </div>
 
@@ -119,13 +118,13 @@ export default function RenterNotificationsPage() {
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Bell className="h-10 w-10 text-[#CBD5E1]" />
             <p className="mt-3 text-sm text-[#94A3B8]">
-              ჯერ არ გაქვთ შეტყობინებები
+              {tShared("noNotificationsYet")}
             </p>
           </div>
         ) : (
           <ul>
             {items.map((item, i) => {
-              const iconKey = iconForType(item.type);
+              const iconKey = iconForType(item.type ?? "");
               const style = ICON_STYLES[iconKey];
               const IconCmp = style.Icon;
               return (
@@ -154,7 +153,7 @@ export default function RenterNotificationsPage() {
                     )}
                   </div>
                   <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">
-                    {relativeTime(item.created_at)}
+                    {formatRelativeTime(tShared, item.created_at ?? "")}
                   </span>
                 </li>
               );

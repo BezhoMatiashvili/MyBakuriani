@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useRef, useState } from "react";
 import { ImagePlus, Loader2, Video, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 export type MediaValue = { url: string; type: "image" | "video" } | null;
@@ -33,11 +34,14 @@ export default function MediaUploader({
   value,
   onChange,
   kind,
-  label = "მედია (სურათი ან ვიდეო)",
-  helper = "JPG / PNG / WEBP მაქს. 5MB ან MP4 / WebM მაქს. 50MB",
+  label,
+  helper,
   poster,
   onPosterChange,
 }: Props) {
+  const t = useTranslations("MediaUploader");
+  const displayLabel = label ?? t("defaultLabel");
+  const displayHelper = helper ?? t("defaultHelper");
   const mainInputRef = useRef<HTMLInputElement>(null);
   const posterInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -48,21 +52,21 @@ export default function MediaUploader({
     opts: { posterOnly?: boolean },
   ): Promise<{ url: string; type: "image" | "video" } | null> {
     if (!ACCEPT_TYPES.includes(file.type)) {
-      toast.error(`არასწორი ფაილის ტიპი: ${file.type}`);
+      toast.error(t("invalidFileType", { type: file.type }));
       return null;
     }
     const isImage = IMAGE_TYPES.has(file.type);
     const isVideo = VIDEO_TYPES.has(file.type);
 
     if (opts.posterOnly && !isImage) {
-      toast.error("პოსტერი უნდა იყოს სურათი");
+      toast.error(t("posterMustBeImage"));
       return null;
     }
 
     const cap = isImage ? IMAGE_MAX : VIDEO_MAX;
     if (file.size > cap) {
       const mb = (cap / 1024 / 1024).toFixed(0);
-      toast.error(`ფაილი ძალიან დიდია. მაქს. ${mb}MB`);
+      toast.error(t("fileTooLarge", { mb }));
       return null;
     }
 
@@ -79,7 +83,10 @@ export default function MediaUploader({
       });
       const signed = await signRes.json();
       if (!signRes.ok) {
-        throw new Error(signed.error ?? "ატვირთვა ვერ მოხერხდა");
+        if (signed?.code === "file_too_large") {
+          throw new Error(t("fileTooLarge", { mb: signed.maxMb }));
+        }
+        throw new Error(signed.error ?? t("uploadFailed"));
       }
 
       const putRes = await fetch(signed.signedUrl as string, {
@@ -91,7 +98,7 @@ export default function MediaUploader({
         body: file,
       });
       if (!putRes.ok) {
-        throw new Error("ფაილის ატვირთვა ვერ მოხერხდა");
+        throw new Error(t("fileUploadFailed"));
       }
 
       return {
@@ -99,7 +106,7 @@ export default function MediaUploader({
         type: isVideo ? "video" : "image",
       };
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : t("error"));
       return null;
     }
   }
@@ -136,7 +143,7 @@ export default function MediaUploader({
   return (
     <div className="space-y-2">
       <label className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]">
-        {label}
+        {displayLabel}
       </label>
 
       {value ? (
@@ -162,7 +169,7 @@ export default function MediaUploader({
             type="button"
             onClick={clearMain}
             className="absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#B91C1C] shadow-sm"
-            aria-label="წაშლა"
+            aria-label={t("delete")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -177,16 +184,16 @@ export default function MediaUploader({
           {uploading ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              იტვირთება…
+              {t("uploading")}
             </>
           ) : (
             <>
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2563EB] shadow-sm">
                 <ImagePlus className="h-4 w-4" />
               </span>
-              ფაილის არჩევა
+              {t("chooseFile")}
               <span className="text-[11px] font-medium text-[#94A3B8]">
-                {helper}
+                {displayHelper}
               </span>
             </>
           )}
@@ -215,10 +222,10 @@ export default function MediaUploader({
                   />
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-[#1E293B]">
-                      ვიდეოს პოსტერი
+                      {t("videoPoster")}
                     </p>
                     <p className="text-[11px] font-medium text-[#94A3B8]">
-                      აქცეპტდება მხოლოდ სურათი
+                      {t("posterImageOnly")}
                     </p>
                   </div>
                 </>
@@ -229,10 +236,10 @@ export default function MediaUploader({
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-[#1E293B]">
-                      ვიდეოს პოსტერი (სურვილისამებრ)
+                      {t("videoPosterOptional")}
                     </p>
                     <p className="text-[11px] font-medium text-[#94A3B8]">
-                      პრევიუ, სანამ ვიდეო ჩაიტვირთება
+                      {t("posterPreviewHint")}
                     </p>
                   </div>
                 </>
@@ -250,12 +257,13 @@ export default function MediaUploader({
                 ) : (
                   <ImagePlus className="h-3.5 w-3.5" />
                 )}
-                {poster ? "შეცვლა" : "არჩევა"}
+                {poster ? t("change") : t("choose")}
               </button>
               {poster && (
                 <button
                   type="button"
                   onClick={clearPoster}
+                  aria-label={t("delete")}
                   className="inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-lg border border-[#FECACA] bg-white px-3 text-[11px] font-bold text-[#B91C1C]"
                 >
                   <X className="h-3.5 w-3.5" />

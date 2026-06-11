@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Eye,
@@ -21,6 +23,7 @@ import type { Tables } from "@/lib/types/database";
 
 type ListingRow = {
   id: string;
+  kind: "property" | "service";
   title: string;
   status: string | null;
   views_count: number | null;
@@ -34,15 +37,15 @@ type ListingRow = {
   is_for_sale?: boolean | null;
 };
 
-const CATEGORY_OPTIONS: {
-  label: string;
-  value: "all" | "property" | "transport" | "services";
-}[] = [
-  { label: "ყველა კატეგორია", value: "all" },
-  { label: "ბინები", value: "property" },
-  { label: "ტრანსპორტი", value: "transport" },
-  { label: "სერვისები / ხელოსნები", value: "services" },
-];
+const CATEGORY_VALUES = [
+  "all",
+  "property",
+  "transport",
+  "services",
+  "food",
+  "entertainment",
+  "employment",
+] as const;
 
 const STATUS_BADGES: Record<string, string> = {
   active: "border-[#D1FAE5] bg-[#ECFDF5] text-[#10B981]",
@@ -51,76 +54,85 @@ const STATUS_BADGES: Record<string, string> = {
   draft: "border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "აქტიური",
-  blocked: "გაჩერებული",
-  pending: "მოლოდინში",
-  draft: "შავი ვარიანტი",
-};
-
 export default function ListingsPage() {
+  const t = useTranslations("AdminListings");
+  const tShared = useTranslations("AdminShared");
+  const tDash = useTranslations("DashboardShared");
+
+  const CATEGORY_OPTIONS = useMemo(
+    () =>
+      CATEGORY_VALUES.map((value) => ({
+        value,
+        label: t(`categories.${value}`),
+      })),
+    [t],
+  );
   const [category, setCategory] =
     useState<(typeof CATEGORY_OPTIONS)[number]["value"]>("all");
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [rows, setRows] = useState<ListingRow[]>([]);
-  const [kind, setKind] = useState<"property" | "service">("property");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // One silent auto-retry per failure: transient auth/network hiccups (e.g.
+  // Supabase 522s make requireAdmin briefly return 401) shouldn't strand the
+  // admin on an error screen.
+  const retriedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/admin/listings?category=${category}`, {
-      cache: "no-store",
-    });
-    const text = await res.text();
-    const payload = text
-      ? (JSON.parse(text) as {
-          error?: string;
-          kind?: "property" | "service";
-          rows?: unknown[];
-        })
-      : {};
-    if (!res.ok || !payload.kind || !payload.rows) {
-      toast.error(payload.error ?? `ჩატვირთვა ვერ მოხერხდა (${res.status})`);
-      setRows([]);
-    } else {
-      setKind(payload.kind);
+    try {
+      const res = await fetch(`/api/admin/listings?category=${category}`, {
+        cache: "no-store",
+      });
+      const text = await res.text();
+      const payload = text
+        ? (JSON.parse(text) as { error?: string; rows?: unknown[] })
+        : {};
+      if (!res.ok || !Array.isArray(payload.rows)) {
+        throw new Error(payload.error ?? `status ${res.status}`);
+      }
+      type RowPayload = (Tables<"properties"> | Tables<"services">) & {
+        kind: "property" | "service";
+        owner: { display_name: string } | null;
+      };
       setRows(
-        (payload.rows as (Tables<"properties"> | Tables<"services">)[]).map(
-          (r) => {
-            const asProperty = r as Tables<"properties"> & {
-              owner: { display_name: string } | null;
-            };
-            const asService = r as Tables<"services"> & {
-              owner: { display_name: string } | null;
-            };
-            return {
-              id: r.id,
-              title: r.title,
-              status: r.status,
-              views_count: r.views_count ?? 0,
-              owner: (
-                r as unknown as { owner: { display_name: string } | null }
-              ).owner,
-              price_per_night:
-                payload.kind === "property" ? asProperty.price_per_night : null,
-              sale_price:
-                payload.kind === "property" ? asProperty.sale_price : null,
-              type: payload.kind === "property" ? asProperty.type : undefined,
-              category:
-                payload.kind === "service" ? asService.category : undefined,
-              location: r.location ?? null,
-              is_new:
-                payload.kind === "service" ? (asService.is_new ?? false) : null,
-              is_for_sale:
-                payload.kind === "property" ? asProperty.is_for_sale : null,
-            } satisfies ListingRow;
-          },
-        ),
+        (payload.rows as RowPayload[]).map((r) => {
+          const asProperty = r as Tables<"properties"> & RowPayload;
+          const asService = r as Tables<"services"> & RowPayload;
+          const isProperty = r.kind === "property";
+          return {
+            id: r.id,
+            kind: r.kind,
+            title: r.title,
+            status: r.status,
+            views_count: r.views_count ?? 0,
+            owner: r.owner,
+            price_per_night: isProperty ? asProperty.price_per_night : null,
+            sale_price: isProperty ? asProperty.sale_price : null,
+            type: isProperty ? asProperty.type : undefined,
+            category: isProperty ? undefined : asService.category,
+            location: r.location ?? null,
+            is_new: isProperty ? null : (asService.is_new ?? false),
+            is_for_sale: isProperty ? asProperty.is_for_sale : null,
+          } satisfies ListingRow;
+        }),
       );
+      setLoadError(false);
+      retriedRef.current = false;
+    } catch {
+      setRows([]);
+      setLoadError(true);
+      if (!retriedRef.current) {
+        retriedRef.current = true;
+        setTimeout(() => {
+          load();
+        }, 1500);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [category]);
 
   useEffect(() => {
@@ -130,6 +142,7 @@ export default function ListingsPage() {
 
   async function setStatus(
     id: string,
+    kind: "property" | "service",
     nextStatus: "active" | "blocked" | "draft",
   ) {
     setBusyId(id);
@@ -143,13 +156,13 @@ export default function ListingsPage() {
       const payload = text
         ? (JSON.parse(text) as { error?: string })
         : ({} as { error?: string });
-      if (!res.ok) throw new Error(payload.error ?? "შეცდომა");
+      if (!res.ok) throw new Error(payload.error ?? tShared("error"));
       setRows((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r)),
       );
-      toast.success("სტატუსი განახლდა");
+      toast.success(tShared("statusUpdated"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setBusyId(null);
     }
@@ -167,13 +180,13 @@ export default function ListingsPage() {
       const payload = text
         ? (JSON.parse(text) as { error?: string })
         : ({} as { error?: string });
-      if (!res.ok) throw new Error(payload.error ?? "შეცდომა");
+      if (!res.ok) throw new Error(payload.error ?? tShared("error"));
       setRows((prev) =>
         prev.map((r) => (r.id === id ? { ...r, is_new: nextValue } : r)),
       );
-      toast.success(nextValue ? "მონიშნა „ახალი“-დ" : "მოშორდა „ახალი“ ნიშანი");
+      toast.success(nextValue ? t("markedNew") : t("unmarkedNew"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "შეცდომა");
+      toast.error(err instanceof Error ? err.message : tShared("error"));
     } finally {
       setBusyId(null);
     }
@@ -188,10 +201,10 @@ export default function ListingsPage() {
         <div className="mb-6 flex w-full flex-wrap items-start justify-between gap-6 pb-2">
           <div>
             <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
-              განცხადებების მართვა
+              {t("title")}
             </h1>
             <p className="mt-2 text-sm font-medium leading-[21px] text-[#64748B]">
-              ხარისხის კონტროლი და ოპერაციული მეტრიკები.
+              {t("subtitle")}
             </p>
           </div>
           <div className="relative w-[240px] shrink-0 pt-2">
@@ -249,11 +262,11 @@ export default function ListingsPage() {
 
         <div className="w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
           <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-[#E2E8F0] bg-[#F8FAFCCC] px-6 py-5 text-[11px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
-            <span>ობიექტი</span>
-            <span>მფლობელი</span>
-            <span>ფასი</span>
-            <span>სტატუსი</span>
-            <span className="text-right">ოპერაციები</span>
+            <span>{t("colObject")}</span>
+            <span>{t("colOwner")}</span>
+            <span>{t("colPrice")}</span>
+            <span>{t("colStatus")}</span>
+            <span className="text-right">{t("colActions")}</span>
           </div>
 
           {loading ? (
@@ -262,21 +275,33 @@ export default function ListingsPage() {
                 <Skeleton key={idx} className="h-20 w-full rounded-xl" />
               ))}
             </div>
+          ) : loadError ? (
+            <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 text-sm text-[#94A3B8]">
+              <AlertTriangle className="h-5 w-5 text-[#F59E0B]" />
+              <span>{t("loadError")}</span>
+              <button
+                type="button"
+                onClick={() => load()}
+                className="inline-flex h-10 items-center rounded-xl bg-[#2563EB] px-5 text-sm font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+              >
+                {t("retry")}
+              </button>
+            </div>
           ) : rows.length === 0 ? (
             <div className="flex min-h-[200px] items-center justify-center text-sm text-[#94A3B8]">
-              განცხადებები ვერ მოიძებნა
+              {t("empty")}
             </div>
           ) : (
             rows.map((row) => {
               const price =
                 row.price_per_night != null
-                  ? `${formatPrice(row.price_per_night)}/ღამე`
+                  ? `${formatPrice(row.price_per_night)}${tShared("perNight")}`
                   : row.sale_price != null
                     ? formatPrice(row.sale_price)
                     : "—";
               const isBusy = busyId === row.id;
               const previewUrl = `${
-                kind === "property"
+                row.kind === "property"
                   ? propertyViewUrl({
                       id: row.id,
                       is_for_sale: row.is_for_sale,
@@ -284,8 +309,14 @@ export default function ListingsPage() {
                     })
                   : serviceViewUrl({ id: row.id, category: row.category ?? "" })
               }?preview=1`;
-              const statusLabel =
-                STATUS_LABELS[row.status ?? "pending"] ?? row.status ?? "—";
+              const statusKey = row.status ?? "pending";
+              const statusLabel = (
+                ["active", "blocked", "pending", "draft"] as const
+              ).includes(statusKey as "active")
+                ? tShared(
+                    `listingStatus.${statusKey as "active" | "blocked" | "pending" | "draft"}`,
+                  )
+                : (row.status ?? "—");
               const statusBadge =
                 STATUS_BADGES[row.status ?? "pending"] ?? STATUS_BADGES.pending;
               const isExpanded = expandedId === row.id;
@@ -314,8 +345,11 @@ export default function ListingsPage() {
                         {row.title}
                       </p>
                       <p className="mt-1 text-[11px] font-bold text-[#94A3B8]">
-                        {row.type ?? row.category ?? ""} •{" "}
-                        {row.views_count ?? 0} ნახვა • {row.location ?? "—"}
+                        {tShared("viewsMeta", {
+                          meta: row.type ?? row.category ?? "",
+                          views: row.views_count ?? 0,
+                          location: row.location ?? "—",
+                        })}
                       </p>
                     </div>
                     <p className="text-sm font-semibold text-[#334155]">
@@ -334,12 +368,12 @@ export default function ListingsPage() {
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] transition-colors hover:bg-[#EFF6FF] hover:text-[#1D4ED8]"
-                        aria-label="ნახე საიტზე"
-                        title="ნახე საიტზე"
+                        aria-label={t("viewOnSite")}
+                        title={t("viewOnSite")}
                       >
                         <Eye className="h-3 w-3" />
                       </a>
-                      {kind === "service" && (
+                      {row.kind === "service" && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -353,11 +387,9 @@ export default function ListingsPage() {
                               : "border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8]"
                           }`}
                           aria-label={
-                            row.is_new
-                              ? "„ახალი“ ნიშნის მოშორება"
-                              : "„ახალი“-დ მონიშვნა"
+                            row.is_new ? t("removeNewBadge") : t("markNew")
                           }
-                          title={row.is_new ? "ახალი (ჩართული)" : "ახალი"}
+                          title={row.is_new ? t("newOn") : t("newOff")}
                         >
                           <Sparkles className="h-3 w-3" />
                         </button>
@@ -368,13 +400,14 @@ export default function ListingsPage() {
                           e.stopPropagation();
                           setStatus(
                             row.id,
+                            row.kind,
                             row.status === "active" ? "blocked" : "active",
                           );
                         }}
                         disabled={isBusy}
                         className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] disabled:opacity-50"
                         aria-label={
-                          row.status === "active" ? "გაჩერება" : "აქტივაცია"
+                          row.status === "active" ? t("pause") : t("activate")
                         }
                       >
                         {isBusy ? (
@@ -389,11 +422,11 @@ export default function ListingsPage() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setStatus(row.id, "draft");
+                          setStatus(row.id, row.kind, "draft");
                         }}
                         disabled={isBusy}
                         className="inline-flex h-9 min-h-[36px] w-9 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] disabled:opacity-50"
-                        aria-label="Draft-ში გადატანა"
+                        aria-label={t("moveToDraft")}
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -410,7 +443,7 @@ export default function ListingsPage() {
                         className="overflow-hidden"
                       >
                         <ListingAuditPanel
-                          kind={kind}
+                          kind={row.kind}
                           id={row.id}
                           onModerated={() => {
                             setExpandedId(null);

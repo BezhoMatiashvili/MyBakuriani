@@ -18,6 +18,7 @@ import {
   Video,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
@@ -44,22 +45,22 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 const ITEMS_PER_PAGE = 9;
 
 const STATUS_CARDS = [
-  { label: "ამინდი", value: "-4°C", fontSize: "text-[24px]" },
+  { labelKey: "weather", value: "-4°C", fontSize: "text-[24px]" },
   {
-    label: "საბაგიროები",
-    value: "3/5 ღიაა",
+    labelKey: "lifts",
+    valueKey: "liftsValue",
     fontSize: "text-[20px]",
     iconType: "ski" as const,
   },
   {
-    label: "გზა თბილისიდან",
-    value: "თავისუფალი",
+    labelKey: "road",
+    valueKey: "roadValue",
     fontSize: "text-[18px]",
     iconType: "car" as const,
   },
   {
-    label: "კამერები",
-    value: "2 ლოკაცია",
+    labelKey: "cameras",
+    valueKey: "camerasValue",
     fontSize: "text-[18px]",
     iconType: "camera" as const,
     hasRedDot: true,
@@ -71,6 +72,10 @@ interface Props {
 }
 
 export default function HotelsPageClient({ properties }: Props) {
+  const t = useTranslations("HotelsPage");
+  const tLanding = useTranslations("Landing");
+  const tStatus = useTranslations("StatusCards");
+  const tShared = useTranslations("Shared");
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -182,8 +187,8 @@ export default function HotelsPageClient({ properties }: Props) {
         <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
           <ScrollReveal>
             <h1 className="text-2xl font-black leading-[1] tracking-[-1.25px] text-white sm:text-4xl md:text-[50px] md:leading-[50px]">
-              ყველაზე სანდო გზამკვლევი{" "}
-              <span className="text-[#38BDF8]">ბაკურიანში</span>
+              {tLanding("trustedGuide")}{" "}
+              <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
             </h1>
           </ScrollReveal>
 
@@ -226,10 +231,10 @@ export default function HotelsPageClient({ properties }: Props) {
                   <div className="flex flex-col gap-1">
                     <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
                       <span className="size-2 rounded-full bg-[#EF4444]" />
-                      კამერები
+                      {tStatus("cameras")}
                     </span>
                     <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                      2 ლოკაცია
+                      {tStatus("camerasValue")}
                       <Video className="size-[18px] text-[#CBD5E1]" />
                     </span>
                   </div>
@@ -238,12 +243,12 @@ export default function HotelsPageClient({ properties }: Props) {
                   type="button"
                   className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
                 >
-                  კუპონის აღება
+                  {tLanding("getCoupon")}
                 </button>
                 <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
                   <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
                     <span className="text-[12px]">{"\uD83D\uDD25"}</span>
-                    მხოლოდ ფასდაკლებები
+                    {tLanding("discountsOnly")}
                   </span>
                   <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
                     <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
@@ -263,7 +268,7 @@ export default function HotelsPageClient({ properties }: Props) {
           >
             {STATUS_CARDS.map((card) => (
               <div
-                key={card.label}
+                key={card.labelKey}
                 className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]"
               >
                 <div className="flex flex-col gap-1">
@@ -271,12 +276,12 @@ export default function HotelsPageClient({ properties }: Props) {
                     {card.hasRedDot && (
                       <span className="size-2 rounded-full bg-[#EF4444]" />
                     )}
-                    {card.label}
+                    {tStatus(card.labelKey)}
                   </span>
                   <span
                     className={`flex items-center gap-2 ${card.fontSize} font-black leading-[28px] text-white`}
                   >
-                    {card.value}
+                    {card.valueKey ? tStatus(card.valueKey) : card.value}
                     {card.iconType === "car" && (
                       <Car className="size-[18px] text-[#CBD5E1]" />
                     )}
@@ -302,13 +307,16 @@ export default function HotelsPageClient({ properties }: Props) {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                სასტუმროები
+                {tLanding("hotels")}
               </h2>
               <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
-                სრული სერვისი: საუზმე, აუზი, სპა
+                {tLanding("hotelsSubtitle")}
                 {filteredProperties.length > 0 && (
                   <span className="ml-1 text-[#94A3B8]">
-                    · {filteredProperties.length} განცხადება
+                    ·{" "}
+                    {tShared("listingsCount", {
+                      count: filteredProperties.length,
+                    })}
                   </span>
                 )}
               </p>
@@ -324,7 +332,7 @@ export default function HotelsPageClient({ properties }: Props) {
                     : "border border-[#E2E8F0] bg-white text-[#64748B]",
                 )}
               >
-                მხოლოდ ფასდაკლებები
+                {tLanding("discountsOnly")}
                 <div
                   className={cn(
                     "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
@@ -346,7 +354,7 @@ export default function HotelsPageClient({ properties }: Props) {
                 className="flex items-center gap-1.5 rounded-full border border-[#2563EB] px-4 py-2 text-[12px] font-bold text-[#2563EB] transition-colors hover:bg-[#EFF6FF]"
               >
                 <Plus className="size-3.5" />
-                დამატება
+                {tLanding("add")}
               </button>
             </div>
           </div>
@@ -358,10 +366,10 @@ export default function HotelsPageClient({ properties }: Props) {
               <Building className="h-8 w-8 text-[#94A3B8]" />
             </div>
             <h3 className="text-[17px] font-black leading-[21px] text-[#1E293B]">
-              სასტუმროები ვერ მოიძებნა
+              {t("notFound")}
             </h3>
             <p className="mt-1 text-[13px] leading-[20px] text-[#64748B]">
-              სცადეთ ფილტრების შეცვლა
+              {tShared("tryChangeFilters")}
             </p>
           </div>
         ) : (

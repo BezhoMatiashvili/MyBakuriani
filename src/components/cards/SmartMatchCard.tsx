@@ -4,27 +4,15 @@ import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 
 interface RequestItem {
-  title: string;
-  details: string;
+  titleKey: "mock1Title" | "mock2Title" | "mock3Title";
+  detailsKey: "mock1Details" | "mock2Details" | "mock3Details";
   actionType: "offer" | "verify";
 }
 
 const mockRequests: RequestItem[] = [
-  {
-    title: "2 ოთახიანი • დიდველი",
-    details: "15-18 თებ • 4 სტუმარი • ბიუჯეტი: 100₾",
-    actionType: "offer",
-  },
-  {
-    title: "კოტეჯი • პარკთან",
-    details: "20-22 თებ • 8 სტუმარი • Pet Friendly",
-    actionType: "verify",
-  },
-  {
-    title: "სტუდიო • ცენტრი",
-    details: "10-12 თებ • 2 სტუმარი • ბიუჯეტი: 60₾",
-    actionType: "offer",
-  },
+  { titleKey: "mock1Title", detailsKey: "mock1Details", actionType: "offer" },
+  { titleKey: "mock2Title", detailsKey: "mock2Details", actionType: "verify" },
+  { titleKey: "mock3Title", detailsKey: "mock3Details", actionType: "offer" },
 ];
 
 interface SmartMatchCardProps {
@@ -81,10 +69,10 @@ export default function SmartMatchCard({
             >
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-bold leading-[21px] text-white">
-                  {request.title}
+                  {t(request.titleKey)}
                 </p>
                 <p className="mt-0.5 text-[11px] font-normal leading-[16px] text-[#BFDBFE]">
-                  {request.details}
+                  {t(request.detailsKey)}
                 </p>
               </div>
               {request.actionType === "offer" ? (

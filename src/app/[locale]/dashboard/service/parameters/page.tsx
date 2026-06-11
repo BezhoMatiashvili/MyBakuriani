@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Check, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +16,8 @@ interface NotifPrefs {
 }
 
 export default function ServiceParametersPage() {
+  const t = useTranslations("ServiceParameters");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -125,10 +128,10 @@ export default function ServiceParametersPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          პროფილის პარამეტრები
+          {t("title")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          მართეთ თქვენი პროფილი და შეტყობინებების პარამეტრები.
+          {t("subtitle")}
         </p>
       </motion.div>
 
@@ -144,10 +147,10 @@ export default function ServiceParametersPage() {
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[20px] font-black">
               {[firstName, lastName].filter(Boolean).join(" ") ||
-                "მომხმარებელი"}
+                tShared("defaultUser")}
             </h2>
             <p className="mt-0.5 text-[12px] font-medium text-white/80">
-              სერვისის პროვაიდერი
+              {t("providerRole")}
             </p>
           </div>
           {profile?.rating != null && (
@@ -168,13 +171,13 @@ export default function ServiceParametersPage() {
           className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
           <h2 className="text-[15px] font-black text-[#0F172A]">
-            პირადი დეტალები
+            {t("personalDetails")}
           </h2>
 
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                სახელი
+                {tShared("firstName")}
               </label>
               {loading ? (
                 <Skeleton className="h-11 rounded-xl" />
@@ -190,7 +193,7 @@ export default function ServiceParametersPage() {
 
             <div>
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                გვარი
+                {tShared("lastName")}
               </label>
               {loading ? (
                 <Skeleton className="h-11 rounded-xl" />
@@ -206,7 +209,7 @@ export default function ServiceParametersPage() {
 
             <div>
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                პირადი ნომერი
+                {tShared("personalId")}
               </label>
               <input
                 type="text"
@@ -219,7 +222,7 @@ export default function ServiceParametersPage() {
 
             <div>
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                ტელეფონის ნომერი
+                {tShared("phoneNumber")}
               </label>
               {loading ? (
                 <Skeleton className="h-11 rounded-xl" />
@@ -236,7 +239,7 @@ export default function ServiceParametersPage() {
 
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                ელ.ფოსტა
+                {tShared("email")}
               </label>
               <input
                 type="email"
@@ -248,7 +251,7 @@ export default function ServiceParametersPage() {
 
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
-                WhatsApp ნომერი
+                {tShared("whatsappNumber")}
               </label>
               <input
                 type="tel"
@@ -267,10 +270,10 @@ export default function ServiceParametersPage() {
           >
             {saved && <Check className="h-4 w-4" />}
             {saving
-              ? "შენახვა..."
+              ? tShared("saving")
               : saved
-                ? "შენახულია"
-                : "ცვლილებების შენახვა"}
+                ? tShared("saved")
+                : tShared("saveChanges")}
           </button>
         </motion.form>
 
@@ -281,25 +284,25 @@ export default function ServiceParametersPage() {
           className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
         >
           <h2 className="text-[15px] font-black text-[#0F172A]">
-            შეტყობინებების მართვა
+            {tShared("notifManagement")}
           </h2>
 
           <div className="mt-5 space-y-3">
             {[
               {
                 key: "newInquiry" as const,
-                title: "ახალი მოთხოვნა",
-                sub: "ვებ-შეტყობინება და SMS",
+                title: tShared("notifNewRequest"),
+                sub: tShared("channelWebSms"),
               },
               {
                 key: "newReview" as const,
-                title: "ახალი შეფასება",
-                sub: "მხოლოდ ვებ-შეტყობინება",
+                title: tShared("notifNewReview"),
+                sub: tShared("channelWebOnly"),
               },
               {
                 key: "dailyReport" as const,
-                title: "ყოველდღიური რეპორტი",
-                sub: "მხოლოდ ელ-ფოსტა",
+                title: tShared("notifDailyReport"),
+                sub: tShared("channelEmailOnly"),
               },
             ].map((row) => (
               <div
