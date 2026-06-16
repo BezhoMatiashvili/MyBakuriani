@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { sanitizeNumericString, clampNumericString } from "@/lib/utils/number";
 
 type ZoneIconValue = "mountain" | "tree" | "pin";
 
@@ -645,7 +646,25 @@ function ZoneFormFields({
       <Field label="Latitude">
         <input
           value={draft.lat}
-          onChange={(e) => onChange({ ...draft, lat: e.target.value })}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              lat: sanitizeNumericString(e.target.value, {
+                allowNegative: true,
+                allowDecimal: true,
+              }),
+            })
+          }
+          onBlur={() =>
+            onChange({
+              ...draft,
+              lat: clampNumericString(draft.lat, {
+                min: -90,
+                max: 90,
+                decimals: 6,
+              }),
+            })
+          }
           placeholder="41.7385"
           inputMode="decimal"
           className="zone-input"
@@ -654,7 +673,25 @@ function ZoneFormFields({
       <Field label="Longitude">
         <input
           value={draft.lng}
-          onChange={(e) => onChange({ ...draft, lng: e.target.value })}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              lng: sanitizeNumericString(e.target.value, {
+                allowNegative: true,
+                allowDecimal: true,
+              }),
+            })
+          }
+          onBlur={() =>
+            onChange({
+              ...draft,
+              lng: clampNumericString(draft.lng, {
+                min: -180,
+                max: 180,
+                decimals: 6,
+              }),
+            })
+          }
           placeholder="43.5175"
           inputMode="decimal"
           className="zone-input"

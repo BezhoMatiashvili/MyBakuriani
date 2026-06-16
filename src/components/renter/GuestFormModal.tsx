@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, UserPlus } from "lucide-react";
+import DateField from "@/components/shared/DateField";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables } from "@/lib/types/database";
@@ -153,12 +154,11 @@ export default function GuestFormModal({
               </Field>
 
               <Field label={t("visitDates")}>
-                <input
-                  type="text"
+                <DateField
                   value={visitDates}
-                  onChange={(e) => setVisitDates(e.target.value)}
+                  onChange={setVisitDates}
+                  clearable
                   placeholder={t("visitDatesPlaceholder")}
-                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
               </Field>
 

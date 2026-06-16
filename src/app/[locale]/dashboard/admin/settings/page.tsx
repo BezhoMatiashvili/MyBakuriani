@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import NumberField from "@/components/shared/NumberField";
 import CreatePackageModal, {
   type PackageCategory,
 } from "@/components/admin/CreatePackageModal";
@@ -286,27 +287,27 @@ export default function SettingsPage() {
                           ) : null}
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min={0}
-                              value={draft}
-                              onChange={(e) =>
+                          <div
+                            className="w-32"
+                            onBlur={() => {
+                              if (draft !== pkg.amount_gel) {
+                                updatePackage(pkg.id, { amount_gel: draft });
+                              }
+                            }}
+                          >
+                            <NumberField
+                              value={String(draft)}
+                              onChange={(v) =>
                                 setDrafts((prev) => ({
                                   ...prev,
-                                  [pkg.id]: Number(e.target.value),
+                                  [pkg.id]: Number(v),
                                 }))
                               }
-                              onBlur={() => {
-                                if (draft !== pkg.amount_gel) {
-                                  updatePackage(pkg.id, { amount_gel: draft });
-                                }
-                              }}
-                              className="h-[42px] w-24 rounded-lg border border-[#E2E8F0] bg-white px-3 pr-8 text-center text-base font-black leading-6 text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
+                              min={0}
+                              max={100000}
+                              decimals={2}
+                              suffix="₾"
                             />
-                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#94A3B8]">
-                              ₾
-                            </span>
                           </div>
                           <button
                             type="button"

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X, Check, ChevronDown } from "lucide-react";
 import DateField from "@/components/shared/DateField";
+import NumberField from "@/components/shared/NumberField";
 
 type CategoryKey =
   | "all"
@@ -218,15 +219,14 @@ export default function NewBookingRequestModal({
                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                     {t("guestsCount")}
                   </label>
-                  <input
-                    type="number"
+                  <NumberField
+                    value={String(guestsCount)}
+                    onChange={(v) => setGuestsCount(Number(v) || 1)}
                     min={1}
                     max={20}
-                    value={guestsCount}
-                    onChange={(e) =>
-                      setGuestsCount(Math.max(1, Number(e.target.value) || 1))
-                    }
-                    className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
+                    integer
+                    stepper
+                    accent="green"
                   />
                 </div>
 
@@ -235,21 +235,21 @@ export default function NewBookingRequestModal({
                     {t("budgetLabel")}
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="number"
-                      min={0}
-                      placeholder={t("budgetMin")}
+                    <NumberField
                       value={budgetMin}
-                      onChange={(e) => setBudgetMin(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
-                    />
-                    <input
-                      type="number"
+                      onChange={setBudgetMin}
                       min={0}
-                      placeholder={t("budgetMax")}
+                      integer
+                      accent="green"
+                      placeholder={t("budgetMin")}
+                    />
+                    <NumberField
                       value={budgetMax}
-                      onChange={(e) => setBudgetMax(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/15"
+                      onChange={setBudgetMax}
+                      min={0}
+                      integer
+                      accent="green"
+                      placeholder={t("budgetMax")}
                     />
                   </div>
                 </div>

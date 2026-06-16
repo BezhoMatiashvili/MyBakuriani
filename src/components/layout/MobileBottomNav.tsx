@@ -118,6 +118,7 @@ function getTabs(role: string): TabItem[] {
     case "transport":
     case "employment":
     case "handyman":
+    case "services":
       return [{ labelKey: "home", href: "/", icon: Home }];
     case "guest":
     default:

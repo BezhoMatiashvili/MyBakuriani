@@ -187,7 +187,9 @@
     "switcher": {
       "rentalsRent": "Rentals (Rent)",
       "employment": "Employment",
-      "services": "Transport / Service / Employment / Entertainment",
+      "transport": "Transport",
+      "entertainment": "Entertainment",
+      "services": "Services",
       "rentalsSale": "Rentals (Sale)",
       "food": "Food",
       "guest": "Guest",
@@ -990,7 +992,10 @@
     "clear": "Clear",
     "done": "Done",
     "hours": "Hours",
-    "minutes": "Minutes"
+    "minutes": "Minutes",
+    "from": "From",
+    "to": "To",
+    "endAfterStart": "End time must be after start time"
   },
   "BakurianiMap": {
     "bakuriani": "Bakuriani",
@@ -1756,6 +1761,8 @@
   "CreateShared": {
     "listingNotFound": "Listing not found",
     "genericError": "Error. Please try again.",
+    "invalidPhone": "Enter a valid number (9 digits, starting with 5)",
+    "invalidPersonalId": "Personal ID must be 11 digits",
     "save": "Save",
     "publishListing": "Publish listing",
     "loading": "Loading...",
@@ -1781,6 +1788,7 @@
     "eg": "e.g. {value}",
     "sqm": "sq.m",
     "or": "or",
+    "notSpecified": "Not specified",
     "onlyUnderConstruction": "Under construction only"
   },
   "ListingOptions": {
@@ -2091,7 +2099,15 @@
     "priceUnitHour": "hour",
     "profilePhoto": "Profile photo",
     "uploadProfilePhoto": "Upload profile photo",
-    "profilePhotoHint": "Upload your photo or company logo (required)"
+    "profilePhotoHint": "Upload your photo or company logo (required)",
+    "enterName": "Enter your name",
+    "enterExperience": "Enter your experience",
+    "enterServiceTitle": "Enter a title",
+    "uploadProfilePhotoError": "Upload a profile photo",
+    "chooseCoverageZone": "Choose at least one coverage zone",
+    "enterDescription": "Fill in the description",
+    "enterWorkingHours": "Enter working hours",
+    "enterPrice": "Enter a price"
   },
   "CreateTransport": {
     "pageTitle": "Transport & transfers",
@@ -2140,7 +2156,10 @@
     "tariff": "Tariff (GEL)",
     "priceGivenFor": "Price is for",
     "uploadPhotos": "Upload photos",
-    "phone": "Phone"
+    "phone": "Phone",
+    "enterTitle": "Enter a title",
+    "enterDescription": "Fill in the description",
+    "enterPrice": "Enter a price"
   },
   "CreateEmployment": {
     "pageTitle": "Jobs in Bakuriani",
@@ -2162,7 +2181,12 @@
     "requirements": "Requirements & skills",
     "requirementsPlaceholder": "Conversational English or Russian...",
     "preferredLanguages": "Preferred languages",
-    "workExperience": "Work experience"
+    "workExperience": "Work experience",
+    "enterEmployer": "Enter the employer",
+    "chooseLocation": "Choose a location",
+    "enterPosition": "Enter the position",
+    "enterSalary": "Enter the salary",
+    "enterJobDescription": "Fill in the job description"
   },
   "CreateSale": {
     "pageTitle": "Buy / Sell",
@@ -2194,7 +2218,10 @@
     "enterCadastral": "Enter cadastral code",
     "invalidArea": "Invalid area",
     "invalidPrice": "Invalid price",
-    "soldReservedExceeds": "Sold + reserved must not exceed total number of units"
+    "soldReservedExceeds": "Sold + reserved must not exceed total number of units",
+    "pricePerSqmLabel": "Price per m² (USD)",
+    "priceRequiredOneOf": "Enter the total price or the price per m²",
+    "orFillPerSqm": "or fill in the price per m²"
   },
   "DateRangeFilter": {
     "presets": {
@@ -2403,7 +2430,6 @@
         "closed": "Closed"
       },
       "sources": {
-        "smart_match": "Smart match",
         "direct": "Direct",
         "call": "Call",
         "walk_in": "Walk-in",
@@ -2457,9 +2483,8 @@
       "maxSize": "Max. 10MB/30MB",
       "videoPlaceholder": "Video link (optional) — https://...",
       "status": "Status",
-      "description": "Description (what was done)",
+      "description": "Description (what was done) — optional",
       "descriptionPlaceholder": "e.g. Floor 4 roofing completed, facade installation started…",
-      "noteRequired": "Fill in the description (what was done).",
       "savedHistoryFailed": "Update saved, but could not add to history.",
       "published": "Update published 🚀",
       "publishing": "Publishing…",
@@ -2550,6 +2575,7 @@
     "back": "Back",
     "completed": "Completed",
     "active": "Active",
+    "pending": "Under review",
     "cancelled": "Cancelled",
     "published": "Published",
     "paused": "Paused",

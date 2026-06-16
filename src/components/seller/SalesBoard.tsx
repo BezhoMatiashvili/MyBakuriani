@@ -78,14 +78,7 @@ const STAGES: {
 
 const HIGH_PRIORITY_CHIP = "bg-[#DCFCE7] text-[#15803D]";
 
-const SOURCE_KEYS = [
-  "smart_match",
-  "direct",
-  "call",
-  "walk_in",
-  "referral",
-  "other",
-] as const;
+const SOURCE_KEYS = ["direct", "call", "walk_in", "referral", "other"] as const;
 
 function formatBudget(
   min: number | null,

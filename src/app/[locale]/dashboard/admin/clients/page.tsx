@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import Modal from "@/components/shared/Modal";
+import NumberField from "@/components/shared/NumberField";
 import { AuditTimeline } from "@/components/admin/AuditTimeline";
 import { Link } from "@/i18n/navigation";
 import { formatPhone, formatPrice } from "@/lib/utils/format";
@@ -304,19 +305,15 @@ export default function ClientsPage() {
             <label className="text-[12px] font-bold text-[#0F172A]">
               {t("bonusAmount")} <span className="text-[#DC2626]">*</span>
             </label>
-            <input
-              type="number"
-              min={0.01}
-              step={0.01}
-              value={bonusAmount}
-              onChange={(e) =>
-                setBonusAmount(
-                  e.target.value === "" ? "" : Number(e.target.value),
-                )
-              }
+            <NumberField
+              value={bonusAmount === "" ? "" : String(bonusAmount)}
+              onChange={(v) => setBonusAmount(v === "" ? "" : Number(v))}
+              min={0}
+              max={50000}
+              decimals={2}
+              suffix="₾"
               placeholder="0"
-              className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB]"
-              autoFocus
+              accent="green"
             />
           </div>
           <div className="space-y-1.5">

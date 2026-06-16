@@ -30,6 +30,7 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { formatPhone } from "@/lib/utils/format";
+import { clampNumber } from "@/lib/utils/number";
 import type {
   AuditPayload,
   AuditPropertyListing,
@@ -599,11 +600,15 @@ function PropertyForm({
             value={effective<number | null>("area_sqm", null)}
             onChange={(v) => setField("area_sqm", v)}
             step="0.1"
+            min={0}
+            max={10000}
           />
           <NumberField
             label={t("distanceToSlope")}
             value={effective<number | null>("distance_to_slope_m", null)}
             onChange={(v) => setField("distance_to_slope_m", v)}
+            min={0}
+            max={50000}
           />
         </Grid2>
         <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
@@ -637,16 +642,25 @@ function PropertyForm({
             label={t("rooms")}
             value={effective<number | null>("rooms", null)}
             onChange={(v) => setField("rooms", v)}
+            min={0}
+            max={50}
+            integer
           />
           <NumberField
             label={t("bathrooms")}
             value={effective<number | null>("bathrooms", null)}
             onChange={(v) => setField("bathrooms", v)}
+            min={0}
+            max={30}
+            integer
           />
           <NumberField
             label={t("capacity")}
             value={effective<number | null>("capacity", null)}
             onChange={(v) => setField("capacity", v)}
+            min={1}
+            max={200}
+            integer
           />
           <SelectField
             label={t("roomType")}
@@ -664,11 +678,17 @@ function PropertyForm({
             label={t("hotelStars")}
             value={effective<number | null>("hotel_stars", null)}
             onChange={(v) => setField("hotel_stars", v)}
+            step="0.5"
+            min={0}
+            max={5}
           />
           <NumberField
             label={t("minNights")}
             value={effective<number | null>("min_booking_days", null)}
             onChange={(v) => setField("min_booking_days", v)}
+            min={0}
+            max={365}
+            integer
           />
         </Grid3>
       </Section>
@@ -681,6 +701,8 @@ function PropertyForm({
               value={effective<number | null>("price_per_night", null)}
               onChange={(v) => setField("price_per_night", v)}
               step="0.01"
+              min={0}
+              max={100000}
             />
           )}
           {isForSale && (
@@ -689,6 +711,8 @@ function PropertyForm({
               value={effective<number | null>("sale_price", null)}
               onChange={(v) => setField("sale_price", v)}
               step="0.01"
+              min={0}
+              max={1000000}
             />
           )}
           <TextField
@@ -701,18 +725,24 @@ function PropertyForm({
             label={t("discountPercent")}
             value={effective<number | null>("discount_percent", null)}
             onChange={(v) => setField("discount_percent", v)}
+            min={0}
+            max={100}
           />
           <NumberField
             label={t("cleaningFee")}
             value={effective<number | null>("cleaning_fee", null)}
             onChange={(v) => setField("cleaning_fee", v)}
             step="0.01"
+            min={0}
+            max={10000}
           />
           <NumberField
             label={t("roiPercent")}
             value={effective<number | null>("roi_percent", null)}
             onChange={(v) => setField("roi_percent", v)}
             step="0.1"
+            min={0}
+            max={100}
           />
         </Grid3>
       </Section>
@@ -829,11 +859,17 @@ function PropertyForm({
                 null,
               )}
               onChange={(v) => setField("construction_progress_percent", v)}
+              min={0}
+              max={100}
+              integer
             />
             <NumberField
               label={t("completionYear")}
               value={effective<number | null>("completion_year", null)}
               onChange={(v) => setField("completion_year", v)}
+              min={2020}
+              max={2100}
+              integer
             />
             <TextField
               label={t("developer")}
@@ -933,6 +969,8 @@ function ServiceForm({
             value={effective<number | null>("price", null)}
             onChange={(v) => setField("price", v)}
             step="0.01"
+            min={0}
+            max={100000}
           />
           <TextField
             label={t("priceUnit")}
@@ -950,6 +988,8 @@ function ServiceForm({
             label={t("discountPercent")}
             value={effective<number | null>("discount_percent", null)}
             onChange={(v) => setField("discount_percent", v)}
+            min={0}
+            max={100}
           />
         </Grid3>
       </Section>
@@ -1018,6 +1058,9 @@ function ServiceForm({
               label={t("vehicleCapacity")}
               value={effective<number | null>("vehicle_capacity", null)}
               onChange={(v) => setField("vehicle_capacity", v)}
+              min={1}
+              max={100}
+              integer
             />
             <TextField
               label={t("transportType")}
@@ -1056,16 +1099,22 @@ function ServiceForm({
               label={t("salaryMin")}
               value={effective<number | null>("salary_min", null)}
               onChange={(v) => setField("salary_min", v)}
+              min={0}
+              max={1000000}
             />
             <NumberField
               label={t("salaryMax")}
               value={effective<number | null>("salary_max", null)}
               onChange={(v) => setField("salary_max", v)}
+              min={0}
+              max={1000000}
             />
             <NumberField
               label={t("salaryDaily")}
               value={effective<number | null>("salary_daily", null)}
               onChange={(v) => setField("salary_daily", v)}
+              min={0}
+              max={50000}
             />
             <TextField
               label={t("salaryType")}
@@ -1338,11 +1387,17 @@ function NumberField({
   value,
   onChange,
   step = "1",
+  min,
+  max,
+  integer,
 }: {
   label: string;
   value: number | null;
   onChange: (v: number | null) => void;
   step?: string;
+  min?: number;
+  max?: number;
+  integer?: boolean;
 }) {
   return (
     <label className="block">
@@ -1352,12 +1407,19 @@ function NumberField({
       <input
         type="number"
         step={step}
+        min={min}
+        max={max}
         value={value ?? ""}
         onChange={(e) => {
           const v = e.target.value;
           if (v === "") return onChange(null);
           const n = Number(v);
           onChange(Number.isFinite(n) ? n : null);
+        }}
+        onBlur={() => {
+          if (value === null) return;
+          const clamped = clampNumber(value, { min, max, integer });
+          if (clamped !== value) onChange(clamped);
         }}
         className={inputClass}
       />

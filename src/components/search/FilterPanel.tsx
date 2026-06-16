@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import NumberField from "@/components/shared/NumberField";
 import { AMENITY_GROUPS } from "@/lib/constants/listing-options";
 
 const PROPERTY_TYPE_KEYS = [
@@ -152,32 +153,21 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
         onToggle={() => toggleSection("price")}
       >
         <div className="flex items-center gap-2">
-          <input
-            type="number"
+          <NumberField
+            integer
             min={0}
             placeholder={t("min")}
-            value={filters.priceMin}
-            onChange={(e) =>
-              updateFilters({
-                priceMin: e.target.value ? Number(e.target.value) : "",
-              })
-            }
-            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
+            value={filters.priceMin === "" ? "" : String(filters.priceMin)}
+            onChange={(v) => updateFilters({ priceMin: v ? Number(v) : "" })}
           />
           <span className="text-[13px] text-[#94A3B8]">–</span>
-          <input
-            type="number"
+          <NumberField
+            integer
             min={0}
             placeholder={t("max")}
-            value={filters.priceMax}
-            onChange={(e) =>
-              updateFilters({
-                priceMax: e.target.value ? Number(e.target.value) : "",
-              })
-            }
-            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
+            value={filters.priceMax === "" ? "" : String(filters.priceMax)}
+            onChange={(v) => updateFilters({ priceMax: v ? Number(v) : "" })}
           />
-          <span className="text-sm text-[#94A3B8]">₾</span>
         </div>
       </FilterSection>
 
@@ -219,30 +209,20 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
         onToggle={() => toggleSection("area")}
       >
         <div className="flex items-center gap-2">
-          <input
-            type="number"
+          <NumberField
+            integer
             min={0}
             placeholder={t("min")}
-            value={filters.areaMin}
-            onChange={(e) =>
-              updateFilters({
-                areaMin: e.target.value ? Number(e.target.value) : "",
-              })
-            }
-            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
+            value={filters.areaMin === "" ? "" : String(filters.areaMin)}
+            onChange={(v) => updateFilters({ areaMin: v ? Number(v) : "" })}
           />
           <span className="text-[13px] text-[#94A3B8]">–</span>
-          <input
-            type="number"
+          <NumberField
+            integer
             min={0}
             placeholder={t("max")}
-            value={filters.areaMax}
-            onChange={(e) =>
-              updateFilters({
-                areaMax: e.target.value ? Number(e.target.value) : "",
-              })
-            }
-            className="h-[41px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] outline-none placeholder:text-[#94A3B8] focus:border-[#DBEAFE] focus:ring-2 focus:ring-[#DBEAFE]/50"
+            value={filters.areaMax === "" ? "" : String(filters.areaMax)}
+            onChange={(v) => updateFilters({ areaMax: v ? Number(v) : "" })}
           />
           <span className="text-[13px] text-[#94A3B8]">{t("sqm")}</span>
         </div>

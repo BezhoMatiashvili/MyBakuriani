@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import DateField from "@/components/shared/DateField";
+import NumberField from "@/components/shared/NumberField";
 import { formatDate } from "@/lib/utils/format";
 
 interface Promocode {
@@ -151,18 +152,28 @@ export default function PromoCodesPage() {
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
                   {t("discount")}
                 </label>
-                <input
-                  type="number"
-                  value={form.discount_value}
-                  min={1}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      discount_value: Number(e.target.value),
-                    }))
-                  }
-                  className="h-[51px] w-full rounded-xl border border-[#E2E8F0] bg-white px-[14px] text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                />
+                {form.discount_type === "percent" ? (
+                  <NumberField
+                    value={String(form.discount_value)}
+                    onChange={(v) =>
+                      setForm((f) => ({ ...f, discount_value: Number(v) }))
+                    }
+                    min={0}
+                    max={100}
+                    integer
+                  />
+                ) : (
+                  <NumberField
+                    value={String(form.discount_value)}
+                    onChange={(v) =>
+                      setForm((f) => ({ ...f, discount_value: Number(v) }))
+                    }
+                    min={0}
+                    max={50000}
+                    decimals={2}
+                    suffix="₾"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
@@ -189,13 +200,12 @@ export default function PromoCodesPage() {
                 <label className="block pl-1 text-[12px] font-bold leading-[18px] text-[#334155]">
                   {t("maxUses")}
                 </label>
-                <input
-                  type="number"
+                <NumberField
                   value={form.max_uses}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, max_uses: e.target.value }))
-                  }
-                  className="h-[51px] w-full rounded-xl border border-[#E2E8F0] bg-white px-[14px] text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                  onChange={(v) => setForm((f) => ({ ...f, max_uses: v }))}
+                  min={1}
+                  max={10000}
+                  integer
                 />
               </div>
               <div className="space-y-2">

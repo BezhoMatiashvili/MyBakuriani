@@ -36,10 +36,10 @@ const ROLE_DASHBOARD: Record<string, string> = {
   seller: "/dashboard/seller",
   cleaner: "/dashboard/cleaner",
   food: "/dashboard/food",
-  entertainment: "/dashboard/service",
-  transport: "/dashboard/service",
-  employment: "/dashboard/service",
-  handyman: "/dashboard/service",
+  entertainment: "/dashboard/entertainment",
+  transport: "/dashboard/transport",
+  employment: "/dashboard/employment",
+  handyman: "/dashboard/services",
 };
 
 const navItemKeys = [

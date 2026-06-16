@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { leadsClient } from "@/lib/supabase/leads";
+import {
+  toServiceSegment,
+  SEGMENT_TO_ROLE_KEY,
+} from "@/lib/dashboard/serviceSegments";
 
 const SMS_PLAN_TOTAL = 100;
 const DashboardSidebar = dynamic(() =>
@@ -229,12 +233,9 @@ export function DashboardShell({
   const isGuest = activeRole === "guest";
   const isCleaner = activeRole === "cleaner";
   const isFood = activeRole === "food";
-  const isService =
-    activeRole === "entertainment" ||
-    activeRole === "transport" ||
-    activeRole === "employment" ||
-    activeRole === "handyman" ||
-    activeRole === "service";
+  // Non-null for any of the four split service cabinets (and the legacy
+  // "service"/"handyman" aliases); drives the ServiceSidebar/Topbar branch.
+  const serviceSegment = toServiceSegment(activeRole);
   const shortUserId = `MB-${userId.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
 
   if (isAdmin) {
@@ -389,7 +390,8 @@ export function DashboardShell({
     );
   }
 
-  if (isService) {
+  if (serviceSegment) {
+    const serviceBasePath = `/dashboard/${serviceSegment}`;
     return (
       <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
         <ServiceSidebar
@@ -400,12 +402,16 @@ export function DashboardShell({
           notificationCount={notificationCount}
           onSignOut={handleSignOut}
           availableCabinets={availableCabinets}
+          basePath={serviceBasePath}
+          cabinetKey={serviceSegment}
+          roleKey={SEGMENT_TO_ROLE_KEY[serviceSegment]}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <ServiceTopbar
             balance={balance}
             smsRemaining={smsRemaining}
             smsTotal={SMS_PLAN_TOTAL}
+            basePath={serviceBasePath}
           />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>

@@ -26,6 +26,12 @@ interface ServiceSidebarProps {
   notificationCount?: number;
   onSignOut: () => void;
   availableCabinets: string[];
+  /** Cabinet root, e.g. "/dashboard/transport". Nav links are relative to it. */
+  basePath: string;
+  /** Switcher key for this cabinet, e.g. "transport" / "services". */
+  cabinetKey: string;
+  /** `DashboardSidebar.roles.*` key used for the subtitle, e.g. "transport". */
+  roleKey: string;
 }
 
 interface NavItem {
@@ -35,25 +41,19 @@ interface NavItem {
   badgeKind?: "notifications";
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { labelKey: "myCabinet", href: "/dashboard/service", icon: LayoutGrid },
-  {
-    labelKey: "balanceAndVip",
-    href: "/dashboard/service/balance",
-    icon: Wallet,
-  },
-  {
-    labelKey: "notificationsItem",
-    href: "/dashboard/service/notifications",
-    icon: Bell,
-    badgeKind: "notifications",
-  },
-  {
-    labelKey: "settings",
-    href: "/dashboard/service/parameters",
-    icon: Settings,
-  },
-];
+function buildNavItems(basePath: string): NavItem[] {
+  return [
+    { labelKey: "myCabinet", href: basePath, icon: LayoutGrid },
+    { labelKey: "balanceAndVip", href: `${basePath}/balance`, icon: Wallet },
+    {
+      labelKey: "notificationsItem",
+      href: `${basePath}/notifications`,
+      icon: Bell,
+      badgeKind: "notifications",
+    },
+    { labelKey: "settings", href: `${basePath}/parameters`, icon: Settings },
+  ];
+}
 
 function BrandLogo() {
   return (
@@ -67,12 +67,12 @@ function BrandLogo() {
   );
 }
 
-function isItemActive(href: string, current: string) {
-  const isHome = href === "/dashboard/service";
+function isItemActive(href: string, current: string, basePath: string) {
+  const isHome = href === basePath;
   if (isHome) {
     return (
-      current === "/dashboard/service" ||
-      /^\/(ka|en|ru)\/dashboard\/service$/.test(current)
+      current === basePath ||
+      new RegExp(`^/(ka|en|ru)${basePath}$`).test(current)
     );
   }
   return (
@@ -89,6 +89,9 @@ export function ServiceSidebar({
   notificationCount = 0,
   onSignOut,
   availableCabinets,
+  basePath,
+  cabinetKey,
+  roleKey,
 }: ServiceSidebarProps) {
   const t = useTranslations("DashboardSidebar");
   const initials = userName
@@ -96,7 +99,8 @@ export function ServiceSidebar({
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
-  const subtitle = userSubtitle ?? t("roles.serviceProvider");
+  const subtitle = userSubtitle ?? t(`roles.${roleKey}`);
+  const navItems = buildNavItems(basePath);
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
@@ -106,7 +110,7 @@ export function ServiceSidebar({
         </Link>
       </div>
 
-      <CabinetSwitcher activeKey="service" availableKeys={availableCabinets}>
+      <CabinetSwitcher activeKey={cabinetKey} availableKeys={availableCabinets}>
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
@@ -132,8 +136,8 @@ export function ServiceSidebar({
 
       <nav className="mt-4 flex-1 overflow-y-auto px-4">
         <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const active = isItemActive(item.href, currentPath);
+          {navItems.map((item) => {
+            const active = isItemActive(item.href, currentPath, basePath);
             const Icon = item.icon;
             const showBadge =
               item.badgeKind === "notifications" && notificationCount > 0;

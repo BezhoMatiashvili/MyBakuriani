@@ -18,11 +18,17 @@ import {
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
+import TimeRangePicker, {
+  isValidTimeRange,
+} from "@/components/shared/TimeRangePicker";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
+import { isValidGePhone } from "@/lib/utils/number";
+import { scrollToField } from "@/lib/forms/scroll-to-error";
+import { cn } from "@/lib/utils";
 import {
   FOOD_AMENITIES,
   type FoodAmenityKey,
@@ -66,6 +72,7 @@ function CreateFoodPageInner() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
 
   const [title, setTitle] = useState("");
@@ -196,21 +203,44 @@ function CreateFoodPageInner() {
     return data.publicUrl;
   }
 
+  function validate(): { key: string; message: string }[] {
+    const errs: { key: string; message: string }[] = [];
+    if (!title.trim()) errs.push({ key: "title", message: t("enterTitle") });
+    if (!zone) errs.push({ key: "zone", message: t("chooseLocation") });
+    if (!avgCheck) errs.push({ key: "avgCheck", message: t("chooseAvgCheck") });
+    if (!operatingHours.trim())
+      errs.push({
+        key: "operatingHours",
+        message: t("enterOperatingHours"),
+      });
+    if (photos.length < MIN_PHOTOS) {
+      errs.push({
+        key: "photos",
+        message: tShared("minPhotosRequired", { count: MIN_PHOTOS }),
+      });
+    }
+    if (!phone.trim()) {
+      errs.push({ key: "phone", message: tShared("enterPhone") });
+    }
+    return errs;
+  }
+
   async function handleSubmit() {
     if (!user) return;
+
+    const errs = validate();
+    if (errs.length > 0) {
+      setInvalidFields(new Set(errs.map((e) => e.key)));
+      setError(errs[0].message);
+      scrollToField(errs[0].key);
+      return;
+    }
+    setInvalidFields(new Set());
+
     setLoading(true);
     setError(null);
 
     try {
-      if (!title.trim()) throw new Error(t("enterTitle"));
-      if (!zone) throw new Error(t("chooseLocation"));
-      if (!avgCheck) throw new Error(t("chooseAvgCheck"));
-      if (!operatingHours.trim()) throw new Error(t("enterOperatingHours"));
-      if (!phone.trim()) throw new Error(tShared("enterPhone"));
-      if (photos.length < MIN_PHOTOS) {
-        throw new Error(tShared("minPhotosRequired", { count: MIN_PHOTOS }));
-      }
-
       let menuUrl: string | null = null;
       if (menuFile) {
         menuUrl = await uploadMenuPdf();
@@ -253,7 +283,7 @@ function CreateFoodPageInner() {
         });
 
         if (insertError) throw insertError;
-        router.push("/dashboard");
+        router.push("/dashboard/food");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
@@ -266,19 +296,11 @@ function CreateFoodPageInner() {
     title.trim().length > 0,
     zone.length > 0,
     avgCheck.length > 0,
-    operatingHours.trim().length > 0,
+    isValidTimeRange(operatingHours),
     photos.length >= MIN_PHOTOS,
-    phone.trim().length > 0,
+    isValidGePhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 6) * 100));
-
-  const submitDisabled =
-    !title.trim() ||
-    !zone ||
-    !avgCheck ||
-    !operatingHours.trim() ||
-    photos.length < MIN_PHOTOS ||
-    !phone.trim();
 
   return (
     <WizardShell
@@ -291,7 +313,7 @@ function CreateFoodPageInner() {
           backHref="/create"
           onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
-          submitDisabled={submitDisabled}
+          submitDisabled={loading}
           loading={loading}
           error={error}
         />
@@ -309,7 +331,12 @@ function CreateFoodPageInner() {
             title={tShared("basicInfo")}
             accent="orange"
           >
-            <Field label={t("objectTitle")} required>
+            <Field
+              label={t("objectTitle")}
+              required
+              fieldKey="title"
+              error={invalidFields.has("title")}
+            >
               <input
                 type="text"
                 value={title}
@@ -340,7 +367,12 @@ function CreateFoodPageInner() {
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("locationZone")} required>
+              <Field
+                label={t("locationZone")}
+                required
+                fieldKey="zone"
+                error={invalidFields.has("zone")}
+              >
                 <StyledSelect
                   value={zone}
                   onValueChange={setZone}
@@ -387,7 +419,12 @@ function CreateFoodPageInner() {
             accent="orange"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("avgCheck")} required>
+              <Field
+                label={t("avgCheck")}
+                required
+                fieldKey="avgCheck"
+                error={invalidFields.has("avgCheck")}
+              >
                 <StyledSelect
                   value={avgCheck}
                   onValueChange={setAvgCheck}
@@ -396,13 +433,17 @@ function CreateFoodPageInner() {
                   accent="orange"
                 />
               </Field>
-              <Field label={t("operatingHours")} required>
-                <input
-                  type="text"
+              <Field
+                label={t("operatingHours")}
+                required
+                fieldKey="operatingHours"
+                error={invalidFields.has("operatingHours")}
+                labelOnlyError
+              >
+                <TimeRangePicker
                   value={operatingHours}
-                  onChange={(e) => setOperatingHours(e.target.value)}
-                  placeholder={t("hoursPlaceholder")}
-                  className={inputClass}
+                  onChange={setOperatingHours}
+                  accent="orange"
                 />
               </Field>
             </div>
@@ -487,6 +528,9 @@ function CreateFoodPageInner() {
             <Field
               label={t("objectPhotos")}
               required
+              fieldKey="photos"
+              error={invalidFields.has("photos")}
+              labelOnlyError
               chip={{
                 label: tShared("minPhotos", { count: MIN_PHOTOS }),
                 variant: "orange",
@@ -508,8 +552,23 @@ function CreateFoodPageInner() {
             title={tShared("contactInfo")}
             accent="orange"
           >
-            <Field label={tShared("phoneNumber")} required>
-              <PhoneInput value={phone} onChange={setPhone} />
+            <Field
+              label={tShared("phoneNumber")}
+              required
+              fieldKey="phone"
+              error={invalidFields.has("phone")}
+            >
+              <PhoneInput
+                value={phone}
+                onChange={setPhone}
+                error={
+                  invalidFields.has("phone")
+                    ? tShared("enterPhone")
+                    : phone && !isValidGePhone(phone)
+                      ? tShared("invalidPhone")
+                      : null
+                }
+              />
             </Field>
           </WizardInnerCard>
         </div>
@@ -555,6 +614,9 @@ function Field({
   helper,
   chip,
   chipPosition = "inline",
+  fieldKey,
+  error,
+  labelOnlyError,
   children,
 }: {
   label: string;
@@ -562,6 +624,10 @@ function Field({
   helper?: string;
   chip?: { label: string; variant?: "green" | "blue" | "orange" };
   chipPosition?: "inline" | "end";
+  fieldKey?: string;
+  error?: boolean;
+  /** Only redden the label (for controls whose own buttons shouldn't turn red). */
+  labelOnlyError?: boolean;
   children: React.ReactNode;
 }) {
   const chipEl = chip ? (
@@ -579,10 +645,23 @@ function Field({
   ) : null;
 
   return (
-    <div className="space-y-2">
+    <div
+      data-field={fieldKey}
+      className={cn(
+        "space-y-2 scroll-mt-24",
+        error &&
+          !labelOnlyError &&
+          "[&_input]:border-[#EF4444] [&_textarea]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2] [&_textarea]:ring-2 [&_textarea]:ring-[#FEE2E2]",
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <label className="text-[13px] font-bold text-[#334155]">
+          <label
+            className={cn(
+              "text-[13px] font-bold",
+              error ? "text-[#EF4444]" : "text-[#334155]",
+            )}
+          >
             {label}
             {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
           </label>

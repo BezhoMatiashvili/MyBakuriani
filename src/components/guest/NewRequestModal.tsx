@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Send, X, MapPin, ChevronDown, Plus } from "lucide-react";
 import DateField from "@/components/shared/DateField";
+import NumberField from "@/components/shared/NumberField";
 import { useActiveZones } from "@/lib/zones/client";
 
 export interface NewRequestPayload {
@@ -102,6 +103,11 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
 
   const selectedZoneLabel =
     ZONE_OPTIONS.find((o) => o.value === zone)?.label ?? ZONE_OPTIONS[0].label;
+
+  const budgetRangeInvalid =
+    budgetMin !== "" &&
+    budgetMax !== "" &&
+    Number(budgetMin) > Number(budgetMax);
 
   return (
     <AnimatePresence>
@@ -255,13 +261,15 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                           <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
                             {t("guestsCount")}
                           </label>
-                          <input
-                            type="number"
-                            min={1}
-                            placeholder={t("guestsPlaceholder")}
+                          <NumberField
                             value={guestsCount}
-                            onChange={(e) => setGuestsCount(e.target.value)}
-                            className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#0F8F60] focus:outline-none"
+                            onChange={setGuestsCount}
+                            min={1}
+                            max={50}
+                            integer
+                            stepper
+                            accent="green"
+                            placeholder={t("guestsPlaceholder")}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -269,26 +277,28 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                             <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
                               {t("budgetMin")}
                             </label>
-                            <input
-                              type="number"
-                              min={0}
-                              placeholder="100"
+                            <NumberField
                               value={budgetMin}
-                              onChange={(e) => setBudgetMin(e.target.value)}
-                              className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#0F8F60] focus:outline-none"
+                              onChange={setBudgetMin}
+                              min={0}
+                              integer
+                              accent="green"
+                              placeholder="100"
+                              error={budgetRangeInvalid}
                             />
                           </div>
                           <div>
                             <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
                               {t("budgetMax")}
                             </label>
-                            <input
-                              type="number"
-                              min={0}
-                              placeholder="200"
+                            <NumberField
                               value={budgetMax}
-                              onChange={(e) => setBudgetMax(e.target.value)}
-                              className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#0F8F60] focus:outline-none"
+                              onChange={setBudgetMax}
+                              min={0}
+                              integer
+                              accent="green"
+                              placeholder="200"
+                              error={budgetRangeInvalid}
                             />
                           </div>
                         </div>
@@ -305,7 +315,9 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
 
                 <button
                   type="submit"
-                  disabled={submitting || !checkIn || !checkOut}
+                  disabled={
+                    submitting || !checkIn || !checkOut || budgetRangeInvalid
+                  }
                   className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-[13px] font-black text-white shadow-[0px_8px_20px_-6px_rgba(37,99,235,0.45)] transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   <Send className="h-4 w-4" />

@@ -10,29 +10,39 @@ export type ServiceData = {
 };
 
 /**
- * Computes the service dashboard data. Shared by the server component (initial
- * render, server client) and the client realtime handler (browser client) so the
- * logic lives in one place and the first paint already has real data.
+ * Computes the service dashboard data for a single service category (e.g.
+ * "transport", "employment", "entertainment", "handyman"). Shared by the server
+ * component (initial render, server client) and the client realtime handler
+ * (browser client) so the logic lives in one place and the first paint already
+ * has real data.
+ *
+ * KPIs are scoped to the category's own listings via the RPC's `p_listing_ids`
+ * (no DB change). An empty array correctly yields zeroed stats; passing the IDs
+ * also narrows `spent` to listing-tied purchases.
  */
 export async function loadServiceData(
   supabase: SupabaseClient<Database>,
   userId: string,
+  category: string,
 ): Promise<ServiceData> {
-  const [svcRes, rpcRes] = await Promise.all([
-    supabase
-      .from("services")
-      .select("*")
-      .eq("owner_id", userId)
-      .neq("category", "food")
-      .neq("category", "cleaning")
-      .order("created_at", { ascending: false }),
-    supabase.rpc("owner_dashboard_stats", { p_scope: "service" }),
-  ]);
+  const { data: svcData } = await supabase
+    .from("services")
+    .select("*")
+    .eq("owner_id", userId)
+    // `category` arrives as a plain string from the loosely-typed client prop;
+    // callers only pass valid service_category values, so narrow it for the query.
+    .eq("category", category as Database["public"]["Enums"]["service_category"])
+    .order("created_at", { ascending: false });
 
-  const mine = svcRes.data ?? [];
+  const mine = svcData ?? [];
+
+  const { data: statsData } = await supabase.rpc("owner_dashboard_stats", {
+    p_scope: "service",
+    p_listing_ids: mine.map((s) => s.id),
+  });
 
   return {
     services: mine,
-    stats: rpcRes.data?.[0] ?? null,
+    stats: statsData?.[0] ?? null,
   };
 }

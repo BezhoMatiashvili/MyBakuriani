@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import NumberField from "@/components/shared/NumberField";
 import type { Tables } from "@/lib/types/database";
 
 interface CleanerFormModalProps {
@@ -161,23 +162,23 @@ export default function CleanerFormModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("priceStandard")}>
-                  <input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberField
                     value={priceStandard}
-                    onChange={(e) => setPriceStandard(e.target.value)}
+                    onChange={setPriceStandard}
+                    min={0}
+                    decimals={2}
+                    suffix="₾"
                     placeholder="30"
-                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
                 </Field>
                 <Field label={t("priceGeneral")}>
-                  <input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberField
                     value={priceGeneral}
-                    onChange={(e) => setPriceGeneral(e.target.value)}
+                    onChange={setPriceGeneral}
+                    min={0}
+                    decimals={2}
+                    suffix="₾"
                     placeholder="50"
-                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
                 </Field>
               </div>

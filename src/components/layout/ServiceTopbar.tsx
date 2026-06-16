@@ -11,6 +11,8 @@ interface ServiceTopbarProps {
   smsRemaining: number;
   smsTotal: number;
   searchPlaceholder?: string;
+  /** Cabinet root, e.g. "/dashboard/transport", for the balance link. */
+  basePath: string;
 }
 
 export function ServiceTopbar({
@@ -18,6 +20,7 @@ export function ServiceTopbar({
   smsRemaining,
   smsTotal,
   searchPlaceholder,
+  basePath,
 }: ServiceTopbarProps) {
   const t = useTranslations("DashboardLayout");
   const placeholder = searchPlaceholder ?? t("topbar.searchDefault");
@@ -38,7 +41,7 @@ export function ServiceTopbar({
 
         <div className="flex shrink-0 items-center gap-3">
           <Link
-            href="/dashboard/service/balance"
+            href={`${basePath}/balance`}
             className="group flex h-[44px] items-center gap-2.5 rounded-full border border-[#E2E8F0] bg-white pl-4 pr-1.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB]"
           >
             <span>{formatPrice(balance)}</span>

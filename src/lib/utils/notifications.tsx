@@ -62,7 +62,10 @@ const SEGMENTS_WITH_NOTIFICATIONS = new Set([
   "renter",
   "seller",
   "food",
-  "service",
+  "employment",
+  "transport",
+  "entertainment",
+  "services",
 ]);
 
 export function resolveNotificationsPath(dashboardPath: string): string {

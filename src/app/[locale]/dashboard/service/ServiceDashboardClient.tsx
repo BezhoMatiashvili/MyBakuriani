@@ -25,6 +25,7 @@ import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
+import { CATEGORY_TO_CREATE_HREF } from "@/lib/dashboard/serviceSegments";
 import { loadServiceData, type OwnerStats, type ServiceData } from "./loadData";
 
 type Service = Tables<"services">;
@@ -41,13 +42,21 @@ const CATEGORY_KEYS = [
 export default function ServiceDashboardClient({
   userId,
   initial,
+  category,
 }: {
   userId: string;
   initial: ServiceData;
+  category: string;
 }) {
   const t = useTranslations("ServiceDashboard");
   const tShared = useTranslations("DashboardShared");
   const supabase = createClient();
+  const createHref = CATEGORY_TO_CREATE_HREF[category] ?? "/create/service";
+  const categoryLabel = CATEGORY_KEYS.includes(
+    category as (typeof CATEGORY_KEYS)[number],
+  )
+    ? t(`categories.${category as (typeof CATEGORY_KEYS)[number]}`)
+    : t("title");
 
   // Seeded from the server render — content is present on first paint, so there
   // is no loading skeleton on initial load. Realtime updates refresh silently.
@@ -71,7 +80,8 @@ export default function ServiceDashboardClient({
         table: "services",
         event: "*",
         filter: `owner_id=eq.${userId}`,
-        handler: () => void loadServiceData(supabase, userId).then(applyData),
+        handler: () =>
+          void loadServiceData(supabase, userId, category).then(applyData),
       },
     ],
     { enabled: true, channelName: "service-dashboard-rt" },
@@ -93,14 +103,14 @@ export default function ServiceDashboardClient({
       >
         <div>
           <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-            {t("title")}
+            {categoryLabel}
           </h1>
           <p className="mt-1 text-[14px] font-medium text-[#64748B]">
             {t("subtitle")}
           </p>
         </div>
         <Link
-          href="/create/service"
+          href={createHref}
           className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(37,99,235,0.35)] hover:bg-[#1E40AF]"
         >
           <Plus className="h-4 w-4" />
@@ -193,7 +203,7 @@ export default function ServiceDashboardClient({
             </p>
             <p className="mt-1 text-[11px] text-[#94A3B8]">{t("emptyDesc")}</p>
             <Link
-              href="/create/service"
+              href={createHref}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E40AF]"
             >
               <Plus className="h-4 w-4" />
@@ -238,12 +248,16 @@ export default function ServiceDashboardClient({
                         className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                           s.status === "active"
                             ? "bg-[#DCFCE7] text-[#16A34A]"
-                            : "bg-[#F1F5F9] text-[#64748B]"
+                            : s.status === "pending"
+                              ? "bg-[#FEF3C7] text-[#B45309]"
+                              : "bg-[#F1F5F9] text-[#64748B]"
                         }`}
                       >
                         {s.status === "active"
                           ? tShared("active")
-                          : tShared("cancelled")}
+                          : s.status === "pending"
+                            ? tShared("pending")
+                            : tShared("cancelled")}
                       </span>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-[#94A3B8]">

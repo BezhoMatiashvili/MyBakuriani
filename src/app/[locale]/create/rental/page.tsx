@@ -14,13 +14,17 @@ import {
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
 import AvailabilityWizardStep from "@/components/forms/AvailabilityWizardStep";
+import NumberField from "@/components/shared/NumberField";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
+import { isValidGePhone } from "@/lib/utils/number";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { AvailabilityStatus, buildNext30Days } from "@/lib/utils/availability";
+import { scrollToField } from "@/lib/forms/scroll-to-error";
+import { cn } from "@/lib/utils";
 
 const PROPERTY_TYPES: Enums<"property_type">[] = [
   "apartment",
@@ -75,6 +79,7 @@ export default function CreateRentalPage() {
 
 function CreateRentalPageInner() {
   const t = useTranslations("CreateRental");
+  const tShared = useTranslations("CreateShared");
   const tOpts = useTranslations("ListingOptions");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -87,6 +92,7 @@ function CreateRentalPageInner() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
 
   // Step 1: basics
@@ -281,23 +287,33 @@ function CreateRentalPageInner() {
     );
   }
 
-  const isStepValid = (s: number): boolean => {
-    if (s === 0) return !!propertyType && !!location;
-    if (s === 1) return !!title.trim();
-    if (s === 2) {
-      const mealsOk = propertyType !== "hotel" || mealsIncluded !== null;
-      return smokingAllowed !== null && petsAllowed !== null && mealsOk;
-    }
-    // Step 3: base price + availability (defaults to all-available next 30 days)
-    if (s === 3) {
+  // Ordered presence failures for the current step, mirroring the per-step
+  // required conditions and handleSubmit's message keys.
+  function validateStep(s: number): { key: string; message: string }[] {
+    const errs: { key: string; message: string }[] = [];
+    if (s === 0) {
+      if (!location)
+        errs.push({ key: "location", message: t("invalidLocation") });
+    } else if (s === 1) {
+      if (!title.trim())
+        errs.push({ key: "title", message: t("invalidTitle") });
+    } else if (s === 2) {
+      if (smokingAllowed === null || petsAllowed === null) {
+        errs.push({ key: "houseRules", message: t("selectHouseRules") });
+      } else if (propertyType === "hotel" && mealsIncluded === null) {
+        errs.push({ key: "houseRules", message: t("specifyMeals") });
+      }
+    } else if (s === 3) {
       const priceNum = Number(pricePerNight);
-      return (
-        availability.size >= 30 && Number.isFinite(priceNum) && priceNum > 0
-      );
+      if (!Number.isFinite(priceNum) || priceNum <= 0) {
+        errs.push({ key: "pricePerNight", message: t("invalidPrice") });
+      }
+    } else if (s === 4) {
+      if (!isValidGePhone(phone))
+        errs.push({ key: "phone", message: t("phoneRequired") });
     }
-    if (s === 4) return phone.trim().length > 0;
-    return false;
-  };
+    return errs;
+  }
 
   async function handleSubmit() {
     if (!user) return;
@@ -323,7 +339,7 @@ function CreateRentalPageInner() {
         throw new Error(t("specifyMeals"));
       }
 
-      if (!phone.trim()) {
+      if (!isValidGePhone(phone)) {
         throw new Error(t("phoneRequired"));
       }
 
@@ -461,7 +477,7 @@ function CreateRentalPageInner() {
         }
       }
 
-      router.push(editId ? "/dashboard/renter" : "/dashboard");
+      router.push("/dashboard/renter");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("submitError"));
     } finally {
@@ -487,13 +503,22 @@ function CreateRentalPageInner() {
           showBack={step > 0}
           onBack={() => setStep((s) => Math.max(0, s - 1))}
           onSubmit={() => {
+            const errs = validateStep(step);
+            if (errs.length) {
+              setInvalidFields(new Set(errs.map((e) => e.key)));
+              setError(errs[0].message);
+              scrollToField(errs[0].key);
+              return;
+            }
+            setInvalidFields(new Set());
+            setError(null);
             if (isFinalStep) {
               handleSubmit();
-            } else if (isStepValid(step)) {
+            } else {
               setStep((s) => Math.min(totalSteps - 1, s + 1));
             }
           }}
-          submitDisabled={!isStepValid(step)}
+          submitDisabled={loading}
           loading={loading}
           finalStep={isFinalStep}
           submitLabel={
@@ -538,7 +563,12 @@ function CreateRentalPageInner() {
                   </select>
                 </Field>
 
-                <Field label={t("location")} required>
+                <Field
+                  label={t("location")}
+                  required
+                  fieldKey="location"
+                  error={invalidFields.has("location")}
+                >
                   <select
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
@@ -583,6 +613,9 @@ function CreateRentalPageInner() {
                   <div className="space-y-5">
                     <Field
                       label={t("title")}
+                      required
+                      fieldKey="title"
+                      error={invalidFields.has("title")}
                       helper={t("titleMaxHelper", { max: TITLE_MAX })}
                     >
                       <input
@@ -647,46 +680,53 @@ function CreateRentalPageInner() {
               <WizardSection title={t("steps.amenitiesDetails")}>
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                   <Field label={t("rooms")}>
-                    <input
-                      type="number"
+                    <NumberField
                       value={rooms}
-                      onChange={(e) => setRooms(e.target.value)}
+                      onChange={setRooms}
+                      min={0}
+                      max={50}
+                      integer
+                      stepper
+                      accent="blue"
                       placeholder={t("egValue", { value: 2 })}
-                      min="0"
-                      className={inputClass}
                     />
                   </Field>
                   <Field label={t("capacity")}>
-                    <input
-                      type="number"
+                    <NumberField
                       value={capacity}
-                      onChange={(e) => setCapacity(e.target.value)}
+                      onChange={setCapacity}
+                      min={1}
+                      max={50}
+                      integer
+                      stepper
+                      accent="blue"
                       placeholder={t("egValue", { value: 4 })}
-                      min="0"
-                      className={inputClass}
                     />
                   </Field>
                   <Field label={t("area")}>
-                    <input
-                      type="number"
+                    <NumberField
                       value={areaSqm}
-                      onChange={(e) => setAreaSqm(e.target.value)}
+                      onChange={setAreaSqm}
+                      min={0}
+                      max={10000}
+                      decimals={1}
+                      accent="blue"
                       placeholder={t("egValue", { value: 55 })}
-                      min="0"
-                      className={inputClass}
                     />
                   </Field>
                 </div>
 
                 <div className="space-y-4 pt-2">
                   <Field label={t("bathroom")}>
-                    <input
-                      type="number"
+                    <NumberField
                       value={bathrooms}
-                      onChange={(e) => setBathrooms(e.target.value)}
+                      onChange={setBathrooms}
+                      min={0}
+                      max={50}
+                      integer
+                      stepper
+                      accent="blue"
                       placeholder={t("egValue", { value: 1 })}
-                      min="0"
-                      className={inputClass}
                     />
                   </Field>
 
@@ -720,8 +760,18 @@ function CreateRentalPageInner() {
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-2">
-                  <label className="text-[13px] font-bold text-[#334155]">
+                <div
+                  data-field="houseRules"
+                  className="space-y-4 pt-2 scroll-mt-24"
+                >
+                  <label
+                    className={cn(
+                      "text-[13px] font-bold",
+                      invalidFields.has("houseRules")
+                        ? "text-[#EF4444]"
+                        : "text-[#334155]",
+                    )}
+                  >
                     {t("houseRules")}
                     <span className="ml-0.5 text-[#EF4444]">*</span>
                   </label>
@@ -762,14 +812,21 @@ function CreateRentalPageInner() {
             {step === 3 && (
               <WizardSection>
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <Field label={t("pricePerNight")} required>
-                    <input
-                      type="number"
+                  <Field
+                    label={t("pricePerNight")}
+                    required
+                    fieldKey="pricePerNight"
+                    error={invalidFields.has("pricePerNight")}
+                  >
+                    <NumberField
                       value={pricePerNight}
-                      onChange={(e) => setPricePerNight(e.target.value)}
+                      onChange={setPricePerNight}
+                      min={1}
+                      max={100000}
+                      integer
+                      accent="blue"
+                      suffix="₾"
                       placeholder="150"
-                      min="1"
-                      className={inputClass}
                     />
                   </Field>
 
@@ -861,14 +918,37 @@ function CreateRentalPageInner() {
                     {t("contactInfo")}
                   </label>
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label={t("phoneNumber")} required>
-                      <PhoneInput value={phone} onChange={setPhone} />
+                    <Field
+                      label={t("phoneNumber")}
+                      required
+                      fieldKey="phone"
+                      error={invalidFields.has("phone")}
+                    >
+                      <PhoneInput
+                        value={phone}
+                        onChange={setPhone}
+                        error={
+                          invalidFields.has("phone")
+                            ? t("phoneRequired")
+                            : phone && !isValidGePhone(phone)
+                              ? tShared("invalidPhone")
+                              : null
+                        }
+                      />
                     </Field>
                     <Field
                       label={t("whatsappNumber")}
                       helper={t("optionalHelper")}
                     >
-                      <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+                      <PhoneInput
+                        value={whatsapp}
+                        onChange={setWhatsapp}
+                        error={
+                          whatsapp && !isValidGePhone(whatsapp)
+                            ? tShared("invalidPhone")
+                            : null
+                        }
+                      />
                     </Field>
                   </div>
                 </div>
@@ -904,16 +984,36 @@ function Field({
   label,
   required,
   helper,
+  fieldKey,
+  error,
+  labelOnlyError,
   children,
 }: {
   label: string;
   required?: boolean;
   helper?: string;
+  fieldKey?: string;
+  error?: boolean;
+  /** Only redden the label (for controls whose own buttons shouldn't turn red). */
+  labelOnlyError?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <label className="text-[13px] font-bold text-[#334155]">
+    <div
+      data-field={fieldKey}
+      className={cn(
+        "space-y-2 scroll-mt-24",
+        error &&
+          !labelOnlyError &&
+          "[&_input]:border-[#EF4444] [&_textarea]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2] [&_textarea]:ring-2 [&_textarea]:ring-[#FEE2E2]",
+      )}
+    >
+      <label
+        className={cn(
+          "text-[13px] font-bold",
+          error ? "text-[#EF4444]" : "text-[#334155]",
+        )}
+      >
         {label}
         {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
       </label>

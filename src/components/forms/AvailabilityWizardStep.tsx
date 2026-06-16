@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, RotateCcw, Lock, Unlock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import BulkActionBar from "@/components/calendar/BulkActionBar";
+import NumberField from "@/components/shared/NumberField";
 import { cn } from "@/lib/utils";
 import {
   AvailabilityStatus,
@@ -449,19 +450,17 @@ export default function AvailabilityWizardStep({
                       <Lock className="h-4 w-4" strokeWidth={2.4} />
                       {t("block", { count: selectedAvailable.length })}
                     </button>
-                    <div className="relative flex-1 md:max-w-[160px]">
-                      <input
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
+                    <div className="flex-1 md:max-w-[160px]">
+                      <NumberField
                         value={priceInput}
-                        onChange={(e) => setPriceInput(e.target.value)}
+                        onChange={setPriceInput}
+                        min={0}
+                        max={100000}
+                        integer
+                        suffix="₾"
+                        accent="blue"
                         placeholder={t("newPricePlaceholder")}
-                        className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-3 pr-8 text-[14px] font-semibold text-[#0F172A] outline-none focus:border-[#F97316]"
                       />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
-                        ₾
-                      </span>
                     </div>
                     <button
                       type="button"

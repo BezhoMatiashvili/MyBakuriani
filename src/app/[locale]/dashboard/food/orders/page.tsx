@@ -39,6 +39,7 @@ export default function FoodOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuUrl, setMenuUrl] = useState("");
+  const [menuUrlError, setMenuUrlError] = useState(false);
   const [balance, setBalance] = useState(0);
 
   const fetchData = useCallback(async () => {
@@ -78,7 +79,13 @@ export default function FoodOrdersPage() {
 
   async function saveMenuUrl() {
     if (!service) return;
-    const next: MenuData = { ...menuData, url: menuUrl };
+    const trimmed = menuUrl.trim();
+    if (trimmed && !/^https?:\/\/.+\..+/i.test(trimmed)) {
+      setMenuUrlError(true);
+      return;
+    }
+    setMenuUrlError(false);
+    const next: MenuData = { ...menuData, url: trimmed };
     await supabase
       .from("services")
       .update({ menu: next as unknown as never })
@@ -180,11 +187,24 @@ export default function FoodOrdersPage() {
             </div>
             <input
               type="url"
+              inputMode="url"
               value={menuUrl}
-              onChange={(e) => setMenuUrl(e.target.value)}
+              onChange={(e) => {
+                setMenuUrl(e.target.value);
+                if (menuUrlError) setMenuUrlError(false);
+              }}
               placeholder="https://..."
-              className="mt-4 h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[12px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+              className={`mt-4 h-11 w-full rounded-xl border bg-white px-4 text-[12px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 ${
+                menuUrlError
+                  ? "border-[#EF4444] focus:border-[#EF4444] focus:ring-[#EF4444]/15"
+                  : "border-[#E2E8F0] focus:border-[#2563EB] focus:ring-[#2563EB]/15"
+              }`}
             />
+            {menuUrlError && (
+              <p className="mt-1.5 text-[11px] font-medium text-[#EF4444]">
+                შეიყვანეთ სწორი ბმული (https://...)
+              </p>
+            )}
             <div className="mt-3 flex gap-2">
               <button
                 type="button"

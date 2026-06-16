@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Info, Send, ChevronDown, X } from "lucide-react";
+import NumberField from "@/components/shared/NumberField";
 
 export interface SmartMatchRequestItem {
   id: string;
@@ -267,13 +268,15 @@ function RequestCard({
                 {t("yourPriceLabel")}
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
+                <NumberField
                   value={customPrice}
-                  onChange={(e) => setCustomPrice(e.target.value)}
+                  onChange={setCustomPrice}
+                  min={1}
+                  max={99999}
+                  decimals={2}
+                  suffix="₾"
                   placeholder={String(selectedProperty.price)}
-                  className="h-11 w-32 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[14px] font-extrabold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#0F8F60] focus:outline-none"
+                  className="w-32"
                 />
                 <span className="text-[12px] font-medium text-[#94A3B8]">
                   {t("perNight")}

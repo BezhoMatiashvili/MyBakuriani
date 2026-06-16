@@ -40,6 +40,7 @@ import { formatDate } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import DateField, { toISODate } from "@/components/shared/DateField";
+import NumberField from "@/components/shared/NumberField";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -830,27 +831,17 @@ export default function EmploymentDetailClient({
                   </span>{" "}
                   <span className="text-[#EF4444]">*</span>
                 </label>
-                <div
-                  className={`flex h-11 items-center overflow-hidden rounded-[12px] border bg-white transition-colors focus-within:border-[#2563EB] ${
-                    errors.desired_salary
-                      ? "border-[#EF4444]"
-                      : "border-[#E2E8F0]"
-                  }`}
-                >
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    step="50"
-                    value={form.desired_salary}
-                    onChange={(e) => update("desired_salary", e.target.value)}
-                    className="h-full w-full bg-transparent px-3 text-sm outline-none"
-                    placeholder={t("form.desiredSalaryPlaceholder")}
-                  />
-                  <span className="px-3 text-sm font-bold text-[#94A3B8]">
-                    ₾
-                  </span>
-                </div>
+                <NumberField
+                  value={form.desired_salary}
+                  onChange={(v) => update("desired_salary", v)}
+                  min={0}
+                  max={999999}
+                  step={50}
+                  integer
+                  suffix="₾"
+                  placeholder={t("form.desiredSalaryPlaceholder")}
+                  error={!!errors.desired_salary}
+                />
                 {errors.desired_salary && (
                   <p className="mt-1 text-xs text-[#EF4444]">
                     {errors.desired_salary}

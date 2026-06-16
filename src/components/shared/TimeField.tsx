@@ -16,12 +16,39 @@ const MINUTES = Array.from({ length: 12 }, (_, i) =>
   String(i * 5).padStart(2, "0"),
 );
 
+type Accent = "blue" | "green" | "orange";
+
+const ACCENT: Record<
+  Accent,
+  { trigger: string; selectedBg: string; doneBg: string }
+> = {
+  blue: {
+    trigger:
+      "data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE]",
+    selectedBg: "bg-[#2563EB]",
+    doneBg: "bg-[#2563EB] hover:bg-[#1D4ED8]",
+  },
+  green: {
+    trigger:
+      "data-[popup-open]:border-[#16A34A] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DCFCE7]",
+    selectedBg: "bg-[#16A34A]",
+    doneBg: "bg-[#16A34A] hover:bg-[#15803D]",
+  },
+  orange: {
+    trigger:
+      "data-[popup-open]:border-[#F97316] data-[popup-open]:ring-2 data-[popup-open]:ring-[#FFEDD5]",
+    selectedBg: "bg-[#F97316]",
+    doneBg: "bg-[#F97316] hover:bg-[#EA580C]",
+  },
+};
+
 interface TimeFieldProps {
   value: string; // "HH:MM" | ""
   onChange: (value: string) => void;
   placeholder?: string;
   error?: boolean;
   disabled?: boolean;
+  accent?: Accent;
   className?: string;
 }
 
@@ -31,6 +58,7 @@ export default function TimeField({
   placeholder,
   error,
   disabled,
+  accent = "blue",
   className,
 }: TimeFieldProps) {
   const t = useTranslations("Calendar");
@@ -87,7 +115,8 @@ export default function TimeField({
       <PopoverTrigger
         disabled={disabled}
         className={cn(
-          "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[13px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+          "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[13px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+          ACCENT[accent].trigger,
           error && "border-[#EF4444]",
           className,
         )}
@@ -108,6 +137,7 @@ export default function TimeField({
             colRef={hourColRef}
             options={HOURS}
             selected={hour}
+            accent={accent}
             onSelect={(hh) => onChange(`${hh}:${minute || "00"}`)}
           />
           <TimeColumn
@@ -115,13 +145,17 @@ export default function TimeField({
             colRef={minuteColRef}
             options={minuteOptions}
             selected={minute}
+            accent={accent}
             onSelect={(mm) => onChange(`${hour || "12"}:${mm}`)}
           />
         </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="h-9 w-full rounded-lg bg-[#2563EB] text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+          className={cn(
+            "h-9 w-full rounded-lg text-[13px] font-bold text-white transition-colors",
+            ACCENT[accent].doneBg,
+          )}
         >
           {t("done")}
         </button>
@@ -135,12 +169,14 @@ function TimeColumn({
   colRef,
   options,
   selected,
+  accent,
   onSelect,
 }: {
   label: string;
   colRef: React.RefObject<HTMLDivElement | null>;
   options: string[];
   selected: string;
+  accent: Accent;
   onSelect: (option: string) => void;
 }) {
   return (
@@ -160,7 +196,7 @@ function TimeColumn({
             className={cn(
               "flex h-11 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition-colors",
               option === selected
-                ? "bg-[#2563EB] text-white"
+                ? cn(ACCENT[accent].selectedBg, "text-white")
                 : "text-[#1E293B] hover:bg-[#F1F5F9]",
             )}
           >

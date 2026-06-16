@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import DateField from "@/components/shared/DateField";
 import TimeField from "@/components/shared/TimeField";
+import NumberField from "@/components/shared/NumberField";
 
 interface PropertyOption {
   id: string;
@@ -256,19 +257,14 @@ export default function CleanerCallModal({
               </div>
 
               <Field label={t("price")}>
-                <div className="relative">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="30"
-                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                  />
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-[#94A3B8]">
-                    ₾
-                  </span>
-                </div>
+                <NumberField
+                  value={price}
+                  onChange={setPrice}
+                  min={0}
+                  decimals={2}
+                  placeholder="30"
+                  suffix="₾"
+                />
               </Field>
 
               <Field label={t("address")}>

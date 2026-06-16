@@ -52,8 +52,8 @@ export default function AdminDashboardClient({
   const [pendingOver24] = useState(Number(initialStats?.pending_over_24h ?? 0));
 
   // Rolling 7-day funnel computed by admin_overview_stats(): page views,
-  // /search opens and bookings + smart match requests. The trailing
-  // "completed" entry only feeds the last drop-off percentage.
+  // /search opens and bookings. The trailing "completed" entry only feeds
+  // the last drop-off percentage.
   const funnelCards = useMemo(
     () => [
       {

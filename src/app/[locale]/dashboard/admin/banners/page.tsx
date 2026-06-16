@@ -17,6 +17,7 @@ import MediaUploader, {
   type MediaValue,
 } from "@/components/forms/MediaUploader";
 import DateTimeField from "@/components/shared/DateTimeField";
+import NumberField from "@/components/shared/NumberField";
 import {
   BANNER_KINDS,
   BANNER_TONE_STYLES,
@@ -492,12 +493,14 @@ export default function AdminBannersPage() {
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Field label={t("sortOrder")}>
-                  <input
-                    type="number"
-                    name="sort_order"
-                    value={form.sort_order}
-                    onChange={onField}
-                    className={inputCls}
+                  <NumberField
+                    value={String(form.sort_order)}
+                    onChange={(v) =>
+                      setForm((p) => ({ ...p, sort_order: Number(v) }))
+                    }
+                    integer
+                    min={0}
+                    max={10000}
                   />
                 </Field>
                 <label className="flex h-[55px] cursor-pointer items-center gap-3 self-end rounded-2xl border border-[#E2E8F0] bg-white px-4">

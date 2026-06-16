@@ -167,8 +167,12 @@ export default function RenterSettingsPage() {
             <Field label={tShared("personalId")}>
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={11}
                 value={personalId}
-                onChange={(e) => setPersonalId(e.target.value)}
+                onChange={(e) =>
+                  setPersonalId(e.target.value.replace(/\D/g, "").slice(0, 11))
+                }
                 className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 placeholder="01008060403"
               />

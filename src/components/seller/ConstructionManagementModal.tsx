@@ -108,23 +108,23 @@ export default function ConstructionManagementModal({
 
   async function handlePublish() {
     if (!property) return;
-    if (!note.trim()) {
-      setError(t("noteRequired"));
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
       const supabase = createClient();
       const nowIso = new Date().toISOString();
+      const trimmedNote = note.trim();
 
       const { data, error: updateError } = await supabase
         .from("properties")
         .update({
           construction_stages: selectedStages,
           construction_progress_percent: percent,
-          progress_note: note.trim(),
-          progress_note_updated_at: nowIso,
+          // Only refresh the public headline note when a description was typed,
+          // so photo-only updates don't wipe the previously shown note.
+          ...(trimmedNote
+            ? { progress_note: trimmedNote, progress_note_updated_at: nowIso }
+            : {}),
         })
         .eq("id", property.id)
         .eq("owner_id", property.owner_id)
@@ -139,7 +139,7 @@ export default function ConstructionManagementModal({
           property_id: property.id,
           owner_id: property.owner_id,
           status: status || null,
-          note: note.trim(),
+          note: trimmedNote || null,
           photos: media,
           video_url: videoUrl.trim() || null,
           update_date: format(updateDate, "yyyy-MM-dd"),
@@ -334,7 +334,7 @@ export default function ConstructionManagementModal({
               <button
                 type="button"
                 onClick={handlePublish}
-                disabled={saving || !note.trim()}
+                disabled={saving}
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
               >
                 {saving ? t("publishing") : t("publish")}

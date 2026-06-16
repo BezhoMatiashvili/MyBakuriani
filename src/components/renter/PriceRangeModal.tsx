@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DateField from "@/components/shared/DateField";
+import NumberField from "@/components/shared/NumberField";
 
 type Filter = "all" | "weekdays" | "weekends";
 
@@ -188,20 +189,15 @@ export default function PriceRangeModal({
 
             <div className="mt-3">
               <Field label={t("pricePerNight")}>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder={basePrice ? String(basePrice) : "0"}
-                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/15"
-                  />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#94A3B8]">
-                    ₾
-                  </span>
-                </div>
+                <NumberField
+                  value={price}
+                  onChange={setPrice}
+                  min={0}
+                  max={99999}
+                  decimals={2}
+                  placeholder={basePrice ? String(basePrice) : "0"}
+                  suffix="₾"
+                />
               </Field>
             </div>
 

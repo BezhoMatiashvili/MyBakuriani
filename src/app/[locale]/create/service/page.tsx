@@ -11,11 +11,17 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhoneInput from "@/components/forms/PhoneInput";
+import NumberField from "@/components/shared/NumberField";
+import TimeRangePicker, {
+  isValidTimeRange,
+} from "@/components/shared/TimeRangePicker";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { isValidGePhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
+import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
 
 const SERVICE_SPHERES = [
@@ -77,6 +83,7 @@ function CreateServicePageInner() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
   const [loadedCategory, setLoadedCategory] = useState<string | null>(null);
 
@@ -176,9 +183,9 @@ function CreateServicePageInner() {
     !!profilePhoto,
     coverageZones.length > 0,
     description.trim().length > 0,
-    is24_7 || workingHours.trim().length > 0,
+    is24_7 || isValidTimeRange(workingHours),
     price.trim().length > 0,
-    phone.trim().length > 0,
+    isValidGePhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 10) * 100));
 
@@ -194,8 +201,42 @@ function CreateServicePageInner() {
     );
   }
 
+  function validate(): { key: string; message: string }[] {
+    const errs: { key: string; message: string }[] = [];
+    if (!name.trim()) errs.push({ key: "name", message: t("enterName") });
+    if (!experienceYears.trim())
+      errs.push({ key: "experienceYears", message: t("enterExperience") });
+    if (!serviceTitle.trim())
+      errs.push({ key: "serviceTitle", message: t("enterServiceTitle") });
+    if (!profilePhoto)
+      errs.push({
+        key: "profilePhoto",
+        message: t("uploadProfilePhotoError"),
+      });
+    if (coverageZones.length === 0)
+      errs.push({ key: "coverageZones", message: t("chooseCoverageZone") });
+    if (!description.trim())
+      errs.push({ key: "description", message: t("enterDescription") });
+    if (!is24_7 && !workingHours.trim())
+      errs.push({ key: "workingHours", message: t("enterWorkingHours") });
+    if (!price.trim()) errs.push({ key: "price", message: t("enterPrice") });
+    if (!phone.trim())
+      errs.push({ key: "phone", message: tShared("enterPhone") });
+    return errs;
+  }
+
   async function handleSubmit() {
     if (!user) return;
+
+    const errs = validate();
+    if (errs.length > 0) {
+      setInvalidFields(new Set(errs.map((e) => e.key)));
+      setError(errs[0].message);
+      scrollToField(errs[0].key);
+      return;
+    }
+    setInvalidFields(new Set());
+
     setLoading(true);
     setError(null);
 
@@ -247,7 +288,9 @@ function CreateServicePageInner() {
 
         if (insertError) throw insertError;
         router.push(
-          categoryValue === "cleaning" ? "/dashboard/cleaner" : "/dashboard",
+          categoryValue === "cleaning"
+            ? "/dashboard/cleaner"
+            : "/dashboard/service",
         );
       }
     } catch (err) {
@@ -256,17 +299,6 @@ function CreateServicePageInner() {
       setLoading(false);
     }
   }
-
-  const submitDisabled =
-    !name.trim() ||
-    !serviceTitle.trim() ||
-    !experienceYears.trim() ||
-    !profilePhoto ||
-    coverageZones.length === 0 ||
-    !description.trim() ||
-    (!is24_7 && !workingHours.trim()) ||
-    !price.trim() ||
-    !phone.trim();
 
   return (
     <WizardShell
@@ -279,7 +311,7 @@ function CreateServicePageInner() {
           backHref="/create"
           onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
-          submitDisabled={submitDisabled}
+          submitDisabled={loading}
           loading={loading}
           error={error}
         />
@@ -297,7 +329,12 @@ function CreateServicePageInner() {
             accent="blue"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("nameOrCompany")} required>
+              <Field
+                label={t("nameOrCompany")}
+                required
+                fieldKey="name"
+                error={invalidFields.has("name")}
+              >
                 <input
                   type="text"
                   value={name}
@@ -306,13 +343,19 @@ function CreateServicePageInner() {
                   className={inputClass}
                 />
               </Field>
-              <Field label={t("experience")} required>
-                <input
-                  type="text"
+              <Field
+                label={t("experience")}
+                required
+                fieldKey="experienceYears"
+                error={invalidFields.has("experienceYears")}
+              >
+                <NumberField
                   value={experienceYears}
-                  onChange={(e) => setExperienceYears(e.target.value)}
+                  onChange={setExperienceYears}
+                  min={0}
+                  max={60}
+                  integer
                   placeholder={t("experiencePlaceholder")}
-                  className={inputClass}
                 />
               </Field>
             </div>
@@ -326,7 +369,12 @@ function CreateServicePageInner() {
               />
             </Field>
 
-            <Field label={t("serviceTitle")} required>
+            <Field
+              label={t("serviceTitle")}
+              required
+              fieldKey="serviceTitle"
+              error={invalidFields.has("serviceTitle")}
+            >
               <input
                 type="text"
                 value={serviceTitle}
@@ -336,14 +384,24 @@ function CreateServicePageInner() {
               />
             </Field>
 
-            <ProfilePhotoUpload
-              value={profilePhoto}
-              onChange={setProfilePhoto}
-            />
+            <div data-field="profilePhoto" className="scroll-mt-24">
+              <ProfilePhotoUpload
+                value={profilePhoto}
+                onChange={setProfilePhoto}
+                invalid={invalidFields.has("profilePhoto")}
+              />
+            </div>
           </WizardInnerCard>
 
           <WizardInnerCard number={2} title={t("sectionDetails")} accent="blue">
-            <Field label={t("coverageZone")} required uppercase>
+            <Field
+              label={t("coverageZone")}
+              required
+              uppercase
+              fieldKey="coverageZones"
+              error={invalidFields.has("coverageZones")}
+              labelOnlyError
+            >
               <div className="flex flex-wrap gap-2">
                 {COVERAGE_ZONES.map((zone) => (
                   <ChipToggle
@@ -371,7 +429,12 @@ function CreateServicePageInner() {
               </div>
             </Field>
 
-            <Field label={t("detailedDescription")} required>
+            <Field
+              label={t("detailedDescription")}
+              required
+              fieldKey="description"
+              error={invalidFields.has("description")}
+            >
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -388,14 +451,19 @@ function CreateServicePageInner() {
             accent="blue"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("workingHours")} required uppercase>
-                <input
-                  type="text"
+              <Field
+                label={t("workingHours")}
+                required
+                uppercase
+                fieldKey="workingHours"
+                error={invalidFields.has("workingHours")}
+                labelOnlyError
+              >
+                <TimeRangePicker
                   value={workingHours}
-                  onChange={(e) => setWorkingHours(e.target.value)}
-                  placeholder="09:00 - 19:00"
+                  onChange={setWorkingHours}
                   disabled={is24_7}
-                  className={cn(inputClass, is24_7 && "opacity-60")}
+                  error={invalidFields.has("workingHours")}
                 />
               </Field>
 
@@ -439,28 +507,54 @@ function CreateServicePageInner() {
               </div>
             </div>
 
-            <Field label={t("startingPrice")} required uppercase>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="50"
-                  min="0"
-                  className={cn(inputClass, "pr-14")}
-                />
-                <span className="pointer-events-none absolute inset-y-1.5 right-1.5 flex w-11 items-center justify-center rounded-lg bg-[#F1F5F9] text-sm font-semibold text-[#64748B]">
-                  ₾
-                </span>
-              </div>
+            <Field
+              label={t("startingPrice")}
+              required
+              uppercase
+              fieldKey="price"
+              error={invalidFields.has("price")}
+            >
+              <NumberField
+                value={price}
+                onChange={setPrice}
+                min={0}
+                max={100000}
+                integer
+                placeholder="50"
+                suffix="₾"
+              />
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={tShared("phoneNumber")} required uppercase>
-                <PhoneInput value={phone} onChange={setPhone} />
+              <Field
+                label={tShared("phoneNumber")}
+                required
+                uppercase
+                fieldKey="phone"
+                error={invalidFields.has("phone")}
+              >
+                <PhoneInput
+                  value={phone}
+                  onChange={setPhone}
+                  error={
+                    invalidFields.has("phone")
+                      ? tShared("enterPhone")
+                      : phone && !isValidGePhone(phone)
+                        ? tShared("invalidPhone")
+                        : null
+                  }
+                />
               </Field>
               <Field label={tShared("whatsappNumber")} uppercase>
-                <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+                <PhoneInput
+                  value={whatsapp}
+                  onChange={setWhatsapp}
+                  error={
+                    whatsapp && !isValidGePhone(whatsapp)
+                      ? tShared("invalidPhone")
+                      : null
+                  }
+                />
               </Field>
             </div>
           </WizardInnerCard>
@@ -477,18 +571,34 @@ function Field({
   label,
   required,
   uppercase,
+  fieldKey,
+  error,
+  labelOnlyError,
   children,
 }: {
   label: string;
   required?: boolean;
   uppercase?: boolean;
+  fieldKey?: string;
+  error?: boolean;
+  /** Only redden the label (for controls whose own buttons shouldn't turn red). */
+  labelOnlyError?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
+    <div
+      data-field={fieldKey}
+      className={cn(
+        "space-y-2 scroll-mt-24",
+        error &&
+          !labelOnlyError &&
+          "[&_input]:border-[#EF4444] [&_textarea]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2] [&_textarea]:ring-2 [&_textarea]:ring-[#FEE2E2]",
+      )}
+    >
       <label
         className={cn(
-          "block text-[13px] font-bold text-[#334155]",
+          "block text-[13px] font-bold",
+          error ? "text-[#EF4444]" : "text-[#334155]",
           uppercase && "text-[12px] uppercase tracking-[0.04em]",
         )}
       >
@@ -565,9 +675,11 @@ function LanguageChip({
 function ProfilePhotoUpload({
   value,
   onChange,
+  invalid,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
+  invalid?: boolean;
 }) {
   const t = useTranslations("CreateService");
   const tShared = useTranslations("CreateShared");
@@ -582,7 +694,12 @@ function ProfilePhotoUpload({
   }
 
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+    <div
+      className={cn(
+        "flex items-center gap-4 rounded-2xl border bg-[#F8FAFC] p-4",
+        invalid ? "border-[#EF4444]" : "border-[#E2E8F0]",
+      )}
+    >
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -590,7 +707,9 @@ function ProfilePhotoUpload({
           "flex size-[88px] shrink-0 items-center justify-center rounded-full border-2 border-dashed transition-colors",
           value
             ? "border-[#2563EB] bg-white"
-            : "border-[#93C5FD] bg-[#EFF6FF] hover:border-[#2563EB]",
+            : invalid
+              ? "border-[#EF4444] bg-[#FEF2F2] hover:border-[#EF4444]"
+              : "border-[#93C5FD] bg-[#EFF6FF] hover:border-[#2563EB]",
         )}
         aria-label={t("uploadProfilePhoto")}
       >

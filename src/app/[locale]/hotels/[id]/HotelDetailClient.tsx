@@ -38,7 +38,11 @@ import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { formatPricePerNight } from "@/lib/utils/format";
-import { AMENITY_ICONS } from "@/lib/constants/amenity-icons";
+import {
+  AMENITY_ICONS,
+  DEFAULT_AMENITY_ICON,
+  cleanAmenityLabel,
+} from "@/lib/constants/amenity-icons";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 
 type PropertyWithOwner = Tables<"properties"> & {
@@ -275,21 +279,21 @@ export default function HotelDetailClient({
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {amenities.map((key) => {
                   const optKey = optionKeyFor("amenities", key);
-                  const Icon = optKey ? AMENITY_ICONS[optKey] : undefined;
+                  const Icon =
+                    (optKey && AMENITY_ICONS[optKey]) || DEFAULT_AMENITY_ICON;
                   const label =
                     optKey === "no_balcony"
                       ? tDetail("balconyNone")
                       : optKey
                         ? tOpts(`amenities.${optKey}`)
-                        : key;
+                        : cleanAmenityLabel(key);
+                  if (!label) return null;
                   return (
                     <div
                       key={key}
                       className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
                     >
-                      {Icon && (
-                        <Icon className="h-5 w-5 text-brand-accent shrink-0" />
-                      )}
+                      <Icon className="h-5 w-5 text-brand-accent shrink-0" />
                       <span className="break-words">{label}</span>
                     </div>
                   );

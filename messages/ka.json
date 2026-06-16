@@ -187,7 +187,9 @@
     "switcher": {
       "rentalsRent": "ბინები (გაქირავება)",
       "employment": "დასაქმება",
-      "services": "ტრანსპორტი / სერვისი / დასაქმება / გართობა",
+      "transport": "ტრანსპორტი",
+      "entertainment": "გართობა",
+      "services": "სერვისები",
       "rentalsSale": "ბინები ( გაყიდვა )",
       "food": "კვება",
       "guest": "სტუმარი",
@@ -990,7 +992,10 @@
     "clear": "გასუფთავება",
     "done": "მზადაა",
     "hours": "საათი",
-    "minutes": "წუთი"
+    "minutes": "წუთი",
+    "from": "დაწყება",
+    "to": "დასრულება",
+    "endAfterStart": "დასრულების დრო უნდა იყოს დაწყებაზე გვიან"
   },
   "BakurianiMap": {
     "bakuriani": "ბაკურიანი",
@@ -1756,6 +1761,8 @@
   "CreateShared": {
     "listingNotFound": "განცხადება ვერ მოიძებნა",
     "genericError": "შეცდომა. სცადეთ თავიდან.",
+    "invalidPhone": "შეიყვანეთ სწორი ნომერი (9 ციფრი, იწყება 5-ით)",
+    "invalidPersonalId": "პირადი ნომერი უნდა შედგებოდეს 11 ციფრისგან",
     "save": "შენახვა",
     "publishListing": "განცხადების გამოქვეყნება",
     "loading": "იტვირთება...",
@@ -1781,6 +1788,7 @@
     "eg": "მაგ: {value}",
     "sqm": "კვ.მ",
     "or": "ან",
+    "notSpecified": "არ არის მითითებული",
     "onlyUnderConstruction": "მხოლოდ მშენებარეზე"
   },
   "ListingOptions": {
@@ -2091,7 +2099,15 @@
     "priceUnitHour": "საათი",
     "profilePhoto": "პროფილის ფოტო",
     "uploadProfilePhoto": "ატვირთეთ პროფილის ფოტო",
-    "profilePhotoHint": "ატვირთეთ თქვენი ან კომპანიის ლოგოს ფოტო (სავალდებულოა)"
+    "profilePhotoHint": "ატვირთეთ თქვენი ან კომპანიის ლოგოს ფოტო (სავალდებულოა)",
+    "enterName": "მიუთითეთ სახელი",
+    "enterExperience": "მიუთითეთ გამოცდილება",
+    "enterServiceTitle": "მიუთითეთ სათაური",
+    "uploadProfilePhotoError": "ატვირთეთ პროფილის ფოტო",
+    "chooseCoverageZone": "აირჩიეთ მინიმუმ ერთი დაფარვის ზონა",
+    "enterDescription": "შეავსეთ აღწერა",
+    "enterWorkingHours": "მიუთითეთ სამუშაო საათები",
+    "enterPrice": "მიუთითეთ ფასი"
   },
   "CreateTransport": {
     "pageTitle": "ტრანსპორტი და ტრანსფერები",
@@ -2140,7 +2156,10 @@
     "tariff": "ტარიფი (GEL)",
     "priceGivenFor": "ფასი მოცემულია",
     "uploadPhotos": "ფოტოების ატვირთვა",
-    "phone": "ტელეფონი"
+    "phone": "ტელეფონი",
+    "enterTitle": "მიუთითეთ სათაური",
+    "enterDescription": "შეავსეთ აღწერა",
+    "enterPrice": "მიუთითეთ ფასი"
   },
   "CreateEmployment": {
     "pageTitle": "დასაქმება ბაკურიანში",
@@ -2162,7 +2181,12 @@
     "requirements": "მოთხოვნები და კომპეტენციები",
     "requirementsPlaceholder": "ინგლისური ან რუსული ენის სასაუბრო დონეზე ცოდნა...",
     "preferredLanguages": "სასურველი ენები",
-    "workExperience": "სამუშაო გამოცდილება"
+    "workExperience": "სამუშაო გამოცდილება",
+    "enterEmployer": "მიუთითეთ დამსაქმებელი",
+    "chooseLocation": "აირჩიეთ ლოკაცია",
+    "enterPosition": "მიუთითეთ პოზიცია",
+    "enterSalary": "მიუთითეთ ანაზღაურება",
+    "enterJobDescription": "შეავსეთ სამუშაოს აღწერა"
   },
   "CreateSale": {
     "pageTitle": "ყიდვა / გაყიდვა",
@@ -2194,7 +2218,10 @@
     "enterCadastral": "მიუთითეთ საკადასტრო კოდი",
     "invalidArea": "არასწორი ფართობი",
     "invalidPrice": "არასწორი ფასი",
-    "soldReservedExceeds": "გაყიდული + ჯავშანი არ უნდა აღემატებოდეს ბინების საერთო რაოდენობას"
+    "soldReservedExceeds": "გაყიდული + ჯავშანი არ უნდა აღემატებოდეს ბინების საერთო რაოდენობას",
+    "pricePerSqmLabel": "ფასი მ²-ზე (USD)",
+    "priceRequiredOneOf": "მიუთითეთ ჯამური ფასი ან ფასი მ²-ზე",
+    "orFillPerSqm": "ან შეავსეთ ფასი მ²-ზე"
   },
   "DateRangeFilter": {
     "presets": {
@@ -2403,7 +2430,6 @@
         "closed": "გაფორმდა"
       },
       "sources": {
-        "smart_match": "ჭკვიანი ძიება",
         "direct": "პირდაპირი",
         "call": "ზარი",
         "walk_in": "ვიზიტი",
@@ -2457,9 +2483,8 @@
       "maxSize": "მაქს. 10MB/30MB",
       "videoPlaceholder": "ვიდეოს ბმული (სურვილისამებრ) — https://...",
       "status": "სტატუსი",
-      "description": "აღწერა (რა გაკეთდა)",
+      "description": "აღწერა (რა გაკეთდა) — სურვილისამებრ",
       "descriptionPlaceholder": "მაგ: დაასრულდა მე-4 სართულის გადახურვა, დაიწყო ფასადის მონტაჟი…",
-      "noteRequired": "შეავსეთ აღწერა (რა გაკეთდა).",
       "savedHistoryFailed": "განახლება შენახულია, თუმცა ისტორიაში ვერ დაემატა.",
       "published": "განახლება გამოქვეყნდა 🚀",
       "publishing": "ქვეყნდება…",
@@ -2550,6 +2575,7 @@
     "back": "უკან",
     "completed": "დასრულებული",
     "active": "აქტიური",
+    "pending": "განხილვაში",
     "cancelled": "გაუქმებული",
     "published": "გამოქვეყნებული",
     "paused": "გაჩერებული",

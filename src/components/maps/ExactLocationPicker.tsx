@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { GoogleMap, MarkerF } from "@react-google-maps/api";
 import { useTranslations } from "next-intl";
+import NumberField from "@/components/shared/NumberField";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 
 const BAKURIANI_CENTER = { lat: 41.7509, lng: 43.5294 };
@@ -128,34 +129,34 @@ export default function ExactLocationPicker({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <label className="text-xs font-medium text-[#334155]">Latitude</label>
-          <input
-            type="number"
-            step="0.000001"
+          <NumberField
             value={latInput}
-            onChange={(e) => {
-              const nextLat = e.target.value;
+            onChange={(nextLat) => {
               setLatInput(nextLat);
               tryApplyManualCoordinates(nextLat, lngInput);
             }}
+            min={-90}
+            max={90}
+            decimals={6}
+            allowNegative
             placeholder="41.750900"
-            className="h-[44px] w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium text-[#334155]">
             Longitude
           </label>
-          <input
-            type="number"
-            step="0.000001"
+          <NumberField
             value={lngInput}
-            onChange={(e) => {
-              const nextLng = e.target.value;
+            onChange={(nextLng) => {
               setLngInput(nextLng);
               tryApplyManualCoordinates(latInput, nextLng);
             }}
+            min={-180}
+            max={180}
+            decimals={6}
+            allowNegative
             placeholder="43.529400"
-            className="h-[44px] w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
           />
         </div>
       </div>

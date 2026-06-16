@@ -133,7 +133,8 @@ function getNavItems(role: string): NavItem[] {
     case "transport":
     case "employment":
     case "handyman":
-      return [{ labelKey: "home", href: "/dashboard/service", icon: Home }];
+    case "services":
+      return [{ labelKey: "home", href: "/dashboard", icon: Home }];
     default:
       return [
         { labelKey: "home", href: "/dashboard/guest", icon: Home },

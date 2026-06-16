@@ -10,13 +10,17 @@ import {
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
+import NumberField from "@/components/shared/NumberField";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { MapPinned } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
+import { isValidGePhone } from "@/lib/utils/number";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import { scrollToField } from "@/lib/forms/scroll-to-error";
+import { cn } from "@/lib/utils";
 import {
   MANAGEMENT_SERVICES,
   RENOVATION_STATUSES,
@@ -53,7 +57,14 @@ const MONTH_KEYS = [
   "december",
 ] as const;
 
-const ROI_OPTIONS = [
+// Leading "" option lets the seller leave ROI unspecified (stored as null).
+const ROI_OPTIONS: {
+  value: string;
+  label: string;
+  min: number | null;
+  max: number | null;
+}[] = [
+  { value: "", label: "", min: null, max: null },
   { value: "5-8", label: "5-8%", min: 5, max: 8 },
   { value: "8-12", label: "8-12%", min: 8, max: 12 },
   { value: "12-15", label: "12-15%", min: 12, max: 15 },
@@ -141,8 +152,18 @@ function CreateSalePageInner() {
     [tOpts],
   );
 
+  const roiOptions = useMemo(
+    () =>
+      ROI_OPTIONS.map((o) => ({
+        value: o.value,
+        label: o.value === "" ? tShared("notSpecified") : o.label,
+      })),
+    [tShared],
+  );
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
 
   const [title, setTitle] = useState("");
@@ -161,11 +182,16 @@ function CreateSalePageInner() {
   const [renovationStatus, setRenovationStatus] = useState("white_frame");
   const [managementService, setManagementService] =
     useState("complex_management");
-  const [roiRange, setRoiRange] = useState("12-15");
+  const [roiRange, setRoiRange] = useState("");
   const [areaSqm, setAreaSqm] = useState("");
   const [rooms, setRooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
+  const [pricePerSqm, setPricePerSqm] = useState("");
+  // Tracks which price the user last typed, so editing area recomputes the other.
+  const [priceDriver, setPriceDriver] = useState<"total" | "perSqm" | null>(
+    null,
+  );
   const [description, setDescription] = useState("");
   const [developer, setDeveloper] = useState("");
   const [roiPercent, setRoiPercent] = useState("");
@@ -224,6 +250,21 @@ function CreateSalePageInner() {
       setRooms(data.rooms != null ? String(data.rooms) : "");
       setBathrooms(data.bathrooms != null ? String(data.bathrooms) : "");
       setPriceUsd(data.sale_price != null ? String(data.sale_price) : "");
+      // Pre-fill the per-m² convenience field from the stored total + area.
+      if (
+        data.sale_price != null &&
+        data.area_sqm != null &&
+        Number(data.area_sqm) > 0
+      ) {
+        setPricePerSqm(
+          String(
+            Math.round(
+              (Number(data.sale_price) / Number(data.area_sqm)) * 100,
+            ) / 100,
+          ),
+        );
+        setPriceDriver("total");
+      }
       setDescription(data.description ?? "");
       setDeveloper(data.developer ?? "");
       setRoiPercent(data.roi_percent != null ? String(data.roi_percent) : "");
@@ -293,8 +334,87 @@ function CreateSalePageInner() {
     };
   }, [editId, user, supabase, tShared]);
 
+  // Two-way binding between total price and price/m², anchored on area.
+  function handleAreaChange(value: string) {
+    setAreaSqm(value);
+    const a = Number(value);
+    if (!(a > 0)) return;
+    if (priceDriver === "perSqm") {
+      const pps = Number(pricePerSqm);
+      if (pps > 0) setPriceUsd(String(Math.round(pps * a)));
+    } else if (priceDriver === "total") {
+      const p = Number(priceUsd);
+      if (p > 0) setPricePerSqm(String(Math.round((p / a) * 100) / 100));
+    }
+  }
+
+  function handleTotalChange(value: string) {
+    setPriceUsd(value);
+    setPriceDriver("total");
+    const a = Number(areaSqm);
+    const p = Number(value);
+    if (a > 0 && p > 0) {
+      setPricePerSqm(String(Math.round((p / a) * 100) / 100));
+    }
+  }
+
+  function handlePerSqmChange(value: string) {
+    setPricePerSqm(value);
+    setPriceDriver("perSqm");
+    const a = Number(areaSqm);
+    const pps = Number(value);
+    if (a > 0 && pps > 0) {
+      setPriceUsd(String(Math.round(pps * a)));
+    }
+  }
+
+  function validate(): { key: string; message: string }[] {
+    const errs: { key: string; message: string }[] = [];
+    if (!title.trim()) errs.push({ key: "title", message: t("invalidTitle") });
+    if (!location.trim())
+      errs.push({ key: "location", message: t("invalidLocation") });
+    if (!cadastralCode.trim())
+      errs.push({ key: "cadastralCode", message: t("enterCadastral") });
+
+    const areaNum = Number(areaSqm);
+    if (!Number.isFinite(areaNum) || areaNum <= 0) {
+      errs.push({ key: "areaSqm", message: t("invalidArea") });
+    }
+
+    const totalNum = Number(priceUsd);
+    const ppsNum = Number(pricePerSqm);
+    const hasTotal = Number.isFinite(totalNum) && totalNum > 0;
+    const hasPerSqm = Number.isFinite(ppsNum) && ppsNum > 0;
+    if (!hasTotal && !hasPerSqm) {
+      errs.push({ key: "priceUsd", message: t("priceRequiredOneOf") });
+    }
+
+    if (photos.length < MIN_PHOTOS) {
+      errs.push({
+        key: "photos",
+        message: tShared("minPhotosRequired", { count: MIN_PHOTOS }),
+      });
+    }
+
+    if (!isValidGePhone(phone)) {
+      errs.push({ key: "phone", message: tShared("invalidPhone") });
+    }
+
+    return errs;
+  }
+
   async function handleSubmit() {
     if (!user) return;
+
+    const errs = validate();
+    if (errs.length > 0) {
+      setInvalidFields(new Set(errs.map((e) => e.key)));
+      setError(errs[0].message);
+      scrollToField(errs[0].key);
+      return;
+    }
+    setInvalidFields(new Set());
+
     setLoading(true);
     setError(null);
 
@@ -302,26 +422,13 @@ function CreateSalePageInner() {
       const titleTrimmed = title.trim();
       const locationTrimmed = location.trim();
       const cadastralCodeTrimmed = cadastralCode.trim();
-      if (!titleTrimmed) throw new Error(t("invalidTitle"));
-      if (!locationTrimmed) throw new Error(t("invalidLocation"));
-      if (!cadastralCodeTrimmed) throw new Error(t("enterCadastral"));
 
       const areaNum = Number(areaSqm);
-      if (!Number.isFinite(areaNum) || areaNum <= 0) {
-        throw new Error(t("invalidArea"));
-      }
-
-      const priceNum = Number(priceUsd);
-      if (!Number.isFinite(priceNum) || priceNum <= 0) {
-        throw new Error(t("invalidPrice"));
-      }
-
-      if (photos.length < MIN_PHOTOS) {
-        throw new Error(tShared("minPhotosRequired", { count: MIN_PHOTOS }));
-      }
-
-      if (!phone.trim()) {
-        throw new Error(tShared("enterPhone"));
+      // total price is canonical; derive it from price/m² when only that was filled
+      const perSqmNum = Number(pricePerSqm);
+      let priceNum = Number(priceUsd);
+      if (!(priceNum > 0) && perSqmNum > 0 && areaNum > 0) {
+        priceNum = Math.round(perSqmNum * areaNum);
       }
 
       const monthNum =
@@ -429,20 +536,11 @@ function CreateSalePageInner() {
     location.trim().length > 0,
     cadastralCode.trim().length > 0,
     areaSqm.trim().length > 0,
-    priceUsd.trim().length > 0,
+    priceUsd.trim().length > 0 || pricePerSqm.trim().length > 0,
     photos.length >= MIN_PHOTOS,
-    phone.trim().length > 0,
+    isValidGePhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 7) * 100));
-
-  const submitDisabled =
-    !title.trim() ||
-    !location.trim() ||
-    !cadastralCode.trim() ||
-    !areaSqm ||
-    !priceUsd ||
-    photos.length < MIN_PHOTOS ||
-    !phone.trim();
 
   return (
     <WizardShell
@@ -455,7 +553,7 @@ function CreateSalePageInner() {
           backHref="/create"
           onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
-          submitDisabled={submitDisabled}
+          submitDisabled={loading}
           loading={loading}
           error={error}
         />
@@ -475,6 +573,8 @@ function CreateSalePageInner() {
             <Field
               label={t("listingTitle")}
               required
+              fieldKey="title"
+              error={invalidFields.has("title")}
               helper={t("titleMaxHelper", { max: TITLE_MAX })}
             >
               <input
@@ -496,7 +596,12 @@ function CreateSalePageInner() {
                 />
               </Field>
 
-              <Field label={t("locationZone")} required>
+              <Field
+                label={t("locationZone")}
+                required
+                fieldKey="location"
+                error={invalidFields.has("location")}
+              >
                 <StyledSelect
                   value={location}
                   onValueChange={setLocation}
@@ -551,6 +656,8 @@ function CreateSalePageInner() {
             <Field
               label={t("cadastralCode")}
               required
+              fieldKey="cadastralCode"
+              error={invalidFields.has("cadastralCode")}
               helper={t("cadastralHelper")}
             >
               <input
@@ -564,13 +671,15 @@ function CreateSalePageInner() {
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <Field label={t("roomsCount")}>
-                <input
-                  type="number"
+                <NumberField
                   value={rooms}
-                  onChange={(e) => setRooms(e.target.value)}
+                  onChange={setRooms}
+                  min={0}
+                  max={50}
+                  integer
+                  stepper
+                  accent="green"
                   placeholder={t("roomsPlaceholder")}
-                  min="0"
-                  className={inputClass}
                 />
               </Field>
 
@@ -619,7 +728,7 @@ function CreateSalePageInner() {
                 <StyledSelect
                   value={roiRange}
                   onValueChange={setRoiRange}
-                  options={ROI_OPTIONS}
+                  options={roiOptions}
                   accent="blue"
                 />
               </Field>
@@ -631,44 +740,68 @@ function CreateSalePageInner() {
             title={t("sectionFinance")}
             accent="green"
           >
+            <Field
+              label={t("totalArea")}
+              required
+              fieldKey="areaSqm"
+              error={invalidFields.has("areaSqm")}
+            >
+              <NumberField
+                value={areaSqm}
+                onChange={handleAreaChange}
+                min={0}
+                max={100000}
+                decimals={1}
+                accent="green"
+                placeholder="0"
+                suffix={tShared("sqm")}
+              />
+            </Field>
+
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("totalArea")} required>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={areaSqm}
-                    onChange={(e) => setAreaSqm(e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    step="0.1"
-                    className={`${inputClass} pr-16`}
-                  />
-                  <span className="pointer-events-none absolute bottom-0 right-0 top-0 flex items-center rounded-r-xl border-l border-[#E2E8F0] bg-[#F8FAFC] px-4 text-xs font-bold text-[#64748B]">
-                    {tShared("sqm")}
-                  </span>
-                </div>
+              <Field
+                label={t("pricePerSqmLabel")}
+                helper={t("orFillPerSqm")}
+                fieldKey="priceUsd"
+                error={invalidFields.has("priceUsd")}
+              >
+                <NumberField
+                  value={pricePerSqm}
+                  onChange={handlePerSqmChange}
+                  min={0}
+                  max={1000000}
+                  integer
+                  accent="green"
+                  placeholder="0"
+                  prefix="$"
+                />
               </Field>
 
-              <Field label={t("priceUsd")} required>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-[#059669]">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    value={priceUsd}
-                    onChange={(e) => setPriceUsd(e.target.value)}
-                    placeholder="0"
-                    min="1"
-                    className={`${inputClass} pl-10`}
-                  />
-                </div>
+              <Field
+                label={t("priceUsd")}
+                required
+                fieldKey="priceUsd"
+                error={invalidFields.has("priceUsd")}
+              >
+                <NumberField
+                  value={priceUsd}
+                  onChange={handleTotalChange}
+                  min={1}
+                  max={10000000}
+                  integer
+                  accent="green"
+                  placeholder="0"
+                  prefix="$"
+                />
               </Field>
             </div>
 
             <Field
               label={t("photosRenders")}
               required
+              fieldKey="photos"
+              error={invalidFields.has("photos")}
+              labelOnlyError
               chip={{
                 label: tShared("minPhotosShort", { count: MIN_PHOTOS }),
                 variant: "blue",
@@ -700,8 +833,19 @@ function CreateSalePageInner() {
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={tShared("phoneNumber")} required>
-                <PhoneInput value={phone} onChange={setPhone} />
+              <Field
+                label={tShared("phoneNumber")}
+                required
+                fieldKey="phone"
+                error={invalidFields.has("phone")}
+              >
+                <PhoneInput
+                  value={phone}
+                  onChange={setPhone}
+                  error={
+                    invalidFields.has("phone") ? tShared("invalidPhone") : null
+                  }
+                />
               </Field>
               <Field
                 label={tShared("whatsappNumber")}
@@ -726,6 +870,9 @@ function Field({
   helper,
   chip,
   chipPosition = "inline",
+  fieldKey,
+  error,
+  labelOnlyError,
   children,
 }: {
   label: string;
@@ -733,6 +880,10 @@ function Field({
   helper?: string;
   chip?: { label: string; variant?: "green" | "blue" };
   chipPosition?: "inline" | "end";
+  fieldKey?: string;
+  error?: boolean;
+  /** Only redden the label (for controls whose own buttons shouldn't turn red). */
+  labelOnlyError?: boolean;
   children: React.ReactNode;
 }) {
   const chipEl = chip ? (
@@ -748,10 +899,23 @@ function Field({
   ) : null;
 
   return (
-    <div className="space-y-2">
+    <div
+      data-field={fieldKey}
+      className={cn(
+        "space-y-2 scroll-mt-24",
+        error &&
+          !labelOnlyError &&
+          "[&_input]:border-[#EF4444] [&_textarea]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2] [&_textarea]:ring-2 [&_textarea]:ring-[#FEE2E2]",
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <label className="text-[13px] font-bold text-[#334155]">
+          <label
+            className={cn(
+              "text-[13px] font-bold",
+              error ? "text-[#EF4444]" : "text-[#334155]",
+            )}
+          >
             {label}
             {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
           </label>

@@ -14,21 +14,19 @@ interface SwitcherItem {
 }
 
 const ALL_ITEMS: SwitcherItem[] = [
-  {
-    key: "renter",
-    labelKey: "rentalsRent",
-    href: "/dashboard/renter",
-  },
-  { key: "employment", labelKey: "employment", href: "/dashboard/service" },
-  {
-    key: "service",
-    labelKey: "services",
-    href: "/dashboard/service",
-  },
+  { key: "renter", labelKey: "rentalsRent", href: "/dashboard/renter" },
   { key: "seller", labelKey: "rentalsSale", href: "/dashboard/seller" },
+  { key: "employment", labelKey: "employment", href: "/dashboard/employment" },
+  { key: "transport", labelKey: "transport", href: "/dashboard/transport" },
+  {
+    key: "entertainment",
+    labelKey: "entertainment",
+    href: "/dashboard/entertainment",
+  },
+  { key: "services", labelKey: "services", href: "/dashboard/services" },
   { key: "food", labelKey: "food", href: "/dashboard/food" },
-  { key: "guest", labelKey: "guest", href: "/dashboard/guest" },
   { key: "cleaner", labelKey: "cleaner", href: "/dashboard/cleaner" },
+  { key: "guest", labelKey: "guest", href: "/dashboard/guest" },
 ];
 
 interface CabinetSwitcherProps {

@@ -213,8 +213,12 @@ export default function ServiceParametersPage() {
               </label>
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={11}
                 value={personalId}
-                onChange={(e) => setPersonalId(e.target.value)}
+                onChange={(e) =>
+                  setPersonalId(e.target.value.replace(/\D/g, "").slice(0, 11))
+                }
                 placeholder="01008060403"
                 className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
               />

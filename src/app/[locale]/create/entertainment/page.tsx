@@ -12,11 +12,17 @@ import {
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
+import NumberField from "@/components/shared/NumberField";
+import TimeRangePicker, {
+  isValidTimeRange,
+} from "@/components/shared/TimeRangePicker";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
+import { isValidGePhone } from "@/lib/utils/number";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
 
 const ExactLocationPicker = dynamic(
@@ -185,6 +191,7 @@ function CreateEntertainmentPageInner() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
 
   const [title, setTitle] = useState("");
@@ -293,19 +300,35 @@ function CreateEntertainmentPageInner() {
     description.trim().length > 0,
     price.trim().length > 0,
     photos.length > 0,
-    phone.trim().length > 0,
+    isValidGePhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 5) * 100));
 
-  const submitDisabled =
-    !title.trim() ||
-    !description.trim() ||
-    !price.trim() ||
-    photos.length === 0 ||
-    !phone.trim();
+  function validate(): { key: string; message: string }[] {
+    const errs: { key: string; message: string }[] = [];
+    if (!title.trim()) errs.push({ key: "title", message: t("enterTitle") });
+    if (!description.trim())
+      errs.push({ key: "description", message: t("enterDescription") });
+    if (!price.trim()) errs.push({ key: "price", message: t("enterPrice") });
+    if (photos.length === 0)
+      errs.push({ key: "photos", message: tShared("uploadMinOnePhoto") });
+    if (!phone.trim())
+      errs.push({ key: "phone", message: tShared("enterPhone") });
+    return errs;
+  }
 
   async function handleSubmit() {
     if (!user) return;
+
+    const errs = validate();
+    if (errs.length > 0) {
+      setInvalidFields(new Set(errs.map((e) => e.key)));
+      setError(errs[0].message);
+      scrollToField(errs[0].key);
+      return;
+    }
+    setInvalidFields(new Set());
+
     setLoading(true);
     setError(null);
 
@@ -337,8 +360,10 @@ function CreateEntertainmentPageInner() {
         safety_notes: safetyNotes.trim() || null,
         price: price ? Number(price) : null,
         price_unit: priceUnitLabel || null,
-        schedule: workingHours.trim() || null,
-        operating_hours: workingHours.trim() || null,
+        schedule: isValidTimeRange(workingHours) ? workingHours.trim() : null,
+        operating_hours: isValidTimeRange(workingHours)
+          ? workingHours.trim()
+          : null,
         location: [zone, exactLocation.trim()].filter(Boolean).join(" • "),
         coords: coords ?? null,
         photos,
@@ -364,7 +389,7 @@ function CreateEntertainmentPageInner() {
         if (insertError) throw insertError;
       }
 
-      router.push(editId ? "/dashboard/service" : "/dashboard");
+      router.push("/dashboard/service");
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
     } finally {
@@ -392,14 +417,19 @@ function CreateEntertainmentPageInner() {
           backHref="/create"
           onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
-          submitDisabled={submitDisabled}
+          submitDisabled={loading}
           loading={loading}
           error={error}
         />
       }
     >
       <WizardInnerCard number={1} title={tShared("basicInfo")} accent="blue">
-        <Field label={t("title")} required>
+        <Field
+          label={t("title")}
+          required
+          fieldKey="title"
+          error={invalidFields.has("title")}
+        >
           <input
             type="text"
             value={title}
@@ -462,7 +492,12 @@ function CreateEntertainmentPageInner() {
 
         {showMap && <ExactLocationPicker value={coords} onChange={setCoords} />}
 
-        <Field label={t("descriptionLabel")} required>
+        <Field
+          label={t("descriptionLabel")}
+          required
+          fieldKey="description"
+          error={invalidFields.has("description")}
+        >
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -500,12 +535,10 @@ function CreateEntertainmentPageInner() {
             />
           </Field>
           <Field label={tService("workingHours")}>
-            <input
-              type="text"
+            <TimeRangePicker
               value={workingHours}
-              onChange={(e) => setWorkingHours(e.target.value)}
-              placeholder="10:00 - 18:00"
-              className={inputClass}
+              onChange={setWorkingHours}
+              accent="blue"
             />
           </Field>
         </div>
@@ -523,20 +556,22 @@ function CreateEntertainmentPageInner() {
 
       <WizardInnerCard number={3} title={t("sectionTariff")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label={t("tariff")} required>
-            <div className="relative">
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="100"
-                min="0"
-                className={cn(inputClass, "pr-14")}
-              />
-              <span className="pointer-events-none absolute inset-y-1.5 right-1.5 flex w-11 items-center justify-center rounded-lg bg-[#F1F5F9] text-sm font-semibold text-[#64748B]">
-                ₾
-              </span>
-            </div>
+          <Field
+            label={t("tariff")}
+            required
+            fieldKey="price"
+            error={invalidFields.has("price")}
+          >
+            <NumberField
+              value={price}
+              onChange={setPrice}
+              min={0}
+              max={100000}
+              integer
+              placeholder="100"
+              suffix="₾"
+              error={invalidFields.has("price")}
+            />
           </Field>
           <Field label={t("priceGivenFor")} required>
             <StyledSelect
@@ -548,7 +583,13 @@ function CreateEntertainmentPageInner() {
           </Field>
         </div>
 
-        <Field label={t("uploadPhotos")} required>
+        <Field
+          label={t("uploadPhotos")}
+          required
+          fieldKey="photos"
+          error={invalidFields.has("photos")}
+          labelOnlyError
+        >
           <PhotoUploader
             photos={photos}
             onPhotosChange={setPhotos}
@@ -560,11 +601,34 @@ function CreateEntertainmentPageInner() {
 
       <WizardInnerCard number={4} title={t("sectionContact")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label={t("phone")} required>
-            <PhoneInput value={phone} onChange={setPhone} />
+          <Field
+            label={t("phone")}
+            required
+            fieldKey="phone"
+            error={invalidFields.has("phone")}
+          >
+            <PhoneInput
+              value={phone}
+              onChange={setPhone}
+              error={
+                invalidFields.has("phone")
+                  ? tShared("enterPhone")
+                  : phone && !isValidGePhone(phone)
+                    ? tShared("invalidPhone")
+                    : null
+              }
+            />
           </Field>
           <Field label={tShared("whatsappNumber")}>
-            <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+            <PhoneInput
+              value={whatsapp}
+              onChange={setWhatsapp}
+              error={
+                whatsapp && !isValidGePhone(whatsapp)
+                  ? tShared("invalidPhone")
+                  : null
+              }
+            />
           </Field>
         </div>
       </WizardInnerCard>
@@ -578,15 +642,35 @@ const inputClass =
 function Field({
   label,
   required,
+  fieldKey,
+  error,
+  labelOnlyError,
   children,
 }: {
   label: string;
   required?: boolean;
+  fieldKey?: string;
+  error?: boolean;
+  /** Only redden the label (for controls whose own buttons shouldn't turn red). */
+  labelOnlyError?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <label className="block text-[13px] font-bold text-[#334155]">
+    <div
+      data-field={fieldKey}
+      className={cn(
+        "space-y-2 scroll-mt-24",
+        error &&
+          !labelOnlyError &&
+          "[&_input]:border-[#EF4444] [&_textarea]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2] [&_textarea]:ring-2 [&_textarea]:ring-[#FEE2E2]",
+      )}
+    >
+      <label
+        className={cn(
+          "block text-[13px] font-bold",
+          error ? "text-[#EF4444]" : "text-[#334155]",
+        )}
+      >
         {label}
         {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
       </label>

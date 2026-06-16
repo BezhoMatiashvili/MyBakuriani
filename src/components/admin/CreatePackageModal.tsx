@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import DateField from "@/components/shared/DateField";
 import Modal from "@/components/shared/Modal";
+import NumberField from "@/components/shared/NumberField";
 
 export type PackageCategory =
   | "sms"
@@ -202,16 +203,14 @@ export default function CreatePackageModal({
           <label className="text-[12px] font-bold text-[#0F172A]">
             {t("price")} <span className="text-[#DC2626]">*</span>
           </label>
-          <input
-            type="number"
+          <NumberField
+            value={price === "" ? "" : String(price)}
+            onChange={(v) => setPrice(v === "" ? "" : Number(v))}
             min={0}
-            step={0.01}
-            value={price}
-            onChange={(e) =>
-              setPrice(e.target.value === "" ? "" : Number(e.target.value))
-            }
+            max={100000}
+            decimals={2}
+            suffix="₾"
             placeholder="0"
-            className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB]"
           />
         </div>
 
@@ -220,16 +219,13 @@ export default function CreatePackageModal({
             <label className="text-[12px] font-bold text-[#0F172A]">
               {t("smsCount")} <span className="text-[#DC2626]">*</span>
             </label>
-            <input
-              type="number"
+            <NumberField
+              value={smsCount === "" ? "" : String(smsCount)}
+              onChange={(v) => setSmsCount(v === "" ? "" : Number(v))}
+              integer
               min={1}
-              step={1}
-              value={smsCount}
-              onChange={(e) =>
-                setSmsCount(e.target.value === "" ? "" : Number(e.target.value))
-              }
+              max={10000}
               placeholder={t("smsPlaceholder")}
-              className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB]"
             />
           </div>
         ) : null}
@@ -266,17 +262,12 @@ export default function CreatePackageModal({
               <label className="text-[12px] font-bold text-[#0F172A]">
                 {t("durationHours")} <span className="text-[#DC2626]">*</span>
               </label>
-              <input
-                type="number"
+              <NumberField
+                value={durationHours === "" ? "" : String(durationHours)}
+                onChange={(v) => setDurationHours(v === "" ? "" : Number(v))}
+                integer
                 min={1}
-                step={1}
-                value={durationHours}
-                onChange={(e) =>
-                  setDurationHours(
-                    e.target.value === "" ? "" : Number(e.target.value),
-                  )
-                }
-                className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-bold text-[#0F172A] outline-none focus:border-[#2563EB]"
+                max={8760}
               />
             </div>
             <div className="space-y-1.5">

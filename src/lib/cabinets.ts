@@ -13,7 +13,10 @@ export const CABINET_KEYS = [
   "renter",
   "seller",
   "food",
-  "service",
+  "employment",
+  "transport",
+  "entertainment",
+  "services",
   "cleaner",
 ] as const;
 
@@ -30,21 +33,38 @@ export function roleToCabinetKey(role: string | null | undefined): CabinetKey {
       return "cleaner";
     case "food":
       return "food";
-    case "entertainment":
-    case "transport":
     case "employment":
+      return "employment";
+    case "transport":
+      return "transport";
+    case "entertainment":
+      return "entertainment";
     case "handyman":
-      return "service";
+      return "services";
     default:
       return "guest";
   }
 }
 
-/** Map a service listing category to its cabinet key (cleaning and food have their own cabinets). */
+/**
+ * Map a service listing category to its cabinet key. Each service category now
+ * has its own cabinet; cleaning and food keep their dedicated dashboards.
+ */
 export function serviceCategoryToCabinetKey(category: string): CabinetKey {
-  if (category === "cleaning") return "cleaner";
-  if (category === "food") return "food";
-  return "service";
+  switch (category) {
+    case "cleaning":
+      return "cleaner";
+    case "food":
+      return "food";
+    case "employment":
+      return "employment";
+    case "transport":
+      return "transport";
+    case "entertainment":
+      return "entertainment";
+    default:
+      return "services";
+  }
 }
 
 interface DeriveArgs {

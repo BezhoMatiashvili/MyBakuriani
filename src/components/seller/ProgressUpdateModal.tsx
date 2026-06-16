@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import NumberField from "@/components/shared/NumberField";
 import type { Tables } from "@/lib/types/database";
 
 interface Props {
@@ -163,15 +164,14 @@ export default function ProgressUpdateModal({
                 <label className="mb-1.5 block text-[12px] font-bold text-[#334155]">
                   {t("completionYear")}
                 </label>
-                <input
-                  type="number"
-                  inputMode="numeric"
+                <NumberField
+                  value={year}
+                  onChange={setYear}
+                  integer
                   min={MIN_YEAR}
                   max={MAX_YEAR}
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
+                  accent="green"
                   placeholder={String(CURRENT_YEAR + 1)}
-                  className="h-[44px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
                 />
               </div>
 

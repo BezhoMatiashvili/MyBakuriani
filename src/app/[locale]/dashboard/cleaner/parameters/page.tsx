@@ -304,8 +304,14 @@ export default function CleanerParametersPage() {
               <input
                 type="text"
                 inputMode="numeric"
+                maxLength={11}
                 value={form.personalNumber}
-                onChange={(e) => setField("personalNumber", e.target.value)}
+                onChange={(e) =>
+                  setField(
+                    "personalNumber",
+                    e.target.value.replace(/\D/g, "").slice(0, 11),
+                  )
+                }
                 placeholder="01011012345"
                 className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
               />

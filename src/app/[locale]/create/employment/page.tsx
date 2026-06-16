@@ -9,11 +9,13 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import { StyledSelect } from "@/components/ui/styled-select";
+import NumberField from "@/components/shared/NumberField";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import { scrollToField } from "@/lib/forms/scroll-to-error";
 
 const EMPLOYMENT_TYPE_VALUES = [
   "სრული განაკვეთი",
@@ -143,6 +145,7 @@ function CreateEmploymentPageInner() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
 
   const [title, setTitle] = useState("");
@@ -214,12 +217,20 @@ function CreateEmploymentPageInner() {
     };
   }, [editId, user, supabase, tShared]);
 
+  // Salary is satisfied by a min–max range, a daily wage, or a pay type that
+  // has no fixed amount (negotiable / commission) — so every employer can post.
+  const noFixedSalary =
+    salaryType === "შეთანხმებით" || salaryType === "გამომუშავებით (%)";
+  const salaryProvided =
+    (salaryMin.trim().length > 0 && salaryMax.trim().length > 0) ||
+    salaryDaily.trim().length > 0 ||
+    noFixedSalary;
+
   const requiredFlags = [
     title.trim().length > 0,
     location.trim().length > 0,
     position.trim().length > 0,
-    salaryMin.trim().length > 0,
-    salaryMax.trim().length > 0,
+    salaryProvided,
     workDescription.trim().length > 0,
   ];
   const requiredFilled = requiredFlags.filter(Boolean).length;
@@ -227,7 +238,10 @@ function CreateEmploymentPageInner() {
     10,
     Math.round((requiredFilled / requiredFlags.length) * 100),
   );
-  const submitDisabled = requiredFilled < requiredFlags.length;
+  const salaryRangeInvalid =
+    salaryMin.trim().length > 0 &&
+    salaryMax.trim().length > 0 &&
+    Number(salaryMin) > Number(salaryMax);
 
   function toggleLanguage(lang: string) {
     setLanguages((prev) =>
@@ -242,8 +256,39 @@ function CreateEmploymentPageInner() {
     return tOpts(`languages.${lang.key}`);
   }
 
+  function validate(): { key: string; message: string }[] {
+    const errs: { key: string; message: string }[] = [];
+    if (!title.trim()) errs.push({ key: "title", message: t("enterEmployer") });
+    if (!location.trim())
+      errs.push({ key: "location", message: t("chooseLocation") });
+    if (!position.trim())
+      errs.push({ key: "position", message: t("enterPosition") });
+    if (!salaryProvided)
+      errs.push({ key: "salary", message: t("enterSalary") });
+    if (!workDescription.trim())
+      errs.push({ key: "workDescription", message: t("enterJobDescription") });
+    return errs;
+  }
+
   async function handleSubmit() {
     if (!user) return;
+
+    const errs = validate();
+    if (errs.length > 0) {
+      setInvalidFields(new Set(errs.map((e) => e.key)));
+      setError(errs[0].message);
+      scrollToField(errs[0].key);
+      return;
+    }
+    // Cross-field safety net: min must not exceed max.
+    if (salaryRangeInvalid) {
+      setInvalidFields(new Set(["salary"]));
+      setError(t("enterSalary"));
+      scrollToField("salary");
+      return;
+    }
+    setInvalidFields(new Set());
+
     setLoading(true);
     setError(null);
 
@@ -275,7 +320,7 @@ function CreateEmploymentPageInner() {
           .eq("owner_id", user.id);
 
         if (updateError) throw updateError;
-        router.push("/dashboard/service");
+        router.push("/dashboard/employment");
       } else {
         const { error: insertError } = await supabase.from("services").insert({
           ...payload,
@@ -285,7 +330,7 @@ function CreateEmploymentPageInner() {
         });
 
         if (insertError) throw insertError;
-        router.push("/dashboard");
+        router.push("/dashboard/employment");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
@@ -313,7 +358,7 @@ function CreateEmploymentPageInner() {
           backHref="/create"
           onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
-          submitDisabled={submitDisabled}
+          submitDisabled={loading}
           loading={loading}
           error={error}
         />
@@ -321,7 +366,12 @@ function CreateEmploymentPageInner() {
     >
       <WizardInnerCard number={1} title={tShared("basicInfo")} accent="blue">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label={t("employer")} required>
+          <Field
+            label={t("employer")}
+            required
+            fieldKey="title"
+            error={invalidFields.has("title")}
+          >
             <input
               type="text"
               value={title}
@@ -330,7 +380,12 @@ function CreateEmploymentPageInner() {
               className={inputClass}
             />
           </Field>
-          <Field label={t("location")} required>
+          <Field
+            label={t("location")}
+            required
+            fieldKey="location"
+            error={invalidFields.has("location")}
+          >
             <StyledSelect
               value={location}
               onValueChange={setLocation}
@@ -341,7 +396,12 @@ function CreateEmploymentPageInner() {
           </Field>
         </div>
 
-        <Field label={t("position")} required>
+        <Field
+          label={t("position")}
+          required
+          fieldKey="position"
+          error={invalidFields.has("position")}
+        >
           <input
             type="text"
             value={position}
@@ -372,30 +432,56 @@ function CreateEmploymentPageInner() {
           </Field>
         </div>
 
-        <Field label={t("salary")} required>
+        <Field
+          label={t("salary")}
+          required
+          fieldKey="salary"
+          error={invalidFields.has("salary")}
+        >
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <CurrencyInput
-                value={salaryMin}
-                onChange={setSalaryMin}
-                placeholder="1200"
-              />
+              <div className="flex-1">
+                <NumberField
+                  value={salaryMin}
+                  onChange={setSalaryMin}
+                  min={0}
+                  max={999999}
+                  integer
+                  suffix="₾"
+                  accent="blue"
+                  placeholder="1200"
+                />
+              </div>
               <span className="text-sm font-medium text-[#94A3B8]">–</span>
-              <CurrencyInput
-                value={salaryMax}
-                onChange={setSalaryMax}
-                placeholder="1500"
-              />
+              <div className="flex-1">
+                <NumberField
+                  value={salaryMax}
+                  onChange={setSalaryMax}
+                  min={0}
+                  max={999999}
+                  integer
+                  suffix="₾"
+                  accent="blue"
+                  placeholder="1500"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <span className="shrink-0 text-xs font-medium text-[#94A3B8]">
                 {tShared("or")}
               </span>
-              <CurrencyInput
-                value={salaryDaily}
-                onChange={setSalaryDaily}
-                placeholder={t("dailySalaryPlaceholder")}
-              />
+              <div className="flex-1">
+                <NumberField
+                  value={salaryDaily}
+                  onChange={setSalaryDaily}
+                  min={0}
+                  max={999999}
+                  integer
+                  suffix="₾"
+                  accent="blue"
+                  placeholder={t("dailySalaryPlaceholder")}
+                />
+              </div>
             </div>
           </div>
         </Field>
@@ -423,7 +509,12 @@ function CreateEmploymentPageInner() {
           </Field>
         </div>
 
-        <Field label={t("jobDescription")} required>
+        <Field
+          label={t("jobDescription")}
+          required
+          fieldKey="workDescription"
+          error={invalidFields.has("workDescription")}
+        >
           <textarea
             value={workDescription}
             onChange={(e) => setWorkDescription(e.target.value)}
@@ -495,16 +586,36 @@ function Field({
   label,
   required,
   helper,
+  fieldKey,
+  error,
+  labelOnlyError,
   children,
 }: {
   label: string;
   required?: boolean;
   helper?: string;
+  fieldKey?: string;
+  error?: boolean;
+  /** Only redden the label (for controls whose own buttons shouldn't turn red). */
+  labelOnlyError?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <label className="text-[13px] font-bold text-[#334155]">
+    <div
+      data-field={fieldKey}
+      className={cn(
+        "space-y-2 scroll-mt-24",
+        error &&
+          !labelOnlyError &&
+          "[&_input]:border-[#EF4444] [&_textarea]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2] [&_textarea]:ring-2 [&_textarea]:ring-[#FEE2E2]",
+      )}
+    >
+      <label
+        className={cn(
+          "text-[13px] font-bold",
+          error ? "text-[#EF4444]" : "text-[#334155]",
+        )}
+      >
         {label}
         {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
         {helper && (
@@ -514,32 +625,6 @@ function Field({
         )}
       </label>
       {children}
-    </div>
-  );
-}
-
-function CurrencyInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="relative flex-1">
-      <input
-        type="number"
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={cn(inputClass, "pr-9")}
-      />
-      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[#94A3B8]">
-        ₾
-      </span>
     </div>
   );
 }

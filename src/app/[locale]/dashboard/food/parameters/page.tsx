@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Check, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StyledSelect } from "@/components/ui/styled-select";
+import { CUISINE_TYPES } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
@@ -19,6 +22,15 @@ interface NotifPrefs {
 export default function FoodParametersPage() {
   const { user } = useAuth();
   const supabase = createClient();
+  const tOpts = useTranslations("ListingOptions");
+  const cuisineTypeOptions = useMemo(
+    () =>
+      CUISINE_TYPES.map((o) => ({
+        value: o.value,
+        label: tOpts(`cuisineTypes.${o.value}`),
+      })),
+    [tOpts],
+  );
 
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +62,12 @@ export default function FoodParametersPage() {
       if (data) {
         setService(data);
         setName(data.title ?? "");
-        setCuisine(data.cuisine_type ?? "");
+        setCuisine(
+          CUISINE_TYPES.find(
+            (t) =>
+              t.label === data.cuisine_type || t.value === data.cuisine_type,
+          )?.value ?? "",
+        );
         setPhone(data.phone ?? "");
       }
       const saved =
@@ -73,7 +90,8 @@ export default function FoodParametersPage() {
       .from("services")
       .update({
         title: name,
-        cuisine_type: cuisine,
+        cuisine_type:
+          CUISINE_TYPES.find((t) => t.value === cuisine)?.label || null,
         phone,
       })
       .eq("id", service.id);
@@ -164,12 +182,11 @@ export default function FoodParametersPage() {
               {loading ? (
                 <Skeleton className="h-11 rounded-xl" />
               ) : (
-                <input
-                  type="text"
+                <StyledSelect
                   value={cuisine}
-                  onChange={(e) => setCuisine(e.target.value)}
-                  placeholder="მაგ: პიცა, ქართული სამზარეულო"
-                  className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/10"
+                  onValueChange={setCuisine}
+                  options={cuisineTypeOptions}
+                  accent="orange"
                 />
               )}
             </div>

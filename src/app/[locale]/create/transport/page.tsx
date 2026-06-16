@@ -12,9 +12,13 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
+import NumberField from "@/components/shared/NumberField";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { isValidGePhone } from "@/lib/utils/number";
+import { scrollToField } from "@/lib/forms/scroll-to-error";
+import { cn } from "@/lib/utils";
 import { VEHICLE_MAKES, dbOptionsFor } from "@/lib/constants/listing-options";
 
 const TRANSPORT_TYPES = [
@@ -116,6 +120,7 @@ function CreateTransportPageInner() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
 
   const [driverName, setDriverName] = useState("");
@@ -203,19 +208,39 @@ function CreateTransportPageInner() {
       : [...arr, value];
   }
 
+  function validate(): { key: string; message: string }[] {
+    const errs: { key: string; message: string }[] = [];
+    if (!driverName.trim())
+      errs.push({ key: "driverName", message: t("enterDriverName") });
+    if (!vehicleCapacity)
+      errs.push({ key: "vehicleCapacity", message: t("enterCapacity") });
+    if (routes.length === 0)
+      errs.push({ key: "routes", message: t("chooseRoute") });
+    if (!price) errs.push({ key: "price", message: t("enterPrice") });
+    if (photos.length < MIN_PHOTOS)
+      errs.push({ key: "photos", message: tShared("uploadMinOnePhoto") });
+    if (!phone.trim())
+      errs.push({ key: "phone", message: tShared("enterPhone") });
+    return errs;
+  }
+
   async function handleSubmit() {
     if (!user) return;
+
+    const errs = validate();
+    if (errs.length > 0) {
+      setInvalidFields(new Set(errs.map((e) => e.key)));
+      setError(errs[0].message);
+      scrollToField(errs[0].key);
+      return;
+    }
+    setInvalidFields(new Set());
+
     setLoading(true);
     setError(null);
 
     try {
-      if (!driverName.trim()) throw new Error(t("enterDriverName"));
-      if (!vehicleCapacity) throw new Error(t("enterCapacity"));
-      if (routes.length === 0) throw new Error(t("chooseRoute"));
-      if (!price) throw new Error(t("enterPrice"));
-      if (!phone.trim()) throw new Error(tShared("enterPhone"));
-      if (photos.length < MIN_PHOTOS)
-        throw new Error(tShared("uploadMinOnePhoto"));
+      if (!isValidGePhone(phone)) throw new Error(tShared("enterPhone"));
 
       const payload = {
         title: driverName.trim(),
@@ -244,7 +269,7 @@ function CreateTransportPageInner() {
           .eq("owner_id", user.id);
 
         if (updateError) throw updateError;
-        router.push("/dashboard/service");
+        router.push("/dashboard/transport");
       } else {
         const { error: insertError } = await supabase.from("services").insert({
           ...payload,
@@ -254,7 +279,7 @@ function CreateTransportPageInner() {
         });
 
         if (insertError) throw insertError;
-        router.push("/dashboard");
+        router.push("/dashboard/transport");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
@@ -269,17 +294,9 @@ function CreateTransportPageInner() {
     routes.length > 0,
     price.length > 0,
     photos.length >= MIN_PHOTOS,
-    phone.trim().length > 0,
+    isValidGePhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 6) * 100));
-
-  const submitDisabled =
-    !driverName.trim() ||
-    !vehicleCapacity ||
-    routes.length === 0 ||
-    !price ||
-    photos.length < MIN_PHOTOS ||
-    !phone.trim();
 
   return (
     <WizardShell
@@ -292,7 +309,7 @@ function CreateTransportPageInner() {
           backHref="/create"
           onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
-          submitDisabled={submitDisabled}
+          submitDisabled={loading}
           loading={loading}
           error={error}
         />
@@ -308,7 +325,12 @@ function CreateTransportPageInner() {
             accent="blue"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("driverName")} required>
+              <Field
+                label={t("driverName")}
+                required
+                fieldKey="driverName"
+                error={invalidFields.has("driverName")}
+              >
                 <input
                   type="text"
                   value={driverName}
@@ -338,14 +360,23 @@ function CreateTransportPageInner() {
                   accent="blue"
                 />
               </Field>
-              <Field label={t("vehicleCapacity")} required>
-                <input
-                  type="number"
+              <Field
+                label={t("vehicleCapacity")}
+                required
+                fieldKey="vehicleCapacity"
+                error={invalidFields.has("vehicleCapacity")}
+                labelOnlyError
+              >
+                <NumberField
                   value={vehicleCapacity}
-                  onChange={(e) => setVehicleCapacity(e.target.value)}
+                  onChange={setVehicleCapacity}
+                  min={1}
+                  max={50}
+                  integer
+                  stepper
                   placeholder="8"
-                  min="1"
-                  className={inputClass}
+                  accent="blue"
+                  error={invalidFields.has("vehicleCapacity")}
                 />
               </Field>
             </div>
@@ -376,7 +407,13 @@ function CreateTransportPageInner() {
             title={t("sectionRoutePrice")}
             accent="blue"
           >
-            <Field label={t("mainRoutes")} required>
+            <Field
+              label={t("mainRoutes")}
+              required
+              fieldKey="routes"
+              error={invalidFields.has("routes")}
+              labelOnlyError
+            >
               <div className="flex flex-wrap gap-2">
                 {ROUTE_OPTIONS.map((r) => (
                   <Chip
@@ -391,14 +428,23 @@ function CreateTransportPageInner() {
             </Field>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("startingPrice")} required>
-                <input
-                  type="number"
+              <Field
+                label={t("startingPrice")}
+                required
+                fieldKey="price"
+                error={invalidFields.has("price")}
+                labelOnlyError
+              >
+                <NumberField
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={setPrice}
+                  min={0}
+                  max={100000}
+                  integer
                   placeholder="250"
-                  min="0"
-                  className={inputClass}
+                  suffix="₾"
+                  accent="blue"
+                  error={invalidFields.has("price")}
                 />
               </Field>
               <Field label={t("priceUnit")} required>
@@ -459,7 +505,13 @@ function CreateTransportPageInner() {
               </div>
             </Field>
 
-            <Field label={t("vehiclePhotos")} required>
+            <Field
+              label={t("vehiclePhotos")}
+              required
+              fieldKey="photos"
+              error={invalidFields.has("photos")}
+              labelOnlyError
+            >
               <PhotoUploader
                 photos={photos}
                 onPhotosChange={setPhotos}
@@ -475,11 +527,34 @@ function CreateTransportPageInner() {
             accent="blue"
           >
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={tShared("phoneNumber")} required>
-                <PhoneInput value={phone} onChange={setPhone} />
+              <Field
+                label={tShared("phoneNumber")}
+                required
+                fieldKey="phone"
+                error={invalidFields.has("phone")}
+              >
+                <PhoneInput
+                  value={phone}
+                  onChange={setPhone}
+                  error={
+                    invalidFields.has("phone")
+                      ? tShared("enterPhone")
+                      : phone && !isValidGePhone(phone)
+                        ? tShared("invalidPhone")
+                        : null
+                  }
+                />
               </Field>
               <Field label={tShared("whatsappNumber")}>
-                <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+                <PhoneInput
+                  value={whatsapp}
+                  onChange={setWhatsapp}
+                  error={
+                    whatsapp && !isValidGePhone(whatsapp)
+                      ? tShared("invalidPhone")
+                      : null
+                  }
+                />
               </Field>
             </div>
             <p className="text-xs font-medium text-[#94A3B8]">
@@ -498,15 +573,35 @@ const inputClass =
 function Field({
   label,
   required,
+  fieldKey,
+  error,
+  labelOnlyError,
   children,
 }: {
   label: string;
   required?: boolean;
+  fieldKey?: string;
+  error?: boolean;
+  /** Only redden the label (for controls whose own buttons shouldn't turn red). */
+  labelOnlyError?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <label className="text-[13px] font-bold text-[#334155]">
+    <div
+      data-field={fieldKey}
+      className={cn(
+        "space-y-2 scroll-mt-24",
+        error &&
+          !labelOnlyError &&
+          "[&_input]:border-[#EF4444] [&_textarea]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2] [&_textarea]:ring-2 [&_textarea]:ring-[#FEE2E2]",
+      )}
+    >
+      <label
+        className={cn(
+          "text-[13px] font-bold",
+          error ? "text-[#EF4444]" : "text-[#334155]",
+        )}
+      >
         {label}
         {required && <span className="ml-0.5 text-[#EF4444]">*</span>}
       </label>

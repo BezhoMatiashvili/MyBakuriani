@@ -169,12 +169,6 @@ export default function SellerDashboardClient({
             value={formatNumber(stats?.calls ?? 0)}
             loading={statsLoading}
           />
-          {/* Smart Match is rental-only; renders 0 here by design. */}
-          <MetricCard
-            label={tStats("stats.smartMatch")}
-            value={formatNumber(0)}
-            loading={statsLoading}
-          />
           <MetricCard
             label={tStats("stats.spent")}
             value={formatPrice(Number(stats?.spent ?? 0))}

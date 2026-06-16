@@ -187,7 +187,9 @@
     "switcher": {
       "rentalsRent": "Квартиры (аренда)",
       "employment": "Занятость",
-      "services": "Транспорт / Сервис / Занятость / Развлечения",
+      "transport": "Транспорт",
+      "entertainment": "Развлечения",
+      "services": "Услуги",
       "rentalsSale": "Квартиры (продажа)",
       "food": "Еда",
       "guest": "Гость",
@@ -990,7 +992,10 @@
     "clear": "Очистить",
     "done": "Готово",
     "hours": "Часы",
-    "minutes": "Минуты"
+    "minutes": "Минуты",
+    "from": "Начало",
+    "to": "Конец",
+    "endAfterStart": "Время окончания должно быть позже начала"
   },
   "BakurianiMap": {
     "bakuriani": "Бакуриани",
@@ -1756,6 +1761,8 @@
   "CreateShared": {
     "listingNotFound": "Объявление не найдено",
     "genericError": "Ошибка. Попробуйте снова.",
+    "invalidPhone": "Введите корректный номер (9 цифр, начинается с 5)",
+    "invalidPersonalId": "Личный номер должен состоять из 11 цифр",
     "save": "Сохранить",
     "publishListing": "Опубликовать объявление",
     "loading": "Загрузка...",
@@ -1781,6 +1788,7 @@
     "eg": "напр. {value}",
     "sqm": "кв.м",
     "or": "или",
+    "notSpecified": "Не указано",
     "onlyUnderConstruction": "Только строящиеся"
   },
   "ListingOptions": {
@@ -2091,7 +2099,15 @@
     "priceUnitHour": "час",
     "profilePhoto": "Фото профиля",
     "uploadProfilePhoto": "Загрузить фото профиля",
-    "profilePhotoHint": "Загрузите фото или логотип компании (обязательно)"
+    "profilePhotoHint": "Загрузите фото или логотип компании (обязательно)",
+    "enterName": "Укажите имя",
+    "enterExperience": "Укажите опыт",
+    "enterServiceTitle": "Укажите заголовок",
+    "uploadProfilePhotoError": "Загрузите фото профиля",
+    "chooseCoverageZone": "Выберите хотя бы одну зону покрытия",
+    "enterDescription": "Заполните описание",
+    "enterWorkingHours": "Укажите рабочие часы",
+    "enterPrice": "Укажите цену"
   },
   "CreateTransport": {
     "pageTitle": "Транспорт и трансферы",
@@ -2140,7 +2156,10 @@
     "tariff": "Тариф (GEL)",
     "priceGivenFor": "Цена указана за",
     "uploadPhotos": "Загрузить фото",
-    "phone": "Телефон"
+    "phone": "Телефон",
+    "enterTitle": "Укажите заголовок",
+    "enterDescription": "Заполните описание",
+    "enterPrice": "Укажите цену"
   },
   "CreateEmployment": {
     "pageTitle": "Работа в Бакуриани",
@@ -2162,7 +2181,12 @@
     "requirements": "Требования и навыки",
     "requirementsPlaceholder": "Разговорный английский или русский...",
     "preferredLanguages": "Предпочтительные языки",
-    "workExperience": "Опыт работы"
+    "workExperience": "Опыт работы",
+    "enterEmployer": "Укажите работодателя",
+    "chooseLocation": "Выберите локацию",
+    "enterPosition": "Укажите должность",
+    "enterSalary": "Укажите оплату",
+    "enterJobDescription": "Заполните описание работы"
   },
   "CreateSale": {
     "pageTitle": "Покупка / продажа",
@@ -2194,7 +2218,10 @@
     "enterCadastral": "Укажите кадастровый код",
     "invalidArea": "Неверная площадь",
     "invalidPrice": "Неверная цена",
-    "soldReservedExceeds": "Продано + забронировано не должно превышать общее число квартир"
+    "soldReservedExceeds": "Продано + забронировано не должно превышать общее число квартир",
+    "pricePerSqmLabel": "Цена за м² (USD)",
+    "priceRequiredOneOf": "Укажите общую цену или цену за м²",
+    "orFillPerSqm": "или укажите цену за м²"
   },
   "DateRangeFilter": {
     "presets": {
@@ -2403,7 +2430,6 @@
         "closed": "Закрыто"
       },
       "sources": {
-        "smart_match": "Умный поиск",
         "direct": "Прямой",
         "call": "Звонок",
         "walk_in": "Визит",
@@ -2457,9 +2483,8 @@
       "maxSize": "Макс. 10MB/30MB",
       "videoPlaceholder": "Ссылка на видео (необяз.) — https://...",
       "status": "Статус",
-      "description": "Описание (что сделано)",
+      "description": "Описание (что сделано) — необяз.",
       "descriptionPlaceholder": "напр. Завершена кровля 4-го этажа, начат монтаж фасада…",
-      "noteRequired": "Заполните описание (что сделано).",
       "savedHistoryFailed": "Обновление сохранено, но не добавлено в историю.",
       "published": "Обновление опубликовано 🚀",
       "publishing": "Публикация…",
@@ -2550,6 +2575,7 @@
     "back": "Назад",
     "completed": "Завершено",
     "active": "Активно",
+    "pending": "На рассмотрении",
     "cancelled": "Отменено",
     "published": "Опубликовано",
     "paused": "Приостановлено",

@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Send } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import TimeField from "@/components/shared/TimeField";
+import NumberField from "@/components/shared/NumberField";
 
 interface PropertyOption {
   id: string;
@@ -140,25 +141,14 @@ export default function RentOutModal({
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
                   {tShared("durationDays")}
                 </label>
-                <div className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setDurationDays((v) => Math.max(1, v - 1))}
-                    className="h-7 w-7 rounded-full border border-[#E2E8F0] text-[#64748B] hover:border-[#2563EB] hover:text-[#2563EB]"
-                  >
-                    −
-                  </button>
-                  <span className="flex-1 text-center text-[15px] font-black text-[#0F172A]">
-                    {durationDays}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setDurationDays((v) => v + 1)}
-                    className="h-7 w-7 rounded-full border border-[#E2E8F0] text-[#64748B] hover:border-[#2563EB] hover:text-[#2563EB]"
-                  >
-                    +
-                  </button>
-                </div>
+                <NumberField
+                  value={String(durationDays)}
+                  onChange={(v) => setDurationDays(Number(v))}
+                  min={1}
+                  max={365}
+                  integer
+                  stepper
+                />
               </div>
 
               <button
