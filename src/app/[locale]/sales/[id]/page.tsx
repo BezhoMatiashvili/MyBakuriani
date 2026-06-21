@@ -7,6 +7,7 @@ import {
   getPropertyById,
   getPropertyMetadataById,
 } from "@/lib/data/getPropertyById";
+import { buildListingMetadata } from "@/lib/seo";
 import SaleDetailClient from "./SaleDetailClient";
 
 interface Props {
@@ -22,11 +23,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: t("detail.saleNotFound") };
   }
 
+  const title = t("detail.saleTitle", { title: data.title });
+  const description =
+    data.description ??
+    t("detail.saleDesc", { title: data.title, location: data.location });
+
   return {
-    title: t("detail.saleTitle", { title: data.title }),
-    description:
-      data.description ??
-      t("detail.saleDesc", { title: data.title, location: data.location }),
+    title,
+    description,
+    ...buildListingMetadata({
+      locale,
+      title,
+      description,
+      images: data.photos ?? [],
+      path: `/sales/${id}`,
+    }),
   };
 }
 

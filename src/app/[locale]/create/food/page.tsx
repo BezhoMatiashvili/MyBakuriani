@@ -207,7 +207,6 @@ function CreateFoodPageInner() {
     const errs: { key: string; message: string }[] = [];
     if (!title.trim()) errs.push({ key: "title", message: t("enterTitle") });
     if (!zone) errs.push({ key: "zone", message: t("chooseLocation") });
-    if (!avgCheck) errs.push({ key: "avgCheck", message: t("chooseAvgCheck") });
     if (!operatingHours.trim())
       errs.push({
         key: "operatingHours",
@@ -257,7 +256,7 @@ function CreateFoodPageInner() {
           null,
         cuisine_type:
           CUISINE_TYPES.find((t) => t.value === cuisineType)?.label || null,
-        avg_check: avgCheck,
+        avg_check: avgCheck || null,
         menu_url: menuUrl,
         ...amenities,
         operating_hours: operatingHours.trim() || null,
@@ -295,12 +294,11 @@ function CreateFoodPageInner() {
   const requiredFilled = [
     title.trim().length > 0,
     zone.length > 0,
-    avgCheck.length > 0,
     isValidTimeRange(operatingHours),
     photos.length >= MIN_PHOTOS,
     isValidGePhone(phone),
   ].filter(Boolean).length;
-  const progressPercent = Math.max(10, Math.round((requiredFilled / 6) * 100));
+  const progressPercent = Math.max(10, Math.round((requiredFilled / 5) * 100));
 
   return (
     <WizardShell
@@ -421,7 +419,6 @@ function CreateFoodPageInner() {
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <Field
                 label={t("avgCheck")}
-                required
                 fieldKey="avgCheck"
                 error={invalidFields.has("avgCheck")}
               >

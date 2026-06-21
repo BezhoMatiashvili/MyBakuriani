@@ -11,16 +11,17 @@ import {
   Gauge,
   Languages,
   Palette,
+  Share2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { CallButton } from "@/components/shared/CallButton";
-import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
+import { shareListing } from "@/lib/share";
 import { formatPrice } from "@/lib/utils/format";
-import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { TransportContactFooter } from "@/components/shared/TransportContactFooter";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { createClient } from "@/lib/supabase/client";
 import {
   optionKeyFor,
+  parseRoutePricing,
   priceUnitPathFor,
   type OptionGroup,
 } from "@/lib/constants/listing-options";
@@ -48,6 +49,7 @@ export default function TransportDetailClient({
   const router = useRouter();
   const t = useTranslations("TransportDetail");
   const tShared = useTranslations("Shared");
+  const tShare = useTranslations("ShareListing");
   const tCard = useTranslations("ServiceCard");
   const tOpts = useTranslations("ListingOptions");
   // Translates a stored DB option value; falls through to the raw value for
@@ -73,6 +75,13 @@ export default function TransportDetailClient({
       : service.route
         ? [service.route]
         : [];
+  // Per-route pricing is the source of truth when present; otherwise fall back
+  // to the legacy single-price card below.
+  const routePricing = parseRoutePricing(service.route_pricing);
+  const routeUnitLabel = (unit: string) => {
+    const path = priceUnitPathFor(unit);
+    return path ? tOpts(path) : unit;
+  };
 
   useEffect(() => {
     if (isMock) return;
@@ -86,7 +95,7 @@ export default function TransportDetailClient({
   }, [service.id, isMock]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+    <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(96px+env(safe-area-inset-bottom))] sm:pt-8">
       {/* Hero photo with floating back button + status pill */}
       <motion.div
         {...fadeIn}
@@ -124,6 +133,19 @@ export default function TransportDetailClient({
         >
           <ArrowLeft className="h-4 w-4" />
           {tShared("back")}
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            shareListing(service.title, {
+              copied: tShare("copied"),
+              error: tShare("error"),
+            })
+          }
+          aria-label={tShare("label")}
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
+        >
+          <Share2 className="h-[18px] w-[18px]" />
         </button>
       </motion.div>
 
@@ -284,7 +306,7 @@ export default function TransportDetailClient({
       )}
 
       {/* Routes with price */}
-      {routes.length > 0 && (
+      {routePricing.length > 0 ? (
         <motion.div
           {...fadeIn}
           transition={{ duration: 0.4, delay: 0.35 }}
@@ -293,83 +315,84 @@ export default function TransportDetailClient({
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             {t("routeAndPrice")}
           </h2>
-          <div className="flex flex-col gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <ul className="flex flex-col gap-1">
-                {routes.map((r) => (
-                  <li
-                    key={r}
-                    className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]"
-                  >
-                    {optionLabel("transportRoutes", r)}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-1.5 text-[12px] font-medium text-[#94A3B8]">
-                {t("startingPrice")}
-              </p>
-            </div>
-            {service.price != null && (
-              <div className="shrink-0 sm:text-right">
-                <p className="text-[26px] font-black leading-tight text-[#1E293B] sm:text-[28px]">
-                  {formatPrice(service.price)}
-                </p>
-                {service.price_unit && (
-                  <p className="mt-0.5 text-[12px] text-[#94A3B8]">
-                    ({priceUnitPath ? tOpts(priceUnitPath) : service.price_unit}
-                    )
+          <div className="rounded-[20px] border border-[#E2E8F0] bg-white">
+            {routePricing.map((row, i) => (
+              <div
+                key={i}
+                className={`flex items-center justify-between gap-4 p-6 ${
+                  i > 0 ? "border-t border-[#E2E8F0]" : ""
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]">
+                    {optionLabel("transportRoutes", row.route)}
                   </p>
-                )}
+                  {row.subtitle && (
+                    <p className="mt-1 text-[12px] font-medium text-[#94A3B8]">
+                      {row.subtitle}
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[22px] font-black leading-tight text-[#1E293B] sm:text-[26px]">
+                    {formatPrice(row.price)}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-[#94A3B8]">
+                    ({routeUnitLabel(row.unit)})
+                  </p>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </motion.div>
-      )}
-
-      {/* Price + CTA row (flat, no card) */}
-      <motion.div
-        id="contact-sidebar"
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.4 }}
-        className="mt-8 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center"
-      >
-        <div>
-          {service.price != null && (
-            <div>
-              <span className="text-[28px] font-black leading-[32px] text-[#1E293B] sm:text-[32px]">
-                {formatPrice(service.price)}
-              </span>
-              <span className="ml-1 text-sm text-[#94A3B8]">
-                / {t("startingPrice")}
-              </span>
+      ) : (
+        routes.length > 0 && (
+          <motion.div
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.35 }}
+            className="mt-8"
+          >
+            <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+              {t("routeAndPrice")}
+            </h2>
+            <div className="flex flex-col gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <ul className="flex flex-col gap-1">
+                  {routes.map((r) => (
+                    <li
+                      key={r}
+                      className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]"
+                    >
+                      {optionLabel("transportRoutes", r)}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[12px] font-medium text-[#94A3B8]">
+                  {t("startingPrice")}
+                </p>
+              </div>
+              {service.price != null && (
+                <div className="shrink-0 sm:text-right">
+                  <p className="text-[26px] font-black leading-tight text-[#1E293B] sm:text-[28px]">
+                    {formatPrice(service.price)}
+                  </p>
+                  {service.price_unit && (
+                    <p className="mt-0.5 text-[12px] text-[#94A3B8]">
+                      (
+                      {priceUnitPath
+                        ? tOpts(priceUnitPath)
+                        : service.price_unit}
+                      )
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <WhatsAppButton phone={service.phone} serviceId={service.id} />
-          <CallButton
-            phone={service.phone}
-            className="h-12 flex-1 gap-2 rounded-full bg-[#22C55E] px-8 text-[15px] font-bold text-white hover:bg-[#16A34A] sm:flex-none"
-            label={tCard("call")}
-            onNoPhoneClick={() => router.push("/auth/login")}
-            serviceId={service.id}
-          />
-        </div>
-      </motion.div>
-
-      {service.price != null && (
-        <MobileStickyCTA
-          primary={`${formatPrice(service.price)} / ${t("startingPrice")}`}
-          secondary={service.location ?? undefined}
-          ctaLabel={tCard("call")}
-          onClick={() =>
-            document
-              .getElementById("contact-sidebar")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" })
-          }
-          ctaClassName="shrink-0 rounded-xl bg-[#22C55E] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#16A34A]"
-        />
+          </motion.div>
+        )
       )}
+
+      <TransportContactFooter phone={service.phone} serviceId={service.id} />
     </div>
   );
 }

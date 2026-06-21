@@ -18,6 +18,9 @@ export function StickyNewsBar() {
     /\/(apartments|hotels|sales|food|services|entertainment|transport|employment)\/[^/]+$/.test(
       pathname ?? "",
     ) && !/\/sales\/all$/.test(pathname ?? "");
+  // Transport detail uses TransportContactFooter (fixed at all breakpoints, not
+  // md:hidden), so the news bar must clear it on desktop too.
+  const isTransportDetail = /\/transport\/[^/]+$/.test(pathname ?? "");
   const [banners, setBanners] = useState<LandingBanner[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -68,9 +71,11 @@ export function StickyNewsBar() {
   return (
     <div
       className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4 ${
-        isDetailRoute
-          ? "bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-0"
-          : "bottom-0"
+        isTransportDetail
+          ? "bottom-[calc(76px+env(safe-area-inset-bottom))]"
+          : isDetailRoute
+            ? "bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-0"
+            : "bottom-0"
       }`}
     >
       <div

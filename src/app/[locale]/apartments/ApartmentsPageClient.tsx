@@ -9,14 +9,7 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Home,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Car,
-  Video,
-} from "lucide-react";
+import { Home, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
@@ -32,6 +25,8 @@ import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import { cn } from "@/lib/utils";
 import { useActiveZones } from "@/lib/zones/client";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
+import StatusCards from "@/components/landing/StatusCards";
+import type { StatusCard } from "@/lib/status-cards/types";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -44,41 +39,17 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 
 const ITEMS_PER_PAGE = 9;
 
-const STATUS_CARDS = [
-  {
-    labelKey: "weather",
-    value: "-4°C",
-    fontSize: "text-[20px] sm:text-[24px]",
-  },
-  {
-    labelKey: "lifts",
-    valueKey: "liftsValue",
-    fontSize: "text-[18px] sm:text-[20px]",
-    iconType: "ski" as const,
-  },
-  {
-    labelKey: "road",
-    valueKey: "roadValue",
-    fontSize: "text-[15px] sm:text-[18px]",
-    iconType: "car" as const,
-  },
-  {
-    labelKey: "cameras",
-    valueKey: "camerasValue",
-    fontSize: "text-[15px] sm:text-[18px]",
-    iconType: "camera" as const,
-    hasRedDot: true,
-  },
-];
-
 interface Props {
   properties: Tables<"properties">[];
+  statusCards: StatusCard[];
 }
 
-export default function ApartmentsPageClient({ properties }: Props) {
+export default function ApartmentsPageClient({
+  properties,
+  statusCards,
+}: Props) {
   const t = useTranslations("ApartmentsPage");
   const tLanding = useTranslations("Landing");
-  const tStatus = useTranslations("StatusCards");
   const tShared = useTranslations("Shared");
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
@@ -250,44 +221,15 @@ export default function ApartmentsPageClient({ properties }: Props) {
           ) : null}
 
           {/* Status Cards Row */}
-          <div
+          <StatusCards
+            cards={statusCards}
             className={cn(
-              "mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4",
+              "mt-8",
               activeDropdown && activeDropdown !== "location"
                 ? "md:hidden"
                 : "",
             )}
-          >
-            {STATUS_CARDS.map((card) => (
-              <div
-                key={card.labelKey}
-                className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-3 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] md:px-5"
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                    {card.hasRedDot && (
-                      <span className="size-2 rounded-full bg-[#EF4444]" />
-                    )}
-                    {tStatus(card.labelKey)}
-                  </span>
-                  <span
-                    className={`flex items-center gap-2 ${card.fontSize} font-black leading-[28px] text-white`}
-                  >
-                    {card.valueKey ? tStatus(card.valueKey) : card.value}
-                    {card.iconType === "car" && (
-                      <Car className="size-[18px] text-[#CBD5E1]" />
-                    )}
-                    {card.iconType === "camera" && (
-                      <Video className="size-[18px] text-[#CBD5E1]" />
-                    )}
-                    {card.iconType === "ski" && (
-                      <span className="text-[18px]">⛷</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          />
         </div>
       </section>
 

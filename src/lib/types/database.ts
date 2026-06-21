@@ -802,36 +802,48 @@ export type Database = {
       };
       manual_bookings: {
         Row: {
+          amount: number | null;
           check_in: string;
           check_out: string;
           client_list: string | null;
           created_at: string | null;
           guest_name: string | null;
+          guest_phone: string | null;
+          guests_count: number | null;
           id: string;
+          note: string | null;
           owner_id: string;
           property_id: string;
           source: string | null;
           status: string;
         };
         Insert: {
+          amount?: number | null;
           check_in: string;
           check_out: string;
           client_list?: string | null;
           created_at?: string | null;
           guest_name?: string | null;
+          guest_phone?: string | null;
+          guests_count?: number | null;
           id?: string;
+          note?: string | null;
           owner_id: string;
           property_id: string;
           source?: string | null;
           status?: string;
         };
         Update: {
+          amount?: number | null;
           check_in?: string;
           check_out?: string;
           client_list?: string | null;
           created_at?: string | null;
           guest_name?: string | null;
+          guest_phone?: string | null;
+          guests_count?: number | null;
           id?: string;
+          note?: string | null;
           owner_id?: string;
           property_id?: string;
           source?: string | null;
@@ -1572,6 +1584,7 @@ export type Database = {
           requirements: string | null;
           route: string | null;
           routes: string[] | null;
+          route_pricing: Json | null;
           salary_daily: number | null;
           salary_max: number | null;
           salary_min: number | null;
@@ -1639,6 +1652,7 @@ export type Database = {
           requirements?: string | null;
           route?: string | null;
           routes?: string[] | null;
+          route_pricing?: Json | null;
           salary_daily?: number | null;
           salary_max?: number | null;
           salary_min?: number | null;
@@ -1706,6 +1720,7 @@ export type Database = {
           requirements?: string | null;
           route?: string | null;
           routes?: string[] | null;
+          route_pricing?: Json | null;
           salary_daily?: number | null;
           salary_max?: number | null;
           salary_min?: number | null;
@@ -2228,6 +2243,7 @@ export type Database = {
           lat: number;
           lng: number;
           name_ka: string;
+          price_per_sqm_override: number | null;
           slug: string;
           sort_order: number;
           updated_at: string;
@@ -2241,6 +2257,7 @@ export type Database = {
           lat: number;
           lng: number;
           name_ka: string;
+          price_per_sqm_override?: number | null;
           slug: string;
           sort_order?: number;
           updated_at?: string;
@@ -2254,6 +2271,7 @@ export type Database = {
           lat?: number;
           lng?: number;
           name_ka?: string;
+          price_per_sqm_override?: number | null;
           slug?: string;
           sort_order?: number;
           updated_at?: string;

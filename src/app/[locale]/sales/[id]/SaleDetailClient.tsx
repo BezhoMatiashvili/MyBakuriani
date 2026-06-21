@@ -15,7 +15,6 @@ import {
   Heart,
   MapPin,
   Maximize,
-  MessageSquare,
   Share2,
   Star,
   X,
@@ -721,15 +720,6 @@ export default function SaleDetailClient({ property, reviews }: Props) {
                   propertyId={property.id}
                 />
               </div>
-
-              <button
-                type="button"
-                onClick={() => router.push("/auth/login")}
-                className="mt-3 flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-white text-[14px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
-              >
-                <MessageSquare className="h-4 w-4" />
-                {t("sendMessage")}
-              </button>
             </div>
           </div>
         </motion.div>

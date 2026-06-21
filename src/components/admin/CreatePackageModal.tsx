@@ -15,12 +15,24 @@ export type PackageCategory =
   | "ad"
   | "subscription";
 
+export interface EditPackage {
+  id: string;
+  category: PackageCategory;
+  name: string;
+  label: string | null;
+  description: string | null;
+  amount_gel: number;
+  meta: Record<string, unknown> | null;
+}
+
 interface CreatePackageModalProps {
   isOpen: boolean;
   onClose: () => void;
   category: PackageCategory;
   categoryLabel: string;
   onCreated: () => void;
+  // When provided, the modal edits this package (PATCH) instead of creating one.
+  editPackage?: EditPackage | null;
 }
 
 const VIP_TIER_VALUES = ["super", "standard", "discount"] as const;
@@ -31,10 +43,15 @@ export default function CreatePackageModal({
   category,
   categoryLabel,
   onCreated,
+  editPackage,
 }: CreatePackageModalProps) {
   const t = useTranslations("AdminShared.createPackage");
   const tAdmin = useTranslations("AdminShared");
   const tShared = useTranslations("DashboardShared");
+
+  const isEdit = Boolean(editPackage);
+  // In edit mode the category is fixed to the package's own category.
+  const effectiveCategory = editPackage?.category ?? category;
 
   const vipTiers = useMemo(
     () =>
@@ -58,16 +75,45 @@ export default function CreatePackageModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setName("");
-    setLabel("");
-    setDescription("");
-    setPrice("");
-    setSmsCount("");
-    setDurationHours(24);
-    setVipTier("standard");
-    setValidFrom("");
-    setValidTo("");
-  }, [isOpen]);
+    if (editPackage) {
+      const meta = (editPackage.meta ?? {}) as Record<string, unknown>;
+      setName(editPackage.name ?? "");
+      setLabel(editPackage.label ?? "");
+      setDescription(editPackage.description ?? "");
+      setPrice(
+        typeof editPackage.amount_gel === "number"
+          ? editPackage.amount_gel
+          : "",
+      );
+      setSmsCount(
+        typeof meta.sms_count === "number" ? (meta.sms_count as number) : "",
+      );
+      setDurationHours(
+        typeof meta.duration_hours === "number"
+          ? (meta.duration_hours as number)
+          : 24,
+      );
+      setVipTier(
+        typeof meta.tier === "string" ? (meta.tier as string) : "standard",
+      );
+      setValidFrom(
+        typeof meta.valid_from === "string" ? (meta.valid_from as string) : "",
+      );
+      setValidTo(
+        typeof meta.valid_to === "string" ? (meta.valid_to as string) : "",
+      );
+    } else {
+      setName("");
+      setLabel("");
+      setDescription("");
+      setPrice("");
+      setSmsCount("");
+      setDurationHours(24);
+      setVipTier("standard");
+      setValidFrom("");
+      setValidTo("");
+    }
+  }, [isOpen, editPackage]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,18 +125,21 @@ export default function CreatePackageModal({
       toast.error(t("priceRequired"));
       return;
     }
-    if (category === "sms" && (smsCount === "" || Number(smsCount) <= 0)) {
+    if (
+      effectiveCategory === "sms" &&
+      (smsCount === "" || Number(smsCount) <= 0)
+    ) {
       toast.error(t("smsRequired"));
       return;
     }
     if (
-      category === "vip" &&
+      effectiveCategory === "vip" &&
       (durationHours === "" || Number(durationHours) <= 0)
     ) {
       toast.error(t("vipDurationRequired"));
       return;
     }
-    if (category === "subscription") {
+    if (effectiveCategory === "subscription") {
       if (!validFrom || !validTo) {
         toast.error(t("periodRequired"));
         return;
@@ -103,12 +152,12 @@ export default function CreatePackageModal({
     }
 
     const meta: Record<string, unknown> = {};
-    if (category === "sms") {
+    if (effectiveCategory === "sms") {
       meta.sms_count = Number(smsCount);
-    } else if (category === "vip") {
+    } else if (effectiveCategory === "vip") {
       meta.duration_hours = Number(durationHours);
       meta.tier = vipTier;
-    } else if (category === "subscription") {
+    } else if (effectiveCategory === "subscription") {
       // Validity period the buyer receives (read by purchase_package RPC)
       meta.valid_from = validFrom;
       meta.valid_to = validTo;
@@ -117,16 +166,27 @@ export default function CreatePackageModal({
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/pricing-packages", {
-        method: "POST",
+        method: isEdit ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          category,
-          name: name.trim(),
-          label: label.trim() || null,
-          description: description.trim() || null,
-          amount_gel: Number(price),
-          meta,
-        }),
+        body: JSON.stringify(
+          isEdit
+            ? {
+                id: editPackage!.id,
+                name: name.trim(),
+                label: label.trim() || null,
+                description: description.trim() || null,
+                amount_gel: Number(price),
+                meta,
+              }
+            : {
+                category: effectiveCategory,
+                name: name.trim(),
+                label: label.trim() || null,
+                description: description.trim() || null,
+                amount_gel: Number(price),
+                meta,
+              },
+        ),
       });
       const payload = (await res.json().catch(() => null)) as {
         error?: string;
@@ -137,15 +197,16 @@ export default function CreatePackageModal({
         toast.error(
           code && tAdmin.has(`apiErrors.${code}`)
             ? tAdmin(`apiErrors.${code}`)
-            : (payload?.error ?? tAdmin("createFailed")),
+            : (payload?.error ??
+                (isEdit ? t("updateFailed") : tAdmin("createFailed"))),
         );
         return;
       }
-      toast.success(t("packageAdded"));
+      toast.success(isEdit ? t("packageUpdated") : t("packageAdded"));
       onCreated();
       onClose();
     } catch {
-      toast.error(tAdmin("createFailed"));
+      toast.error(isEdit ? t("updateFailed") : tAdmin("createFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -155,7 +216,7 @@ export default function CreatePackageModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t("title", { label: categoryLabel })}
+      title={t(isEdit ? "editTitle" : "title", { label: categoryLabel })}
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -214,7 +275,7 @@ export default function CreatePackageModal({
           />
         </div>
 
-        {category === "sms" ? (
+        {effectiveCategory === "sms" ? (
           <div className="space-y-1.5">
             <label className="text-[12px] font-bold text-[#0F172A]">
               {t("smsCount")} <span className="text-[#DC2626]">*</span>
@@ -230,7 +291,7 @@ export default function CreatePackageModal({
           </div>
         ) : null}
 
-        {category === "subscription" ? (
+        {effectiveCategory === "subscription" ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-[#0F172A]">
@@ -256,7 +317,7 @@ export default function CreatePackageModal({
           </div>
         ) : null}
 
-        {category === "vip" ? (
+        {effectiveCategory === "vip" ? (
           <>
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-[#0F172A]">
@@ -306,8 +367,10 @@ export default function CreatePackageModal({
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {t("creating")}
+                {isEdit ? t("saving") : t("creating")}
               </>
+            ) : isEdit ? (
+              t("save")
             ) : (
               t("create")
             )}

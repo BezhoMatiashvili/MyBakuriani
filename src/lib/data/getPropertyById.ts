@@ -48,6 +48,7 @@ export type PropertyMetadata = {
   title: string;
   location: string;
   description: string | null;
+  photos: string[] | null;
 };
 
 export async function getPropertyMetadataById(
@@ -60,5 +61,6 @@ export async function getPropertyMetadataById(
     title: data.title,
     location: data.location,
     description: data.description,
+    photos: data.photos,
   };
 }

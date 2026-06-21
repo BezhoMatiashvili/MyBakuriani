@@ -1,3 +1,5 @@
+import type { Json } from "@/lib/types/database";
+
 export type AmenityGroup = {
   key: string;
   label: string;
@@ -207,6 +209,7 @@ const DB_VALUE_KEYS = {
     "ერთი ტური": "per_tour",
     მგზავრობა: "per_ride",
     "ერთი დღე": "per_day",
+    ორმხრივი: "round_trip",
   },
   transportRoutes: {
     "შიდა გადაადგილება (ტაქსი)": "local",
@@ -472,4 +475,44 @@ export function priceUnitPathFor(
     if (key) return `${group}.${key}`;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Transport per-route pricing (services.route_pricing jsonb column).
+// Each row pairs a route with its own price + unit; `routes`/`price`/
+// `price_unit` stay populated for cards/filters and the detail-page fallback.
+// ---------------------------------------------------------------------------
+
+export type RoutePricing = {
+  /** DB route value — same Georgian-label vocabulary as `services.routes`. */
+  route: string;
+  /** Optional free-text subtitle, e.g. "საწყისი ფასი". */
+  subtitle?: string;
+  price: number;
+  /** price-unit code, e.g. "one_way" | "on_demand" | "round_trip". */
+  unit: string;
+};
+
+/**
+ * Defensively parse the `services.route_pricing` jsonb value into typed rows.
+ * Returns [] for null/invalid input so callers fall back to the legacy single
+ * price. Each row needs a non-empty string `route`, finite numeric `price`, and
+ * a non-empty string `unit`; an empty/whitespace `subtitle` is dropped.
+ */
+export function parseRoutePricing(value: Json | null): RoutePricing[] {
+  if (!Array.isArray(value)) return [];
+  const rows: RoutePricing[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const obj = entry as Record<string, unknown>;
+    const { route, price, unit, subtitle } = obj;
+    if (typeof route !== "string" || !route) continue;
+    if (typeof price !== "number" || !Number.isFinite(price)) continue;
+    if (typeof unit !== "string" || !unit) continue;
+    const row: RoutePricing = { route, price, unit };
+    if (typeof subtitle === "string" && subtitle.trim())
+      row.subtitle = subtitle;
+    rows.push(row);
+  }
+  return rows;
 }

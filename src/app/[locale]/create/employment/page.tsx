@@ -217,20 +217,16 @@ function CreateEmploymentPageInner() {
     };
   }, [editId, user, supabase, tShared]);
 
-  // Salary is satisfied by a min–max range, a daily wage, or a pay type that
-  // has no fixed amount (negotiable / commission) — so every employer can post.
-  const noFixedSalary =
-    salaryType === "შეთანხმებით" || salaryType === "გამომუშავებით (%)";
-  const salaryProvided =
-    (salaryMin.trim().length > 0 && salaryMax.trim().length > 0) ||
-    salaryDaily.trim().length > 0 ||
-    noFixedSalary;
+  // Salary is optional. The employer fills either a min–max range or a daily
+  // wage — never both; entering one mode disables the other.
+  const rangeActive =
+    salaryMin.trim().length > 0 || salaryMax.trim().length > 0;
+  const dailyActive = salaryDaily.trim().length > 0;
 
   const requiredFlags = [
     title.trim().length > 0,
     location.trim().length > 0,
     position.trim().length > 0,
-    salaryProvided,
     workDescription.trim().length > 0,
   ];
   const requiredFilled = requiredFlags.filter(Boolean).length;
@@ -263,8 +259,6 @@ function CreateEmploymentPageInner() {
       errs.push({ key: "location", message: t("chooseLocation") });
     if (!position.trim())
       errs.push({ key: "position", message: t("enterPosition") });
-    if (!salaryProvided)
-      errs.push({ key: "salary", message: t("enterSalary") });
     if (!workDescription.trim())
       errs.push({ key: "workDescription", message: t("enterJobDescription") });
     return errs;
@@ -434,7 +428,6 @@ function CreateEmploymentPageInner() {
 
         <Field
           label={t("salary")}
-          required
           fieldKey="salary"
           error={invalidFields.has("salary")}
         >
@@ -450,6 +443,7 @@ function CreateEmploymentPageInner() {
                   suffix="₾"
                   accent="blue"
                   placeholder="1200"
+                  disabled={dailyActive && !rangeActive}
                 />
               </div>
               <span className="text-sm font-medium text-[#94A3B8]">–</span>
@@ -463,6 +457,7 @@ function CreateEmploymentPageInner() {
                   suffix="₾"
                   accent="blue"
                   placeholder="1500"
+                  disabled={dailyActive && !rangeActive}
                 />
               </div>
             </div>
@@ -480,6 +475,7 @@ function CreateEmploymentPageInner() {
                   suffix="₾"
                   accent="blue"
                   placeholder={t("dailySalaryPlaceholder")}
+                  disabled={rangeActive}
                 />
               </div>
             </div>

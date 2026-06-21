@@ -7,6 +7,7 @@ import { cache } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { createPublicClient } from "@/lib/supabase/server";
+import { buildListingMetadata } from "@/lib/seo";
 import { formatDate } from "@/lib/utils/format";
 
 interface Props {
@@ -19,7 +20,7 @@ const getBlogPostMetadata = cache(async (id: string) => {
   const supabase = createPublicClient();
   return supabase
     .from("blog_posts")
-    .select("title, excerpt")
+    .select("title, excerpt, image_url")
     .eq("id", id)
     .single();
 });
@@ -43,9 +44,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: t("detail.blogNotFound") };
   }
 
+  const title = t("detail.blogTitle", { title: data.title });
+  const description = data.excerpt ?? data.title;
+
   return {
-    title: t("detail.blogTitle", { title: data.title }),
-    description: data.excerpt ?? data.title,
+    title,
+    description,
+    ...buildListingMetadata({
+      locale,
+      title,
+      description,
+      images: [data.image_url],
+      path: `/blog/${id}`,
+      type: "article",
+    }),
   };
 }
 

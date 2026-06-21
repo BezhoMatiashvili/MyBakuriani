@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback, DragEvent, ChangeEvent } from "react";
 import Image from "next/image";
-import { Camera, Upload, X } from "lucide-react";
+import { Camera, Star, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
 
@@ -13,6 +13,50 @@ interface PhotoUploaderProps {
   onPhotosChange: (photos: string[]) => void;
   maxPhotos?: number;
   variant?: "default" | "figma";
+}
+
+/** Badge marking the cover photo (always photos[0]). */
+function MainBadge({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`pointer-events-none absolute z-10 flex items-center gap-1 rounded-full bg-[#2563EB] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm ${className ?? ""}`}
+    >
+      <Star className="size-3 fill-white" strokeWidth={0} />
+      {label}
+    </span>
+  );
+}
+
+/** Promotes a non-cover photo to be the main/cover image. */
+function SetMainButton({
+  onClick,
+  label,
+  className,
+}: {
+  onClick: () => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={label}
+      aria-label={label}
+      className={`absolute z-10 flex items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-[#2563EB] ${className ?? ""}`}
+    >
+      <Star className="size-3.5" />
+    </button>
+  );
 }
 
 export default function PhotoUploader({
@@ -110,6 +154,18 @@ export default function PhotoUploader({
     [photos, onPhotosChange],
   );
 
+  // Move the chosen photo to the front so every photos[0] reader shows it as
+  // the cover; the order of the remaining photos is preserved.
+  const handleSetMain = useCallback(
+    (index: number) => {
+      if (index <= 0 || index >= photos.length) return;
+      const next = [...photos];
+      const [picked] = next.splice(index, 1);
+      onPhotosChange([picked, ...next]);
+    },
+    [photos, onPhotosChange],
+  );
+
   if (variant === "figma") {
     const dropZonePhoto = photos[0];
     const thumbSlots = [photos[1], photos[2], photos[3], photos[4]];
@@ -164,6 +220,7 @@ export default function PhotoUploader({
                 >
                   <X className="size-4" />
                 </button>
+                <MainBadge label={t("mainBadge")} className="left-2 top-2" />
               </>
             ) : (
               <>
@@ -215,6 +272,11 @@ export default function PhotoUploader({
                     >
                       <X className="size-3.5" />
                     </button>
+                    <SetMainButton
+                      onClick={() => handleSetMain(photoIndex)}
+                      label={t("setAsMain")}
+                      className="left-1 top-1 size-6 opacity-100 lg:opacity-0 group-hover:opacity-100"
+                    />
                   </>
                 ) : (
                   <Camera className="size-7 text-[#CBD5E1]" strokeWidth={1.5} />
@@ -247,10 +309,19 @@ export default function PhotoUploader({
                   >
                     <X className="size-3.5" />
                   </button>
+                  <SetMainButton
+                    onClick={() => handleSetMain(photoIndex)}
+                    label={t("setAsMain")}
+                    className="left-1 top-1 size-6 opacity-100 lg:opacity-0 group-hover:opacity-100"
+                  />
                 </div>
               );
             })}
           </div>
+        )}
+
+        {photos.length > 1 && (
+          <p className="text-xs text-[#64748B]">{t("mainHint")}</p>
         )}
 
         {errorMessage && (
@@ -326,9 +397,21 @@ export default function PhotoUploader({
               >
                 <X className="size-3.5" />
               </button>
+              {index === 0 ? (
+                <MainBadge label={t("mainBadge")} className="left-1 top-1" />
+              ) : (
+                <SetMainButton
+                  onClick={() => handleSetMain(index)}
+                  label={t("setAsMain")}
+                  className="left-1 top-1 size-6 opacity-100 lg:opacity-0 group-hover:opacity-100"
+                />
+              )}
             </div>
           ))}
         </div>
+      )}
+      {photos.length > 1 && (
+        <p className="text-xs text-[#64748B]">{t("mainHint")}</p>
       )}
       {errorMessage && (
         <p className="text-xs font-medium text-[#DC2626]">{errorMessage}</p>

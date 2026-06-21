@@ -2,6 +2,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { getStatusCards } from "@/lib/status-cards/server";
 import ApartmentsPageClient from "./ApartmentsPageClient";
 
 // Cache the public (active) listings instead of paying an Auth round-trip +
@@ -24,6 +25,7 @@ export async function generateMetadata({
 
 export default async function ApartmentsPage() {
   const supabase = createPublicClient();
+  const statusCards = await getStatusCards();
 
   const { data: properties, error } = await supabase
     .from("properties")
@@ -40,5 +42,10 @@ export default async function ApartmentsPage() {
     console.error("[apartments] failed to load properties", error.message);
   }
 
-  return <ApartmentsPageClient properties={properties ?? []} />;
+  return (
+    <ApartmentsPageClient
+      properties={properties ?? []}
+      statusCards={statusCards}
+    />
+  );
 }

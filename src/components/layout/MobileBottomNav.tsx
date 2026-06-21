@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
 
 interface MobileBottomNavProps {
   currentPath: string;
@@ -119,7 +120,14 @@ function getTabs(role: string): TabItem[] {
     case "employment":
     case "handyman":
     case "services":
-      return [{ labelKey: "home", href: "/", icon: Home }];
+      return [
+        { labelKey: "home", href: "/", icon: Home },
+        {
+          labelKey: "orders",
+          href: `/dashboard/${toServiceSegment(role)}/orders`,
+          icon: ClipboardList,
+        },
+      ];
     case "guest":
     default:
       return [

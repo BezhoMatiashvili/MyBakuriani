@@ -13,8 +13,22 @@ const notoSansGeorgian = Noto_Sans_Georgian({
 });
 
 export const metadata: Metadata = {
+  // Resolves relative og:image / canonical URLs to absolute (required for OG).
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-bakuriani.vercel.app",
+  ),
   title: "MyBakuriani",
   description: "MyBakuriani — Premium real estate platform in Bakuriani",
+  openGraph: {
+    type: "website",
+    siteName: "MyBakuriani",
+    locale: "ka",
+    images: ["/og-default.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og-default.png"],
+  },
 };
 
 export const viewport: Viewport = {

@@ -11,10 +11,12 @@ import {
   ChevronRight,
   Languages,
   MapPin,
+  Share2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
+import { shareListing } from "@/lib/share";
 import { formatPrice } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
@@ -48,6 +50,7 @@ export default function ServiceDetailClient({
   const router = useRouter();
   const t = useTranslations("ServiceDetail");
   const tShared = useTranslations("Shared");
+  const tShare = useTranslations("ShareListing");
   const tCard = useTranslations("ServiceCard");
   const tOpts = useTranslations("ListingOptions");
   // Translates a stored DB option value; falls through to the raw value for
@@ -94,14 +97,33 @@ export default function ServiceDetailClient({
         <span className="text-[#64748B]">{categoryLabel}</span>
       </motion.nav>
 
-      <motion.button
+      <motion.div
         {...fadeIn}
-        onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+        className="mb-6 flex items-center justify-between"
       >
-        <ArrowLeft className="h-4 w-4" />
-        {tShared("back")}
-      </motion.button>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {tShared("back")}
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            shareListing(service.title, {
+              copied: tShare("copied"),
+              error: tShare("error"),
+            })
+          }
+          aria-label={tShare("label")}
+          className="flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+        >
+          <Share2 className="h-4 w-4" />
+          {tShare("label")}
+        </button>
+      </motion.div>
 
       {/* Title */}
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>

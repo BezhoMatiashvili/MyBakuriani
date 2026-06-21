@@ -10,6 +10,9 @@ export interface Zone {
   icon: ZoneIcon;
   sort_order: number;
   is_active: boolean;
+  // Optional manual ₾/m² value for the landing zone card. null = auto-compute
+  // the average from active sale listings (default behaviour).
+  price_per_sqm_override: number | null;
 }
 
 // Last-resort fallback list. Matches the 4 seeded zones in
@@ -28,6 +31,7 @@ export const FALLBACK_ZONES: Zone[] = [
     icon: "mountain",
     sort_order: 1,
     is_active: true,
+    price_per_sqm_override: null,
   },
   {
     id: "fallback-centri",
@@ -39,6 +43,7 @@ export const FALLBACK_ZONES: Zone[] = [
     icon: "tree",
     sort_order: 2,
     is_active: true,
+    price_per_sqm_override: null,
   },
   {
     id: "fallback-kokhta",
@@ -50,6 +55,7 @@ export const FALLBACK_ZONES: Zone[] = [
     icon: "mountain",
     sort_order: 3,
     is_active: true,
+    price_per_sqm_override: null,
   },
   {
     id: "fallback-25",
@@ -61,6 +67,7 @@ export const FALLBACK_ZONES: Zone[] = [
     icon: "pin",
     sort_order: 4,
     is_active: true,
+    price_per_sqm_override: null,
   },
 ];
 

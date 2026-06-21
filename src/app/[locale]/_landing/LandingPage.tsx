@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowRight, Car, Mountain, Plus, Video } from "lucide-react";
+import { ArrowRight, Plus, Video } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -40,9 +40,12 @@ import { InfoBanners } from "@/components/landing/InfoBanners";
 import { PromoBanners } from "@/components/landing/PromoBanners";
 import type { LandingBanner } from "@/lib/banners";
 import type { Zone } from "@/lib/zones/types";
+import StatusCards from "@/components/landing/StatusCards";
+import type { StatusCard } from "@/lib/status-cards/types";
 
 interface LandingPageProps {
   zones: Zone[];
+  statusCards: StatusCard[];
   hotOffers?: Tables<"properties">[];
   hotels?: Tables<"properties">[];
   saleProperties?: Tables<"properties">[];
@@ -100,6 +103,7 @@ const MONTH_KEYS = [
 
 export default function LandingPage({
   zones,
+  statusCards,
   hotOffers: serverHotOffers,
   hotels: serverHotels,
   saleProperties: serverSaleProperties,
@@ -408,52 +412,7 @@ export default function LandingPage({
           </div>
 
           {/* Rental status cards — weather / lifts / road / cameras */}
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:-mb-[42px] sm:grid-cols-4">
-            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                  {t("weather")}
-                </span>
-                <span className="text-[20px] font-black leading-[28px] text-white">
-                  -4°C
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                  {t("lifts")}
-                </span>
-                <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
-                  {t("liftsOpen")}
-                  <Mountain className="size-[18px] text-[#CBD5E1]" />
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                  {t("roadFromTbilisi")}
-                </span>
-                <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
-                  {t("roadFree")}
-                  <Car className="size-[18px] text-[#CBD5E1]" />
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)]">
-              <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                  <span className="size-2 rounded-full bg-[#EF4444]" />
-                  {t("cameras")}
-                </span>
-                <span className="flex items-center gap-2 text-[20px] font-black leading-[28px] text-white">
-                  {t("cameraLocations")}
-                  <Video className="size-[18px] text-[#CBD5E1]" />
-                </span>
-              </div>
-            </div>
-          </div>
+          <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
         </div>
       </section>
 

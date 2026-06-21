@@ -1,4 +1,38 @@
 {
+  "AdminStatusCards": {
+    "title": "Статус-карточки",
+    "subtitle": "Управление карточками на главной странице (погода, подъёмники, дорога, камеры)",
+    "save": "Сохранить",
+    "saving": "Сохранение…",
+    "saved": "Изменения сохранены",
+    "loadError": "Не удалось загрузить карточки",
+    "saveError": "Не удалось сохранить",
+    "addCard": "Добавить карточку",
+    "deleteCardConfirm": "Удалить эту карточку?",
+    "edit": "Редактировать",
+    "done": "Готово",
+    "moveUp": "Вверх",
+    "moveDown": "Вниз",
+    "delete": "Удалить",
+    "untitled": "Без названия",
+    "icon": "Иконка",
+    "label": "Заголовок",
+    "value": "Значение",
+    "redDot": "Красная точка",
+    "expandable": "Разворачиваемая",
+    "active": "Активна",
+    "hidden": "Скрыта",
+    "items": "Элементы",
+    "addItem": "Добавить элемент",
+    "noItems": "Пока нет элементов",
+    "status": "Статус",
+    "url": "Ссылка",
+    "urlPlaceholder": "https://…",
+    "statusOk": "Открыт",
+    "statusWarn": "Предупреждение",
+    "statusClosed": "Закрыт",
+    "statusNone": "Нейтрально"
+  },
   "Metadata": {
     "siteTitle": "MyBakuriani — Премиум аренда в Бакуриани",
     "siteDescription": "Премиум платформа недвижимости и аренды в Бакуриани. Только верифицированные и надёжные владельцы.",
@@ -92,7 +126,9 @@
     "noNotifications": "Пока нет уведомлений",
     "markAllRead": "Отметить все как прочитанное",
     "viewAll": "Посмотреть все",
-    "notificationsAria": "Уведомления, {count} непрочитанных"
+    "notificationsAria": "Уведомления, {count} непрочитанных",
+    "notificationTitle": "Уведомление",
+    "viewNotification": "Посмотреть"
   },
   "Footer": {
     "brandDescription": "Премиум платформа недвижимости и аренды в Бакуриани. Мы заботимся о вашем безопасном отдыхе.",
@@ -167,6 +203,7 @@
       "users": "Пользователи",
       "tariffsAndPackages": "Тарифы и пакеты",
       "locationZones": "Зоны локаций",
+      "statusCards": "Статус-карточки",
       "finances": "Финансы",
       "ads": "Реклама",
       "smsApproval": "Подтверждение SMS",
@@ -627,7 +664,21 @@
           "social": "Соцсети",
           "direct": "Прямой контакт"
         },
-        "datePlaceholder": "дд / мм / гг"
+        "datePlaceholder": "дд / мм / гг",
+        "phonePlaceholder": "599 12 34 56",
+        "guestsLabel": "Количество гостей",
+        "guestsPlaceholder": "напр. 2",
+        "amountLabel": "Сумма",
+        "amountPlaceholder": "Стоимость бронирования",
+        "notePlaceholder": "Дополнительная информация…",
+        "saveToContacts": "Сохранить гостя в контакты",
+        "editTitle": "Редактировать бронирование",
+        "editSubtitle": "Измените или отмените бронирование",
+        "viewTitle": "Детали бронирования",
+        "platformNotice": "Это бронирование сделал гость через платформу. Управляйте им со страницы бронирований.",
+        "cancelBooking": "Отменить бронирование",
+        "confirmCancel": "Вы уверены? Бронирование будет удалено, а даты освободятся.",
+        "confirmCancelYes": "Да, отменить"
       },
       "guestForm": {
         "editTitle": "Редактировать гостя",
@@ -964,6 +1015,7 @@
     "viewAllPhotos": "Смотреть все фото ({count})"
   },
   "ShareListing": {
+    "label": "Поделиться",
     "copied": "Ссылка скопирована — вставьте её в соцсети",
     "error": "Не удалось поделиться"
   },
@@ -1392,6 +1444,8 @@
     "description": "Описание",
     "routeAndPrice": "Маршрут и цена",
     "startingPrice": "начальная цена",
+    "contactDriverTitle": "Свяжитесь с водителем",
+    "contactDriverSubtitle": "Уточните время и маршрут",
     "priceUnits": {
       "whole_car": "вся машина",
       "on_demand": "по вызову",
@@ -1707,7 +1761,10 @@
     "maxPhotos": "Макс. {max} фото",
     "uploadPhotosAlt": "Загрузите фото",
     "dropHereOrClickSelect": "Перетащите или выберите фото",
-    "photoCount": "{count} / {max} фото"
+    "photoCount": "{count} / {max} фото",
+    "mainBadge": "Главное",
+    "setAsMain": "Сделать главным",
+    "mainHint": "Главное фото показывается пользователям первым"
   },
   "MediaUploader": {
     "defaultLabel": "Медиа (изображение или видео)",
@@ -1824,7 +1881,8 @@
       "one_way": "в одну сторону",
       "per_tour": "за тур",
       "per_ride": "за поездку",
-      "per_day": "в день"
+      "per_day": "в день",
+      "round_trip": "в обе стороны"
     },
     "serviceSpheres": {
       "cleaning": "Уборка",
@@ -2132,7 +2190,12 @@
     "enterDriverName": "Укажите имя водителя",
     "enterCapacity": "Укажите количество мест",
     "chooseRoute": "Выберите хотя бы один маршрут",
-    "enterPrice": "Укажите начальную цену"
+    "enterPrice": "Укажите начальную цену",
+    "routePrice": "Цена",
+    "routeSubtitle": "Подзаголовок (необязательно)",
+    "routeSubtitlePlaceholder": "напр. начальная цена",
+    "addRoute": "Добавить маршрут",
+    "removeRoute": "Удалить"
   },
   "CreateEntertainment": {
     "pageTitle": "Развлечения и активности",
@@ -2216,6 +2279,7 @@
     "invalidTitle": "Неверный заголовок",
     "invalidLocation": "Неверная локация",
     "enterCadastral": "Укажите кадастровый код",
+    "invalidCadastral": "Кадастровый код должен содержать только цифры и точки (напр. 01.10.05.123)",
     "invalidArea": "Неверная площадь",
     "invalidPrice": "Неверная цена",
     "soldReservedExceeds": "Продано + забронировано не должно превышать общее число квартир",
@@ -2441,6 +2505,8 @@
     "addLead": {
       "title": "Добавить новый запрос",
       "subtitle": "Ввод данных в CRM",
+      "editTitle": "Редактировать запрос",
+      "editSubtitle": "Обновить данные лида",
       "clientName": "Имя клиента *",
       "clientNamePlaceholder": "напр. Давид",
       "phoneLabel": "Номер телефона",
@@ -3378,6 +3444,11 @@
       "periodInvalid": "Дата окончания должна быть позже даты начала",
       "creating": "Создание...",
       "create": "Создать",
+      "editTitle": "Редактировать пакет — {label}",
+      "save": "Сохранить",
+      "saving": "Сохранение...",
+      "packageUpdated": "Пакет обновлён",
+      "updateFailed": "Не удалось обновить",
       "vipTiers": {
         "super": "Super VIP — лучшая позиция",
         "standard": "VIP статус — выделение",

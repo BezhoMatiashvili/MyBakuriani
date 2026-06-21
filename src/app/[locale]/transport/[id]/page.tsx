@@ -6,6 +6,7 @@ import {
   getServiceById,
   getServiceMetadataById,
 } from "@/lib/data/getServiceById";
+import { buildListingMetadata } from "@/lib/seo";
 import TransportDetailClient from "./TransportDetailClient";
 
 interface Props {
@@ -21,10 +22,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: t("detail.transportNotFound") };
   }
 
+  const title = t("detail.transportTitle", { title: data.title });
+  const description =
+    data.description ?? t("detail.transportDesc", { title: data.title });
+
   return {
-    title: t("detail.transportTitle", { title: data.title }),
-    description:
-      data.description ?? t("detail.transportDesc", { title: data.title }),
+    title,
+    description,
+    ...buildListingMetadata({
+      locale,
+      title,
+      description,
+      images: data.photos ?? [],
+      path: `/transport/${id}`,
+    }),
   };
 }
 

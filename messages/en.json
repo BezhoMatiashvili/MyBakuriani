@@ -1,4 +1,38 @@
 {
+  "AdminStatusCards": {
+    "title": "Status cards",
+    "subtitle": "Manage the cards shown on the homepage hero (weather, ski lifts, road, cameras)",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Changes saved",
+    "loadError": "Failed to load cards",
+    "saveError": "Failed to save",
+    "addCard": "Add card",
+    "deleteCardConfirm": "Delete this card?",
+    "edit": "Edit",
+    "done": "Done",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "delete": "Delete",
+    "untitled": "Untitled card",
+    "icon": "Icon",
+    "label": "Title",
+    "value": "Value",
+    "redDot": "Red dot",
+    "expandable": "Expandable",
+    "active": "Active",
+    "hidden": "Hidden",
+    "items": "Items",
+    "addItem": "Add item",
+    "noItems": "No items yet",
+    "status": "Status",
+    "url": "Link",
+    "urlPlaceholder": "https://…",
+    "statusOk": "Open",
+    "statusWarn": "Warning",
+    "statusClosed": "Closed",
+    "statusNone": "Neutral"
+  },
   "Metadata": {
     "siteTitle": "MyBakuriani — Premium Rentals in Bakuriani",
     "siteDescription": "Premium real estate and rental platform in Bakuriani. Only verified and trusted property owners.",
@@ -92,7 +126,9 @@
     "noNotifications": "No notifications yet",
     "markAllRead": "Mark all as read",
     "viewAll": "View all",
-    "notificationsAria": "Notifications, {count} unread"
+    "notificationsAria": "Notifications, {count} unread",
+    "notificationTitle": "Notification",
+    "viewNotification": "View"
   },
   "Footer": {
     "brandDescription": "Premium real estate and rental platform in Bakuriani. We take care of your safe vacation.",
@@ -167,6 +203,7 @@
       "users": "Users",
       "tariffsAndPackages": "Tariffs & Packages",
       "locationZones": "Location Zones",
+      "statusCards": "Status cards",
       "finances": "Finances",
       "ads": "Ads",
       "smsApproval": "SMS Approval",
@@ -627,7 +664,21 @@
           "social": "Social media",
           "direct": "Direct contact"
         },
-        "datePlaceholder": "dd / mm / yy"
+        "datePlaceholder": "dd / mm / yy",
+        "phonePlaceholder": "599 12 34 56",
+        "guestsLabel": "Number of guests",
+        "guestsPlaceholder": "e.g. 2",
+        "amountLabel": "Amount",
+        "amountPlaceholder": "Booking price",
+        "notePlaceholder": "Additional information…",
+        "saveToContacts": "Save guest to contacts",
+        "editTitle": "Edit booking",
+        "editSubtitle": "Change or cancel this booking",
+        "viewTitle": "Booking details",
+        "platformNotice": "This booking was made by a guest through the platform. Manage it from the bookings page.",
+        "cancelBooking": "Cancel booking",
+        "confirmCancel": "Are you sure? This booking will be deleted and the dates freed.",
+        "confirmCancelYes": "Yes, cancel"
       },
       "guestForm": {
         "editTitle": "Edit guest",
@@ -964,6 +1015,7 @@
     "viewAllPhotos": "View all photos ({count})"
   },
   "ShareListing": {
+    "label": "Share",
     "copied": "Link copied — paste it into any social network",
     "error": "Sharing failed"
   },
@@ -1392,6 +1444,8 @@
     "description": "Description",
     "routeAndPrice": "Route & price",
     "startingPrice": "starting price",
+    "contactDriverTitle": "Contact the driver",
+    "contactDriverSubtitle": "Confirm time and route",
     "priceUnits": {
       "whole_car": "whole car",
       "on_demand": "on demand",
@@ -1707,7 +1761,10 @@
     "maxPhotos": "Max {max} photos",
     "uploadPhotosAlt": "Upload photos",
     "dropHereOrClickSelect": "Drop or select photos",
-    "photoCount": "{count} / {max} photos"
+    "photoCount": "{count} / {max} photos",
+    "mainBadge": "Main",
+    "setAsMain": "Set as main",
+    "mainHint": "The main photo is shown first to users"
   },
   "MediaUploader": {
     "defaultLabel": "Media (image or video)",
@@ -1824,7 +1881,8 @@
       "one_way": "one way",
       "per_tour": "per tour",
       "per_ride": "per ride",
-      "per_day": "per day"
+      "per_day": "per day",
+      "round_trip": "round trip"
     },
     "serviceSpheres": {
       "cleaning": "Cleaning",
@@ -2132,7 +2190,12 @@
     "enterDriverName": "Enter driver name",
     "enterCapacity": "Enter number of seats",
     "chooseRoute": "Select at least one route",
-    "enterPrice": "Enter starting price"
+    "enterPrice": "Enter starting price",
+    "routePrice": "Price",
+    "routeSubtitle": "Subtitle (optional)",
+    "routeSubtitlePlaceholder": "e.g. starting price",
+    "addRoute": "Add route",
+    "removeRoute": "Remove"
   },
   "CreateEntertainment": {
     "pageTitle": "Entertainment & activities",
@@ -2216,6 +2279,7 @@
     "invalidTitle": "Invalid title",
     "invalidLocation": "Invalid location",
     "enterCadastral": "Enter cadastral code",
+    "invalidCadastral": "The cadastral code must contain only digits and dots (e.g. 01.10.05.123)",
     "invalidArea": "Invalid area",
     "invalidPrice": "Invalid price",
     "soldReservedExceeds": "Sold + reserved must not exceed total number of units",
@@ -2441,6 +2505,8 @@
     "addLead": {
       "title": "Add new request",
       "subtitle": "Enter data into CRM",
+      "editTitle": "Edit request",
+      "editSubtitle": "Update lead data",
       "clientName": "Client name *",
       "clientNamePlaceholder": "e.g. David",
       "phoneLabel": "Phone number",
@@ -3378,6 +3444,11 @@
       "periodInvalid": "End date must be after the start date",
       "creating": "Creating...",
       "create": "Create",
+      "editTitle": "Edit package — {label}",
+      "save": "Save",
+      "saving": "Saving...",
+      "packageUpdated": "Package updated",
+      "updateFailed": "Update failed",
       "vipTiers": {
         "super": "Super VIP — top position",
         "standard": "VIP status — highlight",

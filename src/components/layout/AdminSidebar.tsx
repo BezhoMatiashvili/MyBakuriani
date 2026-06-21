@@ -55,6 +55,10 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         labelKey: "locationZones",
         href: "/dashboard/admin/zones",
       },
+      {
+        labelKey: "statusCards",
+        href: "/dashboard/admin/status-cards",
+      },
     ],
   },
   {

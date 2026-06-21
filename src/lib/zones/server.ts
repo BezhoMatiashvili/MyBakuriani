@@ -25,7 +25,7 @@ export async function getActiveZones(): Promise<Zone[]> {
     const { data, error } = await db
       .from("zones")
       .select(
-        "id, slug, name_ka, description_ka, lat, lng, icon, sort_order, is_active",
+        "id, slug, name_ka, description_ka, lat, lng, icon, sort_order, is_active, price_per_sqm_override",
       )
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
@@ -35,6 +35,7 @@ export async function getActiveZones(): Promise<Zone[]> {
     return data.map((row) => ({
       ...row,
       icon: normaliseIcon(row.icon),
+      price_per_sqm_override: row.price_per_sqm_override ?? null,
     }));
   } catch {
     return FALLBACK_ZONES;

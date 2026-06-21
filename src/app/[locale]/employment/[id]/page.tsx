@@ -6,6 +6,7 @@ import {
   getServiceById,
   getServiceMetadataById,
 } from "@/lib/data/getServiceById";
+import { buildListingMetadata } from "@/lib/seo";
 import { createPublicClient } from "@/lib/supabase/server";
 import EmploymentDetailClient from "./EmploymentDetailClient";
 
@@ -22,10 +23,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: t("detail.employmentNotFound") };
   }
 
+  const title = t("detail.employmentTitle", { title: data.title });
+  const description =
+    data.description ?? t("detail.employmentDesc", { title: data.title });
+
   return {
-    title: t("detail.employmentTitle", { title: data.title }),
-    description:
-      data.description ?? t("detail.employmentDesc", { title: data.title }),
+    title,
+    description,
+    ...buildListingMetadata({
+      locale,
+      title,
+      description,
+      images: data.photos ?? [],
+      path: `/employment/${id}`,
+    }),
   };
 }
 

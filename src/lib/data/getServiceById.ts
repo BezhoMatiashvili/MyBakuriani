@@ -49,6 +49,7 @@ export type ServiceMetadata = {
   description: string | null;
   category: Tables<"services">["category"];
   route?: string | null;
+  photos: string[] | null;
 };
 
 export async function getServiceMetadataById(
@@ -62,5 +63,6 @@ export async function getServiceMetadataById(
     description: data.description,
     category: data.category,
     route: data.route,
+    photos: data.photos,
   };
 }

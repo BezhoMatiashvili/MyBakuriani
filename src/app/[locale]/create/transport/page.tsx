@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Plus } from "lucide-react";
 import {
   WizardShell,
   WizardInnerCard,
@@ -19,7 +20,11 @@ import { createClient } from "@/lib/supabase/client";
 import { isValidGePhone } from "@/lib/utils/number";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
-import { VEHICLE_MAKES, dbOptionsFor } from "@/lib/constants/listing-options";
+import {
+  VEHICLE_MAKES,
+  dbOptionsFor,
+  parseRoutePricing,
+} from "@/lib/constants/listing-options";
 
 const TRANSPORT_TYPES = [
   { value: "minivan" },
@@ -28,11 +33,29 @@ const TRANSPORT_TYPES = [
   { value: "other" },
 ] as const;
 
-const PRICE_UNITS = [
-  { value: "whole_car" },
+// Price units offered per route row (each route can price differently).
+const ROUTE_PRICE_UNITS = [
+  { value: "one_way" },
+  { value: "round_trip" },
   { value: "on_demand" },
+  { value: "whole_car" },
   { value: "per_person" },
 ] as const;
+
+// One editable route+price row in the form (price held as string for input).
+type RouteRow = {
+  route: string;
+  subtitle: string;
+  price: string;
+  unit: string;
+};
+
+const emptyRouteRow = (): RouteRow => ({
+  route: "",
+  subtitle: "",
+  price: "",
+  unit: "one_way",
+});
 
 const LANGUAGE_OPTIONS = [
   { value: "ქართული", key: "ka" },
@@ -92,9 +115,18 @@ function CreateTransportPageInner() {
     [tOpts],
   );
 
-  const priceUnitOptions = useMemo(
+  const routeOptions = useMemo(
     () =>
-      PRICE_UNITS.map((o) => ({
+      ROUTE_OPTIONS.map((r) => ({
+        value: r.value,
+        label: tOpts(`transportRoutes.${r.key}`),
+      })),
+    [tOpts],
+  );
+
+  const routeUnitOptions = useMemo(
+    () =>
+      ROUTE_PRICE_UNITS.map((o) => ({
         value: o.value,
         label: tOpts(`priceUnits.${o.value}`),
       })),
@@ -129,10 +161,7 @@ function CreateTransportPageInner() {
     useState<(typeof TRANSPORT_TYPES)[number]["value"]>("minivan");
   const [vehicleCapacity, setVehicleCapacity] = useState("");
   const [vehicleColor, setVehicleColor] = useState("");
-  const [routes, setRoutes] = useState<string[]>([]);
-  const [price, setPrice] = useState("");
-  const [priceUnit, setPriceUnit] =
-    useState<(typeof PRICE_UNITS)[number]["value"]>("whole_car");
+  const [routeRows, setRouteRows] = useState<RouteRow[]>([emptyRouteRow()]);
   const [equipment, setEquipment] = useState<string[]>([]);
   const [features, setFeatures] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
@@ -178,12 +207,32 @@ function CreateTransportPageInner() {
         data.vehicle_capacity != null ? String(data.vehicle_capacity) : "",
       );
       setVehicleColor(data.vehicle_color ?? "");
-      setRoutes(toStringArray(data.routes));
-      setPrice(data.price != null ? String(data.price) : "");
-      setPriceUnit(
-        (data.price_unit ??
-          "whole_car") as (typeof PRICE_UNITS)[number]["value"],
-      );
+      const parsedRows = parseRoutePricing(data.route_pricing);
+      if (parsedRows.length > 0) {
+        setRouteRows(
+          parsedRows.map((r) => ({
+            route: r.route,
+            subtitle: r.subtitle ?? "",
+            price: String(r.price),
+            unit: r.unit,
+          })),
+        );
+      } else {
+        // Legacy listing: one row per shared route, all at the single price.
+        const legacyRoutes = toStringArray(data.routes);
+        const legacyPrice = data.price != null ? String(data.price) : "";
+        const legacyUnit = data.price_unit ?? "one_way";
+        setRouteRows(
+          legacyRoutes.length > 0
+            ? legacyRoutes.map((route) => ({
+                route,
+                subtitle: "",
+                price: legacyPrice,
+                unit: legacyUnit,
+              }))
+            : [emptyRouteRow()],
+        );
+      }
       setEquipment(toStringArray(data.equipment));
       setFeatures(toStringArray(data.features));
       setLanguages(toStringArray(data.languages));
@@ -208,15 +257,30 @@ function CreateTransportPageInner() {
       : [...arr, value];
   }
 
+  function updateRouteRow(index: number, patch: Partial<RouteRow>) {
+    setRouteRows((rows) =>
+      rows.map((r, i) => (i === index ? { ...r, ...patch } : r)),
+    );
+  }
+
+  function addRouteRow() {
+    setRouteRows((rows) => [...rows, emptyRouteRow()]);
+  }
+
+  function removeRouteRow(index: number) {
+    setRouteRows((rows) => rows.filter((_, i) => i !== index));
+  }
+
   function validate(): { key: string; message: string }[] {
     const errs: { key: string; message: string }[] = [];
     if (!driverName.trim())
       errs.push({ key: "driverName", message: t("enterDriverName") });
     if (!vehicleCapacity)
       errs.push({ key: "vehicleCapacity", message: t("enterCapacity") });
-    if (routes.length === 0)
+    if (routeRows.every((r) => !r.route))
       errs.push({ key: "routes", message: t("chooseRoute") });
-    if (!price) errs.push({ key: "price", message: t("enterPrice") });
+    else if (routeRows.some((r) => r.route && !(Number(r.price) > 0)))
+      errs.push({ key: "routes", message: t("enterPrice") });
     if (photos.length < MIN_PHOTOS)
       errs.push({ key: "photos", message: tShared("uploadMinOnePhoto") });
     if (!phone.trim())
@@ -242,6 +306,21 @@ function CreateTransportPageInner() {
     try {
       if (!isValidGePhone(phone)) throw new Error(tShared("enterPhone"));
 
+      const cleanedRows = routeRows
+        .filter((r) => r.route && Number(r.price) > 0)
+        .map((r) => ({
+          route: r.route,
+          subtitle: r.subtitle.trim() || null,
+          price: Number(r.price),
+          unit: r.unit,
+        }));
+      // Keep the legacy single-price fields in sync for cards, the /transport
+      // route filter, and the detail-page fallback: `price` is the cheapest
+      // route ("from" price), `routes` the selected route values.
+      const cheapestRow = cleanedRows.reduce((min, r) =>
+        r.price < min.price ? r : min,
+      );
+
       const payload = {
         title: driverName.trim(),
         description: description.trim() || null,
@@ -250,9 +329,10 @@ function CreateTransportPageInner() {
         transport_type: transportType,
         vehicle_capacity: Number(vehicleCapacity),
         vehicle_color: vehicleColor || null,
-        routes,
-        price: Number(price),
-        price_unit: priceUnit,
+        routes: cleanedRows.map((r) => r.route),
+        route_pricing: cleanedRows,
+        price: cheapestRow.price,
+        price_unit: cheapestRow.unit,
         equipment,
         features,
         languages,
@@ -291,8 +371,8 @@ function CreateTransportPageInner() {
   const requiredFilled = [
     driverName.trim().length > 0,
     vehicleCapacity.length > 0,
-    routes.length > 0,
-    price.length > 0,
+    routeRows.some((r) => r.route),
+    routeRows.some((r) => Number(r.price) > 0),
     photos.length >= MIN_PHOTOS,
     isValidGePhone(phone),
   ].filter(Boolean).length;
@@ -407,54 +487,81 @@ function CreateTransportPageInner() {
             title={t("sectionRoutePrice")}
             accent="blue"
           >
-            <Field
-              label={t("mainRoutes")}
-              required
-              fieldKey="routes"
-              error={invalidFields.has("routes")}
-              labelOnlyError
-            >
-              <div className="flex flex-wrap gap-2">
-                {ROUTE_OPTIONS.map((r) => (
-                  <Chip
-                    key={r.value}
-                    active={routes.includes(r.value)}
-                    onClick={() => setRoutes(toggle(routes, r.value))}
-                  >
-                    {tOpts(`transportRoutes.${r.key}`)}
-                  </Chip>
-                ))}
-              </div>
-            </Field>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field
-                label={t("startingPrice")}
-                required
-                fieldKey="price"
-                error={invalidFields.has("price")}
-                labelOnlyError
+            <div data-field="routes" className="scroll-mt-24 space-y-4">
+              {routeRows.map((row, i) => (
+                <div
+                  key={i}
+                  className="space-y-4 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-bold text-[#334155]">
+                      {t("mainRoutes")}
+                      {routeRows.length > 1 ? ` #${i + 1}` : ""}
+                    </span>
+                    {routeRows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRouteRow(i)}
+                        className="text-[12px] font-semibold text-[#EF4444] hover:underline"
+                      >
+                        {t("removeRoute")}
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Field label={t("mainRoutes")} required>
+                      <StyledSelect
+                        value={row.route}
+                        onValueChange={(v) => updateRouteRow(i, { route: v })}
+                        options={routeOptions}
+                        accent="blue"
+                        placeholder={t("chooseRoute")}
+                      />
+                    </Field>
+                    <Field label={t("routeSubtitle")}>
+                      <input
+                        type="text"
+                        value={row.subtitle}
+                        onChange={(e) =>
+                          updateRouteRow(i, { subtitle: e.target.value })
+                        }
+                        placeholder={t("routeSubtitlePlaceholder")}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Field label={t("routePrice")} required>
+                      <NumberField
+                        value={row.price}
+                        onChange={(v) => updateRouteRow(i, { price: v })}
+                        min={0}
+                        max={100000}
+                        integer
+                        placeholder="250"
+                        suffix="₾"
+                        accent="blue"
+                      />
+                    </Field>
+                    <Field label={t("priceUnit")} required>
+                      <StyledSelect
+                        value={row.unit}
+                        onValueChange={(v) => updateRouteRow(i, { unit: v })}
+                        options={routeUnitOptions}
+                        accent="blue"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addRouteRow}
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-dashed border-[#CBD5E1] px-4 text-[13px] font-semibold text-[#2563EB] transition-colors hover:border-[#2563EB] hover:bg-[#EFF6FF]"
               >
-                <NumberField
-                  value={price}
-                  onChange={setPrice}
-                  min={0}
-                  max={100000}
-                  integer
-                  placeholder="250"
-                  suffix="₾"
-                  accent="blue"
-                  error={invalidFields.has("price")}
-                />
-              </Field>
-              <Field label={t("priceUnit")} required>
-                <StyledSelect
-                  value={priceUnit}
-                  onValueChange={setPriceUnit}
-                  options={priceUnitOptions}
-                  accent="blue"
-                />
-              </Field>
+                <Plus className="h-4 w-4" />
+                {t("addRoute")}
+              </button>
             </div>
           </WizardInnerCard>
 

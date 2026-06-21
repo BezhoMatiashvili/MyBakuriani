@@ -13,6 +13,8 @@ import AddLeadModal, {
   type LeadInput,
   type LeadStage,
   type LeadPriority,
+  type LeadInterestType,
+  type LeadLocation,
 } from "@/components/seller/AddLeadModal";
 
 interface Lead {
@@ -28,6 +30,8 @@ interface Lead {
   budget_max: number | null;
   currency: string;
   note: string | null;
+  interest_type: LeadInterestType | null;
+  desired_location: LeadLocation | null;
   next_action_at: string | null;
   created_at: string;
 }
@@ -116,6 +120,7 @@ export default function SalesBoard({
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -149,6 +154,8 @@ export default function SalesBoard({
               budget_max: (r.budget_max as number) ?? null,
               currency: (r.currency as string) ?? "USD",
               note: (r.note as string) ?? null,
+              interest_type: (r.interest_type as LeadInterestType) ?? null,
+              desired_location: (r.desired_location as LeadLocation) ?? null,
               next_action_at: (r.next_action_at as string) ?? null,
               created_at: r.created_at as string,
             }),
@@ -192,6 +199,8 @@ export default function SalesBoard({
           budget_max: input.budget_max ?? null,
           currency: "USD",
           note: input.note ?? null,
+          interest_type: input.interest_type ?? null,
+          desired_location: input.desired_location ?? null,
           next_action_at: null,
           created_at: new Date().toISOString(),
         },
@@ -234,11 +243,86 @@ export default function SalesBoard({
           budget_max: (data.budget_max as number) ?? null,
           currency: (data.currency as string) ?? "USD",
           note: (data.note as string) ?? null,
+          interest_type: (data.interest_type as LeadInterestType) ?? null,
+          desired_location: (data.desired_location as LeadLocation) ?? null,
           next_action_at: (data.next_action_at as string) ?? null,
           created_at: data.created_at as string,
         },
         ...prev,
       ]);
+    }
+  }
+
+  async function handleUpdate(input: LeadInput) {
+    if (!user || !editingLead) return;
+    const id = editingLead.id;
+
+    if (tableMissing) {
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                client_name: input.client_name,
+                client_phone: input.client_phone ?? null,
+                stage: input.stage,
+                priority: input.priority,
+                budget_min: input.budget_min ?? null,
+                budget_max: input.budget_max ?? null,
+                note: input.note ?? null,
+                interest_type: input.interest_type ?? null,
+                desired_location: input.desired_location ?? null,
+              }
+            : l,
+        ),
+      );
+      return;
+    }
+
+    const { data, error } = await leadsClient(supabase)
+      .from("leads")
+      .update({
+        client_name: input.client_name,
+        client_phone: input.client_phone ?? null,
+        stage: input.stage,
+        priority: input.priority,
+        budget_min: input.budget_min ?? null,
+        budget_max: input.budget_max ?? null,
+        note: input.note ?? null,
+        interest_type: input.interest_type ?? null,
+        desired_location: input.desired_location ?? null,
+      })
+      .eq("id", id)
+      .eq("owner_id", user.id)
+      .select("*, property:properties(title)")
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (data) {
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                client_name: data.client_name as string,
+                client_phone: (data.client_phone as string) ?? null,
+                property_title:
+                  (data.property as { title?: string } | null)?.title ??
+                  l.property_title ??
+                  null,
+                stage: data.stage as LeadStage,
+                priority: data.priority as LeadPriority,
+                budget_min: (data.budget_min as number) ?? null,
+                budget_max: (data.budget_max as number) ?? null,
+                currency: (data.currency as string) ?? l.currency,
+                note: (data.note as string) ?? null,
+                interest_type: (data.interest_type as LeadInterestType) ?? null,
+                desired_location:
+                  (data.desired_location as LeadLocation) ?? null,
+              }
+            : l,
+        ),
+      );
     }
   }
 
@@ -335,7 +419,17 @@ export default function SalesBoard({
                     return (
                       <div
                         key={lead.id}
-                        className={`rounded-xl border p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${stage.cardBg} ${stage.cardBorder}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setEditingLead(lead)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setEditingLead(lead);
+                          }
+                        }}
+                        aria-label={`${tShared("edit")}: ${lead.client_name}`}
+                        className={`min-h-[44px] cursor-pointer rounded-xl border p-3 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${stage.cardBg} ${stage.cardBorder}`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           {topChipText && (
@@ -396,6 +490,14 @@ export default function SalesBoard({
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleCreate}
+      />
+
+      <AddLeadModal
+        mode="edit"
+        isOpen={editingLead !== null}
+        initialLead={editingLead}
+        onClose={() => setEditingLead(null)}
+        onSubmit={handleUpdate}
       />
     </div>
   );

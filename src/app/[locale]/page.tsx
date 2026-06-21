@@ -6,6 +6,7 @@ import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { fetchActiveBanners } from "@/lib/banners-server";
 import { getActiveZones, nearestZoneFrom, type Zone } from "@/lib/zones/server";
+import { getStatusCards } from "@/lib/status-cards/server";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 
@@ -138,7 +139,7 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
 
 function emptyAggregate(zones: Zone[]): PricePerSqmByZone {
   return zones.reduce((acc, zone) => {
-    acc[zone.name_ka] = null;
+    acc[zone.name_ka] = zone.price_per_sqm_override ?? null;
     return acc;
   }, {} as PricePerSqmByZone);
 }
@@ -176,10 +177,12 @@ function aggregatePricePerSqm(
   }
 
   return zones.reduce((acc, zone) => {
+    // A manual override always wins over the computed listing average.
     acc[zone.name_ka] =
-      counts[zone.name_ka] > 0
+      zone.price_per_sqm_override ??
+      (counts[zone.name_ka] > 0
         ? sums[zone.name_ka] / counts[zone.name_ka]
-        : null;
+        : null);
     return acc;
   }, {} as PricePerSqmByZone);
 }
@@ -188,15 +191,18 @@ async function LandingWithData() {
   // getActiveZones never rejects (falls back internally), so the shared
   // promise is safe to await in multiple places.
   const zonesPromise = getActiveZones();
-  const [zones, props, infoBanners, promoBanners] = await Promise.all([
-    zonesPromise,
-    fetchLandingProps(zonesPromise),
-    fetchActiveBanners("info").catch(() => []),
-    fetchActiveBanners("promo").catch(() => []),
-  ]);
+  const [zones, props, infoBanners, promoBanners, statusCards] =
+    await Promise.all([
+      zonesPromise,
+      fetchLandingProps(zonesPromise),
+      fetchActiveBanners("info").catch(() => []),
+      fetchActiveBanners("promo").catch(() => []),
+      getStatusCards(),
+    ]);
   return (
     <LandingPage
       zones={zones}
+      statusCards={statusCards}
       hotOffers={props.hotOffers}
       hotels={props.hotels}
       saleProperties={props.saleProperties}

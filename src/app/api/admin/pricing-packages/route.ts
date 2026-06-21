@@ -80,6 +80,45 @@ async function notifySubscriptionAudience(
   }
 }
 
+// Counts users still holding an active subscription, per package_id, so the
+// admin disable dialog can show how many people are grandfathered. Best-effort.
+async function activeSubscriberCounts(
+  db: ReturnType<typeof createServiceClient>,
+): Promise<Record<string, number>> {
+  try {
+    // user_subscriptions is in migrations but not the generated types yet.
+    const subsClient = db as unknown as {
+      from(table: "user_subscriptions"): {
+        select(columns: "package_id"): {
+          eq(
+            column: "status",
+            value: string,
+          ): {
+            gt(
+              column: "expires_at",
+              value: string,
+            ): Promise<{ data: { package_id: string | null }[] | null }>;
+          };
+        };
+      };
+    };
+    const { data } = await subsClient
+      .from("user_subscriptions")
+      .select("package_id")
+      .eq("status", "active")
+      .gt("expires_at", new Date().toISOString());
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      if (row.package_id)
+        counts[row.package_id] = (counts[row.package_id] ?? 0) + 1;
+    }
+    return counts;
+  } catch (error) {
+    console.error("active subscriber count failed", error);
+    return {};
+  }
+}
+
 export async function GET() {
   try {
     const guard = await requireAdmin();
@@ -91,7 +130,14 @@ export async function GET() {
       .order("category", { ascending: true })
       .order("sort_order", { ascending: true });
     if (error) return Response.json({ error: error.message }, { status: 500 });
-    return Response.json({ packages: data ?? [] });
+
+    const counts = await activeSubscriberCounts(db);
+    const packages = (data ?? []).map((p) => ({
+      ...p,
+      active_subscribers:
+        p.category === "subscription" ? (counts[p.id] ?? 0) : 0,
+    }));
+    return Response.json({ packages });
   } catch (error) {
     console.error("GET /api/admin/pricing-packages failed", error);
     return Response.json({ error: "internal server error" }, { status: 500 });
@@ -170,7 +216,9 @@ export async function PATCH(req: NextRequest) {
         changes.push("პაკეტი კვლავ ხელმისაწვდომია.");
       }
       if (patch.is_enabled === false) {
-        changes.push("პაკეტი დროებით შეჩერდა.");
+        changes.push(
+          "პაკეტი აღარ არის ხელმისაწვდომი ახალი შესყიდვისთვის. მიმდინარე წევრობა აქტიურია ვადის ბოლომდე.",
+        );
       }
       if (patch.meta !== undefined) {
         changes.push("მოქმედების პერიოდი განახლდა.");

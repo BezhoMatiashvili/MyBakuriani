@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
   LayoutGrid,
+  ClipboardList,
   Wallet,
   Bell,
   Settings,
@@ -44,6 +45,7 @@ interface NavItem {
 function buildNavItems(basePath: string): NavItem[] {
   return [
     { labelKey: "myCabinet", href: basePath, icon: LayoutGrid },
+    { labelKey: "orders", href: `${basePath}/orders`, icon: ClipboardList },
     { labelKey: "balanceAndVip", href: `${basePath}/balance`, icon: Wallet },
     {
       labelKey: "notificationsItem",

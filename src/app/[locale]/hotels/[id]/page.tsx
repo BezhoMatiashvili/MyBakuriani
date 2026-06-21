@@ -7,6 +7,7 @@ import {
   getPropertyById,
   getPropertyMetadataById,
 } from "@/lib/data/getPropertyById";
+import { buildListingMetadata } from "@/lib/seo";
 import HotelDetailClient from "./HotelDetailClient";
 
 interface Props {
@@ -24,11 +25,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: t("detail.hotelNotFound") };
   }
 
+  const title = t("detail.hotelTitle", { title: data.title });
+  const description =
+    data.description ??
+    t("detail.hotelDesc", { title: data.title, location: data.location });
+
   return {
-    title: t("detail.hotelTitle", { title: data.title }),
-    description:
-      data.description ??
-      t("detail.hotelDesc", { title: data.title, location: data.location }),
+    title,
+    description,
+    ...buildListingMetadata({
+      locale,
+      title,
+      description,
+      images: data.photos ?? [],
+      path: `/hotels/${id}`,
+    }),
   };
 }
 

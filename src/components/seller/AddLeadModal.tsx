@@ -34,9 +34,26 @@ export interface LeadInput {
   note?: string | null;
 }
 
+// Narrow, modal-owned shape used to pre-fill the form in edit mode. Keeps the
+// modal decoupled from the board's wider Lead type (source, currency, etc.).
+export interface LeadEditInitial {
+  id: string;
+  client_name: string;
+  client_phone: string | null;
+  stage: LeadStage;
+  priority: LeadPriority;
+  budget_min: number | null;
+  budget_max: number | null;
+  interest_type: LeadInterestType | null;
+  desired_location: LeadLocation | null;
+  note: string | null;
+}
+
 interface AddLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
+  mode?: "create" | "edit";
+  initialLead?: LeadEditInitial | null;
   onSubmit: (lead: LeadInput) => Promise<void> | void;
 }
 
@@ -156,9 +173,21 @@ function parseBudget(input: string): {
   return { min: Math.min(nums[0], nums[1]), max: Math.max(nums[0], nums[1]) };
 }
 
+// Inverse of parseBudget — reconstructs the free-text budget field from stored
+// min/max. Plain numbers (no separators) so re-saving yields the same min/max.
+function formatBudgetText(min: number | null, max: number | null): string {
+  if (min == null && max == null) return "";
+  if (min != null && max != null) {
+    return min === max ? String(min) : `${min} - ${max}`;
+  }
+  return String(min ?? max);
+}
+
 export default function AddLeadModal({
   isOpen,
   onClose,
+  mode = "create",
+  initialLead,
   onSubmit,
 }: AddLeadModalProps) {
   const t = useTranslations("SellerDashboard.addLead");
@@ -234,6 +263,27 @@ export default function AddLeadModal({
     setError(null);
   }
 
+  // Seed the form on open: pre-fill from the lead in edit mode, reset otherwise.
+  // Keyed on initialLead too so switching between leads while open re-seeds.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode === "edit" && initialLead) {
+      setClientName(initialLead.client_name ?? "");
+      setClientPhone(initialLead.client_phone ?? "");
+      setInterest(initialLead.interest_type ?? "apartment_purchase");
+      setStage(initialLead.stage);
+      setBudgetText(
+        formatBudgetText(initialLead.budget_min, initialLead.budget_max),
+      );
+      setPriority(initialLead.priority);
+      setLocation(initialLead.desired_location ?? null);
+      setNote(initialLead.note ?? "");
+      setError(null);
+    } else {
+      reset();
+    }
+  }, [isOpen, mode, initialLead]);
+
   function handleClose() {
     reset();
     onClose();
@@ -249,14 +299,34 @@ export default function AddLeadModal({
     setError(null);
     try {
       const { min, max } = parseBudget(budgetText);
+
+      // In edit mode, only overwrite budget / interest when the seller actually
+      // changed that input. Otherwise pass the stored value straight through, so
+      // a save never silently rewrites data the lossy text round-trip can't
+      // reproduce (decimal or one-sided budgets, a null interest on legacy rows).
+      const budgetUntouched =
+        mode === "edit" &&
+        initialLead != null &&
+        budgetText ===
+          formatBudgetText(initialLead.budget_min, initialLead.budget_max);
+      const interestUntouched =
+        mode === "edit" &&
+        initialLead != null &&
+        interest === (initialLead.interest_type ?? "apartment_purchase");
+
       await onSubmit({
         client_name: clientName.trim(),
         client_phone: clientPhone.trim() || undefined,
         stage,
         priority,
-        budget_min: min,
-        budget_max: max,
-        interest_type: interest,
+        budget_min:
+          budgetUntouched && initialLead ? initialLead.budget_min : min,
+        budget_max:
+          budgetUntouched && initialLead ? initialLead.budget_max : max,
+        interest_type:
+          interestUntouched && initialLead
+            ? initialLead.interest_type
+            : interest,
         desired_location: location,
         note: note.trim() || null,
       });
@@ -296,10 +366,10 @@ export default function AddLeadModal({
                 </div>
                 <div>
                   <h2 className="text-[20px] font-black leading-tight text-[#0F172A]">
-                    {t("title")}
+                    {mode === "edit" ? t("editTitle") : t("title")}
                   </h2>
                   <p className="mt-1 text-[12px] font-semibold uppercase tracking-wide text-[#94A3B8]">
-                    {t("subtitle")}
+                    {mode === "edit" ? t("editSubtitle") : t("subtitle")}
                   </p>
                 </div>
               </div>
@@ -490,7 +560,11 @@ export default function AddLeadModal({
                 disabled={submitting}
                 className="rounded-xl bg-[#2563EB] px-7 py-2.5 text-[13px] font-bold text-white shadow-[0_8px_18px_-6px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
               >
-                {submitting ? tShared("inProgress") : tShared("add")}
+                {submitting
+                  ? tShared("inProgress")
+                  : mode === "edit"
+                    ? tShared("saveChanges")
+                    : tShared("add")}
               </button>
             </div>
           </motion.div>

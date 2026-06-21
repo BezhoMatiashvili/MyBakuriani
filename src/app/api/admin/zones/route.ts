@@ -14,6 +14,18 @@ function isValidIcon(v: unknown): v is ZoneIconValue {
   );
 }
 
+// null / undefined → null (auto-compute). A finite number >= 0 is accepted and
+// floored to an integer. Anything else is rejected.
+function normaliseOverride(
+  v: unknown,
+): { ok: true; value: number | null } | { ok: false } {
+  if (v === null || v === undefined) return { ok: true, value: null };
+  if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
+    return { ok: true, value: Math.round(v) };
+  }
+  return { ok: false };
+}
+
 function bumpCaches() {
   // Zones flow through SSR everywhere; rebuild every locale route.
   revalidatePath("/", "layout");
@@ -48,6 +60,7 @@ export async function POST(req: NextRequest) {
       lng?: number;
       icon?: string;
       sort_order?: number;
+      price_per_sqm_override?: number | null;
     } | null;
 
     if (!body) {
@@ -76,6 +89,13 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    const override = normaliseOverride(body.price_per_sqm_override);
+    if (!override.ok) {
+      return Response.json(
+        { error: "price_per_sqm_override must be a number >= 0 or null" },
+        { status: 400 },
+      );
+    }
 
     const db = createServiceClient(guard.admin.userId);
     const { data, error } = await db
@@ -89,6 +109,7 @@ export async function POST(req: NextRequest) {
         icon,
         sort_order: typeof sort_order === "number" ? sort_order : 999,
         is_active: true,
+        price_per_sqm_override: override.value,
       })
       .select()
       .single();
@@ -119,6 +140,7 @@ export async function PATCH(req: NextRequest) {
       icon?: string;
       sort_order?: number;
       is_active?: boolean;
+      price_per_sqm_override?: number | null;
     } | null;
 
     if (!body?.id) {
@@ -151,6 +173,16 @@ export async function PATCH(req: NextRequest) {
     }
     if (typeof body.sort_order === "number") patch.sort_order = body.sort_order;
     if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
+    if ("price_per_sqm_override" in body) {
+      const override = normaliseOverride(body.price_per_sqm_override);
+      if (!override.ok) {
+        return Response.json(
+          { error: "price_per_sqm_override must be a number >= 0 or null" },
+          { status: 400 },
+        );
+      }
+      patch.price_per_sqm_override = override.value;
+    }
 
     if (Object.keys(patch).length === 0) {
       return Response.json(

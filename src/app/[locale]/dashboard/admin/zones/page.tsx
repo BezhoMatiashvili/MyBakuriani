@@ -32,6 +32,7 @@ interface Zone {
   icon: ZoneIconValue;
   sort_order: number;
   is_active: boolean;
+  price_per_sqm_override: number | null;
 }
 
 interface ZoneDraft {
@@ -41,6 +42,7 @@ interface ZoneDraft {
   lat: string;
   lng: string;
   icon: ZoneIconValue;
+  price_per_sqm_override: string;
 }
 
 const EMPTY_DRAFT: ZoneDraft = {
@@ -50,6 +52,7 @@ const EMPTY_DRAFT: ZoneDraft = {
   lat: "",
   lng: "",
   icon: "mountain",
+  price_per_sqm_override: "",
 };
 
 const ICON_OPTIONS: { value: ZoneIconValue; label: string }[] = [
@@ -89,6 +92,18 @@ function getPayloadError(
   fallback: string,
 ): string {
   return typeof payload?.error === "string" ? payload.error : fallback;
+}
+
+// Sentinel for an unparseable override draft. Blank → null (auto-compute),
+// a non-negative integer → that number, anything else → INVALID_OVERRIDE.
+const INVALID_OVERRIDE = Symbol("invalid-override");
+
+function parseOverride(raw: string): number | null | typeof INVALID_OVERRIDE {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0) return INVALID_OVERRIDE;
+  return Math.round(n);
 }
 
 export default function AdminZonesPage() {
@@ -227,6 +242,10 @@ export default function AdminZonesPage() {
         lat: String(zone.lat),
         lng: String(zone.lng),
         icon: zone.icon,
+        price_per_sqm_override:
+          zone.price_per_sqm_override == null
+            ? ""
+            : String(zone.price_per_sqm_override),
       },
     }));
   }
@@ -253,12 +272,18 @@ export default function AdminZonesPage() {
       toast.error("lat/lng არასწორია");
       return;
     }
+    const override = parseOverride(draft.price_per_sqm_override);
+    if (override === INVALID_OVERRIDE) {
+      toast.error("ფასი არასწორია");
+      return;
+    }
     await patchZone(zone.id, {
       name_ka: name,
       description_ka: draft.description_ka.trim(),
       lat,
       lng,
       icon: draft.icon,
+      price_per_sqm_override: override,
     });
     cancelEditing(zone.id);
   }
@@ -284,6 +309,11 @@ export default function AdminZonesPage() {
       toast.error("lat/lng არასწორია");
       return;
     }
+    const override = parseOverride(createDraft.price_per_sqm_override);
+    if (override === INVALID_OVERRIDE) {
+      toast.error("ფასი არასწორია");
+      return;
+    }
     const maxOrder = zones.reduce((m, z) => Math.max(m, z.sort_order), 0);
     setCreating(true);
     try {
@@ -298,6 +328,7 @@ export default function AdminZonesPage() {
           lng,
           icon: createDraft.icon,
           sort_order: maxOrder + 1,
+          price_per_sqm_override: override,
         }),
       });
       const payload = await readJsonSafely(res);
@@ -481,7 +512,10 @@ export default function AdminZonesPage() {
                           </p>
                           <p className="mt-0.5 text-[11px] text-[#94A3B8]">
                             {zone.lat.toFixed(4)}, {zone.lng.toFixed(4)} · სორტი{" "}
-                            {zone.sort_order}
+                            {zone.sort_order} · ფასი:{" "}
+                            {zone.price_per_sqm_override == null
+                              ? "ავტომატური"
+                              : `${zone.price_per_sqm_override} ₾/მ²`}
                           </p>
                         </div>
                       </div>
@@ -694,6 +728,32 @@ function ZoneFormFields({
           }
           placeholder="43.5175"
           inputMode="decimal"
+          className="zone-input"
+        />
+      </Field>
+      <Field label="ფასი ₾/მ² (არჩევითი)">
+        <input
+          value={draft.price_per_sqm_override}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              price_per_sqm_override: sanitizeNumericString(e.target.value, {
+                allowNegative: false,
+                allowDecimal: false,
+              }),
+            })
+          }
+          onBlur={() =>
+            onChange({
+              ...draft,
+              price_per_sqm_override: clampNumericString(
+                draft.price_per_sqm_override,
+                { min: 0, max: 1000000, decimals: 0 },
+              ),
+            })
+          }
+          placeholder="ცარიელი = ავტომატური (მაგ. 1171)"
+          inputMode="numeric"
           className="zone-input"
         />
       </Field>

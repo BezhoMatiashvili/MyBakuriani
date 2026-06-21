@@ -99,3 +99,14 @@ export function isValidPersonalId(value: string | null | undefined): boolean {
   if (!value) return false;
   return /^\d{11}$/.test(value.replace(/\D/g, ""));
 }
+
+/**
+ * A Georgian cadastral code (e.g. "01.10.05.123"): digits and dots only, with
+ * at least one dot and at least one digit.
+ */
+export function isValidCadastralCode(
+  value: string | null | undefined,
+): boolean {
+  if (!value) return false;
+  return /^[0-9.]+$/.test(value) && value.includes(".") && /\d/.test(value);
+}

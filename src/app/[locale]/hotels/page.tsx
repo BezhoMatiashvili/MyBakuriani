@@ -2,6 +2,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { getStatusCards } from "@/lib/status-cards/server";
 import HotelsPageClient from "./HotelsPageClient";
 
 export const revalidate = 60;
@@ -21,6 +22,7 @@ export async function generateMetadata({
 
 export default async function HotelsPage() {
   const supabase = createPublicClient();
+  const statusCards = await getStatusCards();
 
   const { data: properties, error } = await supabase
     .from("properties")
@@ -37,5 +39,7 @@ export default async function HotelsPage() {
     console.error("[hotels] failed to load properties", error.message);
   }
 
-  return <HotelsPageClient properties={properties ?? []} />;
+  return (
+    <HotelsPageClient properties={properties ?? []} statusCards={statusCards} />
+  );
 }

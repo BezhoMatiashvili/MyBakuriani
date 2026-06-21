@@ -1,4 +1,38 @@
 {
+  "AdminStatusCards": {
+    "title": "სტატუს-ბარათები",
+    "subtitle": "მთავარ გვერდზე გამოჩენილი ბარათების მართვა (ამინდი, საბაგიროები, გზა, კამერები)",
+    "save": "შენახვა",
+    "saving": "ინახება…",
+    "saved": "ცვლილებები შენახულია",
+    "loadError": "ბარათების ჩატვირთვა ვერ მოხერხდა",
+    "saveError": "შენახვა ვერ მოხერხდა",
+    "addCard": "ბარათის დამატება",
+    "deleteCardConfirm": "წავშალო ეს ბარათი?",
+    "edit": "რედაქტირება",
+    "done": "დასრულება",
+    "moveUp": "ზემოთ",
+    "moveDown": "ქვემოთ",
+    "delete": "წაშლა",
+    "untitled": "უსათაურო ბარათი",
+    "icon": "ხატულა",
+    "label": "სათაური",
+    "value": "მნიშვნელობა",
+    "redDot": "წითელი ნიშანი",
+    "expandable": "გაშლადი",
+    "active": "აქტიური",
+    "hidden": "დამალული",
+    "items": "ელემენტები",
+    "addItem": "ელემენტის დამატება",
+    "noItems": "ელემენტები არ არის",
+    "status": "სტატუსი",
+    "url": "ბმული",
+    "urlPlaceholder": "https://…",
+    "statusOk": "ღია",
+    "statusWarn": "გაფრთხილება",
+    "statusClosed": "დაკეტილი",
+    "statusNone": "ნეიტრალური"
+  },
   "Metadata": {
     "siteTitle": "MyBakuriani — პრემიუმ გაქირავება ბაკურიანში",
     "siteDescription": "პრემიუმ უძრავი ქონების და გაქირავების პლატფორმა ბაკურიანში. მხოლოდ ვერიფიცირებული და სანდო მესაკუთრეები.",
@@ -92,7 +126,9 @@
     "noNotifications": "ჯერ არ გაქვთ შეტყობინებები",
     "markAllRead": "ყველას წაკითხულად მონიშვნა",
     "viewAll": "ყველას ნახვა",
-    "notificationsAria": "შეტყობინებები, {count} წაუკითხავი"
+    "notificationsAria": "შეტყობინებები, {count} წაუკითხავი",
+    "notificationTitle": "შეტყობინება",
+    "viewNotification": "ნახვა"
   },
   "Footer": {
     "brandDescription": "პრემიუმ უძრავი ქონების და გაქირავების პლატფორმა ბაკურიანში. ჩვენ ვზრუნავთ თქვენს დაცულ დასვენებაზე.",
@@ -167,6 +203,7 @@
       "users": "მომხმარებლები",
       "tariffsAndPackages": "ტარიფები და პაკეტები",
       "locationZones": "ლოკაციის ზონები",
+      "statusCards": "სტატუს-ბარათები",
       "finances": "ფინანსები",
       "ads": "რეკლამები",
       "smsApproval": "SMS დადასტურება",
@@ -627,7 +664,21 @@
           "social": "სოციალური მედია",
           "direct": "პირდაპირი კავშირი"
         },
-        "datePlaceholder": "დდ / თთ / წწ"
+        "datePlaceholder": "დდ / თთ / წწ",
+        "phonePlaceholder": "599 12 34 56",
+        "guestsLabel": "სტუმრების რაოდენობა",
+        "guestsPlaceholder": "მაგ. 2",
+        "amountLabel": "თანხა",
+        "amountPlaceholder": "ჯავშნის ღირებულება",
+        "notePlaceholder": "დამატებითი ინფორმაცია…",
+        "saveToContacts": "სტუმრის შენახვა კონტაქტებში",
+        "editTitle": "ჯავშნის რედაქტირება",
+        "editSubtitle": "შეცვალეთ ან გააუქმეთ ჯავშანი",
+        "viewTitle": "ჯავშნის დეტალები",
+        "platformNotice": "ეს ჯავშანი სტუმარმა გააკეთა პლატფორმიდან. მისი მართვა ხდება ჯავშნების გვერდიდან.",
+        "cancelBooking": "ჯავშნის გაუქმება",
+        "confirmCancel": "დარწმუნებული ხართ? ჯავშანი წაიშლება და თარიღები გათავისუფლდება.",
+        "confirmCancelYes": "დიახ, გაუქმება"
       },
       "guestForm": {
         "editTitle": "სტუმრის რედაქტირება",
@@ -964,6 +1015,7 @@
     "viewAllPhotos": "ყველა ფოტოს ნახვა ({count})"
   },
   "ShareListing": {
+    "label": "გაზიარება",
     "copied": "ბმული დაკოპირდა — ჩასვი სოციალურ ქსელში",
     "error": "გაზიარება ვერ მოხერხდა"
   },
@@ -1392,6 +1444,8 @@
     "description": "აღწერა",
     "routeAndPrice": "მარშრუტი და ფასი",
     "startingPrice": "საწყისი ფასი",
+    "contactDriverTitle": "დაუკავშირდით მძღოლს",
+    "contactDriverSubtitle": "დააზუსტეთ დრო და მარშრუტი",
     "priceUnits": {
       "whole_car": "მთლიანი მანქანა",
       "on_demand": "გამოძახება",
@@ -1707,7 +1761,10 @@
     "maxPhotos": "მაქს. {max} ფოტო",
     "uploadPhotosAlt": "ატვირთეთ ფოტოები",
     "dropHereOrClickSelect": "ჩააგდეთ ან აირჩიეთ ფოტოები",
-    "photoCount": "{count} / {max} ფოტო"
+    "photoCount": "{count} / {max} ფოტო",
+    "mainBadge": "მთავარი",
+    "setAsMain": "მთავარ ფოტოდ დაყენება",
+    "mainHint": "მთავარი ფოტო პირველი გამოჩნდება მომხმარებლებთან"
   },
   "MediaUploader": {
     "defaultLabel": "მედია (სურათი ან ვიდეო)",
@@ -1824,7 +1881,8 @@
       "one_way": "ერთი მიმართულება",
       "per_tour": "ერთი ტური",
       "per_ride": "მგზავრობა",
-      "per_day": "ერთი დღე"
+      "per_day": "ერთი დღე",
+      "round_trip": "ორმხრივი"
     },
     "serviceSpheres": {
       "cleaning": "დასუფთავება/დამლაგებელი",
@@ -2132,7 +2190,12 @@
     "enterDriverName": "მიუთითეთ მძღოლის სახელი",
     "enterCapacity": "მიუთითეთ ადგილების რაოდენობა",
     "chooseRoute": "აირჩიეთ მინიმუმ ერთი მარშრუტი",
-    "enterPrice": "მიუთითეთ საწყისი ფასი"
+    "enterPrice": "მიუთითეთ საწყისი ფასი",
+    "routePrice": "ფასი",
+    "routeSubtitle": "ქვესათაური (არჩევითი)",
+    "routeSubtitlePlaceholder": "მაგ. საწყისი ფასი",
+    "addRoute": "მარშრუტის დამატება",
+    "removeRoute": "წაშლა"
   },
   "CreateEntertainment": {
     "pageTitle": "გართობა და აქტივობები",
@@ -2216,6 +2279,7 @@
     "invalidTitle": "არასწორი სათაური",
     "invalidLocation": "არასწორი მდებარეობა",
     "enterCadastral": "მიუთითეთ საკადასტრო კოდი",
+    "invalidCadastral": "საკადასტრო კოდი უნდა შეიცავდეს მხოლოდ ციფრებსა და წერტილებს (მაგ. 01.10.05.123)",
     "invalidArea": "არასწორი ფართობი",
     "invalidPrice": "არასწორი ფასი",
     "soldReservedExceeds": "გაყიდული + ჯავშანი არ უნდა აღემატებოდეს ბინების საერთო რაოდენობას",
@@ -2441,6 +2505,8 @@
     "addLead": {
       "title": "ახალი მოთხოვნის დამატება",
       "subtitle": "მონაცემების შეყვანა CRM-ში",
+      "editTitle": "მოთხოვნის რედაქტირება",
+      "editSubtitle": "ლიდის მონაცემების განახლება",
       "clientName": "კლიენტის სახელი *",
       "clientNamePlaceholder": "მაგ: დავითი",
       "phoneLabel": "ტელეფონის ნომერი",
@@ -3378,6 +3444,11 @@
       "periodInvalid": "დასრულების თარიღი უნდა აღემატებოდეს დაწყების თარიღს",
       "creating": "იქმნება...",
       "create": "შექმნა",
+      "editTitle": "პაკეტის რედაქტირება — {label}",
+      "save": "შენახვა",
+      "saving": "ინახება...",
+      "packageUpdated": "პაკეტი განახლდა",
+      "updateFailed": "განახლება ვერ მოხერხდა",
       "vipTiers": {
         "super": "Super VIP — საუკეთესო პოზიცია",
         "standard": "VIP სტატუსი — გამოკვეთა",

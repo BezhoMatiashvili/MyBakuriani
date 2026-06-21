@@ -403,6 +403,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     safety_notes: null,
     route: item.route ?? null,
     routes: null,
+    route_pricing: null,
     salary_daily: null,
     salary_max: null,
     salary_min: null,

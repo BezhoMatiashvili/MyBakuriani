@@ -20,7 +20,10 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import NumberField from "@/components/shared/NumberField";
 import { cn } from "@/lib/utils";
-import AddBookingModal from "@/components/renter/AddBookingModal";
+import AddBookingModal, {
+  type AddBookingPayload,
+  type ViewBooking,
+} from "@/components/renter/AddBookingModal";
 import PriceRangeModal from "@/components/renter/PriceRangeModal";
 import BulkActionBar, {
   BulkApplyChanges,
@@ -31,6 +34,22 @@ import type { Tables } from "@/lib/types/database";
 type CalendarBlock = Tables<"calendar_blocks">;
 type Property = Tables<"properties">;
 type PriceOverrideRow = Tables<"price_overrides">;
+type ManualBooking = Tables<"manual_bookings">;
+
+// A platform (guest-made) booking joined with the guest's contact profile.
+interface PlatformBookingRow {
+  id: string;
+  check_in: string;
+  check_out: string;
+  status: string;
+  guest: { display_name: string | null; phone: string | null } | null;
+}
+
+// Per-night resolution of who occupies a booked day, so a tapped cell knows
+// whether it's an editable manual booking or a read-only platform booking.
+type BookingEntry =
+  | { type: "manual"; label: string; manual: ManualBooking }
+  | { type: "platform"; label: string; view: ViewBooking };
 
 const MONTH_KEYS = [
   "january",
@@ -113,6 +132,20 @@ export default function RenterCalendarPage() {
   const [savingPrice, setSavingPrice] = useState(false);
   const [savingBlocks, setSavingBlocks] = useState(false);
 
+  // Bookings occupying the visible month — who is coming on which day.
+  const [manualBookings, setManualBookings] = useState<ManualBooking[]>([]);
+  const [platformBookings, setPlatformBookings] = useState<
+    PlatformBookingRow[]
+  >([]);
+
+  // Details modal opened by tapping a booked day.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsMode, setDetailsMode] = useState<"edit" | "view">("edit");
+  const [editingBooking, setEditingBooking] = useState<ManualBooking | null>(
+    null,
+  );
+  const [viewBooking, setViewBooking] = useState<ViewBooking | null>(null);
+
   const propertyDropdownRef = useRef<HTMLDivElement>(null);
 
   const year = currentDate.getFullYear();
@@ -140,22 +173,22 @@ export default function RenterCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const fetchBlocks = useCallback(async () => {
+    if (!selectedPropertyId) return;
+    const startDate = `${year}-${pad(month + 1)}-01`;
+    const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
+    const { data } = await supabase
+      .from("calendar_blocks")
+      .select("*")
+      .eq("property_id", selectedPropertyId)
+      .gte("date", startDate)
+      .lte("date", endDate);
+    if (data) setCalendarBlocks(data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, year, month]);
+
   useEffect(() => {
     if (!selectedPropertyId) return;
-
-    async function fetchBlocks() {
-      const startDate = `${year}-${pad(month + 1)}-01`;
-      const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
-
-      const { data } = await supabase
-        .from("calendar_blocks")
-        .select("*")
-        .eq("property_id", selectedPropertyId!)
-        .gte("date", startDate)
-        .lte("date", endDate);
-
-      if (data) setCalendarBlocks(data);
-    }
 
     fetchBlocks();
 
@@ -215,6 +248,61 @@ export default function RenterCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
+  // Fetch the manual + platform bookings that occupy a night in the visible
+  // month. A booking overlaps the month when it starts on/before the last day
+  // and its (exclusive) check-out is after the first day.
+  const fetchBookings = useCallback(async () => {
+    if (!selectedPropertyId || !user) return;
+    const startDate = `${year}-${pad(month + 1)}-01`;
+    const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
+    const [manualRes, platformRes] = await Promise.all([
+      supabase
+        .from("manual_bookings")
+        .select("*")
+        .eq("owner_id", user.id)
+        .eq("property_id", selectedPropertyId)
+        .lte("check_in", endDate)
+        .gt("check_out", startDate),
+      supabase
+        .from("bookings")
+        .select(
+          "id, check_in, check_out, status, guest:profiles!bookings_guest_id_fkey(display_name, phone)",
+        )
+        .eq("owner_id", user.id)
+        .eq("property_id", selectedPropertyId)
+        .neq("status", "cancelled")
+        .lte("check_in", endDate)
+        .gt("check_out", startDate),
+    ]);
+    if (manualRes.data) setManualBookings(manualRes.data);
+    if (platformRes.data) {
+      setPlatformBookings(platformRes.data as unknown as PlatformBookingRow[]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, user, year, month]);
+
+  useEffect(() => {
+    fetchBookings();
+    if (!selectedPropertyId) return;
+    const channel = supabase
+      .channel(`manual-bookings-${selectedPropertyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "manual_bookings",
+          filter: `property_id=eq.${selectedPropertyId}`,
+        },
+        () => fetchBookings(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, year, month]);
+
   // Close property dropdown on outside click
   useEffect(() => {
     if (!propertyOpen) return;
@@ -241,6 +329,34 @@ export default function RenterCalendarPage() {
     priceOverrides.forEach((o) => map.set(o.date, Number(o.price)));
     return map;
   }, [priceOverrides]);
+
+  // Map each booked night → its booking. Platform bookings are filled first so
+  // manual (owner-editable) bookings win on any overlapping date.
+  const bookingByDate = useMemo(() => {
+    const map = new Map<string, BookingEntry>();
+    for (const b of platformBookings) {
+      const label = b.guest?.display_name || tShared("guest");
+      const view: ViewBooking = {
+        guestName: b.guest?.display_name ?? "",
+        guestPhone: b.guest?.phone ?? null,
+        checkIn: b.check_in,
+        checkOut: b.check_out,
+        status: b.status,
+      };
+      for (const d of datesInRange(b.check_in, b.check_out)) {
+        if (d === b.check_out) continue;
+        map.set(d, { type: "platform", label, view });
+      }
+    }
+    for (const b of manualBookings) {
+      const label = b.guest_name || b.source || tShared("guest");
+      for (const d of datesInRange(b.check_in, b.check_out)) {
+        if (d === b.check_out) continue;
+        map.set(d, { type: "manual", label, manual: b });
+      }
+    }
+    return map;
+  }, [platformBookings, manualBookings, tShared]);
 
   // Commit drag on mouseup/touchend anywhere. A drag (cursor moved between cells)
   // adds the whole range to `selectedSet` and suppresses the trailing click; a
@@ -313,6 +429,8 @@ export default function RenterCalendarPage() {
           status,
           price: override ?? basePrice,
           hasOverride: override != null,
+          guestLabel:
+            status === "booked" ? bookingByDate.get(dateStr)?.label : undefined,
         });
       } else {
         const d = i - offset - daysInMonth + 1;
@@ -328,7 +446,7 @@ export default function RenterCalendarPage() {
       }
     }
     return list;
-  }, [year, month, blocksByDate, overridesByDate, basePrice]);
+  }, [year, month, blocksByDate, overridesByDate, basePrice, bookingByDate]);
 
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
@@ -512,16 +630,54 @@ export default function RenterCalendarPage() {
     return s;
   }, [calendarBlocks]);
 
+  // Block the nights of a booking in calendar_blocks (check-in → check-out − 1).
+  const blockNights = async (
+    bookingId: string,
+    checkIn: string,
+    checkOut: string,
+  ) => {
+    if (!selectedPropertyId) return;
+    const nights = datesInRange(checkIn, checkOut).filter(
+      (d) => d !== checkOut,
+    );
+    if (nights.length === 0) return;
+    const rows = nights.map((d) => ({
+      property_id: selectedPropertyId,
+      date: d,
+      status: "booked" as const,
+      booking_id: bookingId,
+    }));
+    await supabase
+      .from("calendar_blocks")
+      .upsert(rows, { onConflict: "property_id,date" });
+  };
+
+  // Optionally mirror the booking's guest into the renter's contacts list.
+  const maybeSaveContact = async (payload: AddBookingPayload) => {
+    if (!payload.saveToContacts || !payload.guestName.trim() || !user) return;
+    try {
+      await supabase.from("renter_guests").insert({
+        owner_id: user.id,
+        name: payload.guestName.trim(),
+        phone: payload.guestPhone.trim() || null,
+      });
+    } catch (err) {
+      console.error("Failed to save guest to contacts", err);
+    }
+  };
+
+  const parseCount = (v: string) => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  const parseAmount = (v: string) => {
+    const n = Number(v);
+    return v.trim() !== "" && Number.isFinite(n) ? n : null;
+  };
+
   // Persist a manually-added booking: one row in manual_bookings, then block the
   // inclusive check-in → (check-out − 1) nights in calendar_blocks so the grid reflects it.
-  const handleAddBooking = async (payload: {
-    checkIn: string;
-    checkOut: string;
-    source: string;
-    guestName: string;
-    status: "booked" | "manual";
-    clientList: string;
-  }) => {
+  const handleAddBooking = async (payload: AddBookingPayload) => {
     if (!selectedPropertyId || !user) return;
     if (!payload.checkIn || !payload.checkOut) return;
     try {
@@ -532,8 +688,12 @@ export default function RenterCalendarPage() {
           property_id: selectedPropertyId,
           check_in: payload.checkIn,
           check_out: payload.checkOut,
-          source: payload.source,
-          guest_name: payload.guestName,
+          source: payload.source || null,
+          guest_name: payload.guestName || null,
+          guest_phone: payload.guestPhone || null,
+          guests_count: parseCount(payload.guestsCount),
+          amount: parseAmount(payload.amount),
+          note: payload.note || null,
           status: payload.status === "booked" ? "booked" : "manual",
           client_list: payload.clientList,
         })
@@ -541,35 +701,91 @@ export default function RenterCalendarPage() {
         .single();
       if (insertError) throw insertError;
 
-      // Nights span check-in up to (but excluding) check-out.
-      const nights = datesInRange(payload.checkIn, payload.checkOut).filter(
-        (d) => d !== payload.checkOut,
-      );
-      if (nights.length > 0) {
-        const rows = nights.map((d) => ({
-          property_id: selectedPropertyId,
-          date: d,
-          status: "booked" as const,
-          booking_id: booking.id,
-        }));
-        const { error: blockError } = await supabase
-          .from("calendar_blocks")
-          .upsert(rows, { onConflict: "property_id,date" });
-        if (blockError) throw blockError;
-      }
-
-      const startDate = `${year}-${pad(month + 1)}-01`;
-      const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
-      const { data } = await supabase
-        .from("calendar_blocks")
-        .select("*")
-        .eq("property_id", selectedPropertyId)
-        .gte("date", startDate)
-        .lte("date", endDate);
-      if (data) setCalendarBlocks(data);
+      await blockNights(booking.id, payload.checkIn, payload.checkOut);
+      await maybeSaveContact(payload);
+      await Promise.all([fetchBlocks(), fetchBookings()]);
     } catch (err) {
       console.error("Failed to add manual booking", err);
     }
+  };
+
+  // Save edits to an existing manual booking. If the dates changed, free the
+  // old nights and re-block the new range so the grid stays consistent.
+  const handleEditBooking = async (payload: AddBookingPayload) => {
+    if (!editingBooking || !selectedPropertyId || !user) return;
+    if (!payload.checkIn || !payload.checkOut) return;
+    const datesChanged =
+      payload.checkIn !== editingBooking.check_in ||
+      payload.checkOut !== editingBooking.check_out;
+    try {
+      const { error: updateError } = await supabase
+        .from("manual_bookings")
+        .update({
+          check_in: payload.checkIn,
+          check_out: payload.checkOut,
+          source: payload.source || null,
+          guest_name: payload.guestName || null,
+          guest_phone: payload.guestPhone || null,
+          guests_count: parseCount(payload.guestsCount),
+          amount: parseAmount(payload.amount),
+          note: payload.note || null,
+          status: payload.status === "booked" ? "booked" : "manual",
+          client_list: payload.clientList,
+        })
+        .eq("id", editingBooking.id)
+        .eq("owner_id", user.id);
+      if (updateError) throw updateError;
+
+      if (datesChanged) {
+        await supabase
+          .from("calendar_blocks")
+          .delete()
+          .eq("property_id", selectedPropertyId)
+          .eq("booking_id", editingBooking.id);
+        await blockNights(editingBooking.id, payload.checkIn, payload.checkOut);
+      }
+      await maybeSaveContact(payload);
+      await Promise.all([fetchBlocks(), fetchBookings()]);
+    } catch (err) {
+      console.error("Failed to update booking", err);
+    }
+  };
+
+  // Cancel a manual booking: remove its calendar blocks (freeing the nights)
+  // and delete the booking row. Scoped to the owner's own booking.
+  const handleCancelBooking = async () => {
+    if (!editingBooking || !selectedPropertyId || !user) return;
+    try {
+      await supabase
+        .from("calendar_blocks")
+        .delete()
+        .eq("property_id", selectedPropertyId)
+        .eq("booking_id", editingBooking.id);
+      await supabase
+        .from("manual_bookings")
+        .delete()
+        .eq("id", editingBooking.id)
+        .eq("owner_id", user.id);
+      await Promise.all([fetchBlocks(), fetchBookings()]);
+    } catch (err) {
+      console.error("Failed to cancel booking", err);
+    }
+  };
+
+  // Tapping a booked day opens its details: manual → editable, platform → read-only.
+  const handleBookedClick = (dateStr: string) => {
+    const entry = bookingByDate.get(dateStr);
+    if (!entry) return;
+    if (entry.type === "manual") {
+      setEditingBooking(entry.manual);
+      setViewBooking(null);
+      setDetailsMode("edit");
+    } else {
+      setViewBooking(entry.view);
+      setEditingBooking(null);
+      setDetailsMode("view");
+    }
+    setDetailsOpen(true);
   };
 
   const handleBulkApply = async ({ available, blocked }: BulkApplyChanges) => {
@@ -787,10 +1003,14 @@ export default function RenterCalendarPage() {
             onMouseEnter={() => handleCellMouseEnter(d.date)}
             onClick={() => {
               if (!d.inMonth) return;
+              if (d.status === "booked") {
+                handleBookedClick(d.date);
+                return;
+              }
               handleCellClick(d.date, d.status);
             }}
             onDoubleClick={() => {
-              if (!d.inMonth) return;
+              if (!d.inMonth || d.status === "booked") return;
               clearSelection();
               setAddBookingInitial({ checkIn: d.date, checkOut: "" });
               setAddBookingOpen(true);
@@ -917,6 +1137,17 @@ export default function RenterCalendarPage() {
         initialCheckOut={addBookingInitial.checkOut}
       />
 
+      {/* Details for a tapped booked day — manual editable, platform read-only */}
+      <AddBookingModal
+        isOpen={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        mode={detailsMode}
+        existing={editingBooking}
+        viewBooking={viewBooking}
+        onSave={handleEditBooking}
+        onDelete={handleCancelBooking}
+      />
+
       {selectedPropertyId && (
         <PriceRangeModal
           isOpen={rangeModalOpen}
@@ -1014,9 +1245,9 @@ function DayCell({
       >
         {meta.day}
       </span>
-      <div className="flex w-full items-end justify-between">
-        {meta.status === "manual" && meta.guestLabel && (
-          <span className="text-[10px] font-bold text-[#D97706]">
+      <div className="flex w-full items-end justify-between gap-1">
+        {meta.guestLabel && meta.status === "booked" && (
+          <span className="min-w-0 truncate text-[10px] font-bold text-[#B91C1C]">
             {meta.guestLabel}
           </span>
         )}

@@ -23,6 +23,7 @@ import {
   Leaf,
   Users,
   Send,
+  Share2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
+import { shareListing } from "@/lib/share";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables, TablesInsert } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
@@ -172,6 +174,7 @@ export default function EmploymentDetailClient({
 }: Props) {
   const router = useRouter();
   const t = useTranslations("EmploymentDetail");
+  const tShare = useTranslations("ShareListing");
   const locale = useLocale();
   const { user } = useAuth();
   const owner = service.profiles;
@@ -358,15 +361,33 @@ export default function EmploymentDetailClient({
           <ArrowLeft className="h-4 w-4" />
           {t("backToSearch")}
         </motion.button>
-        {service.created_at && (
-          <motion.div
-            {...fadeIn}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              shareListing(service.title, {
+                copied: tShare("copied"),
+                error: tShare("error"),
+              })
+            }
+            aria-label={tShare("label")}
+            className="flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
           >
-            <ClockIcon className="h-3.5 w-3.5" />
-            {t("publishedAt", { date: formatDate(service.created_at, locale) })}
-          </motion.div>
-        )}
+            <Share2 className="h-4 w-4" />
+            {tShare("label")}
+          </button>
+          {service.created_at && (
+            <motion.div
+              {...fadeIn}
+              className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
+            >
+              <ClockIcon className="h-3.5 w-3.5" />
+              {t("publishedAt", {
+                date: formatDate(service.created_at, locale),
+              })}
+            </motion.div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
