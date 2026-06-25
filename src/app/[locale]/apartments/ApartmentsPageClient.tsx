@@ -39,8 +39,31 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 
 const ITEMS_PER_PAGE = 9;
 
+// The subset of property columns this page actually renders (cards + map).
+// The server query selects exactly these; widening usage here will surface as
+// a type error until the select in page.tsx is updated to match.
+export type ApartmentListing = Pick<
+  Tables<"properties">,
+  | "id"
+  | "title"
+  | "location"
+  | "photos"
+  | "price_per_night"
+  | "sale_price"
+  | "is_for_sale"
+  | "location_lat"
+  | "location_lng"
+  | "is_vip"
+  | "is_super_vip"
+  | "discount_percent"
+  | "capacity"
+  | "rooms"
+  | "amenities"
+  | "distance_to_slope_m"
+>;
+
 interface Props {
-  properties: Tables<"properties">[];
+  properties: ApartmentListing[];
   statusCards: StatusCard[];
 }
 

@@ -30,7 +30,11 @@ export default async function ApartmentsPage() {
     getStatusCards(),
     supabase
       .from("properties")
-      .select("*")
+      // Only the columns the listing cards + map use (not all 57) — keeps the
+      // prerendered RSC payload small. Keep in sync with ApartmentListing.
+      .select(
+        "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, capacity, rooms, amenities, distance_to_slope_m",
+      )
       .eq("is_for_sale", false)
       .in("type", ["apartment", "cottage", "villa", "studio"])
       .eq("status", "active")
