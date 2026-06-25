@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   LayoutGrid,
   ClipboardList,
+  FileText,
   Wallet,
   Bell,
   Settings,
@@ -42,10 +43,16 @@ interface NavItem {
   badgeKind?: "notifications";
 }
 
-function buildNavItems(basePath: string): NavItem[] {
+function buildNavItems(basePath: string, cabinetKey: string): NavItem[] {
+  // Employers receive CVs/applications, not orders — relabel that nav entry.
+  const isEmployment = cabinetKey === "employment";
   return [
     { labelKey: "myCabinet", href: basePath, icon: LayoutGrid },
-    { labelKey: "orders", href: `${basePath}/orders`, icon: ClipboardList },
+    {
+      labelKey: isEmployment ? "cvs" : "orders",
+      href: `${basePath}/orders`,
+      icon: isEmployment ? FileText : ClipboardList,
+    },
     { labelKey: "balanceAndVip", href: `${basePath}/balance`, icon: Wallet },
     {
       labelKey: "notificationsItem",
@@ -102,7 +109,7 @@ export function ServiceSidebar({
     .join("")
     .slice(0, 2);
   const subtitle = userSubtitle ?? t(`roles.${roleKey}`);
-  const navItems = buildNavItems(basePath);
+  const navItems = buildNavItems(basePath, cabinetKey);
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">

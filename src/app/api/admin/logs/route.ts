@@ -1,10 +1,9 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { UUID_RE } from "@/lib/utils/uuid";
 
 export const runtime = "nodejs";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 

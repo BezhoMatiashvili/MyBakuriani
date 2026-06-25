@@ -44,6 +44,7 @@ import {
   cleanAmenityLabel,
 } from "@/lib/constants/amenity-icons";
 import { optionKeyFor } from "@/lib/constants/listing-options";
+import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -69,6 +70,7 @@ interface PriceOverrideRow {
 
 interface Props {
   property: PropertyWithOwner;
+  isPending?: boolean;
   reviews: ReviewWithGuest[];
   calendarBlocks: CalendarBlock[];
   priceOverrides?: PriceOverrideRow[];
@@ -82,6 +84,7 @@ const fadeIn = {
 
 export default function ApartmentDetailClient({
   property,
+  isPending = false,
   reviews,
   calendarBlocks,
   priceOverrides = [],
@@ -162,6 +165,7 @@ export default function ApartmentDetailClient({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+      {isPending && <PendingReviewBanner />}
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}

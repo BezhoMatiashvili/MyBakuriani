@@ -4,11 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Phone, Calendar, RotateCcw, UserPlus } from "lucide-react";
+import {
+  Phone,
+  Calendar,
+  RotateCcw,
+  UserPlus,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import CleanerCallModal from "@/components/renter/CleanerCallModal";
 import AddCleanerModal from "@/components/renter/AddCleanerModal";
+import CleanerFormModal from "@/components/renter/CleanerFormModal";
 import { formatDateTime, formatPrice } from "@/lib/utils/format";
 import {
   optionKeyFor,
@@ -18,6 +27,13 @@ import type { Database, Tables } from "@/lib/types/database";
 
 type PlatformCleaner =
   Database["public"]["Functions"]["get_platform_cleaners"]["Returns"][number];
+
+type ManualCleaner = Tables<"renter_cleaners">;
+
+// The grid mixes saved platform cleaners and the renter's own manual entries.
+type GridCleaner =
+  | { kind: "platform"; data: PlatformCleaner }
+  | { kind: "manual"; data: ManualCleaner };
 
 type MyTask = Tables<"cleaning_tasks"> & {
   properties: Pick<Tables<"properties">, "title"> | null;
@@ -64,6 +80,12 @@ export default function RenterCleanersPage() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [savedLoaded, setSavedLoaded] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [manualCleaners, setManualCleaners] = useState<ManualCleaner[]>([]);
+  const [manualLoaded, setManualLoaded] = useState(false);
+  const [formModal, setFormModal] = useState<{
+    open: boolean;
+    cleaner: ManualCleaner | null;
+  }>({ open: false, cleaner: null });
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
   const [callModal, setCallModal] = useState<CallTarget | null>(null);
@@ -124,6 +146,34 @@ export default function RenterCleanersPage() {
     [supabase, user],
   );
 
+  const fetchManualCleaners = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("renter_cleaners")
+      .select("*")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: false });
+    if (data) setManualCleaners(data);
+    setManualLoaded(true);
+  }, [supabase, user]);
+
+  // Hard-delete the renter's own manual cleaner, optimistic with rollback.
+  const deleteManual = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      if (!window.confirm(t("deleteConfirm"))) return;
+      const snapshot = manualCleaners;
+      setManualCleaners((prev) => prev.filter((c) => c.id !== id));
+      const { error } = await supabase
+        .from("renter_cleaners")
+        .delete()
+        .eq("id", id)
+        .eq("owner_id", user.id);
+      if (error) setManualCleaners(snapshot);
+    },
+    [supabase, user, manualCleaners, t],
+  );
+
   const fetchTasks = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
@@ -142,6 +192,10 @@ export default function RenterCleanersPage() {
   useEffect(() => {
     fetchSaved();
   }, [fetchSaved]);
+
+  useEffect(() => {
+    fetchManualCleaners();
+  }, [fetchManualCleaners]);
 
   useEffect(() => {
     fetchTasks();
@@ -203,9 +257,14 @@ export default function RenterCleanersPage() {
   const uniqueCleaners = cleaners.filter(
     (c, i) => cleaners.findIndex((o) => o.cleaner_id === c.cleaner_id) === i,
   );
-  // Only cleaners the renter added themselves.
+  // Only platform cleaners the renter added themselves.
   const myCleaners = uniqueCleaners.filter((c) => savedIds.has(c.cleaner_id));
-  const listReady = cleanersLoaded && savedLoaded;
+  // Unified grid: saved platform cleaners + the renter's own manual entries.
+  const gridCleaners: GridCleaner[] = [
+    ...myCleaners.map((c) => ({ kind: "platform" as const, data: c })),
+    ...manualCleaners.map((c) => ({ kind: "manual" as const, data: c })),
+  ];
+  const listReady = cleanersLoaded && savedLoaded && manualLoaded;
 
   return (
     <div className="space-y-6">
@@ -238,79 +297,182 @@ export default function RenterCleanersPage() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
       >
-        {myCleaners.map((cleaner) => (
-          <article
-            key={cleaner.service_id}
-            className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
-          >
-            <div className="flex items-center gap-3">
-              {cleaner.avatar_url ? (
-                <span className="relative block h-12 w-12 shrink-0 overflow-hidden rounded-full">
-                  <Image
-                    src={cleaner.avatar_url}
-                    alt=""
-                    fill
-                    sizes="48px"
-                    className="object-cover"
-                  />
-                </span>
-              ) : (
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[13px] font-extrabold text-[#2563EB]">
-                  {deriveInitials(cleaner.name)}
+        {gridCleaners.map((item) => {
+          if (item.kind === "manual") {
+            const c = item.data;
+            const hasPrice =
+              c.price_standard != null || c.price_general != null;
+            return (
+              <article
+                key={`manual-${c.id}`}
+                className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[13px] font-extrabold text-[#4F46E5]">
+                    {deriveInitials(c.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
+                      {c.name}
+                    </p>
+                    {c.phone && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
+                        <Phone
+                          className="h-3 w-3 text-[#EF4444]"
+                          strokeWidth={2.4}
+                        />
+                        {c.phone}
+                      </p>
+                    )}
+                  </div>
+                  <span className="inline-flex items-center rounded-lg bg-[#EEF2FF] px-3 py-1.5 text-[11px] font-bold text-[#4F46E5]">
+                    {t("personalBadge")}
+                  </span>
                 </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
-                  {cleaner.name}
-                </p>
-                {cleaner.phone && (
-                  <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
-                    <Phone
-                      className="h-3 w-3 text-[#EF4444]"
-                      strokeWidth={2.4}
-                    />
-                    {cleaner.phone}
+
+                {hasPrice && (
+                  <p className="mt-3 text-[14px] font-black text-[#0F172A]">
+                    {c.price_standard != null && (
+                      <>
+                        <span className="text-[12px] font-semibold text-[#64748B]">
+                          {t("priceStandardShort")}{" "}
+                        </span>
+                        {formatPrice(Number(c.price_standard))}
+                      </>
+                    )}
+                    {c.price_standard != null && c.price_general != null && (
+                      <span className="text-[12px] font-semibold text-[#64748B]">
+                        {" · "}
+                      </span>
+                    )}
+                    {c.price_general != null && (
+                      <>
+                        <span className="text-[12px] font-semibold text-[#64748B]">
+                          {t("priceGeneralShort")}{" "}
+                        </span>
+                        {formatPrice(Number(c.price_general))}
+                      </>
+                    )}
                   </p>
                 )}
-              </div>
-              {cleaner.is_online && (
-                <span className="inline-flex items-center rounded-lg bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-bold text-[#16A34A]">
-                  {t("available")}
-                </span>
-              )}
-            </div>
 
-            {cleaner.price != null && (
-              <p className="mt-3 text-[14px] font-black text-[#0F172A]">
-                {formatPrice(Number(cleaner.price))}
-                {cleaner.price_unit && (
-                  <span className="text-[12px] font-semibold text-[#64748B]">
-                    {" "}
-                    / {priceUnitLabel(cleaner.price_unit)}
+                <div className="mt-5 flex items-center gap-2">
+                  {c.phone ? (
+                    <a
+                      href={`tel:${c.phone}`}
+                      className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                    >
+                      {tShared("call")}
+                    </a>
+                  ) : (
+                    <span className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] py-2.5 text-[13px] font-bold text-[#94A3B8]">
+                      {tShared("call")}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFormModal({ open: true, cleaner: c })}
+                    aria-label={tShared("edit")}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF]"
+                  >
+                    <Pencil className="h-4 w-4" strokeWidth={2.4} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteManual(c.id)}
+                    aria-label={tShared("delete")}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA]"
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={2.4} />
+                  </button>
+                </div>
+              </article>
+            );
+          }
+
+          const cleaner = item.data;
+          return (
+            <article
+              key={`platform-${cleaner.cleaner_id}`}
+              className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
+            >
+              <div className="flex items-center gap-3">
+                {cleaner.avatar_url ? (
+                  <span className="relative block h-12 w-12 shrink-0 overflow-hidden rounded-full">
+                    <Image
+                      src={cleaner.avatar_url}
+                      alt=""
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                    />
+                  </span>
+                ) : (
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[13px] font-extrabold text-[#2563EB]">
+                    {deriveInitials(cleaner.name)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
+                    {cleaner.name}
+                  </p>
+                  {cleaner.phone && (
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
+                      <Phone
+                        className="h-3 w-3 text-[#EF4444]"
+                        strokeWidth={2.4}
+                      />
+                      {cleaner.phone}
+                    </p>
+                  )}
+                </div>
+                {cleaner.is_online && (
+                  <span className="inline-flex items-center rounded-lg bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-bold text-[#16A34A]">
+                    {t("available")}
                   </span>
                 )}
-              </p>
-            )}
+                <button
+                  type="button"
+                  onClick={() => toggleSaved(cleaner.cleaner_id, false)}
+                  aria-label={t("addModal.remove")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA]"
+                >
+                  <X className="h-4 w-4" strokeWidth={2.4} />
+                </button>
+              </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <a
-                href={`tel:${cleaner.phone ?? ""}`}
-                className="inline-flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
-              >
-                {tShared("call")}
-              </a>
-              <button
-                type="button"
-                onClick={() => openCall(cleaner)}
-                className="rounded-xl bg-[#2563EB] py-2.5 text-[13px] font-bold text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF]"
-              >
-                {t("callOut")}
-              </button>
-            </div>
-          </article>
-        ))}
+              {cleaner.price != null && (
+                <p className="mt-3 text-[14px] font-black text-[#0F172A]">
+                  {formatPrice(Number(cleaner.price))}
+                  {cleaner.price_unit && (
+                    <span className="text-[12px] font-semibold text-[#64748B]">
+                      {" "}
+                      / {priceUnitLabel(cleaner.price_unit)}
+                    </span>
+                  )}
+                </p>
+              )}
 
-        {listReady && myCleaners.length === 0 && (
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <a
+                  href={`tel:${cleaner.phone ?? ""}`}
+                  className="inline-flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                >
+                  {tShared("call")}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => openCall(cleaner)}
+                  className="rounded-xl bg-[#2563EB] py-2.5 text-[13px] font-bold text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF]"
+                >
+                  {t("callOut")}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+
+        {listReady && gridCleaners.length === 0 && (
           <div className="rounded-[20px] border border-dashed border-[#E2E8F0] bg-white px-6 py-14 text-center sm:col-span-2 xl:col-span-3">
             <p className="text-sm font-semibold text-[#0F172A]">{t("empty")}</p>
             <p className="mt-1 text-sm font-medium text-[#64748B]">
@@ -406,6 +568,17 @@ export default function RenterCleanersPage() {
         loading={!listReady}
         savedIds={savedIds}
         onToggle={toggleSaved}
+        onCreateOwn={() => {
+          setAddModalOpen(false);
+          setFormModal({ open: true, cleaner: null });
+        }}
+      />
+
+      <CleanerFormModal
+        isOpen={formModal.open}
+        cleaner={formModal.cleaner}
+        onClose={() => setFormModal({ open: false, cleaner: null })}
+        onSaved={fetchManualCleaners}
       />
     </div>
   );

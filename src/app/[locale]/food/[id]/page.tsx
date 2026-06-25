@@ -55,5 +55,9 @@ export default async function FoodDetailPage({ params }: Props) {
     notFound();
   }
 
-  return <FoodDetailClient service={service} isMock={isMock} />;
+  const isPending = !isMock && service.status !== "active";
+
+  return (
+    <FoodDetailClient service={service} isMock={isMock} isPending={isPending} />
+  );
 }

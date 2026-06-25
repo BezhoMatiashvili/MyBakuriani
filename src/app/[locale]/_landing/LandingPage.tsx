@@ -34,8 +34,6 @@ import EmploymentCard from "@/components/cards/EmploymentCard";
 import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/lib/types/database";
-import { MOCK_PROPERTIES, MOCK_HOTELS } from "@/lib/mock/properties";
-import { makeServiceCards } from "@/lib/mock/services";
 import { InfoBanners } from "@/components/landing/InfoBanners";
 import { PromoBanners } from "@/components/landing/PromoBanners";
 import type { LandingBanner } from "@/lib/banners";
@@ -56,33 +54,6 @@ interface LandingPageProps {
   promoBanners?: LandingBanner[];
   pricePerSqmByZone?: Record<string, number | null>;
 }
-
-const MOCK_BLOG_POSTS = [
-  {
-    id: "1",
-    titleKey: "post1Title",
-    excerptKey: "post1Excerpt",
-    image:
-      "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&h=600&fit=crop",
-    date: "2026-03-20",
-  },
-  {
-    id: "2",
-    titleKey: "post2Title",
-    excerptKey: "post2Excerpt",
-    image:
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
-    date: "2026-03-15",
-  },
-  {
-    id: "3",
-    titleKey: "post3Title",
-    excerptKey: "post3Excerpt",
-    image:
-      "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=800&h=600&fit=crop",
-    date: "2026-03-10",
-  },
-] as const;
 
 const MONTH_KEYS = [
   "january",
@@ -182,7 +153,7 @@ export default function LandingPage({
         isForSale: p.is_for_sale ?? false,
         distanceToSlopeM: p.distance_to_slope_m,
       }))
-    : MOCK_PROPERTIES;
+    : [];
 
   const vipPropertyCards = useMemo(
     () =>
@@ -236,7 +207,7 @@ export default function LandingPage({
           roomType: p.room_type ?? undefined,
           amenities: p.location,
         }))
-      : MOCK_HOTELS;
+      : [];
 
   // Group server services by category
   const servicesByCategory = (category: string) => {
@@ -273,7 +244,7 @@ export default function LandingPage({
             : {}),
         }));
     }
-    return makeServiceCards(category, 4);
+    return [];
   };
 
   const blogItems =
@@ -290,13 +261,7 @@ export default function LandingPage({
             return `${d.getUTCDate()} ${t(`months.${MONTH_KEYS[d.getUTCMonth()]}`)}, ${d.getUTCFullYear()}`;
           })(),
         }))
-      : MOCK_BLOG_POSTS.map((post) => ({
-          id: post.id,
-          title: t(`mockBlog.${post.titleKey}`),
-          excerpt: t(`mockBlog.${post.excerptKey}`),
-          image: post.image,
-          date: post.date,
-        }));
+      : [];
 
   if (mode === "sale") {
     return (

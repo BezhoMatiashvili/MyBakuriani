@@ -2,6 +2,11 @@
 -- with synthetic IDs that 404 on detail pages. Idempotent via ON CONFLICT.
 -- Owner: 3b04055a-1ce1-4e8a-8a64-cb9b9181ab2a (Beji Guest, admin profile)
 
+-- DISABLED 2026-06-26: demo/sample listings ("სანიმუშო განცხადებები") removed per
+-- request. These rows were never present in production; the INSERT is wrapped in a
+-- block comment so a `supabase db reset`/`db push` no longer re-seeds sample data.
+-- File kept (not deleted) to preserve migration ordering/history.
+/*
 INSERT INTO properties (
   id, owner_id, type, title, location, photos,
   price_per_night, sale_price, capacity, rooms, area_sqm,
@@ -190,3 +195,4 @@ INSERT INTO properties (
    NULL, NULL, NULL, FALSE,
    11, 'ოროთახიანი ბინა 25-იანების უბანში.')
 ON CONFLICT (id) DO NOTHING;
+*/

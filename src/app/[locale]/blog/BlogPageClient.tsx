@@ -5,53 +5,6 @@ import { useLocale, useTranslations } from "next-intl";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import type { Tables } from "@/lib/types/database";
 
-// Mock fallback posts (shown when no DB posts exist). Texts live in messages
-// under BlogPage.mockPosts.* / BlogPage.categories.*.
-const MOCK_POSTS = [
-  {
-    id: "1",
-    messageKey: "post1",
-    categoryKey: "news",
-    image: "/placeholder-property.jpg",
-    date: "2026-03-20",
-  },
-  {
-    id: "2",
-    messageKey: "post2",
-    categoryKey: "tips",
-    image: "/placeholder-property.jpg",
-    date: "2026-03-15",
-  },
-  {
-    id: "3",
-    messageKey: "post3",
-    categoryKey: "sport",
-    image: "/placeholder-property.jpg",
-    date: "2026-03-10",
-  },
-  {
-    id: "4",
-    messageKey: "post4",
-    categoryKey: "food",
-    image: "/placeholder-property.jpg",
-    date: "2026-03-05",
-  },
-  {
-    id: "5",
-    messageKey: "post5",
-    categoryKey: "guide",
-    image: "/placeholder-property.jpg",
-    date: "2026-02-28",
-  },
-  {
-    id: "6",
-    messageKey: "post6",
-    categoryKey: "investment",
-    image: "/placeholder-property.jpg",
-    date: "2026-02-20",
-  },
-] as const;
-
 interface Props {
   posts?: Tables<"blog_posts">[];
 }
@@ -79,15 +32,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
           category: t("newsCategory"),
           categoryKey: "news",
         }))
-      : MOCK_POSTS.map((p) => ({
-          id: p.id,
-          title: t(`mockPosts.${p.messageKey}Title`),
-          excerpt: t(`mockPosts.${p.messageKey}Excerpt`),
-          image: p.image,
-          date: p.date,
-          category: t(`categories.${p.categoryKey}`),
-          categoryKey: p.categoryKey as string,
-        }));
+      : [];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">

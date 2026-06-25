@@ -44,6 +44,7 @@ import {
   cleanAmenityLabel,
 } from "@/lib/constants/amenity-icons";
 import { optionKeyFor } from "@/lib/constants/listing-options";
+import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -62,10 +63,17 @@ interface CalendarBlock {
   status: string;
 }
 
+interface PriceOverrideRow {
+  date: string;
+  price: number;
+}
+
 interface Props {
   property: PropertyWithOwner;
+  isPending?: boolean;
   reviews: ReviewWithGuest[];
   calendarBlocks: CalendarBlock[];
+  priceOverrides?: PriceOverrideRow[];
 }
 
 const fadeIn = {
@@ -76,8 +84,10 @@ const fadeIn = {
 
 export default function HotelDetailClient({
   property,
+  isPending = false,
   reviews,
   calendarBlocks,
+  priceOverrides = [],
 }: Props) {
   const t = useTranslations("HotelDetail");
   const tDetail = useTranslations("PropertyDetail");
@@ -164,6 +174,7 @@ export default function HotelDetailClient({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+      {isPending && <PendingReviewBanner />}
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}
@@ -445,6 +456,7 @@ export default function HotelDetailClient({
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}
               perPersonPricing
+              priceOverrides={priceOverrides}
             />
           )}
         </motion.div>

@@ -3,6 +3,12 @@
 -- Owner: 3b04055a-1ce1-4e8a-8a64-cb9b9181ab2a (Beji Guest, admin profile).
 -- Safe to re-run.
 
+-- DISABLED 2026-06-26: demo/sample service listings ("სანიმუშო განცხადებები")
+-- removed per request. These rows were never present in production; all five
+-- INSERTs below are wrapped in a block comment so a `supabase db reset`/`db push`
+-- no longer re-seeds sample data. File kept (not deleted) to preserve migration
+-- ordering/history.
+/*
 -- ─────────────── TRANSPORT (12 rows) ───────────────
 INSERT INTO services (
   id, owner_id, category, title, description, price, price_unit, photos,
@@ -519,3 +525,4 @@ INSERT INTO services (
    NULL, NULL, 60, 'daily',
    '1 წელი', 'არ არის', 'არ არის', 'ბავშვებთან მუშაობის გამოცდილება', ARRAY['ქართული'])
 ON CONFLICT (id) DO NOTHING;
+*/

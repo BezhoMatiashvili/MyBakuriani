@@ -72,11 +72,14 @@ export default async function EmploymentDetailPage({ params }: Props) {
     }
   }
 
+  const isPending = !isMock && service.status !== "active";
+
   return (
     <EmploymentDetailClient
       service={service}
       isMock={isMock}
       applicationsCount={applicationsCount}
+      isPending={isPending}
     />
   );
 }

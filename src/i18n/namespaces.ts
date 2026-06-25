@@ -54,6 +54,7 @@ export const PUBLIC_NAMESPACES = [
   "Landing",
   "LanguageSelector",
   "ListingOptions",
+  "ListingPreview",
   "Navbar",
   "PhotoGallery",
   "PhotoUploader",

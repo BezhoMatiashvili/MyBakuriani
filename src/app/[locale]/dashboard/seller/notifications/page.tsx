@@ -15,7 +15,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRealtimeList } from "@/lib/hooks/useRealtime";
-import { formatRelativeTime } from "@/lib/i18n/relativeTime";
+import { NotificationCard } from "@/components/notifications/NotificationCard";
 
 interface Notification {
   id: string;
@@ -100,6 +100,13 @@ export default function SellerNotificationsPage() {
       .eq("is_read", false);
   }
 
+  async function markRead(id: string) {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
+    );
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+  }
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -161,33 +168,13 @@ export default function SellerNotificationsPage() {
           ) : (
             notifications.map((n) => {
               const tone = TYPE_ICON[n.type ?? "default"] ?? TYPE_ICON.default;
-              const Icon = tone.icon;
               return (
-                <li
+                <NotificationCard
                   key={n.id}
-                  className={`flex items-start gap-4 px-6 py-5 transition-colors ${
-                    n.is_read ? "" : "bg-[#F8FAFF]"
-                  }`}
-                >
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${tone.bg}`}
-                  >
-                    <Icon className={`h-5 w-5 ${tone.fg}`} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-[14px] font-black text-[#0F172A]">
-                        {n.title}
-                      </p>
-                      <span className="shrink-0 text-[11px] text-[#94A3B8]">
-                        {formatRelativeTime(tShared, n.created_at)}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-[12px] leading-[18px] text-[#64748B]">
-                      {n.message}
-                    </p>
-                  </div>
-                </li>
+                  notification={n}
+                  tone={{ Icon: tone.icon, bg: tone.bg, fg: tone.fg }}
+                  onRead={markRead}
+                />
               );
             })
           )}

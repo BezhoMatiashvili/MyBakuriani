@@ -1,19 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useEffect, useState, useRef } from "react";
+import { useCallback, useMemo, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowRight,
-  ArrowLeft,
-  Sparkles,
-  CheckCircle2,
-  MapPin,
-  Plus,
-} from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
@@ -29,7 +20,6 @@ import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
-import { MOCK_SALES } from "@/lib/mock/properties";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 
@@ -82,45 +72,6 @@ function estimatedRoi(id: string): number {
   return 9 + (hash % 9); // 9–17%
 }
 
-// Mock sale properties (used when DB is empty) sourced from @/lib/mock/properties
-
-// Hero featured inventory cards (rotated in the carousel).
-// Texts live in messages under Landing.sale.featured.<messageKey>.
-const FEATURED_INVENTORY_ITEMS = [
-  {
-    id: "featured-mziuri",
-    messageKey: "mziuri",
-    area: 185,
-    rooms: 5,
-    priceUsd: 280_000,
-    roi: 12,
-    photo:
-      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&h=900&fit=crop",
-  },
-  {
-    id: "featured-didveli",
-    messageKey: "didveli",
-    area: 120,
-    rooms: 3,
-    priceUsd: 195_000,
-    roi: 14,
-    photo:
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1400&h=900&fit=crop",
-  },
-  {
-    id: "featured-kokhta",
-    messageKey: "kokhta",
-    area: 95,
-    rooms: 2,
-    priceUsd: 145_000,
-    roi: 16,
-    photo:
-      "https://images.unsplash.com/photo-1518602164578-cd0074062767?w=1400&h=900&fit=crop",
-  },
-] as const;
-
-const INVENTORY_AUTO_ADVANCE_MS = 5000;
-
 // ─── Component ──────────────────────────────────────────────────────────
 
 export default function SaleLandingBody({
@@ -145,39 +96,6 @@ export default function SaleLandingBody({
   }, [mode, setListingMode]);
 
   const [showMap, setShowMap] = useState(false);
-
-  // ─── Featured Inventory carousel state ──────────────────────────────
-  const [inventoryIdx, setInventoryIdx] = useState(0);
-  const [inventoryReduceMotion, setInventoryReduceMotion] = useState(false);
-  const inventoryPaused = useRef(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setInventoryReduceMotion(mq.matches);
-    const handler = (e: MediaQueryListEvent) =>
-      setInventoryReduceMotion(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  useEffect(() => {
-    if (inventoryReduceMotion || FEATURED_INVENTORY_ITEMS.length <= 1) return;
-    const timer = setInterval(() => {
-      if (!inventoryPaused.current) {
-        setInventoryIdx((i) => (i + 1) % FEATURED_INVENTORY_ITEMS.length);
-      }
-    }, INVENTORY_AUTO_ADVANCE_MS);
-    return () => clearInterval(timer);
-  }, [inventoryReduceMotion]);
-
-  const nextInventory = () =>
-    setInventoryIdx((i) => (i + 1) % FEATURED_INVENTORY_ITEMS.length);
-  const prevInventory = () =>
-    setInventoryIdx(
-      (i) =>
-        (i - 1 + FEATURED_INVENTORY_ITEMS.length) %
-        FEATURED_INVENTORY_ITEMS.length,
-    );
 
   const handleSearch = useCallback(
     (sf: SaleSearchFilters) => {
@@ -224,7 +142,7 @@ export default function SaleLandingBody({
         constructionProgressPercent: p.construction_progress_percent ?? null,
       }));
     }
-    return MOCK_SALES;
+    return [];
   }, [saleProperties]);
 
   const gridCards = saleCards.slice(0, 3);
@@ -335,94 +253,7 @@ export default function SaleLandingBody({
         </div>
       )}
 
-      {/* ═══ 2. Selected Inventory — featured full-width card ═══ */}
-      <section className="mx-auto w-full max-w-[1180px] px-4 pb-16 pt-12">
-        <ScrollReveal>
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <span className="mb-2 block text-[11px] font-black uppercase tracking-[1.2px] text-[#16A34A]">
-                {t("sale.selectedInventoryEyebrow")}
-              </span>
-              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                {t("sale.investmentProperties")}
-              </h2>
-            </div>
-            <div className="hidden gap-2 sm:flex">
-              <button
-                type="button"
-                onClick={prevInventory}
-                aria-label={t("sale.prev")}
-                className="flex size-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#1E293B] transition-colors hover:border-[#16A34A] hover:text-[#16A34A]"
-              >
-                <ArrowLeft className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={nextInventory}
-                aria-label={t("sale.next")}
-                className="flex size-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#1E293B] transition-colors hover:border-[#16A34A] hover:text-[#16A34A]"
-              >
-                <ArrowRight className="size-4" />
-              </button>
-            </div>
-          </div>
-        </ScrollReveal>
-
-        <div
-          className="relative min-h-[640px] md:min-h-[440px]"
-          onMouseEnter={() => {
-            inventoryPaused.current = true;
-          }}
-          onMouseLeave={() => {
-            inventoryPaused.current = false;
-          }}
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={inventoryIdx}
-              initial={{
-                opacity: 0,
-                y: 30,
-                scale: 0.96,
-                filter: "blur(8px)",
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                filter: "blur(0px)",
-              }}
-              exit={{
-                opacity: 0,
-                y: -30,
-                scale: 0.96,
-                filter: "blur(8px)",
-              }}
-              transition={{
-                duration: 0.6,
-                ease: [0.16, 1, 0.3, 1],
-                staggerChildren: 0.1,
-              }}
-              className="w-full"
-            >
-              <FeaturedInventoryCard
-                {...FEATURED_INVENTORY_ITEMS[inventoryIdx]}
-                title={t(
-                  `sale.featured.${FEATURED_INVENTORY_ITEMS[inventoryIdx].messageKey}.title`,
-                )}
-                location={t(
-                  `sale.featured.${FEATURED_INVENTORY_ITEMS[inventoryIdx].messageKey}.location`,
-                )}
-                description={t(
-                  `sale.featured.${FEATURED_INVENTORY_ITEMS[inventoryIdx].messageKey}.description`,
-                )}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </section>
-
-      {/* ═══ 3. Sales grid ═══ */}
+      {/* ═══ Sales grid ═══ */}
       <section className="bg-[#F8FAFC] px-4 py-16">
         <div className="mx-auto max-w-[1180px]">
           <ScrollReveal>
@@ -587,103 +418,6 @@ function StatCard({
         )}
       </div>
     </div>
-  );
-}
-
-// ─── Featured inventory card (horizontal full-width) ───────────────────
-
-function FeaturedInventoryCard({
-  id,
-  title,
-  location,
-  area,
-  rooms,
-  description,
-  priceUsd,
-  roi,
-  photo,
-}: {
-  id: string;
-  title: string;
-  location: string;
-  area: number;
-  rooms: number;
-  description: string;
-  priceUsd: number;
-  roi: number;
-  photo: string;
-}) {
-  const t = useTranslations("Landing");
-  return (
-    <article className="overflow-hidden rounded-[24px] border border-[#E7EEE9] bg-white shadow-[0px_4px_20px_-2px_rgba(15,61,46,0.08)]">
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="relative aspect-[16/10] overflow-hidden lg:aspect-auto">
-          <Image
-            src={photo}
-            alt={title}
-            fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
-          />
-          <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.6px] text-white shadow-[0px_4px_10px_-2px_rgba(249,115,22,0.45)]">
-            <Sparkles className="size-3" />
-            {t("sale.superVipExclusive")}
-          </span>
-          <span className="absolute bottom-4 left-4 rounded-full bg-[#052E16]/90 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.6px] text-[#6EE7B7] backdrop-blur">
-            {t("sale.guaranteedRoi", { roi })}
-          </span>
-        </div>
-
-        <div className="flex flex-col justify-between gap-6 p-6 md:p-8">
-          <div>
-            <h3 className="text-[22px] font-black leading-[28px] text-[#1E293B] md:text-[26px] md:leading-[32px]">
-              {title}
-            </h3>
-            <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
-              <MapPin className="size-[14px] text-[#16A34A]" />
-              {location}
-            </p>
-
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.6px] text-[#64748B]">
-                  {t("sale.areaLabel")}
-                </span>
-                <span className="block text-[14px] font-black text-[#0F172A]">
-                  {t("sale.areaRooms", { area, rooms })}
-                </span>
-              </div>
-              <div className="inline-flex items-center gap-1.5 rounded-[12px] border border-[#DCFCE7] bg-[#F0FDF4] px-4 py-2 text-[12px] font-bold text-[#16A34A]">
-                <CheckCircle2 className="size-4" />
-                {t("sale.verified")}
-              </div>
-            </div>
-
-            <p className="mt-5 text-[13px] font-medium leading-[20px] text-[#475569]">
-              {description}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-end justify-between gap-4 border-t border-[#F1F5F9] pt-5">
-            <div>
-              <span className="block text-[11px] font-bold uppercase tracking-[0.6px] text-[#64748B]">
-                {t("sale.priceLabel")}
-              </span>
-              <span className="block text-[28px] font-black leading-[34px] text-[#16A34A]">
-                ${formatNumber(priceUsd)}
-              </span>
-            </div>
-            <Link
-              href={`/sales/${id}`}
-              className="inline-flex items-center gap-1 rounded-[12px] bg-[#0A1F2E] px-5 py-3 text-[13px] font-bold text-white transition-colors hover:bg-[#0F2A40]"
-            >
-              {t("sale.details")}
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-        </div>
-      </div>
-    </article>
   );
 }
 

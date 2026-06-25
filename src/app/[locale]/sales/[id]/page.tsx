@@ -69,5 +69,13 @@ export default async function SaleDetailPage({ params }: Props) {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  return <SaleDetailClient property={property} reviews={reviews ?? []} />;
+  const isPending = property.status !== "active";
+
+  return (
+    <SaleDetailClient
+      property={property}
+      reviews={reviews ?? []}
+      isPending={isPending}
+    />
+  );
 }

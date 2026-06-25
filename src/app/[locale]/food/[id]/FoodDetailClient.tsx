@@ -11,6 +11,7 @@ import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
+import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import {
@@ -22,6 +23,7 @@ import {
 interface Props {
   service: ServiceWithFoodExtras;
   isMock?: boolean;
+  isPending?: boolean;
 }
 
 const fadeIn = {
@@ -30,7 +32,11 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-export default function FoodDetailClient({ service, isMock = false }: Props) {
+export default function FoodDetailClient({
+  service,
+  isMock = false,
+  isPending = false,
+}: Props) {
   const router = useRouter();
   const t = useTranslations("FoodDetail");
   const tShared = useTranslations("Shared");
@@ -96,6 +102,7 @@ export default function FoodDetailClient({ service, isMock = false }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+      {isPending && <PendingReviewBanner />}
       <motion.button
         {...fadeIn}
         onClick={() => router.back()}

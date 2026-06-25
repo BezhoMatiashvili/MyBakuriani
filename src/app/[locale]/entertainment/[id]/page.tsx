@@ -55,5 +55,13 @@ export default async function EntertainmentDetailPage({ params }: Props) {
     notFound();
   }
 
-  return <EntertainmentDetailClient service={service} isMock={isMock} />;
+  const isPending = !isMock && service.status !== "active";
+
+  return (
+    <EntertainmentDetailClient
+      service={service}
+      isMock={isMock}
+      isPending={isPending}
+    />
+  );
 }

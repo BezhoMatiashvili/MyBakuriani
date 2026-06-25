@@ -585,9 +585,13 @@ function CreateRentalPageInner() {
                   </select>
                 </Field>
 
-                <Field label={t("cadastralCode")}>
+                <Field
+                  label={t("cadastralCode")}
+                  helper={t("cadastralDigitsHint")}
+                >
                   <input
                     type="text"
+                    inputMode="decimal"
                     value={cadastralCode}
                     onChange={(e) =>
                       setCadastralCode(sanitizeCadastralCode(e.target.value))
@@ -629,24 +633,6 @@ function CreateRentalPageInner() {
                         placeholder={t("titlePlaceholder")}
                         className={inputClass}
                       />
-                    </Field>
-
-                    <Field label={t("propertyType")}>
-                      <select
-                        value={propertyType}
-                        onChange={(e) =>
-                          setPropertyType(
-                            e.target.value as Enums<"property_type">,
-                          )
-                        }
-                        className={inputClass}
-                      >
-                        {PROPERTY_TYPES.map((value) => (
-                          <option key={value} value={value}>
-                            {tOpts(`propertyTypes.${value}`)}
-                          </option>
-                        ))}
-                      </select>
                     </Field>
 
                     <Field label={t("location")}>

@@ -11,8 +11,6 @@ import {
   Search,
   Send,
   UserCheck,
-  Users,
-  Users2,
 } from "lucide-react";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import type { AdminStatsData } from "@/lib/admin/getAdminStats";
@@ -21,8 +19,6 @@ interface AdminKPIs {
   revenue: number;
   activeListings: number;
   registeredUsers: number;
-  totalVisits: number;
-  registeredVisitors: number;
 }
 
 export default function AdminDashboardClient({
@@ -46,8 +42,6 @@ export default function AdminDashboardClient({
     revenue: Number(initialStats?.net_revenue ?? 0),
     activeListings: Number(initialStats?.active_listings ?? 0),
     registeredUsers: Number(initialStats?.registered_users ?? 0),
-    totalVisits: Number(initialStats?.total_visits ?? 0),
-    registeredVisitors: Number(initialStats?.registered_visitors ?? 0),
   });
   const [pendingOver24] = useState(Number(initialStats?.pending_over_24h ?? 0));
 
@@ -56,12 +50,6 @@ export default function AdminDashboardClient({
   // the last drop-off percentage.
   const funnelCards = useMemo(
     () => [
-      {
-        label: t("funnelSiteVisits"),
-        value: Number(initialStats?.visits_7d ?? 0),
-        icon: Users2,
-        tone: "bg-[#F8FAFC] text-[#334155]",
-      },
       {
         label: t("funnelSearchOpens"),
         value: Number(initialStats?.searches_7d ?? 0),
@@ -89,16 +77,6 @@ export default function AdminDashboardClient({
       label: t("netRevenue"),
       value: formatPrice(kpis.revenue),
       icon: Banknote,
-    },
-    {
-      label: t("totalVisits"),
-      value: formatNumber(kpis.totalVisits),
-      icon: Users2,
-    },
-    {
-      label: t("registeredVisitors"),
-      value: formatNumber(kpis.registeredVisitors),
-      icon: Users,
     },
     {
       label: t("activeListings"),

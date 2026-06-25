@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 
 import { HomeListingModeProvider } from "@/components/layout/HomeListingModeContext";
-import { PageviewTracker } from "@/components/analytics/PageviewTracker";
 
 interface LocaleShellProps {
   children: ReactNode;
@@ -76,7 +75,6 @@ export function LocaleShell({ children }: LocaleShellProps) {
 
   return (
     <>
-      <PageviewTracker />
       <CriticalNotificationGate />
       {content}
     </>

@@ -18,6 +18,7 @@ import TimeRangePicker, {
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { isValidGePhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
@@ -34,12 +35,6 @@ const SERVICE_SPHERES = [
 ] as const;
 
 type SphereValue = (typeof SERVICE_SPHERES)[number]["value"];
-
-const COVERAGE_ZONES = [
-  { value: "მთლიანი ბაკურიანი", key: "all_bakuriani" },
-  { value: "მიტარბი", key: "mitarbi" },
-  { value: "წალვერი", key: "tsalgeri" },
-] as const;
 
 const LANGUAGES = [
   { value: "ქართული", key: "ka" },
@@ -71,6 +66,7 @@ function CreateServicePageInner() {
   const isEditMode = !!editId;
   const { user } = useAuth();
   const supabase = createClient();
+  const { zones } = useActiveZones();
 
   const sphereOptions = useMemo(
     () =>
@@ -92,10 +88,7 @@ function CreateServicePageInner() {
   const [experienceYears, setExperienceYears] = useState("");
   const [sphere, setSphere] = useState<SphereValue>("cleaning");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  const [coverageZones, setCoverageZones] = useState<string[]>([
-    "მთლიანი ბაკურიანი",
-    "მიტარბი",
-  ]);
+  const [coverageZones, setCoverageZones] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>(["ქართული", "რუსული"]);
   const [description, setDescription] = useState("");
   const [workingHours, setWorkingHours] = useState("09:00 - 19:00");
@@ -200,6 +193,14 @@ function CreateServicePageInner() {
       prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang],
     );
   }
+
+  // Admin-managed zones, plus any already-selected value not in the active list
+  // (so editing a legacy listing never silently hides/drops a stored zone).
+  const zoneOptions = useMemo(() => {
+    const names = zones.map((z) => z.name_ka);
+    const extras = coverageZones.filter((z) => !names.includes(z));
+    return [...names, ...extras];
+  }, [zones, coverageZones]);
 
   function validate(): { key: string; message: string }[] {
     const errs: { key: string; message: string }[] = [];
@@ -403,13 +404,13 @@ function CreateServicePageInner() {
               labelOnlyError
             >
               <div className="flex flex-wrap gap-2">
-                {COVERAGE_ZONES.map((zone) => (
+                {zoneOptions.map((zone) => (
                   <ChipToggle
-                    key={zone.value}
-                    selected={coverageZones.includes(zone.value)}
-                    onClick={() => toggleZone(zone.value)}
+                    key={zone}
+                    selected={coverageZones.includes(zone)}
+                    onClick={() => toggleZone(zone)}
                   >
-                    {tOpts(`coverageZones.${zone.key}`)}
+                    {zone}
                   </ChipToggle>
                 ))}
               </div>

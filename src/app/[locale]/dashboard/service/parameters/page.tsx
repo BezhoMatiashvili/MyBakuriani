@@ -11,7 +11,6 @@ import type { Tables } from "@/lib/types/database";
 
 interface NotifPrefs {
   newInquiry: boolean;
-  newReview: boolean;
   dailyReport: boolean;
 }
 
@@ -35,7 +34,6 @@ export default function ServiceParametersPage() {
 
   const [prefs, setPrefs] = useState<NotifPrefs>({
     newInquiry: true,
-    newReview: true,
     dailyReport: true,
   });
 
@@ -297,11 +295,6 @@ export default function ServiceParametersPage() {
                 key: "newInquiry" as const,
                 title: tShared("notifNewRequest"),
                 sub: tShared("channelWebSms"),
-              },
-              {
-                key: "newReview" as const,
-                title: tShared("notifNewReview"),
-                sub: tShared("channelWebOnly"),
               },
               {
                 key: "dailyReport" as const,

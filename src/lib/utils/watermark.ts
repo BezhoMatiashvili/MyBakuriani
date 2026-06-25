@@ -6,6 +6,13 @@ export interface WatermarkOptions {
   minImageWidth?: number;
   outputType?: "image/jpeg" | "image/png" | "image/webp" | "preserve";
   quality?: number;
+  /**
+   * Cap for the longest edge, in pixels. Shrink-only: images already within the
+   * cap are left at native size. Defaults to `Infinity` (no downscaling) so
+   * existing callers are unaffected; the photo uploader opts in to keep files
+   * comfortably under the 5MB Storage limit.
+   */
+  maxEdge?: number;
 }
 
 const DEFAULTS = {
@@ -14,6 +21,7 @@ const DEFAULTS = {
   minImageWidth: 200,
   outputType: "preserve" as const,
   quality: 0.85,
+  maxEdge: Infinity,
 };
 
 let watermarkPromise: Promise<HTMLImageElement | null> | null = null;
@@ -92,24 +100,33 @@ async function compose(
 ): Promise<Blob | null> {
   if (width < opts.minImageWidth) return null;
 
+  // Shrink-only downscale so the encoded file stays well under Storage limits.
+  const longestEdge = Math.max(width, height);
+  const scale = longestEdge > opts.maxEdge ? opts.maxEdge / longestEdge : 1;
+  const targetW = Math.max(1, Math.round(width * scale));
+  const targetH = Math.max(1, Math.round(height * scale));
+
   const wm = await loadWatermark();
 
   const useOffscreen = typeof OffscreenCanvas !== "undefined";
   const canvas: OffscreenCanvas | HTMLCanvasElement = useOffscreen
-    ? new OffscreenCanvas(width, height)
-    : Object.assign(document.createElement("canvas"), { width, height });
+    ? new OffscreenCanvas(targetW, targetH)
+    : Object.assign(document.createElement("canvas"), {
+        width: targetW,
+        height: targetH,
+      });
   const ctx = (canvas as HTMLCanvasElement).getContext("2d");
   if (!ctx) return null;
 
-  ctx.drawImage(source, 0, 0, width, height);
+  ctx.drawImage(source, 0, 0, targetW, targetH);
 
   if (wm) {
-    const wmW = Math.max(60, Math.round(width * opts.widthRatio));
+    const wmW = Math.max(60, Math.round(targetW * opts.widthRatio));
     const ratio = wm.naturalHeight / wm.naturalWidth || 0.2;
     const wmH = Math.round(wmW * ratio);
-    const pad = Math.max(12, Math.round(width * 0.025));
-    const x = width - wmW - pad;
-    const y = height - wmH - pad;
+    const pad = Math.max(12, Math.round(targetW * 0.025));
+    const x = targetW - wmW - pad;
+    const y = targetH - wmH - pad;
     ctx.globalAlpha = opts.opacity;
     ctx.drawImage(wm, x, y, wmW, wmH);
     ctx.globalAlpha = 1;

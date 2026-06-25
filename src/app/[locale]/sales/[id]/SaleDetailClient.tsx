@@ -33,6 +33,7 @@ import type { Tables, Database } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
+import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -57,6 +58,7 @@ interface ReviewWithGuest {
 
 interface Props {
   property: PropertyWithOwner;
+  isPending?: boolean;
   reviews: ReviewWithGuest[];
 }
 
@@ -145,7 +147,11 @@ function deriveEnvironmentStatusKey(amenities: unknown): string | null {
   return null;
 }
 
-export default function SaleDetailClient({ property, reviews }: Props) {
+export default function SaleDetailClient({
+  property,
+  reviews,
+  isPending = false,
+}: Props) {
   const t = useTranslations("SaleDetail");
   const tDetail = useTranslations("PropertyDetail");
   const tShared = useTranslations("Shared");
@@ -311,6 +317,7 @@ export default function SaleDetailClient({ property, reviews }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+      {isPending && <PendingReviewBanner />}
       {/* Top action row: back + share/heart */}
       <motion.div
         {...fadeIn}

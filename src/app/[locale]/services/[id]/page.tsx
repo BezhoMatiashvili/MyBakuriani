@@ -55,5 +55,13 @@ export default async function ServiceDetailPage({ params }: Props) {
     notFound();
   }
 
-  return <ServiceDetailClient service={service} isMock={isMock} />;
+  const isPending = !isMock && service.status !== "active";
+
+  return (
+    <ServiceDetailClient
+      service={service}
+      isMock={isMock}
+      isPending={isPending}
+    />
+  );
 }

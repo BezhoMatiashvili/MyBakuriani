@@ -1,8 +1,10 @@
 import { cache } from "react";
-import { createPublicClient } from "@/lib/supabase/server";
+import { createClient, createPublicClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isAdminViewer } from "@/lib/auth/is-admin-viewer";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { getMockProperty, isMockPropertyId } from "@/lib/mock/properties";
+import { isUuid } from "@/lib/utils/uuid";
 import type { Tables } from "@/lib/types/database";
 
 type PropertyWithProfile = Tables<"properties"> & {
@@ -21,23 +23,46 @@ export const getPropertyById = cache(
       return { data: getMockProperty(id), isMock: true };
     }
 
+    // Reject malformed ids before querying: a non-uuid in the uuid `id` column
+    // raises "invalid input syntax for type uuid" (a flood from crawlers/old URLs).
+    if (!isUuid(id)) {
+      return { data: null, isMock: false };
+    }
+
     try {
       const adminViewer = await isAdminViewer();
-      // Admins preview pending listings: the service-role client bypasses RLS,
-      // which the anonymous public client cannot (it would still hide non-active rows).
+      // Request-memoized; isAdminViewer() already resolved it, so this is free.
+      const user = await getCurrentUser();
+      // Three-tier viewer model:
+      //  - admin: service-role bypasses RLS to preview any status.
+      //  - signed-in user: the authenticated SSR client carries their cookies, so
+      //    auth.uid() resolves and RLS (status='active' OR owner_id=auth.uid()) lets
+      //    a creator read their own pending listing — the anon public client sends
+      //    no cookie, so the owner branch can never match.
+      //  - anonymous: the public client sees only active rows via RLS.
       const supabase = adminViewer
         ? createServiceClient()
-        : createPublicClient();
-      let query = supabase
+        : user
+          ? await createClient()
+          : createPublicClient();
+      const { data } = await supabase
         .from("properties")
         .select("*, profiles!properties_owner_id_fkey(*)")
-        .eq("id", id);
-      if (!adminViewer) {
-        query = query.eq("status", "active");
-      }
-      const { data } = await query.single();
+        .eq("id", id)
+        .maybeSingle();
 
-      return { data: (data as PropertyWithProfile) ?? null, isMock: false };
+      const row = (data as PropertyWithProfile) ?? null;
+      if (!row) return { data: null, isMock: false };
+      // Defense in depth: a non-active row is only returned to its owner or an
+      // admin (RLS already enforces this for the anon/authenticated clients).
+      if (
+        row.status !== "active" &&
+        !adminViewer &&
+        row.owner_id !== user?.id
+      ) {
+        return { data: null, isMock: false };
+      }
+      return { data: row, isMock: false };
     } catch {
       return { data: null, isMock: false };
     }

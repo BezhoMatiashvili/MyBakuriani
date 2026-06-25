@@ -7,7 +7,7 @@ import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatRelativeTime } from "@/lib/i18n/relativeTime";
+import { NotificationCard } from "@/components/notifications/NotificationCard";
 import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
 import type { Tables } from "@/lib/types/database";
 
@@ -74,6 +74,13 @@ export default function RenterNotificationsPage() {
       .eq("is_read", false);
   }
 
+  async function markRead(id: string) {
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, is_read: true } : i)),
+    );
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+  }
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -122,40 +129,16 @@ export default function RenterNotificationsPage() {
             </p>
           </div>
         ) : (
-          <ul>
-            {items.map((item, i) => {
-              const iconKey = iconForType(item.type ?? "");
-              const style = ICON_STYLES[iconKey];
-              const IconCmp = style.Icon;
+          <ul className="divide-y divide-[#EEF1F4]">
+            {items.map((item) => {
+              const style = ICON_STYLES[iconForType(item.type ?? "")];
               return (
-                <li
+                <NotificationCard
                   key={item.id}
-                  className={`flex items-start gap-4 px-6 py-5 ${
-                    item.is_read ? "" : "bg-[#F8FAFC]"
-                  } ${i === items.length - 1 ? "" : "border-b border-[#EEF1F4]"}`}
-                >
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${style.bg}`}
-                  >
-                    <IconCmp
-                      className={`h-5 w-5 ${style.color}`}
-                      strokeWidth={2.2}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-extrabold text-[#0F172A]">
-                      {item.title}
-                    </p>
-                    {item.message && (
-                      <p className="mt-1 text-[13px] leading-[20px] text-[#64748B]">
-                        {item.message}
-                      </p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">
-                    {formatRelativeTime(tShared, item.created_at ?? "")}
-                  </span>
-                </li>
+                  notification={item}
+                  tone={{ Icon: style.Icon, bg: style.bg, fg: style.color }}
+                  onRead={markRead}
+                />
               );
             })}
           </ul>

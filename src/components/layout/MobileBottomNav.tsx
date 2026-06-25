@@ -9,6 +9,7 @@ import {
   Wallet,
   User,
   ClipboardList,
+  FileText,
   Star,
   Sparkles,
   ShoppingBag,
@@ -115,9 +116,17 @@ function getTabs(role: string): TabItem[] {
           icon: ShoppingBag,
         },
       ];
+    case "employment":
+      return [
+        { labelKey: "home", href: "/", icon: Home },
+        {
+          labelKey: "cvs",
+          href: "/dashboard/employment/orders",
+          icon: FileText,
+        },
+      ];
     case "entertainment":
     case "transport":
-    case "employment":
     case "handyman":
     case "services":
       return [

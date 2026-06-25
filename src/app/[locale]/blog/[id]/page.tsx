@@ -9,6 +9,7 @@ import type { AppLocale } from "@/i18n/routing";
 import { createPublicClient } from "@/lib/supabase/server";
 import { buildListingMetadata } from "@/lib/seo";
 import { formatDate } from "@/lib/utils/format";
+import { isUuid } from "@/lib/utils/uuid";
 
 interface Props {
   params: Promise<{ locale: AppLocale; id: string }>;
@@ -43,6 +44,9 @@ const getBlogPostDetail = cache(async (id: string) => {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
+  if (!isUuid(id)) {
+    return { title: t("detail.blogNotFound") };
+  }
   const { data } = await getBlogPostMetadata(id);
 
   if (!data) {
@@ -70,6 +74,10 @@ export default async function BlogDetailPage({ params }: Props) {
   const { id } = await params;
   const t = await getTranslations("BlogPage");
   const locale = await getLocale();
+
+  if (!isUuid(id)) {
+    notFound();
+  }
 
   try {
     const { data: post } = await getBlogPostDetail(id);

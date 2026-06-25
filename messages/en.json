@@ -183,6 +183,7 @@
       "schedule": "Schedule",
       "earnings": "Earnings",
       "orders": "Orders",
+      "cvs": "CVs",
       "bookings": "Bookings",
       "reviews": "Reviews",
       "myRentals": "My Rentals",
@@ -814,6 +815,7 @@
     "selectLocation": "Select a zone",
     "exactLocation": "Exact location on map",
     "cadastralCode": "Cadastral Code",
+    "cadastralDigitsHint": "Only digits and dots (e.g. 01.10.05.123)",
     "area": "Total area (m²)",
     "rooms": "Number of rooms",
     "bathroom": "Bathrooms",
@@ -1783,7 +1785,13 @@
     "photoCount": "{count} / {max} photos",
     "mainBadge": "Main",
     "setAsMain": "Set as main",
-    "mainHint": "The main photo is shown first to users"
+    "mainHint": "The main photo is shown first to users",
+    "reorderHint": "Drag to reorder your photos",
+    "dragHandleLabel": "Photo — press and drag to reorder",
+    "uploading": "Uploading…",
+    "uploadFailed": "{count} photo(s) failed to upload — try again",
+    "tooLarge": "{count} file(s) too large — max 5MB",
+    "convertFailed": "{count} HEIC file(s) couldn't be converted — use JPG/PNG"
   },
   "MediaUploader": {
     "defaultLabel": "Media (image or video)",
@@ -2342,6 +2350,10 @@
     "promote": "Promote listing:",
     "discount": "Discount"
   },
+  "ListingPreview": {
+    "title": "Listing under review",
+    "body": "This listing hasn't been approved yet and is visible only to you and the administrator. It will appear publicly once approved."
+  },
   "GuestDashboard": {
     "welcome": "Hello, {name}, ready for a getaway? 🏔️",
     "defaultName": "Guest",
@@ -2668,6 +2680,7 @@
     "saveChanges": "Save changes",
     "add": "Add",
     "edit": "Edit",
+    "delete": "Delete",
     "call": "Call",
     "cancel": "Cancel",
     "back": "Back",
@@ -2714,6 +2727,7 @@
     "notifSubtitleOrders": "Orders, promotions, and system notices.",
     "notifSubtitleRequests": "Requests, promotions, and system notices.",
     "last30Days": "Last 30 days",
+    "viewNotification": "View",
     "markAllRead": "Mark all as read",
     "markAllReadAlt": "Mark all as read",
     "tabAll": "All ({count})",
@@ -3043,6 +3057,10 @@
     "redial": "Call out again",
     "noCallsYet": "You haven't sent any call-outs yet",
     "defaultCleaner": "Cleaner",
+    "personalBadge": "Personal",
+    "deleteConfirm": "Remove this cleaner?",
+    "priceStandardShort": "Standard",
+    "priceGeneralShort": "General",
     "status": {
       "pending": "Pending",
       "accepted": "Accepted",
@@ -3062,6 +3080,7 @@
     },
     "addModal": {
       "title": "Add a cleaner",
+      "createOwn": "Add your own cleaner",
       "add": "Add",
       "added": "Added",
       "remove": "Remove",

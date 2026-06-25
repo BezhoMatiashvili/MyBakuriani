@@ -27,6 +27,7 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
+import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -35,6 +36,7 @@ type ServiceWithOwner = Tables<"services"> & {
 interface Props {
   service: ServiceWithOwner;
   isMock?: boolean;
+  isPending?: boolean;
 }
 
 const fadeIn = {
@@ -46,6 +48,7 @@ const fadeIn = {
 export default function ServiceDetailClient({
   service,
   isMock = false,
+  isPending = false,
 }: Props) {
   const router = useRouter();
   const t = useTranslations("ServiceDetail");
@@ -87,6 +90,7 @@ export default function ServiceDetailClient({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+      {isPending && <PendingReviewBanner />}
       {/* Breadcrumb */}
       <motion.nav
         {...fadeIn}

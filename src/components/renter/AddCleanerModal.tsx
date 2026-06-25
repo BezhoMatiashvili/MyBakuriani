@@ -20,6 +20,8 @@ interface AddCleanerModalProps {
   savedIds: Set<string>;
   /** Resolves false when the write failed (state already rolled back). */
   onToggle: (cleanerId: string, save: boolean) => Promise<boolean>;
+  /** Open the manual-cleaner form (for cleaners without a platform profile). */
+  onCreateOwn: () => void;
 }
 
 function deriveInitials(name: string): string {
@@ -38,6 +40,7 @@ export default function AddCleanerModal({
   loading,
   savedIds,
   onToggle,
+  onCreateOwn,
 }: AddCleanerModalProps) {
   const t = useTranslations("RenterCleaners");
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
@@ -66,6 +69,15 @@ export default function AddCleanerModal({
           {t("addModal.error")}
         </p>
       )}
+
+      <button
+        type="button"
+        onClick={onCreateOwn}
+        className="mb-3 inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+      >
+        <UserPlus className="h-4 w-4" strokeWidth={2.4} />
+        {t("addModal.createOwn")}
+      </button>
 
       {loading ? (
         <ul className="space-y-2">

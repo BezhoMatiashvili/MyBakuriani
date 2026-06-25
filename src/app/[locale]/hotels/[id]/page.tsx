@@ -58,7 +58,12 @@ export default async function HotelDetailPage({ params }: Props) {
 
   if (isMock) {
     return (
-      <HotelDetailClient property={property} reviews={[]} calendarBlocks={[]} />
+      <HotelDetailClient
+        property={property}
+        reviews={[]}
+        calendarBlocks={[]}
+        priceOverrides={[]}
+      />
     );
   }
 
@@ -66,8 +71,14 @@ export default async function HotelDetailPage({ params }: Props) {
   const today = new Date();
   const threeMonthsLater = new Date(today);
   threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+  const todayStr = today.toISOString().split("T")[0];
+  const horizonStr = threeMonthsLater.toISOString().split("T")[0];
 
-  const [{ data: reviews }, { data: calendarBlocks }] = await Promise.all([
+  const [
+    { data: reviews },
+    { data: calendarBlocks },
+    { data: priceOverrides },
+  ] = await Promise.all([
     supabase
       .from("reviews")
       .select("*, profiles!reviews_guest_id_fkey(display_name)")
@@ -78,15 +89,28 @@ export default async function HotelDetailPage({ params }: Props) {
       .from("calendar_blocks")
       .select("date, status")
       .eq("property_id", id)
-      .gte("date", today.toISOString().split("T")[0])
-      .lte("date", threeMonthsLater.toISOString().split("T")[0]),
+      .gte("date", todayStr)
+      .lte("date", horizonStr),
+    supabase
+      .from("price_overrides")
+      .select("date, price")
+      .eq("property_id", id)
+      .gte("date", todayStr)
+      .lte("date", horizonStr),
   ]);
+
+  const isPending = property.status !== "active";
 
   return (
     <HotelDetailClient
       property={property}
+      isPending={isPending}
       reviews={reviews ?? []}
       calendarBlocks={calendarBlocks ?? []}
+      priceOverrides={(priceOverrides ?? []).map((o) => ({
+        date: o.date,
+        price: Number(o.price),
+      }))}
     />
   );
 }

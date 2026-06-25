@@ -104,9 +104,12 @@ export default async function ApartmentDetailPage({ params }: Props) {
       .lte("date", horizonStr),
   ]);
 
+  const isPending = property.status !== "active";
+
   return (
     <ApartmentDetailClient
       property={property}
+      isPending={isPending}
       reviews={reviews ?? []}
       calendarBlocks={calendarBlocks ?? []}
       priceOverrides={(priceOverrides ?? []).map((o) => ({

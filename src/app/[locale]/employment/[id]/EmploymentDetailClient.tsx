@@ -43,6 +43,7 @@ import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import DateField, { toISODate } from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
+import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -51,6 +52,7 @@ type ServiceWithOwner = Tables<"services"> & {
 interface Props {
   service: ServiceWithOwner;
   isMock?: boolean;
+  isPending?: boolean;
   applicationsCount: number;
 }
 
@@ -170,6 +172,7 @@ const INITIAL_FORM: FormState = {
 export default function EmploymentDetailClient({
   service,
   isMock = false,
+  isPending = false,
   applicationsCount,
 }: Props) {
   const router = useRouter();
@@ -352,6 +355,7 @@ export default function EmploymentDetailClient({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+      {isPending && <PendingReviewBanner />}
       <div className="mb-6 flex items-center justify-between">
         <motion.button
           {...fadeIn}

@@ -55,5 +55,13 @@ export default async function TransportDetailPage({ params }: Props) {
     notFound();
   }
 
-  return <TransportDetailClient service={service} isMock={isMock} />;
+  const isPending = !isMock && service.status !== "active";
+
+  return (
+    <TransportDetailClient
+      service={service}
+      isMock={isMock}
+      isPending={isPending}
+    />
+  );
 }
