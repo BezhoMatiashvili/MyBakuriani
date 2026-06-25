@@ -53,7 +53,7 @@ Define success criteria. Loop until verified.
 - **Auth**: Supabase Phone OTP (+995 Georgian numbers) via `@supabase/ssr` 0.9
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
-- **Maps**: `@react-google-maps/api` (with static fallback)
+- **Maps**: Leaflet.js via `react-leaflet` (CartoDB Positron tiles, no API key; OSM+CARTO attribution required)
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
 - **Deployment**: Vercel + Supabase Cloud

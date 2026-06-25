@@ -1,41 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { GoogleMap, OverlayViewF, MarkerF } from "@react-google-maps/api";
+import "leaflet/dist/leaflet.css";
+import { useEffect, useMemo, useState } from "react";
+import L from "leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Tooltip,
+  ZoomControl,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import { useTranslations } from "next-intl";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { formatNumber } from "@/lib/utils/format";
 
-const BAKURIANI_CENTER = { lat: 41.7509, lng: 43.5294 };
+const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
 
-// ── Singleton script loader (avoids useJsApiLoader duplicate-call bug) ──
-let _loadPromise: Promise<void> | null = null;
-let _loaded = false;
-
-function loadGoogleMaps(apiKey: string): Promise<void> {
-  if (_loaded) return Promise.resolve();
-  if (_loadPromise) return _loadPromise;
-
-  _loadPromise = new Promise<void>((resolve, reject) => {
-    if (typeof window !== "undefined" && window.google?.maps) {
-      _loaded = true;
-      resolve();
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => {
-      _loaded = true;
-      resolve();
-    };
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-
-  return _loadPromise;
-}
+// ── CartoDB Positron basemap (no API key, retina-ready) ──
+// Light minimal style that mirrors the previous Google "Airbnb" theme.
+const TILE_URL =
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 // ── Types ──
 export interface MapProperty {
@@ -65,83 +53,6 @@ interface BakurianiMapProps {
   zones?: Zone[];
 }
 
-// ── Clean light Airbnb-style map theme ──
-const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-  {
-    featureType: "administrative",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#c9c9c9" }],
-  },
-  {
-    featureType: "administrative.land_parcel",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#bdbdbd" }],
-  },
-  {
-    featureType: "landscape",
-    elementType: "geometry.fill",
-    stylers: [{ color: "#e8f5e9" }],
-  },
-  {
-    featureType: "poi",
-    stylers: [{ visibility: "simplified" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "geometry",
-    stylers: [{ color: "#c8e6c9" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#757575" }],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "geometry",
-    stylers: [{ color: "#c8e6c9" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#ffffff" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#e0e0e0" }],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9e9e9e" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [{ color: "#dadada" }],
-  },
-  {
-    featureType: "transit",
-    stylers: [{ visibility: "off" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#b3d9ff" }],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9e9e9e" }],
-  },
-];
-
-const containerStyle = { width: "100%", height: "100%" };
-
 // ── Price formatting ──
 function formatPrice(price: number, isForSale?: boolean): string {
   if (isForSale && price >= 1000) {
@@ -150,43 +61,72 @@ function formatPrice(price: number, isForSale?: boolean): string {
   return `${price} ₾`;
 }
 
-// ── Price Marker Component ──
+// ── Price pill marker (HTML divIcon — Tailwind classes resolve globally) ──
+function buildPillIcon(
+  property: MapProperty,
+  isSelected: boolean,
+  isForSale?: boolean,
+): L.DivIcon {
+  const isVip = property.isSuperVip || property.isVip;
+  const stateClasses = isSelected
+    ? "scale-110 bg-[#1E293B] text-white shadow-[0px_4px_12px_rgba(0,0,0,0.3)]"
+    : isVip
+      ? "border-2 border-[#F59E0B] bg-white text-[#1E293B]"
+      : "border border-[#E2E8F0] bg-white text-[#1E293B]";
+
+  const html = `<div class="bk-pill cursor-pointer whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-bold leading-none shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-all duration-150 hover:scale-110 ${stateClasses}" style="min-height:32px;min-width:48px;display:flex;align-items:center;justify-content:center;">${formatPrice(property.price, isForSale)}</div>`;
+
+  return L.divIcon({
+    html,
+    className: "bk-price-marker",
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+}
+
+// ── Zone teardrop pin (matches previous blue/white SVG marker) ──
+const ZONE_ICON = L.divIcon({
+  html: `<div class="bk-zone-pin-inner"><svg width="30" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#2563EB" stroke="#ffffff" stroke-width="2"/></svg></div>`,
+  className: "bk-zone-pin",
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
+
+// ── Price marker with hover card (Tooltip renders real React children) ──
 function PriceMarker({
   property,
   isSelected,
   isForSale,
-  onClick,
-  onNavigate,
+  onSelect,
 }: {
   property: MapProperty;
   isSelected: boolean;
   isForSale?: boolean;
-  onClick: () => void;
-  onNavigate?: (id: string) => void;
+  onSelect: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const isVip = property.isSuperVip || property.isVip;
+  const icon = useMemo(
+    () => buildPillIcon(property, isSelected, isForSale),
+    [property, isSelected, isForSale],
+  );
 
   return (
-    <OverlayViewF
-      position={{ lat: property.lat, lng: property.lng }}
-      mapPaneName="floatPane"
-      getPixelPositionOffset={(w, h) => ({ x: -(w / 2), y: -(h / 2) })}
+    <Marker
+      position={[property.lat, property.lng]}
+      icon={icon}
+      zIndexOffset={isSelected ? 1000 : 0}
+      eventHandlers={{ click: onSelect }}
     >
-      <div
-        className="relative"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        {/* Tooltip on hover — clickable to navigate */}
-        {hovered && !isSelected && (
-          <div
-            className="absolute bottom-full left-1/2 z-50 mb-2 w-[180px] -translate-x-1/2 cursor-pointer overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-[0px_8px_24px_rgba(0,0,0,0.15)] transition-shadow hover:shadow-[0px_12px_32px_rgba(0,0,0,0.22)]"
-            onClick={(e) => {
-              e.stopPropagation();
-              onNavigate?.(property.id);
-            }}
-          >
+      {/* Hover preview card (non-interactive; click the pill to navigate).
+          Leaflet closes a marker tooltip on mouse-out, so an offset card can't
+          be reliably clicked — the pill click handles navigation instead. */}
+      {!isSelected && (
+        <Tooltip
+          direction="top"
+          offset={[0, -22]}
+          opacity={1}
+          className="bk-card-tooltip"
+        >
+          <div className="w-[180px] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-[0px_8px_24px_rgba(0,0,0,0.15)]">
             {property.photo && (
               <div
                 className="h-[80px] w-full bg-cover bg-center"
@@ -202,37 +142,55 @@ function PriceMarker({
               </p>
             </div>
           </div>
-        )}
-
-        {/* Price pill */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
-          className={`
-            cursor-pointer whitespace-nowrap rounded-full px-3 py-2
-            text-[12px] font-bold leading-none
-            shadow-[0px_2px_8px_rgba(0,0,0,0.12)]
-            transition-all duration-150
-            hover:scale-110 hover:shadow-[0px_4px_12px_rgba(0,0,0,0.2)]
-            ${
-              isSelected
-                ? "z-50 scale-110 bg-[#1E293B] text-white shadow-[0px_4px_12px_rgba(0,0,0,0.3)]"
-                : isVip
-                  ? "border-2 border-[#F59E0B] bg-white text-[#1E293B]"
-                  : "border border-[#E2E8F0] bg-white text-[#1E293B]"
-            }
-          `}
-          title={property.title}
-          style={{ minHeight: "32px", minWidth: "48px" }}
-        >
-          {formatPrice(property.price, isForSale)}
-        </button>
-      </div>
-    </OverlayViewF>
+        </Tooltip>
+      )}
+    </Marker>
   );
+}
+
+// ── Map helpers (must live inside MapContainer) ──
+function MapClickClear({ onClear }: { onClear: () => void }) {
+  useMapEvents({ click: () => onClear() });
+  return null;
+}
+
+// Leaflet renders grey if its container is sized after init (modals/expand).
+function InvalidateOnMount() {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t = setTimeout(() => map.invalidateSize(), 200);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
+
+// Fit all property pins into view so none are cut off.
+function FitBounds({
+  points,
+  boundsKey,
+  singleZoom,
+}: {
+  points: MapProperty[];
+  boundsKey: string;
+  /** Zoom used when there's exactly one point (keeps prior single-pin parity). */
+  singleZoom: number;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      map.setView([points[0].lat, points[0].lng], singleZoom);
+      return;
+    }
+    const bounds = L.latLngBounds(
+      points.map((p) => [p.lat, p.lng] as [number, number]),
+    );
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    // boundsKey changes only when the set of coordinates changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boundsKey, map]);
+  return null;
 }
 
 // ── Expand icon SVG (inline to avoid extra dependency) ──
@@ -288,171 +246,86 @@ export default function BakurianiMap({
   zones = FALLBACK_ZONES,
 }: BakurianiMapProps) {
   const t = useTranslations("BakurianiMap");
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
 
-  const [isLoaded, setIsLoaded] = useState(_loaded);
-  const [, setMap] = useState<google.maps.Map | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    if (!apiKey) return;
-    loadGoogleMaps(apiKey).then(() => setIsLoaded(true));
-  }, [apiKey]);
+  const hasProperties = !!properties && properties.length > 0;
 
-  const onLoad = useCallback((map: google.maps.Map) => {
-    setMap(map);
-  }, []);
+  // Initial center: explicit center → average of properties → Bakuriani.
+  const initialCenter: [number, number] = center
+    ? [center.lat, center.lng]
+    : hasProperties
+      ? [
+          properties!.reduce((sum, p) => sum + p.lat, 0) / properties!.length,
+          properties!.reduce((sum, p) => sum + p.lng, 0) / properties!.length,
+        ]
+      : BAKURIANI_CENTER;
 
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
+  const initialZoom = zoom ?? (hasProperties ? 14 : 13);
 
-  const handlePropertyClick = useCallback(
-    (id: string) => {
-      setSelectedId((prev) => (prev === id ? null : id));
-      onPropertyClick?.(id);
-    },
-    [onPropertyClick],
+  // Stable key so FitBounds only refits when the coordinate set changes.
+  const boundsKey = useMemo(
+    () => (properties ?? []).map((p) => `${p.lat},${p.lng}`).join("|"),
+    [properties],
   );
 
-  // Compute map center from properties if available
-  const mapCenter =
-    center ??
-    (properties && properties.length > 0
-      ? {
-          lat:
-            properties.reduce((sum, p) => sum + p.lat, 0) / properties.length,
-          lng:
-            properties.reduce((sum, p) => sum + p.lng, 0) / properties.length,
-        }
-      : BAKURIANI_CENTER);
-
-  const hasProperties = properties && properties.length > 0;
-
-  // ── Fallback static UI (zone dots) ──
-  // Only the 4 seeded zones have known positions on the static SVG. Custom
-  // admin-added zones render only on the real Google map.
-  const ZONE_POSITIONS: Record<string, { left: string; top: string }> = {
-    didveli: { left: "28%", top: "18%" },
-    centri: { left: "42%", top: "50%" },
-    kokhta: { left: "52%", top: "32%" },
-    "25ianebi": { left: "40%", top: "75%" },
-  };
-
-  const DECORATIVE_DOTS = [
-    { left: "65%", top: "25%" },
-    { left: "75%", top: "55%" },
-    { left: "60%", top: "70%" },
-  ];
-
-  if (!apiKey || !isLoaded) {
-    return (
-      <div
-        className={`relative overflow-hidden bg-[#F8FAFC] ${embedded ? "" : "min-h-[280px] md:min-h-[200px] rounded-[16px] border border-[#E2E8F0]"} ${className ?? ""}`}
-      >
-        <div
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#94A3B8 1px, transparent 1px), linear-gradient(90deg, #94A3B8 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-        <div
-          className="absolute rounded-[50%] bg-[#CBD5E1]/25"
-          style={{
-            left: "55%",
-            top: "45%",
-            width: "120px",
-            height: "100px",
-            transform: "translate(-50%, -50%) rotate(-15deg)",
-          }}
-        />
-        {zones.map((zone) => {
-          const pos = ZONE_POSITIONS[zone.slug];
-          if (!pos) return null;
-          return (
-            <button
-              key={zone.id}
-              type="button"
-              onClick={() => onZoneClick?.(zone.name_ka)}
-              className="absolute size-3 rounded-full border-[2px] border-white bg-[#A855F7] shadow-[0px_2px_6px_rgba(168,85,247,0.4)] transition-transform hover:scale-150 after:absolute after:-inset-3.5 after:content-['']"
-              style={{ left: pos.left, top: pos.top }}
-              title={zone.name_ka}
-            />
-          );
-        })}
-        {DECORATIVE_DOTS.map((pos, i) => (
-          <div
-            key={i}
-            className="absolute size-3 rounded-full border-[2px] border-white bg-[#A855F7] shadow-[0px_2px_6px_rgba(168,85,247,0.4)]"
-            style={{ left: pos.left, top: pos.top }}
-          />
-        ))}
-        <div className="absolute right-3 top-3 flex flex-col rounded-lg border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.05)]">
-          <span className="flex size-[34px] items-center justify-center border-b border-[#EEF1F4] text-[13px] font-bold text-[#334155]">
-            +
-          </span>
-          <span className="flex size-[34px] items-center justify-center border-b border-[#EEF1F4] text-[13px] font-bold text-[#334155]">
-            −
-          </span>
-          <span className="flex size-[34px] items-center justify-center text-[11px] font-bold text-[#334155]">
-            3D
-          </span>
-        </div>
-        <div className="absolute bottom-3 left-3 rounded-lg bg-white/90 px-3 py-1.5 text-[12px] font-bold text-[#334155] shadow-sm backdrop-blur-sm">
-          {t("bakuriani")}
-        </div>
-      </div>
-    );
-  }
-
   const mapContent = (
-    <GoogleMap
-      mapContainerStyle={containerStyle}
-      center={mapCenter}
-      zoom={zoom ?? (hasProperties ? 14 : 13)}
-      onLoad={onLoad}
-      onUnmount={onUnmount}
-      onClick={() => setSelectedId(null)}
-      options={{
-        styles: MAP_STYLES,
-        disableDefaultUI: true,
-        zoomControl: true,
-        zoomControlOptions: { position: 3 },
-        clickableIcons: false,
-      }}
+    <MapContainer
+      center={initialCenter}
+      zoom={initialZoom}
+      zoomControl={false}
+      scrollWheelZoom
+      style={{ height: "100%", width: "100%" }}
     >
-      {hasProperties
-        ? properties.map((p) => (
+      <TileLayer
+        url={TILE_URL}
+        attribution={TILE_ATTRIBUTION}
+        subdomains="abcd"
+        detectRetina
+        maxZoom={20}
+      />
+      <ZoomControl position="topright" />
+      <InvalidateOnMount />
+      <MapClickClear onClear={() => setSelectedId(null)} />
+
+      {hasProperties ? (
+        <>
+          {!center && (
+            <FitBounds
+              points={properties!}
+              boundsKey={boundsKey}
+              singleZoom={zoom ?? 14}
+            />
+          )}
+          {properties!.map((p) => (
             <PriceMarker
               key={p.id}
               property={p}
               isSelected={selectedId === p.id}
               isForSale={isForSale}
-              onClick={() => handlePropertyClick(p.id)}
-              onNavigate={onPropertyClick}
-            />
-          ))
-        : zones.map((zone) => (
-            <MarkerF
-              key={zone.id}
-              position={{ lat: zone.lat, lng: zone.lng }}
-              title={zone.name_ka}
-              onClick={() => onZoneClick?.(zone.name_ka)}
-              icon={{
-                path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
-                fillColor: "#2563EB",
-                fillOpacity: 1,
-                strokeColor: "#ffffff",
-                strokeWeight: 2,
-                scale: 1.5,
-                anchor: new google.maps.Point(12, 22),
+              onSelect={() => {
+                setSelectedId((prev) => (prev === p.id ? null : p.id));
+                onPropertyClick?.(p.id);
               }}
             />
           ))}
-    </GoogleMap>
+        </>
+      ) : (
+        zones.map((zone) => (
+          <Marker
+            key={zone.id}
+            position={[zone.lat, zone.lng]}
+            icon={ZONE_ICON}
+            eventHandlers={{ click: () => onZoneClick?.(zone.name_ka) }}
+          >
+            <Tooltip direction="top" offset={[0, -34]}>
+              {zone.name_ka}
+            </Tooltip>
+          </Marker>
+        ))
+      )}
+    </MapContainer>
   );
 
   return (

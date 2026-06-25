@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
+import { timeoutFetch } from "@/lib/with-timeout";
+
+const MIDDLEWARE_FETCH_TIMEOUT_MS = 5_000;
 
 function getSafeNextPath(request: NextRequest) {
   const redirectTo = request.nextUrl.pathname + request.nextUrl.search;
@@ -17,6 +20,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: timeoutFetch(MIDDLEWARE_FETCH_TIMEOUT_MS) },
       cookies: {
         getAll() {
           return request.cookies.getAll();

@@ -1,46 +1,72 @@
 "use client";
 
+import "leaflet/dist/leaflet.css";
 import { useCallback, useEffect, useState } from "react";
-import { GoogleMap, MarkerF } from "@react-google-maps/api";
+import L from "leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  ZoomControl,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import { useTranslations } from "next-intl";
 import NumberField from "@/components/shared/NumberField";
-import { SkierLoader } from "@/components/shared/SkierLoader";
+import { parseNumeric } from "@/lib/utils/number";
 
-const BAKURIANI_CENTER = { lat: 41.7509, lng: 43.5294 };
-const containerStyle = { width: "100%", height: "100%" };
+const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
 
-let scriptLoadPromise: Promise<void> | null = null;
-let mapsLoaded = false;
+// ── CartoDB Positron basemap (no API key, retina-ready) ──
+const TILE_URL =
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-function loadGoogleMaps(apiKey: string): Promise<void> {
-  if (mapsLoaded) return Promise.resolve();
-  if (scriptLoadPromise) return scriptLoadPromise;
-
-  scriptLoadPromise = new Promise<void>((resolve, reject) => {
-    if (typeof window !== "undefined" && window.google?.maps) {
-      mapsLoaded = true;
-      resolve();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      mapsLoaded = true;
-      resolve();
-    };
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-
-  return scriptLoadPromise;
-}
+const PIN_ICON = L.divIcon({
+  html: `<div class="bk-picker-pin-inner"><svg width="30" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#2563EB" stroke="#ffffff" stroke-width="2"/></svg></div>`,
+  className: "bk-picker-pin",
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
 
 interface ExactLocationPickerProps {
   value: { lat: number; lng: number } | null;
   onChange: (coords: { lat: number; lng: number }) => void;
+}
+
+// ── Map helpers (must live inside MapContainer) ──
+function ClickHandler({
+  onPick,
+}: {
+  onPick: (coords: { lat: number; lng: number }) => void;
+}) {
+  useMapEvents({
+    click: (e) =>
+      onPick({
+        lat: Number(e.latlng.lat.toFixed(6)),
+        lng: Number(e.latlng.lng.toFixed(6)),
+      }),
+  });
+  return null;
+}
+
+function Recenter({ value }: { value: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (value) map.setView([value.lat, value.lng]);
+  }, [value, map]);
+  return null;
+}
+
+function InvalidateOnMount() {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t = setTimeout(() => map.invalidateSize(), 200);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
 }
 
 export default function ExactLocationPicker({
@@ -48,40 +74,24 @@ export default function ExactLocationPicker({
   onChange,
 }: ExactLocationPickerProps) {
   const t = useTranslations("ExactLocationPicker");
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
-  const [isLoaded, setIsLoaded] = useState(mapsLoaded);
   const [latInput, setLatInput] = useState(value ? String(value.lat) : "");
   const [lngInput, setLngInput] = useState(value ? String(value.lng) : "");
-
-  useEffect(() => {
-    if (!apiKey) return;
-    loadGoogleMaps(apiKey).then(() => setIsLoaded(true));
-  }, [apiKey]);
 
   useEffect(() => {
     setLatInput(value ? String(value.lat) : "");
     setLngInput(value ? String(value.lng) : "");
   }, [value]);
 
-  const handleMapClick = useCallback(
-    (event: google.maps.MapMouseEvent) => {
-      if (!event.latLng) return;
-      onChange({
-        lat: Number(event.latLng.lat().toFixed(6)),
-        lng: Number(event.latLng.lng().toFixed(6)),
-      });
-    },
-    [onChange],
-  );
-
   const tryApplyManualCoordinates = useCallback(
     (nextLatInput: string, nextLngInput: string) => {
-      const lat = Number(nextLatInput);
-      const lng = Number(nextLngInput);
-      const hasValidNumbers = Number.isFinite(lat) && Number.isFinite(lng);
-      const inRange = lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+      // parseNumeric returns null for empty/partial input ("", "-", ".") so an
+      // in-progress edit never coerces to 0 and snaps the marker to (0, 0).
+      const lat = parseNumeric(nextLatInput);
+      const lng = parseNumeric(nextLngInput);
+      if (lat === null || lng === null) return;
 
-      if (!hasValidNumbers || !inRange) return;
+      const inRange = lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+      if (!inRange) return;
 
       onChange({
         lat: Number(lat.toFixed(6)),
@@ -91,39 +101,31 @@ export default function ExactLocationPicker({
     [onChange],
   );
 
-  if (!apiKey) {
-    return (
-      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#64748B]">
-        {t("missingApiKey")}
-      </div>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <div className="flex h-[240px] items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-        <SkierLoader variant="inline" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-2">
       <div className="h-[240px] overflow-hidden rounded-xl border border-[#E2E8F0]">
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={value ?? BAKURIANI_CENTER}
+        <MapContainer
+          center={value ? [value.lat, value.lng] : BAKURIANI_CENTER}
           zoom={value ? 15 : 13}
-          onClick={handleMapClick}
-          options={{
-            disableDefaultUI: true,
-            zoomControl: true,
-            clickableIcons: false,
-            gestureHandling: "greedy",
-          }}
+          zoomControl={false}
+          scrollWheelZoom
+          style={{ height: "100%", width: "100%" }}
         >
-          {value && <MarkerF position={value} />}
-        </GoogleMap>
+          <TileLayer
+            url={TILE_URL}
+            attribution={TILE_ATTRIBUTION}
+            subdomains="abcd"
+            detectRetina
+            maxZoom={20}
+          />
+          <ZoomControl position="topright" />
+          <InvalidateOnMount />
+          <ClickHandler onPick={onChange} />
+          <Recenter value={value} />
+          {value && (
+            <Marker position={[value.lat, value.lng]} icon={PIN_ICON} />
+          )}
+        </MapContainer>
       </div>
       <p className="text-xs text-[#64748B]">{t("clickHint")}</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

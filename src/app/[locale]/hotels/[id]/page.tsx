@@ -16,6 +16,11 @@ interface Props {
 
 export const revalidate = 120;
 
+// ISR: rendered on first request, then cached/revalidated (dynamicParams=true).
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });

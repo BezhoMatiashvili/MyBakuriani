@@ -175,3 +175,49 @@
     display: none;
   }
 }
+
+/* ── Leaflet map overrides ──
+   Cap the map's stacking context so its panes/controls never overlay the
+   app navbar or modals, and strip the default chrome from our custom
+   divIcon markers and the price hover-card tooltip. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+  background: #f8fafc;
+  font: inherit;
+}
+
+/* Custom divIcons carry their own styling — remove Leaflet's default box. */
+.bk-price-marker,
+.bk-zone-pin,
+.bk-picker-pin {
+  background: transparent;
+  border: 0;
+}
+
+/* Center the price pill on its geographic point. */
+.bk-pill {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+/* Anchor the teardrop pins by their tip. */
+.bk-zone-pin-inner,
+.bk-picker-pin-inner {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  line-height: 0;
+}
+
+/* Strip default tooltip chrome so the property hover-card shows cleanly. */
+.leaflet-tooltip.bk-card-tooltip {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  white-space: normal;
+}
+.leaflet-tooltip.bk-card-tooltip::before {
+  display: none;
+}

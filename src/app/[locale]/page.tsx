@@ -5,10 +5,21 @@ import { Suspense } from "react";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { fetchActiveBanners } from "@/lib/banners-server";
-import { getActiveZones, nearestZoneFrom, type Zone } from "@/lib/zones/server";
-import { getStatusCards } from "@/lib/status-cards/server";
+import {
+  getActiveZones,
+  nearestZoneFrom,
+  FALLBACK_ZONES,
+  type Zone,
+} from "@/lib/zones/server";
+import {
+  getStatusCards,
+  DEFAULT_STATUS_CARDS,
+} from "@/lib/status-cards/server";
+import { withTimeout } from "@/lib/with-timeout";
+import type { LandingBanner } from "@/lib/banners";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
+const LANDING_DEP_TIMEOUT_MS = 7_000;
 
 export type PricePerSqmByZone = Record<string, number | null>;
 
@@ -188,16 +199,33 @@ function aggregatePricePerSqm(
 }
 
 async function LandingWithData() {
-  // getActiveZones never rejects (falls back internally), so the shared
-  // promise is safe to await in multiple places.
-  const zonesPromise = getActiveZones();
+  // Every dependency is time-bounded with a fallback so a slow/hung Supabase
+  // read degrades to partial content instead of freezing the page on its
+  // loading fallback forever (the client-level fetch timeouts are the backstop).
+  const zonesPromise = withTimeout(
+    getActiveZones(),
+    LANDING_DEP_TIMEOUT_MS,
+    FALLBACK_ZONES,
+  );
   const [zones, props, infoBanners, promoBanners, statusCards] =
     await Promise.all([
       zonesPromise,
       fetchLandingProps(zonesPromise),
-      fetchActiveBanners("info").catch(() => []),
-      fetchActiveBanners("promo").catch(() => []),
-      getStatusCards(),
+      withTimeout(
+        fetchActiveBanners("info"),
+        LANDING_DEP_TIMEOUT_MS,
+        [] as LandingBanner[],
+      ),
+      withTimeout(
+        fetchActiveBanners("promo"),
+        LANDING_DEP_TIMEOUT_MS,
+        [] as LandingBanner[],
+      ),
+      withTimeout(
+        getStatusCards(),
+        LANDING_DEP_TIMEOUT_MS,
+        DEFAULT_STATUS_CARDS,
+      ),
     ]);
   return (
     <LandingPage

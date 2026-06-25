@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/server";
 import {
   FALLBACK_ZONES,
@@ -19,7 +20,7 @@ function normaliseIcon(value: string): ZoneIcon {
   return value === "tree" || value === "pin" ? value : "mountain";
 }
 
-export async function getActiveZones(): Promise<Zone[]> {
+export const getActiveZones = cache(async (): Promise<Zone[]> => {
   try {
     const db = createPublicClient();
     const { data, error } = await db
@@ -40,4 +41,4 @@ export async function getActiveZones(): Promise<Zone[]> {
   } catch {
     return FALLBACK_ZONES;
   }
-}
+});

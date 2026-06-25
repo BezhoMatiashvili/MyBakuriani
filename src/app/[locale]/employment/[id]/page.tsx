@@ -14,6 +14,14 @@ interface Props {
   params: Promise<{ locale: AppLocale; id: string }>;
 }
 
+export const revalidate = 120;
+
+// ISR: rendered on first request, then cached/revalidated. No build-time
+// Supabase prerender (dynamicParams defaults to true).
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });

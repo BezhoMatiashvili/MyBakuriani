@@ -16,6 +16,13 @@ interface Props {
 
 export const revalidate = 120;
 
+// Opt the [id] route into ISR: nothing is prerendered at build (so the build
+// has no Supabase dependency), but each detail page is rendered on first request
+// and then cached/revalidated for everyone. dynamicParams defaults to true.
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });

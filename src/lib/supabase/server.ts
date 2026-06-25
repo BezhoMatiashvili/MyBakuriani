@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/types/database";
+import { timeoutFetch } from "@/lib/with-timeout";
+
+const SERVER_FETCH_TIMEOUT_MS = 8_000;
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -9,6 +12,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: timeoutFetch(SERVER_FETCH_TIMEOUT_MS) },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -33,6 +37,7 @@ export function createPublicClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: timeoutFetch(SERVER_FETCH_TIMEOUT_MS) },
       cookies: {
         getAll() {
           return [];

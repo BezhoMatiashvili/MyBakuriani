@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/server";
 import { DEFAULT_STATUS_CARDS, type StatusCard } from "./types";
 
@@ -9,7 +10,7 @@ export const STATUS_CARDS_SETTING_KEY = "status_cards";
 // Reads the admin-managed status cards from site_settings, returning only the
 // active ones. Falls back to DEFAULT_STATUS_CARDS on any error or empty row so
 // the public hero never renders blank (mirrors getActiveZones / FALLBACK_ZONES).
-export async function getStatusCards(): Promise<StatusCard[]> {
+export const getStatusCards = cache(async (): Promise<StatusCard[]> => {
   try {
     const db = createPublicClient();
     const { data, error } = await db
@@ -30,4 +31,4 @@ export async function getStatusCards(): Promise<StatusCard[]> {
   } catch {
     return DEFAULT_STATUS_CARDS;
   }
-}
+});

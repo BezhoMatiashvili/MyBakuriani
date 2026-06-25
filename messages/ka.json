@@ -969,6 +969,8 @@
   },
   "Shared": {
     "loading": "იტვირთება",
+    "stillLoading": "ჩატვირთვას ჩვეულებრივზე მეტი დრო სჭირდება.",
+    "reload": "ხელახლა ცადეთ",
     "close": "დახურვა",
     "back": "უკან დაბრუნება",
     "constructionProgress": "მშენებლობის პროგრესი",
@@ -1060,7 +1062,6 @@
     "viewOnMapAria": "{name} — ნახე რუკაზე"
   },
   "ExactLocationPicker": {
-    "missingApiKey": "ზუსტი ლოკაციის ასარჩევად დაამატეთ `NEXT_PUBLIC_GOOGLE_MAPS_KEY`.",
     "clickHint": "რუკაზე დააჭირეთ სასურველ წერტილს ზუსტი მდებარეობის ასარჩევად.",
     "manualHint": "შეგიძლიათ ხელითაც ჩაწეროთ კოორდინატები (lat/lng).",
     "selectedCoords": "არჩეული კოორდინატები: {lat}, {lng}"

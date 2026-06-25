@@ -14,7 +14,7 @@ export function useActiveZones(): { zones: Zone[]; loading: boolean } {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/zones")
+    fetch("/api/zones", { signal: AbortSignal.timeout(8_000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((payload) => {
         if (cancelled) return;

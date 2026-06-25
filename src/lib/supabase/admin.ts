@@ -1,5 +1,8 @@
 import { createClient as createJsClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
+import { timeoutFetch } from "@/lib/with-timeout";
+
+const ADMIN_FETCH_TIMEOUT_MS = 8_000;
 
 let cached: ReturnType<typeof createJsClient<Database>> | null = null;
 
@@ -26,11 +29,15 @@ export function createServiceClient(actorId?: string) {
     // Per-request header → never cache this client.
     return createJsClient<Database>(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { "x-actor-id": actorId } },
+      global: {
+        fetch: timeoutFetch(ADMIN_FETCH_TIMEOUT_MS),
+        headers: { "x-actor-id": actorId },
+      },
     });
   }
   cached = createJsClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: timeoutFetch(ADMIN_FETCH_TIMEOUT_MS) },
   });
   return cached;
 }

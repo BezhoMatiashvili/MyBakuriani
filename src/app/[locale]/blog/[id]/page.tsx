@@ -16,6 +16,11 @@ interface Props {
 
 export const revalidate = 120;
 
+// ISR: rendered on first request, then cached/revalidated (dynamicParams=true).
+export async function generateStaticParams() {
+  return [];
+}
+
 const getBlogPostMetadata = cache(async (id: string) => {
   const supabase = createPublicClient();
   return supabase

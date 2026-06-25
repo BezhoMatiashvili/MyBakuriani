@@ -22,18 +22,20 @@ export async function generateMetadata({
 
 export default async function HotelsPage() {
   const supabase = createPublicClient();
-  const statusCards = await getStatusCards();
-
-  const { data: properties, error } = await supabase
-    .from("properties")
-    .select("*")
-    .eq("status", "active")
-    .eq("is_for_sale", false)
-    .eq("type", "hotel")
-    .order("is_super_vip", { ascending: false })
-    .order("is_vip", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(100);
+  // Fetch status cards and listings in parallel instead of serially.
+  const [statusCards, { data: properties, error }] = await Promise.all([
+    getStatusCards(),
+    supabase
+      .from("properties")
+      .select("*")
+      .eq("status", "active")
+      .eq("is_for_sale", false)
+      .eq("type", "hotel")
+      .order("is_super_vip", { ascending: false })
+      .order("is_vip", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
 
   if (error) {
     console.error("[hotels] failed to load properties", error.message);

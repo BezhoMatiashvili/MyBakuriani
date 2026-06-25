@@ -1,8 +1,10 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+
+const WATCHDOG_MS = 12_000;
 
 type Variant = "page" | "fullscreen" | "inline";
 
@@ -21,6 +23,12 @@ export function SkierLoader({
   const resolvedLabel = label ?? t("loading");
   const wrapperClass = wrapperByVariant[variant];
   const skierWidth = variant === "inline" ? "w-32" : "w-56";
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    if (variant === "inline") return;
+    const id = setTimeout(() => setStuck(true), WATCHDOG_MS);
+    return () => clearTimeout(id);
+  }, [variant]);
 
   return (
     <div className={[wrapperClass, className].filter(Boolean).join(" ")}>
@@ -50,6 +58,18 @@ export function SkierLoader({
           </div>
         ) : null}
       </div>
+      {stuck && variant !== "inline" ? (
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <p className="text-sm text-slate-500">{t("stillLoading")}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-xl bg-[#2563EB] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#1D4ED8]"
+          >
+            {t("reload")}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

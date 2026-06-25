@@ -969,6 +969,8 @@
   },
   "Shared": {
     "loading": "Loading",
+    "stillLoading": "This is taking longer than usual.",
+    "reload": "Reload",
     "close": "Close",
     "back": "Go back",
     "constructionProgress": "Construction progress",
@@ -1060,7 +1062,6 @@
     "viewOnMapAria": "{name} — view on map"
   },
   "ExactLocationPicker": {
-    "missingApiKey": "To pick an exact location, add `NEXT_PUBLIC_GOOGLE_MAPS_KEY`.",
     "clickHint": "Click the desired point on the map to set the exact location.",
     "manualHint": "You can also enter the coordinates manually (lat/lng).",
     "selectedCoords": "Selected coordinates: {lat}, {lng}"

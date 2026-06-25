@@ -12,11 +12,16 @@ export function useAuth() {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // .finally guarantees loading clears even if getSession rejects — otherwise
+    // auth-gated UI would spin forever.
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
 
     // Listen for auth changes
     const {

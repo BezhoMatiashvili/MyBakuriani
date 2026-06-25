@@ -969,6 +969,8 @@
   },
   "Shared": {
     "loading": "Загрузка",
+    "stillLoading": "Это занимает больше времени, чем обычно.",
+    "reload": "Перезагрузить",
     "close": "Закрыть",
     "back": "Назад",
     "constructionProgress": "Ход строительства",
@@ -1060,7 +1062,6 @@
     "viewOnMapAria": "{name} — посмотреть на карте"
   },
   "ExactLocationPicker": {
-    "missingApiKey": "Чтобы выбрать точное местоположение, добавьте `NEXT_PUBLIC_GOOGLE_MAPS_KEY`.",
     "clickHint": "Нажмите на нужную точку на карте, чтобы выбрать точное местоположение.",
     "manualHint": "Координаты (lat/lng) можно ввести и вручную.",
     "selectedCoords": "Выбранные координаты: {lat}, {lng}"

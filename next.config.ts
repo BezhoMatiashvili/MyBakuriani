@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import withBundleAnalyzerInit from "@next/bundle-analyzer";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+// Run `ANALYZE=true npm run build` to emit the interactive bundle report.
+const withBundleAnalyzer = withBundleAnalyzerInit({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const securityHeaders = [
   {
@@ -36,7 +42,7 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: ["lucide-react", "date-fns"],
+    optimizePackageImports: ["lucide-react", "date-fns", "framer-motion"],
   },
   async headers() {
     return [
@@ -48,4 +54,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+export default withBundleAnalyzer(withNextIntl(nextConfig));

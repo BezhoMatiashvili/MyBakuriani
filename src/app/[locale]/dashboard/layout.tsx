@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { deriveAvailableCabinets } from "@/lib/cabinets";
+
+// Dashboards render per-user data server-side (auth cookies, balances, roles)
+// and redirect when signed out, so they must never be statically prerendered.
+export const dynamic = "force-dynamic";
 
 const SMS_PLAN_TOTAL = 100;
 
@@ -37,9 +42,13 @@ export default async function DashboardLayout({
 
   // One RPC instead of 7 parallel REST queries — counts, balance and
   // cabinet-derivation flags arrive in a single round trip.
-  const [profile, layoutRes] = await Promise.all([
+  // The root [locale] provider only ships public namespaces, so re-provide the
+  // full message bundle for the dashboard subtree (nested providers replace,
+  // not merge — locale/timeZone/formats are still inherited from the parent).
+  const [profile, layoutRes, messages] = await Promise.all([
     getCurrentProfile(),
     supabase.rpc("dashboard_layout_data"),
+    getMessages(),
   ]);
 
   // Defensive: fall back to safe defaults if the RPC errors (e.g. code
@@ -64,19 +73,21 @@ export default async function DashboardLayout({
   });
 
   return (
-    <DashboardShell
-      userId={user.id}
-      displayName={displayName}
-      role={role}
-      avatarUrl={avatarUrl}
-      initialNotificationCount={notificationCount}
-      balance={balance}
-      smsRemaining={smsRemaining}
-      smartMatchCount={smartMatchCount}
-      availableCabinets={availableCabinets}
-      cleanerOnline={data.cleaner_online ?? true}
-    >
-      {children}
-    </DashboardShell>
+    <NextIntlClientProvider messages={messages}>
+      <DashboardShell
+        userId={user.id}
+        displayName={displayName}
+        role={role}
+        avatarUrl={avatarUrl}
+        initialNotificationCount={notificationCount}
+        balance={balance}
+        smsRemaining={smsRemaining}
+        smartMatchCount={smartMatchCount}
+        availableCabinets={availableCabinets}
+        cleanerOnline={data.cleaner_online ?? true}
+      >
+        {children}
+      </DashboardShell>
+    </NextIntlClientProvider>
   );
 }

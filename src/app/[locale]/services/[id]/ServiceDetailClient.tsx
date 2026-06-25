@@ -138,6 +138,7 @@ export default function ServiceDetailClient({
                   src={owner.avatar_url}
                   alt={owner.display_name ?? ""}
                   fill
+                  sizes="28px"
                   className="object-cover"
                 />
               ) : (

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Heart, MapPin, Clock } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
@@ -172,13 +171,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     isHotel && !showHotelDiscount && hotelStars != null && hotelStars > 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      whileHover={{ scale: 1.02 }}
-      className="group h-full"
-    >
+    <div className="group h-full animate-in fade-in slide-in-from-bottom-4 duration-300 transition-transform hover:scale-[1.02]">
       <Link
         href={href}
         className="flex h-auto min-h-[420px] md:h-[440px] flex-col overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
@@ -347,6 +340,6 @@ export default function PropertyCard(props: PropertyCardProps) {
           </div>
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }
