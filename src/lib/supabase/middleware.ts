@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
 import { timeoutFetch } from "@/lib/with-timeout";
@@ -53,16 +54,28 @@ export async function updateSession(request: NextRequest) {
   try {
     const {
       data: { user },
+      error,
     } = await supabase.auth.getUser();
 
     if (!user && isProtected) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/auth/login";
-      url.searchParams.set("next", getSafeNextPath(request));
-      return NextResponse.redirect(url);
+      // getUser() resolves to { user: null, error } on a transient network/timeout
+      // failure (AuthRetryableFetchError) — it does NOT throw. Booting the user in
+      // that case is a false logout. Only redirect on a confirmed signed-out state;
+      // let transient failures through so page guards (and the client) re-validate.
+      if (isAuthRetryableFetchError(error)) {
+        console.warn(
+          "[middleware] transient auth check, letting request through:",
+          error.message,
+        );
+      } else {
+        const url = request.nextUrl.clone();
+        url.pathname = "/auth/login";
+        url.searchParams.set("next", getSafeNextPath(request));
+        return NextResponse.redirect(url);
+      }
     }
   } catch (err) {
-    // A transient network/fetch error from Edge → Supabase must NOT log the user out.
+    // A genuine throw (e.g. lock-acquire timeout) is also transient — never boot.
     // The browser client still has a valid session; let the request through and let
     // client-side guards re-validate. Only confirmed "user === null" gates protected routes.
     console.error("[middleware] supabase.auth.getUser threw:", err);

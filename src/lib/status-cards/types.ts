@@ -25,7 +25,15 @@ export type StatusIcon =
   | "car"
   | "route"
   | "video"
-  | "camera";
+  | "camera"
+  // Weather-condition icons — auto-assigned to the live weather card from the
+  // Open-Meteo WMO code (see src/lib/weather/server.ts).
+  | "sun"
+  | "cloudSun"
+  | "cloudRain"
+  | "cloudSnow"
+  | "cloudFog"
+  | "cloudLightning";
 export const STATUS_ICONS: StatusIcon[] = [
   "none",
   "thermometer",
@@ -37,6 +45,12 @@ export const STATUS_ICONS: StatusIcon[] = [
   "route",
   "video",
   "camera",
+  "sun",
+  "cloudSun",
+  "cloudRain",
+  "cloudSnow",
+  "cloudFog",
+  "cloudLightning",
 ];
 
 export type StatusCardItem = {

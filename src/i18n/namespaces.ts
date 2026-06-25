@@ -41,6 +41,7 @@ export const PUBLIC_NAMESPACES = [
   "Error",
   "ExactLocationPicker",
   "FAQ",
+  "Favorites",
   "FilterPanel",
   "FoodDetail",
   "FoodPage",

@@ -6,15 +6,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, Share2, Heart } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { shareListing } from "@/lib/share";
+import { useFavorite } from "@/lib/hooks/useFavorite";
 
 interface PhotoGalleryProps {
   photos: string[];
   title: string;
+  propertyId: string;
 }
 
-export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
+export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
   const t = useTranslations("PhotoGallery");
   const tShare = useTranslations("ShareListing");
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite(propertyId);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const openLightbox = useCallback((index: number) => {
@@ -74,10 +81,18 @@ export function PhotoGallery({ photos, title }: PhotoGalleryProps) {
           <Share2 className="h-[18px] w-[18px]" />
         </button>
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-red-500"
+          type="button"
+          onClick={toggleFavorite}
+          disabled={favoriteBusy}
+          aria-pressed={isFavorited}
           aria-label={t("addToFavorites")}
+          className={`flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white transition-colors hover:bg-[#F8FAFC] disabled:opacity-60 ${
+            isFavorited ? "text-red-500" : "text-[#64748B] hover:text-red-500"
+          }`}
         >
-          <Heart className="h-[18px] w-[18px]" />
+          <Heart
+            className={`h-[18px] w-[18px] ${isFavorited ? "fill-current" : ""}`}
+          />
         </button>
       </div>
 

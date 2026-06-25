@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { propertyTypeLabelKa } from "@/lib/notifications/listing-labels";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
 
 export const runtime = "nodejs";
 
@@ -54,16 +56,54 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Look up the verified property (if any) so the notification names it.
+  let property: {
+    title: string | null;
+    type: string | null;
+    is_for_sale: boolean | null;
+  } | null = null;
+  if (verification.property_id) {
+    const { data } = await db
+      .from("properties")
+      .select("title, type, is_for_sale")
+      .eq("id", verification.property_id)
+      .maybeSingle();
+    property = data;
+  }
+
+  const notes = body.notes?.trim();
+  const approved = body.action === "approve";
+  let message: string;
+  let action_url = "/dashboard";
+  if (property) {
+    const name = property.title?.trim() || propertyTypeLabelKa(property.type);
+    message = approved
+      ? `თქვენი ობიექტი „${name}" ვერიფიცირებულია.`
+      : `ობიექტის „${name}" ვერიფიკაცია უარყოფილია.${
+          notes ? ` მიზეზი: ${notes}` : ""
+        }`;
+    if (approved && verification.property_id) {
+      action_url = propertyViewUrl({
+        id: verification.property_id,
+        type: property.type,
+        is_for_sale: property.is_for_sale,
+      });
+    }
+  } else {
+    message = approved
+      ? "თქვენი ვერიფიკაცია წარმატებით დასრულდა."
+      : `თქვენი ვერიფიკაცია უარყოფილია.${notes ? ` მიზეზი: ${notes}` : ""}`;
+  }
+
   // Notify owner.
   await db.from("notifications").insert({
     user_id: verification.user_id,
     type: "verification",
-    title:
-      body.action === "approve"
-        ? "თქვენი ვერიფიკაცია დამტკიცდა"
-        : "თქვენი ვერიფიკაცია უარყოფილია",
-    message: body.notes ?? null,
-    action_url: "/dashboard/renter",
+    title: approved
+      ? "თქვენი ვერიფიკაცია დამტკიცდა"
+      : "თქვენი ვერიფიკაცია უარყოფილია",
+    message,
+    action_url,
   });
 
   return Response.json({ ok: true, status });

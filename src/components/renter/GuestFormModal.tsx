@@ -32,18 +32,24 @@ export default function GuestFormModal({
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [visitDates, setVisitDates] = useState("");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      const [ci, co] = splitVisitDates(guest?.visit_dates);
       setName(guest?.name ?? "");
       setPhone(guest?.phone ?? "");
-      setVisitDates(guest?.visit_dates ?? "");
+      setCheckIn(ci);
+      setCheckOut(co);
       setNote(guest?.note ?? "");
     }
   }, [isOpen, guest]);
+
+  // Both ISO dates compare chronologically as strings (zero-padded).
+  const datesValid = Boolean(checkIn && checkOut && checkOut > checkIn);
 
   useEffect(() => {
     if (isOpen) {
@@ -63,14 +69,14 @@ export default function GuestFormModal({
 
   const handleSubmit = async () => {
     const trimmedName = name.trim();
-    if (!trimmedName || saving) return;
+    if (!trimmedName || !datesValid || saving) return;
 
     setSaving(true);
     try {
       const payload = {
         name: trimmedName,
         phone: phone.trim() || null,
-        visit_dates: visitDates.trim() || null,
+        visit_dates: `${checkIn}/${checkOut}`,
         note: note.trim() || null,
       };
 
@@ -153,14 +159,22 @@ export default function GuestFormModal({
                 />
               </Field>
 
-              <Field label={t("visitDates")}>
-                <DateField
-                  value={visitDates}
-                  onChange={setVisitDates}
-                  clearable
-                  placeholder={t("visitDatesPlaceholder")}
-                />
-              </Field>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label={t("checkIn")}>
+                  <DateField
+                    value={checkIn}
+                    onChange={setCheckIn}
+                    max={checkOut || undefined}
+                  />
+                </Field>
+                <Field label={t("checkOut")}>
+                  <DateField
+                    value={checkOut}
+                    onChange={setCheckOut}
+                    min={checkIn || undefined}
+                  />
+                </Field>
+              </div>
 
               <Field label={tShared("note")}>
                 <textarea
@@ -176,7 +190,7 @@ export default function GuestFormModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!name.trim() || saving}
+              disabled={!name.trim() || !datesValid || saving}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
             >
               {saving ? tShared("saving") : tShared("save")}
@@ -186,6 +200,18 @@ export default function GuestFormModal({
       )}
     </AnimatePresence>
   );
+}
+
+/**
+ * Split a stored visit_dates value into [checkIn, checkOut] ISO strings.
+ * "2026-02-10/2026-02-12" -> ["2026-02-10", "2026-02-12"]
+ * Legacy single ISO date    -> [date, ""]
+ * Legacy free text          -> ["", ""] (forces re-entry of both dates)
+ */
+function splitVisitDates(raw: string | null | undefined): [string, string] {
+  const isISO = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const [a, b] = (raw ?? "").split("/");
+  return [isISO(a) ? a : "", isISO(b) ? b : ""];
 }
 
 function Field({

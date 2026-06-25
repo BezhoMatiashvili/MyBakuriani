@@ -16,7 +16,11 @@ import { MapPinned } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
-import { isValidGePhone, isValidCadastralCode } from "@/lib/utils/number";
+import {
+  isValidGePhone,
+  isValidCadastralCode,
+  sanitizeCadastralCode,
+} from "@/lib/utils/number";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
@@ -668,7 +672,7 @@ function CreateSalePageInner() {
                 type="text"
                 value={cadastralCode}
                 onChange={(e) =>
-                  setCadastralCode(e.target.value.replace(/[^0-9.]/g, ""))
+                  setCadastralCode(sanitizeCadastralCode(e.target.value))
                 }
                 placeholder="00.00.00.000..."
                 className={inputClass}

@@ -2329,6 +2329,43 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      create_manual_booking: {
+        Args: {
+          p_amount?: number;
+          p_check_in: string;
+          p_check_out: string;
+          p_client_list?: string;
+          p_guest_name?: string;
+          p_guest_phone?: string;
+          p_guests_count?: number;
+          p_note?: string;
+          p_property_id: string;
+          p_source?: string;
+          p_status?: string;
+        };
+        Returns: {
+          amount: number | null;
+          check_in: string;
+          check_out: string;
+          client_list: string | null;
+          created_at: string | null;
+          guest_name: string | null;
+          guest_phone: string | null;
+          guests_count: number | null;
+          id: string;
+          note: string | null;
+          owner_id: string;
+          property_id: string;
+          source: string | null;
+          status: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "manual_bookings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       dashboard_layout_data: { Args: never; Returns: Json };
       get_platform_cleaners: {
         Args: never;
@@ -2457,6 +2494,43 @@ export type Database = {
       topup_balance: {
         Args: { p_amount: number; p_description?: string; p_user_id: string };
         Returns: number;
+      };
+      update_manual_booking: {
+        Args: {
+          p_amount?: number;
+          p_check_in: string;
+          p_check_out: string;
+          p_client_list?: string;
+          p_guest_name?: string;
+          p_guest_phone?: string;
+          p_guests_count?: number;
+          p_id: string;
+          p_note?: string;
+          p_source?: string;
+          p_status?: string;
+        };
+        Returns: {
+          amount: number | null;
+          check_in: string;
+          check_out: string;
+          client_list: string | null;
+          created_at: string | null;
+          guest_name: string | null;
+          guest_phone: string | null;
+          guests_count: number | null;
+          id: string;
+          note: string | null;
+          owner_id: string;
+          property_id: string;
+          source: string | null;
+          status: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "manual_bookings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
     };
     Enums: {

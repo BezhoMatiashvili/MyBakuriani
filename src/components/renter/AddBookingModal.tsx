@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Briefcase, ChevronDown, Trash2, Check } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
+import { datesInRange } from "@/lib/utils/availability";
 import type { Tables } from "@/lib/types/database";
 
 const clientListKeys = ["platform", "booking", "social", "direct"] as const;
@@ -31,6 +32,13 @@ const inputClass =
   "w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10";
 
 export type BookingMode = "create" | "edit" | "view";
+
+// Returned by the parent's create/edit handlers so the modal can show an inline
+// error and stay open on a date conflict instead of closing silently.
+export type BookingSubmitResult = {
+  ok: boolean;
+  errorCode?: "datesUnavailable" | "generic";
+};
 
 export interface AddBookingPayload {
   checkIn: string;
@@ -60,13 +68,18 @@ interface AddBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode?: BookingMode;
-  onSubmit?: (payload: AddBookingPayload) => void; // create
-  onSave?: (payload: AddBookingPayload) => void; // edit
+  onSubmit?: (
+    payload: AddBookingPayload,
+  ) => Promise<BookingSubmitResult | void>; // create
+  onSave?: (payload: AddBookingPayload) => Promise<BookingSubmitResult | void>; // edit
   onDelete?: () => void; // edit → cancel booking
   initialCheckIn?: string;
   initialCheckOut?: string;
   existing?: Tables<"manual_bookings"> | null; // edit prefill
   viewBooking?: ViewBooking | null; // view (platform) data
+  /** Nights already taken (booked/blocked) for this property, excluding the
+   *  booking being edited — used for instant client-side overlap feedback. */
+  occupiedNights?: Set<string>;
 }
 
 export default function AddBookingModal({
@@ -80,6 +93,7 @@ export default function AddBookingModal({
   initialCheckOut = "",
   existing = null,
   viewBooking = null,
+  occupiedNights,
 }: AddBookingModalProps) {
   const t = useTranslations("RenterDashboard.modals.addBooking");
   const tShared = useTranslations("DashboardShared");
@@ -96,11 +110,15 @@ export default function AddBookingModal({
   const [clientListKey, setClientListKey] = useState<ClientListKey>("platform");
   const [saveToContacts, setSaveToContacts] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // (Re)hydrate the form whenever the modal opens or its source data changes.
   useEffect(() => {
     if (!isOpen) return;
     setConfirmingDelete(false);
+    setSubmitError(null);
+    setSubmitting(false);
     if (mode === "edit" && existing) {
       setCheckIn(existing.check_in);
       setCheckOut(existing.check_out);
@@ -149,6 +167,21 @@ export default function AddBookingModal({
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [isOpen, onClose]);
+
+  // Instant client-side overlap check: reject a check-out on/before check-in, or
+  // a range that touches an already-occupied night. The server RPC is the hard
+  // guarantee; this just gives immediate feedback and disables submit.
+  const rangeError = useMemo<string | null>(() => {
+    if (mode === "view" || !checkIn || !checkOut) return null;
+    if (checkOut <= checkIn) return t("invalidDates");
+    if (!occupiedNights || occupiedNights.size === 0) return null;
+    const nights = datesInRange(checkIn, checkOut).filter(
+      (d) => d !== checkOut,
+    );
+    return nights.some((d) => occupiedNights.has(d))
+      ? t("datesUnavailable")
+      : null;
+  }, [mode, checkIn, checkOut, occupiedNights, t]);
 
   const buildPayload = (): AddBookingPayload => ({
     checkIn,
@@ -377,15 +410,37 @@ export default function AddBookingModal({
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (mode === "edit") onSave?.(buildPayload());
-                    else onSubmit?.(buildPayload());
+                  disabled={submitting || Boolean(rangeError)}
+                  onClick={async () => {
+                    setSubmitError(null);
+                    if (rangeError) return;
+                    const fn = mode === "edit" ? onSave : onSubmit;
+                    setSubmitting(true);
+                    const res = await fn?.(buildPayload());
+                    setSubmitting(false);
+                    // Keep the modal open and show the reason on a date conflict.
+                    if (res && res.ok === false) {
+                      setSubmitError(
+                        res.errorCode === "datesUnavailable"
+                          ? t("datesUnavailable")
+                          : t("genericError"),
+                      );
+                      return;
+                    }
                     onClose();
                   }}
-                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF]"
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {mode === "edit" ? tShared("save") : tShared("add")}
                 </button>
+
+                {(rangeError || submitError) && (
+                  <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3">
+                    <p className="text-[12px] font-semibold text-[#B91C1C]">
+                      {rangeError ?? submitError}
+                    </p>
+                  </div>
+                )}
 
                 {mode === "edit" &&
                   (confirmingDelete ? (

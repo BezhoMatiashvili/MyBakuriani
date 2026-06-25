@@ -59,7 +59,12 @@ export default function LoginPage() {
       return;
     }
     const next = searchParams.get("next");
-    router.push(next || (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest"));
+    const target = next || (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest");
+    // Re-render server components against the just-committed auth cookie so the
+    // force-dynamic dashboard sees the session on the first navigation (no
+    // bounce back to login that would force a second click).
+    router.refresh();
+    router.push(target);
   }
 
   async function handleSendOtp() {

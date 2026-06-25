@@ -15,6 +15,7 @@ import {
   getStatusCards,
   DEFAULT_STATUS_CARDS,
 } from "@/lib/status-cards/server";
+import { getBakurianiWeather, withLiveWeather } from "@/lib/weather/server";
 import { withTimeout } from "@/lib/with-timeout";
 import type { LandingBanner } from "@/lib/banners";
 
@@ -207,7 +208,7 @@ async function LandingWithData() {
     LANDING_DEP_TIMEOUT_MS,
     FALLBACK_ZONES,
   );
-  const [zones, props, infoBanners, promoBanners, statusCards] =
+  const [zones, props, infoBanners, promoBanners, statusCards, weather] =
     await Promise.all([
       zonesPromise,
       fetchLandingProps(zonesPromise),
@@ -226,11 +227,17 @@ async function LandingWithData() {
         LANDING_DEP_TIMEOUT_MS,
         DEFAULT_STATUS_CARDS,
       ),
+      withTimeout(getBakurianiWeather(), LANDING_DEP_TIMEOUT_MS, null),
     ]);
+
+  // Live weather always overrides the weather card's value/icon; falls back to
+  // the DB/default value when the fetch failed or timed out (weather === null).
+  const statusCardsWithWeather = withLiveWeather(statusCards, weather);
+
   return (
     <LandingPage
       zones={zones}
-      statusCards={statusCards}
+      statusCards={statusCardsWithWeather}
       hotOffers={props.hotOffers}
       hotels={props.hotels}
       saleProperties={props.saleProperties}

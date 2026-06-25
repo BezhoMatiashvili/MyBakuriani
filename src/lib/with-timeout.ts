@@ -34,18 +34,39 @@ export async function withTimeout<T>(
  * `global.fetch` for every Supabase client so a stalled HTTP request rejects
  * (letting the surrounding try/catch fall back) instead of hanging forever.
  *
+ * Auth requests (`/auth/v1/*` — login, OTP verify, token refresh) get a
+ * generous, still-bounded window instead of the aggressive data timeout:
+ * aborting them mid-flight surfaces as failed logins (the "press login twice"
+ * bug) and dropped refreshes (false logouts). The anti-hang layer exists to
+ * stop *data* fetches from freezing the page loader, not to police auth.
+ *
  * Uses a manual AbortController rather than `AbortSignal.timeout` so that any
  * caller-provided signal is still honoured (Supabase's auth layer passes one).
  */
+const AUTH_FETCH_TIMEOUT_MS = 25_000;
+
 export function timeoutFetch(ms: number): typeof fetch {
   return (input, init) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+    const effectiveMs = url.includes("/auth/v1/")
+      ? Math.max(ms, AUTH_FETCH_TIMEOUT_MS)
+      : ms;
+
     const controller = new AbortController();
     const timer = setTimeout(
       () =>
         controller.abort(
-          new DOMException(`fetch timed out after ${ms}ms`, "TimeoutError"),
+          new DOMException(
+            `fetch timed out after ${effectiveMs}ms`,
+            "TimeoutError",
+          ),
         ),
-      ms,
+      effectiveMs,
     );
 
     const callerSignal = init?.signal;

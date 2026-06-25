@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Eye, Plus, Star } from "lucide-react";
@@ -16,7 +16,9 @@ import GuestOffersModal, {
   type GuestOffer,
 } from "@/components/guest/GuestOffersModal";
 import type { Tables } from "@/lib/types/database";
-import { loadGuestData, type GuestData } from "./loadData";
+import { isStale } from "@/lib/smart-match/match";
+import MyRequestCard from "@/components/guest/MyRequestCard";
+import { loadGuestData, type GuestData, type MyRequest } from "./loadData";
 
 type Property = Tables<"properties">;
 
@@ -28,7 +30,12 @@ export default function GuestDashboardClient({
   initial: GuestData;
 }) {
   const t = useTranslations("GuestDashboard");
+  const tNewReq = useTranslations("GuestDashboard.newRequestModal");
+  const locale = useLocale();
   const supabase = createClient();
+
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const allZonesLabel = tNewReq("allZones");
 
   // Seeded from the server render — content is present on first paint, so there
   // is no loading skeleton on initial load. Realtime updates refresh silently.
@@ -41,6 +48,7 @@ export default function GuestDashboardClient({
   const [reviewRequests, setReviewRequests] = useState<
     Tables<"notifications">[]
   >(initial.reviewRequests);
+  const [requests, setRequests] = useState<MyRequest[]>(initial.requests);
 
   const [newRequestOpen, setNewRequestOpen] = useState(false);
   const [offersOpen, setOffersOpen] = useState(false);
@@ -48,14 +56,15 @@ export default function GuestDashboardClient({
   const pendingOffers = offers.filter((o) => o.status === "pending");
   const newOfferCount = pendingOffers.length;
 
-  useEffect(() => {
-    function apply(data: GuestData) {
-      setProfile(data.profile);
-      setRecent(data.recent);
-      setOffers(data.offers);
-      setReviewRequests(data.reviewRequests);
-    }
+  const apply = useCallback((data: GuestData) => {
+    setProfile(data.profile);
+    setRecent(data.recent);
+    setOffers(data.offers);
+    setReviewRequests(data.reviewRequests);
+    setRequests(data.requests);
+  }, []);
 
+  useEffect(() => {
     // Realtime: refresh offers when new ones land
     const channel = supabase
       .channel("guest-dashboard-offers")
@@ -99,6 +108,28 @@ export default function GuestDashboardClient({
     // Throw so NewRequestModal stays open and shows the failure instead of
     // closing with apparent success.
     if (error) throw error;
+    // Surface the new request immediately in "My Requests". The realtime channel
+    // only listens on smart_match_offers, so a fresh request wouldn't otherwise
+    // appear until an offer lands.
+    apply(await loadGuestData(supabase, userId));
+  }
+
+  async function handleCancelRequest(requestId: string) {
+    // Optimistic — flip to cancelled, revert if the update fails. Sets status
+    // rather than deleting (non-destructive); the renter inbox filters on
+    // status = 'active', so a cancelled request disappears there automatically.
+    setRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: "cancelled" } : r)),
+    );
+    const { error } = await supabase
+      .from("smart_match_requests")
+      .update({ status: "cancelled" })
+      .eq("id", requestId);
+    if (error) {
+      setRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: "active" } : r)),
+      );
+    }
   }
 
   async function handleDeclineOffer(offerId: string) {
@@ -177,6 +208,34 @@ export default function GuestDashboardClient({
           )}
         </div>
       </motion.div>
+
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.07 }}
+      >
+        <h2 className="text-[18px] font-black text-[#0F172A]">
+          {t("myRequests.title")}
+        </h2>
+        {requests.length === 0 ? (
+          <p className="mt-3 rounded-[20px] border border-[#EEF1F4] bg-[#FAFBFC] px-5 py-8 text-center text-[13px] font-medium text-[#94A3B8]">
+            {t("myRequests.empty")}
+          </p>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {requests.map((r) => (
+              <MyRequestCard
+                key={r.id}
+                request={r}
+                locale={locale}
+                allZonesLabel={allZonesLabel}
+                expired={isStale(r, todayISO)}
+                onCancel={handleCancelRequest}
+              />
+            ))}
+          </div>
+        )}
+      </motion.section>
 
       {reviewRequests.length > 0 && (
         <motion.section

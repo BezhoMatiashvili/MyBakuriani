@@ -6,6 +6,27 @@ import {
   requireUser,
 } from "../_shared/guards.ts";
 
+// Georgian property-type labels + public-detail URL — inlined because Deno edge
+// functions can't import from src/lib. Mirror of src/lib/notifications/
+// listing-labels.ts and src/lib/utils/listingUrls.ts.
+const PROPERTY_TYPE_LABEL_KA: Record<string, string> = {
+  apartment: "აპარტამენტი",
+  studio: "სტუდიო",
+  cottage: "კოტეჯი",
+  hotel: "სასტუმრო ოთახი",
+  villa: "ვილა",
+};
+
+function propertyViewUrl(p: {
+  id: string;
+  type?: string | null;
+  is_for_sale?: boolean | null;
+}): string {
+  if (p.is_for_sale) return `/sales/${p.id}`;
+  if (p.type === "hotel") return `/hotels/${p.id}`;
+  return `/apartments/${p.id}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -69,19 +90,57 @@ serve(async (req) => {
         .eq("id", verification.user_id);
     }
 
+    // Look up the verified property (if any) so the notification names it.
+    let property: {
+      title: string | null;
+      type: string | null;
+      is_for_sale: boolean | null;
+    } | null = null;
+    if (verification.property_id) {
+      const { data } = await supabase
+        .from("properties")
+        .select("title, type, is_for_sale")
+        .eq("id", verification.property_id)
+        .maybeSingle();
+      property = data;
+    }
+
+    const notes = (admin_notes || "").trim();
+    const approved = status === "approved";
+    let message: string;
+    let action_url = "/dashboard";
+    if (property) {
+      const name =
+        property.title?.trim() ||
+        PROPERTY_TYPE_LABEL_KA[property.type ?? ""] ||
+        "ობიექტი";
+      message = approved
+        ? `თქვენი ობიექტი „${name}" ვერიფიცირებულია.`
+        : `ობიექტის „${name}" ვერიფიკაცია უარყოფილია.${
+            notes ? ` მიზეზი: ${notes}` : ""
+          }`;
+      if (approved) {
+        action_url = propertyViewUrl({
+          id: verification.property_id,
+          type: property.type,
+          is_for_sale: property.is_for_sale,
+        });
+      }
+    } else {
+      message = approved
+        ? "თქვენი ვერიფიკაცია წარმატებით დასრულდა."
+        : `თქვენი ვერიფიკაცია უარყოფილია.${notes ? ` მიზეზი: ${notes}` : ""}`;
+    }
+
     // Notify user
     await supabase.from("notifications").insert({
       user_id: verification.user_id,
       type: "verification",
-      title:
-        status === "approved"
-          ? "ვერიფიკაცია დადასტურებულია"
-          : "ვერიფიკაცია უარყოფილია",
-      message:
-        status === "approved"
-          ? "თქვენი ვერიფიკაცია წარმატებით დასრულდა"
-          : `ვერიფიკაცია უარყოფილია: ${admin_notes || ""}`,
-      action_url: "/dashboard/verification",
+      title: approved
+        ? "თქვენი ვერიფიკაცია დამტკიცდა"
+        : "თქვენი ვერიფიკაცია უარყოფილია",
+      message,
+      action_url,
     });
 
     return jsonResponse({ data: { verification_id, status } }, 200);

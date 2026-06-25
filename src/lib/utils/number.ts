@@ -110,3 +110,8 @@ export function isValidCadastralCode(
   if (!value) return false;
   return /^[0-9.]+$/.test(value) && value.includes(".") && /\d/.test(value);
 }
+
+/** Keep only digits and dots while typing a cadastral code (e.g. "01.10.05.123"). */
+export function sanitizeCadastralCode(raw: string): string {
+  return raw.replace(/[^0-9.]/g, "");
+}

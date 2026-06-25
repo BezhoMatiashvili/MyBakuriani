@@ -678,7 +678,10 @@
         "platformNotice": "This booking was made by a guest through the platform. Manage it from the bookings page.",
         "cancelBooking": "Cancel booking",
         "confirmCancel": "Are you sure? This booking will be deleted and the dates freed.",
-        "confirmCancelYes": "Yes, cancel"
+        "confirmCancelYes": "Yes, cancel",
+        "datesUnavailable": "These dates are already booked",
+        "invalidDates": "Check-out must be after check-in",
+        "genericError": "Could not save the booking. Please try again."
       },
       "guestForm": {
         "editTitle": "Edit guest",
@@ -687,6 +690,8 @@
         "namePlaceholder": "Nino Makharaadze",
         "visitDates": "Visit dates",
         "visitDatesPlaceholder": "Feb 10–12",
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
         "notePlaceholder": "Quiet, tidy guest."
       },
       "priceRange": {
@@ -1009,6 +1014,12 @@
     "next": "Next",
     "page": "Page {page}"
   },
+  "Favorites": {
+    "added": "Added to favorites",
+    "removed": "Removed from favorites",
+    "error": "Something went wrong, please try again",
+    "demoNotice": "This is a sample listing — favorites work on real listings"
+  },
   "PhotoGallery": {
     "noPhotos": "No photo",
     "share": "Share",
@@ -1064,7 +1075,14 @@
   "ExactLocationPicker": {
     "clickHint": "Click the desired point on the map to set the exact location.",
     "manualHint": "You can also enter the coordinates manually (lat/lng).",
-    "selectedCoords": "Selected coordinates: {lat}, {lng}"
+    "selectedCoords": "Selected coordinates: {lat}, {lng}",
+    "searchLabel": "Search address",
+    "searchPlaceholder": "e.g. Bakuriani, Kokhta, Didveli",
+    "searchButton": "Search",
+    "searching": "Searching…",
+    "noResults": "No results. Try another address or pick a point on the map.",
+    "searchError": "Search failed. Please try again later.",
+    "attribution": "Data © OpenStreetMap"
   },
   "StatusBadge": {
     "active": "Active",
@@ -2357,6 +2375,19 @@
       "budgetMax": "Budget max (₾)",
       "submit": "Send request (up to 24 hours)",
       "submitError": "Failed to send the request. Please try again."
+    },
+    "myRequests": {
+      "title": "My requests",
+      "empty": "You haven't sent a request yet. Tap “New request” to start.",
+      "statusActive": "Active",
+      "statusExpired": "Expired",
+      "statusCancelled": "Cancelled",
+      "offerCount": "Offers: {count}",
+      "guests": "{count} guests",
+      "anyBudget": "No budget set",
+      "cancel": "Cancel",
+      "cancelConfirm": "Confirm",
+      "cancelBack": "Back"
     },
     "offersModal": {
       "title": "Received offers",

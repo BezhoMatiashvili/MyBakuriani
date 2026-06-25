@@ -223,7 +223,11 @@ export default function HotelDetailClient({
       </motion.div>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
-        <PhotoGallery photos={property.photos ?? []} title={property.title} />
+        <PhotoGallery
+          photos={property.photos ?? []}
+          title={property.title}
+          propertyId={property.id}
+        />
       </motion.div>
 
       <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/format";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { createClient } from "@/lib/supabase/client";
+import { sanitizeCadastralCode } from "@/lib/utils/number";
 
 // Seeded zone slugs have display translations under Zones.<slug>; unknown
 // (admin-created) zones fall back to their Georgian name_ka. Display only —
@@ -1667,7 +1668,9 @@ function FiltersPanel({
           <input
             type="text"
             value={cadastralCode}
-            onChange={(e) => onChangeCadastral(e.target.value)}
+            onChange={(e) =>
+              onChangeCadastral(sanitizeCadastralCode(e.target.value))
+            }
             placeholder={t("cadastralPlaceholder")}
             className="h-[41px] w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-medium text-[#1E293B] outline-none placeholder:text-[#94A3B8]"
           />

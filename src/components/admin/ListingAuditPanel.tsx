@@ -30,7 +30,7 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { formatPhone } from "@/lib/utils/format";
-import { clampNumber } from "@/lib/utils/number";
+import { clampNumber, sanitizeCadastralCode } from "@/lib/utils/number";
 import type {
   AuditPayload,
   AuditPropertyListing,
@@ -464,7 +464,7 @@ function NaprCard({
           <input
             type="text"
             value={cadastralCode ?? ""}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => onChange(sanitizeCadastralCode(e.target.value))}
             placeholder={t("cadastralPlaceholder")}
             className="w-full rounded-xl border border-[#BFDBFE] bg-white px-3 py-2 font-mono text-[15px] font-bold text-[#0F172A] focus:border-[#2563EB] focus:outline-none"
           />

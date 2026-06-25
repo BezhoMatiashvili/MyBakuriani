@@ -678,7 +678,10 @@
         "platformNotice": "Это бронирование сделал гость через платформу. Управляйте им со страницы бронирований.",
         "cancelBooking": "Отменить бронирование",
         "confirmCancel": "Вы уверены? Бронирование будет удалено, а даты освободятся.",
-        "confirmCancelYes": "Да, отменить"
+        "confirmCancelYes": "Да, отменить",
+        "datesUnavailable": "Эти даты уже заняты",
+        "invalidDates": "Дата выезда должна быть позже даты заезда",
+        "genericError": "Не удалось сохранить бронирование. Попробуйте снова."
       },
       "guestForm": {
         "editTitle": "Редактировать гостя",
@@ -687,6 +690,8 @@
         "namePlaceholder": "Нино Махарадзе",
         "visitDates": "Даты визита",
         "visitDatesPlaceholder": "10–12 фев.",
+        "checkIn": "Заезд",
+        "checkOut": "Выезд",
         "notePlaceholder": "Спокойный, аккуратный гость."
       },
       "priceRange": {
@@ -1009,6 +1014,12 @@
     "next": "Вперёд",
     "page": "Страница {page}"
   },
+  "Favorites": {
+    "added": "Добавлено в избранное",
+    "removed": "Удалено из избранного",
+    "error": "Не удалось, попробуйте снова",
+    "demoNotice": "Это демо-объявление — избранное доступно для реальных объявлений"
+  },
   "PhotoGallery": {
     "noPhotos": "Нет фото",
     "share": "Поделиться",
@@ -1064,7 +1075,14 @@
   "ExactLocationPicker": {
     "clickHint": "Нажмите на нужную точку на карте, чтобы выбрать точное местоположение.",
     "manualHint": "Координаты (lat/lng) можно ввести и вручную.",
-    "selectedCoords": "Выбранные координаты: {lat}, {lng}"
+    "selectedCoords": "Выбранные координаты: {lat}, {lng}",
+    "searchLabel": "Поиск адреса",
+    "searchPlaceholder": "напр. Бакуриани, Кохта, Дидвели",
+    "searchButton": "Найти",
+    "searching": "Идёт поиск…",
+    "noResults": "Ничего не найдено. Попробуйте другой адрес или отметьте точку на карте.",
+    "searchError": "Не удалось выполнить поиск. Попробуйте позже.",
+    "attribution": "Data © OpenStreetMap"
   },
   "StatusBadge": {
     "active": "Активен",
@@ -2357,6 +2375,19 @@
       "budgetMax": "Бюджет max (₾)",
       "submit": "Отправить запрос (до 24 часов)",
       "submitError": "Не удалось отправить запрос. Попробуйте ещё раз."
+    },
+    "myRequests": {
+      "title": "Мои запросы",
+      "empty": "Вы ещё не отправляли запрос. Нажмите «Новый запрос», чтобы начать.",
+      "statusActive": "Активный",
+      "statusExpired": "Истёк",
+      "statusCancelled": "Отменён",
+      "offerCount": "Предложения: {count}",
+      "guests": "{count} гостей",
+      "anyBudget": "Бюджет не указан",
+      "cancel": "Отменить",
+      "cancelConfirm": "Подтвердить",
+      "cancelBack": "Назад"
     },
     "offersModal": {
       "title": "Полученные предложения",

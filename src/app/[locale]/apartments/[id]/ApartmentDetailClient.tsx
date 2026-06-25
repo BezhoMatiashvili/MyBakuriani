@@ -216,7 +216,11 @@ export default function ApartmentDetailClient({
       </motion.div>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
-        <PhotoGallery photos={property.photos ?? []} title={property.title} />
+        <PhotoGallery
+          photos={property.photos ?? []}
+          title={property.title}
+          propertyId={property.id}
+        />
       </motion.div>
 
       <motion.div

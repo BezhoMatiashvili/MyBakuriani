@@ -19,7 +19,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
-import { isValidGePhone } from "@/lib/utils/number";
+import { isValidGePhone, sanitizeCadastralCode } from "@/lib/utils/number";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { AvailabilityStatus, buildNext30Days } from "@/lib/utils/availability";
@@ -589,7 +589,9 @@ function CreateRentalPageInner() {
                   <input
                     type="text"
                     value={cadastralCode}
-                    onChange={(e) => setCadastralCode(e.target.value)}
+                    onChange={(e) =>
+                      setCadastralCode(sanitizeCadastralCode(e.target.value))
+                    }
                     placeholder="XX.XX.XX.XXX.XXX"
                     className={inputClass}
                   />

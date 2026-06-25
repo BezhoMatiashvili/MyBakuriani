@@ -1,7 +1,7 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import {
   MapContainer,
@@ -12,10 +12,22 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import { useTranslations } from "next-intl";
+import { Loader2, Search } from "lucide-react";
+import { toast } from "sonner";
 import NumberField from "@/components/shared/NumberField";
 import { parseNumeric } from "@/lib/utils/number";
 
 const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
+
+// Matches the standard form input styling used across the create wizard.
+const inputClass =
+  "h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]";
+
+interface GeocodeResult {
+  display_name: string;
+  lat: number;
+  lng: number;
+}
 
 // ── CartoDB Positron basemap (no API key, retina-ready) ──
 const TILE_URL =
@@ -77,6 +89,51 @@ export default function ExactLocationPicker({
   const [latInput, setLatInput] = useState(value ? String(value.lat) : "");
   const [lngInput, setLngInput] = useState(value ? String(value.lng) : "");
 
+  // ── Address search (forward geocoding via /api/geocode) ──
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<GeocodeResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false); // "no search yet" vs "0 results"
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight geocode request when the picker unmounts.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const runSearch = useCallback(async () => {
+    const q = query.trim();
+    if (q.length < 3 || searching) return;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSearching(true);
+    setSearched(true);
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error("geocode failed");
+      const json = (await res.json()) as { results?: GeocodeResult[] };
+      setResults(json.results ?? []);
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") return; // superseded by a newer search
+      setResults([]);
+      toast.error(t("searchError"));
+    } finally {
+      if (abortRef.current === controller) setSearching(false);
+    }
+  }, [query, searching, t]);
+
+  const handleSelectResult = useCallback(
+    (r: GeocodeResult) => {
+      onChange({ lat: r.lat, lng: r.lng });
+      setResults([]);
+      setSearched(false);
+      setQuery(r.display_name);
+    },
+    [onChange],
+  );
+
   useEffect(() => {
     setLatInput(value ? String(value.lat) : "");
     setLngInput(value ? String(value.lng) : "");
@@ -103,6 +160,69 @@ export default function ExactLocationPicker({
 
   return (
     <div className="space-y-2">
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-[#334155]">
+          {t("searchLabel")}
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                runSearch();
+              }
+            }}
+            placeholder={t("searchPlaceholder")}
+            className={inputClass}
+            aria-label={t("searchLabel")}
+          />
+          <button
+            type="button"
+            onClick={runSearch}
+            disabled={searching || query.trim().length < 3}
+            aria-label={t("searchButton")}
+            className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50"
+          >
+            {searching ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Search className="size-4" />
+            )}
+          </button>
+        </div>
+        {searching && (
+          <p className="text-xs text-[#64748B]">{t("searching")}</p>
+        )}
+        {!searching && searched && results.length === 0 && (
+          <p className="text-xs text-[#64748B]">{t("noResults")}</p>
+        )}
+        {results.length > 0 && (
+          <>
+            <ul
+              role="listbox"
+              className="divide-y divide-[#E2E8F0] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white"
+            >
+              {results.map((r, i) => (
+                <li key={`${r.lat},${r.lng},${i}`}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => handleSelectResult(r)}
+                    className="block w-full px-4 py-2.5 text-left text-sm text-[#334155] outline-none transition-colors hover:bg-[#F1F5F9] focus:bg-[#F1F5F9]"
+                  >
+                    {r.display_name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[10px] text-[#94A3B8]">{t("attribution")}</p>
+          </>
+        )}
+      </div>
       <div className="h-[240px] overflow-hidden rounded-xl border border-[#E2E8F0]">
         <MapContainer
           center={value ? [value.lat, value.lng] : BAKURIANI_CENTER}

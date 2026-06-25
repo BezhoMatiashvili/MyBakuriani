@@ -1,18 +1,34 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { List, Ban, Pencil, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import GuestFormModal from "@/components/renter/GuestFormModal";
+import { parseISODate } from "@/components/shared/DateField";
+import { formatDate, formatDateRange } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Guest = Tables<"renter_guests">;
 
 type Tab = "all" | "blacklist";
+
+/**
+ * Render a stored visit_dates value. New records store "checkIn/checkOut" ISO;
+ * legacy records may hold a single ISO date or free text. Dates are parsed via
+ * parseISODate (not new Date) to avoid the UTC off-by-one in Georgia (UTC+4).
+ */
+function formatVisit(raw: string | null, locale: string): string {
+  const isISO = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const [a, b] = (raw ?? "").split("/");
+  if (isISO(a) && isISO(b))
+    return formatDateRange(parseISODate(a)!, parseISODate(b)!, locale);
+  if (isISO(a)) return formatDate(parseISODate(a), locale);
+  return raw || "—";
+}
 
 export default function RenterGuestsPage() {
   const t = useTranslations("RenterGuests");
@@ -208,6 +224,7 @@ function GuestRow({
 }) {
   const t = useTranslations("RenterGuests");
   const tShared = useTranslations("DashboardShared");
+  const locale = useLocale();
 
   return (
     <div
@@ -229,7 +246,7 @@ function GuestRow({
       </div>
       <div>
         <p className="text-[13px] font-extrabold text-[#0F172A]">
-          {guest.visit_dates || "—"}
+          {formatVisit(guest.visit_dates, locale)}
         </p>
         <span
           className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${

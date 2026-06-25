@@ -36,6 +36,16 @@ type Property = Tables<"properties">;
 type PriceOverrideRow = Tables<"price_overrides">;
 type ManualBooking = Tables<"manual_bookings">;
 
+// Result of a manual-booking RPC call, surfaced to the modal so it can show an
+// inline error (and stay open) instead of failing silently.
+type BookingErrorCode = "datesUnavailable" | "generic";
+type BookingResult = { ok: boolean; errorCode?: BookingErrorCode };
+
+// Map a Postgres RAISE EXCEPTION message to a translatable error code. The
+// overlap-safe RPCs raise the Georgian "...დაკავებულია" on a date conflict.
+const mapBookingError = (msg: string): BookingErrorCode =>
+  msg.includes("დაკავებულია") ? "datesUnavailable" : "generic";
+
 // A platform (guest-made) booking joined with the guest's contact profile.
 interface PlatformBookingRow {
   id: string;
@@ -630,27 +640,18 @@ export default function RenterCalendarPage() {
     return s;
   }, [calendarBlocks]);
 
-  // Block the nights of a booking in calendar_blocks (check-in → check-out − 1).
-  const blockNights = async (
-    bookingId: string,
-    checkIn: string,
-    checkOut: string,
-  ) => {
-    if (!selectedPropertyId) return;
-    const nights = datesInRange(checkIn, checkOut).filter(
-      (d) => d !== checkOut,
-    );
-    if (nights.length === 0) return;
-    const rows = nights.map((d) => ({
-      property_id: selectedPropertyId,
-      date: d,
-      status: "booked" as const,
-      booking_id: bookingId,
-    }));
-    await supabase
-      .from("calendar_blocks")
-      .upsert(rows, { onConflict: "property_id,date" });
-  };
+  // Nights already occupied for the selected property (this month's window),
+  // excluding the booking being edited — fed to the modal for instant overlap
+  // feedback. The server RPC remains the hard guarantee.
+  const occupiedNights = useMemo(() => {
+    const s = new Set<string>();
+    for (const b of calendarBlocks) {
+      if (b.status !== "booked" && b.status !== "blocked") continue;
+      if (editingBooking && b.booking_id === editingBooking.id) continue;
+      s.add(b.date);
+    }
+    return s;
+  }, [calendarBlocks, editingBooking]);
 
   // Optionally mirror the booking's guest into the renter's contacts list.
   const maybeSaveContact = async (payload: AddBookingPayload) => {
@@ -675,80 +676,61 @@ export default function RenterCalendarPage() {
     return v.trim() !== "" && Number.isFinite(n) ? n : null;
   };
 
-  // Persist a manually-added booking: one row in manual_bookings, then block the
-  // inclusive check-in → (check-out − 1) nights in calendar_blocks so the grid reflects it.
-  const handleAddBooking = async (payload: AddBookingPayload) => {
-    if (!selectedPropertyId || !user) return;
-    if (!payload.checkIn || !payload.checkOut) return;
-    try {
-      const { data: booking, error: insertError } = await supabase
-        .from("manual_bookings")
-        .insert({
-          owner_id: user.id,
-          property_id: selectedPropertyId,
-          check_in: payload.checkIn,
-          check_out: payload.checkOut,
-          source: payload.source || null,
-          guest_name: payload.guestName || null,
-          guest_phone: payload.guestPhone || null,
-          guests_count: parseCount(payload.guestsCount),
-          amount: parseAmount(payload.amount),
-          note: payload.note || null,
-          status: payload.status === "booked" ? "booked" : "manual",
-          client_list: payload.clientList,
-        })
-        .select()
-        .single();
-      if (insertError) throw insertError;
-
-      await blockNights(booking.id, payload.checkIn, payload.checkOut);
-      await maybeSaveContact(payload);
-      await Promise.all([fetchBlocks(), fetchBookings()]);
-    } catch (err) {
-      console.error("Failed to add manual booking", err);
-    }
+  // Persist a manually-added booking via the overlap-safe RPC: it takes a
+  // per-property advisory lock, rejects any date conflict, and writes the
+  // calendar_blocks reservation atomically (no silent clobbering).
+  const handleAddBooking = async (
+    payload: AddBookingPayload,
+  ): Promise<BookingResult> => {
+    if (!selectedPropertyId || !user)
+      return { ok: false, errorCode: "generic" };
+    if (!payload.checkIn || !payload.checkOut)
+      return { ok: false, errorCode: "generic" };
+    const { error } = await supabase.rpc("create_manual_booking", {
+      p_property_id: selectedPropertyId,
+      p_check_in: payload.checkIn,
+      p_check_out: payload.checkOut,
+      p_source: payload.source || undefined,
+      p_guest_name: payload.guestName || undefined,
+      p_guest_phone: payload.guestPhone || undefined,
+      p_guests_count: parseCount(payload.guestsCount) ?? undefined,
+      p_amount: parseAmount(payload.amount) ?? undefined,
+      p_note: payload.note || undefined,
+      p_status: payload.status === "booked" ? "booked" : "manual",
+      p_client_list: payload.clientList,
+    });
+    if (error) return { ok: false, errorCode: mapBookingError(error.message) };
+    await maybeSaveContact(payload);
+    await Promise.all([fetchBlocks(), fetchBookings()]);
+    return { ok: true };
   };
 
-  // Save edits to an existing manual booking. If the dates changed, free the
-  // old nights and re-block the new range so the grid stays consistent.
-  const handleEditBooking = async (payload: AddBookingPayload) => {
-    if (!editingBooking || !selectedPropertyId || !user) return;
-    if (!payload.checkIn || !payload.checkOut) return;
-    const datesChanged =
-      payload.checkIn !== editingBooking.check_in ||
-      payload.checkOut !== editingBooking.check_out;
-    try {
-      const { error: updateError } = await supabase
-        .from("manual_bookings")
-        .update({
-          check_in: payload.checkIn,
-          check_out: payload.checkOut,
-          source: payload.source || null,
-          guest_name: payload.guestName || null,
-          guest_phone: payload.guestPhone || null,
-          guests_count: parseCount(payload.guestsCount),
-          amount: parseAmount(payload.amount),
-          note: payload.note || null,
-          status: payload.status === "booked" ? "booked" : "manual",
-          client_list: payload.clientList,
-        })
-        .eq("id", editingBooking.id)
-        .eq("owner_id", user.id);
-      if (updateError) throw updateError;
-
-      if (datesChanged) {
-        await supabase
-          .from("calendar_blocks")
-          .delete()
-          .eq("property_id", selectedPropertyId)
-          .eq("booking_id", editingBooking.id);
-        await blockNights(editingBooking.id, payload.checkIn, payload.checkOut);
-      }
-      await maybeSaveContact(payload);
-      await Promise.all([fetchBlocks(), fetchBookings()]);
-    } catch (err) {
-      console.error("Failed to update booking", err);
-    }
+  // Save edits to an existing manual booking via the overlap-safe RPC. It frees
+  // the booking's own nights, re-checks the new range for conflicts under the
+  // advisory lock, and re-reserves it atomically.
+  const handleEditBooking = async (
+    payload: AddBookingPayload,
+  ): Promise<BookingResult> => {
+    if (!editingBooking || !user) return { ok: false, errorCode: "generic" };
+    if (!payload.checkIn || !payload.checkOut)
+      return { ok: false, errorCode: "generic" };
+    const { error } = await supabase.rpc("update_manual_booking", {
+      p_id: editingBooking.id,
+      p_check_in: payload.checkIn,
+      p_check_out: payload.checkOut,
+      p_source: payload.source || undefined,
+      p_guest_name: payload.guestName || undefined,
+      p_guest_phone: payload.guestPhone || undefined,
+      p_guests_count: parseCount(payload.guestsCount) ?? undefined,
+      p_amount: parseAmount(payload.amount) ?? undefined,
+      p_note: payload.note || undefined,
+      p_status: payload.status === "booked" ? "booked" : "manual",
+      p_client_list: payload.clientList,
+    });
+    if (error) return { ok: false, errorCode: mapBookingError(error.message) };
+    await maybeSaveContact(payload);
+    await Promise.all([fetchBlocks(), fetchBookings()]);
+    return { ok: true };
   };
 
   // Cancel a manual booking: remove its calendar blocks (freeing the nights)
@@ -1135,6 +1117,7 @@ export default function RenterCalendarPage() {
         onSubmit={handleAddBooking}
         initialCheckIn={addBookingInitial.checkIn}
         initialCheckOut={addBookingInitial.checkOut}
+        occupiedNights={occupiedNights}
       />
 
       {/* Details for a tapped booked day — manual editable, platform read-only */}
@@ -1146,6 +1129,7 @@ export default function RenterCalendarPage() {
         viewBooking={viewBooking}
         onSave={handleEditBooking}
         onDelete={handleCancelBooking}
+        occupiedNights={occupiedNights}
       />
 
       {selectedPropertyId && (

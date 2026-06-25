@@ -8,6 +8,12 @@ import {
   Route,
   Video,
   Camera,
+  Sun,
+  CloudSun,
+  CloudRain,
+  CloudSnow,
+  CloudFog,
+  CloudLightning,
   type LucideIcon,
 } from "lucide-react";
 import type { StatusIcon } from "./types";
@@ -24,4 +30,10 @@ export const ICON_MAP: Record<StatusIcon, LucideIcon | null> = {
   route: Route,
   video: Video,
   camera: Camera,
+  sun: Sun,
+  cloudSun: CloudSun,
+  cloudRain: CloudRain,
+  cloudSnow: CloudSnow,
+  cloudFog: CloudFog,
+  cloudLightning: CloudLightning,
 };

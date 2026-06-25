@@ -393,7 +393,11 @@ export default function SaleDetailClient({ property, reviews }: Props) {
         transition={{ duration: 0.4, delay: 0.12 }}
         className="[&>div:first-child]:hidden"
       >
-        <PhotoGallery photos={property.photos ?? []} title={property.title} />
+        <PhotoGallery
+          photos={property.photos ?? []}
+          title={property.title}
+          propertyId={property.id}
+        />
       </motion.div>
 
       {/* 3-stat row + ID */}
