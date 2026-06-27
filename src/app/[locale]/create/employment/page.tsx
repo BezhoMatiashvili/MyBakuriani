@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -144,6 +144,7 @@ function CreateEmploymentPageInner() {
   );
 
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -283,6 +284,9 @@ function CreateEmploymentPageInner() {
     }
     setInvalidFields(new Set());
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setLoading(true);
     setError(null);
 
@@ -328,7 +332,7 @@ function CreateEmploymentPageInner() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
-    } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }

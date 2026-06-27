@@ -920,6 +920,273 @@ export type Database = {
           },
         ];
       };
+      organization_members: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          id: string;
+          organization_id: string;
+          role: string;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          role?: string;
+          status?: string;
+          user_id: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          role?: string;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_approved_by_fkey";
+            columns: ["approved_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_members_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_subscriptions: {
+        Row: {
+          amount_gel: number;
+          created_at: string;
+          expires_at: string;
+          id: string;
+          listing_limit: number | null;
+          organization_id: string;
+          starts_at: string;
+          status: string;
+          tier: string;
+        };
+        Insert: {
+          amount_gel: number;
+          created_at?: string;
+          expires_at: string;
+          id?: string;
+          listing_limit?: number | null;
+          organization_id: string;
+          starts_at?: string;
+          status?: string;
+          tier: string;
+        };
+        Update: {
+          amount_gel?: number;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          listing_limit?: number | null;
+          organization_id?: string;
+          starts_at?: string;
+          status?: string;
+          tier?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_subscriptions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organizations: {
+        Row: {
+          address: string | null;
+          admin_notes: string | null;
+          brand_name: string;
+          city: string | null;
+          company_type: string;
+          cover_url: string | null;
+          created_at: string;
+          id: string;
+          identification_code: string;
+          legal_name: string;
+          location_lat: number | null;
+          location_lng: number | null;
+          logo_url: string | null;
+          org_type: string;
+          owner_id: string;
+          phone: string | null;
+          status: string;
+          updated_at: string;
+          verified_at: string | null;
+          website: string | null;
+        };
+        Insert: {
+          address?: string | null;
+          admin_notes?: string | null;
+          brand_name: string;
+          city?: string | null;
+          company_type: string;
+          cover_url?: string | null;
+          created_at?: string;
+          id?: string;
+          identification_code: string;
+          legal_name: string;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          logo_url?: string | null;
+          org_type: string;
+          owner_id: string;
+          phone?: string | null;
+          status?: string;
+          updated_at?: string;
+          verified_at?: string | null;
+          website?: string | null;
+        };
+        Update: {
+          address?: string | null;
+          admin_notes?: string | null;
+          brand_name?: string;
+          city?: string | null;
+          company_type?: string;
+          cover_url?: string | null;
+          created_at?: string;
+          id?: string;
+          identification_code?: string;
+          legal_name?: string;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          logo_url?: string | null;
+          org_type?: string;
+          owner_id?: string;
+          phone?: string | null;
+          status?: string;
+          updated_at?: string;
+          verified_at?: string | null;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organizations_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      page_views: {
+        Row: {
+          created_at: string;
+          id: string;
+          path: string | null;
+          user_id: string | null;
+          visitor_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          path?: string | null;
+          user_id?: string | null;
+          visitor_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          path?: string | null;
+          user_id?: string | null;
+          visitor_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "page_views_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payments: {
+        Row: {
+          amount: number;
+          card_brand: string | null;
+          card_last4: string | null;
+          completed_at: string | null;
+          created_at: string;
+          currency: string;
+          id: string;
+          last_error: string | null;
+          metadata: Json | null;
+          purpose: string;
+          reference_id: string | null;
+          return_path: string | null;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          amount: number;
+          card_brand?: string | null;
+          card_last4?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          last_error?: string | null;
+          metadata?: Json | null;
+          purpose?: string;
+          reference_id?: string | null;
+          return_path?: string | null;
+          status?: string;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          card_brand?: string | null;
+          card_last4?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          last_error?: string | null;
+          metadata?: Json | null;
+          purpose?: string;
+          reference_id?: string | null;
+          return_path?: string | null;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       price_overrides: {
         Row: {
           created_at: string;
@@ -1187,6 +1454,7 @@ export type Database = {
           location_lng: number | null;
           min_booking_days: number | null;
           numeric_rating: number | null;
+          organization_id: string | null;
           owner_id: string;
           phone: string | null;
           photos: string[] | null;
@@ -1209,6 +1477,7 @@ export type Database = {
           updated_at: string | null;
           views_count: number | null;
           vip_expires_at: string | null;
+          vip_expiry_notified_at: string | null;
           whatsapp: string | null;
         };
         Insert: {
@@ -1242,6 +1511,7 @@ export type Database = {
           location_lng?: number | null;
           min_booking_days?: number | null;
           numeric_rating?: number | null;
+          organization_id?: string | null;
           owner_id: string;
           phone?: string | null;
           photos?: string[] | null;
@@ -1264,6 +1534,7 @@ export type Database = {
           updated_at?: string | null;
           views_count?: number | null;
           vip_expires_at?: string | null;
+          vip_expiry_notified_at?: string | null;
           whatsapp?: string | null;
         };
         Update: {
@@ -1297,6 +1568,7 @@ export type Database = {
           location_lng?: number | null;
           min_booking_days?: number | null;
           numeric_rating?: number | null;
+          organization_id?: string | null;
           owner_id?: string;
           phone?: string | null;
           photos?: string[] | null;
@@ -1319,9 +1591,17 @@ export type Database = {
           updated_at?: string | null;
           views_count?: number | null;
           vip_expires_at?: string | null;
+          vip_expiry_notified_at?: string | null;
           whatsapp?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "properties_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "properties_owner_id_fkey";
             columns: ["owner_id"];
@@ -1330,6 +1610,24 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      properties_photos_backup: {
+        Row: {
+          backed_up_at: string | null;
+          id: string | null;
+          photos: string[] | null;
+        };
+        Insert: {
+          backed_up_at?: string | null;
+          id?: string | null;
+          photos?: string[] | null;
+        };
+        Update: {
+          backed_up_at?: string | null;
+          id?: string | null;
+          photos?: string[] | null;
+        };
+        Relationships: [];
       };
       renter_cleaners: {
         Row: {
@@ -1540,31 +1838,28 @@ export type Database = {
           admin_notes: string | null;
           age_min: string | null;
           avg_check: string | null;
-          coords: Json | null;
-          duration: string | null;
-          good_for: string | null;
-          restaurant_type: string | null;
-          rating: number | null;
-          reviews_count: number | null;
-          safety_notes: string | null;
           category: Database["public"]["Enums"]["service_category"];
+          coords: Json | null;
           created_at: string | null;
           cuisine_type: string | null;
           currency: string | null;
           description: string | null;
           discount_percent: number | null;
           driver_name: string | null;
+          duration: string | null;
           employment_schedule: string | null;
           employment_type: string | null;
           equipment: string[] | null;
           experience_required: string | null;
           features: string[] | null;
+          good_for: string | null;
           has_delivery: boolean | null;
           has_kids_area: boolean;
           has_live_music: boolean;
           has_lounge: boolean;
           id: string;
           is_new: boolean;
+          is_super_vip: boolean | null;
           is_vip: boolean | null;
           languages: string[] | null;
           location: string | null;
@@ -1580,17 +1875,21 @@ export type Database = {
           price: number | null;
           price_unit: string | null;
           provider_name: string | null;
-          service_field: string | null;
+          rating: number | null;
           requirements: string | null;
+          restaurant_type: string | null;
+          reviews_count: number | null;
           route: string | null;
-          routes: string[] | null;
           route_pricing: Json | null;
+          routes: string[] | null;
+          safety_notes: string | null;
           salary_daily: number | null;
           salary_max: number | null;
           salary_min: number | null;
           salary_range: string | null;
           salary_type: string | null;
           schedule: string | null;
+          service_field: string | null;
           status: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
           transport_type: string | null;
@@ -1599,6 +1898,9 @@ export type Database = {
           vehicle_color: string | null;
           vehicle_make: string | null;
           views_count: number | null;
+          vip_expires_at: string | null;
+          vip_expiry_notified_at: string | null;
+          whatsapp: string | null;
           work_schedule: string | null;
         };
         Insert: {
@@ -1608,31 +1910,28 @@ export type Database = {
           admin_notes?: string | null;
           age_min?: string | null;
           avg_check?: string | null;
-          coords?: Json | null;
-          duration?: string | null;
-          good_for?: string | null;
-          restaurant_type?: string | null;
-          rating?: number | null;
-          reviews_count?: number | null;
-          safety_notes?: string | null;
           category: Database["public"]["Enums"]["service_category"];
+          coords?: Json | null;
           created_at?: string | null;
           cuisine_type?: string | null;
           currency?: string | null;
           description?: string | null;
           discount_percent?: number | null;
           driver_name?: string | null;
+          duration?: string | null;
           employment_schedule?: string | null;
           employment_type?: string | null;
           equipment?: string[] | null;
           experience_required?: string | null;
           features?: string[] | null;
+          good_for?: string | null;
           has_delivery?: boolean | null;
           has_kids_area?: boolean;
           has_live_music?: boolean;
           has_lounge?: boolean;
           id?: string;
           is_new?: boolean;
+          is_super_vip?: boolean | null;
           is_vip?: boolean | null;
           languages?: string[] | null;
           location?: string | null;
@@ -1648,17 +1947,21 @@ export type Database = {
           price?: number | null;
           price_unit?: string | null;
           provider_name?: string | null;
-          service_field?: string | null;
+          rating?: number | null;
           requirements?: string | null;
+          restaurant_type?: string | null;
+          reviews_count?: number | null;
           route?: string | null;
-          routes?: string[] | null;
           route_pricing?: Json | null;
+          routes?: string[] | null;
+          safety_notes?: string | null;
           salary_daily?: number | null;
           salary_max?: number | null;
           salary_min?: number | null;
           salary_range?: string | null;
           salary_type?: string | null;
           schedule?: string | null;
+          service_field?: string | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
           transport_type?: string | null;
@@ -1667,6 +1970,9 @@ export type Database = {
           vehicle_color?: string | null;
           vehicle_make?: string | null;
           views_count?: number | null;
+          vip_expires_at?: string | null;
+          vip_expiry_notified_at?: string | null;
+          whatsapp?: string | null;
           work_schedule?: string | null;
         };
         Update: {
@@ -1676,31 +1982,28 @@ export type Database = {
           admin_notes?: string | null;
           age_min?: string | null;
           avg_check?: string | null;
-          coords?: Json | null;
-          duration?: string | null;
-          good_for?: string | null;
-          restaurant_type?: string | null;
-          rating?: number | null;
-          reviews_count?: number | null;
-          safety_notes?: string | null;
           category?: Database["public"]["Enums"]["service_category"];
+          coords?: Json | null;
           created_at?: string | null;
           cuisine_type?: string | null;
           currency?: string | null;
           description?: string | null;
           discount_percent?: number | null;
           driver_name?: string | null;
+          duration?: string | null;
           employment_schedule?: string | null;
           employment_type?: string | null;
           equipment?: string[] | null;
           experience_required?: string | null;
           features?: string[] | null;
+          good_for?: string | null;
           has_delivery?: boolean | null;
           has_kids_area?: boolean;
           has_live_music?: boolean;
           has_lounge?: boolean;
           id?: string;
           is_new?: boolean;
+          is_super_vip?: boolean | null;
           is_vip?: boolean | null;
           languages?: string[] | null;
           location?: string | null;
@@ -1716,17 +2019,21 @@ export type Database = {
           price?: number | null;
           price_unit?: string | null;
           provider_name?: string | null;
-          service_field?: string | null;
+          rating?: number | null;
           requirements?: string | null;
+          restaurant_type?: string | null;
+          reviews_count?: number | null;
           route?: string | null;
-          routes?: string[] | null;
           route_pricing?: Json | null;
+          routes?: string[] | null;
+          safety_notes?: string | null;
           salary_daily?: number | null;
           salary_max?: number | null;
           salary_min?: number | null;
           salary_range?: string | null;
           salary_type?: string | null;
           schedule?: string | null;
+          service_field?: string | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title?: string;
           transport_type?: string | null;
@@ -1735,6 +2042,9 @@ export type Database = {
           vehicle_color?: string | null;
           vehicle_make?: string | null;
           views_count?: number | null;
+          vip_expires_at?: string | null;
+          vip_expiry_notified_at?: string | null;
+          whatsapp?: string | null;
           work_schedule?: string | null;
         };
         Relationships: [
@@ -1746,6 +2056,24 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      services_photos_backup: {
+        Row: {
+          backed_up_at: string | null;
+          id: string | null;
+          photos: string[] | null;
+        };
+        Insert: {
+          backed_up_at?: string | null;
+          id?: string | null;
+          photos?: string[] | null;
+        };
+        Update: {
+          backed_up_at?: string | null;
+          id?: string | null;
+          photos?: string[] | null;
+        };
+        Relationships: [];
       };
       site_settings: {
         Row: {
@@ -2175,6 +2503,51 @@ export type Database = {
           },
         ];
       };
+      user_subscriptions: {
+        Row: {
+          created_at: string;
+          expires_at: string;
+          id: string;
+          package_id: string | null;
+          starts_at: string;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          expires_at: string;
+          id?: string;
+          package_id?: string | null;
+          starts_at: string;
+          status?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          package_id?: string | null;
+          starts_at?: string;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_package_id_fkey";
+            columns: ["package_id"];
+            isOneToOne: false;
+            referencedRelation: "pricing_packages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       verifications: {
         Row: {
           admin_notes: string | null;
@@ -2283,6 +2656,20 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      _enqueue_system_sms: {
+        Args: { p_kind: string; p_message: string; p_user_id: string };
+        Returns: undefined;
+      };
+      _notify: {
+        Args: {
+          p_action_url?: string;
+          p_message?: string;
+          p_title: string;
+          p_type: string;
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
       admin_clients_with_stats: { Args: never; Returns: Json };
       admin_dashboard_stats: {
         Args: never;
@@ -2295,6 +2682,22 @@ export type Database = {
           total_bookings: number;
           total_properties: number;
           total_revenue: number;
+        }[];
+      };
+      admin_overview_stats: {
+        Args: never;
+        Returns: {
+          active_listings: number;
+          net_revenue: number;
+          pending_over_24h: number;
+          registered_users: number;
+          registered_visitors: number;
+          requests_7d: number;
+          searches_7d: number;
+          total_visits: number;
+          unique_visits: number;
+          visits_7d: number;
+          weekly_visitors: number;
         }[];
       };
       create_booking: {
@@ -2366,6 +2769,24 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      create_organization: {
+        Args: {
+          p_address?: string;
+          p_brand_name: string;
+          p_city?: string;
+          p_company_type: string;
+          p_cover_url?: string;
+          p_identification_code: string;
+          p_lat?: number;
+          p_legal_name: string;
+          p_lng?: number;
+          p_logo_url?: string;
+          p_org_type: string;
+          p_phone?: string;
+          p_website?: string;
+        };
+        Returns: string;
+      };
       dashboard_layout_data: { Args: never; Returns: Json };
       get_platform_cleaners: {
         Args: never;
@@ -2418,6 +2839,11 @@ export type Database = {
           views_total: number;
         }[];
       };
+      photos_are_storage_urls: { Args: { p: string[] }; Returns: boolean };
+      purchase_company_subscription: {
+        Args: { p_org_id: string; p_tier: string; p_user_id: string };
+        Returns: Json;
+      };
       purchase_package: {
         Args: {
           p_package_id: string;
@@ -2432,6 +2858,7 @@ export type Database = {
           p_days?: number;
           p_property_id?: string;
           p_purchase_type: string;
+          p_service_id?: string;
           p_user_id: string;
         };
         Returns: Json;
@@ -2450,12 +2877,16 @@ export type Database = {
         Args: { p_booking_id: string };
         Returns: number;
       };
+      request_organization_membership: {
+        Args: { p_org_id: string };
+        Returns: string;
+      };
+      respond_membership_request: {
+        Args: { p_action: string; p_member_id: string };
+        Returns: undefined;
+      };
       seller_dashboard_stats: {
-        Args: {
-          p_from: string;
-          p_property_ids?: string[];
-          p_to: string;
-        };
+        Args: { p_from: string; p_property_ids?: string[]; p_to: string };
         Returns: {
           contact_reach: number;
           favorites: number;
@@ -2540,12 +2971,7 @@ export type Database = {
       landing_banner_kind: "info" | "promo" | "sticky_news";
       lead_priority: "low" | "medium" | "high";
       lead_source:
-        | "smart_match"
-        | "direct"
-        | "call"
-        | "walk_in"
-        | "referral"
-        | "other";
+        "smart_match" | "direct" | "call" | "walk_in" | "referral" | "other";
       lead_stage: "new" | "contacted" | "shown" | "negotiating" | "closed";
       listing_status: "active" | "blocked" | "pending" | "draft";
       property_type: "apartment" | "cottage" | "hotel" | "studio" | "villa";
@@ -2574,11 +3000,7 @@ export type Database = {
         | "sent"
         | "failed";
       sms_outbound_status:
-        | "pending"
-        | "approved"
-        | "rejected"
-        | "sent"
-        | "failed";
+        "pending" | "approved" | "rejected" | "sent" | "failed";
       transaction_type:
         | "topup"
         | "vip_boost"
@@ -2618,12 +3040,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -2645,13 +3067,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -2670,13 +3091,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -2695,13 +3115,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -2714,11 +3133,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }

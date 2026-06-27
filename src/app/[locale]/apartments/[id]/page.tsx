@@ -14,11 +14,12 @@ interface Props {
   params: Promise<{ locale: AppLocale; id: string }>;
 }
 
-export const revalidate = 120;
+// Dynamic, not ISR: get(Property|Service)ById reads cookies() for the admin/owner
+// pending-preview path, so this route cannot be statically cached (Next "static to dynamic").
+export const dynamic = "force-dynamic";
 
-// Opt the [id] route into ISR: nothing is prerendered at build (so the build
-// has no Supabase dependency), but each detail page is rendered on first request
-// and then cached/revalidated for everyone. dynamicParams defaults to true.
+// No build-time prerender — the empty list keeps the build free of any Supabase
+// dependency; every request renders dynamically (force-dynamic above). dynamicParams=true.
 export async function generateStaticParams() {
   return [];
 }

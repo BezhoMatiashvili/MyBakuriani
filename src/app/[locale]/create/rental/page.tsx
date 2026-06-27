@@ -91,6 +91,7 @@ function CreateRentalPageInner() {
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -298,6 +299,10 @@ function CreateRentalPageInner() {
       if (!title.trim())
         errs.push({ key: "title", message: t("invalidTitle") });
     } else if (s === 2) {
+      const areaNum = Number(areaSqm);
+      if (!areaSqm.trim() || !Number.isFinite(areaNum) || areaNum <= 0) {
+        errs.push({ key: "area", message: t("areaRequired") });
+      }
       if (smokingAllowed === null || petsAllowed === null) {
         errs.push({ key: "houseRules", message: t("selectHouseRules") });
       } else if (propertyType === "hotel" && mealsIncluded === null) {
@@ -311,12 +316,17 @@ function CreateRentalPageInner() {
     } else if (s === 4) {
       if (!isValidGePhone(phone))
         errs.push({ key: "phone", message: t("phoneRequired") });
+      if (photos.length === 0)
+        errs.push({ key: "photos", message: t("photosRequired") });
     }
     return errs;
   }
 
   async function handleSubmit() {
     if (!user) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setLoading(true);
     setError(null);
 
@@ -343,6 +353,15 @@ function CreateRentalPageInner() {
         throw new Error(t("phoneRequired"));
       }
 
+      const areaNum = Number(areaSqm);
+      if (!areaSqm.trim() || !Number.isFinite(areaNum) || areaNum <= 0) {
+        throw new Error(t("areaRequired"));
+      }
+
+      if (photos.length === 0) {
+        throw new Error(t("photosRequired"));
+      }
+
       const parseOptionalPositive = (v: string): number | null => {
         if (!v) return null;
         const n = Number(v);
@@ -350,7 +369,6 @@ function CreateRentalPageInner() {
         return n;
       };
 
-      const areaNum = parseOptionalPositive(areaSqm);
       const roomsNum = parseOptionalPositive(rooms);
       const bathroomsNum = parseOptionalPositive(bathrooms);
       const capacityNum = parseOptionalPositive(capacity);
@@ -480,7 +498,7 @@ function CreateRentalPageInner() {
       router.push("/dashboard/renter");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("submitError"));
-    } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
@@ -691,7 +709,12 @@ function CreateRentalPageInner() {
                       placeholder={t("egValue", { value: 4 })}
                     />
                   </Field>
-                  <Field label={t("area")}>
+                  <Field
+                    label={t("area")}
+                    required
+                    fieldKey="area"
+                    error={invalidFields.has("area")}
+                  >
                     <NumberField
                       value={areaSqm}
                       onChange={setAreaSqm}
@@ -941,10 +964,18 @@ function CreateRentalPageInner() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div data-field="photos" className="space-y-2 scroll-mt-24">
                   <div className="flex items-center justify-between">
-                    <label className="text-[13px] font-bold text-[#334155]">
+                    <label
+                      className={cn(
+                        "text-[13px] font-bold",
+                        invalidFields.has("photos")
+                          ? "text-[#EF4444]"
+                          : "text-[#334155]",
+                      )}
+                    >
                       {t("photos")}
+                      <span className="ml-0.5 text-[#EF4444]">*</span>
                     </label>
                     <span className="text-xs font-medium text-[#EF4444]">
                       {t("landscapeWarning")}

@@ -35,6 +35,10 @@ function isCreateRoute(pathname: string) {
   return /(^|\/)create(\/|$)/.test(pathname);
 }
 
+function isCheckoutRoute(pathname: string) {
+  return /(^|\/)checkout(\/|$)/.test(pathname);
+}
+
 function isSalesIndexRoute(pathname: string) {
   // Matches /sales and /{locale}/sales exactly — not detail pages like /sales/[id]
   return /(^|\/)sales\/?$/.test(pathname);
@@ -48,11 +52,13 @@ export function LocaleShell({ children }: LocaleShellProps) {
   const pathname = usePathname();
   const isDashboard = isDashboardRoute(pathname);
   const isCreate = isCreateRoute(pathname);
+  const isCheckout = isCheckoutRoute(pathname);
   const isSalesIndex = isSalesIndexRoute(pathname);
   const isAuth = isAuthRoute(pathname);
 
   const content = (() => {
-    if (isDashboard || isCreate) return <>{children}</>;
+    // Checkout is a standalone hosted-style payment page — no app chrome.
+    if (isDashboard || isCreate || isCheckout) return <>{children}</>;
     if (isSalesIndex || isAuth) {
       // Sales index and auth pages render their own header; keep global footer.
       return (

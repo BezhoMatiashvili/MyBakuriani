@@ -57,11 +57,7 @@ export type MockServiceCardItem = {
 };
 
 type MockCategory =
-  | "transport"
-  | "handyman"
-  | "entertainment"
-  | "food"
-  | "employment";
+  "transport" | "handyman" | "entertainment" | "food" | "employment";
 
 export const MOCK_SERVICES_BY_CATEGORY: Record<
   MockCategory,
@@ -357,6 +353,10 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     activity_category: null,
     activity_type: null,
     admin_notes: null,
+    is_super_vip: false,
+    vip_expires_at: null,
+    vip_expiry_notified_at: null,
+    whatsapp: null,
     age_min: null,
     avg_check: item.avgCheck ?? null,
     coords: null,

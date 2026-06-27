@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 
 /**
@@ -12,7 +13,11 @@ export async function isAdminViewer(): Promise<boolean> {
   try {
     const profile = await getCurrentProfile();
     return profile?.role === "admin";
-  } catch {
+  } catch (err) {
+    // Never swallow Next's control-flow signals (dynamic-rendering bail-out,
+    // redirect, notFound) — doing so corrupts the render. Treat only real
+    // auth/query failures as "not an admin".
+    unstable_rethrow(err);
     return false;
   }
 }

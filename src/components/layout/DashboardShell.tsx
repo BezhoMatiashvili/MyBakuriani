@@ -80,6 +80,8 @@ interface DashboardShellProps {
   availableCabinets: string[];
   /** Cleaner availability toggle initial state (defaults to the DB default). */
   cleanerOnline?: boolean;
+  /** Approved organizations the user belongs to (seller company nav). */
+  companies?: { id: string; name: string; role: string; status: string }[];
   children: React.ReactNode;
 }
 
@@ -94,6 +96,7 @@ export function DashboardShell({
   smartMatchCount: initialSmartMatchCount,
   availableCabinets,
   cleanerOnline = true,
+  companies = [],
   children,
 }: DashboardShellProps) {
   const pathname = usePathname();
@@ -301,6 +304,7 @@ export function DashboardShell({
           currentPath={pathname}
           onSignOut={handleSignOut}
           availableCabinets={availableCabinets}
+          companies={companies}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <SellerTopbar

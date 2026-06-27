@@ -24,6 +24,7 @@ type LayoutData = {
   service_categories?: string[];
   cleaning_tasks_count?: number;
   cleaner_online?: boolean | null;
+  organizations?: { id: string; name: string; role: string; status: string }[];
 };
 
 export default async function DashboardLayout({
@@ -85,6 +86,7 @@ export default async function DashboardLayout({
         smartMatchCount={smartMatchCount}
         availableCabinets={availableCabinets}
         cleanerOnline={data.cleaner_online ?? true}
+        companies={data.organizations ?? []}
       >
         {children}
       </DashboardShell>

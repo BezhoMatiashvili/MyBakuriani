@@ -20,6 +20,7 @@ export const PUBLIC_NAMESPACES = [
   "BookingSidebar",
   "BulkActionBar",
   "Calendar",
+  "Checkout",
   "CreateEmployment",
   "CreateEntertainment",
   "CreateFood",

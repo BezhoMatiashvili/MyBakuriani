@@ -19,6 +19,9 @@ import {
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import { formatDate } from "@/lib/utils/format";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import { toast } from "sonner";
+import TopUpModal from "@/components/payments/TopUpModal";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
@@ -45,6 +48,8 @@ export default function PropertyBalanceClient() {
   const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -61,6 +66,8 @@ export default function PropertyBalanceClient() {
     tier: VipInfoTier;
     packageId: string;
   }>({ open: false, tier: "super-vip", packageId: "" });
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
 
   useEffect(() => {
     fetchPricingPackages(["vip", "sms"]).then(setPackages);
@@ -131,6 +138,37 @@ export default function PropertyBalanceClient() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Show a confirmation toast after returning from a successful checkout, then
+  // strip the query param so a refresh doesn't re-toast. Balance + history are
+  // already refreshed live by the realtime subscriptions above.
+  useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get("payment") === "success"
+    ) {
+      toast.success(t("topUp.success"));
+      router.replace(pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleTopUp = async (amount: number) => {
+    setCreatingSession(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "payment-create",
+        { body: { amount, purpose: "topup", return_path: pathname } },
+      );
+      if (error) throw error;
+      const paymentId = (data as { data?: { payment_id?: string } })?.data
+        ?.payment_id;
+      if (!paymentId) throw new Error("missing payment id");
+      router.push(`/checkout?session=${paymentId}`);
+    } catch {
+      toast.error(t("topUp.createError"));
+      setCreatingSession(false);
+    }
+  };
 
   const sortedPackages = useMemo(() => {
     // Show VIP first, then SMS, each sorted by sort_order
@@ -230,6 +268,7 @@ export default function PropertyBalanceClient() {
         </div>
         <button
           type="button"
+          onClick={() => setTopUpOpen(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[13px] font-black text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
         >
           {t("topUpBalance")}
@@ -339,6 +378,13 @@ export default function PropertyBalanceClient() {
           )}
         </div>
       </motion.section>
+
+      <TopUpModal
+        isOpen={topUpOpen}
+        onClose={() => setTopUpOpen(false)}
+        onConfirm={handleTopUp}
+        loading={creatingSession}
+      />
 
       <VipInfoModal
         isOpen={vipModal.open}

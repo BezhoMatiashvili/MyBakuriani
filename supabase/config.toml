@@ -42,6 +42,9 @@ verify_jwt = false
 [functions.booking-manage]
 verify_jwt = false
 
+[functions.company-subscription]
+verify_jwt = false
+
 [functions.purchase-vip]
 verify_jwt = false
 
@@ -62,3 +65,11 @@ verify_jwt = false
 
 [functions.vip-lifecycle]
 verify_jwt = false
+
+# Payment endpoints require an authenticated user. They also enforce the bearer
+# token via requireUser(), so verify_jwt is defense-in-depth — keep it true.
+[functions.payment-create]
+verify_jwt = true
+
+[functions.payment-process]
+verify_jwt = true

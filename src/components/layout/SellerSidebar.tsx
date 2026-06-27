@@ -7,6 +7,7 @@ import {
   PieChart,
   IdCard,
   Building2,
+  Building,
   TrendingUp,
   Wallet,
   Bell,
@@ -20,6 +21,13 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
+interface SellerCompany {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+}
+
 interface SellerSidebarProps {
   userName: string;
   profileType?: "individual" | "legal";
@@ -30,6 +38,8 @@ interface SellerSidebarProps {
   currentPath: string;
   onSignOut: () => void;
   availableCabinets: string[];
+  /** Approved organizations the user belongs to (drives company nav items). */
+  companies?: SellerCompany[];
 }
 
 interface NavItem {
@@ -132,6 +142,7 @@ export function SellerSidebar({
   currentPath,
   onSignOut,
   availableCabinets,
+  companies = [],
 }: SellerSidebarProps) {
   const t = useTranslations("DashboardSidebar");
   const initials = userName
@@ -139,6 +150,30 @@ export function SellerSidebar({
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
+
+  // Inject company nav into the management section: "My organizations" is always
+  // shown; "My company" appears only when the user owns one (links to its
+  // cabinet, or to the list when they own several).
+  const ownedCompanies = companies.filter((c) => c.role === "owner");
+  const companyHref =
+    ownedCompanies.length === 1
+      ? `/dashboard/seller/organizations/${ownedCompanies[0].id}`
+      : "/dashboard/seller/organizations";
+  const sections: NavSection[] = SECTIONS.map((section) => {
+    if (section.titleKey !== "managementPanel") return section;
+    const items: NavItem[] = [
+      ...section.items,
+      {
+        labelKey: "myOrganizations",
+        href: "/dashboard/seller/organizations",
+        icon: Building2,
+      },
+    ];
+    if (ownedCompanies.length > 0) {
+      items.push({ labelKey: "myCompany", href: companyHref, icon: Building });
+    }
+    return { ...section, items };
+  });
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
@@ -177,7 +212,7 @@ export function SellerSidebar({
 
       <nav className="mt-5 flex-1 overflow-y-auto px-4">
         <ul className="space-y-5">
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <li key={section.titleKey}>
               <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
                 {t(`sections.${section.titleKey}`)}

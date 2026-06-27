@@ -116,6 +116,14 @@ export function RenterSidebar({
     .join("")
     .slice(0, 2);
 
+  // SMS Center belongs to the renter cabinet — hide its link from anyone viewing
+  // this sidebar who isn't a renter-cabinet member (mirrors canUseSmsCenter on the
+  // /dashboard/sms page, so the link never leads to a denied redirect).
+  const navItems = NAV_ITEMS.filter(
+    (item) =>
+      item.href !== "/dashboard/sms" || availableCabinets.includes("renter"),
+  );
+
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
       {/* Logo */}
@@ -154,7 +162,7 @@ export function RenterSidebar({
       {/* Nav */}
       <nav className="mt-4 flex-1 overflow-y-auto px-4">
         <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isHome = item.href === "/dashboard/renter";
             const isActive = isHome
               ? currentPath === "/dashboard/renter" ||

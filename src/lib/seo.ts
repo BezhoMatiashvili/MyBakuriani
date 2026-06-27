@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { routing, type AppLocale } from "@/i18n/routing";
+import { sanitizePhotos } from "@/lib/utils/photos";
 
 const SITE_NAME = "MyBakuriani";
 /** Branded 1200x630 fallback in /public — used when a listing has no photos. */
@@ -27,7 +28,9 @@ interface BuildListingMetadataOptions {
 export function buildListingMetadata(
   opts: BuildListingMetadataOptions,
 ): Pick<Metadata, "openGraph" | "twitter" | "alternates"> {
-  const images = opts.images.filter((u): u is string => Boolean(u)).slice(0, 4);
+  // sanitizePhotos drops empty/base64/oversized entries so og:image never
+  // embeds a multi-MB data URL (which would bloat the SSR response).
+  const images = sanitizePhotos(opts.images).slice(0, 4);
   // Multiple og:image entries: WhatsApp/Telegram use the first (cover); the
   // Facebook composer lets the sharer pick among the rest.
   const ogImages = images.length ? images : [FALLBACK_OG_IMAGE];

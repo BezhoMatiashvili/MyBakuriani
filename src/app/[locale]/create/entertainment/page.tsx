@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -190,6 +190,7 @@ function CreateEntertainmentPageInner() {
   );
 
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -329,6 +330,9 @@ function CreateEntertainmentPageInner() {
     }
     setInvalidFields(new Set());
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setLoading(true);
     setError(null);
 
@@ -389,10 +393,10 @@ function CreateEntertainmentPageInner() {
         if (insertError) throw insertError;
       }
 
-      router.push("/dashboard/service");
+      router.push("/dashboard/entertainment");
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
-    } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }

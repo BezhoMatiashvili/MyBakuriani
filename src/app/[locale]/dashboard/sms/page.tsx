@@ -29,7 +29,7 @@ export default async function SmsCenterPage() {
     .maybeSingle();
 
   if (!(await canUseSmsCenter(supabase, user.id, profile?.role))) {
-    redirect("/dashboard");
+    redirect("/dashboard/renter");
   }
 
   const [balanceRes, rulesRes] = await Promise.all([

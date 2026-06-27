@@ -502,6 +502,8 @@ function buildMockProperty(
     updated_at: epoch,
     views_count: 0,
     vip_expires_at: null,
+    vip_expiry_notified_at: null,
+    organization_id: null,
     whatsapp: null,
     profiles: null,
   };
@@ -571,6 +573,8 @@ function buildMockSaleProperty(
     updated_at: epoch,
     views_count: 247,
     vip_expires_at: null,
+    vip_expiry_notified_at: null,
+    organization_id: null,
     profiles: {
       admin_notes: null,
       avatar_url: null,

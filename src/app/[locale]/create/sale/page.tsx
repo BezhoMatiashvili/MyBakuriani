@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -12,7 +12,8 @@ import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
 import NumberField from "@/components/shared/NumberField";
 import { StyledSelect } from "@/components/ui/styled-select";
-import { MapPinned } from "lucide-react";
+import { MapPinned, User } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
@@ -166,6 +167,7 @@ function CreateSalePageInner() {
   );
 
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -206,6 +208,64 @@ function CreateSalePageInner() {
   const [unitsTotal, setUnitsTotal] = useState("");
   const [unitsSold, setUnitsSold] = useState("");
   const [unitsReserved, setUnitsReserved] = useState("");
+
+  // "Post as" — null = personal listing, otherwise an approved company the user
+  // belongs to. Companies without an active subscription can't publish (DB
+  // trigger enforces it; we also pre-check + warn here).
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<
+    { id: string; brand_name: string; role: string; has_active_sub: boolean }[]
+  >([]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const sb = createClient();
+    (async () => {
+      const { data: mems } = await sb
+        .from("organization_members")
+        .select("role, organizations!inner(id, brand_name, status)")
+        .eq("user_id", user.id)
+        .eq("status", "approved");
+      const rows = (mems ?? [])
+        .map((m) => {
+          const o = (m as { organizations: unknown }).organizations;
+          const org = Array.isArray(o) ? o[0] : o;
+          return {
+            role: (m as { role: string }).role,
+            org: org as { id: string; brand_name: string } | null,
+          };
+        })
+        .filter((r) => r.org);
+      const ids = rows.map((r) => r.org!.id);
+      let activeSet = new Set<string>();
+      if (ids.length) {
+        const { data: subs } = await sb
+          .from("organization_subscriptions")
+          .select("organization_id")
+          .eq("status", "active")
+          .gt("expires_at", new Date().toISOString())
+          .in("organization_id", ids);
+        activeSet = new Set(
+          (subs ?? []).map(
+            (s) => (s as { organization_id: string }).organization_id,
+          ),
+        );
+      }
+      if (cancelled) return;
+      setCompanies(
+        rows.map((r) => ({
+          id: r.org!.id,
+          brand_name: r.org!.brand_name,
+          role: r.role,
+          has_active_sub: activeSet.has(r.org!.id),
+        })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const isUnderConstruction = constructionStatus === "under_construction";
 
@@ -408,6 +468,16 @@ function CreateSalePageInner() {
       errs.push({ key: "phone", message: tShared("invalidPhone") });
     }
 
+    if (organizationId) {
+      const company = companies.find((c) => c.id === organizationId);
+      if (!company || !company.has_active_sub) {
+        errs.push({
+          key: "organization",
+          message: t("postAsNeedsPackageError"),
+        });
+      }
+    }
+
     return errs;
   }
 
@@ -422,6 +492,9 @@ function CreateSalePageInner() {
       return;
     }
     setInvalidFields(new Set());
+
+    if (submittingRef.current) return;
+    submittingRef.current = true;
 
     setLoading(true);
     setError(null);
@@ -522,6 +595,7 @@ function CreateSalePageInner() {
           .insert({
             ...payload,
             owner_id: user.id,
+            organization_id: organizationId,
             construction_stages: [],
             status: "pending" as Enums<"listing_status">,
           })
@@ -530,11 +604,11 @@ function CreateSalePageInner() {
 
         if (insertError) throw insertError;
         if (!inserted) throw new Error(tShared("genericError"));
-        router.push("/dashboard");
+        router.push("/dashboard/seller");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
-    } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
@@ -549,6 +623,13 @@ function CreateSalePageInner() {
     isValidGePhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 7) * 100));
+
+  // Show the "post as" step only when creating (not editing) and the user
+  // belongs to at least one approved company; it shifts the section numbers.
+  const showPostAs = !isEditMode && companies.length > 0;
+  const stepBase = showPostAs ? 1 : 0;
+  const selectedCompany =
+    companies.find((c) => c.id === organizationId) ?? null;
 
   return (
     <WizardShell
@@ -573,8 +654,89 @@ function CreateSalePageInner() {
         </div>
       ) : (
         <div className="space-y-8">
+          {showPostAs && (
+            <WizardInnerCard
+              number={1}
+              title={t("postAsSection")}
+              accent="green"
+            >
+              <Field label={t("postAsLabel")} required>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrganizationId(null)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all",
+                      organizationId === null
+                        ? "border-[#16A34A] bg-[#F0FDF4]"
+                        : "border-[#E2E8F0] hover:border-[#CBD5E1]",
+                    )}
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF]">
+                      <User className="h-5 w-5 text-[#2563EB]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-bold text-[#0F172A]">
+                        {t("postAsPerson")}
+                      </span>
+                      {user?.phone && (
+                        <span className="block truncate text-[12px] font-medium text-[#94A3B8]">
+                          {user.phone}
+                        </span>
+                      )}
+                    </span>
+                    <PostAsRadio selected={organizationId === null} />
+                  </button>
+
+                  {companies.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setOrganizationId(c.id)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all",
+                        organizationId === c.id
+                          ? "border-[#16A34A] bg-[#F0FDF4]"
+                          : "border-[#E2E8F0] hover:border-[#CBD5E1]",
+                      )}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0F172A] text-[12px] font-black uppercase text-white">
+                        {c.brand_name.slice(0, 2)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-bold text-[#0F172A]">
+                          {c.brand_name}
+                        </span>
+                        {c.has_active_sub ? (
+                          <span className="block truncate text-[12px] font-medium text-[#94A3B8]">
+                            {c.role === "owner"
+                              ? t("postAsOwnerSuffix")
+                              : t("postAsAgentSuffix")}
+                          </span>
+                        ) : (
+                          <span className="block truncate text-[12px] font-bold text-[#B45309]">
+                            {t("postAsCompanyHint")} ⚠️
+                          </span>
+                        )}
+                      </span>
+                      <PostAsRadio selected={organizationId === c.id} />
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              {selectedCompany && !selectedCompany.has_active_sub && (
+                <Link
+                  href={`/dashboard/seller/organizations/${selectedCompany.id}`}
+                  className="inline-flex items-center gap-1 text-[13px] font-bold text-[#B45309] hover:underline"
+                >
+                  {t("postAsCompanyHint")} →
+                </Link>
+              )}
+            </WizardInnerCard>
+          )}
+
           <WizardInnerCard
-            number={1}
+            number={stepBase + 1}
             title={t("sectionIdentity")}
             accent="green"
           >
@@ -711,7 +873,7 @@ function CreateSalePageInner() {
           </WizardInnerCard>
 
           <WizardInnerCard
-            number={2}
+            number={stepBase + 2}
             title={t("sectionCondition")}
             accent="green"
           >
@@ -746,7 +908,7 @@ function CreateSalePageInner() {
           </WizardInnerCard>
 
           <WizardInnerCard
-            number={3}
+            number={stepBase + 3}
             title={t("sectionFinance")}
             accent="green"
           >
@@ -828,7 +990,7 @@ function CreateSalePageInner() {
           </WizardInnerCard>
 
           <WizardInnerCard
-            number={4}
+            number={stepBase + 4}
             title={t("sectionDetailsContact")}
             accent="green"
           >
@@ -873,6 +1035,19 @@ function CreateSalePageInner() {
 
 const inputClass =
   "h-[48px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]";
+
+function PostAsRadio({ selected }: { selected: boolean }) {
+  return (
+    <span
+      className={cn(
+        "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+        selected ? "border-[#16A34A]" : "border-[#CBD5E1]",
+      )}
+    >
+      {selected && <span className="h-2 w-2 rounded-full bg-[#16A34A]" />}
+    </span>
+  );
+}
 
 function Field({
   label,

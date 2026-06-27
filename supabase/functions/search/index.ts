@@ -113,7 +113,7 @@ serve(async (req) => {
     let dbQuery = supabase
       .from("properties")
       .select(
-        `*, ${profileJoin}(display_name, phone, avatar_url, rating, is_verified)`,
+        `*, ${profileJoin}(display_name, phone, avatar_url, rating, is_verified), organizations(status)`,
         { count: "exact" },
       )
       .eq("status", "active");
@@ -182,13 +182,25 @@ serve(async (req) => {
 
     if (error) throw error;
 
+    // Hide listings posted under a company that isn't admin-verified yet. The
+    // service-role client bypasses RLS, so this gate must be applied explicitly
+    // here (the anon/public read paths get it from the properties RLS policy).
+    let filtered = (properties ?? []).filter(
+      (p: {
+        organization_id?: string | null;
+        organizations?: { status?: string } | null;
+      }) => !p.organization_id || p.organizations?.status === "active",
+    );
+
     // Filter by date availability if dates provided
-    let filtered = properties;
     if (check_in && check_out) {
       const { data: blockedProps } = await supabase
         .from("calendar_blocks")
         .select("property_id")
-        .in("property_id", properties?.map((p: { id: string }) => p.id) || [])
+        .in(
+          "property_id",
+          filtered.map((p: { id: string }) => p.id),
+        )
         .gte("date", check_in)
         .lt("date", check_out)
         .in("status", ["booked", "blocked"]);
@@ -196,8 +208,7 @@ serve(async (req) => {
       const blockedIds = new Set(
         blockedProps?.map((b: { property_id: string }) => b.property_id) || [],
       );
-      filtered =
-        properties?.filter((p: { id: string }) => !blockedIds.has(p.id)) || [];
+      filtered = filtered.filter((p: { id: string }) => !blockedIds.has(p.id));
     }
 
     // Distance sorting if lat/lng provided

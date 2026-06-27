@@ -1,10 +1,12 @@
 import { cache } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { createClient, createPublicClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isAdminViewer } from "@/lib/auth/is-admin-viewer";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getMockProperty, isMockPropertyId } from "@/lib/mock/properties";
 import { isUuid } from "@/lib/utils/uuid";
+import { sanitizePhotos } from "@/lib/utils/photos";
 import type { Tables } from "@/lib/types/database";
 
 type PropertyWithProfile = Tables<"properties"> & {
@@ -62,8 +64,15 @@ export const getPropertyById = cache(
       ) {
         return { data: null, isMock: false };
       }
+      // Drop legacy base64/oversized photo entries before they reach SSR HTML,
+      // the RSC payload, or og:image — see sanitizePhotos.
+      row.photos = sanitizePhotos(row.photos);
       return { data: row, isMock: false };
-    } catch {
+    } catch (err) {
+      // Never swallow Next's control-flow signals (dynamic-rendering bail-out,
+      // redirect, notFound) — doing so corrupts the render. Only real query
+      // failures fall through to a null (not-found) result.
+      unstable_rethrow(err);
       return { data: null, isMock: false };
     }
   },

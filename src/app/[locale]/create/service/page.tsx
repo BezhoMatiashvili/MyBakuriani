@@ -78,6 +78,7 @@ function CreateServicePageInner() {
   );
 
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -238,6 +239,9 @@ function CreateServicePageInner() {
     }
     setInvalidFields(new Set());
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setLoading(true);
     setError(null);
 
@@ -279,7 +283,7 @@ function CreateServicePageInner() {
         router.push(
           resolvedCategory === "cleaning"
             ? "/dashboard/cleaner"
-            : "/dashboard/service",
+            : "/dashboard/services",
         );
       } else {
         const { error: insertError } = await supabase
@@ -291,12 +295,12 @@ function CreateServicePageInner() {
         router.push(
           categoryValue === "cleaning"
             ? "/dashboard/cleaner"
-            : "/dashboard/service",
+            : "/dashboard/services",
         );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
-    } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }

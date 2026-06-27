@@ -8,6 +8,7 @@ import {
   useState,
   ChangeEvent,
 } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FileText, Link2, MapPin, X } from "lucide-react";
@@ -40,6 +41,18 @@ import {
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 10;
 
+const ExactLocationPicker = dynamic(
+  () => import("@/components/maps/ExactLocationPicker"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[320px] w-full items-center justify-center rounded-xl bg-[#E2E8F0]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
+
 export default function CreateFoodPage() {
   return (
     <Suspense
@@ -71,6 +84,7 @@ function CreateFoodPageInner() {
   }));
 
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -80,6 +94,10 @@ function CreateFoodPageInner() {
   const [cuisineType, setCuisineType] = useState("");
   const [zone, setZone] = useState("");
   const [exactLocation, setExactLocation] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+  const [showMap, setShowMap] = useState(false);
   const [avgCheck, setAvgCheck] = useState("");
   const [operatingHours, setOperatingHours] = useState("");
   const [amenities, setAmenities] = useState<Record<FoodAmenityKey, boolean>>(
@@ -151,6 +169,20 @@ function CreateFoodPageInner() {
         )?.value ?? "",
       );
       setZone(data.location ?? "");
+
+      const rawCoords = data.coords;
+      if (
+        rawCoords &&
+        typeof rawCoords === "object" &&
+        !Array.isArray(rawCoords)
+      ) {
+        const obj = rawCoords as Record<string, unknown>;
+        if (typeof obj.lat === "number" && typeof obj.lng === "number") {
+          setCoords({ lat: obj.lat, lng: obj.lng });
+          setShowMap(true);
+        }
+      }
+
       setAvgCheck(data.avg_check ?? "");
       setOperatingHours(data.operating_hours ?? "");
       setAmenities(
@@ -236,6 +268,9 @@ function CreateFoodPageInner() {
     }
     setInvalidFields(new Set());
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setLoading(true);
     setError(null);
 
@@ -261,6 +296,7 @@ function CreateFoodPageInner() {
         ...amenities,
         operating_hours: operatingHours.trim() || null,
         location: zone || exactLocation.trim() || null,
+        coords: coords ?? null,
         phone: phone ? `+995${phone}` : null,
         photos,
       };
@@ -286,7 +322,7 @@ function CreateFoodPageInner() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : tShared("genericError"));
-    } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
@@ -390,6 +426,8 @@ function CreateFoodPageInner() {
                   />
                   <button
                     type="button"
+                    onClick={() => setShowMap((v) => !v)}
+                    aria-pressed={showMap}
                     className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-xl bg-[#F97316] text-white shadow-[0px_4px_10px_rgba(249,115,22,0.25)] transition-colors hover:bg-[#EA580C]"
                     aria-label={tShared("showOnMap")}
                   >
@@ -398,6 +436,10 @@ function CreateFoodPageInner() {
                 </div>
               </Field>
             </div>
+
+            {showMap && (
+              <ExactLocationPicker value={coords} onChange={setCoords} />
+            )}
 
             <Field label={tShared("description")}>
               <textarea
