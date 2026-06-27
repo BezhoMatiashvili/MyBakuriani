@@ -1,21 +1,23 @@
 /**
  * Watermark Backfill Script
  *
- * Adds the MyBakuriani logo watermark (bottom-right, subtle) to every
- * existing user-uploaded image:
- *   - properties.photos TEXT[] (base64 data URLs + supabase storage URLs)
- *   - storage bucket `property-photos`
- *   - storage bucket `avatars`
+ * Adds the MyBakuriani logo watermark (bottom-right, medium transparency) to
+ * existing user-uploaded listing images:
+ *   - properties.photos / services.photos TEXT[] (supabase storage URLs)
  *
- * Dry-run by default. `--apply` writes; requires `--i-have-a-backup`.
- * Idempotent via EXIF UserComment marker `MB-WM-v1` (backfill re-encodes
- * everything to JPEG to use one uniform marker scheme).
+ * The `db` target (default) is NON-DESTRUCTIVE: each un-watermarked photo is
+ * re-rendered to a NEW `<name>-wm.jpg` object and the row is repointed at it;
+ * the original object is left intact. The `storage` target overwrites objects
+ * IN PLACE (a local copy is written to .watermark-backups first). Dry-run by
+ * default. `--apply` writes; requires `--i-have-a-backup`.
+ *
+ * Idempotent: a photo is skipped when its object path already ends in
+ * `-wm.<ext>` (written by PhotoUploader and prior runs) OR carries the EXIF
+ * UserComment marker `MB-WM-v1`.
  *
  * Usage:
  *   npx tsx scripts/watermark-backfill.ts --target=db --limit=3
  *   npx tsx scripts/watermark-backfill.ts --target=db --apply --i-have-a-backup
- *   npx tsx scripts/watermark-backfill.ts --target=storage --bucket=avatars --apply --i-have-a-backup
- *   npx tsx scripts/watermark-backfill.ts --target=all --apply --i-have-a-backup
  *
  * Required env (.env.local):
  *   NEXT_PUBLIC_SUPABASE_URL
@@ -87,15 +89,20 @@ if (BACKUP_DIR) {
   console.log(`✓ Backup dir: ${path.relative(process.cwd(), BACKUP_DIR)}`);
 }
 
-function backupDbRow(id: string, originalPhotos: string[]): void {
+function backupDbRow(
+  table: string,
+  id: string,
+  originalPhotos: string[],
+): void {
   if (!BACKUP_DIR) return;
   const line =
     JSON.stringify({
+      table,
       id,
       photos: originalPhotos,
       ts: new Date().toISOString(),
     }) + "\n";
-  appendFileSync(path.join(BACKUP_DIR, "properties.ndjson"), line);
+  appendFileSync(path.join(BACKUP_DIR, `${table}.ndjson`), line);
 }
 
 function backupStorageObject(
@@ -140,7 +147,7 @@ async function getOverlay(width: number): Promise<Buffer> {
     .toBuffer({ resolveWithObject: true });
   const { data, info } = resized;
   for (let i = 3; i < data.length; i += info.channels) {
-    data[i] = Math.round(data[i] * 0.65);
+    data[i] = Math.round(data[i] * 0.5);
   }
   const png = await sharp(data, {
     raw: {
@@ -172,10 +179,13 @@ async function applyWatermark(input: Buffer): Promise<{
   if (await isAlreadyMarked(input)) {
     return { buffer: input, skipped: "already-marked" };
   }
-  const img = sharp(input, { failOn: "none" });
-  const meta = await img.metadata();
-  const w = meta.width ?? 0;
-  const h = meta.height ?? 0;
+  const meta = await sharp(input, { failOn: "none" }).metadata();
+  // `.rotate()` below auto-orients via EXIF; orientations 5–8 are 90°/270°
+  // rotations that swap width/height. Measure the post-rotation dimensions so
+  // the overlay lands in the visible bottom-right corner.
+  const swap = (meta.orientation ?? 1) >= 5;
+  const w = (swap ? meta.height : meta.width) ?? 0;
+  const h = (swap ? meta.width : meta.height) ?? 0;
   if (w < 200) {
     return { buffer: input, skipped: "tiny" };
   }
@@ -186,7 +196,7 @@ async function applyWatermark(input: Buffer): Promise<{
   const wmH = overlayMeta.height ?? Math.round(wmW * 0.2);
   const left = Math.max(0, w - wmW - pad);
   const top = Math.max(0, h - wmH - pad);
-  const out = await img
+  const out = await sharp(input, { failOn: "none" })
     .rotate()
     .composite([{ input: overlay, left, top }])
     .jpeg({ quality: 85, mozjpeg: true })
@@ -261,21 +271,37 @@ function isOurStorageUrl(s: string): {
   }
 }
 
-async function processDbProperties(): Promise<Stats> {
-  console.log("\n=== Target: properties.photos ===");
+// A photo whose object path already ends in `-wm.<ext>` is watermarked — both
+// PhotoUploader and prior backfill runs write this marker.
+function isWatermarkedPath(objectPath: string): boolean {
+  return /-wm\.(jpe?g|png|webp)$/i.test(objectPath);
+}
+
+// The watermarked copy lives at a NEW path so the original is never touched.
+// applyWatermark always re-encodes to JPEG, so the copy is `<base>-wm.jpg`.
+function watermarkedObjectPath(objectPath: string): string {
+  const dot = objectPath.lastIndexOf(".");
+  const base = dot > 0 ? objectPath.slice(0, dot) : objectPath;
+  return `${base}-wm.jpg`;
+}
+
+async function processDbTable(
+  table: "properties" | "services",
+): Promise<Stats> {
+  console.log(`\n=== Target: ${table}.photos ===`);
   const stats = newStats();
   let from = 0;
   let totalSeen = 0;
   while (totalSeen < LIMIT) {
     const to = Math.min(from + BATCH - 1, from + (LIMIT - totalSeen) - 1);
     const { data: rows, error } = await supabase
-      .from("properties")
+      .from(table)
       .select("id, photos")
       .not("photos", "is", null)
-      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
       .range(from, to);
     if (error) {
-      console.error("Failed to fetch properties:", error.message);
+      console.error(`Failed to fetch ${table}:`, error.message);
       break;
     }
     if (!rows || rows.length === 0) break;
@@ -312,6 +338,13 @@ async function processDbProperties(): Promise<Stats> {
               newPhotos.push(photo);
               continue;
             }
+            // Skip already-watermarked copies without downloading — the `-wm`
+            // marker means PhotoUploader or a prior run already handled it.
+            if (isWatermarkedPath(loc.objectPath)) {
+              stats.skippedMarked++;
+              newPhotos.push(photo);
+              continue;
+            }
             const { data: blob, error: dlErr } = await supabase.storage
               .from(loc.bucket)
               .download(loc.objectPath);
@@ -336,11 +369,16 @@ async function processDbProperties(): Promise<Stats> {
               newPhotos.push(photo);
               continue;
             }
+            // Non-destructive: write the watermarked image to a NEW `-wm`
+            // object and repoint the row at it. The original is left intact.
+            const newPath = watermarkedObjectPath(loc.objectPath);
+            const { data: pub } = supabase.storage
+              .from(loc.bucket)
+              .getPublicUrl(newPath);
             if (APPLY) {
-              backupStorageObject(loc.bucket, loc.objectPath, buf);
               const { error: upErr } = await supabase.storage
                 .from(loc.bucket)
-                .upload(loc.objectPath, res.buffer, {
+                .upload(newPath, res.buffer, {
                   upsert: true,
                   contentType: "image/jpeg",
                 });
@@ -353,8 +391,13 @@ async function processDbProperties(): Promise<Stats> {
                 newPhotos.push(photo);
                 continue;
               }
+            } else {
+              console.log(
+                `[DRY] would upload ${loc.bucket}/${newPath} and repoint ${loc.objectPath}`,
+              );
             }
-            newPhotos.push(photo);
+            newPhotos.push(pub.publicUrl);
+            changed = true;
             stats.processed++;
           }
         } catch (err) {
@@ -369,9 +412,9 @@ async function processDbProperties(): Promise<Stats> {
 
       if (changed) {
         if (APPLY) {
-          backupDbRow(row.id, photos);
+          backupDbRow(table, row.id, photos);
           const { error: updErr } = await supabase
-            .from("properties")
+            .from(table)
             .update({
               photos: newPhotos,
               updated_at: new Date().toISOString(),
@@ -383,7 +426,7 @@ async function processDbProperties(): Promise<Stats> {
           }
         } else {
           console.log(
-            `[DRY] would update properties.id=${row.id} (${photos.length} photos)`,
+            `[DRY] would update ${table}.id=${row.id} (${photos.length} photos)`,
           );
         }
       }
@@ -434,6 +477,11 @@ async function processStorageBucket(bucket: string): Promise<Stats> {
 
   await pool(capped, CONCURRENCY, async (objectPath) => {
     try {
+      // Skip already-watermarked objects (the `-wm` marker) without download.
+      if (isWatermarkedPath(objectPath)) {
+        stats.skippedMarked++;
+        return;
+      }
       const { data: blob, error: dlErr } = await supabase.storage
         .from(bucket)
         .download(objectPath);
@@ -531,7 +579,7 @@ async function main(): Promise<void> {
       "   1. Supabase Dashboard → Database → Backups → on-demand snapshot",
     );
     console.log(
-      "   2. pg_dump -t properties --data-only > properties-pre-wm.sql",
+      "   2. pg_dump -t properties -t services --data-only > listings-pre-wm.sql",
     );
     console.log(
       "   3. Storage: no native versioning — manual rclone mirror recommended\n",
@@ -541,11 +589,13 @@ async function main(): Promise<void> {
   const t0 = Date.now();
 
   if (TARGET === "db" || TARGET === "all") {
-    const s = await processDbProperties();
-    summarize("properties.photos", s);
+    for (const table of ["properties", "services"] as const) {
+      const s = await processDbTable(table);
+      summarize(`${table}.photos`, s);
+    }
   }
   if (TARGET === "storage" || TARGET === "all") {
-    const buckets = BUCKET_ARG ? [BUCKET_ARG] : ["property-photos", "avatars"];
+    const buckets = BUCKET_ARG ? [BUCKET_ARG] : ["property-photos"];
     for (const b of buckets) {
       const s = await processStorageBucket(b);
       summarize(`bucket:${b}`, s);

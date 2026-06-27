@@ -10,7 +10,6 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
-import { watermarkFile } from "@/lib/utils/watermark";
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -109,14 +108,13 @@ export default function RegisterPage() {
       let uploadedAvatarUrl: string | null = null;
 
       if (avatarFile) {
-        const watermarked = await watermarkFile(avatarFile);
-        const ext = watermarked.name.split(".").pop();
+        const ext = avatarFile.name.split(".").pop();
         const path = `avatars/${user.id}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("property-photos")
-          .upload(path, watermarked, {
+          .upload(path, avatarFile, {
             upsert: true,
-            contentType: watermarked.type,
+            contentType: avatarFile.type,
           });
         if (uploadError) throw uploadError;
 

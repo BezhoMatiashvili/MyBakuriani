@@ -9,7 +9,6 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Tables } from "@/lib/types/database";
-import { watermarkFile } from "@/lib/utils/watermark";
 
 export default function GuestProfilePage() {
   const t = useTranslations("GuestProfile");
@@ -99,14 +98,13 @@ export default function GuestProfilePage() {
 
     setUploadingAvatar(true);
     try {
-      const watermarked = await watermarkFile(file);
-      const ext = watermarked.type === "image/png" ? "png" : "jpg";
+      const ext = file.type === "image/png" ? "png" : "jpg";
       const path = `${user.id}/avatar-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("avatars")
-        .upload(path, watermarked, {
+        .upload(path, file, {
           upsert: true,
-          contentType: watermarked.type,
+          contentType: file.type,
         });
       if (upErr) throw upErr;
 

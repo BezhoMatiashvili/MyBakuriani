@@ -17,7 +17,7 @@ export interface WatermarkOptions {
 
 const DEFAULTS = {
   widthRatio: 0.13,
-  opacity: 0.65,
+  opacity: 0.5,
   minImageWidth: 200,
   outputType: "preserve" as const,
   quality: 0.85,

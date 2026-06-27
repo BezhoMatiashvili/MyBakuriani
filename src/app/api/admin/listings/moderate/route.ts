@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { listingTag } from "@/lib/data/getCachedPublicListing";
 import {
   propertyTypeLabelKa,
   serviceCategoryLabelKa,
@@ -79,6 +81,9 @@ export async function POST(req: NextRequest) {
   if (updateErr) {
     return Response.json({ error: updateErr.message }, { status: 500 });
   }
+
+  // Approve/reject flips public visibility — drop the cached public listing now.
+  revalidateTag(listingTag(body.kind, body.id));
 
   const listingName = existing.title?.trim() || "განცხადება";
   const typeLabel =

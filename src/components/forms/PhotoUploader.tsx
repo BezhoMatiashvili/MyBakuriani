@@ -282,6 +282,7 @@ export default function PhotoUploader({
       const processed = await watermarkFile(working, {
         outputType: "image/jpeg",
         maxEdge: MAX_EDGE,
+        opacity: 0.5,
       });
       if (processed.size > MAX_UPLOAD_BYTES) {
         return { ok: false, reason: "too_large" };
@@ -291,7 +292,9 @@ export default function PhotoUploader({
       const ext =
         mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
       // First path segment must be the user id — Storage RLS requires it.
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      // `-wm` suffix marks the object as already-watermarked so the backfill
+      // script skips it (idempotency) and never double-stamps.
+      const path = `${userId}/${crypto.randomUUID()}-wm.${ext}`;
 
       const client = getUploadClient();
       const { error } = await client.storage

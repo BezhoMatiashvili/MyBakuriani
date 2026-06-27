@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+import { AnimatePresence, motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
   WizardShell,
@@ -76,6 +78,18 @@ const ROI_OPTIONS: {
   { value: "15-plus", label: "15%+", min: 15, max: null },
 ];
 
+const ExactLocationPicker = dynamic(
+  () => import("@/components/maps/ExactLocationPicker"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[320px] w-full items-center justify-center rounded-xl bg-[#E2E8F0]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
+
 const TITLE_MAX = 35;
 const MIN_PHOTOS = 3;
 const MAX_PHOTOS = 15;
@@ -104,7 +118,7 @@ function CreateSalePageInner() {
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
   const isEditMode = !!editId;
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
   const { zones } = useActiveZones();
   const zoneOptions = zones.map((z) => ({
@@ -171,6 +185,8 @@ function CreateSalePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
+  // 0 = "post as" screen, 1 = property form. Only relevant when showPostAs.
+  const [step, setStep] = useState(0);
 
   const [title, setTitle] = useState("");
   const [propertyType, setPropertyType] =
@@ -185,6 +201,10 @@ function CreateSalePageInner() {
   );
   const [cadastralCode, setCadastralCode] = useState("");
   const [exactLocation, setExactLocation] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+  const [showMap, setShowMap] = useState(false);
   const [renovationStatus, setRenovationStatus] = useState("white_frame");
   const [managementService, setManagementService] =
     useState("complex_management");
@@ -216,9 +236,15 @@ function CreateSalePageInner() {
   const [companies, setCompanies] = useState<
     { id: string; brand_name: string; role: string; has_active_sub: boolean }[]
   >([]);
+  // Gates the 1-screen vs 2-screen decision until the companies query resolves.
+  const [companiesLoaded, setCompaniesLoaded] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (authLoading) return;
+    if (!user) {
+      setCompaniesLoaded(true);
+      return;
+    }
     let cancelled = false;
     const sb = createClient();
     (async () => {
@@ -261,11 +287,12 @@ function CreateSalePageInner() {
           has_active_sub: activeSet.has(r.org!.id),
         })),
       );
+      setCompaniesLoaded(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, authLoading]);
 
   const isUnderConstruction = constructionStatus === "under_construction";
 
@@ -379,6 +406,12 @@ function CreateSalePageInner() {
       }
       if (typeof rules.exact_location === "string") {
         setExactLocation(rules.exact_location);
+      }
+      if (
+        typeof data.location_lat === "number" &&
+        typeof data.location_lng === "number"
+      ) {
+        setCoords({ lat: data.location_lat, lng: data.location_lng });
       }
       if (typeof rules.management_service === "string") {
         setManagementService(rules.management_service);
@@ -553,6 +586,8 @@ function CreateSalePageInner() {
         title: titleTrimmed,
         description: description.trim() || null,
         location: locationTrimmed,
+        location_lat: coords?.lat ?? null,
+        location_lng: coords?.lng ?? null,
         area_sqm: areaNum,
         rooms: roomsNum,
         bathrooms: bathroomsNum,
@@ -613,6 +648,22 @@ function CreateSalePageInner() {
     }
   }
 
+  // Gate for advancing off the "post as" screen: a chosen company must have an
+  // active subscription (mirrors the org branch of validate()).
+  function handleContinue() {
+    if (organizationId) {
+      const company = companies.find((c) => c.id === organizationId);
+      if (!company || !company.has_active_sub) {
+        setInvalidFields(new Set(["organization"]));
+        setError(t("postAsNeedsPackageError"));
+        return;
+      }
+    }
+    setInvalidFields(new Set());
+    setError(null);
+    setStep(1);
+  }
+
   const requiredFilled = [
     title.trim().length > 0,
     location.trim().length > 0,
@@ -622,14 +673,131 @@ function CreateSalePageInner() {
     photos.length >= MIN_PHOTOS,
     isValidGePhone(phone),
   ].filter(Boolean).length;
-  const progressPercent = Math.max(10, Math.round((requiredFilled / 7) * 100));
+  const fieldPct = Math.round((requiredFilled / 7) * 100);
 
-  // Show the "post as" step only when creating (not editing) and the user
-  // belongs to at least one approved company; it shifts the section numbers.
+  // Show the "post as" screen only when creating (not editing) and the user
+  // belongs to at least one approved company.
   const showPostAs = !isEditMode && companies.length > 0;
-  const stepBase = showPostAs ? 1 : 0;
+  const onScreenZero = showPostAs && step === 0;
+  const companyMode = organizationId !== null;
   const selectedCompany =
     companies.find((c) => c.id === organizationId) ?? null;
+  // Screen 0 reads ~25% to match the design; screen 1 never drops below that.
+  const progressPercent = showPostAs
+    ? onScreenZero
+      ? 25
+      : Math.max(25, fieldPct)
+    : Math.max(10, fieldPct);
+  // Wait for auth + the companies query before deciding 1-screen vs 2-screen,
+  // so a multi-company seller doesn't flash the form then jump to screen 0.
+  const booting =
+    hydrating || (!isEditMode && (authLoading || !companiesLoaded));
+
+  // Screen 0: choose to post as a person or on behalf of a company.
+  const postAsScreen = (
+    <Field label={t("postAsLabel")} required>
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setOrganizationId(null)}
+            className={cn(
+              "flex h-[120px] flex-col justify-between rounded-2xl border-2 p-4 text-left transition-all",
+              organizationId === null
+                ? "border-[#2563EB] bg-[#EFF6FF]"
+                : "border-[#E2E8F0] hover:border-[#CBD5E1]",
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EFF6FF]">
+                <User className="h-5 w-5 text-[#2563EB]" />
+              </span>
+              <PostAsRadio selected={organizationId === null} />
+            </div>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-bold text-[#0F172A]">
+                {t("postAsPerson")}
+              </span>
+              {user?.phone && (
+                <span className="block truncate text-[12px] font-medium text-[#94A3B8]">
+                  {user.phone}
+                </span>
+              )}
+            </span>
+          </button>
+
+          {(() => {
+            const display = selectedCompany ?? companies[0];
+            if (!display) return null;
+            return (
+              <button
+                type="button"
+                onClick={() =>
+                  setOrganizationId(organizationId ?? companies[0].id)
+                }
+                className={cn(
+                  "flex h-[120px] flex-col justify-between rounded-2xl border-2 p-4 text-left transition-all",
+                  companyMode
+                    ? "border-[#2563EB] bg-[#EFF6FF]"
+                    : "border-[#E2E8F0] hover:border-[#CBD5E1]",
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F172A] text-[12px] font-black uppercase text-white">
+                    {display.brand_name.slice(0, 2)}
+                  </span>
+                  <PostAsRadio selected={companyMode} />
+                </div>
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-bold text-[#0F172A]">
+                    {display.brand_name}
+                  </span>
+                  {display.has_active_sub ? (
+                    <span className="block truncate text-[12px] font-medium text-[#94A3B8]">
+                      {display.role === "owner"
+                        ? t("postAsOwnerSuffix")
+                        : t("postAsAgentSuffix")}
+                    </span>
+                  ) : (
+                    <span className="block truncate text-[12px] font-bold text-[#B45309]">
+                      {t("postAsCompanyHint")} ⚠️
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })()}
+        </div>
+
+        <StyledSelect
+          value={organizationId ?? ""}
+          onValueChange={(v) => setOrganizationId(v)}
+          options={companies.map((c) => ({
+            value: c.id,
+            label: `${c.brand_name} (${
+              c.has_active_sub
+                ? c.role === "owner"
+                  ? t("postAsOwnerSuffix")
+                  : t("postAsAgentSuffix")
+                : t("postAsCompanyHint")
+            })`,
+          }))}
+          placeholder={t("postAsSelectCompany")}
+          accent="blue"
+          disabled={!companyMode}
+        />
+
+        {companyMode && selectedCompany && !selectedCompany.has_active_sub && (
+          <Link
+            href={`/dashboard/seller/organizations/${selectedCompany.id}`}
+            className="inline-flex items-center gap-1 text-[13px] font-bold text-[#B45309] hover:underline"
+          >
+            {t("postAsCompanyHint")} →
+          </Link>
+        )}
+      </div>
+    </Field>
+  );
 
   return (
     <WizardShell
@@ -637,397 +805,364 @@ function CreateSalePageInner() {
       accent="green"
       progressPercent={progressPercent}
       footer={
-        <WizardFooter
-          accent="green"
-          backHref="/create"
-          onSubmit={handleSubmit}
-          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
-          submitDisabled={loading}
-          loading={loading}
-          error={error}
-        />
+        onScreenZero ? (
+          <WizardFooter
+            accent="green"
+            backHref="/create"
+            onSubmit={handleContinue}
+            submitLabel={t("continue")}
+            error={error}
+          />
+        ) : (
+          <WizardFooter
+            accent="green"
+            {...(showPostAs
+              ? {
+                  onBack: () => {
+                    setStep(0);
+                    setError(null);
+                    setInvalidFields(new Set());
+                  },
+                }
+              : { backHref: "/create" })}
+            onSubmit={handleSubmit}
+            submitLabel={
+              isEditMode ? tShared("save") : tShared("publishListing")
+            }
+            submitDisabled={loading}
+            loading={loading}
+            error={error}
+          />
+        )
       }
     >
-      {hydrating ? (
+      {booting ? (
         <div className="flex min-h-[320px] items-center justify-center">
           <SkierLoader variant="inline" />
         </div>
       ) : (
-        <div className="space-y-8">
-          {showPostAs && (
-            <WizardInnerCard
-              number={1}
-              title={t("postAsSection")}
-              accent="green"
-            >
-              <Field label={t("postAsLabel")} required>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setOrganizationId(null)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all",
-                      organizationId === null
-                        ? "border-[#16A34A] bg-[#F0FDF4]"
-                        : "border-[#E2E8F0] hover:border-[#CBD5E1]",
-                    )}
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF]">
-                      <User className="h-5 w-5 text-[#2563EB]" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-bold text-[#0F172A]">
-                        {t("postAsPerson")}
-                      </span>
-                      {user?.phone && (
-                        <span className="block truncate text-[12px] font-medium text-[#94A3B8]">
-                          {user.phone}
-                        </span>
-                      )}
-                    </span>
-                    <PostAsRadio selected={organizationId === null} />
-                  </button>
-
-                  {companies.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setOrganizationId(c.id)}
-                      className={cn(
-                        "flex items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all",
-                        organizationId === c.id
-                          ? "border-[#16A34A] bg-[#F0FDF4]"
-                          : "border-[#E2E8F0] hover:border-[#CBD5E1]",
-                      )}
-                    >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0F172A] text-[12px] font-black uppercase text-white">
-                        {c.brand_name.slice(0, 2)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] font-bold text-[#0F172A]">
-                          {c.brand_name}
-                        </span>
-                        {c.has_active_sub ? (
-                          <span className="block truncate text-[12px] font-medium text-[#94A3B8]">
-                            {c.role === "owner"
-                              ? t("postAsOwnerSuffix")
-                              : t("postAsAgentSuffix")}
-                          </span>
-                        ) : (
-                          <span className="block truncate text-[12px] font-bold text-[#B45309]">
-                            {t("postAsCompanyHint")} ⚠️
-                          </span>
-                        )}
-                      </span>
-                      <PostAsRadio selected={organizationId === c.id} />
-                    </button>
-                  ))}
-                </div>
-              </Field>
-              {selectedCompany && !selectedCompany.has_active_sub && (
-                <Link
-                  href={`/dashboard/seller/organizations/${selectedCompany.id}`}
-                  className="inline-flex items-center gap-1 text-[13px] font-bold text-[#B45309] hover:underline"
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={onScreenZero ? "postas" : "form"}
+            initial={{ opacity: 0, x: 18 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -18 }}
+            transition={{ duration: 0.22 }}
+          >
+            {onScreenZero ? (
+              postAsScreen
+            ) : (
+              <div className="space-y-8">
+                <WizardInnerCard
+                  number={1}
+                  title={t("sectionIdentity")}
+                  accent="green"
                 >
-                  {t("postAsCompanyHint")} →
-                </Link>
-              )}
-            </WizardInnerCard>
-          )}
-
-          <WizardInnerCard
-            number={stepBase + 1}
-            title={t("sectionIdentity")}
-            accent="green"
-          >
-            <Field
-              label={t("listingTitle")}
-              required
-              fieldKey="title"
-              error={invalidFields.has("title")}
-              helper={t("titleMaxHelper", { max: TITLE_MAX })}
-            >
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
-                placeholder={t("titlePlaceholder")}
-                className={inputClass}
-              />
-            </Field>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("propertyType")} required>
-                <StyledSelect
-                  value={propertyType}
-                  onValueChange={setPropertyType}
-                  options={propertyTypeOptions}
-                  accent="blue"
-                />
-              </Field>
-
-              <Field
-                label={t("locationZone")}
-                required
-                fieldKey="location"
-                error={invalidFields.has("location")}
-              >
-                <StyledSelect
-                  value={location}
-                  onValueChange={setLocation}
-                  options={zoneOptions}
-                  placeholder={tShared("chooseZone")}
-                  accent="blue"
-                />
-              </Field>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("constructionStatus")} required>
-                <StyledSelect
-                  value={constructionStatus}
-                  onValueChange={setConstructionStatus}
-                  options={constructionStatusOptions}
-                  accent="blue"
-                />
-              </Field>
-
-              <Field
-                label={t("handoverDate")}
-                chip={
-                  isUnderConstruction
-                    ? { label: tShared("onlyUnderConstruction") }
-                    : undefined
-                }
-              >
-                <div className="flex gap-2">
-                  <div className="min-w-0 flex-1">
-                    <StyledSelect
-                      value={handoverMonth}
-                      onValueChange={setHandoverMonth}
-                      options={handoverMonthOptions}
-                      accent="blue"
-                      disabled={!isUnderConstruction}
+                  <Field
+                    label={t("listingTitle")}
+                    required
+                    fieldKey="title"
+                    error={invalidFields.has("title")}
+                    helper={t("titleMaxHelper", { max: TITLE_MAX })}
+                  >
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) =>
+                        setTitle(e.target.value.slice(0, TITLE_MAX))
+                      }
+                      placeholder={t("titlePlaceholder")}
+                      className={inputClass}
                     />
+                  </Field>
+
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <Field label={t("propertyType")} required>
+                      <StyledSelect
+                        value={propertyType}
+                        onValueChange={setPropertyType}
+                        options={propertyTypeOptions}
+                        accent="blue"
+                      />
+                    </Field>
+
+                    <Field
+                      label={t("locationZone")}
+                      required
+                      fieldKey="location"
+                      error={invalidFields.has("location")}
+                    >
+                      <StyledSelect
+                        value={location}
+                        onValueChange={setLocation}
+                        options={zoneOptions}
+                        placeholder={tShared("chooseZone")}
+                        accent="blue"
+                      />
+                    </Field>
                   </div>
-                  <div className="w-[104px] shrink-0">
-                    <StyledSelect
-                      value={handoverYear}
-                      onValueChange={setHandoverYear}
-                      options={handoverYearOptions}
-                      accent="blue"
-                      disabled={!isUnderConstruction}
+
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <Field label={t("constructionStatus")} required>
+                      <StyledSelect
+                        value={constructionStatus}
+                        onValueChange={setConstructionStatus}
+                        options={constructionStatusOptions}
+                        accent="blue"
+                      />
+                    </Field>
+
+                    <Field
+                      label={t("handoverDate")}
+                      chip={
+                        isUnderConstruction
+                          ? { label: tShared("onlyUnderConstruction") }
+                          : undefined
+                      }
+                    >
+                      <div className="flex gap-2">
+                        <div className="min-w-0 flex-1">
+                          <StyledSelect
+                            value={handoverMonth}
+                            onValueChange={setHandoverMonth}
+                            options={handoverMonthOptions}
+                            accent="blue"
+                            disabled={!isUnderConstruction}
+                          />
+                        </div>
+                        <div className="w-[104px] shrink-0">
+                          <StyledSelect
+                            value={handoverYear}
+                            onValueChange={setHandoverYear}
+                            options={handoverYearOptions}
+                            accent="blue"
+                            disabled={!isUnderConstruction}
+                          />
+                        </div>
+                      </div>
+                    </Field>
+                  </div>
+
+                  <Field
+                    label={t("cadastralCode")}
+                    required
+                    fieldKey="cadastralCode"
+                    error={invalidFields.has("cadastralCode")}
+                    helper={t("cadastralHelper")}
+                  >
+                    <input
+                      type="text"
+                      value={cadastralCode}
+                      onChange={(e) =>
+                        setCadastralCode(sanitizeCadastralCode(e.target.value))
+                      }
+                      placeholder="00.00.00.000..."
+                      className={inputClass}
                     />
+                  </Field>
+
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <Field label={t("roomsCount")}>
+                      <NumberField
+                        value={rooms}
+                        onChange={setRooms}
+                        min={0}
+                        max={50}
+                        integer
+                        stepper
+                        accent="green"
+                        placeholder={t("roomsPlaceholder")}
+                      />
+                    </Field>
+
+                    <Field label={t("exactLocation")}>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={exactLocation}
+                          onChange={(e) => setExactLocation(e.target.value)}
+                          placeholder={tFood("exactLocationPlaceholder")}
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowMap((v) => !v)}
+                          aria-pressed={showMap}
+                          aria-label={tShared("showOnMap")}
+                          className="flex size-[48px] shrink-0 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_2px_4px_rgba(5,150,105,0.2)] transition-colors hover:bg-[#047857]"
+                        >
+                          <MapPinned className="size-5" />
+                        </button>
+                      </div>
+                    </Field>
                   </div>
-                </div>
-              </Field>
-            </div>
 
-            <Field
-              label={t("cadastralCode")}
-              required
-              fieldKey="cadastralCode"
-              error={invalidFields.has("cadastralCode")}
-              helper={t("cadastralHelper")}
-            >
-              <input
-                type="text"
-                value={cadastralCode}
-                onChange={(e) =>
-                  setCadastralCode(sanitizeCadastralCode(e.target.value))
-                }
-                placeholder="00.00.00.000..."
-                className={inputClass}
-              />
-            </Field>
+                  {showMap && (
+                    <ExactLocationPicker value={coords} onChange={setCoords} />
+                  )}
+                </WizardInnerCard>
 
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label={t("roomsCount")}>
-                <NumberField
-                  value={rooms}
-                  onChange={setRooms}
-                  min={0}
-                  max={50}
-                  integer
-                  stepper
+                <WizardInnerCard
+                  number={2}
+                  title={t("sectionCondition")}
                   accent="green"
-                  placeholder={t("roomsPlaceholder")}
-                />
-              </Field>
+                >
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                    <Field label={t("renovationStatus")}>
+                      <StyledSelect
+                        value={renovationStatus}
+                        onValueChange={setRenovationStatus}
+                        options={renovationOptions}
+                        accent="blue"
+                      />
+                    </Field>
 
-              <Field label={t("exactLocation")}>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={exactLocation}
-                    onChange={(e) => setExactLocation(e.target.value)}
-                    placeholder={tFood("exactLocationPlaceholder")}
-                    className={inputClass}
-                  />
-                  <div className="flex size-[48px] shrink-0 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_2px_4px_rgba(5,150,105,0.2)]">
-                    <MapPinned className="size-5" />
+                    <Field label={t("managementService")}>
+                      <StyledSelect
+                        value={managementService}
+                        onValueChange={setManagementService}
+                        options={managementOptions}
+                        accent="blue"
+                      />
+                    </Field>
+
+                    <Field label={t("expectedRoi")}>
+                      <StyledSelect
+                        value={roiRange}
+                        onValueChange={setRoiRange}
+                        options={roiOptions}
+                        accent="blue"
+                      />
+                    </Field>
                   </div>
-                </div>
-              </Field>
-            </div>
-          </WizardInnerCard>
+                </WizardInnerCard>
 
-          <WizardInnerCard
-            number={stepBase + 2}
-            title={t("sectionCondition")}
-            accent="green"
-          >
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <Field label={t("renovationStatus")}>
-                <StyledSelect
-                  value={renovationStatus}
-                  onValueChange={setRenovationStatus}
-                  options={renovationOptions}
-                  accent="blue"
-                />
-              </Field>
-
-              <Field label={t("managementService")}>
-                <StyledSelect
-                  value={managementService}
-                  onValueChange={setManagementService}
-                  options={managementOptions}
-                  accent="blue"
-                />
-              </Field>
-
-              <Field label={t("expectedRoi")}>
-                <StyledSelect
-                  value={roiRange}
-                  onValueChange={setRoiRange}
-                  options={roiOptions}
-                  accent="blue"
-                />
-              </Field>
-            </div>
-          </WizardInnerCard>
-
-          <WizardInnerCard
-            number={stepBase + 3}
-            title={t("sectionFinance")}
-            accent="green"
-          >
-            <Field
-              label={t("totalArea")}
-              required
-              fieldKey="areaSqm"
-              error={invalidFields.has("areaSqm")}
-            >
-              <NumberField
-                value={areaSqm}
-                onChange={handleAreaChange}
-                min={0}
-                max={100000}
-                decimals={1}
-                accent="green"
-                placeholder="0"
-                suffix={tShared("sqm")}
-              />
-            </Field>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field
-                label={t("pricePerSqmLabel")}
-                helper={t("orFillPerSqm")}
-                fieldKey="priceUsd"
-                error={invalidFields.has("priceUsd")}
-              >
-                <NumberField
-                  value={pricePerSqm}
-                  onChange={handlePerSqmChange}
-                  min={0}
-                  max={1000000}
-                  integer
+                <WizardInnerCard
+                  number={3}
+                  title={t("sectionFinance")}
                   accent="green"
-                  placeholder="0"
-                  prefix="$"
-                />
-              </Field>
+                >
+                  <Field
+                    label={t("totalArea")}
+                    required
+                    fieldKey="areaSqm"
+                    error={invalidFields.has("areaSqm")}
+                  >
+                    <NumberField
+                      value={areaSqm}
+                      onChange={handleAreaChange}
+                      min={0}
+                      max={100000}
+                      decimals={1}
+                      accent="green"
+                      placeholder="0"
+                      suffix={tShared("sqm")}
+                    />
+                  </Field>
 
-              <Field
-                label={t("priceUsd")}
-                required
-                fieldKey="priceUsd"
-                error={invalidFields.has("priceUsd")}
-              >
-                <NumberField
-                  value={priceUsd}
-                  onChange={handleTotalChange}
-                  min={1}
-                  max={10000000}
-                  integer
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <Field
+                      label={t("pricePerSqmLabel")}
+                      helper={t("orFillPerSqm")}
+                      fieldKey="priceUsd"
+                      error={invalidFields.has("priceUsd")}
+                    >
+                      <NumberField
+                        value={pricePerSqm}
+                        onChange={handlePerSqmChange}
+                        min={0}
+                        max={1000000}
+                        integer
+                        accent="green"
+                        placeholder="0"
+                        prefix="$"
+                      />
+                    </Field>
+
+                    <Field
+                      label={t("priceUsd")}
+                      required
+                      fieldKey="priceUsd"
+                      error={invalidFields.has("priceUsd")}
+                    >
+                      <NumberField
+                        value={priceUsd}
+                        onChange={handleTotalChange}
+                        min={1}
+                        max={10000000}
+                        integer
+                        accent="green"
+                        placeholder="0"
+                        prefix="$"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field
+                    label={t("photosRenders")}
+                    required
+                    fieldKey="photos"
+                    error={invalidFields.has("photos")}
+                    labelOnlyError
+                    chip={{
+                      label: tShared("minPhotosShort", { count: MIN_PHOTOS }),
+                      variant: "blue",
+                    }}
+                    chipPosition="end"
+                  >
+                    <PhotoUploader
+                      photos={photos}
+                      onPhotosChange={setPhotos}
+                      maxPhotos={MAX_PHOTOS}
+                      variant="figma"
+                    />
+                  </Field>
+                </WizardInnerCard>
+
+                <WizardInnerCard
+                  number={4}
+                  title={t("sectionDetailsContact")}
                   accent="green"
-                  placeholder="0"
-                  prefix="$"
-                />
-              </Field>
-            </div>
+                >
+                  <Field label={tShared("description")}>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder={t("descriptionPlaceholder")}
+                      rows={5}
+                      className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
+                    />
+                  </Field>
 
-            <Field
-              label={t("photosRenders")}
-              required
-              fieldKey="photos"
-              error={invalidFields.has("photos")}
-              labelOnlyError
-              chip={{
-                label: tShared("minPhotosShort", { count: MIN_PHOTOS }),
-                variant: "blue",
-              }}
-              chipPosition="end"
-            >
-              <PhotoUploader
-                photos={photos}
-                onPhotosChange={setPhotos}
-                maxPhotos={MAX_PHOTOS}
-                variant="figma"
-              />
-            </Field>
-          </WizardInnerCard>
-
-          <WizardInnerCard
-            number={stepBase + 4}
-            title={t("sectionDetailsContact")}
-            accent="green"
-          >
-            <Field label={tShared("description")}>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t("descriptionPlaceholder")}
-                rows={5}
-                className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
-              />
-            </Field>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field
-                label={tShared("phoneNumber")}
-                required
-                fieldKey="phone"
-                error={invalidFields.has("phone")}
-              >
-                <PhoneInput
-                  value={phone}
-                  onChange={setPhone}
-                  error={
-                    invalidFields.has("phone") ? tShared("invalidPhone") : null
-                  }
-                />
-              </Field>
-              <Field
-                label={tShared("whatsappNumber")}
-                helper={tShared("optional")}
-              >
-                <PhoneInput value={whatsapp} onChange={setWhatsapp} />
-              </Field>
-            </div>
-          </WizardInnerCard>
-        </div>
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <Field
+                      label={tShared("phoneNumber")}
+                      required
+                      fieldKey="phone"
+                      error={invalidFields.has("phone")}
+                    >
+                      <PhoneInput
+                        value={phone}
+                        onChange={setPhone}
+                        error={
+                          invalidFields.has("phone")
+                            ? tShared("invalidPhone")
+                            : null
+                        }
+                      />
+                    </Field>
+                    <Field
+                      label={tShared("whatsappNumber")}
+                      helper={tShared("optional")}
+                    >
+                      <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+                    </Field>
+                  </div>
+                </WizardInnerCard>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       )}
     </WizardShell>
   );
@@ -1041,10 +1176,10 @@ function PostAsRadio({ selected }: { selected: boolean }) {
     <span
       className={cn(
         "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
-        selected ? "border-[#16A34A]" : "border-[#CBD5E1]",
+        selected ? "border-[#2563EB]" : "border-[#CBD5E1]",
       )}
     >
-      {selected && <span className="h-2 w-2 rounded-full bg-[#16A34A]" />}
+      {selected && <span className="h-2 w-2 rounded-full bg-[#2563EB]" />}
     </span>
   );
 }

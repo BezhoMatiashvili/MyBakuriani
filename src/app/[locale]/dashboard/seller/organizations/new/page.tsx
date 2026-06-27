@@ -10,6 +10,8 @@ import {
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import { StyledSelect } from "@/components/ui/styled-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { GEORGIAN_CITY_OPTIONS } from "@/lib/constants/georgian-cities";
 import PhoneInput from "@/components/forms/PhoneInput";
 import SingleImageUploader from "@/components/forms/SingleImageUploader";
 import { SkierLoader } from "@/components/shared/SkierLoader";
@@ -25,14 +27,6 @@ const ExactLocationPicker = dynamic(
 
 const ORG_TYPE_VALUES = ["shps", "sps", "im", "ks", "ss", "coop", "aip"];
 const COMPANY_TYPE_VALUES = ["agency", "developer"];
-const CITY_KEYS = [
-  "tbilisi",
-  "bakuriani",
-  "batumi",
-  "kutaisi",
-  "rustavi",
-  "gori",
-];
 
 function Field({
   label,
@@ -111,19 +105,12 @@ export default function OrganizationNewPage() {
       })),
     [t],
   );
-  const cityOptions = useMemo(
-    () =>
-      CITY_KEYS.map((k) => ({
-        value: t(`cities.${k}`),
-        label: t(`cities.${k}`),
-      })),
-    [t],
-  );
 
   function validate(): string[] {
     const errs: string[] = [];
     if (!legalName.trim()) errs.push("legalName");
-    if (!/^\d{9}$/.test(idCode.trim()) && !/^\d{11}$/.test(idCode.trim()))
+    // only digits and dots, and at least one digit (rejects empty and a bare ".")
+    if (!/^[0-9.]+$/.test(idCode.trim()) || !/\d/.test(idCode))
       errs.push("idCode");
     if (!brandName.trim()) errs.push("brandName");
     if (!isValidGePhone(phone)) errs.push("phone");
@@ -224,9 +211,9 @@ export default function OrganizationNewPage() {
               <input
                 className={inputClass}
                 value={idCode}
-                inputMode="numeric"
+                inputMode="decimal"
                 onChange={(e) =>
-                  setIdCode(e.target.value.replace(/\D/g, "").slice(0, 11))
+                  setIdCode(e.target.value.replace(/[^0-9.]/g, "").slice(0, 14))
                 }
                 placeholder={t("idCodePlaceholder")}
               />
@@ -302,10 +289,10 @@ export default function OrganizationNewPage() {
               />
             </Field>
             <Field label={t("city")} required error={invalid.has("city")}>
-              <StyledSelect
+              <SearchableSelect
                 value={city}
                 onValueChange={setCity}
-                options={cityOptions}
+                options={GEORGIAN_CITY_OPTIONS}
                 placeholder={t("cityPlaceholder")}
                 accent="green"
               />

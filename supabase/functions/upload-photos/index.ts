@@ -6,6 +6,9 @@ import {
   requireUser,
 } from "../_shared/guards.ts";
 
+// NOTE: This function has no client callers — listing photos are uploaded and
+// watermarked client-side by src/components/forms/PhotoUploader.tsx. It does
+// NOT apply the watermark, so do not wire it back up without adding one.
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 

@@ -9,7 +9,7 @@ import { isUuid } from "@/lib/utils/uuid";
 import { sanitizePhotos } from "@/lib/utils/photos";
 import type { Tables } from "@/lib/types/database";
 
-type PropertyWithProfile = Tables<"properties"> & {
+export type PropertyWithProfile = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
 };
 

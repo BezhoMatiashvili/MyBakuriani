@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { createPublicClient } from "@/lib/supabase/server";
 import {
   getPropertyById,
   getPropertyMetadataById,
+  type PropertyWithProfile,
 } from "@/lib/data/getPropertyById";
+import {
+  getCachedPublicProperty,
+  getCachedPublicReviews,
+  getCachedPublicCalendar,
+  getCachedPublicPriceOverrides,
+  type PublicReviews,
+  type PublicCalendar,
+  type PublicPriceOverrides,
+} from "@/lib/data/getCachedPublicListing";
+import { withTimeout, DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
 import { buildListingMetadata } from "@/lib/seo";
 import HotelDetailClient from "./HotelDetailClient";
 
@@ -16,6 +27,7 @@ interface Props {
 
 // Dynamic, not ISR: get(Property|Service)ById reads cookies() for the admin/owner
 // pending-preview path, so this route cannot be statically cached (Next "static to dynamic").
+// The cached fast-path below still serves anonymous visitors from the data cache.
 export const dynamic = "force-dynamic";
 
 // No build-time prerender — the empty list keeps the build free of any Supabase
@@ -27,7 +39,16 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  const data = await getPropertyMetadataById(id);
+  // Fast path: the cached public listing, so a starved DB doesn't stall metadata.
+  const cached = await getCachedPublicProperty(id).catch(() => null);
+  const data = cached
+    ? {
+        title: cached.title,
+        location: cached.location,
+        description: cached.description,
+        photos: cached.photos,
+      }
+    : await getPropertyMetadataById(id);
 
   if (!data) {
     return { title: t("detail.hotelNotFound") };
@@ -53,6 +74,37 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function HotelDetailPage({ params }: Props) {
   const { id } = await params;
+
+  // Fast path: cached public (active) listing — zero DB round-trip on a cache
+  // hit, served to everyone. A transient miss-time error throws (not cached) so
+  // it falls through to the dynamic path instead of being served as not-found.
+  let cached: PropertyWithProfile | null = null;
+  try {
+    cached = await getCachedPublicProperty(id);
+  } catch (err) {
+    unstable_rethrow(err);
+    cached = null;
+  }
+
+  if (cached) {
+    const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
+      getCachedPublicReviews(id),
+      getCachedPublicCalendar(id),
+      getCachedPublicPriceOverrides(id),
+    ]);
+    return (
+      <HotelDetailClient
+        property={cached}
+        isPending={false}
+        reviews={reviews}
+        calendarBlocks={calendarBlocks}
+        priceOverrides={priceOverrides}
+      />
+    );
+  }
+
+  // Dynamic fallback: pending/blocked/missing, or owner/admin preview (reads
+  // cookies via getPropertyById).
   const { data: property, isMock } = await getPropertyById(id);
 
   if (!property) {
@@ -77,29 +129,44 @@ export default async function HotelDetailPage({ params }: Props) {
   const todayStr = today.toISOString().split("T")[0];
   const horizonStr = threeMonthsLater.toISOString().split("T")[0];
 
-  const [
-    { data: reviews },
-    { data: calendarBlocks },
-    { data: priceOverrides },
-  ] = await Promise.all([
-    supabase
-      .from("reviews")
-      .select("*, profiles!reviews_guest_id_fkey(display_name)")
-      .eq("property_id", id)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("calendar_blocks")
-      .select("date, status")
-      .eq("property_id", id)
-      .gte("date", todayStr)
-      .lte("date", horizonStr),
-    supabase
-      .from("price_overrides")
-      .select("date, price")
-      .eq("property_id", id)
-      .gte("date", todayStr)
-      .lte("date", horizonStr),
+  // Secondary reads run concurrently and each degrades to empty on timeout, so a
+  // slow query can never block the core listing render.
+  const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
+    withTimeout(
+      supabase
+        .from("reviews")
+        .select("*, profiles!reviews_guest_id_fkey(display_name)")
+        .eq("property_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20)
+        .then((r) => r.data ?? []),
+      DETAIL_AUX_TIMEOUT_MS,
+      [] as PublicReviews,
+    ),
+    withTimeout(
+      supabase
+        .from("calendar_blocks")
+        .select("date, status")
+        .eq("property_id", id)
+        .gte("date", todayStr)
+        .lte("date", horizonStr)
+        .then((r) => r.data ?? []),
+      DETAIL_AUX_TIMEOUT_MS,
+      [] as PublicCalendar,
+    ),
+    withTimeout(
+      supabase
+        .from("price_overrides")
+        .select("date, price")
+        .eq("property_id", id)
+        .gte("date", todayStr)
+        .lte("date", horizonStr)
+        .then((r) =>
+          (r.data ?? []).map((o) => ({ date: o.date, price: Number(o.price) })),
+        ),
+      DETAIL_AUX_TIMEOUT_MS,
+      [] as PublicPriceOverrides,
+    ),
   ]);
 
   const isPending = property.status !== "active";
@@ -108,12 +175,9 @@ export default async function HotelDetailPage({ params }: Props) {
     <HotelDetailClient
       property={property}
       isPending={isPending}
-      reviews={reviews ?? []}
-      calendarBlocks={calendarBlocks ?? []}
-      priceOverrides={(priceOverrides ?? []).map((o) => ({
-        date: o.date,
-        price: Number(o.price),
-      }))}
+      reviews={reviews}
+      calendarBlocks={calendarBlocks}
+      priceOverrides={priceOverrides}
     />
   );
 }

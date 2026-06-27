@@ -30,6 +30,14 @@ export async function withTimeout<T>(
 }
 
 /**
+ * Budget for a listing detail page's *secondary* reads (reviews, calendar,
+ * price overrides, applications count). Kept just under the anon role's 3s
+ * Postgres `statement_timeout` so a starved secondary query degrades to an
+ * empty fallback before the DB cancels it — the core listing still renders.
+ */
+export const DETAIL_AUX_TIMEOUT_MS = 2500;
+
+/**
  * Returns a `fetch` that aborts after `ms` milliseconds. Wired in as the
  * `global.fetch` for every Supabase client so a stalled HTTP request rejects
  * (letting the surrounding try/catch fall back) instead of hanging forever.

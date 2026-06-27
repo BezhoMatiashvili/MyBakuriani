@@ -19,11 +19,11 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, createUploadClient } from "@/lib/supabase/client";
 import { isValidGePhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
-import { watermarkFile, fileToDataUrl } from "@/lib/utils/watermark";
+import { watermarkFile } from "@/lib/utils/watermark";
 
 const SERVICE_SPHERES = [
   { value: "cleaning", dbLabel: "დასუფთავება/დამლაგებელი" },
@@ -689,13 +689,44 @@ function ProfilePhotoUpload({
   const t = useTranslations("CreateService");
   const tShared = useTranslations("CreateShared");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return;
-    const watermarked = await watermarkFile(file);
-    const dataUrl = await fileToDataUrl(watermarked);
-    onChange(dataUrl);
+    setUploading(true);
+    try {
+      // Watermark (medium transparency) + re-encode, then store in Storage:
+      // this cover is shown publicly on the service card, and services.photos
+      // rejects base64/data: URLs via a CHECK constraint, so it must be a
+      // Storage URL. The `-wm` suffix marks it watermarked for the backfill.
+      const client = createUploadClient();
+      const {
+        data: { user },
+      } = await client.auth.getUser();
+      if (!user) return;
+      const watermarked = await watermarkFile(file, {
+        outputType: "image/jpeg",
+        maxEdge: 2560,
+        opacity: 0.5,
+      });
+      const path = `${user.id}/${crypto.randomUUID()}-wm.jpg`;
+      const { error: upErr } = await client.storage
+        .from("property-photos")
+        .upload(path, watermarked, {
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+      if (upErr) throw upErr;
+      const { data: pub } = client.storage
+        .from("property-photos")
+        .getPublicUrl(path);
+      onChange(pub.publicUrl);
+    } catch (err) {
+      console.warn("[create-service] profile photo upload failed:", err);
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -708,6 +739,7 @@ function ProfilePhotoUpload({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
+        disabled={uploading}
         className={cn(
           "flex size-[88px] shrink-0 items-center justify-center rounded-full border-2 border-dashed transition-colors",
           value
@@ -715,6 +747,7 @@ function ProfilePhotoUpload({
             : invalid
               ? "border-[#EF4444] bg-[#FEF2F2] hover:border-[#EF4444]"
               : "border-[#93C5FD] bg-[#EFF6FF] hover:border-[#2563EB]",
+          uploading && "opacity-60",
         )}
         aria-label={t("uploadProfilePhoto")}
       >

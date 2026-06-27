@@ -2326,7 +2326,8 @@
     "postAsOwnerSuffix": "მფლობელი",
     "postAsAgentSuffix": "აგენტი",
     "postAsRegisterHint": "დაარეგისტრირეთ კომპანია",
-    "postAsNeedsPackageError": "კომპანიას სჭირდება აქტიური პაკეტი. გაააქტიურეთ პაკეტი კომპანიის გვერდზე."
+    "postAsNeedsPackageError": "კომპანიას სჭირდება აქტიური პაკეტი. გაააქტიურეთ პაკეტი კომპანიის გვერდზე.",
+    "continue": "Продолжить"
   },
   "DateRangeFilter": {
     "presets": {
