@@ -192,119 +192,126 @@ export default function CleanerCallModal({
               </button>
             </div>
 
-            <div className="mt-5 space-y-3">
-              <Field label={tShared("defaultProperty")}>
-                <select
-                  value={propertyId}
-                  onChange={(e) => setPropertyId(e.target.value)}
-                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                >
-                  <option value="">{tShared("selectProperty")}</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.title}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              noValidate
+            >
+              <div className="mt-5 space-y-3">
+                <Field label={tShared("defaultProperty")}>
+                  <select
+                    value={propertyId}
+                    onChange={(e) => setPropertyId(e.target.value)}
+                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  >
+                    <option value="">{tShared("selectProperty")}</option>
+                    {properties.map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.title}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-              <Field label={t("cleaningType")}>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      // value = exact DB payload for cleaning_tasks.cleaning_type
-                      {
-                        value: "standard",
-                        label: tOpts("cleaningTypes.standard"),
-                      },
-                      {
-                        value: "general",
-                        label: tOpts("cleaningTypes.general"),
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setCleaningType(option.value)}
-                      className={`rounded-xl py-2.5 text-[13px] font-bold transition-colors ${
-                        cleaningType === option.value
-                          ? "bg-[#2563EB] text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)]"
-                          : "border border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#2563EB] hover:text-[#2563EB]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                <Field label={t("cleaningType")}>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        // value = exact DB payload for cleaning_tasks.cleaning_type
+                        {
+                          value: "standard",
+                          label: tOpts("cleaningTypes.standard"),
+                        },
+                        {
+                          value: "general",
+                          label: tOpts("cleaningTypes.general"),
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setCleaningType(option.value)}
+                        className={`rounded-xl py-2.5 text-[13px] font-bold transition-colors ${
+                          cleaningType === option.value
+                            ? "bg-[#2563EB] text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)]"
+                            : "border border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#2563EB] hover:text-[#2563EB]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label={tShared("date")}>
+                    <DateField
+                      value={date}
+                      onChange={setDate}
+                      className="h-[42px]"
+                    />
+                  </Field>
+                  <Field label={tShared("time")}>
+                    <TimeField
+                      value={time}
+                      onChange={setTime}
+                      className="h-[42px]"
+                    />
+                  </Field>
                 </div>
-              </Field>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field label={tShared("date")}>
-                  <DateField
-                    value={date}
-                    onChange={setDate}
-                    className="h-[42px]"
+                <Field label={t("price")}>
+                  <NumberField
+                    value={price}
+                    onChange={setPrice}
+                    min={0}
+                    decimals={2}
+                    placeholder="30"
+                    suffix="₾"
                   />
                 </Field>
-                <Field label={tShared("time")}>
-                  <TimeField
-                    value={time}
-                    onChange={setTime}
-                    className="h-[42px]"
+
+                <Field label={t("address")}>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setAddressEdited(true);
+                    }}
+                    placeholder={t("address")}
+                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  />
+                </Field>
+
+                <Field label={tShared("note")}>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder={t("notesPlaceholder")}
+                    className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
                 </Field>
               </div>
 
-              <Field label={t("price")}>
-                <NumberField
-                  value={price}
-                  onChange={setPrice}
-                  min={0}
-                  decimals={2}
-                  placeholder="30"
-                  suffix="₾"
-                />
-              </Field>
+              {error && (
+                <p className="mt-3 rounded-xl bg-[#FEF2F2] px-4 py-2.5 text-[12px] font-bold text-[#EF4444]">
+                  {error}
+                </p>
+              )}
 
-              <Field label={t("address")}>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setAddressEdited(true);
-                  }}
-                  placeholder={t("address")}
-                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                />
-              </Field>
-
-              <Field label={tShared("note")}>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  placeholder={t("notesPlaceholder")}
-                  className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                />
-              </Field>
-            </div>
-
-            {error && (
-              <p className="mt-3 rounded-xl bg-[#FEF2F2] px-4 py-2.5 text-[12px] font-bold text-[#EF4444]">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit || sending}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
-            >
-              {sending ? t("sending") : t("submit")}
-            </button>
+              <button
+                type="submit"
+                disabled={!canSubmit || sending}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
+              >
+                {sending ? t("sending") : t("submit")}
+              </button>
+            </form>
           </motion.div>
         </div>
       )}

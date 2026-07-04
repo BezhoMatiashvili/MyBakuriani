@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import { cn } from "@/lib/utils";
 
 type Org = {
@@ -60,7 +61,8 @@ export default function OrganizationCabinetPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [stats, setStats] = useState({ projects: 0, apartments: 0 });
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
-  const [activating, setActivating] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
   const [busyAgent, setBusyAgent] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -68,45 +70,52 @@ export default function OrganizationCabinetPage() {
     const supabase = createClient();
     const nowIso = new Date().toISOString();
 
-    const [orgRes, subRes, pkgRes, agentRes, propRes] = await Promise.all([
-      supabase
-        .from("organizations")
-        .select("id, brand_name, status, owner_id, logo_url, admin_notes")
-        .eq("id", orgId)
-        .maybeSingle(),
-      supabase
-        .from("organization_subscriptions")
-        .select("tier, listing_limit, expires_at")
-        .eq("organization_id", orgId)
-        .eq("status", "active")
-        .gt("expires_at", nowIso)
-        .order("expires_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("pricing_packages")
-        .select("code, name, label, amount_gel")
-        .eq("category", "subscription")
-        .like("code", "company-%")
-        .order("sort_order"),
-      supabase
-        .from("organization_members")
-        .select(
-          "id, role, status, user:profiles!organization_members_user_id_fkey(display_name, phone)",
-        )
-        .eq("organization_id", orgId)
-        .neq("role", "owner")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("properties")
-        .select("units_total")
-        .eq("organization_id", orgId),
-    ]);
+    const [orgRes, subRes, pkgRes, agentRes, propRes, balRes] =
+      await Promise.all([
+        supabase
+          .from("organizations")
+          .select("id, brand_name, status, owner_id, logo_url, admin_notes")
+          .eq("id", orgId)
+          .maybeSingle(),
+        supabase
+          .from("organization_subscriptions")
+          .select("tier, listing_limit, expires_at")
+          .eq("organization_id", orgId)
+          .eq("status", "active")
+          .gt("expires_at", nowIso)
+          .order("expires_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("pricing_packages")
+          .select("code, name, label, amount_gel")
+          .eq("category", "subscription")
+          .like("code", "company-%")
+          .order("sort_order"),
+        supabase
+          .from("organization_members")
+          .select(
+            "id, role, status, user:profiles!organization_members_user_id_fkey(display_name, phone)",
+          )
+          .eq("organization_id", orgId)
+          .neq("role", "owner")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("properties")
+          .select("units_total")
+          .eq("organization_id", orgId),
+        supabase
+          .from("balances")
+          .select("amount")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
 
     setOrg((orgRes.data as Org) ?? null);
     setSub((subRes.data as Sub) ?? null);
     setSelectedTier((subRes.data as Sub | null)?.tier ?? null);
     setPackages((pkgRes.data as Pkg[]) ?? []);
+    setBalance((balRes.data as { amount: number } | null)?.amount ?? null);
     setAgents(
       ((agentRes.data ?? []) as unknown[]).map((a) => {
         const row = a as {
@@ -143,19 +152,17 @@ export default function OrganizationCabinetPage() {
 
   const isOwner = !!org && !!user && org.owner_id === user.id;
   const pendingAgents = agents.filter((a) => a.status === "pending");
+  const selectedPkg = packages.find(
+    (p) => p.code.replace("company-", "") === selectedTier,
+  );
 
   async function handleActivate() {
     if (!selectedTier || !isOwner) return;
-    setActivating(true);
     const supabase = createClient();
     const { error } = await supabase.functions.invoke("company-subscription", {
       body: { org_id: orgId, tier: selectedTier },
     });
-    setActivating(false);
-    if (error) {
-      toast.error(error.message || t("loadError"));
-      return;
-    }
+    if (error) throw new Error(error.message || t("loadError"));
     toast.success(t("activatedToast"));
     load();
   }
@@ -348,17 +355,11 @@ export default function OrganizationCabinetPage() {
             </p>
             <button
               type="button"
-              disabled={!selectedTier || activating}
-              onClick={handleActivate}
+              disabled={!selectedTier}
+              onClick={() => setConfirmOpen(true)}
               className="inline-flex h-[44px] items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-6 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {activating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  {t("activate")} <Rocket className="h-4 w-4" />
-                </>
-              )}
+              {t("activate")} <Rocket className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -435,6 +436,18 @@ export default function OrganizationCabinetPage() {
           ))}
         </div>
       </div>
+
+      <ConfirmPaymentModal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleActivate}
+        title={selectedPkg?.name ?? ""}
+        description={selectedPkg?.label ?? ""}
+        priceLabel={
+          selectedPkg ? `${selectedPkg.amount_gel} ₾ ${t("perMonth")}` : ""
+        }
+        balance={balance ?? undefined}
+      />
     </div>
   );
 }

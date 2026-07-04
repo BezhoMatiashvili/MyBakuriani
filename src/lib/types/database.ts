@@ -2856,6 +2856,7 @@ export type Database = {
         Args: {
           p_from?: string;
           p_listing_ids?: string[];
+          p_organization_id?: string | null;
           p_scope: string;
           p_to?: string;
         };
@@ -2915,7 +2916,12 @@ export type Database = {
         Returns: undefined;
       };
       seller_dashboard_stats: {
-        Args: { p_from: string; p_property_ids?: string[]; p_to: string };
+        Args: {
+          p_from: string;
+          p_organization_id?: string | null;
+          p_property_ids?: string[];
+          p_to: string;
+        };
         Returns: {
           contact_reach: number;
           favorites: number;

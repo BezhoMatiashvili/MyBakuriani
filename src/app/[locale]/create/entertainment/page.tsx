@@ -415,11 +415,14 @@ function CreateEntertainmentPageInner() {
       subtitle={t("subtitle")}
       accent="blue"
       progressPercent={progressPercent}
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
       footer={
         <WizardFooter
           accent="blue"
           backHref="/create"
-          onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={loading}
           loading={loading}

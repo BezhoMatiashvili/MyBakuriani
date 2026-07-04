@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Plus, Edit, Building2, Search, Target } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 import { useRealtimeList } from "@/lib/hooks/useRealtime";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
@@ -29,6 +30,8 @@ const constructionStatusLabel: Record<string, string> = {
 
 export default function SellerListingsPage() {
   const { user } = useAuth();
+  const scope = useActiveOrgScope();
+  const isOrgScope = scope.mode === "org" && !!scope.organizationId;
   const supabase = createClient();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,27 +43,42 @@ export default function SellerListingsPage() {
   }>({ open: false, tier: "super-vip" });
 
   // Live sale listings — status / progress / VIP changes arrive without refresh.
-  // The list is scoped by owner_id AND is_for_sale, but a postgres_changes filter
-  // only takes one condition, so we refetch on any change to the owner's properties.
+  // The list is scoped by owner_id (or organization_id in org scope) AND is_for_sale,
+  // but a postgres_changes filter only takes one condition, so we refetch on any
+  // change to the scoped properties.
   const {
     rows: properties,
     setRows: setProperties,
     loading,
+    refetch,
   } = useRealtimeList<Tables<"properties">>({
     table: "properties",
     mode: "refetch",
     enabled: !!user,
-    filter: user ? `owner_id=eq.${user.id}` : undefined,
+    filter: isOrgScope
+      ? `organization_id=eq.${scope.organizationId}`
+      : user
+        ? `owner_id=eq.${user.id}`
+        : undefined,
     fetcher: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("properties")
         .select("*")
-        .eq("owner_id", user!.id)
-        .eq("is_for_sale", true)
-        .order("created_at", { ascending: false });
+        .eq("is_for_sale", true);
+      query = isOrgScope
+        ? query.eq("organization_id", scope.organizationId!)
+        : query.eq("owner_id", user!.id);
+      const { data } = await query.order("created_at", { ascending: false });
       return data ?? [];
     },
   });
+
+  // The subscription filter re-subscribes automatically when it changes, but the
+  // initial `useRealtimeList` fetch effect only runs once on mount — force a refetch
+  // whenever the active scope switches so the list reflects the new owner/organization.
+  useEffect(() => {
+    void refetch();
+  }, [isOrgScope, scope.organizationId, refetch]);
 
   const filteredProperties = useMemo(
     () =>
@@ -296,7 +314,7 @@ export default function SellerListingsPage() {
           isForSale: p.is_for_sale ?? false,
         }))}
         onConfirm={async (propertyId) => {
-          await supabase.functions.invoke("purchase-vip", {
+          const { error } = await supabase.functions.invoke("purchase-vip", {
             body: {
               purchase_type:
                 pickerModal.tier === "super-vip"
@@ -310,6 +328,7 @@ export default function SellerListingsPage() {
               property_id: propertyId,
             },
           });
+          if (error) throw error;
         }}
       />
     </div>

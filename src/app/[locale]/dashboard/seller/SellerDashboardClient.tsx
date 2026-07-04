@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Building2, Eye, Plus, Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import { useStatsFilter } from "@/lib/hooks/useStatsFilter";
@@ -50,6 +51,7 @@ export default function SellerDashboardClient({
   const tShared = useTranslations("CreateShared");
   const tStats = useTranslations("DashboardShared");
   const supabase = createClient();
+  const scope = useActiveOrgScope();
   const { range, preset, listingIds, setRange, setListingIds } =
     useStatsFilter();
 
@@ -67,12 +69,32 @@ export default function SellerDashboardClient({
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
 
+  // Tracks whether the properties effect below has already run once, so the
+  // very first run (server-seeded `initial.properties`) never triggers an
+  // extra client fetch — only a later scope switch does.
+  const scopeInitialized = useRef(false);
+
   useEffect(() => {
     function applyData(data: SellerData) {
       setProperties(data.properties);
     }
 
-    // Live: status / VIP changes on the owner's listings refresh the preview.
+    const filter =
+      scope.mode === "org" && scope.organizationId
+        ? `organization_id=eq.${scope.organizationId}`
+        : `owner_id=eq.${userId}`;
+
+    if (scopeInitialized.current) {
+      // The active scope changed after mount — refresh immediately so the
+      // preview reflects the newly selected personal/org view without
+      // waiting for a live DB write to trigger the subscription below.
+      loadSellerData(supabase, userId, scope).then(applyData);
+    } else {
+      scopeInitialized.current = true;
+    }
+
+    // Live: status / VIP changes on the owner's (or, in org scope, the
+    // company's) listings refresh the preview.
     const channel = supabase
       .channel("seller-overview-rt")
       .on(
@@ -81,9 +103,9 @@ export default function SellerDashboardClient({
           event: "*",
           schema: "public",
           table: "properties",
-          filter: `owner_id=eq.${userId}`,
+          filter,
         },
-        () => loadSellerData(supabase, userId).then(applyData),
+        () => loadSellerData(supabase, userId, scope).then(applyData),
       )
       .subscribe();
 
@@ -91,24 +113,30 @@ export default function SellerDashboardClient({
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, scope.mode, scope.organizationId]);
 
   // All sale listings (id + title only) for the stats scope selector.
   useEffect(() => {
     async function fetchListingOptions() {
-      const { data } = await supabase
+      let query = supabase
         .from("properties")
         .select("id,title")
-        .eq("owner_id", userId)
-        .eq("is_for_sale", true)
-        .order("created_at", { ascending: false });
+        .eq("is_for_sale", true);
+
+      if (scope.mode === "org" && scope.organizationId) {
+        query = query.eq("organization_id", scope.organizationId);
+      } else {
+        query = query.eq("owner_id", userId);
+      }
+
+      const { data } = await query.order("created_at", { ascending: false });
 
       if (data) setListingOptions(data);
     }
 
     fetchListingOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, scope.mode, scope.organizationId]);
 
   useEffect(() => {
     async function fetchStats() {
@@ -119,6 +147,10 @@ export default function SellerDashboardClient({
         p_to: range.to.toISOString(),
         // omitted (undefined) -> SQL default NULL -> all listings
         p_listing_ids: listingIds.length ? listingIds : undefined,
+        p_organization_id:
+          scope.mode === "org" && scope.organizationId
+            ? scope.organizationId
+            : null,
       });
 
       if (!error) setStats(data?.[0] ?? null);
@@ -128,7 +160,14 @@ export default function SellerDashboardClient({
     fetchStats();
     // Primitive keys keep the dep array stable across object/array re-creates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, range.from.getTime(), range.to.getTime(), listingIds.join(",")]);
+  }, [
+    userId,
+    range.from.getTime(),
+    range.to.getTime(),
+    listingIds.join(","),
+    scope.mode,
+    scope.organizationId,
+  ]);
 
   const activeCount = properties.filter((p) => p.status === "active").length;
 
@@ -328,7 +367,7 @@ export default function SellerDashboardClient({
           isForSale: p.is_for_sale ?? true,
         }))}
         onConfirm={async (propertyId) => {
-          await supabase.functions.invoke("purchase-vip", {
+          const { error } = await supabase.functions.invoke("purchase-vip", {
             body: {
               purchase_type:
                 pickerModal.tier === "super-vip"
@@ -342,6 +381,7 @@ export default function SellerDashboardClient({
               property_id: propertyId,
             },
           });
+          if (error) throw error;
         }}
       />
     </div>

@@ -9,6 +9,10 @@ import {
   toServiceSegment,
   SEGMENT_TO_ROLE_KEY,
 } from "@/lib/dashboard/serviceSegments";
+import {
+  ActiveOrgScopeProvider,
+  useActiveOrgScope,
+} from "@/lib/dashboard/orgScope";
 
 const SMS_PLAN_TOTAL = 100;
 const DashboardSidebar = dynamic(() =>
@@ -67,6 +71,39 @@ const ServiceSidebar = dynamic(() =>
 const ServiceTopbar = dynamic(() =>
   import("@/components/layout/ServiceTopbar").then((mod) => mod.ServiceTopbar),
 );
+
+/**
+ * Fetches the "new" leads count for the seller sidebar badge. Rendered inside
+ * ActiveOrgScopeProvider so it can read the active scope: counts the active
+ * company's new leads in org mode, the signed-in user's own leads otherwise
+ * (personal mode is a no-op vs. the previous owner_id-only query).
+ */
+function SellerLeadsCountEffect({
+  userId,
+  onCount,
+}: {
+  userId: string;
+  onCount: (count: number) => void;
+}) {
+  const scope = useActiveOrgScope();
+  const orgScoped = scope.mode === "org" && !!scope.organizationId;
+
+  useEffect(() => {
+    const supabase = createClient();
+    let query = leadsClient(supabase)
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .eq("stage", "new");
+    query = orgScoped
+      ? query.eq("organization_id", scope.organizationId!)
+      : query.eq("owner_id", userId);
+    query.then((res: { count: number | null; error: unknown }) => {
+      if (!res.error) onCount(res.count ?? 0);
+    });
+  }, [userId, orgScoped, scope.organizationId, onCount]);
+
+  return null;
+}
 
 interface DashboardShellProps {
   userId: string;
@@ -183,19 +220,6 @@ export function DashboardShell({
     };
   }, [userId]);
 
-  useEffect(() => {
-    if (role !== "seller") return;
-    const supabase = createClient();
-    leadsClient(supabase)
-      .from("leads")
-      .select("*", { count: "exact", head: true })
-      .eq("owner_id", userId)
-      .eq("stage", "new")
-      .then((res: { count: number | null; error: unknown }) => {
-        if (!res.error) setLeadsCount(res.count ?? 0);
-      });
-  }, [role, userId]);
-
   // Real pending-verifications count for the admin sidebar badge; refetched on
   // navigation. The route caches privately for 30s, so the badge may lag an
   // approve/reject by up to 30s — accepted tradeoff vs hitting the API on
@@ -296,30 +320,35 @@ export function DashboardShell({
 
   if (isSeller) {
     return (
-      <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
-        <SellerSidebar
-          userName={displayName}
-          avatarUrl={avatarUrl ?? undefined}
-          isVerified
-          leadsCount={leadsCount}
-          notificationCount={notificationCount}
-          currentPath={pathname}
-          onSignOut={handleSignOut}
-          availableCabinets={availableCabinets}
-          companies={companies}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <SellerTopbar
-            balance={balance}
-            smsRemaining={smsRemaining}
-            smsTotal={SMS_PLAN_TOTAL}
+      <ActiveOrgScopeProvider companies={companies}>
+        <SellerLeadsCountEffect userId={userId} onCount={setLeadsCount} />
+        <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+          <SellerSidebar
+            userName={displayName}
+            avatarUrl={avatarUrl ?? undefined}
+            isVerified
+            leadsCount={leadsCount}
+            notificationCount={notificationCount}
+            currentPath={pathname}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+            companies={companies}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
-          </main>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <SellerTopbar
+              balance={balance}
+              smsRemaining={smsRemaining}
+              smsTotal={SMS_PLAN_TOTAL}
+            />
+            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+                {children}
+              </div>
+            </main>
+          </div>
+          <MobileBottomNav currentPath={pathname} userRole={activeRole} />
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
-      </div>
+      </ActiveOrgScopeProvider>
     );
   }
 

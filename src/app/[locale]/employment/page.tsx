@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/server";
+import { getCvCountsForServices } from "@/lib/data/getCachedPublicListing";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
@@ -35,5 +36,9 @@ export default async function EmploymentPage() {
     console.error("[employment] failed to load services", error.message);
   }
 
-  return <EmploymentPageClient services={services ?? []} />;
+  const cvCounts = await getCvCountsForServices(
+    (services ?? []).map((s) => s.id),
+  );
+
+  return <EmploymentPageClient services={services ?? []} cvCounts={cvCounts} />;
 }

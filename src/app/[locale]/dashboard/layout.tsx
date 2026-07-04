@@ -71,6 +71,7 @@ export default async function DashboardLayout({
     isForSaleFlags: (data.is_for_sale_flags ?? []).map((f) => f === true),
     serviceCategories: data.service_categories ?? [],
     hasCleaningTasks: (data.cleaning_tasks_count ?? 0) > 0,
+    organizations: data.organizations ?? [],
   });
 
   return (

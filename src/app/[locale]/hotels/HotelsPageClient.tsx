@@ -9,7 +9,14 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Building, Plus, ChevronLeft, ChevronRight, Video } from "lucide-react";
+import {
+  Building,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Video,
+  Flame,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
@@ -246,7 +253,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
                 </button>
                 <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
                   <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                    <span className="text-[12px]">{"\uD83D\uDD25"}</span>
+                    <Flame className="h-3.5 w-3.5" />
                     {tLanding("discountsOnly")}
                   </span>
                   <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">

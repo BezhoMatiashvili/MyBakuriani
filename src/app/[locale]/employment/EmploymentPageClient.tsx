@@ -28,6 +28,7 @@ const POSTED_KEYS = ["today", "days3", "days5", "week1", "weeks2"] as const;
 
 interface Props {
   services: Tables<"services">[];
+  cvCounts: Record<string, number>;
 }
 
 function deriveBadge(
@@ -40,7 +41,7 @@ function deriveBadge(
   return null;
 }
 
-export default function EmploymentPageClient({ services }: Props) {
+export default function EmploymentPageClient({ services, cvCounts }: Props) {
   const t = useTranslations("EmploymentPage");
   const tShared = useTranslations("Shared");
   const tOpts = useTranslations("ListingOptions");
@@ -233,10 +234,7 @@ export default function EmploymentPageClient({ services }: Props) {
                     postedLabel={t(
                       `posted.${POSTED_KEYS[i % POSTED_KEYS.length]}`,
                     )}
-                    applicationsCount={Math.max(
-                      1,
-                      ((s.views_count ?? 0) % 30) + 1,
-                    )}
+                    applicationsCount={cvCounts[s.id] ?? 0}
                     highlighted={s.is_vip ?? false}
                   />
                 </ScrollReveal>

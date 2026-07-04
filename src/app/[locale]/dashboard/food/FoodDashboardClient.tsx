@@ -315,7 +315,7 @@ export default function FoodDashboardClient({
             : []
         }
         onConfirm={async (serviceId) => {
-          await supabase.functions.invoke("purchase-vip", {
+          const { error } = await supabase.functions.invoke("purchase-vip", {
             body: {
               purchase_type:
                 pickerModal.tier === "super-vip"
@@ -329,6 +329,7 @@ export default function FoodDashboardClient({
               service_id: serviceId,
             },
           });
+          if (error) throw error;
         }}
       />
     </div>

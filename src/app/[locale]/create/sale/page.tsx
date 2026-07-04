@@ -313,11 +313,14 @@ function CreateSalePageInner() {
     let cancelled = false;
 
     (async () => {
+      // No owner_id/organization_id filter here — RLS alone decides whether
+      // this row is readable (own listing, or an org listing this user is an
+      // approved member of), so this works regardless of which dashboard
+      // scope the user last had selected.
       const { data, error: fetchError } = await supabase
         .from("properties")
         .select("*")
         .eq("id", editId)
-        .eq("owner_id", user.id)
         .maybeSingle();
 
       if (cancelled) return;
@@ -616,11 +619,13 @@ function CreateSalePageInner() {
       };
 
       if (editId) {
+        // Same reasoning as the hydrate query above: no owner_id/organization_id
+        // filter needed — RLS already permits the update for the owner or an
+        // approved org member of this listing's company.
         const { error: updateError } = await supabase
           .from("properties")
           .update(payload)
-          .eq("id", editId)
-          .eq("owner_id", user.id);
+          .eq("id", editId);
 
         if (updateError) throw updateError;
         router.push("/dashboard/seller");
@@ -805,12 +810,19 @@ function CreateSalePageInner() {
       title={t("pageTitle")}
       accent="green"
       progressPercent={progressPercent}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (onScreenZero) {
+          handleContinue();
+        } else {
+          handleSubmit();
+        }
+      }}
       footer={
         onScreenZero ? (
           <WizardFooter
             accent="green"
             backHref="/create"
-            onSubmit={handleContinue}
             submitLabel={t("continue")}
             error={error}
           />
@@ -826,7 +838,6 @@ function CreateSalePageInner() {
                   },
                 }
               : { backHref: "/create" })}
-            onSubmit={handleSubmit}
             submitLabel={
               isEditMode ? tShared("save") : tShared("publishListing")
             }

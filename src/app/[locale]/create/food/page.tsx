@@ -341,11 +341,14 @@ function CreateFoodPageInner() {
       title={t("pageTitle")}
       accent="orange"
       progressPercent={progressPercent}
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
       footer={
         <WizardFooter
           accent="orange"
           backHref="/create"
-          onSubmit={handleSubmit}
           submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
           submitDisabled={loading}
           loading={loading}

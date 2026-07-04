@@ -21,6 +21,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
+import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 
 interface SellerCompany {
   id: string;
@@ -146,6 +147,7 @@ export function SellerSidebar({
   companies = [],
 }: SellerSidebarProps) {
   const t = useTranslations("DashboardSidebar");
+  const scope = useActiveOrgScope();
   const initials = userName
     .split(" ")
     .map((n) => n[0])
@@ -153,12 +155,14 @@ export function SellerSidebar({
     .slice(0, 2);
 
   // Inject company nav into the management section: "My organizations" is always
-  // shown; "My company" appears only when the user owns one (links to its
-  // cabinet, or to the list when they own several).
-  const ownedCompanies = companies.filter((c) => c.role === "owner");
+  // shown; "My company" appears only when the user is a member (owner or agent)
+  // of one (links to its cabinet, or to the list when they belong to several).
+  const memberCompanies = companies.filter(
+    (c) => c.role === "owner" || c.role === "agent",
+  );
   const companyHref =
-    ownedCompanies.length === 1
-      ? `/dashboard/seller/organizations/${ownedCompanies[0].id}`
+    memberCompanies.length === 1
+      ? `/dashboard/seller/organizations/${memberCompanies[0].id}`
       : "/dashboard/seller/organizations";
   const sections: NavSection[] = SECTIONS.map((section) => {
     if (section.titleKey !== "managementPanel") return section;
@@ -170,7 +174,7 @@ export function SellerSidebar({
         icon: Building2,
       },
     ];
-    if (ownedCompanies.length > 0) {
+    if (memberCompanies.length > 0) {
       items.push({ labelKey: "myCompany", href: companyHref, icon: Building });
     }
     return { ...section, items };
@@ -210,6 +214,33 @@ export function SellerSidebar({
           </p>
         </div>
       </CabinetSwitcher>
+
+      {scope.companies.length > 0 && (
+        <div className="mx-4 mt-3">
+          <label className="mb-1.5 block px-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
+            {t("scopeSwitcher.label")}
+          </label>
+          <select
+            value={
+              scope.mode === "org" && scope.organizationId
+                ? scope.organizationId
+                : "personal"
+            }
+            onChange={(e) => {
+              const value = e.target.value;
+              scope.setActiveOrgId(value === "personal" ? null : value);
+            }}
+            className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-[13px] font-bold text-[#0F172A] outline-none transition-colors focus:border-[#2563EB]"
+          >
+            <option value="personal">{t("scopeSwitcher.personal")}</option>
+            {scope.companies.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <nav className="mt-5 flex-1 overflow-y-auto px-4">
         <ul className="space-y-5">

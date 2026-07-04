@@ -17,6 +17,7 @@ import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
+import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
@@ -48,6 +49,7 @@ export default function FoodBalancePage() {
     open: boolean;
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
+  const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
 
   useEffect(() => {
     fetchPricingPackages(["vip", "sms"]).then(setPackages);
@@ -110,9 +112,10 @@ export default function FoodBalancePage() {
     if (!user || !balance) return;
     setPurchasing(pkg.id);
     try {
-      await supabase.functions.invoke("purchase-vip", {
+      const { error } = await supabase.functions.invoke("purchase-vip", {
         body: { package_id: pkg.id, quantity: 1 },
       });
+      if (error) throw error;
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")
@@ -193,7 +196,7 @@ export default function FoodBalancePage() {
                 canAfford={(balance?.amount ?? 0) >= pkg.amount_gel}
                 purchasing={purchasing === pkg.id}
                 onHowItWorks={() => setVipModal({ open: true, tier })}
-                onActivate={() => handlePurchase(pkg)}
+                onActivate={() => setConfirmPkg(pkg)}
               />
             );
           })
@@ -271,6 +274,18 @@ export default function FoodBalancePage() {
         isOpen={vipModal.open}
         onClose={() => setVipModal((p) => ({ ...p, open: false }))}
         tier={vipModal.tier}
+      />
+
+      <ConfirmPaymentModal
+        isOpen={!!confirmPkg}
+        onClose={() => setConfirmPkg(null)}
+        onConfirm={async () => {
+          if (confirmPkg) await handlePurchase(confirmPkg);
+        }}
+        title={confirmPkg?.name ?? ""}
+        description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
+        priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
+        balance={balance?.amount}
       />
     </div>
   );

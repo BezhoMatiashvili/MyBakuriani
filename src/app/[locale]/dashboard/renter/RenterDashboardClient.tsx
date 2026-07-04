@@ -384,7 +384,7 @@ export default function RenterDashboardClient({
           isForSale: p.is_for_sale ?? false,
         }))}
         onConfirm={async (propertyId) => {
-          await supabase.functions.invoke("purchase-vip", {
+          const { error } = await supabase.functions.invoke("purchase-vip", {
             body: {
               purchase_type:
                 pickerModal.tier === "super-vip"
@@ -398,6 +398,7 @@ export default function RenterDashboardClient({
               property_id: propertyId,
             },
           });
+          if (error) throw error;
         }}
       />
     </div>

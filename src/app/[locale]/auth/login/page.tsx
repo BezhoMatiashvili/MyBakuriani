@@ -223,73 +223,81 @@ export default function LoginPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        {t("emailLabel")}
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="example@mail.com"
-                        className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        {t("passwordLabel")}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••"
-                          className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="size-4" />
-                          ) : (
-                            <Eye className="size-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    {authMode === "register" && (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (authMode === "login") handleEmailLogin();
+                        else handleEmailRegister();
+                      }}
+                      noValidate
+                      className="space-y-5"
+                    >
                       <div className="space-y-2">
                         <label className="text-sm font-medium">
-                          {t("confirmPasswordLabel")}
+                          {t("emailLabel")}
                         </label>
                         <input
-                          type={showPassword ? "text" : "password"}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="••••••"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="example@mail.com"
                           className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
                         />
                       </div>
-                    )}
-                    {error && <p className="text-xs text-[#EF4444]">{error}</p>}
-                    <Button
-                      onClick={
-                        authMode === "login"
-                          ? handleEmailLogin
-                          : handleEmailRegister
-                      }
-                      disabled={loading || !email.trim() || !password}
-                      className="w-full"
-                      size="lg"
-                    >
-                      {loading && (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("passwordLabel")}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••"
+                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      {authMode === "register" && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">
+                            {t("confirmPasswordLabel")}
+                          </label>
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="••••••"
+                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+                          />
+                        </div>
                       )}
-                      {authMode === "login" ? t("signIn") : t("register")}
-                    </Button>
+                      {error && (
+                        <p className="text-xs text-[#EF4444]">{error}</p>
+                      )}
+                      <Button
+                        type="submit"
+                        disabled={loading || !email.trim() || !password}
+                        className="w-full"
+                        size="lg"
+                      >
+                        {loading && (
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                        )}
+                        {authMode === "login" ? t("signIn") : t("register")}
+                      </Button>
+                    </form>
                     <button
                       type="button"
                       onClick={() =>
@@ -379,21 +387,36 @@ export default function LoginPage() {
                   </span>
                   <div className="flex-grow border-t border-[#E2E8F0]" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    {t("phoneLabel")}
-                  </label>
-                  <PhoneInput value={phone} onChange={setPhone} error={error} />
-                </div>
-                <Button
-                  onClick={handleSendOtp}
-                  disabled={loading || phone.length < 9}
-                  className="w-full"
-                  size="lg"
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendOtp();
+                  }}
+                  noValidate
+                  className="space-y-4"
                 >
-                  {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
-                  {t("getSmsCode")}
-                </Button>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      {t("phoneLabel")}
+                    </label>
+                    <PhoneInput
+                      value={phone}
+                      onChange={setPhone}
+                      error={error}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={loading || phone.length < 9}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {loading && (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    )}
+                    {t("getSmsCode")}
+                  </Button>
+                </form>
               </motion.div>
             ) : (
               <motion.div
@@ -403,30 +426,43 @@ export default function LoginPage() {
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-6"
               >
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{t("otpLabel")}</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    placeholder="000000"
-                    className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-                  />
-                  {error && <p className="text-xs text-[#EF4444]">{error}</p>}
-                </div>
-                <Button
-                  onClick={handleVerifyOtp}
-                  disabled={loading || otp.length < 6}
-                  className="w-full"
-                  size="lg"
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleVerifyOtp();
+                  }}
+                  noValidate
+                  className="space-y-6"
                 >
-                  {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
-                  {t("verify")}
-                </Button>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      {t("otpLabel")}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) =>
+                        setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      placeholder="000000"
+                      className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+                    />
+                    {error && <p className="text-xs text-[#EF4444]">{error}</p>}
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={loading || otp.length < 6}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {loading && (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    )}
+                    {t("verify")}
+                  </Button>
+                </form>
                 <button
                   type="button"
                   onClick={() => {

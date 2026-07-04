@@ -260,7 +260,13 @@ function RequestCard({
           </p>
         </div>
       ) : (
-        <>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          noValidate
+        >
           {/* Custom price (always visible) */}
           {selectedProperty && (
             <div className="mt-4">
@@ -315,9 +321,8 @@ function RequestCard({
                 {t("skipButton")}
               </button>
               <button
-                type="button"
+                type="submit"
                 disabled={!selectedProperty || submitting}
-                onClick={handleSubmit}
                 className={`flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-[13px] font-bold text-white transition-colors disabled:opacity-50 ${
                   isHighMatch
                     ? "bg-[#0F8F60] hover:bg-[#0B7A52]"
@@ -329,7 +334,7 @@ function RequestCard({
               </button>
             </div>
           </div>
-        </>
+        </form>
       )}
     </div>
   );

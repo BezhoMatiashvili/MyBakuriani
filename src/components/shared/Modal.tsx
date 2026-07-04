@@ -10,6 +10,7 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: "sm" | "md" | "lg";
+  lockScroll?: boolean;
 }
 const sizeClasses: Record<string, string> = {
   sm: "max-w-[calc(100vw-2rem)] sm:max-w-sm",
@@ -23,15 +24,16 @@ export default function Modal({
   title,
   children,
   size = "md",
+  lockScroll = true,
 }: ModalProps) {
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && lockScroll) {
       document.body.style.overflow = "hidden";
       return () => {
         document.body.style.overflow = "";
       };
     }
-  }, [isOpen]);
+  }, [isOpen, lockScroll]);
   useEffect(() => {
     if (!isOpen) return;
     const h = (e: KeyboardEvent) => {

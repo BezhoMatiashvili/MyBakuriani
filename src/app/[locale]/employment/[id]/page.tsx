@@ -8,11 +8,11 @@ import {
 } from "@/lib/data/getServiceById";
 import {
   getCachedPublicService,
-  getCachedPublicApplicationsCount,
+  getCachedPublicCvCount,
+  getCvCountsForServices,
 } from "@/lib/data/getCachedPublicListing";
 import { withTimeout, DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
 import { buildListingMetadata } from "@/lib/seo";
-import { createPublicClient } from "@/lib/supabase/server";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import EmploymentDetailClient from "./EmploymentDetailClient";
 
@@ -79,7 +79,7 @@ export default async function EmploymentDetailPage({ params }: Props) {
   }
 
   if (cached) {
-    const applicationsCount = await getCachedPublicApplicationsCount(id);
+    const applicationsCount = await getCachedPublicCvCount(id);
     return (
       <EmploymentDetailClient
         service={cached}
@@ -101,13 +101,8 @@ export default async function EmploymentDetailPage({ params }: Props) {
   if (isMock) {
     applicationsCount = 12;
   } else {
-    const supabase = createPublicClient();
     applicationsCount = await withTimeout(
-      supabase
-        .from("job_applications")
-        .select("*", { count: "exact", head: true })
-        .eq("service_id", id)
-        .then((r) => r.count ?? 0),
+      getCvCountsForServices([id]).then((counts) => counts[id] ?? 0),
       DETAIL_AUX_TIMEOUT_MS,
       0,
     );

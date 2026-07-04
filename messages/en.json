@@ -240,6 +240,10 @@
       "switchWorkspace": "Switch workspace",
       "addListing": "Add listing"
     },
+    "scopeSwitcher": {
+      "label": "Active scope",
+      "personal": "Personal"
+    },
     "sections": {
       "main": "Main",
       "activity": "Activity",
@@ -1757,6 +1761,24 @@
       "enterName": "Please enter your name",
       "roleUpdateFailed": "Failed to update the role. Try again.",
       "generic": "Error. Please try again."
+    },
+    "seller": {
+      "stepTitle": "Seller type",
+      "stepHint": "How would you like to work on the platform?",
+      "individualTitle": "Individually",
+      "individualDesc": "List and manage your listings on your own.",
+      "companyTitle": "Register a company",
+      "companyDesc": "Register your real estate agency or construction company.",
+      "agentTitle": "Link as an agent",
+      "agentDesc": "Find an existing company and send a request to join.",
+      "searchLabel": "Search for a company by name or phone",
+      "searchPlaceholder": "Type: Archi, Redco, or 511...",
+      "searchHint": "Type at least 2 characters",
+      "noResults": "No company found",
+      "confirm": "Confirm",
+      "requestSentTitle": "Request sent",
+      "requestSentDesc": "Your request has been sent to the company for review. Once approved, you'll appear on their team.",
+      "requestSentLink": "My companies"
     }
   },
   "CreateHub": {
@@ -2733,6 +2755,10 @@
     "delete": "Delete",
     "call": "Call",
     "cancel": "Cancel",
+    "confirmPayment": {
+      "title": "Confirm payment",
+      "agree": "I agree, proceed with payment"
+    },
     "back": "Back",
     "completed": "Completed",
     "active": "Active",
@@ -4060,6 +4086,7 @@
     "linkCardDesc": "მოძებნეთ თქვენი კომპანია ბაზაში და გაგზავნეთ მიბმის მოთხოვნა.",
     "linkCardBtn": "მიბმა",
     "myCompaniesTitle": "ჩემი კომპანიები",
+    "awaitingApproval": "დასტურის მოლოდინში",
     "roleOwner": "მფლობელი",
     "roleAgent": "აგენტი",
     "statusPending": "განხილვაში",

@@ -515,27 +515,28 @@ function CreateRentalPageInner() {
       accent="blue"
       currentStep={currentStepNumber}
       totalSteps={totalSteps}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const errs = validateStep(step);
+        if (errs.length) {
+          setInvalidFields(new Set(errs.map((e) => e.key)));
+          setError(errs[0].message);
+          scrollToField(errs[0].key);
+          return;
+        }
+        setInvalidFields(new Set());
+        setError(null);
+        if (isFinalStep) {
+          handleSubmit();
+        } else {
+          setStep((s) => Math.min(totalSteps - 1, s + 1));
+        }
+      }}
       footer={
         <WizardFooter
           accent="blue"
           showBack={step > 0}
           onBack={() => setStep((s) => Math.max(0, s - 1))}
-          onSubmit={() => {
-            const errs = validateStep(step);
-            if (errs.length) {
-              setInvalidFields(new Set(errs.map((e) => e.key)));
-              setError(errs[0].message);
-              scrollToField(errs[0].key);
-              return;
-            }
-            setInvalidFields(new Set());
-            setError(null);
-            if (isFinalStep) {
-              handleSubmit();
-            } else {
-              setStep((s) => Math.min(totalSteps - 1, s + 1));
-            }
-          }}
           submitDisabled={loading}
           loading={loading}
           finalStep={isFinalStep}

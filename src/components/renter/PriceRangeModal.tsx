@@ -171,80 +171,87 @@ export default function PriceRangeModal({
               </button>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <Field label={tShared("from")}>
-                <DateField
-                  value={from}
-                  onChange={setFrom}
-                  className="h-[42px]"
-                />
-              </Field>
-              <Field label={tShared("to")}>
-                <DateField
-                  value={to}
-                  onChange={setTo}
-                  min={from || undefined}
-                  className="h-[42px]"
-                />
-              </Field>
-            </div>
-
-            <div className="mt-3">
-              <Field label={t("pricePerNight")}>
-                <NumberField
-                  value={price}
-                  onChange={setPrice}
-                  min={0}
-                  max={99999}
-                  decimals={2}
-                  placeholder={basePrice ? String(basePrice) : "0"}
-                  suffix="₾"
-                />
-              </Field>
-            </div>
-
-            <div className="mt-3">
-              <Field label={t("applyTo")}>
-                <div className="grid grid-cols-3 gap-2">
-                  <FilterButton
-                    active={filter === "all"}
-                    onClick={() => setFilter("all")}
-                    label={tShared("allDays")}
-                  />
-                  <FilterButton
-                    active={filter === "weekdays"}
-                    onClick={() => setFilter("weekdays")}
-                    label={tShared("weekdays")}
-                  />
-                  <FilterButton
-                    active={filter === "weekends"}
-                    onClick={() => setFilter("weekends")}
-                    label={tShared("weekends")}
-                  />
-                </div>
-              </Field>
-            </div>
-
-            <div className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-3 text-[12px] font-semibold text-[#64748B]">
-              {from && to && from <= to
-                ? tShared("daysPriceChange", { count: dates.length })
-                : tShared("selectDateRange")}
-            </div>
-
-            {error && (
-              <p className="mt-3 text-[12px] font-semibold text-[#EF4444]">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="button"
-              disabled={!valid || saving}
-              onClick={handleSubmit}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              noValidate
             >
-              {saving ? tShared("saving") : tShared("apply")}
-            </button>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <Field label={tShared("from")}>
+                  <DateField
+                    value={from}
+                    onChange={setFrom}
+                    className="h-[42px]"
+                  />
+                </Field>
+                <Field label={tShared("to")}>
+                  <DateField
+                    value={to}
+                    onChange={setTo}
+                    min={from || undefined}
+                    className="h-[42px]"
+                  />
+                </Field>
+              </div>
+
+              <div className="mt-3">
+                <Field label={t("pricePerNight")}>
+                  <NumberField
+                    value={price}
+                    onChange={setPrice}
+                    min={0}
+                    max={99999}
+                    decimals={2}
+                    placeholder={basePrice ? String(basePrice) : "0"}
+                    suffix="₾"
+                  />
+                </Field>
+              </div>
+
+              <div className="mt-3">
+                <Field label={t("applyTo")}>
+                  <div className="grid grid-cols-3 gap-2">
+                    <FilterButton
+                      active={filter === "all"}
+                      onClick={() => setFilter("all")}
+                      label={tShared("allDays")}
+                    />
+                    <FilterButton
+                      active={filter === "weekdays"}
+                      onClick={() => setFilter("weekdays")}
+                      label={tShared("weekdays")}
+                    />
+                    <FilterButton
+                      active={filter === "weekends"}
+                      onClick={() => setFilter("weekends")}
+                      label={tShared("weekends")}
+                    />
+                  </div>
+                </Field>
+              </div>
+
+              <div className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-3 text-[12px] font-semibold text-[#64748B]">
+                {from && to && from <= to
+                  ? tShared("daysPriceChange", { count: dates.length })
+                  : tShared("selectDateRange")}
+              </div>
+
+              {error && (
+                <p className="mt-3 text-[12px] font-semibold text-[#EF4444]">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={!valid || saving}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
+              >
+                {saving ? tShared("saving") : tShared("apply")}
+              </button>
+            </form>
           </motion.div>
         </div>
       )}

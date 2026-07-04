@@ -201,6 +201,26 @@ export default function AddBookingModal({
     saveToContacts,
   });
 
+  async function handleSubmit() {
+    setSubmitError(null);
+    if (rangeError) return;
+    if (phoneInvalid) return;
+    const fn = mode === "edit" ? onSave : onSubmit;
+    setSubmitting(true);
+    const res = await fn?.(buildPayload());
+    setSubmitting(false);
+    // Keep the modal open and show the reason on a date conflict.
+    if (res && res.ok === false) {
+      setSubmitError(
+        res.errorCode === "datesUnavailable"
+          ? t("datesUnavailable")
+          : t("genericError"),
+      );
+      return;
+    }
+    onClose();
+  }
+
   const headerTitle =
     mode === "view"
       ? t("viewTitle")
@@ -260,194 +280,183 @@ export default function AddBookingModal({
               <ViewBody booking={viewBooking} t={t} tShared={tShared} />
             ) : (
               <>
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  <Field label={tShared("checkIn")}>
-                    <DateField
-                      value={checkIn}
-                      onChange={setCheckIn}
-                      placeholder={t("datePlaceholder")}
-                      className="h-[42px]"
-                    />
-                  </Field>
-                  <Field label={tShared("checkOut")}>
-                    <DateField
-                      value={checkOut}
-                      onChange={setCheckOut}
-                      placeholder={t("datePlaceholder")}
-                      className="h-[42px]"
-                    />
-                  </Field>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <Field label={tShared("guest")}>
-                    <input
-                      type="text"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      placeholder={t("guestPlaceholder")}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label={tShared("phone")}>
-                    <PhoneInput
-                      value={guestPhone}
-                      onChange={setGuestPhone}
-                      error={
-                        guestPhone && !isValidGePhone(guestPhone)
-                          ? tShared("invalidPhone")
-                          : null
-                      }
-                    />
-                  </Field>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <Field label={t("guestsLabel")}>
-                    <NumberField
-                      value={guestsCount}
-                      onChange={setGuestsCount}
-                      min={1}
-                      max={99}
-                      integer
-                      placeholder={t("guestsPlaceholder")}
-                    />
-                  </Field>
-                  <Field label={t("amountLabel")}>
-                    <NumberField
-                      value={amount}
-                      onChange={setAmount}
-                      min={0}
-                      max={999999}
-                      decimals={2}
-                      suffix="₾"
-                      placeholder={t("amountPlaceholder")}
-                    />
-                  </Field>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <Field label={t("sourceLabel")}>
-                    <input
-                      type="text"
-                      value={source}
-                      onChange={(e) => setSource(e.target.value)}
-                      placeholder={t("sourcePlaceholder")}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label={t("clientList")}>
-                    <div className="relative">
-                      <select
-                        value={clientListKey}
-                        onChange={(e) =>
-                          setClientListKey(e.target.value as ClientListKey)
-                        }
-                        className="w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                      >
-                        {clientListKeys.map((key) => (
-                          <option key={key} value={key}>
-                            {t(`clientLists.${key}`)}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-                    </div>
-                  </Field>
-                </div>
-
-                <div className="mt-3">
-                  <Field label={t("statusLabel")}>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setStatus("manual")}
-                        className={`rounded-xl border px-4 py-2.5 text-[12px] font-bold transition-colors ${
-                          status === "manual"
-                            ? "border-[#F59E0B] bg-[#FEF3C7] text-[#D97706]"
-                            : "border-[#E2E8F0] bg-white text-[#64748B]"
-                        }`}
-                      >
-                        {t("manual")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStatus("booked")}
-                        className={`rounded-xl border px-4 py-2.5 text-[12px] font-bold transition-colors ${
-                          status === "booked"
-                            ? "border-[#EF4444] bg-[#FEE2E2] text-[#DC2626]"
-                            : "border-[#E2E8F0] bg-white text-[#64748B]"
-                        }`}
-                      >
-                        {t("booked")}
-                      </button>
-                    </div>
-                  </Field>
-                </div>
-
-                <div className="mt-3">
-                  <Field label={tShared("note")}>
-                    <textarea
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      rows={2}
-                      placeholder={t("notePlaceholder")}
-                      className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                    />
-                  </Field>
-                </div>
-
-                <label
-                  className={`mt-4 flex items-center gap-2.5 text-[12px] font-semibold ${
-                    guestName.trim()
-                      ? "cursor-pointer text-[#0F172A]"
-                      : "cursor-not-allowed text-[#94A3B8]"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={saveToContacts && Boolean(guestName.trim())}
-                    disabled={!guestName.trim()}
-                    onChange={(e) => setSaveToContacts(e.target.checked)}
-                    className="h-4 w-4 rounded border-[#CBD5E1] text-[#2563EB] focus:ring-[#2563EB]"
-                  />
-                  {t("saveToContacts")}
-                </label>
-
-                <button
-                  type="button"
-                  disabled={submitting || Boolean(rangeError) || phoneInvalid}
-                  onClick={async () => {
-                    setSubmitError(null);
-                    if (rangeError) return;
-                    if (phoneInvalid) return;
-                    const fn = mode === "edit" ? onSave : onSubmit;
-                    setSubmitting(true);
-                    const res = await fn?.(buildPayload());
-                    setSubmitting(false);
-                    // Keep the modal open and show the reason on a date conflict.
-                    if (res && res.ok === false) {
-                      setSubmitError(
-                        res.errorCode === "datesUnavailable"
-                          ? t("datesUnavailable")
-                          : t("genericError"),
-                      );
-                      return;
-                    }
-                    onClose();
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSubmit();
                   }}
-                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-60"
+                  noValidate
                 >
-                  {mode === "edit" ? tShared("save") : tShared("add")}
-                </button>
-
-                {(rangeError || submitError) && (
-                  <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3">
-                    <p className="text-[12px] font-semibold text-[#B91C1C]">
-                      {rangeError ?? submitError}
-                    </p>
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <Field label={tShared("checkIn")}>
+                      <DateField
+                        value={checkIn}
+                        onChange={setCheckIn}
+                        placeholder={t("datePlaceholder")}
+                        className="h-[42px]"
+                      />
+                    </Field>
+                    <Field label={tShared("checkOut")}>
+                      <DateField
+                        value={checkOut}
+                        onChange={setCheckOut}
+                        placeholder={t("datePlaceholder")}
+                        className="h-[42px]"
+                      />
+                    </Field>
                   </div>
-                )}
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Field label={tShared("guest")}>
+                      <input
+                        type="text"
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder={t("guestPlaceholder")}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label={tShared("phone")}>
+                      <PhoneInput
+                        value={guestPhone}
+                        onChange={setGuestPhone}
+                        error={
+                          guestPhone && !isValidGePhone(guestPhone)
+                            ? tShared("invalidPhone")
+                            : null
+                        }
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Field label={t("guestsLabel")}>
+                      <NumberField
+                        value={guestsCount}
+                        onChange={setGuestsCount}
+                        min={1}
+                        max={99}
+                        integer
+                        placeholder={t("guestsPlaceholder")}
+                      />
+                    </Field>
+                    <Field label={t("amountLabel")}>
+                      <NumberField
+                        value={amount}
+                        onChange={setAmount}
+                        min={0}
+                        max={999999}
+                        decimals={2}
+                        suffix="₾"
+                        placeholder={t("amountPlaceholder")}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Field label={t("sourceLabel")}>
+                      <input
+                        type="text"
+                        value={source}
+                        onChange={(e) => setSource(e.target.value)}
+                        placeholder={t("sourcePlaceholder")}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label={t("clientList")}>
+                      <div className="relative">
+                        <select
+                          value={clientListKey}
+                          onChange={(e) =>
+                            setClientListKey(e.target.value as ClientListKey)
+                          }
+                          className="w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                        >
+                          {clientListKeys.map((key) => (
+                            <option key={key} value={key}>
+                              {t(`clientLists.${key}`)}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+                      </div>
+                    </Field>
+                  </div>
+
+                  <div className="mt-3">
+                    <Field label={t("statusLabel")}>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setStatus("manual")}
+                          className={`rounded-xl border px-4 py-2.5 text-[12px] font-bold transition-colors ${
+                            status === "manual"
+                              ? "border-[#F59E0B] bg-[#FEF3C7] text-[#D97706]"
+                              : "border-[#E2E8F0] bg-white text-[#64748B]"
+                          }`}
+                        >
+                          {t("manual")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStatus("booked")}
+                          className={`rounded-xl border px-4 py-2.5 text-[12px] font-bold transition-colors ${
+                            status === "booked"
+                              ? "border-[#EF4444] bg-[#FEE2E2] text-[#DC2626]"
+                              : "border-[#E2E8F0] bg-white text-[#64748B]"
+                          }`}
+                        >
+                          {t("booked")}
+                        </button>
+                      </div>
+                    </Field>
+                  </div>
+
+                  <div className="mt-3">
+                    <Field label={tShared("note")}>
+                      <textarea
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        rows={2}
+                        placeholder={t("notePlaceholder")}
+                        className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                      />
+                    </Field>
+                  </div>
+
+                  <label
+                    className={`mt-4 flex items-center gap-2.5 text-[12px] font-semibold ${
+                      guestName.trim()
+                        ? "cursor-pointer text-[#0F172A]"
+                        : "cursor-not-allowed text-[#94A3B8]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={saveToContacts && Boolean(guestName.trim())}
+                      disabled={!guestName.trim()}
+                      onChange={(e) => setSaveToContacts(e.target.checked)}
+                      className="h-4 w-4 rounded border-[#CBD5E1] text-[#2563EB] focus:ring-[#2563EB]"
+                    />
+                    {t("saveToContacts")}
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={submitting || Boolean(rangeError) || phoneInvalid}
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {mode === "edit" ? tShared("save") : tShared("add")}
+                  </button>
+
+                  {(rangeError || submitError) && (
+                    <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3">
+                      <p className="text-[12px] font-semibold text-[#B91C1C]">
+                        {rangeError ?? submitError}
+                      </p>
+                    </div>
+                  )}
+                </form>
 
                 {mode === "edit" &&
                   (confirmingDelete ? (

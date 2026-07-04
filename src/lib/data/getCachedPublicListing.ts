@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { sanitizePhotos } from "@/lib/utils/photos";
 import { isUuid } from "@/lib/utils/uuid";
 import type { PropertyWithProfile } from "@/lib/data/getPropertyById";
@@ -157,17 +158,31 @@ export function getCachedPublicPriceOverrides(
   )();
 }
 
-export function getCachedPublicApplicationsCount(id: string): Promise<number> {
+// Service-role (RLS-bypassing) read: job_applications only grants SELECT to the
+// listing owner and admins, so the anon/public client always sees zero rows here.
+// Only aggregate counts (never applicant PII) leave this function.
+async function fetchCvCounts(ids: string[]): Promise<Record<string, number>> {
+  if (ids.length === 0) return {};
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("job_applications")
+    .select("service_id")
+    .in("service_id", ids)
+    .not("cv_path", "is", null);
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.service_id] = (counts[row.service_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+// Batch variant for the employment list page — one query for all visible ids.
+export const getCvCountsForServices = fetchCvCounts;
+
+export function getCachedPublicCvCount(id: string): Promise<number> {
   return unstable_cache(
-    async (): Promise<number> => {
-      const supabase = createPublicClient();
-      const { count } = await supabase
-        .from("job_applications")
-        .select("*", { count: "exact", head: true })
-        .eq("service_id", id);
-      return count ?? 0;
-    },
-    ["public-applications-count", id],
+    async (): Promise<number> => (await fetchCvCounts([id]))[id] ?? 0,
+    ["public-cv-count", id],
     {
       tags: [listingTag("service", id)],
       revalidate: PUBLIC_LISTING_REVALIDATE_S,

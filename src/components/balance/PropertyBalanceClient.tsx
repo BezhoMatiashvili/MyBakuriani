@@ -13,6 +13,7 @@ import VipInfoModal, {
 } from "@/components/renter/VipInfoModal";
 import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
+import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import {
   fetchPricingPackages,
   getPackageDisplay,
@@ -68,6 +69,7 @@ export default function PropertyBalanceClient() {
   }>({ open: false, tier: "super-vip", packageId: "" });
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
+  const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
 
   useEffect(() => {
     fetchPricingPackages(["vip", "sms"]).then(setPackages);
@@ -180,29 +182,33 @@ export default function PropertyBalanceClient() {
     });
   }, [packages]);
 
-  const handlePurchaseClick = async (pkg: PricingPackage) => {
+  const handlePurchaseClick = (pkg: PricingPackage) => {
     const tier = inferVipInfoTier(pkg);
     if (pkg.category === "sms") {
-      // SMS doesn't need property picker — invoke directly
-      if (!user || !balance) return;
-      setPurchasing(pkg.id);
-      try {
-        await supabase.functions.invoke("purchase-vip", {
-          body: { package_id: pkg.id, quantity: 1 },
-        });
-        const { data: txData } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(20);
-        if (txData) setTransactions(txData);
-      } finally {
-        setPurchasing(null);
-      }
+      setConfirmPkg(pkg);
       return;
     }
     setPickerModal({ open: true, tier, packageId: pkg.id });
+  };
+
+  const purchaseSmsPackage = async (pkg: PricingPackage) => {
+    if (!user || !balance) return;
+    setPurchasing(pkg.id);
+    try {
+      const { error } = await supabase.functions.invoke("purchase-vip", {
+        body: { package_id: pkg.id, quantity: 1 },
+      });
+      if (error) throw error;
+      const { data: txData } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (txData) setTransactions(txData);
+    } finally {
+      setPurchasing(null);
+    }
   };
 
   const handleConfirmPurchase = async (propertyId: string) => {
@@ -218,16 +224,15 @@ export default function PropertyBalanceClient() {
           quantity: 1,
         },
       });
+      if (error) throw error;
 
-      if (!error) {
-        const { data: txData } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(20);
-        if (txData) setTransactions(txData);
-      }
+      const { data: txData } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (txData) setTransactions(txData);
     } finally {
       setPurchasing(null);
     }
@@ -404,6 +409,18 @@ export default function PropertyBalanceClient() {
           isForSale: p.is_for_sale ?? false,
         }))}
         onConfirm={handleConfirmPurchase}
+      />
+
+      <ConfirmPaymentModal
+        isOpen={!!confirmPkg}
+        onClose={() => setConfirmPkg(null)}
+        onConfirm={async () => {
+          if (confirmPkg) await purchaseSmsPackage(confirmPkg);
+        }}
+        title={confirmPkg?.name ?? ""}
+        description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
+        priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
+        balance={balance?.amount}
       />
     </div>
   );

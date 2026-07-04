@@ -165,12 +165,15 @@ export default function OrganizationNewPage() {
       subtitle={t("regProcess")}
       accent="green"
       progressPercent={100}
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
       footer={
         <WizardFooter
           accent="green"
           backHref="/dashboard/seller/organizations"
           backLabel={t("cancel")}
-          onSubmit={handleSubmit}
           submitLabel={t("submit")}
           submitDisabled={loading}
           loading={loading}

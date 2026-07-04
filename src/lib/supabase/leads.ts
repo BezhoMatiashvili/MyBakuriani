@@ -1,17 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type LeadStageValue =
-  | "new"
-  | "contacted"
-  | "shown"
-  | "negotiating"
-  | "closed";
+  "new" | "contacted" | "shown" | "negotiating" | "closed";
 
 export type LeadPriorityValue = "low" | "medium" | "high";
 
 export interface LeadRow {
   id: string;
   owner_id: string;
+  organization_id: string | null;
   property_id: string | null;
   client_name: string;
   client_phone: string | null;
@@ -32,6 +29,7 @@ export interface LeadRow {
 
 export interface LeadInsert {
   owner_id: string;
+  organization_id?: string | null;
   client_name: string;
   client_phone?: string | null;
   property_id?: string | null;

@@ -38,7 +38,7 @@ export default function OrganizationsPage() {
         .from("organization_members")
         .select("role, status, organizations(id, brand_name, status, logo_url)")
         .eq("user_id", user.id)
-        .eq("status", "approved");
+        .in("status", ["pending", "approved"]);
       if (cancelled) return;
       const rows: Membership[] = (data ?? []).map((m) => {
         const orgRaw = (m as { organizations: unknown }).organizations;
@@ -97,36 +97,68 @@ export default function OrganizationsPage() {
               <h2 className="text-[13px] font-bold uppercase tracking-[0.06em] text-[#94A3B8]">
                 {t("myCompaniesTitle")}
               </h2>
-              {memberships.map((m) => (
-                <Link
-                  key={m.org!.id}
-                  href={`/dashboard/seller/organizations/${m.org!.id}`}
-                  className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 transition-colors hover:border-[#CBD5E1]"
-                >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#EFF6FF]">
-                    {m.org!.logo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={m.org!.logo_url}
-                        alt={m.org!.brand_name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Building2 className="h-5 w-5 text-[#2563EB]" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-bold text-[#0F172A]">
-                      {m.org!.brand_name}
-                    </p>
-                    <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
-                      {m.role === "owner" ? t("roleOwner") : t("roleAgent")}
-                    </p>
-                  </div>
-                  {statusBadge(m.org!.status)}
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[#CBD5E1]" />
-                </Link>
-              ))}
+              {memberships.map((m) => {
+                if (m.status !== "approved") {
+                  return (
+                    <div
+                      key={m.org!.id}
+                      className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4"
+                    >
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#EFF6FF]">
+                        {m.org!.logo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={m.org!.logo_url}
+                            alt={m.org!.brand_name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Building2 className="h-5 w-5 text-[#2563EB]" />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-bold text-[#0F172A]">
+                          {m.org!.brand_name} — {t("awaitingApproval")}
+                        </p>
+                        <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
+                          {m.role === "owner" ? t("roleOwner") : t("roleAgent")}
+                        </p>
+                      </div>
+                      {statusBadge(m.status)}
+                    </div>
+                  );
+                }
+                return (
+                  <Link
+                    key={m.org!.id}
+                    href={`/dashboard/seller/organizations/${m.org!.id}`}
+                    className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 transition-colors hover:border-[#CBD5E1]"
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#EFF6FF]">
+                      {m.org!.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.org!.logo_url}
+                          alt={m.org!.brand_name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Building2 className="h-5 w-5 text-[#2563EB]" />
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-bold text-[#0F172A]">
+                        {m.org!.brand_name}
+                      </p>
+                      <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
+                        {m.role === "owner" ? t("roleOwner") : t("roleAgent")}
+                      </p>
+                    </div>
+                    {statusBadge(m.org!.status)}
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[#CBD5E1]" />
+                  </Link>
+                );
+              })}
             </div>
           )}
 

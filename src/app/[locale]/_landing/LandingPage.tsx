@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowRight, Plus, Video } from "lucide-react";
+import { ArrowRight, Plus, Video, Flame } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -364,7 +364,7 @@ export default function LandingPage({
                   {/* Discount toggle */}
                   <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
                     <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                      <span className="text-[12px]">{"\uD83D\uDD25"}</span>
+                      <Flame className="h-3.5 w-3.5" />
                       {t("discountsOnly")}
                     </span>
                     <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
@@ -417,7 +417,7 @@ export default function LandingPage({
                   )}
                 >
                   <span className="flex items-center gap-1.5">
-                    <span className="text-[12px]">{"\uD83D\uDD25"}</span>
+                    <Flame className="h-3.5 w-3.5" />
                     {t("discountsOnly")}
                   </span>
                   <span
@@ -682,7 +682,7 @@ function ServiceSection({
                   )}
                 >
                   <span className="flex items-center gap-1.5">
-                    <span className="text-[12px]">{"\uD83D\uDD25"}</span>
+                    <Flame className="h-3.5 w-3.5" />
                     {t("discountsOnly")}
                   </span>
                   <span
@@ -897,7 +897,7 @@ function PropertySection({
                   )}
                 >
                   <span className="flex items-center gap-1.5">
-                    <span className="text-[12px]">{"\uD83D\uDD25"}</span>
+                    <Flame className="h-3.5 w-3.5" />
                     {t("discountsOnly")}
                   </span>
                   <span

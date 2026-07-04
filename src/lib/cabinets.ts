@@ -75,6 +75,8 @@ interface DeriveArgs {
   serviceCategories: string[];
   /** Whether the user has any assigned cleaning tasks. */
   hasCleaningTasks: boolean;
+  /** The user's approved organization memberships (any role). */
+  organizations?: { role: string; status: string }[];
 }
 
 /**
@@ -85,6 +87,7 @@ export function deriveAvailableCabinets({
   isForSaleFlags,
   serviceCategories,
   hasCleaningTasks,
+  organizations = [],
 }: DeriveArgs): CabinetKey[] {
   const keys = new Set<CabinetKey>(["guest"]);
   keys.add(roleToCabinetKey(role));
@@ -97,6 +100,9 @@ export function deriveAvailableCabinets({
   }
   if (hasCleaningTasks) {
     keys.add("cleaner");
+  }
+  if (organizations.length > 0) {
+    keys.add("seller");
   }
 
   return CABINET_KEYS.filter((k) => keys.has(k));

@@ -141,63 +141,70 @@ export default function CleanerFormModal({
               </button>
             </div>
 
-            <div className="mt-5 space-y-3">
-              <Field label={tShared("name")}>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t("namePlaceholder")}
-                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                />
-              </Field>
-
-              <Field label={tShared("phone")}>
-                <PhoneInput
-                  value={phone}
-                  onChange={setPhone}
-                  error={
-                    phone && !isValidGePhone(phone)
-                      ? tShared("invalidPhone")
-                      : null
-                  }
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label={t("priceStandard")}>
-                  <NumberField
-                    value={priceStandard}
-                    onChange={setPriceStandard}
-                    min={0}
-                    decimals={2}
-                    suffix="₾"
-                    placeholder="30"
-                  />
-                </Field>
-                <Field label={t("priceGeneral")}>
-                  <NumberField
-                    value={priceGeneral}
-                    onChange={setPriceGeneral}
-                    min={0}
-                    decimals={2}
-                    suffix="₾"
-                    placeholder="50"
-                  />
-                </Field>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={
-                !name.trim() || (!!phone && !isValidGePhone(phone)) || saving
-              }
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              noValidate
             >
-              {tShared("save")}
-            </button>
+              <div className="mt-5 space-y-3">
+                <Field label={tShared("name")}>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t("namePlaceholder")}
+                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  />
+                </Field>
+
+                <Field label={tShared("phone")}>
+                  <PhoneInput
+                    value={phone}
+                    onChange={setPhone}
+                    error={
+                      phone && !isValidGePhone(phone)
+                        ? tShared("invalidPhone")
+                        : null
+                    }
+                  />
+                </Field>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label={t("priceStandard")}>
+                    <NumberField
+                      value={priceStandard}
+                      onChange={setPriceStandard}
+                      min={0}
+                      decimals={2}
+                      suffix="₾"
+                      placeholder="30"
+                    />
+                  </Field>
+                  <Field label={t("priceGeneral")}>
+                    <NumberField
+                      value={priceGeneral}
+                      onChange={setPriceGeneral}
+                      min={0}
+                      decimals={2}
+                      suffix="₾"
+                      placeholder="50"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  !name.trim() || (!!phone && !isValidGePhone(phone)) || saving
+                }
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
+              >
+                {tShared("save")}
+              </button>
+            </form>
           </motion.div>
         </div>
       )}

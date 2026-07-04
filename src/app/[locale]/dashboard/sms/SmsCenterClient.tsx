@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { Skeleton } from "@/components/ui/skeleton";
+import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { formatDateShort, formatTime } from "@/lib/utils/format";
@@ -76,6 +77,8 @@ export function SmsCenterClient({
   const [smsRemaining, setSmsRemaining] = useState(initialSmsRemaining);
   const [smsPackages, setSmsPackages] = useState<PricingPackage[]>([]);
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
+  const [confirmBroadcastOpen, setConfirmBroadcastOpen] = useState(false);
 
   const audiences = useMemo(() => AUDIENCES_BY_ROLE[role] ?? [], [role]);
   const [audience, setAudience] = useState<SmsAudience>(
@@ -218,13 +221,11 @@ export function SmsCenterClient({
         if (!res.ok) throw new Error(json?.error ?? t("purchaseFailed"));
         toast.success(`+${smsCount(pkg)} SMS`);
         await reloadBalance();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : String(err));
       } finally {
         setBuyingId(null);
       }
     },
-    [user, supabase, buyingId, reloadBalance],
+    [user, supabase, buyingId, reloadBalance, t],
   );
 
   const sendBroadcast = useCallback(async () => {
@@ -242,16 +243,13 @@ export function SmsCenterClient({
         const msg =
           (t.raw("broadcast.errors") as Record<string, string>)[errKey] ??
           (t.raw("broadcast.errors") as Record<string, string>).unknown;
-        toast.error(msg);
-        return;
+        throw new Error(msg);
       }
       toast.success(
         t("broadcast.sentSuccess", { count: json.recipient_count ?? 0 }),
       );
       setMessage("");
       await Promise.all([reloadHistory(), reloadBalance()]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setSending(false);
     }
@@ -299,7 +297,7 @@ export function SmsCenterClient({
           remaining={smsRemaining}
           packages={smsPackages}
           buyingId={buyingId}
-          onBuy={buyPack}
+          onBuy={(pkg) => setConfirmPkg(pkg)}
         />
         <AutomationCard rules={rules} onToggle={toggleRule} />
       </div>
@@ -369,7 +367,7 @@ export function SmsCenterClient({
 
             <button
               type="button"
-              onClick={sendBroadcast}
+              onClick={() => setConfirmBroadcastOpen(true)}
               disabled={!canSend}
               className="mt-1 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#0F172A] text-[14px] font-extrabold text-white shadow-[0_8px_18px_-8px_rgba(15,23,42,0.45)] transition-all hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:bg-[#94A3B8] disabled:shadow-none"
             >
@@ -394,6 +392,25 @@ export function SmsCenterClient({
 
       {/* Row 3: history */}
       <SmsHistoryTable items={history} />
+
+      <ConfirmPaymentModal
+        isOpen={!!confirmPkg}
+        onClose={() => setConfirmPkg(null)}
+        onConfirm={async () => {
+          if (confirmPkg) await buyPack(confirmPkg);
+        }}
+        title={confirmPkg?.name ?? ""}
+        priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
+      />
+
+      <ConfirmPaymentModal
+        isOpen={confirmBroadcastOpen}
+        onClose={() => setConfirmBroadcastOpen(false)}
+        onConfirm={sendBroadcast}
+        title={t("broadcast.title")}
+        description={t(`audiences.${audience}`)}
+        priceLabel={t("broadcast.sendCount", { count: totalSmsCost || 0 })}
+      />
     </div>
   );
 }

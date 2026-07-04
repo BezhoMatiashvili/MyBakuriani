@@ -19,6 +19,7 @@ import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
+import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
@@ -104,6 +105,7 @@ export default function ServiceBalancePage() {
     open: boolean;
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
+  const [confirmTier, setConfirmTier] = useState<Tier["id"] | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -162,9 +164,10 @@ export default function ServiceBalancePage() {
     if (!user || !balance) return;
     setPurchasing(tierId);
     try {
-      await supabase.functions.invoke("purchase-vip", {
+      const { error } = await supabase.functions.invoke("purchase-vip", {
         body: { purchase_type: tierId, days: 1 },
       });
+      if (error) throw error;
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")
@@ -241,7 +244,7 @@ export default function ServiceBalancePage() {
               onHowItWorks={() =>
                 setVipModal({ open: true, tier: TIER_TO_INFO[tier.id] })
               }
-              onActivate={() => handlePurchase(tier.id)}
+              onActivate={() => setConfirmTier(tier.id)}
             />
           );
         })}
@@ -318,6 +321,22 @@ export default function ServiceBalancePage() {
         isOpen={vipModal.open}
         onClose={() => setVipModal((p) => ({ ...p, open: false }))}
         tier={vipModal.tier}
+      />
+
+      <ConfirmPaymentModal
+        isOpen={!!confirmTier}
+        onClose={() => setConfirmTier(null)}
+        onConfirm={async () => {
+          if (confirmTier) await handlePurchase(confirmTier);
+        }}
+        title={confirmTier ? tBalance(`tiers.${confirmTier}.title`) : ""}
+        description={
+          confirmTier ? tBalance(`tiers.${confirmTier}.description`) : ""
+        }
+        priceLabel={
+          confirmTier ? `${TIER_PRICES[confirmTier].toFixed(2)} ₾` : ""
+        }
+        balance={balance?.amount}
       />
     </div>
   );

@@ -146,72 +146,79 @@ export default function GuestFormModal({
               </button>
             </div>
 
-            <div className="mt-5 space-y-3">
-              <Field label={tShared("name")}>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t("namePlaceholder")}
-                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                />
-              </Field>
-
-              <Field label={tShared("phone")}>
-                <PhoneInput
-                  value={phone}
-                  onChange={setPhone}
-                  error={
-                    phone && !isValidGePhone(phone)
-                      ? tShared("invalidPhone")
-                      : null
-                  }
-                />
-              </Field>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label={t("checkIn")}>
-                  <DateField
-                    value={checkIn}
-                    onChange={setCheckIn}
-                    max={checkOut || undefined}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              noValidate
+            >
+              <div className="mt-5 space-y-3">
+                <Field label={tShared("name")}>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t("namePlaceholder")}
+                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
                 </Field>
-                <Field label={t("checkOut")}>
-                  <DateField
-                    value={checkOut}
-                    onChange={setCheckOut}
-                    min={checkIn || undefined}
+
+                <Field label={tShared("phone")}>
+                  <PhoneInput
+                    value={phone}
+                    onChange={setPhone}
+                    error={
+                      phone && !isValidGePhone(phone)
+                        ? tShared("invalidPhone")
+                        : null
+                    }
+                  />
+                </Field>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label={t("checkIn")}>
+                    <DateField
+                      value={checkIn}
+                      onChange={setCheckIn}
+                      max={checkOut || undefined}
+                    />
+                  </Field>
+                  <Field label={t("checkOut")}>
+                    <DateField
+                      value={checkOut}
+                      onChange={setCheckOut}
+                      min={checkIn || undefined}
+                    />
+                  </Field>
+                </div>
+
+                <Field label={tShared("note")}>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={3}
+                    placeholder={t("notePlaceholder")}
+                    className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
                 </Field>
               </div>
 
-              <Field label={tShared("note")}>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={3}
-                  placeholder={t("notePlaceholder")}
-                  className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                />
-              </Field>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={
-                !name.trim() ||
-                !datesValid ||
-                saving ||
-                (phone && !isValidGePhone(phone))
-                  ? true
-                  : false
-              }
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
-            >
-              {saving ? tShared("saving") : tShared("save")}
-            </button>
+              <button
+                type="submit"
+                disabled={
+                  !name.trim() ||
+                  !datesValid ||
+                  saving ||
+                  (phone && !isValidGePhone(phone))
+                    ? true
+                    : false
+                }
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
+              >
+                {saving ? tShared("saving") : tShared("save")}
+              </button>
+            </form>
           </motion.div>
         </div>
       )}

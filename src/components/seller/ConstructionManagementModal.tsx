@@ -199,147 +199,155 @@ export default function ConstructionManagementModal({
               </button>
             </div>
 
-            <div className="space-y-6 overflow-y-auto px-6 py-5">
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-[13px] font-bold text-[#334155]">
-                    {t("workStages")}
-                  </span>
-                  <span className="text-[18px] font-black text-[#2563EB]">
-                    {percent}%
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
-                  {CONSTRUCTION_STAGES.map((stage) => {
-                    const selected = selectedStages.includes(stage.key);
-                    return (
-                      <button
-                        type="button"
-                        key={stage.key}
-                        onClick={() => toggleStage(stage.key)}
-                        className={
-                          selected
-                            ? "flex items-center gap-2.5 rounded-[12px] border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5 text-left transition-colors"
-                            : "flex items-center gap-2.5 rounded-[12px] border border-[#F1F5F9] bg-white px-3 py-2.5 text-left transition-colors hover:border-[#E2E8F0]"
-                        }
-                      >
-                        <span
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePublish();
+              }}
+              noValidate
+              className="contents"
+            >
+              <div className="space-y-6 overflow-y-auto px-6 py-5">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-[13px] font-bold text-[#334155]">
+                      {t("workStages")}
+                    </span>
+                    <span className="text-[18px] font-black text-[#2563EB]">
+                      {percent}%
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
+                    {CONSTRUCTION_STAGES.map((stage) => {
+                      const selected = selectedStages.includes(stage.key);
+                      return (
+                        <button
+                          type="button"
+                          key={stage.key}
+                          onClick={() => toggleStage(stage.key)}
                           className={
                             selected
-                              ? "flex size-5 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-white"
-                              : "flex size-5 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-transparent"
+                              ? "flex items-center gap-2.5 rounded-[12px] border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5 text-left transition-colors"
+                              : "flex items-center gap-2.5 rounded-[12px] border border-[#F1F5F9] bg-white px-3 py-2.5 text-left transition-colors hover:border-[#E2E8F0]"
                           }
                         >
-                          <Check className="size-3" strokeWidth={3} />
-                        </span>
-                        <span
-                          className={
-                            selected
-                              ? "text-[13px] font-bold text-[#1D4ED8]"
-                              : "text-[13px] font-medium text-[#475569]"
-                          }
-                        >
-                          {t(`stages.${stage.key}`)}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <span
+                            className={
+                              selected
+                                ? "flex size-5 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-white"
+                                : "flex size-5 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-transparent"
+                            }
+                          >
+                            <Check className="size-3" strokeWidth={3} />
+                          </span>
+                          <span
+                            className={
+                              selected
+                                ? "text-[13px] font-bold text-[#1D4ED8]"
+                                : "text-[13px] font-medium text-[#475569]"
+                            }
+                          >
+                            {t(`stages.${stage.key}`)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[13px] font-bold text-[#334155]">
-                    {t("photoVideo")}
-                  </span>
-                  <span className="text-[11px] font-medium text-[#94A3B8]">
-                    {t("maxSize")}
-                  </span>
-                </div>
-                <PhotoUploader
-                  photos={media}
-                  onPhotosChange={setMedia}
-                  maxPhotos={5}
-                  variant="figma"
-                />
-                <input
-                  type="url"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder={t("videoPlaceholder")}
-                  className="mt-2 h-[44px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-[13px] font-bold text-[#334155]">
-                    {tShared("date")}
-                  </label>
-                  <Popover>
-                    <PopoverTrigger className="flex h-[48px] w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-sm font-medium text-[#0F172A] outline-none transition-colors hover:border-[#CBD5E1] data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE]">
-                      <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
-                      {formatDate(updateDate, locale)}
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-auto">
-                      <Calendar
-                        mode="single"
-                        selected={updateDate}
-                        onSelect={(d) => d && setUpdateDate(d)}
-                        locale={getDateFnsLocale(locale)}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-[13px] font-bold text-[#334155]">
-                    {t("status")}
-                  </label>
-                  <StyledSelect
-                    value={status}
-                    onValueChange={setStatus}
-                    options={statusOptions}
-                    placeholder={tCreate("choose")}
-                    accent="blue"
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[13px] font-bold text-[#334155]">
+                      {t("photoVideo")}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#94A3B8]">
+                      {t("maxSize")}
+                    </span>
+                  </div>
+                  <PhotoUploader
+                    photos={media}
+                    onPhotosChange={setMedia}
+                    maxPhotos={5}
+                    variant="figma"
+                  />
+                  <input
+                    type="url"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    placeholder={t("videoPlaceholder")}
+                    className="mt-2 h-[44px] w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
                   />
                 </div>
-              </div>
 
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <label className="text-[13px] font-bold text-[#334155]">
-                    {t("description")}
-                  </label>
-                  <span className="text-[10px] font-medium text-[#94A3B8]">
-                    {note.length} / {NOTE_MAX}
-                  </span>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-bold text-[#334155]">
+                      {tShared("date")}
+                    </label>
+                    <Popover>
+                      <PopoverTrigger className="flex h-[48px] w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-sm font-medium text-[#0F172A] outline-none transition-colors hover:border-[#CBD5E1] data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE]">
+                        <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
+                        {formatDate(updateDate, locale)}
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-auto">
+                        <Calendar
+                          mode="single"
+                          selected={updateDate}
+                          onSelect={(d) => d && setUpdateDate(d)}
+                          locale={getDateFnsLocale(locale)}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-bold text-[#334155]">
+                      {t("status")}
+                    </label>
+                    <StyledSelect
+                      value={status}
+                      onValueChange={setStatus}
+                      options={statusOptions}
+                      placeholder={tCreate("choose")}
+                      accent="blue"
+                    />
+                  </div>
                 </div>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
-                  placeholder={t("descriptionPlaceholder")}
-                  rows={4}
-                  className="min-h-[110px] w-full resize-y rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
-                />
+
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="text-[13px] font-bold text-[#334155]">
+                      {t("description")}
+                    </label>
+                    <span className="text-[10px] font-medium text-[#94A3B8]">
+                      {note.length} / {NOTE_MAX}
+                    </span>
+                  </div>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+                    placeholder={t("descriptionPlaceholder")}
+                    rows={4}
+                    className="min-h-[110px] w-full resize-y rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-[#2563EB] focus:ring-2 focus:ring-[#DBEAFE]"
+                  />
+                </div>
+
+                {error && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
+                    {error}
+                  </p>
+                )}
               </div>
 
-              {error && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
-                  {error}
-                </p>
-              )}
-            </div>
-
-            <div className="border-t border-[#F1F5F9] px-6 py-4">
-              <button
-                type="button"
-                onClick={handlePublish}
-                disabled={saving}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
-              >
-                {saving ? t("publishing") : t("publish")}
-              </button>
-            </div>
+              <div className="border-t border-[#F1F5F9] px-6 py-4">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
+                >
+                  {saving ? t("publishing") : t("publish")}
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}

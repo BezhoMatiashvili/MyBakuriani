@@ -6,6 +6,7 @@ import { Plus, AlertCircle, Calendar } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 import { leadsClient } from "@/lib/supabase/leads";
 import { formatNumber } from "@/lib/utils/format";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
@@ -112,6 +113,7 @@ export default function SalesBoard({
   const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
+  const scope = useActiveOrgScope();
 
   const displayHeading = heading ?? t("title");
   const displaySubtitle = subtitle ?? t("subtitle");
@@ -122,16 +124,22 @@ export default function SalesBoard({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
+  const orgScoped = scope.mode === "org" && !!scope.organizationId;
+
   useEffect(() => {
     if (!user) return;
 
     async function fetchAll() {
       setLoading(true);
-      const leadsRes = await leadsClient(supabase)
+      let query = leadsClient(supabase)
         .from("leads")
-        .select("*, property:properties(title)")
-        .eq("owner_id", user!.id)
-        .order("created_at", { ascending: false });
+        .select("*, property:properties(title)");
+      query = orgScoped
+        ? query.eq("organization_id", scope.organizationId!)
+        : query.eq("owner_id", user!.id);
+      const leadsRes = await query.order("created_at", {
+        ascending: false,
+      });
 
       if (leadsRes.error) {
         setTableMissing(true);
@@ -139,27 +147,25 @@ export default function SalesBoard({
       } else {
         setTableMissing(false);
         setLeads(
-          (leadsRes.data ?? []).map(
-            (r: Record<string, unknown>): Lead => ({
-              id: r.id as string,
-              client_name: r.client_name as string,
-              client_phone: (r.client_phone as string) ?? null,
-              property_id: (r.property_id as string) ?? null,
-              property_title:
-                (r.property as { title?: string } | null)?.title ?? null,
-              source: (r.source as string) ?? null,
-              stage: r.stage as LeadStage,
-              priority: r.priority as LeadPriority,
-              budget_min: (r.budget_min as number) ?? null,
-              budget_max: (r.budget_max as number) ?? null,
-              currency: (r.currency as string) ?? "USD",
-              note: (r.note as string) ?? null,
-              interest_type: (r.interest_type as LeadInterestType) ?? null,
-              desired_location: (r.desired_location as LeadLocation) ?? null,
-              next_action_at: (r.next_action_at as string) ?? null,
-              created_at: r.created_at as string,
-            }),
-          ),
+          (leadsRes.data ?? []).map((r: Record<string, unknown>): Lead => ({
+            id: r.id as string,
+            client_name: r.client_name as string,
+            client_phone: (r.client_phone as string) ?? null,
+            property_id: (r.property_id as string) ?? null,
+            property_title:
+              (r.property as { title?: string } | null)?.title ?? null,
+            source: (r.source as string) ?? null,
+            stage: r.stage as LeadStage,
+            priority: r.priority as LeadPriority,
+            budget_min: (r.budget_min as number) ?? null,
+            budget_max: (r.budget_max as number) ?? null,
+            currency: (r.currency as string) ?? "USD",
+            note: (r.note as string) ?? null,
+            interest_type: (r.interest_type as LeadInterestType) ?? null,
+            desired_location: (r.desired_location as LeadLocation) ?? null,
+            next_action_at: (r.next_action_at as string) ?? null,
+            created_at: r.created_at as string,
+          })),
         );
       }
 
@@ -168,7 +174,7 @@ export default function SalesBoard({
 
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, scope.mode, scope.organizationId]);
 
   const byStage = useMemo(() => {
     const map: Record<LeadStage, Lead[]> = {
@@ -213,6 +219,7 @@ export default function SalesBoard({
       .from("leads")
       .insert({
         owner_id: user.id,
+        ...(orgScoped ? { organization_id: scope.organizationId } : {}),
         client_name: input.client_name,
         client_phone: input.client_phone ?? null,
         stage: input.stage,
@@ -279,7 +286,7 @@ export default function SalesBoard({
       return;
     }
 
-    const { data, error } = await leadsClient(supabase)
+    let updateQuery = leadsClient(supabase)
       .from("leads")
       .update({
         client_name: input.client_name,
@@ -292,8 +299,11 @@ export default function SalesBoard({
         interest_type: input.interest_type ?? null,
         desired_location: input.desired_location ?? null,
       })
-      .eq("id", id)
-      .eq("owner_id", user.id)
+      .eq("id", id);
+    updateQuery = orgScoped
+      ? updateQuery.eq("organization_id", scope.organizationId!)
+      : updateQuery.eq("owner_id", user.id);
+    const { data, error } = await updateQuery
       .select("*, property:properties(title)")
       .single();
 

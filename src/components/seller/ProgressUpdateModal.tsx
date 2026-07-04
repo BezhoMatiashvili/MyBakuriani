@@ -136,88 +136,97 @@ export default function ProgressUpdateModal({
               </button>
             </div>
 
-            <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
-              <div>
-                <div className="mb-2 flex items-center justify-between text-[12px]">
-                  <span className="font-bold text-[#334155]">
-                    {t("readiness")}
-                  </span>
-                  <span className="font-black text-[#16A34A]">{percent}%</span>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave();
+              }}
+              noValidate
+            >
+              <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-[12px]">
+                    <span className="font-bold text-[#334155]">
+                      {t("readiness")}
+                    </span>
+                    <span className="font-black text-[#16A34A]">
+                      {percent}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={percent}
+                    onChange={(e) => setPercent(Number(e.target.value))}
+                    className="w-full accent-[#16A34A]"
+                  />
+                  <div className="mt-1 flex justify-between text-[10px] font-medium text-[#94A3B8]">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={percent}
-                  onChange={(e) => setPercent(Number(e.target.value))}
-                  className="w-full accent-[#16A34A]"
-                />
-                <div className="mt-1 flex justify-between text-[10px] font-medium text-[#94A3B8]">
-                  <span>0%</span>
-                  <span>50%</span>
-                  <span>100%</span>
-                </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-[12px] font-bold text-[#334155]">
-                  {t("completionYear")}
-                </label>
-                <NumberField
-                  value={year}
-                  onChange={setYear}
-                  integer
-                  min={MIN_YEAR}
-                  max={MAX_YEAR}
-                  accent="green"
-                  placeholder={String(CURRENT_YEAR + 1)}
-                />
-              </div>
-
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <label className="text-[12px] font-bold text-[#334155]">
-                    {t("updateComment")}
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-bold text-[#334155]">
+                    {t("completionYear")}
                   </label>
-                  <span className="text-[10px] font-medium text-[#94A3B8]">
-                    {note.length} / {NOTE_MAX}
-                  </span>
+                  <NumberField
+                    value={year}
+                    onChange={setYear}
+                    integer
+                    min={MIN_YEAR}
+                    max={MAX_YEAR}
+                    accent="green"
+                    placeholder={String(CURRENT_YEAR + 1)}
+                  />
                 </div>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
-                  placeholder={t("commentPlaceholder")}
-                  rows={4}
-                  className="min-h-[110px] w-full resize-y rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
-                />
+
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="text-[12px] font-bold text-[#334155]">
+                      {t("updateComment")}
+                    </label>
+                    <span className="text-[10px] font-medium text-[#94A3B8]">
+                      {note.length} / {NOTE_MAX}
+                    </span>
+                  </div>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+                    placeholder={t("commentPlaceholder")}
+                    rows={4}
+                    className="min-h-[110px] w-full resize-y rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-[#16A34A] focus:ring-2 focus:ring-[#DCFCE7]"
+                  />
+                </div>
+
+                {error && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
+                    {error}
+                  </p>
+                )}
               </div>
 
-              {error && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
-                  {error}
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-[#F1F5F9] px-6 py-4">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={saving}
-                className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-60"
-              >
-                {tShared("cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="rounded-xl bg-[#16A34A] px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#15803D] disabled:opacity-60"
-              >
-                {saving ? tShared("saving") : tShared("save")}
-              </button>
-            </div>
+              <div className="flex items-center justify-end gap-2 border-t border-[#F1F5F9] px-6 py-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={saving}
+                  className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-60"
+                >
+                  {tShared("cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-xl bg-[#16A34A] px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#15803D] disabled:opacity-60"
+                >
+                  {saving ? tShared("saving") : tShared("save")}
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}

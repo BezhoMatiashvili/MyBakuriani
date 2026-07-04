@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 import { leadsClient } from "@/lib/supabase/leads";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
@@ -33,6 +34,7 @@ export default function SellerAnalyticsPage() {
   const t = useTranslations("SellerAnalytics");
   const { user } = useAuth();
   const supabase = createClient();
+  const scope = useActiveOrgScope();
 
   const { range, preset, label, listingIds, setRange, setListingIds } =
     useStatsFilter();
@@ -49,19 +51,25 @@ export default function SellerAnalyticsPage() {
     if (!user) return;
 
     async function fetchListings() {
-      const { data } = await supabase
+      let query = supabase
         .from("properties")
         .select("id, title")
-        .eq("owner_id", user!.id)
-        .eq("is_for_sale", true)
-        .order("created_at", { ascending: false });
+        .eq("is_for_sale", true);
+
+      if (scope.mode === "org" && scope.organizationId) {
+        query = query.eq("organization_id", scope.organizationId);
+      } else {
+        query = query.eq("owner_id", user!.id);
+      }
+
+      const { data } = await query.order("created_at", { ascending: false });
 
       if (data) setListingOptions(data);
     }
 
     fetchListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, scope.mode, scope.organizationId]);
 
   useEffect(() => {
     if (!user) return;
@@ -70,9 +78,13 @@ export default function SellerAnalyticsPage() {
       let leadsQuery = leadsClient(supabase)
         .from("leads")
         .select("stage", { count: "exact" })
-        .eq("owner_id", user!.id)
         .gte("created_at", range.from.toISOString())
         .lt("created_at", range.to.toISOString());
+      if (scope.mode === "org" && scope.organizationId) {
+        leadsQuery = leadsQuery.eq("organization_id", scope.organizationId);
+      } else {
+        leadsQuery = leadsQuery.eq("owner_id", user!.id);
+      }
       if (listingIds.length) {
         leadsQuery = leadsQuery.in("property_id", listingIds);
       }
@@ -82,6 +94,7 @@ export default function SellerAnalyticsPage() {
           p_from: range.from.toISOString(),
           p_to: range.to.toISOString(),
           p_property_ids: listingIds.length ? listingIds : undefined,
+          p_organization_id: scope.mode === "org" ? scope.organizationId : null,
         }),
         leadsQuery,
       ]);
@@ -108,8 +121,16 @@ export default function SellerAnalyticsPage() {
     }
 
     fetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, range.from.getTime(), range.to.getTime(), listingIds.join(",")]);
+    /* eslint-disable react-hooks/exhaustive-deps */
+  }, [
+    user,
+    range.from.getTime(),
+    range.to.getTime(),
+    listingIds.join(","),
+    scope.mode,
+    scope.organizationId,
+  ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const funnel: FunnelStage[] = [
     {

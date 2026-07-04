@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, FormEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -58,6 +58,7 @@ interface WizardShellProps {
   progressPercent?: number;
   children: ReactNode;
   footer?: ReactNode;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 }
 
 export function WizardShell({
@@ -71,6 +72,7 @@ export function WizardShell({
   progressPercent,
   children,
   footer,
+  onSubmit,
 }: WizardShellProps) {
   const t = useTranslations("Wizard");
   const stepLabelText = stepLabel ?? t("step");
@@ -148,11 +150,13 @@ export function WizardShell({
           </>
         )}
 
-        {/* Content */}
-        <div className="mt-7 space-y-6">{children}</div>
+        <form onSubmit={onSubmit} noValidate>
+          {/* Content */}
+          <div className="mt-7 space-y-6">{children}</div>
 
-        {/* Footer */}
-        {footer && <div className="mt-8">{footer}</div>}
+          {/* Footer */}
+          {footer && <div className="mt-8">{footer}</div>}
+        </form>
       </div>
     </div>
   );
@@ -229,9 +233,7 @@ interface WizardFooterProps {
   onBack?: () => void;
   backHref?: string;
   backLabel?: string;
-  onSubmit?: () => void;
   submitLabel: string;
-  submitType?: "button" | "submit";
   submitDisabled?: boolean;
   loading?: boolean;
   showBack?: boolean;
@@ -244,9 +246,7 @@ export function WizardFooter({
   onBack,
   backHref,
   backLabel,
-  onSubmit,
   submitLabel,
-  submitType = "button",
   submitDisabled,
   loading,
   showBack = true,
@@ -290,8 +290,7 @@ export function WizardFooter({
           <span />
         )}
         <button
-          type={submitType}
-          onClick={onSubmit}
+          type="submit"
           disabled={submitDisabled || loading}
           className={cn(
             "inline-flex h-[44px] items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
