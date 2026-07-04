@@ -814,6 +814,7 @@ export type Database = {
           note: string | null;
           owner_id: string;
           property_id: string;
+          renter_guest_id: string | null;
           source: string | null;
           status: string;
         };
@@ -830,6 +831,7 @@ export type Database = {
           note?: string | null;
           owner_id: string;
           property_id: string;
+          renter_guest_id?: string | null;
           source?: string | null;
           status?: string;
         };
@@ -846,6 +848,7 @@ export type Database = {
           note?: string | null;
           owner_id?: string;
           property_id?: string;
+          renter_guest_id?: string | null;
           source?: string | null;
           status?: string;
         };
@@ -862,6 +865,13 @@ export type Database = {
             columns: ["property_id"];
             isOneToOne: false;
             referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "manual_bookings_renter_guest_id_fkey";
+            columns: ["renter_guest_id"];
+            isOneToOne: false;
+            referencedRelation: "renter_guests";
             referencedColumns: ["id"];
           },
         ];
@@ -1682,6 +1692,7 @@ export type Database = {
           note: string | null;
           owner_id: string;
           phone: string | null;
+          profile_id: string | null;
           updated_at: string | null;
           visit_dates: string | null;
         };
@@ -1693,6 +1704,7 @@ export type Database = {
           note?: string | null;
           owner_id: string;
           phone?: string | null;
+          profile_id?: string | null;
           updated_at?: string | null;
           visit_dates?: string | null;
         };
@@ -1704,6 +1716,7 @@ export type Database = {
           note?: string | null;
           owner_id?: string;
           phone?: string | null;
+          profile_id?: string | null;
           updated_at?: string | null;
           visit_dates?: string | null;
         };
@@ -1711,6 +1724,13 @@ export type Database = {
           {
             foreignKeyName: "renter_guests_owner_id_fkey";
             columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "renter_guests_profile_id_fkey";
+            columns: ["profile_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -2743,6 +2763,7 @@ export type Database = {
           p_guests_count?: number;
           p_note?: string;
           p_property_id: string;
+          p_renter_guest_id?: string;
           p_source?: string;
           p_status?: string;
         };
@@ -2759,6 +2780,7 @@ export type Database = {
           note: string | null;
           owner_id: string;
           property_id: string;
+          renter_guest_id: string | null;
           source: string | null;
           status: string;
         };
@@ -2788,6 +2810,13 @@ export type Database = {
         Returns: string;
       };
       dashboard_layout_data: { Args: never; Returns: Json };
+      get_cleaner_renter_counts: {
+        Args: never;
+        Returns: {
+          cleaner_id: string;
+          renters_served: number;
+        }[];
+      };
       get_platform_cleaners: {
         Args: never;
         Returns: {
@@ -2937,6 +2966,7 @@ export type Database = {
           p_guests_count?: number;
           p_id: string;
           p_note?: string;
+          p_renter_guest_id?: string;
           p_source?: string;
           p_status?: string;
         };
@@ -2953,6 +2983,7 @@ export type Database = {
           note: string | null;
           owner_id: string;
           property_id: string;
+          renter_guest_id: string | null;
           source: string | null;
           status: string;
         };

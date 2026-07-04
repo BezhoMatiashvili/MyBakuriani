@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
 export default function GuestProfilePage() {
@@ -43,7 +44,7 @@ export default function GuestProfilePage() {
         const parts = (data.display_name ?? "").split(" ");
         setFirstName(parts[0] ?? "");
         setLastName(parts.slice(1).join(" "));
-        setPhone(data.phone ?? "");
+        setPhone(toLocalGePhone(data.phone));
         setEmail(user!.email ?? "");
         setAvatarUrl(data.avatar_url ?? null);
       }
@@ -58,20 +59,21 @@ export default function GuestProfilePage() {
     const parts = (profile.display_name ?? "").split(" ");
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
-    setPhone(profile.phone ?? "");
+    setPhone(toLocalGePhone(profile.phone));
     setSaved(false);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+    if (phone && !isValidGePhone(phone)) return;
     setSaving(true);
     setSaved(false);
     const { error } = await supabase
       .from("profiles")
       .update({
         display_name: [firstName, lastName].filter(Boolean).join(" "),
-        phone,
+        phone: phone ? "+995" + phone : null,
       })
       .eq("id", user.id);
     setSaving(false);
@@ -232,11 +234,17 @@ export default function GuestProfilePage() {
               label={t("phone")}
               icon={<Phone className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
+              error={
+                phone && !isValidGePhone(phone) ? tShared("invalidPhone") : null
+              }
             >
               <input
                 type="tel"
+                inputMode="numeric"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) =>
+                  setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))
+                }
                 placeholder="599 12 34 56"
                 className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#0F8F60] focus:outline-none focus:ring-2 focus:ring-[#0F8F60]/10"
               />
@@ -266,7 +274,7 @@ export default function GuestProfilePage() {
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || (!!phone && !isValidGePhone(phone))}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F8F60] px-6 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,143,96,0.35)] transition-colors hover:bg-[#0B7A52] disabled:opacity-60"
             >
               {saved ? (
@@ -288,11 +296,13 @@ function ProfileField({
   icon,
   loading,
   children,
+  error,
 }: {
   label: string;
   icon: React.ReactNode;
   loading: boolean;
   children: React.ReactNode;
+  error?: string | null;
 }) {
   return (
     <div>
@@ -302,12 +312,15 @@ function ProfileField({
       {loading ? (
         <Skeleton className="h-12 rounded-xl" />
       ) : (
-        <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
-            {icon}
-          </span>
-          {children}
-        </div>
+        <>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
+              {icon}
+            </span>
+            {children}
+          </div>
+          {error && <p className="mt-1 text-xs text-[#EF4444]">{error}</p>}
+        </>
       )}
     </div>
   );

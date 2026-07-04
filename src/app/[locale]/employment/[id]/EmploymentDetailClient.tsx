@@ -201,6 +201,8 @@ export default function EmploymentDetailClient({
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  // With a CV attached, the structured detail fields below become optional.
+  const detailsOptional = !!cvFile;
 
   useEffect(() => {
     if (isMock) return;
@@ -256,13 +258,18 @@ export default function EmploymentDetailClient({
 
   function validate(): boolean {
     const next: Record<string, string> = {};
+    // Name + phone are always required: NOT NULL in the DB and the only way an
+    // employer can contact the applicant.
     if (!form.full_name.trim()) next.full_name = t("errors.fullName");
     if (form.phone.replace(/\D/g, "").length !== 9)
       next.phone = t("errors.phone");
-    if (!form.birth_date) next.birth_date = t("errors.birthDate");
-    if (!form.current_location) next.current_location = t("errors.location");
-    if (!form.housing_choice) next.housing_choice = t("errors.housing");
-    if (!form.desired_salary.trim()) next.desired_salary = t("errors.salary");
+    // An uploaded CV stands in for the structured detail fields.
+    if (!cvFile) {
+      if (!form.birth_date) next.birth_date = t("errors.birthDate");
+      if (!form.current_location) next.current_location = t("errors.location");
+      if (!form.housing_choice) next.housing_choice = t("errors.housing");
+      if (!form.desired_salary.trim()) next.desired_salary = t("errors.salary");
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -609,6 +616,12 @@ export default function EmploymentDetailClient({
               <span className="h-px flex-1 bg-[#E2E8F0]" />
             </div>
 
+            {detailsOptional && (
+              <p className="-mt-2 mb-4 text-center text-[12px] font-medium text-[#16A34A]">
+                {t("detailsOptionalHint")}
+              </p>
+            )}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
@@ -642,7 +655,9 @@ export default function EmploymentDetailClient({
               <div>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.birthDate")}{" "}
-                  <span className="text-[#EF4444]">*</span>
+                  {!detailsOptional && (
+                    <span className="text-[#EF4444]">*</span>
+                  )}
                 </label>
                 <DateField
                   value={form.birth_date}
@@ -662,7 +677,9 @@ export default function EmploymentDetailClient({
               <div>
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.currentLocation")}{" "}
-                  <span className="text-[#EF4444]">*</span>
+                  {!detailsOptional && (
+                    <span className="text-[#EF4444]">*</span>
+                  )}
                 </label>
                 <select
                   value={form.current_location}
@@ -685,7 +702,10 @@ export default function EmploymentDetailClient({
 
               <div className="sm:col-span-2">
                 <div className="mb-2 text-[13px] font-bold text-[#1E293B]">
-                  {t("form.housing")} <span className="text-[#EF4444]">*</span>
+                  {t("form.housing")}{" "}
+                  {!detailsOptional && (
+                    <span className="text-[#EF4444]">*</span>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {[
@@ -739,7 +759,9 @@ export default function EmploymentDetailClient({
               <div className="sm:col-span-2">
                 <div className="mb-2 text-[13px] font-bold text-[#1E293B]">
                   {t("form.languages")}{" "}
-                  <span className="text-[#EF4444]">*</span>
+                  {!detailsOptional && (
+                    <span className="text-[#EF4444]">*</span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {LANGUAGE_OPTIONS.map((lang) => {
@@ -854,7 +876,9 @@ export default function EmploymentDetailClient({
                   <span className="text-[12px] font-medium text-[#94A3B8]">
                     {t("form.desiredSalaryHint")}
                   </span>{" "}
-                  <span className="text-[#EF4444]">*</span>
+                  {!detailsOptional && (
+                    <span className="text-[#EF4444]">*</span>
+                  )}
                 </label>
                 <NumberField
                   value={form.desired_salary}

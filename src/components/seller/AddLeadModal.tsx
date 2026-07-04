@@ -4,21 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Check, Flame, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import PhoneInput from "@/components/forms/PhoneInput";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 
 export type LeadStage =
-  | "new"
-  | "contacted"
-  | "shown"
-  | "negotiating"
-  | "closed";
+  "new" | "contacted" | "shown" | "negotiating" | "closed";
 
 export type LeadPriority = "low" | "medium" | "high";
 
 export type LeadInterestType =
-  | "apartment_purchase"
-  | "cottage_purchase"
-  | "land_plot"
-  | "long_term_rent";
+  "apartment_purchase" | "cottage_purchase" | "land_plot" | "long_term_rent";
 
 export type LeadLocation = "didveli" | "koxta" | "centri" | "tyis_piras";
 
@@ -269,7 +264,7 @@ export default function AddLeadModal({
     if (!isOpen) return;
     if (mode === "edit" && initialLead) {
       setClientName(initialLead.client_name ?? "");
-      setClientPhone(initialLead.client_phone ?? "");
+      setClientPhone(toLocalGePhone(initialLead.client_phone));
       setInterest(initialLead.interest_type ?? "apartment_purchase");
       setStage(initialLead.stage);
       setBudgetText(
@@ -295,6 +290,7 @@ export default function AddLeadModal({
       setError(t("nameRequired"));
       return;
     }
+    if (clientPhone && !isValidGePhone(clientPhone)) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -316,7 +312,7 @@ export default function AddLeadModal({
 
       await onSubmit({
         client_name: clientName.trim(),
-        client_phone: clientPhone.trim() || undefined,
+        client_phone: clientPhone ? "+995" + clientPhone : undefined,
         stage,
         priority,
         budget_min:
@@ -403,12 +399,14 @@ export default function AddLeadModal({
                   <label className="mb-1.5 block text-[12px] font-bold text-[#0F172A]">
                     {t("phoneLabel")}
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneInput
                     value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder="+995 ..."
-                    className="h-12 w-full rounded-xl border-2 border-[#E2E8F0] bg-white px-4 text-[14px] focus:border-[#2563EB] focus:outline-none"
+                    onChange={setClientPhone}
+                    error={
+                      clientPhone && !isValidGePhone(clientPhone)
+                        ? tShared("invalidPhone")
+                        : null
+                    }
                   />
                 </div>
               </div>
@@ -557,7 +555,9 @@ export default function AddLeadModal({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={
+                  submitting || (!!clientPhone && !isValidGePhone(clientPhone))
+                }
                 className="rounded-xl bg-[#2563EB] px-7 py-2.5 text-[13px] font-bold text-white shadow-[0_8px_18px_-6px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
               >
                 {submitting

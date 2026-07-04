@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Check, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
 
@@ -50,14 +51,14 @@ export default function ServiceParametersPage() {
         const parts = (data.display_name ?? "").split(" ");
         setFirstName(parts[0] ?? "");
         setLastName(parts.slice(1).join(" "));
-        setPhone(data.phone ?? "");
+        setPhone(toLocalGePhone(data.phone));
         setEmail(user!.email ?? "");
       }
       const saved =
         typeof window !== "undefined"
           ? window.localStorage.getItem(`mb-whatsapp-${user!.id}`)
           : null;
-      if (saved) setWhatsapp(saved);
+      if (saved) setWhatsapp(toLocalGePhone(saved));
       setLoading(false);
     }
     fetchData();
@@ -67,19 +68,24 @@ export default function ServiceParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+    if (phone && !isValidGePhone(phone)) return;
+    if (whatsapp && !isValidGePhone(whatsapp)) return;
     setSaving(true);
     setSaved(false);
     const { error } = await supabase
       .from("profiles")
       .update({
         display_name: [firstName, lastName].filter(Boolean).join(" "),
-        phone,
+        phone: phone ? "+995" + phone : null,
       })
       .eq("id", user.id);
     setSaving(false);
     if (!error) {
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(`mb-whatsapp-${user.id}`, whatsapp);
+        window.localStorage.setItem(
+          `mb-whatsapp-${user.id}`,
+          whatsapp ? "+995" + whatsapp : "",
+        );
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -231,11 +237,19 @@ export default function ServiceParametersPage() {
               ) : (
                 <input
                   type="tel"
+                  inputMode="numeric"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) =>
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))
+                  }
                   placeholder="+995 5XX XX XX XX"
                   className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                 />
+              )}
+              {phone && !isValidGePhone(phone) && (
+                <p className="mt-1 text-xs text-[#EF4444]">
+                  {tShared("invalidPhone")}
+                </p>
               )}
             </div>
 
@@ -257,11 +271,19 @@ export default function ServiceParametersPage() {
               </label>
               <input
                 type="tel"
+                inputMode="numeric"
                 value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
+                onChange={(e) =>
+                  setWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 9))
+                }
                 placeholder="+995 5XX XX XX XX"
                 className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#16A34A] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/10"
               />
+              {whatsapp && !isValidGePhone(whatsapp) && (
+                <p className="mt-1 text-xs text-[#EF4444]">
+                  {tShared("invalidPhone")}
+                </p>
+              )}
             </div>
           </div>
 

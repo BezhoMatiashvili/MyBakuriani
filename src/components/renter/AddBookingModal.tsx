@@ -6,7 +6,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Briefcase, ChevronDown, Trash2, Check } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
+import PhoneInput from "@/components/forms/PhoneInput";
 import { datesInRange } from "@/lib/utils/availability";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
 const clientListKeys = ["platform", "booking", "social", "direct"] as const;
@@ -124,7 +126,7 @@ export default function AddBookingModal({
       setCheckOut(existing.check_out);
       setSource(existing.source ?? "");
       setGuestName(existing.guest_name ?? "");
-      setGuestPhone(existing.guest_phone ?? "");
+      setGuestPhone(toLocalGePhone(existing.guest_phone));
       setGuestsCount(
         existing.guests_count != null ? String(existing.guests_count) : "",
       );
@@ -183,12 +185,14 @@ export default function AddBookingModal({
       : null;
   }, [mode, checkIn, checkOut, occupiedNights, t]);
 
+  const phoneInvalid = Boolean(guestPhone) && !isValidGePhone(guestPhone);
+
   const buildPayload = (): AddBookingPayload => ({
     checkIn,
     checkOut,
     source,
     guestName,
-    guestPhone,
+    guestPhone: guestPhone ? "+995" + guestPhone : "",
     guestsCount,
     amount,
     note,
@@ -286,12 +290,14 @@ export default function AddBookingModal({
                     />
                   </Field>
                   <Field label={tShared("phone")}>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
-                      placeholder={t("phonePlaceholder")}
-                      className={inputClass}
+                      onChange={setGuestPhone}
+                      error={
+                        guestPhone && !isValidGePhone(guestPhone)
+                          ? tShared("invalidPhone")
+                          : null
+                      }
                     />
                   </Field>
                 </div>
@@ -410,10 +416,11 @@ export default function AddBookingModal({
 
                 <button
                   type="button"
-                  disabled={submitting || Boolean(rangeError)}
+                  disabled={submitting || Boolean(rangeError) || phoneInvalid}
                   onClick={async () => {
                     setSubmitError(null);
                     if (rangeError) return;
+                    if (phoneInvalid) return;
                     const fn = mode === "edit" ? onSave : onSubmit;
                     setSubmitting(true);
                     const res = await fn?.(buildPayload());

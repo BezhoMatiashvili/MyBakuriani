@@ -440,6 +440,7 @@
     "guestsLabel": "Guests",
     "personCount": "{count, plural, =1 {# person} other {# people}}",
     "nightsLine": "{price} x {count, plural, =1 {# night} other {# nights}}",
+    "daysLine": "{price} x {count, plural, =1 {# day} other {# days}}",
     "mixedPricingNote": "Price varies by day",
     "total": "Total",
     "minBookingNotice": "Min. booking: {count, plural, =1 {# day} other {# days}}",
@@ -1535,6 +1536,7 @@
     "cvUploadHint": "PDF or DOCX format (optional)",
     "cvUploadTip": "💡 Uploading a CV greatly increases employer interest",
     "orFillDetails": "or fill in the details",
+    "detailsOptionalHint": "With a CV attached, only name and phone are required.",
     "apply": "Apply",
     "mockSuccess": "This is a test vacancy — nothing was saved to the real database, but the form works",
     "submitSuccess": "Application sent successfully",
@@ -2862,7 +2864,8 @@
     "yes": "Yes",
     "no": "No",
     "required": "Required",
-    "genericRetry": "Error. Please try again."
+    "genericRetry": "Error. Please try again.",
+    "invalidPhone": "Enter a valid number (9 digits, starting with 5)"
   },
   "CleanerDashboard": {
     "title": "My tasks",
@@ -3117,6 +3120,8 @@
     "deleteConfirm": "Remove this cleaner?",
     "priceStandardShort": "Standard",
     "priceGeneralShort": "General",
+    "rentersServed": "{count, plural, one {renter served} other {renters served}}",
+    "rentersServedNone": "No renters served yet",
     "status": {
       "pending": "Pending",
       "accepted": "Accepted",
@@ -3155,7 +3160,20 @@
     "notFound": "No records found",
     "badgeGuest": "Guest",
     "restore": "Restore",
-    "block": "Block"
+    "block": "Block",
+    "historyTitle": "Visit history",
+    "historyEmpty": "No visit history found",
+    "historySummary": "{visits} visits · {nights} nights · {total}",
+    "manuallyAdded": "Manually added",
+    "sourcePlatform": "Platform",
+    "sourceManual": "Manual",
+    "nightsLabel": "{count} nights",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
   },
   "RenterReviews": {
     "title": "Reviews",

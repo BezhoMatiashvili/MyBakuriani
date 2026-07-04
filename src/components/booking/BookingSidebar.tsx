@@ -201,20 +201,19 @@ export function BookingSidebar({
 }: BookingSidebarProps) {
   const t = useTranslations("BookingSidebar");
   const { start, end } = selectedRange;
-  const nights = start && end ? differenceInDays(end, start) : 0;
+  const days = start && end ? differenceInDays(end, start) + 1 : 0;
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [guestCount, setGuestCount] = useState(1);
   const [guestDropdownOpen, setGuestDropdownOpen] = useState(false);
   const guestMultiplier = perPersonPricing ? guestCount : 1;
   const nightlySum =
-    nights > 0 && start && end
+    days > 0 && start && end
       ? sumNightlyPrice(start, end, pricePerNight, priceOverrides)
       : 0;
   const subtotal = nightlySum * guestMultiplier;
   const total = subtotal;
-  const avgNightly =
-    nights > 0 ? Math.round(nightlySum / nights) : pricePerNight;
-  const hasMixedPricing = nights > 0 && nightlySum !== nights * pricePerNight;
+  const avgNightly = days > 0 ? Math.round(nightlySum / days) : pricePerNight;
+  const hasMixedPricing = days > 0 && nightlySum !== days * pricePerNight;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<HTMLDivElement>(null);
 
@@ -349,15 +348,15 @@ export function BookingSidebar({
             )}
           </div>
         )}
-        {nights > 0 && (
+        {days > 0 && (
           <div className="mt-5 space-y-2">
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-[#64748B]">
                 {hasMixedPricing
-                  ? `≈${t("nightsLine", { price: formatPrice(avgNightly), count: nights })}`
-                  : t("nightsLine", {
+                  ? `≈${t("daysLine", { price: formatPrice(avgNightly), count: days })}`
+                  : t("daysLine", {
                       price: formatPrice(pricePerNight),
-                      count: nights,
+                      count: days,
                     })}
                 {showGuestCount && perPersonPricing
                   ? ` x ${t("personCount", { count: guestCount })}`

@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { CUISINE_TYPES } from "@/lib/constants/listing-options";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
@@ -23,6 +24,7 @@ export default function FoodParametersPage() {
   const { user } = useAuth();
   const supabase = createClient();
   const tOpts = useTranslations("ListingOptions");
+  const tShared = useTranslations("DashboardShared");
   const cuisineTypeOptions = useMemo(
     () =>
       CUISINE_TYPES.map((o) => ({
@@ -68,13 +70,13 @@ export default function FoodParametersPage() {
               t.label === data.cuisine_type || t.value === data.cuisine_type,
           )?.value ?? "",
         );
-        setPhone(data.phone ?? "");
+        setPhone(toLocalGePhone(data.phone));
       }
       const saved =
         typeof window !== "undefined"
           ? window.localStorage.getItem(`mb-whatsapp-${user!.id}`)
           : null;
-      if (saved) setWhatsapp(saved);
+      if (saved) setWhatsapp(toLocalGePhone(saved));
       setLoading(false);
     }
     fetchData();
@@ -84,6 +86,12 @@ export default function FoodParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!service) return;
+    if (
+      (phone && !isValidGePhone(phone)) ||
+      (whatsapp && !isValidGePhone(whatsapp))
+    ) {
+      return;
+    }
     setSaving(true);
     setSaved(false);
     const { error } = await supabase
@@ -92,11 +100,14 @@ export default function FoodParametersPage() {
         title: name,
         cuisine_type:
           CUISINE_TYPES.find((t) => t.value === cuisine)?.label || null,
-        phone,
+        phone: phone ? "+995" + phone : null,
       })
       .eq("id", service.id);
     if (!error && user && typeof window !== "undefined") {
-      window.localStorage.setItem(`mb-whatsapp-${user.id}`, whatsapp);
+      window.localStorage.setItem(
+        `mb-whatsapp-${user.id}`,
+        whatsapp ? "+995" + whatsapp : "",
+      );
     }
     setSaving(false);
     if (!error) {
@@ -200,11 +211,19 @@ export default function FoodParametersPage() {
               ) : (
                 <input
                   type="tel"
+                  inputMode="numeric"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) =>
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))
+                  }
                   placeholder="+995 5XX XX XX XX"
                   className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/10"
                 />
+              )}
+              {phone && !isValidGePhone(phone) && (
+                <p className="mt-1 text-xs text-[#EF4444]">
+                  {tShared("invalidPhone")}
+                </p>
               )}
             </div>
 
@@ -219,12 +238,20 @@ export default function FoodParametersPage() {
                   <MessageCircle className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#16A34A]" />
                   <input
                     type="tel"
+                    inputMode="numeric"
                     value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value)}
+                    onChange={(e) =>
+                      setWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 9))
+                    }
                     placeholder="+995 5XX XX XX XX"
                     className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#16A34A] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/10"
                   />
                 </div>
+              )}
+              {whatsapp && !isValidGePhone(whatsapp) && (
+                <p className="mt-1 text-xs text-[#EF4444]">
+                  {tShared("invalidPhone")}
+                </p>
               )}
             </div>
 

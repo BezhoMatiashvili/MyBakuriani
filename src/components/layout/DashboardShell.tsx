@@ -225,8 +225,10 @@ export function DashboardShell({
     const seg = pathname?.split("/").filter(Boolean) ?? [];
     const dashIdx = seg.indexOf("dashboard");
     const cabinet = dashIdx >= 0 && seg[dashIdx + 1] ? seg[dashIdx + 1] : null;
-    // /dashboard/sms is a shared (non-role) cabinet — keep the user's own sidebar
-    return cabinet === "sms" ? null : cabinet;
+    // /dashboard/sms is the renter cabinet's SMS Center — always show the renter
+    // sidebar (the link only exists there and the page is renter-gated), so
+    // multi-cabinet users don't get bounced to their primary-role sidebar.
+    return cabinet === "sms" ? "renter" : cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;
 

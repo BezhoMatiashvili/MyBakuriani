@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, UserPlus } from "lucide-react";
 import DateField from "@/components/shared/DateField";
+import PhoneInput from "@/components/forms/PhoneInput";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables } from "@/lib/types/database";
@@ -41,7 +43,7 @@ export default function GuestFormModal({
     if (isOpen) {
       const [ci, co] = splitVisitDates(guest?.visit_dates);
       setName(guest?.name ?? "");
-      setPhone(guest?.phone ?? "");
+      setPhone(toLocalGePhone(guest?.phone));
       setCheckIn(ci);
       setCheckOut(co);
       setNote(guest?.note ?? "");
@@ -69,13 +71,19 @@ export default function GuestFormModal({
 
   const handleSubmit = async () => {
     const trimmedName = name.trim();
-    if (!trimmedName || !datesValid || saving) return;
+    if (
+      !trimmedName ||
+      !datesValid ||
+      saving ||
+      (phone && !isValidGePhone(phone))
+    )
+      return;
 
     setSaving(true);
     try {
       const payload = {
         name: trimmedName,
-        phone: phone.trim() || null,
+        phone: phone ? "+995" + phone : null,
         visit_dates: `${checkIn}/${checkOut}`,
         note: note.trim() || null,
       };
@@ -150,12 +158,14 @@ export default function GuestFormModal({
               </Field>
 
               <Field label={tShared("phone")}>
-                <input
-                  type="tel"
+                <PhoneInput
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="599 12 34 56"
-                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  onChange={setPhone}
+                  error={
+                    phone && !isValidGePhone(phone)
+                      ? tShared("invalidPhone")
+                      : null
+                  }
                 />
               </Field>
 
@@ -190,7 +200,14 @@ export default function GuestFormModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!name.trim() || !datesValid || saving}
+              disabled={
+                !name.trim() ||
+                !datesValid ||
+                saving ||
+                (phone && !isValidGePhone(phone))
+                  ? true
+                  : false
+              }
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
             >
               {saving ? tShared("saving") : tShared("save")}

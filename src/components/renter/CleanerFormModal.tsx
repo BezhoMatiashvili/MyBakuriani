@@ -7,6 +7,8 @@ import { X, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import NumberField from "@/components/shared/NumberField";
+import PhoneInput from "@/components/forms/PhoneInput";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
 interface CleanerFormModalProps {
@@ -38,7 +40,7 @@ export default function CleanerFormModal({
   useEffect(() => {
     if (!isOpen) return;
     setName(cleaner?.name ?? "");
-    setPhone(cleaner?.phone ?? "");
+    setPhone(toLocalGePhone(cleaner?.phone));
     setPriceStandard(
       cleaner?.price_standard != null ? String(cleaner.price_standard) : "",
     );
@@ -65,7 +67,7 @@ export default function CleanerFormModal({
   }, [isOpen, onClose]);
 
   const handleSubmit = async () => {
-    if (!name.trim() || saving) return;
+    if (!name.trim() || (!!phone && !isValidGePhone(phone)) || saving) return;
     setSaving(true);
 
     const toNumberOrNull = (v: string) => {
@@ -77,7 +79,7 @@ export default function CleanerFormModal({
 
     const payload = {
       name: name.trim(),
-      phone: phone.trim() || null,
+      phone: phone ? "+995" + phone : null,
       price_standard: toNumberOrNull(priceStandard),
       price_general: toNumberOrNull(priceGeneral),
       available,
@@ -151,12 +153,14 @@ export default function CleanerFormModal({
               </Field>
 
               <Field label={tShared("phone")}>
-                <input
-                  type="tel"
+                <PhoneInput
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="599 11 22 33"
-                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  onChange={setPhone}
+                  error={
+                    phone && !isValidGePhone(phone)
+                      ? tShared("invalidPhone")
+                      : null
+                  }
                 />
               </Field>
 
@@ -187,7 +191,9 @@ export default function CleanerFormModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!name.trim() || saving}
+              disabled={
+                !name.trim() || (!!phone && !isValidGePhone(phone)) || saving
+              }
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
             >
               {tShared("save")}

@@ -13,6 +13,7 @@ import {
   User,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +44,7 @@ function toNullable(value: string): string | null {
 
 export default function CleanerParametersPage() {
   const t = useTranslations("CleanerParameters");
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -80,8 +82,8 @@ export default function CleanerParametersPage() {
           firstName: cleaner.first_name ?? "",
           lastName: cleaner.last_name ?? "",
           personalNumber: cleaner.personal_number ?? "",
-          phone: cleaner.phone ?? profile?.phone ?? "",
-          whatsapp: cleaner.whatsapp ?? "",
+          phone: toLocalGePhone(cleaner.phone ?? profile?.phone),
+          whatsapp: toLocalGePhone(cleaner.whatsapp),
           address: cleaner.address ?? "",
         };
       } else {
@@ -93,7 +95,7 @@ export default function CleanerParametersPage() {
           ...EMPTY_FORM,
           firstName: parts[0] ?? "",
           lastName: parts.slice(1).join(" "),
-          phone: profile?.phone ?? "",
+          phone: toLocalGePhone(profile?.phone),
         };
       }
       setForm(values);
@@ -117,6 +119,8 @@ export default function CleanerParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+    if (form.phone && !isValidGePhone(form.phone)) return;
+    if (form.whatsapp && !isValidGePhone(form.whatsapp)) return;
     setSaving(true);
     setSaved(false);
 
@@ -125,8 +129,8 @@ export default function CleanerParametersPage() {
       first_name: toNullable(form.firstName),
       last_name: toNullable(form.lastName),
       personal_number: toNullable(form.personalNumber),
-      phone: toNullable(form.phone),
-      whatsapp: toNullable(form.whatsapp),
+      phone: form.phone ? "+995" + form.phone : null,
+      whatsapp: form.whatsapp ? "+995" + form.whatsapp : null,
       address: toNullable(form.address),
       updated_at: new Date().toISOString(),
     });
@@ -319,11 +323,22 @@ export default function CleanerParametersPage() {
               label={t("phone")}
               icon={<Phone className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
+              error={
+                form.phone && !isValidGePhone(form.phone)
+                  ? tShared("invalidPhone")
+                  : null
+              }
             >
               <input
                 type="tel"
+                inputMode="numeric"
                 value={form.phone}
-                onChange={(e) => setField("phone", e.target.value)}
+                onChange={(e) =>
+                  setField(
+                    "phone",
+                    e.target.value.replace(/\D/g, "").slice(0, 9),
+                  )
+                }
                 placeholder="599 12 34 56"
                 className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
               />
@@ -333,11 +348,22 @@ export default function CleanerParametersPage() {
               label={t("whatsapp")}
               icon={<MessageCircle className="h-4 w-4 text-[#22C55E]" />}
               loading={loading}
+              error={
+                form.whatsapp && !isValidGePhone(form.whatsapp)
+                  ? tShared("invalidPhone")
+                  : null
+              }
             >
               <input
                 type="tel"
+                inputMode="numeric"
                 value={form.whatsapp}
-                onChange={(e) => setField("whatsapp", e.target.value)}
+                onChange={(e) =>
+                  setField(
+                    "whatsapp",
+                    e.target.value.replace(/\D/g, "").slice(0, 9),
+                  )
+                }
                 placeholder="599 12 34 56"
                 className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
               />
@@ -398,12 +424,14 @@ function ParameterField({
   icon,
   loading,
   children,
+  error,
 }: {
   label: string;
   labelExtra?: React.ReactNode;
   icon: React.ReactNode;
   loading: boolean;
   children: React.ReactNode;
+  error?: string | null;
 }) {
   return (
     <div>
@@ -414,12 +442,15 @@ function ParameterField({
       {loading ? (
         <Skeleton className="h-12 rounded-xl" />
       ) : (
-        <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
-            {icon}
-          </span>
-          {children}
-        </div>
+        <>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
+              {icon}
+            </span>
+            {children}
+          </div>
+          {error && <p className="mt-1 text-xs text-[#EF4444]">{error}</p>}
+        </>
       )}
     </div>
   );

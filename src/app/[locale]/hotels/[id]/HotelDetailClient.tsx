@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { parseISO } from "date-fns";
 import {
   ArrowLeft,
   MapPin,
@@ -144,7 +145,11 @@ export default function HotelDetailClient({
       : null;
 
   const parsedCalendarDates = calendarBlocks.map((block) => ({
-    date: new Date(block.date),
+    // Parse date-only strings (YYYY-MM-DD) as LOCAL midnight. `new Date(str)`
+    // would parse them as UTC midnight, which shifts the day back for viewers
+    // west of UTC and makes booked dates render as available in the local-time
+    // calendar grid (AvailabilityCalendar / BookingSidebar use isSameDay).
+    date: parseISO(block.date),
     status: block.status as "available" | "booked" | "blocked",
   }));
   const calendarDates: CalendarDate[] = parsedCalendarDates;

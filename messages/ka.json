@@ -440,6 +440,7 @@
     "guestsLabel": "რაოდენობა",
     "personCount": "{count} ადამიანი",
     "nightsLine": "{price} x {count} ღამე",
+    "daysLine": "{price} x {count} დღე",
     "mixedPricingNote": "ფასი იცვლება დღეების მიხედვით",
     "total": "ჯამში",
     "minBookingNotice": "მინ. ჯავშანი: {count} დღე",
@@ -1535,6 +1536,7 @@
     "cvUploadHint": "PDF ან DOCX ფორმატი (არ არის სავალდებულო)",
     "cvUploadTip": "💡 CV-ის ატვირთვისას დამსაქმებლის დაინტერესება ბევრად მაღალია",
     "orFillDetails": "ან შეავსეთ დეტალები",
+    "detailsOptionalHint": "CV-ის ატვირთვისას სავალდებულოა მხოლოდ სახელი და ტელეფონი.",
     "apply": "განაცხადი",
     "mockSuccess": "სატესტო ვაკანსიაა — რეალურ მონაცემთა ბაზაში არ ჩაიწერა, მაგრამ ფორმა მუშაობს",
     "submitSuccess": "განაცხადი წარმატებით გაიგზავნა",
@@ -2862,7 +2864,8 @@
     "yes": "კი",
     "no": "არა",
     "required": "სავალდებულოა",
-    "genericRetry": "შეცდომა. სცადეთ თავიდან."
+    "genericRetry": "შეცდომა. სცადეთ თავიდან.",
+    "invalidPhone": "შეიყვანეთ სწორი ნომერი (9 ციფრი, იწყება 5-ით)"
   },
   "CleanerDashboard": {
     "title": "ჩემი დავალები",
@@ -3117,6 +3120,8 @@
     "deleteConfirm": "წავშალო ეს დამლაგებელი?",
     "priceStandardShort": "სტანდ.",
     "priceGeneralShort": "გენ.",
+    "rentersServed": "გამქირავებელი ემსახურა",
+    "rentersServedNone": "ჯერ არცერთი გამქირავებელი",
     "status": {
       "pending": "მოლოდინში",
       "accepted": "მიღებული",
@@ -3155,7 +3160,20 @@
     "notFound": "ჩანაწერები ვერ მოიძებნა",
     "badgeGuest": "სტუმარი",
     "restore": "აღდგენა",
-    "block": "დაბლოკვა"
+    "block": "დაბლოკვა",
+    "historyTitle": "ვიზიტების ისტორია",
+    "historyEmpty": "ვიზიტების ისტორია ვერ მოიძებნა",
+    "historySummary": "{visits} ვიზიტი · {nights} ღამე · {total}",
+    "manuallyAdded": "ხელით დამატებული",
+    "sourcePlatform": "პლატფორმა",
+    "sourceManual": "ხელით",
+    "nightsLabel": "{count} ღამე",
+    "status": {
+      "pending": "მოლოდინში",
+      "confirmed": "დადასტურებული",
+      "completed": "დასრულებული",
+      "cancelled": "გაუქმებული"
+    }
   },
   "RenterReviews": {
     "title": "შეფასებები",

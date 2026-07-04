@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Settings as SettingsIcon, MessageCircle, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import PhoneInput from "@/components/forms/PhoneInput";
+import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 
 type ProfileType = "ფიზიკური პირი" | "იურიდიული პირი";
 
@@ -18,6 +21,7 @@ interface NotifPrefs {
 export default function SellerSettingsPage() {
   const { user } = useAuth();
   const supabase = createClient();
+  const tShared = useTranslations("DashboardShared");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,7 +49,7 @@ export default function SellerSettingsPage() {
       .then(({ data }) => {
         if (data) {
           setDisplayName(data.display_name ?? "");
-          setPhone(data.phone ?? "");
+          setPhone(toLocalGePhone(data.phone));
         }
         setLoading(false);
       });
@@ -54,13 +58,14 @@ export default function SellerSettingsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+    if (phone && !isValidGePhone(phone)) return;
     setSaving(true);
     setSaved(false);
     const { error } = await supabase
       .from("profiles")
       .update({
         display_name: displayName,
-        phone,
+        phone: phone ? "+995" + phone : null,
       })
       .eq("id", user.id);
     setSaving(false);
@@ -165,12 +170,14 @@ export default function SellerSettingsPage() {
               {loading ? (
                 <Skeleton className="h-11 w-full rounded-xl" />
               ) : (
-                <input
-                  type="tel"
+                <PhoneInput
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+995 5XX XX XX XX"
-                  className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  onChange={setPhone}
+                  error={
+                    phone && !isValidGePhone(phone)
+                      ? tShared("invalidPhone")
+                      : null
+                  }
                 />
               )}
             </div>
@@ -222,7 +229,7 @@ export default function SellerSettingsPage() {
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || (!!phone && !isValidGePhone(phone))}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F172A] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,23,42,0.3)] hover:bg-[#1E293B] disabled:opacity-60"
             >
               {saved && <Check className="h-4 w-4" />}

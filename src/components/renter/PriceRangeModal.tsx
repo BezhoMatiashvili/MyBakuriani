@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { revalidatePublicProperty } from "@/app/actions/revalidateListing";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 
@@ -124,6 +125,7 @@ export default function PriceRangeModal({
       return;
     }
     await onSaved?.();
+    await revalidatePublicProperty(propertyId);
     onClose();
   };
 

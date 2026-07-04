@@ -109,7 +109,7 @@ export default function RegisterPage() {
 
       if (avatarFile) {
         const ext = avatarFile.name.split(".").pop();
-        const path = `avatars/${user.id}.${ext}`;
+        const path = `${user.id}/avatar.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("property-photos")
           .upload(path, avatarFile, {

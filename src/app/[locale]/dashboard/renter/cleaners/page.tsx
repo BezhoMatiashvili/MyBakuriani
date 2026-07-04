@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   X,
+  Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -94,6 +95,21 @@ export default function RenterCleanersPage() {
     const { data } = await supabase.rpc("get_platform_cleaners");
     if (data) setCleaners(data);
     setCleanersLoaded(true);
+  }, [supabase]);
+
+  // cleaner_id -> distinct renters this cleaner has served. Cross-renter
+  // aggregate, so it must come from the SECURITY DEFINER RPC (RLS would
+  // otherwise cap a client COUNT to this renter's own rows).
+  const [renterCounts, setRenterCounts] = useState<Map<string, number>>(
+    new Map(),
+  );
+  const fetchRenterCounts = useCallback(async () => {
+    const { data } = await supabase.rpc("get_cleaner_renter_counts");
+    if (data) {
+      setRenterCounts(
+        new Map(data.map((row) => [row.cleaner_id, row.renters_served])),
+      );
+    }
   }, [supabase]);
 
   // Bumped on every toggle so an in-flight refetch can't clobber newer state.
@@ -190,6 +206,10 @@ export default function RenterCleanersPage() {
   }, [fetchCleaners]);
 
   useEffect(() => {
+    fetchRenterCounts();
+  }, [fetchRenterCounts]);
+
+  useEffect(() => {
     fetchSaved();
   }, [fetchSaved]);
 
@@ -213,13 +233,16 @@ export default function RenterCleanersPage() {
           table: "cleaning_tasks",
           filter: `owner_id=eq.${user.id}`,
         },
-        () => fetchTasks(),
+        () => {
+          fetchTasks();
+          fetchRenterCounts();
+        },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, user, fetchTasks]);
+  }, [supabase, user, fetchTasks, fetchRenterCounts]);
 
   function openCall(cleaner: PlatformCleaner) {
     setCallModal({
@@ -391,6 +414,7 @@ export default function RenterCleanersPage() {
           }
 
           const cleaner = item.data;
+          const servedCount = renterCounts.get(cleaner.cleaner_id) ?? 0;
           return (
             <article
               key={`platform-${cleaner.cleaner_id}`}
@@ -452,6 +476,25 @@ export default function RenterCleanersPage() {
                   )}
                 </p>
               )}
+
+              <div className="mt-3 flex items-center gap-1.5">
+                <Users
+                  className="h-3.5 w-3.5 text-[#64748B]"
+                  strokeWidth={2.4}
+                />
+                <span className="text-[12px] font-semibold text-[#64748B]">
+                  {servedCount > 0 ? (
+                    <>
+                      <span className="font-black text-[#0F172A]">
+                        {servedCount}
+                      </span>{" "}
+                      {t("rentersServed", { count: servedCount })}
+                    </>
+                  ) : (
+                    t("rentersServedNone")
+                  )}
+                </span>
+              </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <a

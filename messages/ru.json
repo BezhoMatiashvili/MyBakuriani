@@ -440,6 +440,7 @@
     "guestsLabel": "Количество",
     "personCount": "{count, plural, one {# человек} few {# человека} many {# человек} other {# человека}}",
     "nightsLine": "{price} x {count, plural, one {# ночь} few {# ночи} many {# ночей} other {# ночи}}",
+    "daysLine": "{price} x {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
     "mixedPricingNote": "Цена меняется в зависимости от дня",
     "total": "Итого",
     "minBookingNotice": "Мин. бронирование: {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
@@ -1535,6 +1536,7 @@
     "cvUploadHint": "Формат PDF или DOCX (необязательно)",
     "cvUploadTip": "💡 С загруженным CV интерес работодателя значительно выше",
     "orFillDetails": "или заполните данные",
+    "detailsOptionalHint": "При загрузке резюме обязательны только имя и телефон.",
     "apply": "Отклик",
     "mockSuccess": "Это тестовая вакансия — данные не сохранены в реальной базе, но форма работает",
     "submitSuccess": "Заявка успешно отправлена",
@@ -2862,7 +2864,8 @@
     "yes": "Да",
     "no": "Нет",
     "required": "Обязательно",
-    "genericRetry": "Ошибка. Попробуйте снова."
+    "genericRetry": "Ошибка. Попробуйте снова.",
+    "invalidPhone": "Введите корректный номер (9 цифр, начинается с 5)"
   },
   "CleanerDashboard": {
     "title": "Мои задачи",
@@ -3117,6 +3120,8 @@
     "deleteConfirm": "Удалить этого уборщика?",
     "priceStandardShort": "Станд.",
     "priceGeneralShort": "Ген.",
+    "rentersServed": "{count, plural, one {арендатор} few {арендатора} many {арендаторов} other {арендатора}}",
+    "rentersServedNone": "Пока нет обслуженных арендаторов",
     "status": {
       "pending": "В ожидании",
       "accepted": "Принят",
@@ -3155,7 +3160,20 @@
     "notFound": "Записи не найдены",
     "badgeGuest": "Гость",
     "restore": "Восстановить",
-    "block": "Заблокировать"
+    "block": "Заблокировать",
+    "historyTitle": "История визитов",
+    "historyEmpty": "История визитов не найдена",
+    "historySummary": "{visits} визитов · {nights} ночей · {total}",
+    "manuallyAdded": "Добавлено вручную",
+    "sourcePlatform": "Платформа",
+    "sourceManual": "Вручную",
+    "nightsLabel": "{count} ночей",
+    "status": {
+      "pending": "Ожидание",
+      "confirmed": "Подтверждено",
+      "completed": "Завершено",
+      "cancelled": "Отменено"
+    }
   },
   "RenterReviews": {
     "title": "Отзывы",

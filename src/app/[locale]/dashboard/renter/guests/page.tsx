@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { motion } from "framer-motion";
-import { List, Ban, Pencil, UserPlus } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { List, Ban, Pencil, UserPlus, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import GuestFormModal from "@/components/renter/GuestFormModal";
+import GuestHistoryPanel, {
+  type VisitHistory,
+} from "@/components/renter/GuestHistoryPanel";
 import { parseISODate } from "@/components/shared/DateField";
 import { formatDate, formatDateRange } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
@@ -15,6 +18,28 @@ import type { Tables } from "@/lib/types/database";
 type Guest = Tables<"renter_guests">;
 
 type Tab = "all" | "blacklist";
+
+// Booking rows fetched once to assemble each guest's stay history. Embeds are
+// cast (PostgREST types to-one relations loosely), matching the calendar page.
+interface ManualStayRow {
+  id: string;
+  renter_guest_id: string | null;
+  check_in: string;
+  check_out: string;
+  amount: number | null;
+  status: string | null;
+  property: { title: string | null } | null;
+}
+
+interface PlatformStayRow {
+  id: string;
+  guest_id: string | null;
+  check_in: string;
+  check_out: string;
+  total_price: number | null;
+  status: string | null;
+  property: { title: string | null } | null;
+}
 
 /**
  * Render a stored visit_dates value. New records store "checkIn/checkOut" ISO;
@@ -38,6 +63,9 @@ export default function RenterGuestsPage() {
 
   const [tab, setTab] = useState<Tab>("all");
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [manualStays, setManualStays] = useState<ManualStayRow[]>([]);
+  const [platformStays, setPlatformStays] = useState<PlatformStayRow[]>([]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{ open: boolean; guest: Guest | null }>({
     open: false,
@@ -55,9 +83,98 @@ export default function RenterGuestsPage() {
     setLoading(false);
   }, [supabase, user]);
 
+  // Stay history: the renter's manual + platform bookings, fetched once. These
+  // never change on a blacklist/edit, so they live in their own effect.
+  const fetchStays = useCallback(async () => {
+    if (!user) return;
+    const [manualRes, platformRes] = await Promise.all([
+      supabase
+        .from("manual_bookings")
+        .select(
+          "id, renter_guest_id, check_in, check_out, amount, status, property:properties!manual_bookings_property_id_fkey(title)",
+        )
+        .eq("owner_id", user.id)
+        .order("check_in", { ascending: false })
+        .limit(500),
+      supabase
+        .from("bookings")
+        .select(
+          "id, guest_id, check_in, check_out, total_price, status, property:properties!bookings_property_id_fkey(title)",
+        )
+        .eq("owner_id", user.id)
+        .order("check_in", { ascending: false })
+        .limit(500),
+    ]);
+    setManualStays((manualRes.data ?? []) as unknown as ManualStayRow[]);
+    setPlatformStays((platformRes.data ?? []) as unknown as PlatformStayRow[]);
+  }, [supabase, user]);
+
   useEffect(() => {
     fetchGuests();
   }, [fetchGuests]);
+
+  useEffect(() => {
+    fetchStays();
+  }, [fetchStays]);
+
+  // Group stays under each guest via the stored FKs (no phone matching here):
+  // manual bookings by renter_guest_id, platform bookings by guest_id -> the
+  // guest whose profile_id matches. Each list sorted newest-first.
+  const historyByGuest = useMemo(() => {
+    const map = new Map<string, VisitHistory[]>();
+    const push = (gid: string, v: VisitHistory) => {
+      const arr = map.get(gid);
+      if (arr) arr.push(v);
+      else map.set(gid, [v]);
+    };
+
+    for (const m of manualStays) {
+      if (!m.renter_guest_id) continue;
+      push(m.renter_guest_id, {
+        id: m.id,
+        source: "manual",
+        propertyTitle: m.property?.title ?? null,
+        checkIn: m.check_in,
+        checkOut: m.check_out,
+        amount: m.amount,
+        status: m.status,
+      });
+    }
+
+    const profileToGuest = new Map<string, string>();
+    for (const g of guests) {
+      if (g.profile_id) profileToGuest.set(g.profile_id, g.id);
+    }
+    for (const p of platformStays) {
+      const gid = p.guest_id ? profileToGuest.get(p.guest_id) : undefined;
+      if (!gid) continue;
+      push(gid, {
+        id: p.id,
+        source: "platform",
+        propertyTitle: p.property?.title ?? null,
+        checkIn: p.check_in,
+        checkOut: p.check_out,
+        amount: p.total_price,
+        status: p.status,
+      });
+    }
+
+    for (const arr of map.values()) {
+      arr.sort((a, b) =>
+        a.checkIn < b.checkIn ? 1 : a.checkIn > b.checkIn ? -1 : 0,
+      );
+    }
+    return map;
+  }, [manualStays, platformStays, guests]);
+
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleBlacklist = async (guest: Guest, blacklisted: boolean) => {
     await supabase
@@ -148,7 +265,10 @@ export default function RenterGuestsPage() {
                 <GuestRow
                   key={g.id}
                   guest={g}
+                  stays={historyByGuest.get(g.id) ?? []}
+                  isOpen={expanded.has(g.id)}
                   isLast={i === visibleGuests.length - 1}
+                  onToggle={() => toggle(g.id)}
                   onEdit={() => setModal({ open: true, guest: g })}
                   onBlacklist={() => handleBlacklist(g, true)}
                   onRestore={() => handleBlacklist(g, false)}
@@ -211,13 +331,19 @@ function TabButton({
 
 function GuestRow({
   guest,
+  stays,
+  isOpen,
   isLast,
+  onToggle,
   onEdit,
   onBlacklist,
   onRestore,
 }: {
   guest: Guest;
+  stays: VisitHistory[];
+  isOpen: boolean;
   isLast: boolean;
+  onToggle: () => void;
   onEdit: () => void;
   onBlacklist: () => void;
   onRestore: () => void;
@@ -225,76 +351,122 @@ function GuestRow({
   const t = useTranslations("RenterGuests");
   const tShared = useTranslations("DashboardShared");
   const locale = useLocale();
+  const panelId = `guest-history-${guest.id}`;
 
   return (
-    <div
-      className={`grid grid-cols-1 gap-2 px-4 py-4 sm:grid-cols-[1.6fr_1fr_2fr_auto] sm:items-center sm:gap-4 sm:px-6 sm:py-5 ${
-        isLast ? "" : "border-b border-[#EEF1F4]"
-      }`}
-    >
-      <div>
-        <p
-          className={`text-[14px] font-extrabold ${
-            guest.blacklisted ? "text-[#DC2626]" : "text-[#0F172A]"
-          }`}
-        >
-          {guest.name}
-        </p>
-        <p className="mt-0.5 text-[12px] text-[#94A3B8]">
-          {guest.phone || "—"}
-        </p>
-      </div>
-      <div>
-        <p className="text-[13px] font-extrabold text-[#0F172A]">
-          {formatVisit(guest.visit_dates, locale)}
-        </p>
-        <span
-          className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-            guest.blacklisted
-              ? "bg-[#0F172A] text-white"
-              : "bg-[#DCFCE7] text-[#16A34A]"
-          }`}
-        >
-          {guest.blacklisted ? "BLACKLIST" : t("badgeGuest")}
-        </span>
-      </div>
-      <p
-        className={`text-[13px] ${
-          guest.blacklisted ? "font-extrabold text-[#DC2626]" : "text-[#475569]"
-        }`}
+    <div className={isLast ? "" : "border-b border-[#EEF1F4]"}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        className="grid cursor-pointer grid-cols-1 gap-2 px-4 py-4 transition-colors hover:bg-[#F8FAFC] sm:grid-cols-[1.6fr_1fr_2fr_auto] sm:items-center sm:gap-4 sm:px-6 sm:py-5"
       >
-        {guest.note || "—"}
-      </p>
-      <div className="flex items-center justify-end gap-2">
-        {!guest.blacklisted ? (
-          <>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] sm:h-8 sm:w-8"
-              aria-label={tShared("edit")}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={onBlacklist}
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] sm:h-8 sm:w-8"
-              aria-label={t("block")}
-            >
-              <Ban className="h-3.5 w-3.5" />
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={onRestore}
-            className="text-[12px] font-bold text-[#64748B] hover:text-[#2563EB] hover:underline"
+        <div>
+          <p
+            className={`text-[14px] font-extrabold ${
+              guest.blacklisted ? "text-[#DC2626]" : "text-[#0F172A]"
+            }`}
           >
-            {t("restore")}
-          </button>
-        )}
+            {guest.name}
+          </p>
+          <p className="mt-0.5 text-[12px] text-[#94A3B8]">
+            {guest.phone || "—"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[13px] font-extrabold text-[#0F172A]">
+            {formatVisit(guest.visit_dates, locale)}
+          </p>
+          <span
+            className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+              guest.blacklisted
+                ? "bg-[#0F172A] text-white"
+                : "bg-[#DCFCE7] text-[#16A34A]"
+            }`}
+          >
+            {guest.blacklisted ? "BLACKLIST" : t("badgeGuest")}
+          </span>
+        </div>
+        <p
+          className={`text-[13px] ${
+            guest.blacklisted
+              ? "font-extrabold text-[#DC2626]"
+              : "text-[#475569]"
+          }`}
+        >
+          {guest.note || "—"}
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          {!guest.blacklisted ? (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] sm:h-8 sm:w-8"
+                aria-label={tShared("edit")}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBlacklist();
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] sm:h-8 sm:w-8"
+                aria-label={t("block")}
+              >
+                <Ban className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRestore();
+              }}
+              className="text-[12px] font-bold text-[#64748B] hover:text-[#2563EB] hover:underline"
+            >
+              {t("restore")}
+            </button>
+          )}
+          <ChevronDown
+            aria-hidden
+            className={`h-4 w-4 text-[#94A3B8] transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="panel"
+            id={panelId}
+            role="region"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <GuestHistoryPanel guest={guest} stays={stays} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

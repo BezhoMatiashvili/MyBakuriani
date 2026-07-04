@@ -94,6 +94,19 @@ export function isValidGePhone(value: string | null | undefined): boolean {
   return /^5\d{8}$/.test(value.replace(/\D/g, ""));
 }
 
+/**
+ * Normalize a stored phone (e.g. "+995599123456", "599123456", or legacy
+ * garbage) down to the bare 9-digit local form that PhoneInput expects when
+ * seeding a field for editing. Drops a leading "995" country code and caps at
+ * 9 digits so over-long legacy values stay editable rather than blank.
+ */
+export function toLocalGePhone(value: string | null | undefined): string {
+  if (!value) return "";
+  let d = value.replace(/\D/g, "");
+  if (d.length > 9 && d.startsWith("995")) d = d.slice(3);
+  return d.slice(0, 9);
+}
+
 /** Georgian personal ID: exactly 11 digits. */
 export function isValidPersonalId(value: string | null | undefined): boolean {
   if (!value) return false;

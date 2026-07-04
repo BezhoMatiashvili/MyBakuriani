@@ -29,6 +29,8 @@ import BulkActionBar, {
   BulkApplyChanges,
 } from "@/components/calendar/BulkActionBar";
 import { datesInRange } from "@/lib/utils/availability";
+import { toLocalGePhone } from "@/lib/utils/number";
+import { revalidatePublicProperty } from "@/app/actions/revalidateListing";
 import type { Tables } from "@/lib/types/database";
 
 type CalendarBlock = Tables<"calendar_blocks">;
@@ -564,6 +566,7 @@ export default function RenterCalendarPage() {
     setSavingPrice(false);
     if (!error) {
       await fetchOverrides();
+      await revalidatePublicProperty(selectedPropertyId);
       clearSelection();
     }
   };
@@ -579,6 +582,7 @@ export default function RenterCalendarPage() {
     setSavingPrice(false);
     if (!error) {
       await fetchOverrides();
+      await revalidatePublicProperty(selectedPropertyId);
       clearSelection();
     }
   };
@@ -598,7 +602,10 @@ export default function RenterCalendarPage() {
       .from("calendar_blocks")
       .upsert(rows, { onConflict: "property_id,date" });
     setSavingBlocks(false);
-    if (!error) clearSelection();
+    if (!error) {
+      await revalidatePublicProperty(selectedPropertyId);
+      clearSelection();
+    }
   };
 
   // Clear an owner-set block. The extra status='blocked' guard prevents
@@ -613,16 +620,22 @@ export default function RenterCalendarPage() {
       .eq("status", "blocked")
       .in("date", blockedSelected);
     setSavingBlocks(false);
-    if (!error) clearSelection();
+    if (!error) {
+      await revalidatePublicProperty(selectedPropertyId);
+      clearSelection();
+    }
   };
+
+  // Today's date in YYYY-MM-DD (browser-local), shared by the bulk bar and the
+  // current-day cell marker.
+  const todayIso = useMemo(() => {
+    const t = new Date();
+    return fmtDate(t.getFullYear(), t.getMonth(), t.getDate());
+  }, []);
 
   // Dates of the currently visible month, restricted to today or later — past
   // days can never be re-blocked, and the bulk bar shouldn't act on them.
   const visibleMonthDates = useMemo(() => {
-    const todayIso = (() => {
-      const t = new Date();
-      return fmtDate(t.getFullYear(), t.getMonth(), t.getDate());
-    })();
     const days = getDaysInMonth(year, month);
     const out: string[] = [];
     for (let d = 1; d <= days; d++) {
@@ -630,7 +643,7 @@ export default function RenterCalendarPage() {
       if (iso >= todayIso) out.push(iso);
     }
     return out;
-  }, [year, month]);
+  }, [year, month, todayIso]);
 
   const bookedDateSet = useMemo(() => {
     const s = new Set<string>();
@@ -653,17 +666,41 @@ export default function RenterCalendarPage() {
     return s;
   }, [calendarBlocks, editingBooking]);
 
-  // Optionally mirror the booking's guest into the renter's contacts list.
-  const maybeSaveContact = async (payload: AddBookingPayload) => {
-    if (!payload.saveToContacts || !payload.guestName.trim() || !user) return;
+  // Optionally mirror the booking's guest into the renter's contacts list and
+  // return the contact id so the booking links to it. De-dupes by normalized
+  // phone (reuses an existing contact instead of creating a duplicate). When no
+  // contact is created the booking RPC still auto-links by phone if one matches.
+  const resolveContactId = async (
+    payload: AddBookingPayload,
+  ): Promise<string | undefined> => {
+    if (!payload.saveToContacts || !payload.guestName.trim() || !user)
+      return undefined;
+    const phone = payload.guestPhone.trim() || null;
+    const key = toLocalGePhone(phone);
     try {
-      await supabase.from("renter_guests").insert({
-        owner_id: user.id,
-        name: payload.guestName.trim(),
-        phone: payload.guestPhone.trim() || null,
-      });
+      if (key.length === 9) {
+        const { data: existing } = await supabase
+          .from("renter_guests")
+          .select("id, phone")
+          .eq("owner_id", user.id);
+        const match = (existing ?? []).find(
+          (c) => toLocalGePhone(c.phone) === key,
+        );
+        if (match) return match.id;
+      }
+      const { data: inserted } = await supabase
+        .from("renter_guests")
+        .insert({
+          owner_id: user.id,
+          name: payload.guestName.trim(),
+          phone,
+        })
+        .select("id")
+        .single();
+      return inserted?.id;
     } catch (err) {
       console.error("Failed to save guest to contacts", err);
+      return undefined;
     }
   };
 
@@ -686,6 +723,7 @@ export default function RenterCalendarPage() {
       return { ok: false, errorCode: "generic" };
     if (!payload.checkIn || !payload.checkOut)
       return { ok: false, errorCode: "generic" };
+    const guestId = await resolveContactId(payload);
     const { error } = await supabase.rpc("create_manual_booking", {
       p_property_id: selectedPropertyId,
       p_check_in: payload.checkIn,
@@ -698,10 +736,11 @@ export default function RenterCalendarPage() {
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
+      p_renter_guest_id: guestId ?? undefined,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await maybeSaveContact(payload);
     await Promise.all([fetchBlocks(), fetchBookings()]);
+    await revalidatePublicProperty(selectedPropertyId);
     return { ok: true };
   };
 
@@ -714,6 +753,7 @@ export default function RenterCalendarPage() {
     if (!editingBooking || !user) return { ok: false, errorCode: "generic" };
     if (!payload.checkIn || !payload.checkOut)
       return { ok: false, errorCode: "generic" };
+    const guestId = await resolveContactId(payload);
     const { error } = await supabase.rpc("update_manual_booking", {
       p_id: editingBooking.id,
       p_check_in: payload.checkIn,
@@ -726,10 +766,11 @@ export default function RenterCalendarPage() {
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
+      p_renter_guest_id: guestId ?? undefined,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await maybeSaveContact(payload);
     await Promise.all([fetchBlocks(), fetchBookings()]);
+    if (selectedPropertyId) await revalidatePublicProperty(selectedPropertyId);
     return { ok: true };
   };
 
@@ -749,6 +790,7 @@ export default function RenterCalendarPage() {
         .eq("id", editingBooking.id)
         .eq("owner_id", user.id);
       await Promise.all([fetchBlocks(), fetchBookings()]);
+      await revalidatePublicProperty(selectedPropertyId);
     } catch (err) {
       console.error("Failed to cancel booking", err);
     }
@@ -793,6 +835,7 @@ export default function RenterCalendarPage() {
           .from("calendar_blocks")
           .upsert(rows, { onConflict: "property_id,date" });
       }
+      await revalidatePublicProperty(selectedPropertyId);
       clearSelection();
     } finally {
       setSavingBlocks(false);
@@ -981,6 +1024,7 @@ export default function RenterCalendarPage() {
             isBottomRow={i >= 35}
             isRightCol={d.weekendIndex === 6}
             isSelected={displaySet.has(d.date) && d.inMonth}
+            isToday={d.inMonth && d.date === todayIso}
             onMouseDown={() => handleCellMouseDown(d.date, d.status)}
             onMouseEnter={() => handleCellMouseEnter(d.date)}
             onClick={() => {
@@ -1165,6 +1209,7 @@ function DayCell({
   isBottomRow,
   isRightCol,
   isSelected,
+  isToday,
   onMouseDown,
   onMouseEnter,
   onClick,
@@ -1174,6 +1219,7 @@ function DayCell({
   isBottomRow: boolean;
   isRightCol: boolean;
   isSelected: boolean;
+  isToday: boolean;
   onMouseDown: () => void;
   onMouseEnter: () => void;
   onClick: () => void;
@@ -1224,11 +1270,23 @@ function DayCell({
           `before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full ${accentBorder}`,
       )}
     >
-      <span
-        className={cn("text-[12px] font-black sm:text-[13px]", numberColor)}
-      >
-        {meta.day}
-      </span>
+      <div className="flex w-full items-center justify-between gap-1">
+        <span
+          className={cn(
+            "text-[12px] font-black sm:text-[13px]",
+            isToday
+              ? "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#2563EB] px-1 text-white sm:h-5 sm:min-w-5"
+              : numberColor,
+          )}
+        >
+          {meta.day}
+        </span>
+        {isToday && (
+          <span className="rounded-full bg-[#DBEAFE] px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#2563EB] sm:text-[10px]">
+            დღეს
+          </span>
+        )}
+      </div>
       <div className="flex w-full items-end justify-between gap-1">
         {meta.guestLabel && meta.status === "booked" && (
           <span className="min-w-0 truncate text-[10px] font-bold text-[#B91C1C]">
