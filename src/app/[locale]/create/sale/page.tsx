@@ -14,7 +14,7 @@ import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
 import NumberField from "@/components/shared/NumberField";
 import { StyledSelect } from "@/components/ui/styled-select";
-import { MapPinned, User } from "lucide-react";
+import { AlertTriangle, MapPinned, User } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
@@ -759,8 +759,9 @@ function CreateSalePageInner() {
                         : t("postAsAgentSuffix")}
                     </span>
                   ) : (
-                    <span className="block truncate text-[12px] font-bold text-[#B45309]">
-                      {t("postAsCompanyHint")} ⚠️
+                    <span className="flex items-center gap-1 truncate text-[12px] font-bold text-[#B45309]">
+                      {t("postAsCompanyHint")}
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                     </span>
                   )}
                 </span>

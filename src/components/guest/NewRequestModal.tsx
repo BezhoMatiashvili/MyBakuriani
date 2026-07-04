@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, X, MapPin, ChevronDown, Plus } from "lucide-react";
+import { Check, Send, X, MapPin, ChevronDown, Plus } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import { useActiveZones } from "@/lib/zones/client";
@@ -191,7 +191,7 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                             >
                               <span>{opt.label}</span>
                               {zone === opt.value && (
-                                <span className="text-[#0F8F60]">✓</span>
+                                <Check className="h-4 w-4 text-[#0F8F60]" />
                               )}
                             </button>
                           ))}
@@ -322,7 +322,6 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
                 >
                   <Send className="h-4 w-4" />
                   {submitting ? tShared("sending") : t("submit")}
-                  {!submitting && <span className="ml-0.5">✈️</span>}
                 </button>
               </div>
             </form>

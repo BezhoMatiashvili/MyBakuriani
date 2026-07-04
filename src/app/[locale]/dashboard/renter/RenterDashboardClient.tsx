@@ -210,9 +210,6 @@ export default function RenterDashboardClient({
       >
         <h1 className="flex items-center gap-2 text-[36px] font-black leading-[44px] text-[#0F172A]">
           {t("welcome", { name: firstName })}
-          <span aria-hidden className="text-[30px]">
-            👋
-          </span>
         </h1>
         <p className="text-[14px] font-medium text-[#64748B]">
           {t.rich("seasonActive", {

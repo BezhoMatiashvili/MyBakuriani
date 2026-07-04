@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Star,
 } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
@@ -265,7 +266,8 @@ export function BookingSidebar({
           </div>
           {rating != null && (
             <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#1E293B]">
-              <span className="text-[#EAB308]">★</span> {rating.toFixed(1)}
+              <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />{" "}
+              {rating.toFixed(1)}
             </span>
           )}
         </div>

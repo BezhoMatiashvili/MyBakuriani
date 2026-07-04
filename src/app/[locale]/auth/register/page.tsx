@@ -3,7 +3,22 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Users, Loader2, Camera } from "lucide-react";
+import {
+  User,
+  Users,
+  Loader2,
+  Camera,
+  Home,
+  Key,
+  Wallet,
+  SprayCan,
+  UtensilsCrossed,
+  MountainSnow,
+  Car,
+  Briefcase,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -23,16 +38,16 @@ const ROLE_DASHBOARD: Record<string, string> = {
   handyman: "/dashboard/services",
 };
 
-const ROLES: { value: Enums<"user_role">; icon: string }[] = [
-  { value: "guest", icon: "🏠" },
-  { value: "renter", icon: "🔑" },
-  { value: "seller", icon: "💰" },
-  { value: "cleaner", icon: "🧹" },
-  { value: "food", icon: "🍽️" },
-  { value: "entertainment", icon: "🎿" },
-  { value: "transport", icon: "🚗" },
-  { value: "employment", icon: "💼" },
-  { value: "handyman", icon: "🔧" },
+const ROLES: { value: Enums<"user_role">; icon: LucideIcon }[] = [
+  { value: "guest", icon: Home },
+  { value: "renter", icon: Key },
+  { value: "seller", icon: Wallet },
+  { value: "cleaner", icon: SprayCan },
+  { value: "food", icon: UtensilsCrossed },
+  { value: "entertainment", icon: MountainSnow },
+  { value: "transport", icon: Car },
+  { value: "employment", icon: Briefcase },
+  { value: "handyman", icon: Wrench },
 ];
 
 export default function RegisterPage() {
@@ -292,7 +307,7 @@ export default function RegisterPage() {
                           : "border-transparent bg-[#F8FAFC] hover:border-[#64748B]/20"
                       }`}
                     >
-                      <span className="text-2xl">{role.icon}</span>
+                      <role.icon className="size-6 text-brand-accent" />
                       <span className="break-words text-[13px] font-medium sm:text-sm">
                         {t(`roles.${role.value}`)}
                       </span>

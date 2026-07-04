@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle, Calendar } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -472,7 +472,7 @@ export default function SalesBoard({
                         )}
                         {lead.next_action_at && (
                           <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-[11px] font-bold text-[#0F172A]">
-                            <span aria-hidden>📅</span>
+                            <Calendar className="h-3.5 w-3.5" />
                             {formatRelativeTime(tShared, lead.next_action_at)}
                           </div>
                         )}

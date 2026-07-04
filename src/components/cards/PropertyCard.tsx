@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, MapPin, Clock } from "lucide-react";
+import { Heart, MapPin, Clock, Star } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -140,9 +140,7 @@ export default function PropertyCard(props: PropertyCardProps) {
           {showHotelStars && (
             <span className="absolute top-4 left-4 flex items-center gap-0.5 text-[#F59E0B] drop-shadow-sm">
               {Array.from({ length: hotelStars! }, (_, i) => (
-                <span key={i} className="text-[14px] leading-none">
-                  ★
-                </span>
+                <Star key={i} className="h-3.5 w-3.5 fill-current" />
               ))}
             </span>
           )}

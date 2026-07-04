@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   Home,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -198,8 +199,8 @@ export function SellerSidebar({
           </p>
           {isVerified && (
             <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-[#10B981]">
-              <span className="flex h-3 w-3 items-center justify-center rounded-full bg-[#10B981] text-[8px] text-white">
-                ✓
+              <span className="flex h-3 w-3 items-center justify-center rounded-full bg-[#10B981] text-white">
+                <Check className="h-2 w-2" strokeWidth={3} />
               </span>
               {t("verified")}
             </p>

@@ -1,7 +1,16 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, Clock, Heart, MapPin, Phone, Star } from "lucide-react";
+import {
+  Car,
+  Check,
+  Clock,
+  Heart,
+  MapPin,
+  Phone,
+  Star,
+  Users,
+} from "lucide-react";
 import Image from "next/image";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -412,9 +421,7 @@ export default function ServiceCard({
             <div className="mt-2 space-y-1">
               {transportType && (
                 <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
-                  <span aria-hidden className="text-[14px] leading-none">
-                    🚗
-                  </span>
+                  <Car aria-hidden className="h-3.5 w-3.5 shrink-0" />
                   <span className="text-[#94A3B8] font-medium">
                     {t("typeLabel")}:{" "}
                   </span>
@@ -427,9 +434,7 @@ export default function ServiceCard({
               )}
               {vehicleCapacity != null && (
                 <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
-                  <span aria-hidden className="text-[14px] leading-none">
-                    👥
-                  </span>
+                  <Users aria-hidden className="h-3.5 w-3.5 shrink-0" />
                   <span className="text-[#94A3B8] font-medium">
                     {t("seatsLabel")}:{" "}
                   </span>
@@ -440,9 +445,7 @@ export default function ServiceCard({
               )}
               {routeValue && (
                 <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
-                  <span aria-hidden className="text-[14px] leading-none">
-                    📍
-                  </span>
+                  <MapPin aria-hidden className="h-3.5 w-3.5 shrink-0" />
                   <span className="text-[#94A3B8] font-medium">
                     {t("routeLabel")}:{" "}
                   </span>

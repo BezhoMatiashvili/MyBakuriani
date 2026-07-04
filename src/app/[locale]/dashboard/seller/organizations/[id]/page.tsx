@@ -332,8 +332,8 @@ export default function OrganizationCabinetPage() {
                   </span>
                 </p>
                 {isCurrent && (
-                  <p className="mt-2 text-[11px] font-bold text-[#16A34A]">
-                    ✓ {t("packageActive")}
+                  <p className="mt-2 flex items-center gap-1 text-[11px] font-bold text-[#16A34A]">
+                    <Check className="h-3.5 w-3.5" /> {t("packageActive")}
                   </p>
                 )}
               </button>

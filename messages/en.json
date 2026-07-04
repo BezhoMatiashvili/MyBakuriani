@@ -777,7 +777,7 @@
     "belowYourPrice": "Below your price ({price})",
     "capacityShort": "Exceeds capacity",
     "emptyRequests": "No new requests yet",
-    "offerSent": "✓ Offer sent",
+    "offerSent": "Offer sent",
     "offerSentHint": "The guest will see your offer in their dashboard.",
     "offerError": "Failed to send the offer. Please try again.",
     "yourPriceLabel": "Your price (confidential):",
@@ -880,7 +880,7 @@
     "phoneNumber": "Phone number",
     "whatsappNumber": "WhatsApp number",
     "optionalHelper": "Optional",
-    "landscapeWarning": "⚠ Use landscape photos"
+    "landscapeWarning": "Use landscape photos"
   },
   "CriticalNotification": {
     "severityCritical": "Critical",
@@ -1534,7 +1534,7 @@
     "remove": "Remove",
     "cvUploadTitle": "Upload your resume (CV)",
     "cvUploadHint": "PDF or DOCX format (optional)",
-    "cvUploadTip": "💡 Uploading a CV greatly increases employer interest",
+    "cvUploadTip": "Uploading a CV greatly increases employer interest",
     "orFillDetails": "or fill in the details",
     "detailsOptionalHint": "With a CV attached, only name and phone are required.",
     "apply": "Apply",
@@ -2372,7 +2372,7 @@
     "body": "This listing hasn't been approved yet and is visible only to you and the administrator. It will appear publicly once approved."
   },
   "GuestDashboard": {
-    "welcome": "Hello, {name}, ready for a getaway? 🏔️",
+    "welcome": "Hello, {name}, ready for a getaway?",
     "defaultName": "Guest",
     "subtitle": "Your next adventure awaits — bookings, offers, and services in one place.",
     "newRequest": "New request",
@@ -2463,7 +2463,7 @@
     "badgeDeclined": "Declined",
     "offeredPrice": "Offered price",
     "perNight": "/night",
-    "cheaper": "✓ Cheaper (listing: {price}₾)",
+    "cheaper": "Cheaper (listing: {price}₾)",
     "decline": "Decline",
     "viewDetails": "View details"
   },
@@ -2613,9 +2613,9 @@
       "description": "Description (what was done) — optional",
       "descriptionPlaceholder": "e.g. Floor 4 roofing completed, facade installation started…",
       "savedHistoryFailed": "Update saved, but could not add to history.",
-      "published": "Update published 🚀",
+      "published": "Update published",
       "publishing": "Publishing…",
-      "publish": "Publish update 🚀",
+      "publish": "Publish update",
       "stages": {
         "permit": "Building permit",
         "earthworks": "Earthworks",
@@ -3048,7 +3048,7 @@
     "legendBlocked": "Blocked",
     "legendPriceChanged": "Price changed",
     "range": "Range",
-    "hint": "💡 Click days (non-contiguous OK) or drag for a range. Block days so guests can't book. Double-click to add a booking.",
+    "hint": "Click days (non-contiguous OK) or drag for a range. Block days so guests can't book. Double-click to add a booking.",
     "selectionMixed": "{free} available • {blocked} blocked",
     "selectionFree": "{count} days selected",
     "selectionBlocked": "{count} blocked selected",
