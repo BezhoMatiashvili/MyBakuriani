@@ -129,7 +129,6 @@ guest, renter, seller, cleaner, food, entertainment, transport, employment, hand
 
 ### Known Issues / Cleanup Needed
 
-- Duplicate directories exist (e.g. `admin 2/`, `cleaner 2/`, `food 2/`) — these are stale copies and should be cleaned up
 - Some `.claude/prompts/` files have been deleted from working tree but may still be tracked
 
 ### Progressive Disclosure

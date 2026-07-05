@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 type AdminDashboardStatsRow = {
@@ -45,19 +44,19 @@ export type AdminStatsData = AdminDashboardStatsRow & {
  * Returns null when the base RPC fails (caller surfaces stats_unavailable).
  */
 export async function getAdminStats(): Promise<AdminStatsData | null> {
-  const supabase = await createClient();
   const service = createServiceClient();
 
-  // Cast: both RPCs are defined in migrations and not yet in the generated DB
-  // types; regenerate types to drop these casts.
+  // Both RPCs are SECURITY DEFINER and revoked from authenticated (security
+  // audit fix — admin_dashboard_stats had no internal admin check and was
+  // callable by any signed-in user), so both must run through the service_role
+  // client (which bypasses grants). Cast: not yet in the generated DB types;
+  // regenerate types to drop these casts.
   const baseStats = (
-    supabase.rpc as unknown as (fn: "admin_dashboard_stats") => {
+    service.rpc as unknown as (fn: "admin_dashboard_stats") => {
       single<T>(): Promise<{ data: T | null; error: unknown }>;
     }
   )("admin_dashboard_stats").single<AdminDashboardStatsRow>();
 
-  // admin_overview_stats is SECURITY DEFINER and revoked from authenticated, so
-  // it must run through the service_role client (which bypasses grants).
   const overviewStats = (
     service.rpc as unknown as (fn: "admin_overview_stats") => {
       single<T>(): Promise<{ data: T | null; error: unknown }>;

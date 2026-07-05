@@ -19,6 +19,16 @@ function isTransientAuthError(err: unknown) {
   return isRetryableAuthError(err);
 }
 
+// Mirrors the callback route's/middleware's guard: only allow same-origin,
+// absolute paths. Reject protocol-relative (`//host`) and backslash-prefixed
+// forms (`/\host`) that some browsers treat as external.
+function safeNextPath(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  return raw;
+}
+
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
   renter: "/dashboard/renter",
@@ -71,7 +81,7 @@ export default function LoginPage() {
       router.push("/auth/register");
       return;
     }
-    const next = searchParams.get("next");
+    const next = safeNextPath(searchParams.get("next"));
     const target = next || (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest");
     // Re-render server components against the just-committed auth cookie so the
     // force-dynamic dashboard sees the session on the first navigation (no

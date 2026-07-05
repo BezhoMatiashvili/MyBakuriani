@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
-  corsHeaders,
+  buildCorsHeaders,
   errorResponse,
   jsonResponse,
   requireUser,
@@ -28,8 +28,10 @@ function propertyViewUrl(p: {
 }
 
 serve(async (req) => {
+  const cors = buildCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -143,8 +145,8 @@ serve(async (req) => {
       action_url,
     });
 
-    return jsonResponse({ data: { verification_id, status } }, 200);
+    return jsonResponse({ data: { verification_id, status } }, 200, cors);
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, cors);
   }
 });

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import type { Enums } from "@/lib/types/database";
 
 type Severity = "info" | "warning" | "critical";
@@ -170,10 +171,11 @@ export default function AdminBroadcastPage() {
     searchDebounce.current = setTimeout(async () => {
       setSearchingUsers(true);
       try {
+        const safeQ = sanitizeQuery(q);
         const { data } = await supabase
           .from("profiles")
           .select("id, display_name, role, phone")
-          .or(`display_name.ilike.%${q}%,phone.ilike.%${q}%`)
+          .or(`display_name.ilike.%${safeQ}%,phone.ilike.%${safeQ}%`)
           .limit(20);
         setUserResults((data ?? []) as UserOption[]);
       } finally {

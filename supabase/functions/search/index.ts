@@ -5,6 +5,7 @@ import {
   errorResponse,
   jsonResponse,
 } from "../_shared/guards.ts";
+import { sanitizeQuery } from "../_shared/sanitize.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -38,8 +39,13 @@ serve(async (req) => {
       lat,
       lng,
       page = 1,
-      per_page = 20,
+      per_page: requestedPerPage = 20,
     } = await req.json();
+
+    // Bound page size — this is an unauthenticated, service-role-backed query
+    // that joins owner phone numbers; an unbounded per_page would let a single
+    // request bulk-scrape every active listing's contact info.
+    const per_page = Math.min(Math.max(1, Number(requestedPerPage) || 20), 100);
 
     // Global keyword search path: when `q` is set, fan out across
     // properties + services + blog_posts via the global_search RPC and
@@ -120,7 +126,10 @@ serve(async (req) => {
 
     // Location trigram search (also search title)
     if (query) {
-      dbQuery = dbQuery.or(`location.ilike.%${query}%,title.ilike.%${query}%`);
+      const safeQuery = sanitizeQuery(query);
+      dbQuery = dbQuery.or(
+        `location.ilike.%${safeQuery}%,title.ilike.%${safeQuery}%`,
+      );
     }
 
     // Rent vs Sale filter

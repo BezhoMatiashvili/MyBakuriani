@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { timeoutFetch } from "@/lib/with-timeout";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,13 @@ interface GeocodeResult {
 }
 
 export async function GET(req: NextRequest) {
+  if (!checkRateLimit(`geocode:${getClientIp(req)}`, 20, 60_000)) {
+    return Response.json(
+      { error: "rate limited", results: [] },
+      { status: 429 },
+    );
+  }
+
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
 
   // Treated as empty-state by the client; also shields Nominatim from junk

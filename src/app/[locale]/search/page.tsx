@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import SearchPageClient from "./SearchPageClient";
 
 export async function generateMetadata({
@@ -72,8 +73,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   // Apply location filter server-side if provided
   if (params.location) {
+    const safeLocation = sanitizeQuery(params.location);
     query = query.or(
-      `location.ilike.%${params.location}%,title.ilike.%${params.location}%`,
+      `location.ilike.%${safeLocation}%,title.ilike.%${safeLocation}%`,
     );
   }
 

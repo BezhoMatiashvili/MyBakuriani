@@ -9,6 +9,26 @@ const withBundleAnalyzer = withBundleAnalyzerInit({
   enabled: process.env.ANALYZE === "true",
 });
 
+// script-src/style-src keep 'unsafe-inline': next-themes injects an inline
+// no-FOUC theme script, and Next's own hydration/streaming relies on inline
+// scripts too. Tightening to a per-request nonce is future work requiring
+// middleware changes — this policy still blocks loading externally-hosted
+// attacker scripts and restricts fetch/image/media origins, which is the
+// bulk of the practical XSS-token-theft and data-exfiltration surface given
+// Supabase JS stores the session token in browser storage.
+const CSP =
+  "default-src 'self'; " +
+  "script-src 'self' 'unsafe-inline'; " +
+  "style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://*.basemaps.cartocdn.com; " +
+  "font-src 'self' data:; " +
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co; " +
+  "media-src 'self' https://*.supabase.co; " +
+  "object-src 'none'; " +
+  "base-uri 'self'; " +
+  "form-action 'self'; " +
+  "frame-ancestors 'self';";
+
 const securityHeaders = [
   {
     key: "Strict-Transport-Security",
@@ -23,6 +43,7 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(self)",
   },
+  { key: "Content-Security-Policy", value: CSP },
 ];
 
 const nextConfig: NextConfig = {

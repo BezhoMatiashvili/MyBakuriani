@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry } from "@/lib/with-timeout";
+import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 
@@ -143,11 +144,12 @@ export default function RegisterPage() {
     setOrgSearching(true);
     orgDebounceRef.current = setTimeout(async () => {
       const sb = createClient();
+      const safeQ = sanitizeQuery(q);
       const { data } = await sb
         .from("organizations")
         .select("id, brand_name, phone, logo_url")
         .eq("status", "active")
-        .or(`brand_name.ilike.%${q}%,phone.ilike.%${q}%`)
+        .or(`brand_name.ilike.%${safeQ}%,phone.ilike.%${safeQ}%`)
         .limit(20);
       setOrgResults((data as SellerOrg[]) ?? []);
       setOrgSearching(false);

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,15 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
+  if (!checkRateLimit(`menu-track:${getClientIp(req)}`, 30, 60_000)) {
+    return Response.json(
+      { tracked: false, reason: "rate_limited" },
+      {
+        status: 429,
+      },
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

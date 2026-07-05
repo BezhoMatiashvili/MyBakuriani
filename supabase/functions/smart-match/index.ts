@@ -1,14 +1,16 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
-  corsHeaders,
+  buildCorsHeaders,
   errorResponse,
   jsonResponse,
   requireUser,
 } from "../_shared/guards.ts";
 
 serve(async (req) => {
+  const cors = buildCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -147,8 +149,12 @@ serve(async (req) => {
       });
     }
 
-    return jsonResponse({ data: topMatches, request_id: matchRequest.id }, 200);
+    return jsonResponse(
+      { data: topMatches, request_id: matchRequest.id },
+      200,
+      cors,
+    );
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, cors);
   }
 });

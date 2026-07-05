@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 
 type Org = {
   id: string;
@@ -44,11 +45,12 @@ export default function OrganizationLinkPage() {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       const supabase = createClient();
+      const safeQ = sanitizeQuery(q);
       const { data } = await supabase
         .from("organizations")
         .select("id, brand_name, phone, logo_url")
         .eq("status", "active")
-        .or(`brand_name.ilike.%${q}%,phone.ilike.%${q}%`)
+        .or(`brand_name.ilike.%${safeQ}%,phone.ilike.%${safeQ}%`)
         .limit(20);
       setResults((data as Org[]) ?? []);
       setSearching(false);

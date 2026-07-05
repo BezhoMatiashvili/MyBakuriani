@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { UUID_RE } from "@/lib/utils/uuid";
+import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 
 export const runtime = "nodejs";
 
@@ -36,11 +37,6 @@ export type AuditSearchResult = {
   label: string;
   sublabel: string | null;
 };
-
-// PostgREST or() filters treat these as syntax — strip them from free text.
-function sanitizeQuery(q: string) {
-  return q.replace(/[,()"\\%]/g, " ").trim();
-}
 
 // Admin audit log. Two modes:
 //   ?q=...                       -> entity search (users / properties / services)
