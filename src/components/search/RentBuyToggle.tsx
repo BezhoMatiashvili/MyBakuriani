@@ -28,7 +28,12 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
             type="button"
             onClick={() => onChange(option.key)}
             className={cn(
-              "relative flex h-[40px] min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 text-[12px] transition-colors sm:flex-none sm:gap-2 sm:px-8 sm:text-[14px]",
+              // flex-initial (not flex-1): the two labels are very different
+              // lengths ("ქირაობა" vs "ყიდვა (ინვესტიცია)") — an equal 50/50
+              // split starved the long one with unused space left on the
+              // short one. flex-initial sizes each to its own content and
+              // only shrinks proportionally if genuinely tight.
+              "relative flex h-[40px] min-w-0 flex-initial items-center justify-center gap-1 rounded-full px-2 text-[12px] transition-colors sm:flex-none sm:gap-2 sm:px-8 sm:text-[14px]",
               isActive
                 ? "font-bold text-white"
                 : "font-medium text-[#CBD5E1] hover:text-[#E2E8F0]",
