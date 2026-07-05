@@ -449,7 +449,8 @@
     "total": "Total",
     "minBookingNotice": "Min. booking: {count, plural, =1 {# day} other {# days}}",
     "callOwner": "Call the owner",
-    "verifiedOwner": "Verified owner"
+    "verifiedOwner": "Verified owner",
+    "hostStats": "Host for 3 years • Response: 1hr"
   },
   "Landing": {
     "trustedGuide": "The Most Trusted Guide",

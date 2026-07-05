@@ -181,12 +181,12 @@ export function MobileBottomNav({
               <Link
                 href={tab.href}
                 className={cn(
-                  "flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors",
+                  "flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium transition-colors",
                   isActive ? "text-brand-accent" : "text-[#94A3B8]",
                 )}
               >
                 <Icon className="size-5" />
-                <span>{t(tab.labelKey)}</span>
+                <span className="whitespace-nowrap">{t(tab.labelKey)}</span>
               </Link>
             </li>
           );

@@ -449,7 +449,8 @@
     "total": "ჯამში",
     "minBookingNotice": "მინ. ჯავშანი: {count} დღე",
     "callOwner": "დარეკვა მესაკუთრეთან",
-    "verifiedOwner": "ვერიფიცირებული მესაკუთრე"
+    "verifiedOwner": "ვერიფიცირებული მესაკუთრე",
+    "hostStats": "მასპინძელია 3 წელი • პასუხობს 1 საათში"
   },
   "Landing": {
     "trustedGuide": "ყველაზე სანდო გზამკვლევი",

@@ -449,7 +449,8 @@
     "total": "Итого",
     "minBookingNotice": "Мин. бронирование: {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
     "callOwner": "Позвонить владельцу",
-    "verifiedOwner": "Верифицированный владелец"
+    "verifiedOwner": "Верифицированный владелец",
+    "hostStats": "Хозяин 3 года • Ответ: 1ч"
   },
   "Landing": {
     "trustedGuide": "Самый надёжный гид",

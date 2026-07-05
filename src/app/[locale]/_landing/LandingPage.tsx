@@ -523,7 +523,7 @@ export default function LandingPage({
               </h2>
               <Link
                 href="/blog"
-                className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-bold text-[#0F172A] hover:underline"
               >
                 {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
@@ -711,7 +711,7 @@ function ServiceSection({
               )}
               <Link
                 href={href}
-                className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-bold text-[#0F172A] hover:underline"
               >
                 {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
@@ -786,7 +786,7 @@ function EmploymentSection({
               </Link>
               <Link
                 href={href}
-                className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-bold text-[#0F172A] hover:underline"
               >
                 {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
@@ -926,7 +926,7 @@ function PropertySection({
               )}
               <Link
                 href={href}
-                className="flex items-center gap-1 text-[13px] font-bold text-[#0F172A] hover:underline"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-bold text-[#0F172A] hover:underline"
               >
                 {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>

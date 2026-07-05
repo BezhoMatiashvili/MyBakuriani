@@ -28,7 +28,7 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
             type="button"
             onClick={() => onChange(option.key)}
             className={cn(
-              "relative flex h-[40px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 text-[13px] transition-colors sm:flex-none sm:px-8 sm:text-[14px]",
+              "relative flex h-[40px] min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 text-[12px] transition-colors sm:flex-none sm:gap-2 sm:px-8 sm:text-[14px]",
               isActive
                 ? "font-bold text-white"
                 : "font-medium text-[#CBD5E1] hover:text-[#E2E8F0]",
@@ -41,7 +41,7 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
                 transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
               />
             )}
-            <Icon className="relative z-10 size-4" />
+            <Icon className="relative z-10 size-4 shrink-0" />
             <span className="relative z-10 truncate">{t(option.tKey)}</span>
           </button>
         );

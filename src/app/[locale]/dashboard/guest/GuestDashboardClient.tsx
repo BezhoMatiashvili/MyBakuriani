@@ -151,7 +151,7 @@ export default function GuestDashboardClient({
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
-        <div>
+        <div className="min-w-0">
           <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
             {t("welcome", { name: firstName })}
           </h1>

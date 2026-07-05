@@ -59,8 +59,8 @@ export default function BalancePackageCard({
         {t("howItWorks")}
       </button>
 
-      <div className="mt-6 flex items-end justify-between">
-        <div>
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0">
           <p className="text-[28px] font-black leading-[32px] text-[#0F172A]">
             {price.toFixed(2)}
           </p>
@@ -70,7 +70,7 @@ export default function BalancePackageCard({
           type="button"
           disabled={!canAfford || purchasing}
           onClick={onActivate}
-          className={`inline-flex items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${ctaColor}`}
+          className={`inline-flex shrink-0 items-center rounded-xl px-5 py-3 text-[13px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 ${ctaColor}`}
         >
           {purchasing ? "..." : t("activate")}
         </button>

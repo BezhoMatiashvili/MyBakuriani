@@ -199,7 +199,10 @@ export function SearchBox({
   const containerRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    // Must match the lg: breakpoint below — the horizontal pill layout has no
+    // room for 3 fields + keyword box + button until 1024px (at 768-1023px
+    // the location field wraps mid-label).
+    const check = () => setIsMobile(window.innerWidth < 1024);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -343,13 +346,13 @@ export function SearchBox({
       onSubmit={handleSubmit}
       className={cn(
         "relative rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.15)]",
-        "md:flex md:h-[80px] md:items-center md:overflow-visible md:rounded-full md:border-0 md:p-2",
+        "lg:flex lg:h-[80px] lg:items-center lg:overflow-visible lg:rounded-full lg:border-0 lg:p-2",
         className,
       )}
       ref={containerRef}
     >
       {/* ═══ Mobile: stacked grid layout ═══ */}
-      <div className="grid grid-cols-1 gap-3 md:hidden">
+      <div className="grid grid-cols-1 gap-3 lg:hidden">
         {/* Keyword search */}
         <div className="relative">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
@@ -473,7 +476,7 @@ export function SearchBox({
       </div>
 
       {/* ═══ Desktop: horizontal pill layout ═══ */}
-      <div className="hidden flex-1 items-center md:flex">
+      <div className="hidden flex-1 items-center lg:flex">
         {/* Date field */}
         <div className="relative flex h-[64px] flex-1 flex-col justify-center rounded-l-full px-6">
           <span

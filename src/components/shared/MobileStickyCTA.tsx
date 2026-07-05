@@ -18,7 +18,10 @@ export function MobileStickyCTA({
   ctaClassName,
 }: MobileStickyCTAProps) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-3 border-t border-[#E2E8F0] bg-white/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-sm md:hidden">
+    // lg:hidden (not md:hidden): the detail-page sidebars this bar hands off
+    // to only become sticky at lg: (1024px) — hiding this at md: (768px)
+    // left a 768-1023px gap with no persistent price/CTA at all.
+    <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-3 border-t border-[#E2E8F0] bg-white/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-sm lg:hidden">
       <div className="min-w-0">
         <div className="truncate text-[18px] font-black leading-tight text-[#1E293B]">
           {primary}

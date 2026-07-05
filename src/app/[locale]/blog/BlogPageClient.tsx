@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import type { Tables } from "@/lib/types/database";
+import { formatDate } from "@/lib/utils/format";
 
 interface Props {
   posts?: Tables<"blog_posts">[];
@@ -19,16 +20,11 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
           title: bp.title,
           excerpt: bp.excerpt ?? "",
           image: bp.image_url ?? "/placeholder-property.jpg",
-          date: (() => {
-            const d = new Date(
-              bp.published_at ?? bp.created_at ?? new Date().toISOString(),
-            );
-            const month = new Intl.DateTimeFormat(locale, {
-              month: "long",
-              timeZone: "UTC",
-            }).format(d);
-            return `${d.getUTCDate()} ${month}, ${d.getUTCFullYear()}`;
-          })(),
+          // formatDate uses date-fns' bundled locale data, not Intl.DateTimeFormat —
+          // deterministic on server and client regardless of runtime ICU data (the
+          // previous Intl-based version rendered "M06" instead of "ივნისი" for the
+          // "ka" locale on some runtimes, and caused a server/client hydration mismatch).
+          date: formatDate(bp.published_at ?? bp.created_at, locale),
           category: t("newsCategory"),
           categoryKey: "news",
         }))

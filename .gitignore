@@ -55,3 +55,8 @@ next-env.d.ts
 # Watermark backfill backups (contain pre-mutation copies of user images)
 /.watermark-backups/
 .env*
+
+# Responsive UI audit output (screenshots/contact sheets, regenerable via
+# scripts/responsive-audit.mjs) and Playwright MCP scratch state
+/responsive-audit/
+/.playwright-mcp/

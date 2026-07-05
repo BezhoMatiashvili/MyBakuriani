@@ -24,10 +24,10 @@ export function TransportContactFooter({ phone, serviceId }: Props) {
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E2E8F0] bg-white/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-sm">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-[16px] font-black leading-tight text-[#1E293B] sm:text-[18px]">
+          <div className="text-[14px] font-black leading-tight text-[#1E293B] sm:text-[18px]">
             {t("contactDriverTitle")}
           </div>
-          <div className="truncate text-[12px] font-medium text-[#64748B]">
+          <div className="text-[11px] font-medium leading-tight text-[#64748B] sm:text-[12px]">
             {t("contactDriverSubtitle")}
           </div>
         </div>

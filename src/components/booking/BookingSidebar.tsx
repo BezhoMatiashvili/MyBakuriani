@@ -430,9 +430,7 @@ export function BookingSidebar({
               </p>
             )}
             <p className="text-[15px] font-black text-[#1E293B]">{ownerName}</p>
-            <p className="text-[11px] text-[#64748B]">
-              Host for 3 years &bull; Response: 1hr
-            </p>
+            <p className="text-[11px] text-[#64748B]">{t("hostStats")}</p>
           </div>
         </div>
       </div>
