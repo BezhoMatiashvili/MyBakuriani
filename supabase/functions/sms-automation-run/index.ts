@@ -16,11 +16,32 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
+  ApiError,
   buildCorsHeaders,
   createServiceClient,
   errorResponse,
+  getBearerToken,
   jsonResponse,
 } from "../_shared/guards.ts";
+
+// Auth: shared secret in SMS_AUTOMATION_RUN_SECRET (Bearer header), matching
+// the vip-lifecycle/sms-dispatch/booking-finalize cron functions — this
+// function does a privileged, service-role scan of all bookings/guest PII and
+// must not be triggerable by anyone holding only the public anon key.
+function requireSharedSecret(req: Request) {
+  const expected = Deno.env.get("SMS_AUTOMATION_RUN_SECRET");
+  if (!expected) {
+    throw new ApiError(
+      "SMS_AUTOMATION_RUN_SECRET is not configured",
+      500,
+      "ENV_MISSING",
+    );
+  }
+  const token = getBearerToken(req);
+  if (token !== expected) {
+    throw new ApiError("Invalid shared secret", 401, "AUTH_UNAUTHORIZED");
+  }
+}
 
 type AutomationKind = "check_in" | "review_request" | "win_back";
 
@@ -79,6 +100,8 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
+    requireSharedSecret(req);
+
     const db = createServiceClient();
 
     // 1. Load all enabled rules joined with profile display_name.

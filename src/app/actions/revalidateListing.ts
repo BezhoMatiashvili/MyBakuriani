@@ -1,8 +1,19 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
+import { headers } from "next/headers";
 import { listingTag } from "@/lib/data/getCachedPublicListing";
 import { isUuid } from "@/lib/utils/uuid";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+
+// These actions take an arbitrary UUID with no ownership check (by design —
+// any visitor to a public listing page can legitimately trigger a revalidate
+// for that page's own tag). Rate-limit by IP so it can't be used to force
+// repeated cache-bypassing DB reads against arbitrary listing ids.
+async function withinRevalidateLimit(): Promise<boolean> {
+  const ip = getClientIp({ headers: await headers() });
+  return checkRateLimit(`revalidate-listing:${ip}`, 20, 60_000);
+}
 
 /**
  * Bust the cached public view of a property after a renter-side edit
@@ -18,6 +29,7 @@ export async function revalidatePublicProperty(
   propertyId: string,
 ): Promise<void> {
   if (!isUuid(propertyId)) return;
+  if (!(await withinRevalidateLimit())) return;
   revalidateTag(listingTag("property", propertyId));
 }
 
@@ -37,5 +49,6 @@ export async function revalidatePublicService(
   serviceId: string,
 ): Promise<void> {
   if (!isUuid(serviceId)) return;
+  if (!(await withinRevalidateLimit())) return;
   revalidateTag(listingTag("service", serviceId));
 }

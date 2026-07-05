@@ -54,6 +54,9 @@ verify_jwt = false
 [functions.smart-match]
 verify_jwt = false
 
+[functions.sms-automation-run]
+verify_jwt = false
+
 [functions.sms-dispatch]
 verify_jwt = false
 

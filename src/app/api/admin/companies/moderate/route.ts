@@ -45,15 +45,11 @@ export async function POST(req: NextRequest) {
   }
 
   const newStatus = body.action === "approve" ? "active" : "rejected";
-  const update: {
-    status: string;
-    verified_at?: string | null;
-    admin_notes?: string | null;
-  } = { status: newStatus };
+  const update: { status: string; verified_at?: string | null } = {
+    status: newStatus,
+  };
   if (body.action === "approve") {
     update.verified_at = new Date().toISOString();
-  } else {
-    update.admin_notes = body.notes?.trim() || null;
   }
 
   const { error: updateErr } = await db
@@ -62,6 +58,34 @@ export async function POST(req: NextRequest) {
     .eq("id", body.id);
   if (updateErr) {
     return Response.json({ error: updateErr.message }, { status: 500 });
+  }
+
+  // admin_notes lives in a deny-all side table (security audit fix — same
+  // pattern as profile_admin_notes), not on the public-readable organizations
+  // row. Not yet in the generated DB types, hence the cast.
+  if (body.action === "reject") {
+    const { error: notesErr } = await (
+      db.from as unknown as (table: "organization_admin_notes") => {
+        upsert: (
+          row: {
+            organization_id: string;
+            notes: string | null;
+            updated_at: string;
+          },
+          opts: { onConflict: string },
+        ) => Promise<{ error: unknown }>;
+      }
+    )("organization_admin_notes").upsert(
+      {
+        organization_id: body.id,
+        notes: body.notes?.trim() || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id" },
+    );
+    if (notesErr) {
+      console.error("company moderate: admin_notes upsert failed", notesErr);
+    }
   }
 
   const name = existing.brand_name?.trim() || "კომპანია";

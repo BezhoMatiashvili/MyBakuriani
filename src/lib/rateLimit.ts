@@ -42,7 +42,9 @@ export function checkRateLimit(
 }
 
 /** Best-effort client IP from Vercel/standard proxy headers; falls back to a shared bucket if absent. */
-export function getClientIp(req: Request): string {
+export function getClientIp(req: {
+  headers: { get(name: string): string | null };
+}): string {
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   return req.headers.get("x-real-ip") ?? "unknown";

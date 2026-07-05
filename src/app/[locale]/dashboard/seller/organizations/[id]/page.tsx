@@ -25,7 +25,6 @@ type Org = {
   status: string;
   owner_id: string;
   logo_url: string | null;
-  admin_notes: string | null;
 };
 
 type Sub = {
@@ -74,7 +73,7 @@ export default function OrganizationCabinetPage() {
       await Promise.all([
         supabase
           .from("organizations")
-          .select("id, brand_name, status, owner_id, logo_url, admin_notes")
+          .select("id, brand_name, status, owner_id, logo_url")
           .eq("id", orgId)
           .maybeSingle(),
         supabase
