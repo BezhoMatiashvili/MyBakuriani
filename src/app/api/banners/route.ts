@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isBannerKind } from "@/lib/banners";
+import { withRetry } from "@/lib/with-timeout";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     query = query.eq("kind", kindParam);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await withRetry(() => query);
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   const now = Date.now();

@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/server";
+import { withRetry } from "@/lib/with-timeout";
 
 export const runtime = "nodejs";
 export const revalidate = 60;
@@ -6,13 +7,15 @@ export const revalidate = 60;
 export async function GET() {
   try {
     const db = createPublicClient();
-    const { data, error } = await db
-      .from("zones")
-      .select(
-        "id, slug, name_ka, description_ka, lat, lng, icon, sort_order, is_active",
-      )
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    const { data, error } = await withRetry(() =>
+      db
+        .from("zones")
+        .select(
+          "id, slug, name_ka, description_ka, lat, lng, icon, sort_order, is_active",
+        )
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+    );
     if (error) {
       return Response.json({ error: error.message }, { status: 500 });
     }
