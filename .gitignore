@@ -54,3 +54,4 @@ next-env.d.ts
 
 # Watermark backfill backups (contain pre-mutation copies of user images)
 /.watermark-backups/
+.env*

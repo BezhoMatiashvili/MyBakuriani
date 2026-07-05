@@ -2,7 +2,11 @@ import { createClient as createJsClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
 import { timeoutFetch } from "@/lib/with-timeout";
 
-const ADMIN_FETCH_TIMEOUT_MS = 8_000;
+// Bumped from 8_000: live traffic showed some requests succeeding at ~6-8s and
+// others timing out right at the old boundary, consistent with occasional
+// cross-region connection-establishment latency to the Supabase project.
+// Kept conservatively under a 10s serverless function execution cap.
+const ADMIN_FETCH_TIMEOUT_MS = 9_500;
 
 let cached: ReturnType<typeof createJsClient<Database>> | null = null;
 

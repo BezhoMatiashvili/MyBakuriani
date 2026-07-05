@@ -3,7 +3,11 @@ import { cookies } from "next/headers";
 import type { Database } from "@/lib/types/database";
 import { timeoutFetch } from "@/lib/with-timeout";
 
-const SERVER_FETCH_TIMEOUT_MS = 8_000;
+// Bumped from 8_000: live traffic showed some requests succeeding at ~6-8s and
+// others timing out right at the old boundary, consistent with occasional
+// cross-region connection-establishment latency to the Supabase project.
+// Kept conservatively under a 10s serverless function execution cap.
+const SERVER_FETCH_TIMEOUT_MS = 9_500;
 
 export async function createClient() {
   const cookieStore = await cookies();
