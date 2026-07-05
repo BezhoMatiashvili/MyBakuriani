@@ -169,13 +169,13 @@ export default function PropertyCard(props: PropertyCardProps) {
             disabled={favoriteBusy}
             aria-label={isFavorited ? t("favoriteRemove") : t("favoriteAdd")}
             aria-pressed={isFavorited}
-            className={`absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors ${
+            className={`absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors ${
               isFavorited
                 ? "bg-[#F97316] text-white"
                 : "bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
             } disabled:opacity-60`}
           >
-            <Heart className={`h-4 w-4 ${isFavorited ? "fill-current" : ""}`} />
+            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
           </button>
 
           {isHotel && isB2BPartner && (

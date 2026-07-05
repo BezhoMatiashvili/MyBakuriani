@@ -387,11 +387,11 @@ export default function ServiceCard({
           {!isTransport && (
             <button
               type="button"
-              className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
+              className="absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
               onClick={stop}
               aria-label={t("addToFavorites")}
             >
-              <Heart className="h-4 w-4 text-[#1E293B]" />
+              <Heart className="h-5 w-5 text-[#1E293B]" />
             </button>
           )}
           {!isFood && !isTransport && (

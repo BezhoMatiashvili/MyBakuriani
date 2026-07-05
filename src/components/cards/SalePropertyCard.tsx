@@ -88,10 +88,10 @@ export default function SalePropertyCard({
           <button
             type="button"
             onClick={(e) => e.preventDefault()}
-            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors hover:text-[#16A34A]"
+            className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors hover:text-[#16A34A]"
             aria-label={t("favoriteAria")}
           >
-            <Heart className="h-4 w-4" />
+            <Heart className="h-5 w-5" />
           </button>
         </div>
 
