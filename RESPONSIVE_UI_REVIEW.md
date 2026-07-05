@@ -34,6 +34,7 @@ Re-ran the public-route sweep against the fresh deploy. Confirmed fixed and veri
 - **Diagnostics collected per route × viewport**: full-page screenshot, horizontal-overflow check (`scrollWidth > clientWidth`), interactive elements under the 44px touch-target minimum (CLAUDE.md requirement), console/page errors.
 - **Review**: every route's screenshots are composited into one labeled contact sheet (`responsive-audit/sheets/<route>.png`) and visually read, not just checked against the raw overflow metric — spacing, overlap, contrast, and truncation issues don't show up in a boolean check.
 - **Locale scope**: primary pass is the default Georgian locale (`ka`, unprefixed root). A handful of text-heavy pages are spot-checked afterward on `/en` and `/ru` since translated strings running longer/shorter than Georgian is a realistic overflow trigger — not a full 3-locale matrix.
+  - **Locale spot-check done** (landing, apartments-list at mobile-s + tablet-p, faq): no overflow, and the round-1/2 fixes (rent/buy toggle, hero filter bar breakpoint) hold up correctly in both English and Russian, which have different label lengths than Georgian.
 
 ## Test data cleanup
 
