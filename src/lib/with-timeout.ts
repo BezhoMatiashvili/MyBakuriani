@@ -8,6 +8,11 @@
  * forever. These helpers convert "hang forever" into "settle quickly".
  */
 
+import {
+  isAuthApiError,
+  isAuthRetryableFetchError,
+} from "@supabase/supabase-js";
+
 /**
  * Resolves to `fallback` after `ms` if `p` hasn't settled. Used for graceful
  * degradation: a slow dependency yields a usable fallback instead of blocking
@@ -94,4 +99,45 @@ export function timeoutFetch(ms: number): typeof fetch {
       clearTimeout(timer);
     });
   };
+}
+
+/**
+ * Both auth-js and postgrest-js resolve `{ data, error }` rather than
+ * throwing on a network/timeout failure (a `timeoutFetch` abort surfaces as
+ * an `error`, not a rejection). A DB-side blip — e.g. lock contention while
+ * some other service reconnects — tends to clear within seconds, so retrying
+ * once turns "user sees a raw failure" into "the call takes a bit longer".
+ *
+ * `isRetryable` defaults to "retry on any error", which is correct for calls
+ * whose only non-error outcome already means "not found" (e.g. `.maybeSingle()`
+ * on a primary key) — there every error is by definition unexpected. Auth
+ * calls should instead pass `isRetryableAuthError` (below) so a real
+ * "wrong password" isn't retried.
+ */
+export async function withRetry<T extends { error: unknown }>(
+  run: () => PromiseLike<T>,
+  isRetryable: (error: NonNullable<T["error"]>) => boolean = () => true,
+): Promise<T> {
+  const first = await run();
+  if (!first.error || !isRetryable(first.error as NonNullable<T["error"]>)) {
+    return first;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  return run();
+}
+
+/**
+ * `isAuthRetryableFetchError` only recognizes a fetch-level failure (network
+ * death, our own `timeoutFetch` abort) or a 502/503/504 response — it misses
+ * a plain 500, which is exactly what GoTrue returns when its own DB query is
+ * starved (seen directly in this project's auth logs as "500: ... context
+ * deadline exceeded"). Any 5xx is a server-side failure worth one retry; a
+ * 4xx (wrong password, rate limit, malformed request) is definitive and must
+ * not be retried.
+ */
+export function isRetryableAuthError(error: unknown): boolean {
+  return (
+    isAuthRetryableFetchError(error) ||
+    (isAuthApiError(error) && error.status >= 500)
+  );
 }

@@ -14,7 +14,6 @@ import {
   useActiveOrgScope,
 } from "@/lib/dashboard/orgScope";
 
-const SMS_PLAN_TOTAL = 100;
 const DashboardSidebar = dynamic(() =>
   import("@/components/layout/DashboardSidebar").then(
     (mod) => mod.DashboardSidebar,
@@ -162,12 +161,21 @@ export function DashboardShell({
   useEffect(() => {
     const supabase = createClient();
 
-    // Authoritative, debounced recount of the renter's unread "new request"
-    // notifications. This is the source of truth for the Smart Match badge so it
-    // can never drift (e.g. show N after the inbox has been opened and cleared).
-    const recountSmartMatch = () => {
+    // Authoritative, debounced recount of the user's unread notifications. This
+    // is the source of truth for both the sidebar badge and the Smart Match
+    // badge so neither can drift (e.g. show N after the inbox has been opened
+    // and cleared).
+    const recountUnread = () => {
       if (recountTimer.current) clearTimeout(recountTimer.current);
       recountTimer.current = setTimeout(() => {
+        supabase
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("is_read", false)
+          .then((res: { count: number | null; error: unknown }) => {
+            if (!res.error) setNotificationCount(res.count ?? 0);
+          });
         supabase
           .from("notifications")
           .select("*", { count: "exact", head: true })
@@ -209,8 +217,8 @@ export function DashboardShell({
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          // Mark-as-read (or any update) → reconcile the badge with the DB truth.
-          recountSmartMatch();
+          // Mark-as-read (or any update) → reconcile both badges with DB truth.
+          recountUnread();
         },
       )
       .subscribe();
@@ -304,11 +312,7 @@ export function DashboardShell({
           availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <RenterTopbar
-            balance={balance}
-            smsRemaining={smsRemaining}
-            smsTotal={SMS_PLAN_TOTAL}
-          />
+          <RenterTopbar balance={balance} smsRemaining={smsRemaining} />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
@@ -335,11 +339,7 @@ export function DashboardShell({
             companies={companies}
           />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <SellerTopbar
-              balance={balance}
-              smsRemaining={smsRemaining}
-              smsTotal={SMS_PLAN_TOTAL}
-            />
+            <SellerTopbar balance={balance} smsRemaining={smsRemaining} />
             <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
               <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
                 {children}
@@ -411,11 +411,7 @@ export function DashboardShell({
           availableCabinets={availableCabinets}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <FoodTopbar
-            balance={balance}
-            smsRemaining={smsRemaining}
-            smsTotal={SMS_PLAN_TOTAL}
-          />
+          <FoodTopbar balance={balance} smsRemaining={smsRemaining} />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
@@ -445,7 +441,6 @@ export function DashboardShell({
           <ServiceTopbar
             balance={balance}
             smsRemaining={smsRemaining}
-            smsTotal={SMS_PLAN_TOTAL}
             basePath={serviceBasePath}
           />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">

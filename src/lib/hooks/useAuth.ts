@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
 
 export function useAuth() {
   const supabase = createClient();
@@ -39,31 +40,36 @@ export function useAuth() {
   }, []);
 
   async function signInWithOtp(phone: string) {
-    const { error } = await supabase.auth.signInWithOtp({ phone });
+    const { error } = await withRetry(
+      () => supabase.auth.signInWithOtp({ phone }),
+      isRetryableAuthError,
+    );
     if (error) throw error;
   }
 
   async function verifyOtp(phone: string, token: string) {
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token,
-      type: "sms",
-    });
+    const { data, error } = await withRetry(
+      () => supabase.auth.verifyOtp({ phone, token, type: "sms" }),
+      isRetryableAuthError,
+    );
     if (error) throw error;
     return data;
   }
 
   async function signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await withRetry(
+      () => supabase.auth.signUp({ email, password }),
+      isRetryableAuthError,
+    );
     if (error) throw error;
     return data;
   }
 
   async function signInWithPassword(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await withRetry(
+      () => supabase.auth.signInWithPassword({ email, password }),
+      isRetryableAuthError,
+    );
     if (error) throw error;
     return data;
   }

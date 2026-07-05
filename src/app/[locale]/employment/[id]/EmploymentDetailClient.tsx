@@ -34,6 +34,7 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
+import { revalidatePublicService } from "@/app/actions/revalidateListing";
 import { shareListing } from "@/lib/share";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables, TablesInsert } from "@/lib/types/database";
@@ -343,6 +344,7 @@ export default function EmploymentDetailClient({
     toast.success(t("submitSuccess"));
     setForm(INITIAL_FORM);
     clearCv();
+    await revalidatePublicService(service.id);
   }
 
   const inputBase =

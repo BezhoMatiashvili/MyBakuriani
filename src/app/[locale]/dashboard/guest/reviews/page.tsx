@@ -5,25 +5,47 @@ import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
-import { Clock, Heart, History, Phone, Star } from "lucide-react";
+import { History, Phone, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateShort } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
-type BookingRow = Tables<"bookings"> & {
-  properties: Pick<
-    Tables<"properties">,
-    "id" | "title" | "location" | "photos"
-  > | null;
+type ContactListing =
+  | {
+      kind: "property";
+      id: string;
+      title: string;
+      photo: string | null;
+      href: string;
+    }
+  | {
+      kind: "service";
+      id: string;
+      title: string;
+      photo: string | null;
+      href: string;
+    };
+
+type ContactEventRow = Pick<
+  Tables<"contact_events">,
+  "id" | "channel" | "created_at"
+> & {
+  listing: ContactListing;
 };
+
+type PropertyListingRow = Pick<
+  Tables<"properties">,
+  "id" | "title" | "photos" | "is_for_sale"
+>;
+type ServiceListingRow = Pick<Tables<"services">, "id" | "title" | "photos">;
 
 type ReviewRow = Tables<"reviews"> & {
   properties: Pick<Tables<"properties">, "title" | "photos"> | null;
 };
 
-function useCallRelativeFormatter() {
+function useContactRelativeFormatter() {
   const t = useTranslations("GuestReviews");
   const locale = useLocale();
 
@@ -57,22 +79,22 @@ function useCallRelativeFormatter() {
 export default function GuestHistoryPage() {
   const t = useTranslations("GuestReviews");
   const locale = useLocale();
-  const formatCallRelative = useCallRelativeFormatter();
+  const formatContactRelative = useContactRelativeFormatter();
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [contacts, setContacts] = useState<ContactEventRow[]>([]);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     async function fetchData() {
-      const [bkRes, rvRes] = await Promise.all([
+      const [ceRes, rvRes] = await Promise.all([
         supabase
-          .from("bookings")
-          .select("*, properties(id, title, location, photos)")
-          .eq("guest_id", user!.id)
+          .from("contact_events")
+          .select("id, channel, property_id, service_id, created_at")
+          .eq("visitor_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(10),
         supabase
@@ -82,8 +104,74 @@ export default function GuestHistoryPage() {
           .order("created_at", { ascending: false })
           .limit(10),
       ]);
-      if (bkRes.data) setBookings(bkRes.data as BookingRow[]);
       if (rvRes.data) setReviews(rvRes.data as ReviewRow[]);
+
+      const contactRows = ceRes.data ?? [];
+      const propertyIds = contactRows
+        .map((c) => c.property_id)
+        .filter((id): id is string => Boolean(id));
+      const serviceIds = contactRows
+        .map((c) => c.service_id)
+        .filter((id): id is string => Boolean(id));
+
+      const [propsRes, servicesRes] = await Promise.all([
+        propertyIds.length
+          ? supabase
+              .from("properties")
+              .select("id, title, photos, is_for_sale")
+              .in("id", propertyIds)
+          : Promise.resolve({ data: [] as PropertyListingRow[] }),
+        serviceIds.length
+          ? supabase
+              .from("services")
+              .select("id, title, photos")
+              .in("id", serviceIds)
+          : Promise.resolve({ data: [] as ServiceListingRow[] }),
+      ]);
+
+      const propMap = new Map(
+        ((propsRes.data as PropertyListingRow[]) ?? []).map((p) => [p.id, p]),
+      );
+      const svcMap = new Map(
+        ((servicesRes.data as ServiceListingRow[]) ?? []).map((s) => [s.id, s]),
+      );
+
+      const resolved = contactRows
+        .map((row) => {
+          let listing: ContactListing | null = null;
+          if (row.property_id) {
+            const p = propMap.get(row.property_id);
+            if (p) {
+              listing = {
+                kind: "property",
+                id: p.id,
+                title: p.title,
+                photo: p.photos?.[0] ?? null,
+                href: p.is_for_sale ? `/sales/${p.id}` : `/apartments/${p.id}`,
+              };
+            }
+          } else if (row.service_id) {
+            const s = svcMap.get(row.service_id);
+            if (s) {
+              listing = {
+                kind: "service",
+                id: s.id,
+                title: s.title,
+                photo: s.photos?.[0] ?? null,
+                href: `/services/${s.id}`,
+              };
+            }
+          }
+          return {
+            id: row.id,
+            channel: row.channel,
+            created_at: row.created_at,
+            listing,
+          };
+        })
+        .filter((c) => c.listing !== null) as ContactEventRow[];
+
+      setContacts(resolved);
       setLoading(false);
     }
     fetchData();
@@ -118,17 +206,17 @@ export default function GuestHistoryPage() {
               Array.from({ length: 2 }).map((_, i) => (
                 <Skeleton key={i} className="h-[72px] rounded-[16px]" />
               ))
-            ) : bookings.length === 0 ? (
+            ) : contacts.length === 0 ? (
               <EmptyState
                 icon={<History className="h-6 w-6 text-[#CBD5E1]" />}
                 title={t("noCalls")}
               />
             ) : (
-              bookings.map((b) => (
-                <CallCard
-                  key={b.id}
-                  booking={b}
-                  formatCallRelative={formatCallRelative}
+              contacts.map((c) => (
+                <ContactCard
+                  key={c.id}
+                  contact={c}
+                  formatContactRelative={formatContactRelative}
                 />
               ))
             )}
@@ -174,49 +262,47 @@ function EmptyState({ icon, title }: { icon: React.ReactNode; title: string }) {
   );
 }
 
-function CallCard({
-  booking,
-  formatCallRelative,
+function ContactCard({
+  contact,
+  formatContactRelative,
 }: {
-  booking: BookingRow;
-  formatCallRelative: (iso: string | null) => string;
+  contact: ContactEventRow;
+  formatContactRelative: (iso: string | null) => string;
 }) {
-  const t = useTranslations("GuestReviews");
-  const confirmed =
-    booking.status === "confirmed" || booking.status === "completed";
-  const iconChipColors = confirmed
-    ? "bg-[#ECFDF5] text-[#0F8F60]"
-    : "bg-[#FEF3C7] text-[#D97706]";
-  const callChipColors = confirmed
-    ? "bg-[#ECFDF5] text-[#0F8F60]"
-    : "bg-[#FEF3C7] text-[#D97706]";
+  const isWhatsapp = contact.channel === "whatsapp";
 
   return (
     <Link
-      href={`/apartments/${booking.properties?.id ?? ""}`}
+      href={contact.listing.href}
       className="flex items-center gap-3 rounded-[16px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-colors hover:border-[#0F8F60]/40"
     >
-      <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconChipColors}`}
-      >
-        {confirmed ? (
-          <Heart className="h-4 w-4" />
-        ) : (
-          <Clock className="h-4 w-4" />
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
+        {contact.listing.photo && (
+          <Image
+            src={contact.listing.photo}
+            alt={contact.listing.title}
+            fill
+            sizes="40px"
+            className="object-cover"
+          />
         )}
-      </span>
+      </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-bold text-[#0F172A]">
-          {booking.properties?.title ?? t("defaultProperty")}
+          {contact.listing.title}
         </p>
         <p className="text-[11px] text-[#94A3B8]">
-          {formatCallRelative(booking.created_at)}
+          {formatContactRelative(contact.created_at)}
         </p>
       </div>
-      <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${callChipColors}`}
-      >
-        <Phone className="h-4 w-4" />
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#0F8F60]">
+        {isWhatsapp ? (
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+          </svg>
+        ) : (
+          <Phone className="h-4 w-4" />
+        )}
       </span>
     </Link>
   );

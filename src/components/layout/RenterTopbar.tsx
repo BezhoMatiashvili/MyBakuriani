@@ -9,14 +9,12 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 interface RenterTopbarProps {
   balance: number;
   smsRemaining: number;
-  smsTotal: number;
   searchPlaceholder?: string;
 }
 
 export function RenterTopbar({
   balance,
   smsRemaining,
-  smsTotal,
   searchPlaceholder,
 }: RenterTopbarProps) {
   const t = useTranslations("DashboardLayout");
@@ -55,9 +53,7 @@ export function RenterTopbar({
             />
             <span>
               <span className="text-[#0F172A]">{smsRemaining}</span>
-              <span className="text-[#94A3B8]">
-                {t("topbar.smsSuffix", { total: smsTotal })}
-              </span>
+              <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
             </span>
           </div>
         </div>

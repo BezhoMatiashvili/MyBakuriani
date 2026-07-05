@@ -10,6 +10,14 @@ import PhoneInput from "@/components/forms/PhoneInput";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
+
+// A network-level failure (including a timeoutFetch abort) or a 5xx from
+// GoTrue means "couldn't tell", not "wrong credentials" — worth a distinct,
+// non-leaky message instead of the raw error text.
+function isTransientAuthError(err: unknown) {
+  return isRetryableAuthError(err);
+}
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -49,11 +57,16 @@ export default function LoginPage() {
 
   async function redirectAfterAuth(userId: string) {
     const supabase = createClient();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
+    const { data: profile, error } = await withRetry(() =>
+      supabase.from("profiles").select("role").eq("id", userId).maybeSingle(),
+    );
+    if (error) {
+      // Couldn't confirm the profile even after a retry — a DB blip, not
+      // proof the account has no profile. Land somewhere safe rather than
+      // risk bouncing an already-signed-in user to registration.
+      router.push("/dashboard/guest");
+      return;
+    }
     if (!profile) {
       router.push("/auth/register");
       return;
@@ -78,7 +91,9 @@ export default function LoginPage() {
       await signInWithOtp(fullPhone);
       setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("errors.generic"));
+      setError(
+        isTransientAuthError(err) ? t("errors.timeout") : t("errors.generic"),
+      );
     } finally {
       setLoading(false);
     }
@@ -95,7 +110,9 @@ export default function LoginPage() {
       const data = await verifyOtp(fullPhone, otp);
       if (data?.user) await redirectAfterAuth(data.user.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("errors.wrongCode"));
+      setError(
+        isTransientAuthError(err) ? t("errors.timeout") : t("errors.wrongCode"),
+      );
     } finally {
       setLoading(false);
     }
@@ -113,7 +130,9 @@ export default function LoginPage() {
       if (data?.user) await redirectAfterAuth(data.user.id);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("errors.wrongCredentials"),
+        isTransientAuthError(err)
+          ? t("errors.timeout")
+          : t("errors.wrongCredentials"),
       );
     } finally {
       setLoading(false);
@@ -144,12 +163,16 @@ export default function LoginPage() {
       if (data?.session && data.user) await redirectAfterAuth(data.user.id);
       else if (!data?.session) setSuccessMessage(t("confirmationLinkSent"));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      setError(
-        msg.includes("already registered")
-          ? t("errors.emailTaken")
-          : msg || t("errors.error"),
-      );
+      if (isTransientAuthError(err)) {
+        setError(t("errors.timeout"));
+      } else {
+        const msg = err instanceof Error ? err.message : "";
+        setError(
+          msg.includes("already registered")
+            ? t("errors.emailTaken")
+            : msg || t("errors.error"),
+        );
+      }
     } finally {
       setLoading(false);
     }

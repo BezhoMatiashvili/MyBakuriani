@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withRetry } from "@/lib/with-timeout";
 
 // Only allow same-origin, absolute paths. Reject protocol-relative (`//host`)
 // and backslash-prefixed forms (`/\\host`) that some browsers treat as external.
@@ -25,12 +26,20 @@ export async function GET(request: Request) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
+        const { data: profile, error: profileError } = await withRetry(() =>
+          supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle(),
+        );
 
+        if (profileError) {
+          // Couldn't confirm the profile even after a retry — a DB blip, not
+          // proof the account has no profile. Don't bounce a signed-in user
+          // to registration on a transient failure.
+          return NextResponse.redirect(`${origin}/dashboard/guest`);
+        }
         if (!profile) {
           return NextResponse.redirect(`${origin}/auth/register`);
         }

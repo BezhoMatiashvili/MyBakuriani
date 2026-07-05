@@ -26,6 +26,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { withRetry } from "@/lib/with-timeout";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 
@@ -104,12 +105,20 @@ export default function RegisterPage() {
     // Check if user already has a profile — redirect to dashboard if so
     const sb = createClient();
     async function checkExistingProfile() {
-      const { data: profile } = await sb
-        .from("profiles")
-        .select("role")
-        .eq("id", user!.id)
-        .single();
+      const { data: profile, error } = await withRetry(() =>
+        sb.from("profiles").select("role").eq("id", user!.id).maybeSingle(),
+      );
 
+      if (error) {
+        // Couldn't confirm whether a profile already exists, even after a
+        // retry — don't fail open into the wizard: an existing user could
+        // silently overwrite their profile (persistProfile()'s insert-conflict
+        // path updates the row) or, worse, an admin re-picking a role here
+        // would pass the profiles_lock_role trigger (it only checks the
+        // caller's *current* role) and self-demote. Land somewhere safe.
+        router.replace("/dashboard/guest");
+        return;
+      }
       if (profile) {
         const path = ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest";
         router.replace(path);
@@ -217,11 +226,9 @@ export default function RegisterPage() {
       if (updateError) throw updateError;
     }
 
-    const { data: savedProfile, error: verifyError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    const { data: savedProfile, error: verifyError } = await withRetry(() =>
+      supabase.from("profiles").select("role").eq("id", user.id).single(),
+    );
 
     if (verifyError) throw verifyError;
     if (savedProfile?.role !== selectedRole) {

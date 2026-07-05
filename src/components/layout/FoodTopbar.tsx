@@ -9,14 +9,12 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 interface FoodTopbarProps {
   balance: number;
   smsRemaining: number;
-  smsTotal: number;
   searchPlaceholder?: string;
 }
 
 export function FoodTopbar({
   balance,
   smsRemaining,
-  smsTotal,
   searchPlaceholder,
 }: FoodTopbarProps) {
   const t = useTranslations("DashboardLayout");
@@ -54,9 +52,7 @@ export function FoodTopbar({
             />
             <span>
               <span className="text-[#0F172A]">{smsRemaining}</span>
-              <span className="text-[#94A3B8]">
-                {t("topbar.smsSuffix", { total: smsTotal })}
-              </span>
+              <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
             </span>
           </div>
 

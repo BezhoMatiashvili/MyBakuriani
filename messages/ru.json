@@ -597,7 +597,7 @@
       "searchDefault": "Поиск...",
       "searchIdNumber": "Поиск (ID, номер)...",
       "activeVisitor": "Активный посетитель",
-      "smsSuffix": " / {total} SMS",
+      "smsSuffix": " SMS",
       "available": "Активен",
       "unavailable": "Неактивен"
     }
@@ -1729,7 +1729,8 @@
       "passwordsMismatch": "Пароли не совпадают",
       "emailTaken": "Эта почта уже зарегистрирована.",
       "generic": "Ошибка. Попробуйте снова.",
-      "error": "Ошибка."
+      "error": "Ошибка.",
+      "timeout": "Сервер слишком долго отвечает. Попробуйте снова."
     }
   },
   "AuthRegister": {
@@ -2513,16 +2514,16 @@
   "GuestReviews": {
     "title": "История общения",
     "subtitle": "Последние услуги и отзывы.",
-    "recentCalls": "Последние звонки",
+    "recentCalls": "Последние контакты",
     "myReviews": "Мои отзывы",
-    "noCalls": "Звонков пока нет",
+    "noCalls": "Контактов пока нет",
     "noReviews": "Отзывов пока нет",
     "defaultProperty": "Объект",
     "undated": "Без даты",
-    "calledToday": "Звонок сегодня, {time}",
-    "calledYesterday": "Звонок вчера, {time}",
-    "calledDaysAgo": "Звонок {days} дн. назад",
-    "calledOn": "Звонок {date}"
+    "calledToday": "Связались сегодня, {time}",
+    "calledYesterday": "Связались вчера, {time}",
+    "calledDaysAgo": "Связались {days} дн. назад",
+    "calledOn": "Связались {date}"
   },
   "GuestFavorites": {
     "title": "Избранное",

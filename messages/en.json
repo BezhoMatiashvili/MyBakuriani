@@ -597,7 +597,7 @@
       "searchDefault": "Search...",
       "searchIdNumber": "Search (ID, number)...",
       "activeVisitor": "Active visitor",
-      "smsSuffix": " / {total} SMS",
+      "smsSuffix": " SMS",
       "available": "Active",
       "unavailable": "Inactive"
     }
@@ -1729,7 +1729,8 @@
       "passwordsMismatch": "Passwords do not match",
       "emailTaken": "This email is already registered.",
       "generic": "Error. Please try again.",
-      "error": "Error."
+      "error": "Error.",
+      "timeout": "Server is taking too long to respond. Please try again."
     }
   },
   "AuthRegister": {
@@ -2513,16 +2514,16 @@
   "GuestReviews": {
     "title": "Communication history",
     "subtitle": "Recent services and reviews.",
-    "recentCalls": "Recent calls",
+    "recentCalls": "Recent contacts",
     "myReviews": "My reviews",
-    "noCalls": "No calls yet",
+    "noCalls": "No contacts yet",
     "noReviews": "No reviews yet",
     "defaultProperty": "Property",
     "undated": "Undated",
-    "calledToday": "Called today, {time}",
-    "calledYesterday": "Called yesterday, {time}",
-    "calledDaysAgo": "Called {days} days ago",
-    "calledOn": "Called {date}"
+    "calledToday": "Contacted today, {time}",
+    "calledYesterday": "Contacted yesterday, {time}",
+    "calledDaysAgo": "Contacted {days} days ago",
+    "calledOn": "Contacted {date}"
   },
   "GuestFavorites": {
     "title": "My favorites",

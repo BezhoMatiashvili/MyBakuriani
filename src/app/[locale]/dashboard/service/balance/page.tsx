@@ -20,11 +20,13 @@ import VipInfoModal, {
 } from "@/components/renter/VipInfoModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
+import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
 import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
+type Service = Tables<"services">;
 
 interface Tier {
   id: "super_vip" | "vip" | "discount" | "sms";
@@ -73,6 +75,18 @@ const TIER_PRICES: Record<Tier["id"], number> = {
   sms: 10.0,
 };
 
+// Maps a local tier id to the backend's purchase_type enum accepted by the
+// purchase-vip edge function / purchase_vip RPC.
+const PURCHASE_TYPE_MAP: Record<
+  Tier["id"],
+  "super_vip" | "vip_boost" | "discount_badge" | "sms_package"
+> = {
+  super_vip: "super_vip",
+  vip: "vip_boost",
+  discount: "discount_badge",
+  sms: "sms_package",
+};
+
 const TX_TYPES = [
   "topup",
   "vip_boost",
@@ -99,6 +113,7 @@ export default function ServiceBalancePage() {
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [vipModal, setVipModal] = useState<{
@@ -106,11 +121,15 @@ export default function ServiceBalancePage() {
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
   const [confirmTier, setConfirmTier] = useState<Tier["id"] | null>(null);
+  const [pickerModal, setPickerModal] = useState<{
+    open: boolean;
+    tierId: Tier["id"];
+  }>({ open: false, tierId: "vip" });
 
   useEffect(() => {
     if (!user) return;
     async function fetchData() {
-      const [balRes, txRes] = await Promise.all([
+      const [balRes, txRes, svcRes] = await Promise.all([
         supabase
           .from("balances")
           .select("*")
@@ -122,9 +141,21 @@ export default function ServiceBalancePage() {
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("services")
+          .select("*")
+          .eq("owner_id", user!.id)
+          .in("category", [
+            "transport",
+            "entertainment",
+            "employment",
+            "handyman",
+          ])
+          .order("created_at", { ascending: false }),
       ]);
       if (balRes.data) setBalance(balRes.data);
       if (txRes.data) setTransactions(txRes.data);
+      if (svcRes.data) setServices(svcRes.data);
       setLoading(false);
     }
     fetchData();
@@ -160,12 +191,16 @@ export default function ServiceBalancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  async function handlePurchase(tierId: Tier["id"]) {
+  async function handlePurchase(tierId: Tier["id"], serviceId?: string) {
     if (!user || !balance) return;
     setPurchasing(tierId);
     try {
       const { error } = await supabase.functions.invoke("purchase-vip", {
-        body: { purchase_type: tierId, days: 1 },
+        body: {
+          purchase_type: PURCHASE_TYPE_MAP[tierId],
+          days: 1,
+          service_id: serviceId,
+        },
       });
       if (error) throw error;
       const { data: txData } = await supabase
@@ -244,7 +279,11 @@ export default function ServiceBalancePage() {
               onHowItWorks={() =>
                 setVipModal({ open: true, tier: TIER_TO_INFO[tier.id] })
               }
-              onActivate={() => setConfirmTier(tier.id)}
+              onActivate={() =>
+                tier.id === "sms"
+                  ? setConfirmTier(tier.id)
+                  : setPickerModal({ open: true, tierId: tier.id })
+              }
             />
           );
         })}
@@ -321,6 +360,21 @@ export default function ServiceBalancePage() {
         isOpen={vipModal.open}
         onClose={() => setVipModal((p) => ({ ...p, open: false }))}
         tier={vipModal.tier}
+      />
+
+      <VipPropertyPickerModal
+        isOpen={pickerModal.open}
+        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
+        tier={TIER_TO_INFO[pickerModal.tierId]}
+        flat
+        properties={services.map((s) => ({
+          id: s.id,
+          title: s.title,
+          photoUrl: (s.photos ?? [])[0] ?? null,
+        }))}
+        onConfirm={async (serviceId) => {
+          await handlePurchase(pickerModal.tierId, serviceId);
+        }}
       />
 
       <ConfirmPaymentModal

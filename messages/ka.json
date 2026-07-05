@@ -597,7 +597,7 @@
       "searchDefault": "ძიება...",
       "searchIdNumber": "ძიება (ID, ნომერი)...",
       "activeVisitor": "აქტიური ვიზიტორი",
-      "smsSuffix": " / {total} SMS",
+      "smsSuffix": " SMS",
       "available": "აქტიურია",
       "unavailable": "არააქტიურია"
     }
@@ -1729,7 +1729,8 @@
       "passwordsMismatch": "პაროლები არ ემთხვევა",
       "emailTaken": "ეს ელ. ფოსტა უკვე რეგისტრირებულია.",
       "generic": "შეცდომა. სცადეთ თავიდან.",
-      "error": "შეცდომა."
+      "error": "შეცდომა.",
+      "timeout": "სერვერი ნელა პასუხობს. გთხოვთ სცადოთ თავიდან."
     }
   },
   "AuthRegister": {
@@ -2513,16 +2514,16 @@
   "GuestReviews": {
     "title": "კომუნიკაციის ისტორია",
     "subtitle": "ბოლო სერვისები და შეფასებები.",
-    "recentCalls": "ბოლო ზარები",
+    "recentCalls": "ბოლო კონტაქტები",
     "myReviews": "ჩემი შეფასებები",
-    "noCalls": "ზარები არ არის",
+    "noCalls": "კონტაქტი არ არის",
     "noReviews": "შეფასებები არ გაქვთ",
     "defaultProperty": "ობიექტი",
     "undated": "დაუთარიღებელი",
-    "calledToday": "დარეკეთ დღეს, {time}",
-    "calledYesterday": "დარეკეთ გუშინ, {time}",
-    "calledDaysAgo": "დარეკეთ {days} დღის წინ",
-    "calledOn": "დარეკეთ {date}"
+    "calledToday": "დაუკავშირდით დღეს, {time}",
+    "calledYesterday": "დაუკავშირდით გუშინ, {time}",
+    "calledDaysAgo": "დაუკავშირდით {days} დღის წინ",
+    "calledOn": "დაუკავშირდით {date}"
   },
   "GuestFavorites": {
     "title": "ჩემი რჩეულები",

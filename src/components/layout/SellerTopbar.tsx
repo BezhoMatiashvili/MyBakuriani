@@ -9,7 +9,6 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 interface SellerTopbarProps {
   balance: number;
   smsRemaining: number;
-  smsTotal: number;
   searchPlaceholder?: string;
   onSearchChange?: (value: string) => void;
   searchValue?: string;
@@ -18,7 +17,6 @@ interface SellerTopbarProps {
 export function SellerTopbar({
   balance,
   smsRemaining,
-  smsTotal,
   searchPlaceholder,
   onSearchChange,
   searchValue,
@@ -61,9 +59,7 @@ export function SellerTopbar({
             />
             <span>
               <span className="text-[#0F172A]">{smsRemaining}</span>
-              <span className="text-[#94A3B8]">
-                {t("topbar.smsSuffix", { total: smsTotal })}
-              </span>
+              <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
             </span>
           </div>
         </div>

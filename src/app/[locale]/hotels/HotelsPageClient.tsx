@@ -172,7 +172,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       <section
         className={cn(
-          "relative flex min-h-[470px] items-start justify-center px-4 pb-20 pt-16",
+          "relative flex min-h-[470px] items-start justify-center px-4 pb-20 pt-16 sm:min-h-0 sm:overflow-visible sm:pb-0",
           activeDropdown ? "overflow-visible" : "overflow-hidden",
         )}
         style={{
@@ -267,7 +267,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
           <StatusCards
             cards={statusCards}
             className={cn(
-              "mt-8",
+              "mt-8 sm:-mb-[42px]",
               activeDropdown && activeDropdown !== "location"
                 ? "md:hidden"
                 : "",

@@ -48,6 +48,10 @@ function isAuthRoute(pathname: string) {
   return /(^|\/)auth(\/|$)/.test(pathname);
 }
 
+function isHomeRoute(pathname: string) {
+  return /^\/(en|ru)?\/?$/.test(pathname);
+}
+
 export function LocaleShell({ children }: LocaleShellProps) {
   const pathname = usePathname();
   const isDashboard = isDashboardRoute(pathname);
@@ -55,6 +59,7 @@ export function LocaleShell({ children }: LocaleShellProps) {
   const isCheckout = isCheckoutRoute(pathname);
   const isSalesIndex = isSalesIndexRoute(pathname);
   const isAuth = isAuthRoute(pathname);
+  const isHome = isHomeRoute(pathname);
 
   const content = (() => {
     // Checkout is a standalone hosted-style payment page — no app chrome.
@@ -65,7 +70,6 @@ export function LocaleShell({ children }: LocaleShellProps) {
         <>
           <main className="flex-1">{children}</main>
           <Footer />
-          <StickyNewsBar />
         </>
       );
     }
@@ -74,7 +78,7 @@ export function LocaleShell({ children }: LocaleShellProps) {
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
-        <StickyNewsBar />
+        {isHome && <StickyNewsBar />}
       </HomeListingModeProvider>
     );
   })();
