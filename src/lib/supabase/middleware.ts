@@ -52,16 +52,23 @@ export async function updateSession(request: NextRequest) {
     normalizedPath.startsWith("/dashboard");
 
   try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+    // Verify the session by checking the JWT signature LOCALLY against the
+    // project's published JWKS (ES256). Unlike getUser(), getClaims() makes no
+    // network round-trip to the Auth server in the common (valid-token) case —
+    // it reads the cookie and verifies the signature offline. This matters here
+    // because on the Hobby plan middleware runs at the edge (not the pinned
+    // function region), so a getUser() call would cross regions to the Tokyo
+    // Auth server on every protected-route request. An expired token is still
+    // refreshed on-demand (getClaims -> getSession -> refresh) and the rotated
+    // cookies are written to supabaseResponse, so sessions don't silently drop.
+    const { data, error } = await supabase.auth.getClaims();
 
-    if (!user && isProtected) {
-      // getUser() resolves to { user: null, error } on a transient network/timeout
-      // failure (AuthRetryableFetchError) — it does NOT throw. Booting the user in
-      // that case is a false logout. Only redirect on a confirmed signed-out state;
-      // let transient failures through so page guards (and the client) re-validate.
+    if (!data?.claims && isProtected) {
+      // getClaims() resolves to { data: null, error } on a transient network
+      // failure (only possible when an expired token needs a refresh round-trip)
+      // — it does NOT throw. Booting the user then is a false logout. Only
+      // redirect on a confirmed signed-out state; let transient failures through
+      // so page guards (and the client) re-validate.
       if (isAuthRetryableFetchError(error)) {
         console.warn(
           "[middleware] transient auth check, letting request through:",
