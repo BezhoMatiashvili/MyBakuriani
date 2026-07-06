@@ -274,6 +274,14 @@ export function Navbar() {
               viewAllPath={viewAllNotificationsPath}
             />
           )}
+          <Link href="/create" aria-label={t("addListing")}>
+            <Button
+              size="icon"
+              className="size-11 rounded-xl bg-[#F97316] text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]"
+            >
+              <Plus className="size-5" />
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             size="icon"
@@ -338,6 +346,14 @@ export function Navbar() {
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
+              <Link
+                href="/create"
+                onClick={() => setMobileOpen(false)}
+                className="mb-2 flex items-center justify-center gap-2 rounded-xl bg-[#F97316] px-3 py-3 text-[14px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]"
+              >
+                <Plus className="size-5" />
+                {t("addListing")}
+              </Link>
               {navItemKeys.map((item) => {
                 const Icon = item.icon;
                 return (
