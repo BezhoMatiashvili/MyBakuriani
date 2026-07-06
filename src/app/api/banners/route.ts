@@ -36,5 +36,16 @@ export async function GET(req: NextRequest) {
     return startOk && endOk;
   });
 
-  return Response.json({ banners });
+  return Response.json(
+    { banners },
+    {
+      // Public, non-user-specific config. Cache at the CDN so anon page loads
+      // are served from the edge instead of invoking the function + DB every
+      // time. The route reads ?kind, so it's dynamic; s-maxage caches per-URL.
+      // Worst-case staleness for a scheduled banner ≈ 60s.
+      headers: {
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      },
+    },
+  );
 }

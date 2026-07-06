@@ -11,6 +11,14 @@ const VALID_CATEGORIES = new Set([
   "subscription",
 ]);
 
+// Public, non-user-specific pricing. Cache at the CDN so repeat anon loads are
+// served from the edge instead of invoking the function + DB. The route reads
+// ?categories, so it's dynamic; s-maxage caches per-URL. Worst-case staleness
+// after a pricing edit ≈ 60s.
+const CACHE_HEADERS = {
+  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+} as const;
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const categoriesParam = url.searchParams.get("categories");
@@ -31,12 +39,12 @@ export async function GET(req: NextRequest) {
       .map((c) => c.trim())
       .filter((c) => VALID_CATEGORIES.has(c));
     if (requested.length === 0) {
-      return Response.json({ packages: [] });
+      return Response.json({ packages: [] }, { headers: CACHE_HEADERS });
     }
     query = query.in("category", requested);
   }
 
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ packages: data ?? [] });
+  return Response.json({ packages: data ?? [] }, { headers: CACHE_HEADERS });
 }
