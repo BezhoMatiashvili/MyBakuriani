@@ -1,13 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { motion } from "framer-motion";
 import { Plus, AlertCircle, Calendar } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  pointerWithin,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type Announcements,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+  type KeyboardCoordinateGetter,
+} from "@dnd-kit/core";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
-import { leadsClient } from "@/lib/supabase/leads";
+import {
+  emitSellerLeadsChanged,
+  LEAD_STAGE_VALUES,
+  leadsClient,
+  sellerLeadsScopeKey,
+} from "@/lib/supabase/leads";
 import { formatNumber } from "@/lib/utils/format";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import AddLeadModal, {
@@ -37,53 +68,227 @@ interface Lead {
   created_at: string;
 }
 
-const STAGES: {
-  value: LeadStage;
+interface StageStyle {
   dot: string;
   cardBg: string;
   cardBorder: string;
   chip: string;
-}[] = [
-  {
-    value: "new",
+}
+
+const STAGE_STYLES: Record<LeadStage, StageStyle> = {
+  new: {
     dot: "bg-[#2563EB]",
     cardBg: "bg-[#F0F7FF]",
     cardBorder: "border-[#BFDBFE]",
     chip: "bg-[#DCFCE7] text-[#15803D]",
   },
-  {
-    value: "contacted",
+  contacted: {
     dot: "bg-[#F59E0B]",
     cardBg: "bg-[#FFFBEB]",
     cardBorder: "border-[#FCD34D]",
     chip: "bg-[#FEF3C7] text-[#A16207]",
   },
-  {
-    value: "shown",
+  shown: {
     dot: "bg-[#9333EA]",
     cardBg: "bg-[#FAF5FF]",
     cardBorder: "border-[#E9D5FF]",
     chip: "bg-[#F3E8FF] text-[#9333EA]",
   },
-  {
-    value: "negotiating",
+  negotiating: {
     dot: "bg-[#0EA5E9]",
     cardBg: "bg-[#F0FDFA]",
     cardBorder: "border-[#BAE6FD]",
     chip: "bg-[#CFFAFE] text-[#0369A1]",
   },
-  {
-    value: "closed",
+  closed: {
     dot: "bg-[#10B981]",
     cardBg: "bg-[#F0FDF4]",
     cardBorder: "border-[#A7F3D0]",
     chip: "bg-[#DCFCE7] text-[#15803D]",
   },
-];
+};
+
+const STAGES = LEAD_STAGE_VALUES.map((value) => ({
+  value,
+  ...STAGE_STYLES[value],
+}));
 
 const HIGH_PRIORITY_CHIP = "bg-[#DCFCE7] text-[#15803D]";
 
 const SOURCE_KEYS = ["direct", "call", "walk_in", "referral", "other"] as const;
+
+type StageConfig = (typeof STAGES)[number];
+
+function isLeadStage(value: unknown): value is LeadStage {
+  return STAGES.some((stage) => stage.value === value);
+}
+
+function isMissingLeadsTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String(error.code) : "";
+  if (code === "42P01" || code === "PGRST205") return true;
+
+  const message = "message" in error ? String(error.message) : "";
+  return (
+    /relation\s+["']?(?:public\.)?leads["']?\s+does not exist/i.test(message) ||
+    /could not find (?:the )?table\s+["']?(?:public\.)?leads/i.test(message)
+  );
+}
+
+function stageDndId(stage: LeadStage) {
+  return `stage:${stage}`;
+}
+
+function leadDndId(leadId: string) {
+  return `lead:${leadId}`;
+}
+
+function stageFromDndData(data: unknown): LeadStage | null {
+  if (!data || typeof data !== "object" || !("stage" in data)) return null;
+  const stage = (data as { stage?: unknown }).stage;
+  return isLeadStage(stage) ? stage : null;
+}
+
+function newLeadDelta(previous: LeadStage | null, next: LeadStage) {
+  return Number(next === "new") - Number(previous === "new");
+}
+
+/** Move keyboard drags one board stage per arrow press. */
+const stageKeyboardCoordinates: KeyboardCoordinateGetter = (
+  event,
+  { context },
+) => {
+  const forward = event.code === "ArrowRight" || event.code === "ArrowDown";
+  const backward = event.code === "ArrowLeft" || event.code === "ArrowUp";
+  if (!forward && !backward) return undefined;
+
+  const currentStage =
+    stageFromDndData(context.over?.data.current) ??
+    stageFromDndData(context.active?.data.current);
+  if (!currentStage || !context.collisionRect) return undefined;
+
+  const currentIndex = STAGES.findIndex(
+    (stage) => stage.value === currentStage,
+  );
+  const targetStage = STAGES[currentIndex + (forward ? 1 : -1)];
+  if (!targetStage) return undefined;
+
+  const targetRect = context.droppableRects.get(stageDndId(targetStage.value));
+  if (!targetRect) return undefined;
+
+  event.preventDefault();
+  return {
+    x:
+      targetRect.left +
+      Math.max(0, (targetRect.width - context.collisionRect.width) / 2),
+    y:
+      targetRect.top +
+      Math.max(0, (targetRect.height - context.collisionRect.height) / 2),
+  };
+};
+
+const stageCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return args.pointerCoordinates ? pointerCollisions : closestCenter(args);
+};
+
+function StageColumn({
+  stage,
+  activeStage,
+  children,
+}: {
+  stage: StageConfig;
+  activeStage: LeadStage | null;
+  children: ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: stageDndId(stage.value),
+    data: { type: "stage", stage: stage.value },
+  });
+  const isValidTarget =
+    isOver && activeStage !== null && activeStage !== stage.value;
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-stage={stage.value}
+      data-drop-target={isValidTarget ? "true" : undefined}
+      className={`flex min-h-[480px] flex-col rounded-2xl p-3 transition-[background-color,box-shadow] ${
+        isValidTarget
+          ? "bg-[#EFF6FF] shadow-[inset_0_0_0_2px_#2563EB]"
+          : "bg-[#F8FAFC]"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DraggableLeadCard({
+  lead,
+  disabled,
+  ariaLabel,
+  className,
+  onEdit,
+  children,
+}: {
+  lead: Lead;
+  disabled: boolean;
+  ariaLabel: string;
+  className: string;
+  onEdit: (fromPointer: boolean) => void;
+  children: ReactNode;
+}) {
+  const { attributes, isDragging, listeners, setNodeRef } = useDraggable({
+    id: leadDndId(lead.id),
+    data: {
+      type: "lead",
+      leadId: lead.id,
+      name: lead.client_name,
+      stage: lead.stage,
+    },
+    disabled,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      role="button"
+      tabIndex={0}
+      data-lead-id={lead.id}
+      data-dragging={isDragging ? "true" : undefined}
+      aria-label={ariaLabel}
+      aria-busy={disabled || undefined}
+      aria-disabled={disabled || undefined}
+      onClick={() => {
+        if (!disabled) onEdit(true);
+      }}
+      onKeyDown={(event) => {
+        if (disabled) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+          }
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          onEdit(false);
+          return;
+        }
+        listeners?.onKeyDown?.(event);
+      }}
+      className={`${className} min-h-[44px] touch-manipulation rounded-xl border p-3 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[opacity,box-shadow] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
+        disabled
+          ? "cursor-wait opacity-70"
+          : "cursor-grab hover:shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12)] active:cursor-grabbing"
+      } ${isDragging ? "opacity-35" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 function formatBudget(
   min: number | null,
@@ -121,16 +326,87 @@ export default function SalesBoard({
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
+  const [pendingLeadIds, setPendingLeadIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const pointerDragRef = useRef(false);
+  const lastPointerDragEndedAtRef = useRef(0);
+  const fetchVersionRef = useRef(0);
 
   const orgScoped = scope.mode === "org" && !!scope.organizationId;
+  const persistedScopeKey = useMemo(
+    () =>
+      user
+        ? sellerLeadsScopeKey(
+            user.id,
+            orgScoped ? scope.organizationId : null,
+          )
+        : null,
+    [orgScoped, scope.organizationId, user],
+  );
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 220, tolerance: 6 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: stageKeyboardCoordinates,
+      keyboardCodes: {
+        start: ["Space"],
+        cancel: ["Escape"],
+        end: ["Space"],
+      },
+    }),
+  );
+
+  const announcements = useMemo<Announcements>(
+    () => ({
+      onDragStart({ active }) {
+        const name = String(active.data.current?.name ?? "");
+        const stage = stageFromDndData(active.data.current);
+        return t("dragStart", {
+          name,
+          stage: stage ? t(`stages.${stage}`) : "",
+        });
+      },
+      onDragOver({ active, over }) {
+        const stage = stageFromDndData(over?.data.current);
+        if (!stage) return undefined;
+        return t("dragOver", {
+          name: String(active.data.current?.name ?? ""),
+          stage: t(`stages.${stage}`),
+        });
+      },
+      onDragEnd({ active, over }) {
+        const name = String(active.data.current?.name ?? "");
+        const previousStage = stageFromDndData(active.data.current);
+        const stage = stageFromDndData(over?.data.current);
+        return stage && stage !== previousStage
+          ? t("dragEnd", { name, stage: t(`stages.${stage}`) })
+          : t("dragCancel", { name });
+      },
+      onDragCancel({ active }) {
+        return t("dragCancel", {
+          name: String(active.data.current?.name ?? ""),
+        });
+      },
+    }),
+    [t],
+  );
 
   useEffect(() => {
     if (!user) return;
+    const requestVersion = ++fetchVersionRef.current;
 
     async function fetchAll() {
       setLoading(true);
+      setTableMissing(false);
+      setLoadError(false);
       let query = leadsClient(supabase)
         .from("leads")
         .select("*, property:properties(title)");
@@ -141,11 +417,16 @@ export default function SalesBoard({
         ascending: false,
       });
 
+      if (requestVersion !== fetchVersionRef.current) return;
+
       if (leadsRes.error) {
-        setTableMissing(true);
+        const missingTable = isMissingLeadsTableError(leadsRes.error);
+        setTableMissing(missingTable);
+        setLoadError(!missingTable);
         setLeads([]);
       } else {
         setTableMissing(false);
+        setLoadError(false);
         setLeads(
           (leadsRes.data ?? []).map((r: Record<string, unknown>): Lead => ({
             id: r.id as string,
@@ -173,6 +454,11 @@ export default function SalesBoard({
     }
 
     fetchAll();
+    return () => {
+      if (fetchVersionRef.current === requestVersion) {
+        fetchVersionRef.current += 1;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, scope.mode, scope.organizationId]);
 
@@ -187,6 +473,112 @@ export default function SalesBoard({
     for (const l of leads) map[l.stage].push(l);
     return map;
   }, [leads]);
+
+  const activeLead = activeLeadId
+    ? (leads.find((lead) => lead.id === activeLeadId) ?? null)
+    : null;
+
+  function notifyPersistedMutation(previous: LeadStage | null, next: LeadStage) {
+    if (!persistedScopeKey) return;
+    emitSellerLeadsChanged({
+      scopeKey: persistedScopeKey,
+      newLeadDelta: newLeadDelta(previous, next),
+    });
+  }
+
+  function openLeadEditor(lead: Lead, fromPointer: boolean) {
+    if (
+      fromPointer &&
+      Date.now() - lastPointerDragEndedAtRef.current < 350
+    ) {
+      return;
+    }
+    setEditingLead(lead);
+  }
+
+  function finishDrag() {
+    if (pointerDragRef.current) {
+      lastPointerDragEndedAtRef.current = Date.now();
+    }
+    pointerDragRef.current = false;
+    setActiveLeadId(null);
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const leadId = event.active.data.current?.leadId;
+    if (typeof leadId !== "string") return;
+    pointerDragRef.current = event.activatorEvent.type !== "keydown";
+    setActiveLeadId(leadId);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const leadId = event.active.data.current?.leadId;
+    const targetStage = stageFromDndData(event.over?.data.current);
+    finishDrag();
+    if (typeof leadId !== "string" || !targetStage) return;
+
+    const lead = leads.find((item) => item.id === leadId);
+    if (
+      !lead ||
+      lead.stage === targetStage ||
+      pendingLeadIds.has(leadId)
+    ) {
+      return;
+    }
+    void moveLeadToStage(lead, targetStage);
+  }
+
+  function handleDragCancel() {
+    finishDrag();
+  }
+
+  async function moveLeadToStage(lead: Lead, targetStage: LeadStage) {
+    if (!user || lead.stage === targetStage) return;
+    const previousStage = lead.stage;
+    const updateLocalStage = (stage: LeadStage) => {
+      setLeads((current) =>
+        current.map((item) =>
+          item.id === lead.id ? { ...item, stage } : item,
+        ),
+      );
+      setEditingLead((current) =>
+        current?.id === lead.id ? { ...current, stage } : current,
+      );
+    };
+
+    updateLocalStage(targetStage);
+    if (tableMissing) return;
+
+    setPendingLeadIds((current) => {
+      const next = new Set(current);
+      next.add(lead.id);
+      return next;
+    });
+
+    try {
+      let updateQuery = leadsClient(supabase)
+        .from("leads")
+        .update({ stage: targetStage })
+        .eq("id", lead.id);
+      updateQuery = orgScoped
+        ? updateQuery.eq("organization_id", scope.organizationId!)
+        : updateQuery.eq("owner_id", user.id);
+      const { error } = await updateQuery.select("id").single();
+      if (error) throw new Error(error.message);
+
+      notifyPersistedMutation(previousStage, targetStage);
+      toast.success(t("stageUpdated"));
+    } catch {
+      updateLocalStage(previousStage);
+      toast.error(t("stageUpdateFailed"));
+    } finally {
+      setPendingLeadIds((current) => {
+        const next = new Set(current);
+        next.delete(lead.id);
+        return next;
+      });
+    }
+  }
 
   async function handleCreate(input: LeadInput) {
     if (!user) return;
@@ -257,12 +649,14 @@ export default function SalesBoard({
         },
         ...prev,
       ]);
+      notifyPersistedMutation(null, data.stage as LeadStage);
     }
   }
 
   async function handleUpdate(input: LeadInput) {
     if (!user || !editingLead) return;
     const id = editingLead.id;
+    const previousStage = editingLead.stage;
 
     if (tableMissing) {
       setLeads((prev) =>
@@ -333,8 +727,81 @@ export default function SalesBoard({
             : l,
         ),
       );
+      notifyPersistedMutation(previousStage, data.stage as LeadStage);
     }
   }
+
+  function renderLeadContent(lead: Lead, stage: StageConfig) {
+    const budget = formatBudget(
+      lead.budget_min,
+      lead.budget_max,
+      lead.currency,
+    );
+    const topChipText =
+      lead.priority === "high"
+        ? t("hotCase")
+        : lead.source
+          ? SOURCE_KEYS.includes(
+              lead.source as (typeof SOURCE_KEYS)[number],
+            )
+            ? t(
+                `sources.${lead.source as (typeof SOURCE_KEYS)[number]}`,
+              )
+            : lead.source
+          : null;
+
+    return (
+      <>
+        <div className="flex items-center justify-between gap-2">
+          {topChipText && (
+            <span
+              className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                lead.priority === "high" ? HIGH_PRIORITY_CHIP : stage.chip
+              }`}
+            >
+              {topChipText}
+            </span>
+          )}
+          <span className="text-[10px] text-[#94A3B8]">
+            {formatRelativeTime(tShared, lead.created_at)}
+          </span>
+        </div>
+        <p className="mt-2 truncate text-[16px] font-extrabold text-[#0F172A]">
+          {lead.client_name}
+        </p>
+        {lead.property_title && (
+          <p className="mt-0.5 truncate text-[11px] font-semibold uppercase text-[#64748B]">
+            {lead.property_title}
+          </p>
+        )}
+        {budget && (
+          <div className="mt-2.5 flex items-center justify-between rounded-lg bg-white/70 px-3 py-1.5">
+            <span className="text-[10px] font-bold uppercase text-[#64748B]">
+              {t("budget")}
+            </span>
+            <span className="text-[12px] font-black text-[#0F172A]">
+              {budget}
+            </span>
+          </div>
+        )}
+        {lead.note && (
+          <p className="mt-2 line-clamp-2 rounded-lg bg-white/70 p-2 text-[11px] italic text-[#475569]">
+            &ldquo;{lead.note}&rdquo;
+          </p>
+        )}
+        {lead.next_action_at && (
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-[11px] font-bold text-[#0F172A]">
+            <Calendar className="h-3.5 w-3.5" />
+            {formatRelativeTime(tShared, lead.next_action_at)}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  const activeStageConfig = activeLead
+    ? (STAGES.find((stage) => stage.value === activeLead.stage) ?? null)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -377,124 +844,93 @@ export default function SalesBoard({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {STAGES.map((stage) => {
-          const stageLeads = byStage[stage.value];
-          return (
-            <div
-              key={stage.value}
-              className="flex min-h-[480px] flex-col rounded-2xl bg-[#F8FAFC] p-3"
-            >
-              <div className="mb-3 flex items-center justify-between px-2">
-                <div className="flex items-center gap-2">
+      {loadError && (
+        <div className="flex items-start gap-3 rounded-2xl border border-[#FECACA] bg-[#FEF2F2] px-5 py-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#DC2626]" />
+          <p className="text-[13px] font-bold text-[#991B1B]">
+            {t("loadFailed")}
+          </p>
+        </div>
+      )}
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={stageCollisionDetection}
+        accessibility={{
+          announcements,
+          screenReaderInstructions: { draggable: t("dragInstructions") },
+        }}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {STAGES.map((stage) => {
+            const stageLeads = byStage[stage.value];
+            return (
+              <StageColumn
+                key={stage.value}
+                stage={stage}
+                activeStage={activeLead?.stage ?? null}
+              >
+                <div className="mb-3 flex items-center justify-between px-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${stage.dot}`}
+                      aria-hidden
+                    />
+                    <span className="text-[12px] font-bold text-[#0F172A]">
+                      {t(`stages.${stage.value}`)}
+                    </span>
+                  </div>
                   <span
-                    className={`h-2 w-2 rounded-full ${stage.dot}`}
-                    aria-hidden
-                  />
-                  <span className="text-[12px] font-bold text-[#0F172A]">
-                    {t(`stages.${stage.value}`)}
+                    data-stage-count={stage.value}
+                    className="flex h-5 min-w-[20px] items-center justify-center rounded-md bg-white px-1.5 text-[11px] font-bold text-[#64748B]"
+                  >
+                    {stageLeads.length}
                   </span>
                 </div>
-                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-md bg-white px-1.5 text-[11px] font-bold text-[#64748B]">
-                  {stageLeads.length}
-                </span>
-              </div>
 
-              <div className="flex-1 space-y-3">
-                {loading ? (
-                  <div className="h-24 animate-pulse rounded-xl bg-white" />
-                ) : stageLeads.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-white/50 py-8 text-center text-[11px] text-[#94A3B8]">
-                    {tShared("empty")}
-                  </div>
-                ) : (
-                  stageLeads.map((lead) => {
-                    const budget = formatBudget(
-                      lead.budget_min,
-                      lead.budget_max,
-                      lead.currency,
-                    );
-                    const topChipText =
-                      lead.priority === "high"
-                        ? t("hotCase")
-                        : lead.source
-                          ? SOURCE_KEYS.includes(
-                              lead.source as (typeof SOURCE_KEYS)[number],
-                            )
-                            ? t(
-                                `sources.${lead.source as (typeof SOURCE_KEYS)[number]}`,
-                              )
-                            : lead.source
-                          : null;
-                    return (
-                      <div
+                <div className="flex-1 space-y-3">
+                  {loading ? (
+                    <div className="h-24 animate-pulse rounded-xl bg-white" />
+                  ) : stageLeads.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-white/50 py-8 text-center text-[11px] text-[#94A3B8]">
+                      {tShared("empty")}
+                    </div>
+                  ) : (
+                    stageLeads.map((lead) => (
+                      <DraggableLeadCard
                         key={lead.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setEditingLead(lead)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setEditingLead(lead);
-                          }
-                        }}
-                        aria-label={`${tShared("edit")}: ${lead.client_name}`}
-                        className={`min-h-[44px] cursor-pointer rounded-xl border p-3 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${stage.cardBg} ${stage.cardBorder}`}
+                        lead={lead}
+                        disabled={pendingLeadIds.has(lead.id)}
+                        ariaLabel={`${tShared("edit")}: ${lead.client_name}`}
+                        onEdit={(fromPointer) =>
+                          openLeadEditor(lead, fromPointer)
+                        }
+                        className={`${stage.cardBg} ${stage.cardBorder}`}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          {topChipText && (
-                            <span
-                              className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                                lead.priority === "high"
-                                  ? HIGH_PRIORITY_CHIP
-                                  : stage.chip
-                              }`}
-                            >
-                              {topChipText}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-[#94A3B8]">
-                            {formatRelativeTime(tShared, lead.created_at)}
-                          </span>
-                        </div>
-                        <p className="mt-2 truncate text-[16px] font-extrabold text-[#0F172A]">
-                          {lead.client_name}
-                        </p>
-                        {lead.property_title && (
-                          <p className="mt-0.5 truncate text-[11px] font-semibold uppercase text-[#64748B]">
-                            {lead.property_title}
-                          </p>
-                        )}
-                        {budget && (
-                          <div className="mt-2.5 flex items-center justify-between rounded-lg bg-white/70 px-3 py-1.5">
-                            <span className="text-[10px] font-bold uppercase text-[#64748B]">
-                              {t("budget")}
-                            </span>
-                            <span className="text-[12px] font-black text-[#0F172A]">
-                              {budget}
-                            </span>
-                          </div>
-                        )}
-                        {lead.note && (
-                          <p className="mt-2 line-clamp-2 rounded-lg bg-white/70 p-2 text-[11px] italic text-[#475569]">
-                            &ldquo;{lead.note}&rdquo;
-                          </p>
-                        )}
-                        {lead.next_action_at && (
-                          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-[11px] font-bold text-[#0F172A]">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {formatRelativeTime(tShared, lead.next_action_at)}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                        {renderLeadContent(lead, stage)}
+                      </DraggableLeadCard>
+                    ))
+                  )}
+                </div>
+              </StageColumn>
+            );
+          })}
+        </div>
+
+        <DragOverlay modifiers={[restrictToWindowEdges]}>
+          {activeLead && activeStageConfig ? (
+            <div
+              aria-hidden
+              className={`w-[280px] max-w-[calc(100vw-2rem)] cursor-grabbing rounded-xl border p-3 text-left opacity-95 shadow-[0_16px_32px_-8px_rgba(15,23,42,0.32)] ${activeStageConfig.cardBg} ${activeStageConfig.cardBorder}`}
+            >
+              {renderLeadContent(activeLead, activeStageConfig)}
             </div>
-          );
-        })}
-      </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       <AddLeadModal
         isOpen={modalOpen}

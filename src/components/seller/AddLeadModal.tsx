@@ -5,10 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Check, Flame, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import PhoneInput from "@/components/forms/PhoneInput";
+import {
+  LEAD_STAGE_VALUES,
+  type LeadStageValue,
+} from "@/lib/supabase/leads";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 
-export type LeadStage =
-  "new" | "contacted" | "shown" | "negotiating" | "closed";
+export type LeadStage = LeadStageValue;
 
 export type LeadPriority = "low" | "medium" | "high";
 
@@ -57,14 +60,6 @@ const INTEREST_VALUES: LeadInterestType[] = [
   "cottage_purchase",
   "land_plot",
   "long_term_rent",
-];
-
-const STAGE_VALUES: LeadStage[] = [
-  "new",
-  "contacted",
-  "shown",
-  "negotiating",
-  "closed",
 ];
 
 const LOCATION_VALUES: LeadLocation[] = [
@@ -186,6 +181,7 @@ export default function AddLeadModal({
   onSubmit,
 }: AddLeadModalProps) {
   const t = useTranslations("SellerDashboard.addLead");
+  const tStages = useTranslations("SellerDashboard.salesBoard.stages");
   const tShared = useTranslations("DashboardShared");
 
   const interestOptions = useMemo(
@@ -199,11 +195,11 @@ export default function AddLeadModal({
 
   const stageOptions = useMemo(
     () =>
-      STAGE_VALUES.map((value) => ({
+      LEAD_STAGE_VALUES.map((value) => ({
         value,
-        label: t(`stages.${value}`),
+        label: tStages(value),
       })),
-    [t],
+    [tStages],
   );
 
   const locationOptions = useMemo(

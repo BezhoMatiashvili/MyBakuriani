@@ -118,3 +118,4 @@ export const notifications = tableHelper("notifications");
 export const verifications = tableHelper("verifications");
 export const blogPosts = tableHelper("blog_posts");
 export const cleaningTasks = tableHelper("cleaning_tasks");
+export const leads = tableHelper("leads");

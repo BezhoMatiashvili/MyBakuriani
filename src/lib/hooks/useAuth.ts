@@ -29,7 +29,13 @@ export function useAuth() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      // Only change `user` identity when the signed-in user actually changes.
+      // onAuthStateChange also fires on every TOKEN_REFRESHED with a fresh user
+      // object of the SAME id; bumping `user` there needlessly re-ran every
+      // `[user]`-dependent effect across the app (profile/balance refetches,
+      // realtime re-subscribes), multiplying load on each token refresh.
+      const nextUser = session?.user ?? null;
+      setUser((prev) => (prev?.id === nextUser?.id ? prev : nextUser));
       setLoading(false);
     });
 

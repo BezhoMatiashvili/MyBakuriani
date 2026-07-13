@@ -44,9 +44,7 @@ export default async function ApartmentsPage() {
       .limit(100),
   ]);
 
-  if (error) {
-    console.error("[apartments] failed to load properties", error.message);
-  }
+  if (error) throw error;
 
   return (
     <ApartmentsPageClient

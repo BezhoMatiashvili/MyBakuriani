@@ -1,7 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type LeadStageValue =
-  "new" | "contacted" | "shown" | "negotiating" | "closed";
+export const LEAD_STAGE_VALUES = [
+  "new",
+  "contacted",
+  "shown",
+  "negotiating",
+  "closed",
+] as const;
+
+export type LeadStageValue = (typeof LEAD_STAGE_VALUES)[number];
 
 export type LeadPriorityValue = "low" | "medium" | "high";
 
@@ -40,6 +47,39 @@ export interface LeadInsert {
   note?: string | null;
   interest_type?: string | null;
   desired_location?: string | null;
+}
+
+export interface SellerLeadsChangedDetail {
+  scopeKey: string;
+  newLeadDelta: number;
+}
+
+export const SELLER_LEADS_CHANGED_EVENT = "seller-leads-changed";
+
+/**
+ * Returns the stable key used to keep lead mutations and sidebar counts in the
+ * same active seller scope. Organization mode is shared by every member of the
+ * organization; personal mode is isolated to the signed-in owner.
+ */
+export function sellerLeadsScopeKey(
+  ownerId: string,
+  organizationId?: string | null,
+): string {
+  return organizationId
+    ? `organization:${organizationId}`
+    : `owner:${ownerId}`;
+}
+
+/** Notify client-side dashboard consumers after a persisted lead mutation. */
+export function emitSellerLeadsChanged(
+  detail: SellerLeadsChangedDetail,
+): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<SellerLeadsChangedDetail>(SELLER_LEADS_CHANGED_EVENT, {
+      detail,
+    }),
+  );
 }
 
 // The `leads` table is optional — created by migration 013_leads.sql.

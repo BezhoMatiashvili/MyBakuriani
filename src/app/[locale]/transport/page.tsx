@@ -31,9 +31,7 @@ export default async function TransportPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  if (error) {
-    console.error("[transport] failed to load services", error.message);
-  }
+  if (error) throw error;
 
   return <TransportPageClient services={services ?? []} />;
 }

@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { listingTag } from "@/lib/data/getCachedPublicListing";
+import { revalidateListingLists } from "@/lib/data/revalidateListings";
 import {
   propertyTypeLabelKa,
   serviceCategoryLabelKa,
@@ -82,8 +83,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: updateErr.message }, { status: 500 });
   }
 
-  // Approve/reject flips public visibility — drop the cached public listing now.
+  // Approve/reject flips public visibility — drop the cached public listing
+  // (detail page) AND the ISR-cached category + landing list pages now.
   revalidateTag(listingTag(body.kind, body.id));
+  revalidateListingLists(body.kind);
 
   const listingName = existing.title?.trim() || "განცხადება";
   const typeLabel =

@@ -41,9 +41,7 @@ export default async function HotelsPage() {
       .limit(100),
   ]);
 
-  if (error) {
-    console.error("[hotels] failed to load properties", error.message);
-  }
+  if (error) throw error;
 
   return (
     <HotelsPageClient properties={properties ?? []} statusCards={statusCards} />

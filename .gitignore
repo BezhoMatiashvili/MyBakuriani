@@ -64,3 +64,8 @@ next-env.d.ts
 # Cursor local render-check scratch dumps + stale homepage snapshots
 .cursor-local-render-check*.html
 /.stale/
+
+# Multi-session coordination: commit the protocol, ignore the live state
+# (sessions/, locks/, messages.md are local scratch). See coordination/README.md
+/coordination/*
+!/coordination/README.md

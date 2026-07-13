@@ -22,12 +22,14 @@ export async function generateMetadata({
 export default async function BlogPage() {
   const supabase = createPublicClient();
 
-  const { data: posts } = await supabase
+  const { data: posts, error } = await supabase
     .from("blog_posts")
     .select("*")
     .eq("published", true)
     .order("published_at", { ascending: false })
     .limit(100);
+
+  if (error) throw error;
 
   return <BlogPageClient posts={posts ?? []} />;
 }

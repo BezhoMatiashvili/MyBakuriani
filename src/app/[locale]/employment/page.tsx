@@ -32,9 +32,7 @@ export default async function EmploymentPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  if (error) {
-    console.error("[employment] failed to load services", error.message);
-  }
+  if (error) throw error;
 
   const cvCounts = await getCvCountsForServices(
     (services ?? []).map((s) => s.id),

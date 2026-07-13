@@ -35,9 +35,7 @@ export default async function SalesPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  if (error) {
-    console.error("[sales] failed to load properties", error.message);
-  }
+  if (error) throw error;
 
   return <SalesPageClient properties={properties ?? []} />;
 }

@@ -31,9 +31,7 @@ export default async function FoodPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  if (error) {
-    console.error("[food] failed to load services", error.message);
-  }
+  if (error) throw error;
 
   return <FoodPageClient services={services ?? []} />;
 }

@@ -2569,7 +2569,7 @@
       "subtitle": "Manage requests by stage (drag-and-drop).",
       "addLead": "Add request",
       "tableMissingTitle": "Leads table does not exist in the database.",
-      "tableMissingDesc": "Requests are temporarily stored in the browser. Run migration {migration} to enable.",
+      "tableMissingDesc": "Requests are kept only for this session. Run migration {migration} to enable database storage.",
       "hotCase": "Hot lead",
       "stages": {
         "new": "New request",
@@ -2585,7 +2585,15 @@
         "referral": "Referral",
         "other": "Other"
       },
-      "budget": "Budget"
+      "budget": "Budget",
+      "loadFailed": "Could not load leads. Refresh the page and try again.",
+      "stageUpdated": "Stage updated",
+      "stageUpdateFailed": "Could not update the stage. Please try again.",
+      "dragInstructions": "Press Space to pick up a lead. Use the arrow keys to change its stage. Press Space again to drop, or Escape to cancel.",
+      "dragStart": "Picked up {name}. Current stage: {stage}.",
+      "dragOver": "{name} is over {stage}.",
+      "dragEnd": "{name} moved to {stage}.",
+      "dragCancel": "Movement cancelled for {name}."
     },
     "addLead": {
       "title": "Add new request",
@@ -2612,13 +2620,6 @@
         "cottage_purchase": "Cottage purchase",
         "land_plot": "Land plot",
         "long_term_rent": "Long-term rental"
-      },
-      "stages": {
-        "new": "New request",
-        "contacted": "Contacted",
-        "shown": "Property shown",
-        "negotiating": "Sold / completed",
-        "closed": "Invalid / cancelled"
       },
       "locations": {
         "didveli": "Didveli",

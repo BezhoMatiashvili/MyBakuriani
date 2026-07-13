@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { listingTag } from "@/lib/data/getCachedPublicListing";
+import { revalidateListingLists } from "@/lib/data/revalidateListings";
 import type { Database } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -123,7 +124,8 @@ export async function PATCH(req: NextRequest) {
   if (body.is_new !== undefined) patch.is_new = body.is_new;
   const { error } = await db.from(table).update(patch).eq("id", body.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  // Status / is_new change affects the cached public listing — invalidate it.
+  // Status / is_new change affects the cached public listing + list pages.
   revalidateTag(listingTag(body.kind, body.id));
+  revalidateListingLists(body.kind);
   return Response.json({ ok: true });
 }

@@ -31,9 +31,7 @@ export default async function ServicesPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  if (error) {
-    console.error("[services] failed to load services", error.message);
-  }
+  if (error) throw error;
 
   return <ServicesPageClient services={services ?? []} />;
 }

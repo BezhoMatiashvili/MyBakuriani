@@ -149,3 +149,35 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_SITE_URL
 ```
+
+## Memory bank (always-loaded)
+
+@memory-bank/INDEX.md
+@memory-bank/contracts.md
+
+The two imports above load every session: the project map + where "truth" lives,
+and the cross-cutting contracts (string-keyed / generated / wire couplings a
+call-graph tool can't see). Area detail (`memory-bank/areas/*.md`) and the symbol
+inventory (`memory-bank/generated/symbols.md`) are **read on demand** — they are
+plain links, not `@import`, so they don't bloat every session.
+
+### Standing rules
+
+- **Pre-modification ritual** (before editing any symbol): open the matching
+  `memory-bank/areas/<area>.md`, scan `contracts.md` for that symbol, then grep the
+  symbol repo-wide (string-keyed couplings won't show as imports). Full steps in
+  `INDEX.md`.
+- **Keep memory in sync in the SAME session:** if a change touches a participant of
+  any contract, update that `contracts.md` section (and the area file if its blast
+  radius changed) in the same session as the code change. If you add/rename/remove
+  exported symbols, regenerate the inventory: `python3 scripts/gen_code_map.py`.
+- **Validate anchors:** run `python3 scripts/gen_code_map.py --check` after editing
+  anything under `memory-bank/`; fix dangling anchors before finishing.
+- **Never `git commit` without asking the user.**
+
+## Multi-session coordination
+
+Multiple Claude sessions may run against this repo at once. Before editing, follow
+`coordination/README.md`: register your session, claim the files you'll touch, and
+check others' claims. **Uncommitted changes you did not make are NOT yours** — do
+not revert or commit them. `coordination/` is git-ignored (local scratch only).

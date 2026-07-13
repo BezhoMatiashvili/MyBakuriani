@@ -13,6 +13,7 @@ import {
   smartMatchRequests,
   verifications,
   smsMessages,
+  leads,
 } from "./supabase";
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,9 @@ export const TEST_IDS = {
 
   // Transaction
   transaction: "aae2ff00-b001-4000-a000-000000000001",
+
+  // Seller CRM lead
+  sellerLead: "aae2ff00-c001-4000-a000-000000000001",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -252,6 +256,24 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     photos: [],
     status: "active",
     is_for_sale: true,
+  });
+
+  // ---- Seller CRM lead ----
+  await leads.create({
+    id: TEST_IDS.sellerLead,
+    owner_id: TEST_IDS.seller,
+    property_id: TEST_IDS.sale,
+    client_name: "E2E Drag Lead",
+    client_phone: "+995555010101",
+    source: "direct",
+    stage: "new",
+    priority: "high",
+    budget_min: 45_000,
+    budget_max: 55_000,
+    currency: "USD",
+    note: "Deterministic seller board lead",
+    interest_type: "apartment_purchase",
+    desired_location: "didveli",
   });
 
   // ---- Calendar blocks ----
@@ -462,6 +484,9 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
 // ---------------------------------------------------------------------------
 export async function cleanupTestData(): Promise<void> {
   const ignore = () => {};
+
+  // Seller leads (depends on profiles + properties)
+  await leads.delete(TEST_IDS.sellerLead).catch(ignore);
 
   // Reviews (depends on bookings + properties)
   await reviews.delete(TEST_IDS.review).catch(ignore);

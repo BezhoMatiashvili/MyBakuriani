@@ -31,9 +31,7 @@ export default async function EntertainmentPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  if (error) {
-    console.error("[entertainment] failed to load services", error.message);
-  }
+  if (error) throw error;
 
   return <EntertainmentPageClient services={services ?? []} />;
 }

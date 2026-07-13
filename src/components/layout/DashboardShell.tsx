@@ -1,10 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import { leadsClient } from "@/lib/supabase/leads";
+import {
+  leadsClient,
+  SELLER_LEADS_CHANGED_EVENT,
+  sellerLeadsScopeKey,
+  type SellerLeadsChangedDetail,
+} from "@/lib/supabase/leads";
 import {
   toServiceSegment,
   SEGMENT_TO_ROLE_KEY,
@@ -82,24 +93,79 @@ function SellerLeadsCountEffect({
   onCount,
 }: {
   userId: string;
-  onCount: (count: number) => void;
+  onCount: Dispatch<SetStateAction<number>>;
 }) {
   const scope = useActiveOrgScope();
   const orgScoped = scope.mode === "org" && !!scope.organizationId;
+  const organizationId = orgScoped ? scope.organizationId : null;
+  const scopeKey = sellerLeadsScopeKey(userId, organizationId);
 
   useEffect(() => {
     const supabase = createClient();
-    let query = leadsClient(supabase)
-      .from("leads")
-      .select("*", { count: "exact", head: true })
-      .eq("stage", "new");
-    query = orgScoped
-      ? query.eq("organization_id", scope.organizationId!)
-      : query.eq("owner_id", userId);
-    query.then((res: { count: number | null; error: unknown }) => {
-      if (!res.error) onCount(res.count ?? 0);
-    });
-  }, [userId, orgScoped, scope.organizationId, onCount]);
+    let disposed = false;
+    let requestVersion = 0;
+    let recountTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const recount = async () => {
+      const version = ++requestVersion;
+      let query = leadsClient(supabase)
+        .from("leads")
+        .select("*", { count: "exact", head: true })
+        .eq("stage", "new");
+      query = organizationId
+        ? query.eq("organization_id", organizationId)
+        : query.eq("owner_id", userId);
+
+      const res = (await query) as {
+        count: number | null;
+        error: unknown;
+      };
+      if (!disposed && version === requestVersion && !res.error) {
+        onCount(res.count ?? 0);
+      }
+    };
+
+    const scheduleRecount = () => {
+      if (recountTimer) clearTimeout(recountTimer);
+      recountTimer = setTimeout(() => {
+        recountTimer = null;
+        void recount();
+      }, 400);
+    };
+
+    const handleLeadsChanged = (event: Event) => {
+      const detail = (event as CustomEvent<SellerLeadsChangedDetail>).detail;
+      if (
+        !detail ||
+        detail.scopeKey !== scopeKey ||
+        !Number.isFinite(detail.newLeadDelta)
+      ) {
+        return;
+      }
+
+      // Invalidate an initial recount that began before this mutation, since
+      // that response may describe the pre-mutation state.
+      requestVersion += 1;
+      onCount((current) => Math.max(0, current + detail.newLeadDelta));
+      scheduleRecount();
+    };
+
+    // Do not display a count from the previously selected organization while
+    // the authoritative count for this scope is loading.
+    onCount(0);
+    void recount();
+    window.addEventListener(SELLER_LEADS_CHANGED_EVENT, handleLeadsChanged);
+
+    return () => {
+      disposed = true;
+      requestVersion += 1;
+      if (recountTimer) clearTimeout(recountTimer);
+      window.removeEventListener(
+        SELLER_LEADS_CHANGED_EVENT,
+        handleLeadsChanged,
+      );
+    };
+  }, [userId, organizationId, scopeKey, onCount]);
 
   return null;
 }

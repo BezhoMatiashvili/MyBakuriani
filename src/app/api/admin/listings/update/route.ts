@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { listingTag } from "@/lib/data/getCachedPublicListing";
+import { revalidateListingLists } from "@/lib/data/revalidateListings";
 import type { Database } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -329,8 +330,9 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  // Field edits change the cached public listing — invalidate it now.
+  // Field edits change the cached public listing + list pages — invalidate now.
   revalidateTag(listingTag(body.kind, body.id));
+  revalidateListingLists(body.kind);
 
   return Response.json({ ok: true, updated: Object.keys(clean).length });
 }

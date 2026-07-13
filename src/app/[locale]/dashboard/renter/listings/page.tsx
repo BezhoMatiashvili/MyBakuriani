@@ -42,6 +42,7 @@ export default function RenterListingsPage() {
   const t = useTranslations("RenterListings");
   const tDash = useTranslations("RenterDashboard");
   const tShared = useTranslations("DashboardShared");
+  const tError = useTranslations("Error");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -52,18 +53,26 @@ export default function RenterListingsPage() {
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
 
-  // Live listings — verification status, VIP flips and view counts update without refresh.
-  const { rows: properties, loading } = useRealtimeList<Tables<"properties">>({
+  const {
+    rows: properties,
+    loading,
+    error,
+    refetch,
+  } = useRealtimeList<Tables<"properties">>({
     table: "properties",
     enabled: !!user,
     filter: user ? `owner_id=eq.${user.id}` : undefined,
     sort: (a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""),
     fetcher: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("properties")
         .select("*")
         .eq("owner_id", user!.id)
         .order("created_at", { ascending: false });
+      // Surface the failure so the hook exposes `error` and the page shows a
+      // retry — the owner's listings must not silently vanish into the empty
+      // "no listings" state on a transient timeout under load.
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -156,6 +165,16 @@ export default function RenterListingsPage() {
               </div>
             </div>
           ))
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-16 text-center shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+            <Building className="h-12 w-12 text-[#94A3B8]" />
+            <p className="mt-3 max-w-sm text-sm font-medium text-[#64748B]">
+              {tError("description")}
+            </p>
+            <Button size="sm" className="mt-4" onClick={() => refetch()}>
+              {tError("retry")}
+            </Button>
+          </div>
         ) : filteredProperties.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
@@ -337,6 +356,9 @@ export default function RenterListingsPage() {
             },
           });
           if (error) throw error;
+          // `properties` is no longer in the realtime publication, so refresh
+          // the list explicitly to reflect the new VIP/discount badge.
+          await refetch();
         }}
       />
     </div>
