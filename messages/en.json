@@ -1876,6 +1876,7 @@
   "CreateShared": {
     "listingNotFound": "Listing not found",
     "genericError": "Error. Please try again.",
+    "cadastralAlreadyUsed": "This cadastral code is already in use",
     "invalidPhone": "Enter a valid number (9 digits, starting with 5)",
     "invalidPersonalId": "Personal ID must be 11 digits",
     "save": "Save",

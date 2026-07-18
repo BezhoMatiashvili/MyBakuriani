@@ -20,6 +20,10 @@ import { useActiveZones } from "@/lib/zones/client";
 import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
 import { isValidGePhone, sanitizeCadastralCode } from "@/lib/utils/number";
+import {
+  useCadastralTaken,
+  isCadastralDuplicateError,
+} from "@/lib/hooks/useCadastralTaken";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { AvailabilityStatus, buildNext30Days } from "@/lib/utils/availability";
@@ -101,6 +105,7 @@ function CreateRentalPageInner() {
     useState<Enums<"property_type">>("apartment");
   const [location, setLocation] = useState("");
   const [cadastralCode, setCadastralCode] = useState("");
+  const cadastralTaken = useCadastralTaken(cadastralCode, editId);
   const [description, setDescription] = useState("");
 
   // Step 2: details + map
@@ -295,6 +300,11 @@ function CreateRentalPageInner() {
     if (s === 0) {
       if (!location)
         errs.push({ key: "location", message: t("invalidLocation") });
+      if (cadastralTaken)
+        errs.push({
+          key: "cadastralCode",
+          message: tShared("cadastralAlreadyUsed"),
+        });
     } else if (s === 1) {
       if (!title.trim())
         errs.push({ key: "title", message: t("invalidTitle") });
@@ -497,7 +507,13 @@ function CreateRentalPageInner() {
 
       router.push("/dashboard/renter");
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("submitError"));
+      if (isCadastralDuplicateError(err)) {
+        setStep(0);
+        setInvalidFields(new Set(["cadastralCode"]));
+        setError(tShared("cadastralAlreadyUsed"));
+      } else {
+        setError(err instanceof Error ? err.message : t("submitError"));
+      }
       submittingRef.current = false;
       setLoading(false);
     }
@@ -606,6 +622,8 @@ function CreateRentalPageInner() {
 
                 <Field
                   label={t("cadastralCode")}
+                  fieldKey="cadastralCode"
+                  error={cadastralTaken}
                   helper={t("cadastralDigitsHint")}
                 >
                   <input
@@ -618,6 +636,11 @@ function CreateRentalPageInner() {
                     placeholder="XX.XX.XX.XXX.XXX"
                     className={inputClass}
                   />
+                  {cadastralTaken && (
+                    <p className="text-xs font-bold text-[#EF4444]">
+                      {tShared("cadastralAlreadyUsed")}
+                    </p>
+                  )}
                 </Field>
 
                 <Field label={t("description")}>

@@ -1876,6 +1876,7 @@
   "CreateShared": {
     "listingNotFound": "განცხადება ვერ მოიძებნა",
     "genericError": "შეცდომა. სცადეთ თავიდან.",
+    "cadastralAlreadyUsed": "ეს საკადასტრო კოდი უკვე გამოყენებულია",
     "invalidPhone": "შეიყვანეთ სწორი ნომერი (9 ციფრი, იწყება 5-ით)",
     "invalidPersonalId": "პირადი ნომერი უნდა შედგებოდეს 11 ციფრისგან",
     "save": "შენახვა",
@@ -2085,7 +2086,7 @@
       "old_renovation": "ძველი რემონტი"
     },
     "managementServices": {
-      "complex_management": "აქვს კომპლექსის მენეჯმენტი",
+      "complex_management": "აქვს",
       "none": "არ აქვს"
     },
     "other": "სხვა",

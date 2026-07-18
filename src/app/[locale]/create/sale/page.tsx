@@ -24,6 +24,10 @@ import {
   isValidCadastralCode,
   sanitizeCadastralCode,
 } from "@/lib/utils/number";
+import {
+  useCadastralTaken,
+  isCadastralDuplicateError,
+} from "@/lib/hooks/useCadastralTaken";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
@@ -200,6 +204,7 @@ function CreateSalePageInner() {
     String(new Date().getFullYear() + 1),
   );
   const [cadastralCode, setCadastralCode] = useState("");
+  const cadastralTaken = useCadastralTaken(cadastralCode, editId);
   const [exactLocation, setExactLocation] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     null,
@@ -478,6 +483,11 @@ function CreateSalePageInner() {
       errs.push({ key: "cadastralCode", message: t("enterCadastral") });
     } else if (!isValidCadastralCode(cadastral)) {
       errs.push({ key: "cadastralCode", message: t("invalidCadastral") });
+    } else if (cadastralTaken) {
+      errs.push({
+        key: "cadastralCode",
+        message: tShared("cadastralAlreadyUsed"),
+      });
     }
 
     const areaNum = Number(areaSqm);
@@ -647,7 +657,13 @@ function CreateSalePageInner() {
         router.push("/dashboard/seller");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : tShared("genericError"));
+      if (isCadastralDuplicateError(err)) {
+        setInvalidFields(new Set(["cadastralCode"]));
+        setError(tShared("cadastralAlreadyUsed"));
+        scrollToField("cadastralCode");
+      } else {
+        setError(err instanceof Error ? err.message : tShared("genericError"));
+      }
       submittingRef.current = false;
       setLoading(false);
     }
@@ -959,7 +975,7 @@ function CreateSalePageInner() {
                     label={t("cadastralCode")}
                     required
                     fieldKey="cadastralCode"
-                    error={invalidFields.has("cadastralCode")}
+                    error={invalidFields.has("cadastralCode") || cadastralTaken}
                     helper={t("cadastralHelper")}
                   >
                     <input
@@ -971,6 +987,11 @@ function CreateSalePageInner() {
                       placeholder="00.00.00.000..."
                       className={inputClass}
                     />
+                    {cadastralTaken && (
+                      <p className="text-xs font-bold text-[#EF4444]">
+                        {tShared("cadastralAlreadyUsed")}
+                      </p>
+                    )}
                   </Field>
 
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">

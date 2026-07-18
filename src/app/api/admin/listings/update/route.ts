@@ -327,6 +327,17 @@ export async function PATCH(req: NextRequest) {
     .eq("id", body.id);
 
   if (error) {
+    if (
+      error.code === "23505" &&
+      `${error.message} ${error.details ?? ""}`
+        .toLowerCase()
+        .includes("cadastral")
+    ) {
+      return Response.json(
+        { error: "cadastral_already_used" },
+        { status: 409 },
+      );
+    }
     return Response.json({ error: error.message }, { status: 500 });
   }
 
