@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
 
@@ -18,13 +19,25 @@ export function InfoBanners({ banners }: InfoBannersProps) {
             style={{ backgroundColor: tone.bg, borderColor: tone.border }}
           >
             <div className="flex items-start gap-3">
-              <span
-                aria-hidden
-                className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
-                style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
-              >
-                i
-              </span>
+              {banner.image_url ? (
+                <div className="relative size-10 shrink-0 overflow-hidden rounded-lg">
+                  <Image
+                    src={banner.image_url}
+                    alt=""
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <span
+                  aria-hidden
+                  className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
+                  style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
+                >
+                  i
+                </span>
+              )}
               <p
                 className="text-[13px] font-medium leading-[20px]"
                 style={{ color: tone.text }}
