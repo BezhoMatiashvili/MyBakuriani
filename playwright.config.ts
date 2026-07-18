@@ -17,7 +17,12 @@ export default defineConfig({
   expect: { timeout: 10_000 },
 
   use: {
-    baseURL: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+    // E2E_BASE_URL wins because dotenv (override: true) stomps any shell-set
+    // NEXT_PUBLIC_SITE_URL with the .env.local value (often the prod URL).
+    baseURL:
+      process.env.E2E_BASE_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "http://localhost:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

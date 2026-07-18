@@ -161,19 +161,70 @@ test.describe("Login form interactions", () => {
 
   test("shows validation on empty submit", async ({ page }) => {
     await page.goto("/auth/login");
-    const submitButton = page
-      .locator(
-        "button[type='submit'], button:has-text('შესვლა'), button:has-text('გაგრძელება')",
-      )
-      .first();
+    const submitButton = page.locator("form button[type='submit']");
     await expect(submitButton).toBeVisible({ timeout: 10_000 });
-    // When email + password are empty, the submit button is disabled — that's
-    // the validation. Force-click to confirm nothing changes (still on /auth/login).
-    await submitButton.click({ force: true, timeout: 5_000 }).catch(() => {});
-    await page.waitForTimeout(500);
-    await expect(page.locator("main")).toBeVisible();
-    // We should still be on the login page (no navigation occurred).
-    expect(page.url()).toContain("/auth/login");
+    await expect(submitButton).toBeEnabled();
+    await submitButton.click();
+    await expect(page.getByText("გთხოვთ შეავსოთ ყველა ველი")).toBeVisible();
+    await expect(page).toHaveURL(/auth\/login/);
+  });
+
+  test("submits browser-autofilled credentials on click", async ({ page }) => {
+    let passwordLoginRequests = 0;
+    await page.route(
+      /\/auth\/v1\/token\?grant_type=password$/,
+      async (route) => {
+        passwordLoginRequests += 1;
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Invalid login credentials" }),
+        });
+      },
+    );
+
+    await page.goto("/auth/login");
+    const emailInput = page.locator("input[name='email']");
+    const passwordInput = page.locator("input[name='password']");
+    const submitButton = page.locator("form button[type='submit']");
+
+    // Mimic password-manager autofill: write DOM values without emitting an
+    // input/change event, so React state remains empty.
+    await emailInput.evaluate((input, value) => {
+      (input as HTMLInputElement).value = value;
+    }, "person@example.com");
+    await passwordInput.evaluate((input, value) => {
+      (input as HTMLInputElement).value = value;
+    }, "wrong-password");
+
+    await expect(submitButton).toBeEnabled();
+    await submitButton.click();
+    await expect.poll(() => passwordLoginRequests).toBe(1);
+    await expect(page.getByText("არასწორი ელ. ფოსტა ან პაროლი")).toBeVisible();
+  });
+
+  test("submits typed credentials with Enter", async ({ page }) => {
+    let passwordLoginRequests = 0;
+    await page.route(
+      /\/auth\/v1\/token\?grant_type=password$/,
+      async (route) => {
+        passwordLoginRequests += 1;
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Invalid login credentials" }),
+        });
+      },
+    );
+
+    await page.goto("/auth/login");
+    await page.locator("input[name='email']").fill("person@example.com");
+    const passwordInput = page.locator("input[name='password']");
+    await passwordInput.fill("wrong-password");
+    await passwordInput.press("Enter");
+
+    await expect.poll(() => passwordLoginRequests).toBe(1);
+    await expect(page.getByText("არასწორი ელ. ფოსტა ან პაროლი")).toBeVisible();
   });
 
   test("phone input accepts numeric input", async ({ page }) => {
@@ -198,6 +249,125 @@ test.describe("Login form interactions", () => {
         document.documentElement.clientWidth,
     );
     expect(overflow).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Registration (email tab, register mode)
+// ---------------------------------------------------------------------------
+test.describe("Email registration form", () => {
+  // The segmented control sits above the form, so .first() is the mode toggle
+  // (in register mode the submit button carries the same "რეგისტრაცია" label).
+  async function openRegisterMode(page: import("@playwright/test").Page) {
+    await page.goto("/auth/login");
+    await page.getByRole("button", { name: "რეგისტრაცია" }).first().click();
+    await expect(page.locator("#auth-confirm-password")).toBeVisible();
+  }
+
+  test("segmented control switches between login and register", async ({
+    page,
+  }) => {
+    await openRegisterMode(page);
+    await page.getByRole("button", { name: "შესვლა" }).first().click();
+    await expect(page.locator("#auth-confirm-password")).toHaveCount(0);
+  });
+
+  test("rejects a password shorter than 6 characters", async ({ page }) => {
+    await openRegisterMode(page);
+    await page.locator("input[name='email']").fill("person@example.com");
+    await page.locator("input[name='password']").fill("12345");
+    await page.locator("input[name='confirmPassword']").fill("12345");
+    await page.locator("form button[type='submit']").click();
+    await expect(page.getByText("პაროლი მინიმუმ 6 სიმბოლო")).toBeVisible();
+  });
+
+  test("rejects mismatched passwords", async ({ page }) => {
+    await openRegisterMode(page);
+    await page.locator("input[name='email']").fill("person@example.com");
+    await page.locator("input[name='password']").fill("123456");
+    await page.locator("input[name='confirmPassword']").fill("654321");
+    await page.locator("form button[type='submit']").click();
+    await expect(page.getByText("პაროლები არ ემთხვევა")).toBeVisible();
+  });
+
+  test("successful signup redirects to profile registration", async ({
+    page,
+  }) => {
+    const userId = "00000000-0000-4000-8000-000000000001";
+    let signupRequests = 0;
+    await page.route(/\/auth\/v1\/signup/, async (route) => {
+      signupRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          access_token: "fake-access-token",
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          refresh_token: "fake-refresh-token",
+          user: {
+            id: userId,
+            aud: "authenticated",
+            role: "authenticated",
+            email: "new-user@example.com",
+            identities: [
+              {
+                id: userId,
+                user_id: userId,
+                provider: "email",
+                identity_data: { email: "new-user@example.com" },
+              },
+            ],
+          },
+        }),
+      });
+    });
+    // redirectAfterAuth: no profile row yet → push to /auth/register
+    await page.route(/\/rest\/v1\/profiles/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+    });
+
+    await openRegisterMode(page);
+    await page.locator("input[name='email']").fill("new-user@example.com");
+    await page.locator("input[name='password']").fill("secret-123456");
+    await page.locator("input[name='confirmPassword']").fill("secret-123456");
+    await page.locator("form button[type='submit']").click();
+
+    await expect.poll(() => signupRequests).toBe(1);
+    await page.waitForURL(/auth\/register/, { timeout: 10000 });
+  });
+
+  test("shows error when the email is already registered", async ({ page }) => {
+    // GoTrue signals an existing confirmed email with an obfuscated user that
+    // has no identities and no session.
+    await page.route(/\/auth\/v1\/signup/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "00000000-0000-4000-8000-000000000002",
+          aud: "authenticated",
+          role: "authenticated",
+          email: "taken@example.com",
+          identities: [],
+        }),
+      });
+    });
+
+    await openRegisterMode(page);
+    await page.locator("input[name='email']").fill("taken@example.com");
+    await page.locator("input[name='password']").fill("secret-123456");
+    await page.locator("input[name='confirmPassword']").fill("secret-123456");
+    await page.locator("form button[type='submit']").click();
+
+    await expect(
+      page.getByText("ეს ელ. ფოსტა უკვე რეგისტრირებულია."),
+    ).toBeVisible();
   });
 });
 

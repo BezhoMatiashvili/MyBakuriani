@@ -128,15 +128,24 @@ export default function LoginPage() {
     }
   }
 
-  async function handleEmailLogin() {
-    if (!email.trim() || !password) {
+  async function handleEmailLogin(form: HTMLFormElement) {
+    // Password managers can populate the DOM without firing React's onChange.
+    // Read the submitted form values so a visibly filled login form always
+    // authenticates, then mirror them into state before the loading re-render.
+    const formData = new FormData(form);
+    const submittedEmail = String(formData.get("email") ?? "").trim();
+    const submittedPassword = String(formData.get("password") ?? "");
+    setEmail(submittedEmail);
+    setPassword(submittedPassword);
+
+    if (!submittedEmail || !submittedPassword) {
       setError(t("errors.fillAllFields"));
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const data = await signInWithPassword(email.trim(), password);
+      const data = await signInWithPassword(submittedEmail, submittedPassword);
       if (data?.user) await redirectAfterAuth(data.user.id);
     } catch (err) {
       setError(
@@ -149,23 +158,33 @@ export default function LoginPage() {
     }
   }
 
-  async function handleEmailRegister() {
-    if (!email.trim() || !password) {
+  async function handleEmailRegister(form: HTMLFormElement) {
+    const formData = new FormData(form);
+    const submittedEmail = String(formData.get("email") ?? "").trim();
+    const submittedPassword = String(formData.get("password") ?? "");
+    const submittedConfirmPassword = String(
+      formData.get("confirmPassword") ?? "",
+    );
+    setEmail(submittedEmail);
+    setPassword(submittedPassword);
+    setConfirmPassword(submittedConfirmPassword);
+
+    if (!submittedEmail || !submittedPassword) {
       setError(t("errors.fillAllFields"));
       return;
     }
-    if (password.length < 6) {
+    if (submittedPassword.length < 6) {
       setError(t("errors.passwordTooShort"));
       return;
     }
-    if (password !== confirmPassword) {
+    if (submittedPassword !== submittedConfirmPassword) {
       setError(t("errors.passwordsMismatch"));
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const data = await signUp(email.trim(), password);
+      const data = await signUp(submittedEmail, submittedPassword);
       if (data?.user && !data.user.identities?.length) {
         setError(t("errors.emailTaken"));
         return;
@@ -250,6 +269,22 @@ export default function LoginPage() {
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-5"
               >
+                <div className="flex rounded-xl bg-[#F8FAFC] p-1">
+                  <button
+                    type="button"
+                    onClick={() => switchMode("login")}
+                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${authMode === "login" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+                  >
+                    {t("signIn")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchMode("register")}
+                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${authMode === "register" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+                  >
+                    {t("register")}
+                  </button>
+                </div>
                 {successMessage ? (
                   <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
                     {successMessage}
@@ -259,18 +294,27 @@ export default function LoginPage() {
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
-                        if (authMode === "login") handleEmailLogin();
-                        else handleEmailRegister();
+                        if (authMode === "login") {
+                          void handleEmailLogin(e.currentTarget);
+                        } else {
+                          void handleEmailRegister(e.currentTarget);
+                        }
                       }}
                       noValidate
                       className="space-y-5"
                     >
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">
+                        <label
+                          htmlFor="auth-email"
+                          className="text-sm font-medium"
+                        >
                           {t("emailLabel")}
                         </label>
                         <input
+                          id="auth-email"
+                          name="email"
                           type="email"
+                          autoComplete="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="example@mail.com"
@@ -278,12 +322,22 @@ export default function LoginPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">
+                        <label
+                          htmlFor="auth-password"
+                          className="text-sm font-medium"
+                        >
                           {t("passwordLabel")}
                         </label>
                         <div className="relative">
                           <input
+                            id="auth-password"
+                            name="password"
                             type={showPassword ? "text" : "password"}
+                            autoComplete={
+                              authMode === "login"
+                                ? "current-password"
+                                : "new-password"
+                            }
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••"
@@ -304,11 +358,17 @@ export default function LoginPage() {
                       </div>
                       {authMode === "register" && (
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">
+                          <label
+                            htmlFor="auth-confirm-password"
+                            className="text-sm font-medium"
+                          >
                             {t("confirmPasswordLabel")}
                           </label>
                           <input
+                            id="auth-confirm-password"
+                            name="confirmPassword"
                             type={showPassword ? "text" : "password"}
+                            autoComplete="new-password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             placeholder="••••••"
@@ -321,7 +381,7 @@ export default function LoginPage() {
                       )}
                       <Button
                         type="submit"
-                        disabled={loading || !email.trim() || !password}
+                        disabled={loading}
                         className="w-full"
                         size="lg"
                       >
@@ -331,15 +391,6 @@ export default function LoginPage() {
                         {authMode === "login" ? t("signIn") : t("register")}
                       </Button>
                     </form>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        switchMode(authMode === "login" ? "register" : "login")
-                      }
-                      className="w-full text-center text-sm text-[#94A3B8]"
-                    >
-                      {authMode === "login" ? t("noAccount") : t("haveAccount")}
-                    </button>
                   </>
                 )}
               </motion.div>
