@@ -49,6 +49,10 @@ interface NavItem {
   href: string;
   icon: LucideIcon;
   badgeKind?: "leads" | "notifications";
+  /** Whether nested routes should also mark this item as active. */
+  matchDescendants?: boolean;
+  /** Custom active check (receives the locale-stripped path); wins over href matching. */
+  isActive?: (path: string) => boolean;
 }
 
 interface NavSection {
@@ -119,19 +123,16 @@ function BrandLogo() {
   );
 }
 
-function isItemActive(itemHref: string, currentPath: string) {
-  const isHome = itemHref === "/dashboard/seller";
-  if (isHome) {
-    return (
-      currentPath === "/dashboard/seller" ||
-      /^\/(ka|en|ru)\/dashboard\/seller$/.test(currentPath)
-    );
+/** usePathname() may carry a locale prefix (e.g. /en/...); nav hrefs never do. */
+function stripLocalePrefix(path: string) {
+  return path.replace(/^\/(ka|en|ru)(?=\/|$)/, "") || "/";
+}
+
+function isItemActive(itemHref: string, path: string, matchDescendants = true) {
+  if (itemHref === "/dashboard/seller" || !matchDescendants) {
+    return path === itemHref;
   }
-  return (
-    currentPath === itemHref ||
-    currentPath.startsWith(`${itemHref}/`) ||
-    currentPath.endsWith(itemHref)
-  );
+  return path === itemHref || path.startsWith(`${itemHref}/`);
 }
 
 export function SellerSidebar({
@@ -172,10 +173,25 @@ export function SellerSidebar({
         labelKey: "myOrganizations",
         href: "/dashboard/seller/organizations",
         icon: Building2,
+        // A company cabinet lives beneath this URL. Keep its highlight on
+        // "My company" instead of marking both links as selected.
+        matchDescendants: false,
       },
     ];
     if (memberCompanies.length > 0) {
-      items.push({ labelKey: "myCompany", href: companyHref, icon: Building });
+      items.push({
+        labelKey: "myCompany",
+        href: companyHref,
+        icon: Building,
+        // Active only inside a member company's cabinet — never on the
+        // organizations list, even when companyHref points there (>1 company).
+        isActive: (path) =>
+          memberCompanies.some(
+            (c) =>
+              path === `/dashboard/seller/organizations/${c.id}` ||
+              path.startsWith(`/dashboard/seller/organizations/${c.id}/`),
+          ),
+      });
     }
     return { ...section, items };
   });
@@ -251,7 +267,10 @@ export function SellerSidebar({
               </p>
               <ul className="space-y-1">
                 {section.items.map((item) => {
-                  const active = isItemActive(item.href, currentPath);
+                  const path = stripLocalePrefix(currentPath);
+                  const active = item.isActive
+                    ? item.isActive(path)
+                    : isItemActive(item.href, path, item.matchDescendants);
                   const Icon = item.icon;
                   const badgeValue =
                     item.badgeKind === "leads"
@@ -265,7 +284,7 @@ export function SellerSidebar({
                       ? "bg-[#EF4444] text-white"
                       : "bg-[#E2E8F0] text-[#64748B]";
                   return (
-                    <li key={item.href}>
+                    <li key={item.labelKey}>
                       <Link
                         href={item.href}
                         className={cn(
