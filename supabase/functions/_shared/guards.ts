@@ -1,15 +1,21 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Reflect the request origin only if it is in the allowlist, else fall back
-// to the first configured origin (or the hardcoded production origin if none
-// configured). Allowlist is taken from the ALLOWED_ORIGINS env var,
-// comma-separated.
+// Reflect the request origin only if it is in the allowlist (ALLOWED_ORIGINS
+// env var, comma-separated) or is a deployment URL of our own Vercel team,
+// else fall back to the first configured origin (or the hardcoded production
+// origin if none configured).
 //
 // Note: these endpoints rely on Bearer tokens, not cookies, so CORS is a
 // defense-in-depth measure against browser-driven token abuse rather than the
 // primary auth boundary. The fallback is the production origin (not "*") so
 // a missing env never silently opens CORS to the world.
 const PRODUCTION_ORIGIN = "https://mybakuriani.ge";
+
+// Vercel deployment/preview URLs look like
+// https://<project>-<hash>-bezhomatiashvilis-projects.vercel.app and the hash
+// changes per deploy, so they can't be exact-listed. Only this Vercel team can
+// mint hosts with this suffix, so reflecting them is safe.
+const VERCEL_TEAM_SUFFIX = "-bezhomatiashvilis-projects.vercel.app";
 
 function parseAllowedOrigins(): string[] {
   const raw = Deno.env.get("ALLOWED_ORIGINS") ?? Deno.env.get("APP_ORIGIN");
@@ -20,17 +26,23 @@ function parseAllowedOrigins(): string[] {
     .filter(Boolean);
 }
 
+function isAllowedOrigin(origin: string, allowed: string[]): boolean {
+  if (!origin.startsWith("https://")) return false;
+  if (allowed.includes(origin)) return true;
+  return origin.endsWith(VERCEL_TEAM_SUFFIX);
+}
+
 export function buildCorsHeaders(req: Request): Record<string, string> {
   const allowed = parseAllowedOrigins();
   const requestOrigin = req.headers.get("origin") ?? "";
 
   let allowOrigin: string;
-  if (allowed.length === 0) {
-    allowOrigin = PRODUCTION_ORIGIN;
-  } else if (allowed.includes(requestOrigin)) {
+  if (isAllowedOrigin(requestOrigin, allowed)) {
     allowOrigin = requestOrigin;
-  } else {
+  } else if (allowed.length > 0) {
     allowOrigin = allowed[0];
+  } else {
+    allowOrigin = PRODUCTION_ORIGIN;
   }
 
   return {
