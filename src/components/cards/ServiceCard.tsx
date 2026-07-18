@@ -21,6 +21,7 @@ import {
 } from "@/lib/constants/listing-options";
 import { Badge } from "@/components/ui/badge";
 import { trackContactClick } from "@/lib/contact-tracking";
+import { useFavorite } from "@/lib/hooks/useFavorite";
 
 interface ServiceCardProps {
   id: string;
@@ -118,6 +119,11 @@ export default function ServiceCard({
     e.stopPropagation();
     trackContactClick({ channel: "whatsapp", serviceId: id });
   };
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite({ serviceId: id });
 
   if (variant === "avatar") {
     const isBusy = availabilityStatus === "busy";
@@ -149,15 +155,33 @@ export default function ServiceCard({
               />
             </span>
             <div className="flex flex-col items-end gap-1.5">
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                  isBusy
-                    ? "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
-                    : "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
-                }`}
-              >
-                {isBusy ? t("statusBusy") : t("statusActive")}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                    isBusy
+                      ? "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
+                      : "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
+                  }`}
+                >
+                  {isBusy ? t("statusBusy") : t("statusActive")}
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleFavorite}
+                  disabled={favoriteBusy}
+                  aria-pressed={isFavorited}
+                  aria-label={t("addToFavorites")}
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-60 ${
+                    isFavorited
+                      ? "border-[#F97316] bg-[#F97316] text-white"
+                      : "border-[#E2E8F0] bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
+                  }`}
+                >
+                  <Heart
+                    className={`h-3.5 w-3.5 ${isFavorited ? "fill-current" : ""}`}
+                  />
+                </button>
+              </div>
               <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
                 <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
                 4.9
@@ -283,10 +307,28 @@ export default function ServiceCard({
                   </span>
                 )}
               </div>
-              <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#0F172A]/70 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
-                <Star className="h-3 w-3 fill-[#F97316] text-[#F97316]" />
-                4.9
-              </span>
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  type="button"
+                  onClick={toggleFavorite}
+                  disabled={favoriteBusy}
+                  aria-pressed={isFavorited}
+                  aria-label={t("addToFavorites")}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-sm transition-colors disabled:opacity-60 ${
+                    isFavorited
+                      ? "bg-[#F97316] text-white"
+                      : "bg-[#0F172A]/70 text-white hover:bg-[#F97316]"
+                  }`}
+                >
+                  <Heart
+                    className={`h-4 w-4 ${isFavorited ? "fill-current" : ""}`}
+                  />
+                </button>
+                <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#0F172A]/70 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+                  <Star className="h-3 w-3 fill-[#F97316] text-[#F97316]" />
+                  4.9
+                </span>
+              </div>
             </div>
             <div className="mt-auto">
               <h3 className="text-[20px] font-black leading-[26px] text-white line-clamp-2">
@@ -384,16 +426,20 @@ export default function ServiceCard({
               </span>
             )}
           </div>
-          {!isTransport && (
-            <button
-              type="button"
-              className="absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
-              onClick={stop}
-              aria-label={t("addToFavorites")}
-            >
-              <Heart className="h-5 w-5 text-[#1E293B]" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
+            aria-pressed={isFavorited}
+            className={`absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition-colors disabled:opacity-60 ${
+              isFavorited
+                ? "bg-[#F97316] text-white"
+                : "bg-white/80 text-[#F97316] hover:bg-white"
+            }`}
+            aria-label={t("addToFavorites")}
+          >
+            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
+          </button>
           {!isFood && !isTransport && (
             <Badge
               variant="secondary"

@@ -1522,7 +1522,8 @@
     "urgent": "Urgent",
     "new": "New",
     "applications": "{count, plural, one {# application} other {# applications}}",
-    "details": "Details"
+    "details": "Details",
+    "favoriteAria": "Add to favorites"
   },
   "EmploymentDetail": {
     "backToSearch": "Back to search",

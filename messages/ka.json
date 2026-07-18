@@ -1522,7 +1522,8 @@
     "urgent": "სასწრაფო",
     "new": "ახალი",
     "applications": "{count} გამოხმაურება",
-    "details": "დეტალები"
+    "details": "დეტალები",
+    "favoriteAria": "რჩეულებში დამატება"
   },
   "EmploymentDetail": {
     "backToSearch": "უკან ძიებაზე",

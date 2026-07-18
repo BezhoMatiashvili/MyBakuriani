@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatNumber } from "@/lib/utils/format";
+import { useFavorite } from "@/lib/hooks/useFavorite";
 import { FALLBACK_ZONES } from "@/lib/zones/types";
 import {
   optionKeyFor,
@@ -58,6 +59,11 @@ export default function InvestmentCard({
   const t = useTranslations("InvestmentCard");
   const tZones = useTranslations("Zones");
   const tOpts = useTranslations("ListingOptions");
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite({ propertyId: id });
   const zoneSlug = ZONE_SLUG_BY_NAME_KA.get(location);
   const locationLabel = zoneSlug ? tZones(`${zoneSlug}.name`) : location;
   const isCompleted =
@@ -112,11 +118,17 @@ export default function InvestmentCard({
 
           <button
             type="button"
-            onClick={(e) => e.preventDefault()}
-            className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors hover:text-[#F97316]"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
             aria-label={t("favoriteAria")}
+            aria-pressed={isFavorited}
+            className={`absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors ${
+              isFavorited
+                ? "bg-[#F97316] text-white"
+                : "bg-white text-[#94A3B8] hover:text-[#F97316]"
+            } disabled:opacity-60`}
           >
-            <Heart className="h-5 w-5" />
+            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
           </button>
         </div>
 

@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { formatNumber } from "@/lib/utils/format";
+import { useFavorite } from "@/lib/hooks/useFavorite";
 
 interface SalePropertyCardProps {
   id: string;
@@ -40,6 +41,11 @@ export default function SalePropertyCard({
   constructionProgressPercent,
 }: SalePropertyCardProps) {
   const t = useTranslations("SalePropertyCard");
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite({ propertyId: id });
   const showProgress =
     constructionStatus === "under_construction" &&
     constructionProgressPercent != null;
@@ -87,11 +93,17 @@ export default function SalePropertyCard({
 
           <button
             type="button"
-            onClick={(e) => e.preventDefault()}
-            className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#94A3B8] shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors hover:text-[#16A34A]"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
             aria-label={t("favoriteAria")}
+            aria-pressed={isFavorited}
+            className={`absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors ${
+              isFavorited
+                ? "bg-[#16A34A] text-white"
+                : "bg-white text-[#94A3B8] hover:text-[#16A34A]"
+            } disabled:opacity-60`}
           >
-            <Heart className="h-5 w-5" />
+            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
           </button>
         </div>
 

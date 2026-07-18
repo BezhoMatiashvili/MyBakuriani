@@ -113,7 +113,11 @@ export default function FoodDetailClient({
       </motion.button>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-        <FoodPhotoGallery photos={service.photos ?? []} title={service.title} />
+        <FoodPhotoGallery
+          photos={service.photos ?? []}
+          title={service.title}
+          serviceId={service.id}
+        />
       </motion.div>
 
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">

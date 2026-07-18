@@ -80,7 +80,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     isFavorited,
     busy: favoriteBusy,
     toggle: toggleFavorite,
-  } = useFavorite(id);
+  } = useFavorite({ propertyId: id });
   const showConstructionBar =
     isForSale &&
     constructionStatus === "under_construction" &&

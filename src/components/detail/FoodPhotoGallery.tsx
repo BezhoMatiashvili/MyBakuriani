@@ -13,15 +13,22 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { shareListing } from "@/lib/share";
+import { useFavorite } from "@/lib/hooks/useFavorite";
 
 interface Props {
   photos: string[];
   title: string;
+  serviceId: string;
 }
 
-export function FoodPhotoGallery({ photos, title }: Props) {
+export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
   const t = useTranslations("PhotoGallery");
   const tShare = useTranslations("ShareListing");
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite({ serviceId });
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const openLightbox = useCallback((index: number) => {
@@ -77,10 +84,19 @@ export function FoodPhotoGallery({ photos, title }: Props) {
         </button>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-red-500"
+          onClick={toggleFavorite}
+          disabled={favoriteBusy}
+          aria-pressed={isFavorited}
+          className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors disabled:opacity-60 ${
+            isFavorited
+              ? "border-red-500 bg-red-50 text-red-500"
+              : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC] hover:text-red-500"
+          }`}
           aria-label={t("addToFavorites")}
         >
-          <Heart className="h-[18px] w-[18px]" />
+          <Heart
+            className={`h-[18px] w-[18px] ${isFavorited ? "fill-current" : ""}`}
+          />
         </button>
       </div>
 

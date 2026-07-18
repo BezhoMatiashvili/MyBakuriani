@@ -28,6 +28,7 @@ import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { createClient } from "@/lib/supabase/client";
+import { useFavorite } from "@/lib/hooks/useFavorite";
 import { shareListing } from "@/lib/share";
 import type { Tables, Database } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
@@ -160,6 +161,11 @@ export default function SaleDetailClient({
   const tMonths = useTranslations("DateRangeFilter.months");
   const locale = useLocale();
   const router = useRouter();
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite({ propertyId: property.id });
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
 
   useEffect(() => {
@@ -345,10 +351,17 @@ export default function SaleDetailClient({
           </button>
           <button
             type="button"
-            className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-red-500"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
             aria-label={t("addToFavorites")}
+            aria-pressed={isFavorited}
+            className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium transition-colors hover:bg-[#F8FAFC] ${
+              isFavorited ? "text-red-500" : "text-[#64748B] hover:text-red-500"
+            } disabled:opacity-60`}
           >
-            <Heart className="h-[15px] w-[15px]" />
+            <Heart
+              className={`h-[15px] w-[15px] ${isFavorited ? "fill-current" : ""}`}
+            />
             <span className="underline-offset-2 hover:underline">
               {t("save")}
             </span>

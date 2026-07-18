@@ -6,10 +6,12 @@
  * Why: every PropertyCard used to call `useFavorite`, which fired its own
  * `favorites` query per card — a list page rendered 60+ identical round trips
  * that piled onto the DB and stalled to the browser fetch timeout. This store
- * loads the signed-in user's favourited property ids ONCE and lets every card
- * read from it, so a list page does a single `favorites` fetch regardless of
- * card count. Toggles update the store optimistically so hearts stay in sync
- * across cards showing the same property.
+ * loads the signed-in user's favourited ids (properties AND services, merged
+ * into one id set — the two tables generate independent UUIDs so there's no
+ * collision risk) ONCE and lets every card read from it, so a list page does
+ * a single `favorites` fetch regardless of card count. Toggles update the
+ * store optimistically so hearts stay in sync across cards showing the same
+ * listing.
  */
 
 import { createClient } from "@/lib/supabase/client";
@@ -49,13 +51,13 @@ export function ensureFavoritesLoaded(userId: string): Promise<void> {
     const supabase = createClient();
     const { data } = await supabase
       .from("favorites")
-      .select("property_id")
+      .select("property_id, service_id")
       .eq("user_id", userId);
     // Guard against a user switch that started mid-flight.
     if (currentUserId === userId) {
       favoriteIds = new Set(
         (data ?? [])
-          .map((row) => row.property_id)
+          .map((row) => row.property_id ?? row.service_id)
           .filter((id): id is string => id != null),
       );
       emit();

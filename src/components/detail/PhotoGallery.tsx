@@ -21,7 +21,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
     isFavorited,
     busy: favoriteBusy,
     toggle: toggleFavorite,
-  } = useFavorite(propertyId);
+  } = useFavorite({ propertyId });
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const openLightbox = useCallback((index: number) => {
