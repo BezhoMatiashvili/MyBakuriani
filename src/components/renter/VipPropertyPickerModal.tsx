@@ -35,7 +35,14 @@ interface VipPropertyPickerModalProps {
   onClose: () => void;
   tier: VipInfoTier;
   properties: PickerProperty[];
-  onConfirm?: (propertyId: string) => Promise<void> | void;
+  /**
+   * Real package price/duration, used to compute the quantity-adjusted total
+   * and show the quantity stepper. Omitted by legacy callers that don't use
+   * the pricing-packages flow — those keep the old flat per-unit price display
+   * and always confirm at quantity 1.
+   */
+  pkg?: { amountGel: number; durationHours: number };
+  onConfirm?: (propertyId: string, quantity: number) => Promise<void> | void;
   loading?: boolean;
   /** Render a single flat list (no rental/sale grouping) — used for services. */
   flat?: boolean;
@@ -52,6 +59,7 @@ export default function VipPropertyPickerModal({
   onClose,
   tier,
   properties,
+  pkg,
   onConfirm,
   loading,
   flat,
@@ -63,12 +71,19 @@ export default function VipPropertyPickerModal({
 
   const [selectedId, setSelectedId] = useState<string>(properties[0]?.id ?? "");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     if (properties.length > 0 && !selectedId) {
       setSelectedId(properties[0].id);
     }
   }, [properties, selectedId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setQuantity(1);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -102,6 +117,11 @@ export default function VipPropertyPickerModal({
       unit: t(`units.${tierMeta.titleKey}`),
     }),
     [title, tierMeta.price, tierMeta.titleKey, t],
+  );
+
+  const totalPrice = useMemo(
+    () => (pkg ? (pkg.amountGel * quantity).toFixed(2) : null),
+    [pkg, quantity],
   );
 
   return (
@@ -249,27 +269,73 @@ export default function VipPropertyPickerModal({
                 })()}
               </div>
 
-              <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#EEF1F4] pt-5">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
-                    {tShared("tierPrice", { tier: meta.title })}
-                  </p>
-                  <p className="mt-1 text-[20px] font-black text-[#0F172A]">
-                    {meta.price}
-                    <span className="ml-1 text-[12px] font-bold text-[#94A3B8]">
-                      {meta.unit}
-                    </span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={!selectedId || loading}
-                  onClick={() => selectedId && setConfirmOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
+              <div className="mt-5 border-t border-[#EEF1F4] pt-5">
+                {pkg && (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
+                      {t("quantityLabel")}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        disabled={quantity <= 1}
+                        aria-label="-"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#E2E8F0] text-[13px] font-black text-[#0F172A] hover:bg-[#F1F5F9] disabled:opacity-40"
+                      >
+                        −
+                      </button>
+                      <span className="w-9 text-center text-[13px] font-black text-[#0F172A]">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((q) => Math.min(365, q + 1))}
+                        disabled={quantity >= 365}
+                        aria-label="+"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#E2E8F0] text-[13px] font-black text-[#0F172A] hover:bg-[#F1F5F9] disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  className={`flex items-center justify-between gap-4 ${pkg ? "mt-4" : ""}`}
                 >
-                  <CreditCard className="h-4 w-4" />
-                  {tShared("pay")}
-                </button>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
+                      {tShared("tierPrice", { tier: meta.title })}
+                    </p>
+                    <p className="mt-1 text-[20px] font-black text-[#0F172A]">
+                      {pkg ? (
+                        <>
+                          {totalPrice} ₾
+                          <span className="ml-1 text-[12px] font-bold text-[#94A3B8]">
+                            {t("daysCount", { count: quantity })}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {meta.price}
+                          <span className="ml-1 text-[12px] font-bold text-[#94A3B8]">
+                            {meta.unit}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!selectedId || loading}
+                    onClick={() => selectedId && setConfirmOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {tShared("pay")}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -279,11 +345,15 @@ export default function VipPropertyPickerModal({
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
-          await onConfirm?.(selectedId);
+          await onConfirm?.(selectedId, quantity);
           onClose();
         }}
         title={meta.title}
-        priceLabel={`${meta.price} ${meta.unit}`}
+        priceLabel={
+          pkg
+            ? `${totalPrice} ₾ ${t("daysCount", { count: quantity })}`
+            : `${meta.price} ${meta.unit}`
+        }
         description={properties.find((p) => p.id === selectedId)?.title}
         lockScroll={false}
       />

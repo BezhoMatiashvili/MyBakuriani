@@ -13,7 +13,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import Modal from "@/components/shared/Modal";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/lib/hooks/useAuth";
 import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import type { Database } from "@/lib/types/database";
@@ -43,7 +42,6 @@ export function NotificationBell({
 }: NotificationBellProps) {
   const t = useTranslations("Navbar");
   const tShared = useTranslations("DashboardShared");
-  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Notification | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -53,14 +51,12 @@ export function NotificationBell({
   useEffect(() => setMounted(true), []);
 
   async function markAllRead() {
-    if (!user) return;
-    const supabase = createClient();
     const unread = notifications.filter((n) => !n.is_read).map((n) => n.id);
     if (unread.length === 0) return;
+    const supabase = createClient();
     await supabase
       .from("notifications")
       .update({ is_read: true })
-      .eq("user_id", user.id)
       .eq("is_read", false);
     await Promise.all(
       unread.map((id) =>

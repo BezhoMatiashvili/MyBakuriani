@@ -109,9 +109,8 @@ export default function OrganizationNewPage() {
   function validate(): string[] {
     const errs: string[] = [];
     if (!legalName.trim()) errs.push("legalName");
-    // only digits and dots, and at least one digit (rejects empty and a bare ".")
-    if (!/^[0-9.]+$/.test(idCode.trim()) || !/\d/.test(idCode))
-      errs.push("idCode");
+    // exactly 9 or 11 digits — mirrors the DB organizations_identification_code_check constraint
+    if (!/^(\d{9}|\d{11})$/.test(idCode.trim())) errs.push("idCode");
     if (!brandName.trim()) errs.push("brandName");
     if (!isValidGePhone(phone)) errs.push("phone");
     if (!city.trim()) errs.push("city");
@@ -154,7 +153,11 @@ export default function OrganizationNewPage() {
       const orgId = data as unknown as string;
       router.push(`/dashboard/seller/organizations/${orgId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      setError(
+        err instanceof Error
+          ? err.message
+          : ((err as { message?: string })?.message ?? "Error"),
+      );
       setLoading(false);
     }
   }
@@ -214,9 +217,9 @@ export default function OrganizationNewPage() {
               <input
                 className={inputClass}
                 value={idCode}
-                inputMode="decimal"
+                inputMode="numeric"
                 onChange={(e) =>
-                  setIdCode(e.target.value.replace(/[^0-9.]/g, "").slice(0, 14))
+                  setIdCode(e.target.value.replace(/\D/g, "").slice(0, 11))
                 }
                 placeholder={t("idCodePlaceholder")}
               />

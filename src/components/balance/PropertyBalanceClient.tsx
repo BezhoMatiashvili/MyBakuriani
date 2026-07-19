@@ -29,6 +29,18 @@ type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
 type Property = Tables<"properties">;
 
+/** Mirrors pricing-packages.ts's metaNumber parsing (duration_hours may be string or number). */
+function durationHoursFromMeta(meta: Record<string, unknown> | null): number {
+  if (!meta) return 24;
+  const v = meta["duration_hours"];
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return 24;
+}
+
 const transactionTypeKeys = [
   "topup",
   "vip_boost",
@@ -182,6 +194,8 @@ export default function PropertyBalanceClient() {
     });
   }, [packages]);
 
+  const pickerPkg = packages.find((p) => p.id === pickerModal.packageId);
+
   const handlePurchaseClick = (pkg: PricingPackage) => {
     const tier = inferVipInfoTier(pkg);
     if (pkg.category === "sms") {
@@ -211,7 +225,10 @@ export default function PropertyBalanceClient() {
     }
   };
 
-  const handleConfirmPurchase = async (propertyId: string) => {
+  const handleConfirmPurchase = async (
+    propertyId: string,
+    quantity: number,
+  ) => {
     if (!user || !balance) return;
     const packageId = pickerModal.packageId;
     setPurchasing(packageId);
@@ -221,7 +238,7 @@ export default function PropertyBalanceClient() {
         body: {
           package_id: packageId,
           property_id: propertyId,
-          quantity: 1,
+          quantity,
         },
       });
       if (error) throw error;
@@ -408,6 +425,10 @@ export default function PropertyBalanceClient() {
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
         }))}
+        pkg={{
+          amountGel: pickerPkg?.amount_gel ?? 0,
+          durationHours: durationHoursFromMeta(pickerPkg?.meta ?? null),
+        }}
         onConfirm={handleConfirmPurchase}
       />
 

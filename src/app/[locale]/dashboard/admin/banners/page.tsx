@@ -258,7 +258,10 @@ export default function AdminBannersPage() {
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? tShared("saveFailed"));
+      if (!res.ok) {
+        if (data.code === "timeout") throw new Error(t("saveTimeout"));
+        throw new Error(data.error ?? tShared("saveFailed"));
+      }
       toast.success(form.id ? t("updated") : t("created"));
       setOpen(false);
       setForm(EMPTY_FORM);

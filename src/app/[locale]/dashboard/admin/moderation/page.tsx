@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Flame, Loader2, Plus, X } from "lucide-react";
+import { Flame, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import DateField from "@/components/shared/DateField";
@@ -57,6 +57,7 @@ export default function ModerationPage() {
   const [formState, setFormState] = useState(INITIAL_FORM_STATE);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +104,26 @@ export default function ModerationPage() {
   const handleModalContainerClick = (event: MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
   };
+
+  async function handleDelete(ad: Ad) {
+    if (deletingId) return;
+    if (!confirm(t("deleteConfirm", { title: ad.title }))) return;
+    setDeletingId(ad.id);
+    try {
+      const res = await fetch(`/api/admin/ads/${ad.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? tShared("deleteFailed"));
+      } else {
+        toast.success(t("deleted"));
+        await load();
+      }
+    } catch {
+      toast.error(tShared("deleteFailed"));
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -220,9 +241,25 @@ export default function ModerationPage() {
                       {ad.title}
                     </span>
                   </div>
-                  <span className="inline-flex items-center rounded bg-[#10B981] px-[10px] py-1 text-[10px] font-black uppercase tracking-[0.5px] text-white">
-                    {ad.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center rounded bg-[#10B981] px-[10px] py-1 text-[10px] font-black uppercase tracking-[0.5px] text-white">
+                      {ad.status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(ad)}
+                      disabled={deletingId !== null}
+                      aria-label={t("delete")}
+                      title={t("delete")}
+                      className="inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:opacity-50"
+                    >
+                      {deletingId === ad.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-6 px-6 py-6">

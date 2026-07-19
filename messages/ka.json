@@ -597,6 +597,10 @@
       "searchBakuriani": "ძიება ბაკურიანში...",
       "searchDefault": "ძიება...",
       "searchIdNumber": "ძიება (ID, ნომერი)...",
+      "searchEmpty": "შედეგები ვერ მოიძებნა",
+      "searchClients": "მომხმარებლები",
+      "searchListings": "განცხადებები",
+      "searchCompanies": "კომპანიები",
       "activeVisitor": "აქტიური ვიზიტორი",
       "smsSuffix": " SMS",
       "available": "აქტიურია",
@@ -746,7 +750,9 @@
           "vip": "/ დღე",
           "discount": "/ დღე",
           "sms": "/ 200 SMS"
-        }
+        },
+        "quantityLabel": "დღეების რაოდენობა",
+        "daysCount": "{count} დღე"
       }
     }
   },
@@ -994,7 +1000,9 @@
     "constructionProgress": "მშენებლობის პროგრესი",
     "listingsCount": "{count} განცხადება",
     "noListingsFound": "განცხადებები ვერ მოიძებნა",
-    "tryChangeFilters": "სცადეთ ფილტრების შეცვლა"
+    "tryChangeFilters": "სცადეთ ფილტრების შეცვლა",
+    "bannerValidFrom": "დაწყება",
+    "bannerValidUntil": "დასრულება"
   },
   "StatusCards": {
     "weather": "ამინდი",
@@ -3708,6 +3716,9 @@
     "addAd": "რეკლამის დამატება",
     "empty": "ჯერ არ არის კამპანია. დააწკაპუნეთ «რეკლამის დამატება».",
     "adCreated": "რეკლამა შეიქმნა",
+    "delete": "წაშლა",
+    "deleteConfirm": "წავშალოთ რეკლამა \"{title}\"? ეს ქმედება შეუქცევადია.",
+    "deleted": "რეკლამა წაიშალა",
     "fillRequired": "გთხოვთ შეავსოთ ყველა სავალდებულო ველი.",
     "invalidUrl": "გთხოვთ მიუთითოთ სწორი URL მისამართი.",
     "endBeforeStart": "დასასრული თარიღი ვერ იქნება დაწყების თარიღზე ადრე.",
@@ -3851,6 +3862,7 @@
     "titleRequired": "სათაური სავალდებულოა.",
     "ctaUrlRequired": "ღილაკის ლინკი (URL) აუცილებელია, თუ ღილაკის ტექსტი არსებობს.",
     "endBeforeStart": "დასრულების თარიღი არ შეიძლება იყოს დაწყებამდე.",
+    "saveTimeout": "მოთხოვნამ დრო გადააჭარბა — გთხოვთ სცადოთ თავიდან.",
     "updated": "ბანერი განახლდა",
     "created": "ბანერი შეიქმნა",
     "disabled": "გათიშულია",
@@ -3983,6 +3995,10 @@
   "AdminClients": {
     "title": "მომხმარებლები",
     "subtitle": "მართეთ მომხმარებლები, შეამოწმეთ ისტორია ან აჩუქეთ ბალანსი.",
+    "searchPlaceholder": "ძიება: სახელი, ტელეფონი, ID...",
+    "totalCount": "სულ {count} მომხმარებელი",
+    "filteredCount": "ნაპოვნია {count}",
+    "searchEmpty": "მომხმარებელი ვერ მოიძებნა",
     "colClient": "კლიენტი",
     "colRoleStatus": "როლი / სტატუსი",
     "colActions": "ოპერაციები",

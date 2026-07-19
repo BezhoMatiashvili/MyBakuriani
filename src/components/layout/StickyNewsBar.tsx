@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import BannerDetailModal from "@/components/shared/BannerDetailModal";
 import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
 
 const DISMISS_KEY = "mybakuriani:sticky_news:dismissed";
@@ -24,6 +25,7 @@ export function StickyNewsBar() {
   const [banners, setBanners] = useState<LandingBanner[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [expanded, setExpanded] = useState<LandingBanner | null>(null);
 
   useEffect(() => {
     setHydrated(true);
@@ -79,9 +81,14 @@ export function StickyNewsBar() {
       }`}
     >
       <div
-        className="pointer-events-auto flex w-full max-w-[1160px] flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] sm:px-5"
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpanded(visible)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setExpanded(visible);
+        }}
+        className="pointer-events-auto flex w-full max-w-[1160px] cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] sm:px-5"
         style={{ backgroundColor: tone.bg, borderColor: tone.border }}
-        role="status"
       >
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <span
@@ -105,6 +112,7 @@ export function StickyNewsBar() {
           {visible.cta_label && visible.cta_href ? (
             <Link
               href={visible.cta_href}
+              onClick={(e) => e.stopPropagation()}
               className="rounded-full border bg-white px-4 py-2 text-[12px] font-bold transition-colors"
               style={{ borderColor: tone.ctaBorder, color: tone.ctaText }}
             >
@@ -113,7 +121,10 @@ export function StickyNewsBar() {
           ) : null}
           <button
             type="button"
-            onClick={() => dismiss(visible.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              dismiss(visible.id);
+            }}
             aria-label={t("close")}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border bg-white"
             style={{ borderColor: tone.ctaBorder, color: tone.text }}
@@ -122,6 +133,7 @@ export function StickyNewsBar() {
           </button>
         </div>
       </div>
+      <BannerDetailModal banner={expanded} onClose={() => setExpanded(null)} />
     </div>
   );
 }

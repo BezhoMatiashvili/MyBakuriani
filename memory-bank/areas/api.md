@@ -7,7 +7,9 @@ from Deno edge functions; see `edge.md`).
 
 - `src/app/api/**/route.ts` — ~45 handlers. Heavily `admin/*` (ads, banners, blog,
   broadcasts, clients, companies, finances, listings, logs, media, pricing,
-  promocodes, reviews, sms, stats, status-cards, verifications, zones). Public/
+  promocodes, reviews, search (global topbar entity search: profiles/properties/
+  services/organizations, consumed by `AdminTopbar`), sms, stats, status-cards,
+  verifications, zones). Public/
   utility: `banners`, `contact/track`, `geocode`, `menu/track`, `pricing-packages`,
   `sms/*`, `zones`.
 - `src/app/actions/` — server actions (`revalidateListing.ts`).

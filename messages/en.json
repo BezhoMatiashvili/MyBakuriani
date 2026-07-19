@@ -597,6 +597,10 @@
       "searchBakuriani": "Search in Bakuriani...",
       "searchDefault": "Search...",
       "searchIdNumber": "Search (ID, number)...",
+      "searchEmpty": "No results found",
+      "searchClients": "Clients",
+      "searchListings": "Listings",
+      "searchCompanies": "Companies",
       "activeVisitor": "Active visitor",
       "smsSuffix": " SMS",
       "available": "Active",
@@ -746,7 +750,9 @@
           "vip": "/ day",
           "discount": "/ day",
           "sms": "/ 200 SMS"
-        }
+        },
+        "quantityLabel": "Number of days",
+        "daysCount": "{count, plural, =1 {# day} other {# days}}"
       }
     }
   },
@@ -994,7 +1000,9 @@
     "constructionProgress": "Construction progress",
     "listingsCount": "{count, plural, one {# listing} other {# listings}}",
     "noListingsFound": "No listings found",
-    "tryChangeFilters": "Try changing the filters"
+    "tryChangeFilters": "Try changing the filters",
+    "bannerValidFrom": "Starts",
+    "bannerValidUntil": "Ends"
   },
   "StatusCards": {
     "weather": "Weather",
@@ -3708,6 +3716,9 @@
     "addAd": "Add ad",
     "empty": "No campaigns yet. Click «Add ad».",
     "adCreated": "Ad created",
+    "delete": "Delete",
+    "deleteConfirm": "Delete ad \"{title}\"? This cannot be undone.",
+    "deleted": "Ad deleted",
     "fillRequired": "Please fill in all required fields.",
     "invalidUrl": "Please enter a valid URL.",
     "endBeforeStart": "End date cannot be before start date.",
@@ -3851,6 +3862,7 @@
     "titleRequired": "Title is required.",
     "ctaUrlRequired": "Button URL is required when button text is set.",
     "endBeforeStart": "End date cannot be before start date.",
+    "saveTimeout": "The request timed out — please try again.",
     "updated": "Banner updated",
     "created": "Banner created",
     "disabled": "Disabled",
@@ -3983,6 +3995,10 @@
   "AdminClients": {
     "title": "Users",
     "subtitle": "Manage users, check history or top up balance.",
+    "searchPlaceholder": "Search: name, phone, ID...",
+    "totalCount": "{count} clients total",
+    "filteredCount": "{count} found",
+    "searchEmpty": "No clients found",
     "colClient": "Client",
     "colRoleStatus": "Role / status",
     "colActions": "Actions",

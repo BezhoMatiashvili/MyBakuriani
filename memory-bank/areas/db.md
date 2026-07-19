@@ -35,4 +35,5 @@ Database schema, policies, and the generated type mirror.
 ## Contracts touching this area
 
 C3 (schema ↔ types), C5 (buckets/RLS), C7 (realtime publication), C8 (role enum +
-RLS).
+RLS), C10 (discount badge duration/expiry — RPC + trigger; column on both
+properties and services, only written on properties).

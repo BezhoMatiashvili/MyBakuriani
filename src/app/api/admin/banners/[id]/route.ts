@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isBannerKind, isBannerTone } from "@/lib/banners";
+import { isTimeoutError } from "@/lib/with-timeout";
 
 export const runtime = "nodejs";
 
@@ -94,7 +95,15 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     .select()
     .single();
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return Response.json(
+      {
+        error: error.message,
+        code: isTimeoutError(error) ? "timeout" : undefined,
+      },
+      { status: 500 },
+    );
+  }
   revalidatePath("/", "layout");
   return Response.json({ banner: data });
 }
@@ -109,7 +118,15 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext) {
   const db = createServiceClient(guard.admin.userId);
   const { error } = await db.from("landing_banners").delete().eq("id", id);
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return Response.json(
+      {
+        error: error.message,
+        code: isTimeoutError(error) ? "timeout" : undefined,
+      },
+      { status: 500 },
+    );
+  }
   revalidatePath("/", "layout");
   return Response.json({ ok: true });
 }

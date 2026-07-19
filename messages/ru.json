@@ -597,6 +597,10 @@
       "searchBakuriani": "Поиск в Бакуриани...",
       "searchDefault": "Поиск...",
       "searchIdNumber": "Поиск (ID, номер)...",
+      "searchEmpty": "Ничего не найдено",
+      "searchClients": "Клиенты",
+      "searchListings": "Объявления",
+      "searchCompanies": "Компании",
       "activeVisitor": "Активный посетитель",
       "smsSuffix": " SMS",
       "available": "Активен",
@@ -746,7 +750,9 @@
           "vip": "/ день",
           "discount": "/ день",
           "sms": "/ 200 SMS"
-        }
+        },
+        "quantityLabel": "Количество дней",
+        "daysCount": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}"
       }
     }
   },
@@ -994,7 +1000,9 @@
     "constructionProgress": "Ход строительства",
     "listingsCount": "{count, plural, one {# объявление} few {# объявления} many {# объявлений} other {# объявления}}",
     "noListingsFound": "Объявления не найдены",
-    "tryChangeFilters": "Попробуйте изменить фильтры"
+    "tryChangeFilters": "Попробуйте изменить фильтры",
+    "bannerValidFrom": "Начало",
+    "bannerValidUntil": "Окончание"
   },
   "StatusCards": {
     "weather": "Погода",
@@ -3708,6 +3716,9 @@
     "addAd": "Добавить рекламу",
     "empty": "Кампаний пока нет. Нажмите «Добавить рекламу».",
     "adCreated": "Реклама создана",
+    "delete": "Удалить",
+    "deleteConfirm": "Удалить рекламу «{title}»? Это необратимо.",
+    "deleted": "Реклама удалена",
     "fillRequired": "Заполните все обязательные поля.",
     "invalidUrl": "Укажите корректный URL.",
     "endBeforeStart": "Дата окончания не может быть раньше начала.",
@@ -3851,6 +3862,7 @@
     "titleRequired": "Заголовок обязателен.",
     "ctaUrlRequired": "URL кнопки обязателен, если указан текст кнопки.",
     "endBeforeStart": "Дата окончания не может быть раньше начала.",
+    "saveTimeout": "Истекло время ожидания запроса — попробуйте ещё раз.",
     "updated": "Баннер обновлён",
     "created": "Баннер создан",
     "disabled": "Отключено",
@@ -3983,6 +3995,10 @@
   "AdminClients": {
     "title": "Пользователи",
     "subtitle": "Управление, история и пополнение баланса.",
+    "searchPlaceholder": "Поиск: имя, телефон, ID...",
+    "totalCount": "Всего клиентов: {count}",
+    "filteredCount": "Найдено: {count}",
+    "searchEmpty": "Клиенты не найдены",
     "colClient": "Клиент",
     "colRoleStatus": "Роль / статус",
     "colActions": "Действия",

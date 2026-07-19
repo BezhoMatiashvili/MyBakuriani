@@ -42,3 +42,8 @@ subscribers), C8 (protected routes).
 
 `src/app/[locale]/appartments/` (double-p) exists alongside `apartments/` — likely
 a legacy/redirect alias; confirm before assuming either is dead.
+
+`src/components/layout/AdminTopbar.tsx` hosts the admin-wide global search
+dropdown (debounced fetch to `/api/admin/search`; client results deep-link to
+`/dashboard/admin/clients?q=…`, which the clients page reads via
+`useSearchParams`).

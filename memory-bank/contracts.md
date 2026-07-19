@@ -238,3 +238,40 @@ not an instance of this bug, don't "fix" it to branch over services.
 selects/writes `property_id` — exactly the bug this contract exists to prevent.
 Any new service-favorite call site must copy `useFavorite`'s branching, not
 `PropertyCard`'s pre-fix, property-only pattern.
+
+---
+
+## C10 — Discount badge duration & expiry
+
+**Invariant:** `properties.discount_percent` and `properties.discount_expires_at`
+are written **only** by `purchase_package`'s `discount` tier branch (mirroring how
+`is_vip`/`vip_expires_at` work), guarded against direct writes by
+`prevent_listing_protected_field_change`, and cleared on expiry by `vip-lifecycle`
+— the same three-sided pattern as VIP itself. `discount_expires_at` exists as a
+column on **both** `properties` and `services` (required so the shared trigger
+function, bound to both tables, can reference `NEW.discount_expires_at`
+unconditionally without a 42703 — same reason `is_vip`/`vip_expires_at` are on
+both), but is only ever **written** on `properties`: `purchase_package` has no
+`p_service_id` parameter and `vip-lifecycle`'s sweep is properties-only, so the
+column stays permanently NULL on every `services` row.
+
+Participating symbols:
+
+- `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:purchase_package` — `discount` tier branch: sets `discount_percent = 10` unconditionally and `discount_expires_at = v_expires_at`
+- `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role
+- `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — properties-only sweep: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
+- `src/components/cards/PropertyCard.tsx:discountPercent` — badge render prop, `> 0` shows the discount badge
+- `src/app/[locale]/apartments/ApartmentsPageClient.tsx` — "discounted only" filter reads `discount_percent`
+
+**Also check:** `src/lib/types/database.ts` must carry `discount_expires_at` after
+regen (**C3**); any new discount read/write path on `properties` must go through
+the RPC, not a direct column update, or the trigger rejects it for non-admin
+sessions.
+
+**Breaks silently when:** a caller updates `discount_percent`/`discount_expires_at`
+directly instead of via `purchase_package` (trigger blocks it for non-admin/non-
+service-role, but silently no-ops under `service_role`); or a new discount surface
+is added for `services` assuming `discount_expires_at` is actively maintained there
+(column exists but is never written — `purchase_package` takes no
+`p_service_id`/`vip-lifecycle`'s `clearExpiredDiscounts` sweep is properties-only —
+so a `services`-side reader would see permanent NULLs, not real expiry data).

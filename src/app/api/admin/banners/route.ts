@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isBannerKind, isBannerTone } from "@/lib/banners";
+import { isTimeoutError } from "@/lib/with-timeout";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,15 @@ export async function GET() {
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return Response.json(
+      {
+        error: error.message,
+        code: isTimeoutError(error) ? "timeout" : undefined,
+      },
+      { status: 500 },
+    );
+  }
   return Response.json({ banners: data ?? [] });
 }
 
@@ -83,7 +92,15 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return Response.json(
+      {
+        error: error.message,
+        code: isTimeoutError(error) ? "timeout" : undefined,
+      },
+      { status: 500 },
+    );
+  }
   revalidatePath("/", "layout");
   return Response.json({ banner: data });
 }

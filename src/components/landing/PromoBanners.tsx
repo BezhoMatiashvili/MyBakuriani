@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import BannerDetailModal from "@/components/shared/BannerDetailModal";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
 
@@ -8,6 +12,7 @@ interface PromoBannersProps {
 }
 
 export function PromoBanners({ banners }: PromoBannersProps) {
+  const [expanded, setExpanded] = useState<LandingBanner | null>(null);
   if (banners.length === 0) return null;
   return (
     <section className="px-4 pb-8 pt-4">
@@ -17,7 +22,13 @@ export function PromoBanners({ banners }: PromoBannersProps) {
           return (
             <ScrollReveal key={banner.id}>
               <div
-                className="relative flex flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:flex-row lg:h-[180px]"
+                role="button"
+                tabIndex={0}
+                onClick={() => setExpanded(banner)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setExpanded(banner);
+                }}
+                className="relative flex cursor-pointer flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] md:flex-row lg:h-[180px]"
                 style={{ backgroundColor: tone.bg, borderColor: tone.border }}
               >
                 {banner.video_url ? (
@@ -77,6 +88,7 @@ export function PromoBanners({ banners }: PromoBannersProps) {
                   {banner.cta_label && banner.cta_href ? (
                     <Link
                       href={banner.cta_href}
+                      onClick={(e) => e.stopPropagation()}
                       className="shrink-0 rounded-full border-2 bg-white px-6 py-3 text-[13px] font-bold transition-colors"
                       style={{
                         borderColor: tone.ctaText,
@@ -92,6 +104,7 @@ export function PromoBanners({ banners }: PromoBannersProps) {
           );
         })}
       </div>
+      <BannerDetailModal banner={expanded} onClose={() => setExpanded(null)} />
     </section>
   );
 }

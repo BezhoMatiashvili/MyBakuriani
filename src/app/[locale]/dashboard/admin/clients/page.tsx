@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Ban,
@@ -10,6 +11,7 @@ import {
   LogOut,
   Phone,
   RefreshCcw,
+  Search,
   UserRound,
   X,
 } from "lucide-react";
@@ -50,11 +52,13 @@ const roleBadgeClasses: Record<Enums<"user_role">, string> = {
   admin: "bg-[#DCFCE7] text-[#166534]",
 };
 
-export default function ClientsPage() {
+function ClientsPageContent() {
   const t = useTranslations("AdminClients");
   const tShared = useTranslations("AdminShared");
   const tLogs = useTranslations("AdminLogs");
   const locale = useLocale();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const txDateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale, {
@@ -66,6 +70,18 @@ export default function ClientsPage() {
   );
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<ProfileWithCounts[]>([]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return profiles;
+    const digits = q.replace(/\D/g, "");
+    return profiles.filter(
+      (p) =>
+        (p.display_name ?? "").toLowerCase().includes(q) ||
+        (digits.length > 0 &&
+          (p.phone ?? "").replace(/\D/g, "").includes(digits)) ||
+        p.id.toLowerCase().includes(q),
+    );
+  }, [profiles, search]);
   const [selectedProfile, setSelectedProfile] =
     useState<ProfileWithCounts | null>(null);
   // null = still loading the selected profile's transactions
@@ -199,6 +215,12 @@ export default function ClientsPage() {
           <p className="mt-2 text-sm font-medium leading-[21px] text-[#64748B]">
             {t("subtitle")}
           </p>
+          <p className="mt-1 text-[13px] font-bold text-[#2563EB]">
+            {loading ? "…" : t("totalCount", { count: profiles.length })}
+            {!loading && search.trim()
+              ? ` · ${t("filteredCount", { count: filtered.length })}`
+              : null}
+          </p>
         </div>
         <button
           type="button"
@@ -207,6 +229,17 @@ export default function ClientsPage() {
           <Download className="h-[13px] w-[13px]" />
           {tShared("export")}
         </button>
+      </div>
+
+      <div className="relative max-w-[420px]">
+        <Search className="absolute left-4 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#94A3B8]" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t("searchPlaceholder")}
+          className="h-[42px] w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-4 text-[13px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+        />
       </div>
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
@@ -223,8 +256,12 @@ export default function ClientsPage() {
                 <Skeleton key={idx} className="h-24 w-full rounded-xl" />
               ))}
             </div>
+          ) : filtered.length === 0 ? (
+            <p className="px-6 py-10 text-center text-sm font-medium text-[#64748B]">
+              {t("searchEmpty")}
+            </p>
           ) : (
-            profiles.map((profile) => (
+            filtered.map((profile) => (
               <div
                 key={profile.id}
                 className="grid grid-cols-1 gap-3 lg:grid-cols-[1.5fr_1fr_1.1fr] lg:gap-[48px] items-center border-b border-[#F1F5F9] px-6 py-[18px] last:border-b-0"
@@ -517,5 +554,13 @@ export default function ClientsPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense>
+      <ClientsPageContent />
+    </Suspense>
   );
 }

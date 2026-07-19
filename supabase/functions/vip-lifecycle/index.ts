@@ -15,6 +15,8 @@ import {
 //   EXPIRE — listings whose VIP has already lapsed have is_vip / is_super_vip
 //            cleared so the badge disappears. Silent (the 48h warning covered
 //            it). Keys off the flags, so it never re-clears -> idempotent.
+// Also (properties only): expired discount badges (discount_expires_at in the
+// past) have discount_percent / discount_expires_at cleared the same way.
 //
 // Auth: shared secret in VIP_LIFECYCLE_SECRET (Bearer header). The cron job and
 // any manual invocations must present this token.
@@ -140,6 +142,22 @@ async function clearExpired(
   return data?.length ?? 0;
 }
 
+// Properties-only: services has no discount_expires_at column.
+async function clearExpiredDiscounts(
+  db: SbClient,
+  nowISO: string,
+): Promise<number> {
+  const { data, error } = await db
+    .from("properties")
+    .update({ discount_percent: 0, discount_expires_at: null })
+    .lt("discount_expires_at", nowISO)
+    .not("discount_expires_at", "is", null)
+    .select("id");
+
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
 
@@ -169,9 +187,12 @@ serve(async (req) => {
       expired += await clearExpired(db, table, nowISO);
     }
 
+    const discountsCleared = await clearExpiredDiscounts(db, nowISO);
+
     summary.warned = warned;
     summary.sms_queued = sms;
     summary.expired_cleared = expired;
+    summary.discounts_cleared = discountsCleared;
 
     return jsonResponse(summary, 200, cors);
   } catch (err) {

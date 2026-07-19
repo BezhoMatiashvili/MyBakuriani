@@ -102,6 +102,22 @@ export function timeoutFetch(ms: number): typeof fetch {
 }
 
 /**
+ * Recognizes a `timeoutFetch` abort surfaced as a postgrest-js `error` (or any
+ * error-shaped value), by the exact message it sets above. Lets callers return
+ * a distinguishable error code instead of leaking the raw English message to
+ * the client.
+ */
+export function isTimeoutError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string" &&
+    (error as { message: string }).message.includes("fetch timed out after")
+  );
+}
+
+/**
  * Both auth-js and postgrest-js resolve `{ data, error }` rather than
  * throwing on a network/timeout failure (a `timeoutFetch` abort surfaces as
  * an `error`, not a rejection). A DB-side blip — e.g. lock contention while
