@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 type OwnerSlim = Pick<Tables<"profiles">, "id" | "display_name" | "phone">;
 
-export type PendingCompany = {
+export type AdminCompany = {
   id: string;
   brand_name: string;
   legal_name: string;
@@ -15,6 +15,7 @@ export type PendingCompany = {
   company_type: string;
   logo_url: string | null;
   created_at: string | null;
+  status: "pending" | "active" | "rejected";
   owner: OwnerSlim | null;
 };
 
@@ -26,16 +27,15 @@ export async function GET() {
   const { data, error } = await db
     .from("organizations")
     .select(
-      "id, brand_name, legal_name, identification_code, org_type, company_type, logo_url, created_at, profiles:profiles!organizations_owner_id_fkey(id, display_name, phone)",
+      "id, brand_name, legal_name, identification_code, org_type, company_type, logo_url, created_at, status, profiles:profiles!organizations_owner_id_fkey(id, display_name, phone)",
     )
-    .eq("status", "pending")
     .order("created_at", { ascending: false });
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const items: PendingCompany[] = (data ?? []).map((row) => ({
+  const items: AdminCompany[] = (data ?? []).map((row) => ({
     id: row.id,
     brand_name: row.brand_name,
     legal_name: row.legal_name,
@@ -44,6 +44,7 @@ export async function GET() {
     company_type: row.company_type,
     logo_url: row.logo_url,
     created_at: row.created_at,
+    status: row.status as AdminCompany["status"],
     owner: (row.profiles as OwnerSlim | null) ?? null,
   }));
 

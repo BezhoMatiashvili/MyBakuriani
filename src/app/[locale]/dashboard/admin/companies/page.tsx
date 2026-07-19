@@ -7,12 +7,12 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { formatDate, formatPhone } from "@/lib/utils/format";
-import type { PendingCompany } from "@/app/api/admin/companies/pending/route";
+import type { AdminCompany } from "@/app/api/admin/companies/route";
 
 export default function AdminCompaniesPage() {
   const t = useTranslations("Organizations");
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<PendingCompany[]>([]);
+  const [items, setItems] = useState<AdminCompany[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
@@ -35,13 +35,13 @@ export default function AdminCompaniesPage() {
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/admin/companies/pending", {
+        const res = await fetch("/api/admin/companies", {
           cache: "no-store",
         });
         const payload = await res.json();
         if (!active) return;
         if (!res.ok) throw new Error(payload.error ?? t("loadError"));
-        setItems((payload.items ?? []) as PendingCompany[]);
+        setItems((payload.items ?? []) as AdminCompany[]);
       } catch (err) {
         if (active) toast.error(err instanceof Error ? err.message : "error");
       } finally {
@@ -53,10 +53,7 @@ export default function AdminCompaniesPage() {
     };
   }, [t]);
 
-  async function moderate(
-    company: PendingCompany,
-    action: "approve" | "reject",
-  ) {
+  async function moderate(company: AdminCompany, action: "approve" | "reject") {
     let notes: string | undefined;
     if (action === "reject") {
       const input = window.prompt("მიუთითეთ უარყოფის მიზეზი (არასავალდებულო):");
@@ -77,7 +74,13 @@ export default function AdminCompaniesPage() {
           ? t("admin.approvedToast")
           : t("admin.rejectedToast"),
       );
-      setItems((prev) => prev.filter((c) => c.id !== company.id));
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === company.id
+            ? { ...c, status: action === "approve" ? "active" : "rejected" }
+            : c,
+        ),
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "error");
     } finally {
@@ -92,7 +95,7 @@ export default function AdminCompaniesPage() {
           {t("admin.companiesTab")}
         </h1>
         <p className="text-[14px] font-medium text-[#64748B]">
-          {t("pageSubtitle")}
+          {t("admin.pageSubtitle")}
         </p>
       </div>
 
@@ -135,8 +138,23 @@ export default function AdminCompaniesPage() {
                   )}
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-[16px] font-black text-[#0F172A]">
+                  <p className="flex flex-wrap items-center gap-2 truncate text-[16px] font-black text-[#0F172A]">
                     {c.brand_name}
+                    {c.status === "pending" && (
+                      <span className="rounded-md bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-bold text-[#92400E]">
+                        {t("badgePending")}
+                      </span>
+                    )}
+                    {c.status === "active" && (
+                      <span className="rounded-md bg-[#DCFCE7] px-2 py-0.5 text-[11px] font-bold text-[#166534]">
+                        {t("badgeVerified")}
+                      </span>
+                    )}
+                    {c.status === "rejected" && (
+                      <span className="rounded-md bg-[#FEE2E2] px-2 py-0.5 text-[11px] font-bold text-[#B91C1C]">
+                        {t("badgeRejected")}
+                      </span>
+                    )}
                   </p>
                   <p className="truncate text-[13px] font-medium text-[#64748B]">
                     {c.legal_name}
@@ -161,28 +179,32 @@ export default function AdminCompaniesPage() {
                   <Eye className="h-4 w-4" />
                   {t("admin.view")}
                 </a>
-                <button
-                  type="button"
-                  disabled={busyId === c.id}
-                  onClick={() => moderate(c, "reject")}
-                  className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 text-[13px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
-                >
-                  <X className="h-4 w-4" />
-                  {t("admin.reject")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === c.id}
-                  onClick={() => moderate(c, "approve")}
-                  className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-[#059669] px-4 text-[13px] font-bold text-white shadow-[0px_8px_20px_rgba(5,150,105,0.25)] transition-colors hover:bg-[#047857] disabled:opacity-50"
-                >
-                  {busyId === c.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4" />
-                  )}
-                  {t("admin.approve")}
-                </button>
+                {c.status === "pending" && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busyId === c.id}
+                      onClick={() => moderate(c, "reject")}
+                      className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 text-[13px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
+                    >
+                      <X className="h-4 w-4" />
+                      {t("admin.reject")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === c.id}
+                      onClick={() => moderate(c, "approve")}
+                      className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-[#059669] px-4 text-[13px] font-bold text-white shadow-[0px_8px_20px_rgba(5,150,105,0.25)] transition-colors hover:bg-[#047857] disabled:opacity-50"
+                    >
+                      {busyId === c.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      {t("admin.approve")}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))
