@@ -150,7 +150,7 @@ export default function SellerDashboardClient({
         p_organization_id:
           scope.mode === "org" && scope.organizationId
             ? scope.organizationId
-            : null,
+            : undefined,
       });
 
       if (!error) setStats(data?.[0] ?? null);

@@ -738,6 +738,7 @@ export type Database = {
           interest_type: string | null;
           next_action_at: string | null;
           note: string | null;
+          organization_id: string | null;
           owner_id: string;
           priority: Database["public"]["Enums"]["lead_priority"];
           property_id: string | null;
@@ -757,6 +758,7 @@ export type Database = {
           interest_type?: string | null;
           next_action_at?: string | null;
           note?: string | null;
+          organization_id?: string | null;
           owner_id: string;
           priority?: Database["public"]["Enums"]["lead_priority"];
           property_id?: string | null;
@@ -776,6 +778,7 @@ export type Database = {
           interest_type?: string | null;
           next_action_at?: string | null;
           note?: string | null;
+          organization_id?: string | null;
           owner_id?: string;
           priority?: Database["public"]["Enums"]["lead_priority"];
           property_id?: string | null;
@@ -784,6 +787,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "leads_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "leads_owner_id_fkey";
             columns: ["owner_id"];
@@ -930,6 +940,32 @@ export type Database = {
           },
         ];
       };
+      organization_admin_notes: {
+        Row: {
+          notes: string | null;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          notes?: string | null;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          notes?: string | null;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_admin_notes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organization_members: {
         Row: {
           approved_at: string | null;
@@ -1032,7 +1068,6 @@ export type Database = {
       organizations: {
         Row: {
           address: string | null;
-          admin_notes: string | null;
           brand_name: string;
           city: string | null;
           company_type: string;
@@ -1054,7 +1089,6 @@ export type Database = {
         };
         Insert: {
           address?: string | null;
-          admin_notes?: string | null;
           brand_name: string;
           city?: string | null;
           company_type: string;
@@ -1076,7 +1110,6 @@ export type Database = {
         };
         Update: {
           address?: string | null;
-          admin_notes?: string | null;
           brand_name?: string;
           city?: string | null;
           company_type?: string;
@@ -1274,9 +1307,34 @@ export type Database = {
         };
         Relationships: [];
       };
+      profile_admin_notes: {
+        Row: {
+          notes: string | null;
+          profile_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          notes?: string | null;
+          profile_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          notes?: string | null;
+          profile_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_admin_notes_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
-          admin_notes: string | null;
           avatar_url: string | null;
           bio: string | null;
           created_at: string | null;
@@ -1295,7 +1353,6 @@ export type Database = {
           whatsapp_enabled: boolean | null;
         };
         Insert: {
-          admin_notes?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
@@ -1314,7 +1371,6 @@ export type Database = {
           whatsapp_enabled?: boolean | null;
         };
         Update: {
-          admin_notes?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string | null;
@@ -1450,6 +1506,7 @@ export type Database = {
           currency: string | null;
           description: string | null;
           developer: string | null;
+          discount_expires_at: string | null;
           discount_percent: number | null;
           distance_to_slope_m: number | null;
           hotel_stars: number | null;
@@ -1507,6 +1564,7 @@ export type Database = {
           currency?: string | null;
           description?: string | null;
           developer?: string | null;
+          discount_expires_at?: string | null;
           discount_percent?: number | null;
           distance_to_slope_m?: number | null;
           hotel_stars?: number | null;
@@ -1564,6 +1622,7 @@ export type Database = {
           currency?: string | null;
           description?: string | null;
           developer?: string | null;
+          discount_expires_at?: string | null;
           discount_percent?: number | null;
           distance_to_slope_m?: number | null;
           hotel_stars?: number | null;
@@ -1864,6 +1923,7 @@ export type Database = {
           cuisine_type: string | null;
           currency: string | null;
           description: string | null;
+          discount_expires_at: string | null;
           discount_percent: number | null;
           driver_name: string | null;
           duration: string | null;
@@ -1936,6 +1996,7 @@ export type Database = {
           cuisine_type?: string | null;
           currency?: string | null;
           description?: string | null;
+          discount_expires_at?: string | null;
           discount_percent?: number | null;
           driver_name?: string | null;
           duration?: string | null;
@@ -2008,6 +2069,7 @@ export type Database = {
           cuisine_type?: string | null;
           currency?: string | null;
           description?: string | null;
+          discount_expires_at?: string | null;
           discount_percent?: number | null;
           driver_name?: string | null;
           duration?: string | null;
@@ -2852,11 +2914,12 @@ export type Database = {
       };
       increment_views: { Args: { prop_id: string }; Returns: undefined };
       is_admin_user: { Args: never; Returns: boolean };
+      normalize_ge_phone: { Args: { p: string }; Returns: string };
       owner_dashboard_stats: {
         Args: {
           p_from?: string;
           p_listing_ids?: string[];
-          p_organization_id?: string | null;
+          p_organization_id?: string;
           p_scope: string;
           p_to?: string;
         };
@@ -2918,7 +2981,7 @@ export type Database = {
       seller_dashboard_stats: {
         Args: {
           p_from: string;
-          p_organization_id?: string | null;
+          p_organization_id?: string;
           p_property_ids?: string[];
           p_to: string;
         };
@@ -2931,6 +2994,17 @@ export type Database = {
           sold: number;
           views_total: number;
         }[];
+      };
+      settle_payment: {
+        Args: {
+          p_approved: boolean;
+          p_card_brand?: string;
+          p_card_last4?: string;
+          p_error?: string;
+          p_payment_id: string;
+          p_user_id: string;
+        };
+        Returns: Json;
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };

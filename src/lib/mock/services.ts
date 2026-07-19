@@ -356,6 +356,7 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     is_super_vip: false,
     vip_expires_at: null,
     vip_expiry_notified_at: null,
+    discount_expires_at: null,
     whatsapp: null,
     age_min: null,
     avg_check: item.avgCheck ?? null,

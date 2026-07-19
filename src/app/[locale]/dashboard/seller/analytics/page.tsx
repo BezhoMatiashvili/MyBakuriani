@@ -94,7 +94,10 @@ export default function SellerAnalyticsPage() {
           p_from: range.from.toISOString(),
           p_to: range.to.toISOString(),
           p_property_ids: listingIds.length ? listingIds : undefined,
-          p_organization_id: scope.mode === "org" ? scope.organizationId : null,
+          p_organization_id:
+            scope.mode === "org"
+              ? (scope.organizationId ?? undefined)
+              : undefined,
         }),
         leadsQuery,
       ]);
