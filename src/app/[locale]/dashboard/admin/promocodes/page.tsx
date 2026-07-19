@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { formatDate } from "@/lib/utils/format";
 
 interface Promocode {
@@ -36,6 +37,7 @@ export default function PromoCodesPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,6 +116,13 @@ export default function PromoCodesPage() {
   }
 
   const activeCodes = codes.filter((c) => c.is_active);
+  const filteredActiveCodes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return activeCodes;
+    return activeCodes.filter(
+      (c) => c.id.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
+    );
+  }, [activeCodes, search]);
 
   return (
     <div className="mx-auto flex w-full max-w-[918px] flex-col gap-8 pb-10">
@@ -237,17 +246,23 @@ export default function PromoCodesPage() {
           <h2 className="pb-6 text-[14px] font-bold leading-[21px] text-[#1E293B]">
             {t("activeCodes", { count: activeCodes.length })}
           </h2>
+          <AdminSearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder={t("searchPlaceholder")}
+            className="mb-4"
+          />
           <div className="space-y-3">
             {loading ? (
               Array.from({ length: 2 }).map((_, idx) => (
                 <Skeleton key={idx} className="h-[68px] w-full rounded-xl" />
               ))
-            ) : activeCodes.length === 0 ? (
+            ) : filteredActiveCodes.length === 0 ? (
               <p className="py-8 text-center text-sm text-[#94A3B8]">
                 {t("noActiveCodes")}
               </p>
             ) : (
-              activeCodes.map((code) => {
+              filteredActiveCodes.map((code) => {
                 const isCancelling = cancellingId === code.id;
                 const discountLabel =
                   code.discount_type === "percent"

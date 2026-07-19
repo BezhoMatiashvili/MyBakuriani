@@ -2939,6 +2939,7 @@ export type Database = {
       };
       purchase_package: {
         Args: {
+          p_discount_percent?: number;
           p_package_id: string;
           p_property_id?: string;
           p_quantity?: number;

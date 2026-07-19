@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { sanitizeNumericString, clampNumericString } from "@/lib/utils/number";
 
 type ZoneIconValue = "mountain" | "tree" | "pin";
@@ -114,6 +115,7 @@ export default function AdminZonesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [createDraft, setCreateDraft] = useState<ZoneDraft>(EMPTY_DRAFT);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -349,6 +351,17 @@ export default function AdminZonesPage() {
     [zones],
   );
 
+  const filteredOrdered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ordered;
+    return ordered.filter(
+      (z) =>
+        z.id.toLowerCase().includes(q) ||
+        z.name_ka.toLowerCase().includes(q) ||
+        z.slug.toLowerCase().includes(q),
+    );
+  }, [ordered, search]);
+
   return (
     <div className="w-full space-y-6 pb-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -433,6 +446,12 @@ export default function AdminZonesPage() {
         </section>
       ) : null}
 
+      <AdminSearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="ძიება (ID, სახელი, Slug)..."
+      />
+
       <section className="overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
         <div className="bg-[#F8FAFC] px-5 py-5">
           <h2 className="text-[15px] font-black leading-[22px] text-[#1E293B]">
@@ -444,12 +463,13 @@ export default function AdminZonesPage() {
             Array.from({ length: 4 }).map((_, idx) => (
               <Skeleton key={idx} className="h-[88px] w-full rounded-2xl" />
             ))
-          ) : ordered.length === 0 ? (
+          ) : filteredOrdered.length === 0 ? (
             <p className="py-8 text-center text-sm text-[#94A3B8]">
-              ჯერ ზონები არ არის
+              {zones.length === 0 ? "ჯერ ზონები არ არის" : "ვერაფერი მოიძებნა"}
             </p>
           ) : (
-            ordered.map((zone, idx) => {
+            filteredOrdered.map((zone) => {
+              const idx = ordered.findIndex((z) => z.id === zone.id);
               const isEditing = !!editing[zone.id];
               const isSaving = savingId === zone.id;
               return (

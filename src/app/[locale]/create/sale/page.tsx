@@ -238,6 +238,11 @@ function CreateSalePageInner() {
   // belongs to. Companies without an active subscription can't publish (DB
   // trigger enforces it; we also pre-check + warn here).
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  // The listing's org as hydrated in edit mode (null in create mode). The
+  // active-sub pre-check and the update payload only apply when the value
+  // actually changed — enforce_org_listing_rules fires on any UPDATE that
+  // merely lists organization_id, even unchanged.
+  const initialOrgIdRef = useRef<string | null>(null);
   const [companies, setCompanies] = useState<
     { id: string; brand_name: string; role: string; has_active_sub: boolean }[]
   >([]);
@@ -395,6 +400,8 @@ function CreateSalePageInner() {
       setUnitsReserved(
         data.units_reserved != null ? String(data.units_reserved) : "",
       );
+      setOrganizationId(data.organization_id ?? null);
+      initialOrgIdRef.current = data.organization_id ?? null;
 
       const rules =
         data.house_rules && typeof data.house_rules === "object"
@@ -514,7 +521,9 @@ function CreateSalePageInner() {
       errs.push({ key: "phone", message: tShared("invalidPhone") });
     }
 
-    if (organizationId) {
+    // Attaching to / switching company needs an active package; keeping the
+    // hydrated value unchanged (or detaching) needs no check.
+    if (organizationId && organizationId !== initialOrgIdRef.current) {
       const company = companies.find((c) => c.id === organizationId);
       if (!company || !company.has_active_sub) {
         errs.push({
@@ -631,10 +640,18 @@ function CreateSalePageInner() {
       if (editId) {
         // Same reasoning as the hydrate query above: no owner_id/organization_id
         // filter needed — RLS already permits the update for the owner or an
-        // approved org member of this listing's company.
+        // approved org member of this listing's company. organization_id is
+        // included only when it changed: enforce_org_listing_rules fires on any
+        // UPDATE whose SET list mentions the column, even with an unchanged
+        // value, and would reject unrelated edits of a lapsed-sub org listing.
+        const orgChanged = organizationId !== initialOrgIdRef.current;
         const { error: updateError } = await supabase
           .from("properties")
-          .update(payload)
+          .update(
+            orgChanged
+              ? { ...payload, organization_id: organizationId }
+              : payload,
+          )
           .eq("id", editId);
 
         if (updateError) throw updateError;
@@ -881,6 +898,9 @@ function CreateSalePageInner() {
               postAsScreen
             ) : (
               <div className="space-y-8">
+                {isEditMode &&
+                  (companies.length > 0 || organizationId !== null) &&
+                  postAsScreen}
                 <WizardInnerCard
                   number={1}
                   title={t("sectionIdentity")}

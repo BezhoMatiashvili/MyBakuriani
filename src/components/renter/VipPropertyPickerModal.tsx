@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Home, CreditCard } from "lucide-react";
 import type { VipInfoTier } from "./VipInfoModal";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
+import NumberField from "@/components/shared/NumberField";
 
 export interface PickerProperty {
   id: string;
@@ -42,7 +43,11 @@ interface VipPropertyPickerModalProps {
    * and always confirm at quantity 1.
    */
   pkg?: { amountGel: number; durationHours: number };
-  onConfirm?: (propertyId: string, quantity: number) => Promise<void> | void;
+  onConfirm?: (
+    propertyId: string,
+    quantity: number,
+    discountPercent?: number,
+  ) => Promise<void> | void;
   loading?: boolean;
   /** Render a single flat list (no rental/sale grouping) — used for services. */
   flat?: boolean;
@@ -72,6 +77,7 @@ export default function VipPropertyPickerModal({
   const [selectedId, setSelectedId] = useState<string>(properties[0]?.id ?? "");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [discountPercent, setDiscountPercent] = useState("10");
 
   useEffect(() => {
     if (properties.length > 0 && !selectedId) {
@@ -82,6 +88,7 @@ export default function VipPropertyPickerModal({
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
+      setDiscountPercent("10");
     }
   }, [isOpen]);
 
@@ -270,6 +277,23 @@ export default function VipPropertyPickerModal({
               </div>
 
               <div className="mt-5 border-t border-[#EEF1F4] pt-5">
+                {tier === "discount" && (
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
+                      {t("discountPercentLabel")}
+                    </p>
+                    <NumberField
+                      value={discountPercent}
+                      onChange={setDiscountPercent}
+                      min={1}
+                      max={90}
+                      integer
+                      stepper
+                      accent="green"
+                      className="w-36"
+                    />
+                  </div>
+                )}
                 {pkg && (
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
@@ -345,7 +369,11 @@ export default function VipPropertyPickerModal({
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
-          await onConfirm?.(selectedId, quantity);
+          await onConfirm?.(
+            selectedId,
+            quantity,
+            tier === "discount" ? Number(discountPercent) : undefined,
+          );
           onClose();
         }}
         title={meta.title}

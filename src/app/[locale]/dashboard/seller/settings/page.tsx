@@ -7,6 +7,7 @@ import { Settings as SettingsIcon, MessageCircle, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 
@@ -84,23 +85,7 @@ export default function SellerSettingsPage() {
     onChange: (v: boolean) => void;
     color?: string;
   }) {
-    return (
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
-        style={{ backgroundColor: checked ? color : "#E2E8F0" }}
-      >
-        <span
-          className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
-          style={{
-            transform: checked ? "translateX(22px)" : "translateX(2px)",
-          }}
-        />
-      </button>
-    );
+    return <Switch checked={checked} onCheckedChange={onChange} tone={color === "#16A34A" ? "whatsapp" : "primary"} />;
   }
 
   return (

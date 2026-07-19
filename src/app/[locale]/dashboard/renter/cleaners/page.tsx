@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import CleanerCallModal from "@/components/renter/CleanerCallModal";
 import AddCleanerModal from "@/components/renter/AddCleanerModal";
 import CleanerFormModal from "@/components/renter/CleanerFormModal";
+import { CallButton } from "@/components/shared/CallButton";
 import { formatDateTime, formatPrice } from "@/lib/utils/format";
 import {
   optionKeyFor,
@@ -380,18 +381,7 @@ export default function RenterCleanersPage() {
                 )}
 
                 <div className="mt-5 flex items-center gap-2">
-                  {c.phone ? (
-                    <a
-                      href={`tel:${c.phone}`}
-                      className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
-                    >
-                      {tShared("call")}
-                    </a>
-                  ) : (
-                    <span className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] py-2.5 text-[13px] font-bold text-[#94A3B8]">
-                      {tShared("call")}
-                    </span>
-                  )}
+                  <CallButton phone={c.phone} label={tShared("call")} alwaysShowLabel layout="card" className="flex-1" />
                   <button
                     type="button"
                     onClick={() => setFormModal({ open: true, cleaner: c })}
@@ -497,12 +487,7 @@ export default function RenterCleanersPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <a
-                  href={`tel:${cleaner.phone ?? ""}`}
-                  className="inline-flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
-                >
-                  {tShared("call")}
-                </a>
+                <CallButton phone={cleaner.phone} label={tShared("call")} alwaysShowLabel layout="card" className="w-full" />
                 <button
                   type="button"
                   onClick={() => openCall(cleaner)}

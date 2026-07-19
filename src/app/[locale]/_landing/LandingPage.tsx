@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowRight, Plus, Video, Flame } from "lucide-react";
+import { ArrowRight, Video, Flame } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -33,12 +33,14 @@ import ServiceCard from "@/components/cards/ServiceCard";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import type { Tables } from "@/lib/types/database";
 import { InfoBanners } from "@/components/landing/InfoBanners";
 import { PromoBanners } from "@/components/landing/PromoBanners";
 import type { LandingBanner } from "@/lib/banners";
 import type { Zone } from "@/lib/zones/types";
 import StatusCards from "@/components/landing/StatusCards";
+import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
 
 interface LandingPageProps {
@@ -150,6 +152,7 @@ export default function LandingPage({
         isVip: p.is_vip ?? false,
         isSuperVip: p.is_super_vip ?? false,
         discountPercent: p.discount_percent ?? 0,
+        discountExpiresAt: p.discount_expires_at ?? null,
         isForSale: p.is_for_sale ?? false,
         distanceToSlopeM: p.distance_to_slope_m,
       }))
@@ -170,6 +173,7 @@ export default function LandingPage({
         isVip: p.is_vip ?? false,
         isSuperVip: p.is_super_vip ?? false,
         discountPercent: p.discount_percent ?? 0,
+        discountExpiresAt: p.discount_expires_at ?? null,
         isForSale: p.is_for_sale ?? false,
         distanceToSlopeM: p.distance_to_slope_m,
       })),
@@ -179,7 +183,9 @@ export default function LandingPage({
   const filteredVipProperties = useMemo(
     () =>
       hotOffersDiscountOnly
-        ? vipPropertyCards.filter((p) => (p.discountPercent ?? 0) > 0)
+        ? vipPropertyCards.filter((p) =>
+            isDiscountActive(p.discountPercent, p.discountExpiresAt),
+          )
         : vipPropertyCards,
     [vipPropertyCards, hotOffersDiscountOnly],
   );
@@ -199,6 +205,7 @@ export default function LandingPage({
           isVip: p.is_vip ?? false,
           isSuperVip: p.is_super_vip ?? false,
           discountPercent: p.discount_percent ?? 0,
+          discountExpiresAt: p.discount_expires_at ?? null,
           isForSale: false,
           isHotel: true as const,
           hotelStars: p.hotel_stars ?? undefined,
@@ -227,6 +234,7 @@ export default function LandingPage({
           price: s.price ? Number(s.price) : null,
           priceUnit: s.price_unit,
           discountPercent: s.discount_percent ?? 0,
+          discountExpiresAt: s.discount_expires_at ?? null,
           isVip: s.is_vip ?? false,
           schedule: s.schedule,
           operatingHours: s.operating_hours,
@@ -596,12 +604,7 @@ export default function LandingPage({
             <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
               {t("addListingCTA")}
             </p>
-            <Link
-              href="/create"
-              className="mt-6 inline-flex h-12 items-center justify-center rounded-full bg-brand-accent px-8 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] transition-colors hover:bg-brand-accent-hover"
-            >
-              {t("addListing")}
-            </Link>
+            <AddListingButton label={t("addListing")} className="mt-6 h-12 rounded-full px-8" />
           </ScrollReveal>
         </div>
       </section>
@@ -633,6 +636,7 @@ function ServiceSection({
     price: number | null;
     priceUnit: string | null;
     discountPercent: number;
+    discountExpiresAt: string | null;
     isVip: boolean;
     schedule?: string | null;
     operatingHours?: string | null;
@@ -650,7 +654,11 @@ function ServiceSection({
   const [discountOnly, setDiscountOnly] = useState(false);
   const filteredCards = useMemo(
     () =>
-      discountOnly ? cards.filter((c) => (c.discountPercent ?? 0) > 0) : cards,
+      discountOnly
+        ? cards.filter((c) =>
+            isDiscountActive(c.discountPercent, c.discountExpiresAt),
+          )
+        : cards,
     [cards, discountOnly],
   );
   return (
@@ -701,13 +709,7 @@ function ServiceSection({
                 </button>
               )}
               {showAddButton && (
-                <Link
-                  href="/create"
-                  className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] px-4 py-2 text-[13px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
-                >
-                  <Plus className="h-4 w-4" />
-                  {t("add")}
-                </Link>
+                <AddListingButton label={t("add")} className="rounded-full px-4 py-2" />
               )}
               <Link
                 href={href}
@@ -777,13 +779,7 @@ function EmploymentSection({
               </p>
             </div>
             <div className="hidden items-center gap-4 sm:flex">
-              <Link
-                href="/create"
-                className="inline-flex items-center gap-1 rounded-full bg-[#DBEAFE] px-4 py-2 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#BFDBFE]"
-              >
-                <Plus className="h-4 w-4" />
-                {t("add")}
-              </Link>
+              <AddListingButton label={t("add")} className="rounded-full px-4 py-2" />
               <Link
                 href={href}
                 className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-bold text-[#0F172A] hover:underline"
@@ -845,6 +841,7 @@ function PropertySection({
     isVip: boolean;
     isSuperVip: boolean;
     discountPercent: number;
+    discountExpiresAt: string | null;
     isForSale: boolean;
     isHotel?: boolean;
     numericRating?: number;
@@ -864,7 +861,9 @@ function PropertySection({
   const filteredProperties = useMemo(
     () =>
       discountOnly
-        ? properties.filter((p) => (p.discountPercent ?? 0) > 0)
+        ? properties.filter((p) =>
+            isDiscountActive(p.discountPercent, p.discountExpiresAt),
+          )
         : properties,
     [properties, discountOnly],
   );
@@ -916,13 +915,7 @@ function PropertySection({
                 </button>
               )}
               {showAddButton && (
-                <Link
-                  href="/create"
-                  className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] px-4 py-2 text-[13px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
-                >
-                  <Plus className="h-4 w-4" />
-                  {t("add")}
-                </Link>
+                <AddListingButton label={t("add")} className="rounded-full px-4 py-2" />
               )}
               <Link
                 href={href}

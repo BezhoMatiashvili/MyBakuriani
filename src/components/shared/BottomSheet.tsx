@@ -1,6 +1,8 @@
 "use client";
 import { ReactNode, useEffect } from "react";
 import { AnimatePresence, motion, PanInfo } from "framer-motion";
+import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -15,6 +17,7 @@ export default function BottomSheet({
   title = null,
   children,
 }: BottomSheetProps) {
+  const t = useTranslations("Shared");
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -51,11 +54,21 @@ export default function BottomSheet({
             <div className="flex justify-center pb-2 pt-3">
               <div className="h-1 w-10 rounded-full bg-[#64748B]/30" />
             </div>
-            {title && (
-              <div className="border-b px-5 pb-3">
+            <div className="flex items-center justify-between gap-3 border-b px-5 pb-3">
+              {title ? (
                 <h2 className="text-lg font-semibold">{title}</h2>
-              </div>
-            )}
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t("close")}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
               {children}
             </div>

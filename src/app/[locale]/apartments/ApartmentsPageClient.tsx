@@ -14,6 +14,7 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import {
@@ -56,6 +57,7 @@ export type ApartmentListing = Pick<
   | "is_vip"
   | "is_super_vip"
   | "discount_percent"
+  | "discount_expires_at"
   | "capacity"
   | "rooms"
   | "amenities"
@@ -140,7 +142,9 @@ export default function ApartmentsPageClient({
   const filteredProperties = useMemo(
     () =>
       onlyAvailable
-        ? properties.filter((p) => (p.discount_percent ?? 0) > 0)
+        ? properties.filter((p) =>
+            isDiscountActive(p.discount_percent, p.discount_expires_at),
+          )
         : properties,
     [properties, onlyAvailable],
   );
@@ -353,6 +357,7 @@ export default function ApartmentsPageClient({
                   isVip={p.is_vip ?? false}
                   isSuperVip={p.is_super_vip ?? false}
                   discountPercent={p.discount_percent ?? 0}
+                  discountExpiresAt={p.discount_expires_at}
                   isForSale={p.is_for_sale ?? false}
                   amenityTags={
                     Array.isArray(p.amenities) ? (p.amenities as string[]) : []

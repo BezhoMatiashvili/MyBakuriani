@@ -77,10 +77,26 @@ export default function StatusCards({
   const locale = useLocale();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  // The mobile BottomSheet stays mounted (only CSS-hidden via `md:hidden`) so
+  // its scroll-lock effect must be told when it isn't actually visible —
+  // otherwise expanding a card on desktop locks body scroll and breaks the
+  // sticky Navbar above it.
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   // Close the desktop dropdown when clicking outside the card grid / on Escape.
+  // Skipped on mobile — the BottomSheet handles its own close (backdrop/X/drag),
+  // and this handler's gridRef check doesn't cover the sheet's content, which
+  // renders as a sibling and would otherwise close on every tap inside it.
   useEffect(() => {
-    if (!expandedId) return;
+    if (!expandedId || isMobile) return;
     const onPointer = (e: MouseEvent) => {
       if (!gridRef.current?.contains(e.target as Node)) setExpandedId(null);
     };
@@ -93,7 +109,7 @@ export default function StatusCards({
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [expandedId]);
+  }, [expandedId, isMobile]);
 
   if (cards.length === 0) return null;
 
@@ -195,7 +211,7 @@ export default function StatusCards({
       {/* Mobile bottom-sheet — hidden on desktop via the display:none wrapper */}
       <div className="md:hidden">
         <BottomSheet
-          isOpen={!!expandedCard}
+          isOpen={isMobile && !!expandedCard}
           onClose={() => setExpandedId(null)}
           title={
             expandedCard ? pickLocalized(expandedCard.label, locale) : null

@@ -29,6 +29,7 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { formatPricePerNight } from "@/lib/utils/format";
+import { applyDiscount } from "@/lib/utils/pricing";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -475,6 +476,8 @@ export default function ApartmentDetailClient({
               maxGuests={property.capacity ?? 10}
               showGuestCount={false}
               priceOverrides={priceOverrides}
+              discountPercent={property.discount_percent}
+              discountExpiresAt={property.discount_expires_at}
             />
           )}
         </motion.div>
@@ -482,7 +485,16 @@ export default function ApartmentDetailClient({
 
       {property.price_per_night != null && (
         <MobileStickyCTA
-          primary={formatPricePerNight(property.price_per_night, locale)}
+          primary={formatPricePerNight(
+            Math.round(
+              applyDiscount(
+                property.price_per_night,
+                property.discount_percent,
+                property.discount_expires_at,
+              ),
+            ),
+            locale,
+          )}
           secondary={property.location ?? undefined}
           ctaLabel={tDetail("book")}
           onClick={() =>
@@ -490,6 +502,7 @@ export default function ApartmentDetailClient({
               .getElementById("booking-sidebar")
               ?.scrollIntoView({ behavior: "smooth", block: "start" })
           }
+          tone="booking"
         />
       )}
     </div>

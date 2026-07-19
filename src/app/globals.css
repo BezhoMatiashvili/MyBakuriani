@@ -32,6 +32,19 @@
   --color-brand-surface-muted: #f8fafc;
   --color-brand-surface-border: #e2e8f0;
   --color-brand-orange: #f97316;
+  /* Reusable action semantics. Keep these separate from page-brand colors. */
+  --color-whatsapp: #25d366;
+  --color-whatsapp-hover: #1eb453;
+  --color-whatsapp-disabled: #bbf7d0;
+  --color-whatsapp-disabled-foreground: #166534;
+  --color-contact: #22c55e;
+  --color-contact-hover: #16a34a;
+  --color-contact-disabled: #dcfce7;
+  --color-contact-disabled-foreground: #166534;
+  --color-creation: #f97316;
+  --color-creation-hover: #ea580c;
+  --color-listing-action: #16a34a;
+  --color-listing-action-hover: #15803d;
   --color-sky-accent: #38bdf8;
   --color-dark-card: #222a3b;
   --color-dark-toggle: #1f2a44;

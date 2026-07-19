@@ -39,3 +39,24 @@ export function sumNightlyPrice(
   }
   return total;
 }
+
+// Null discountExpiresAt is treated as active (fail-open) to match how the purchase_package RPC writes these columns, and the strict '>' matches the DB's create_booking check.
+export function isDiscountActive(
+  discountPercent: number | null | undefined,
+  discountExpiresAt: string | null | undefined,
+): boolean {
+  if (!discountPercent || discountPercent <= 0) return false;
+  if (!discountExpiresAt) return true;
+  return new Date(discountExpiresAt).getTime() > Date.now();
+}
+
+// Return value is deliberately unrounded (callers round at render time; this keeps "discount applied once to a summed subtotal" mathematically identical to "discount applied per-night then summed").
+export function applyDiscount(
+  price: number,
+  discountPercent: number | null | undefined,
+  discountExpiresAt: string | null | undefined,
+): number {
+  if (!isDiscountActive(discountPercent, discountExpiresAt)) return price;
+  if (price <= 0) return price;
+  return price * (1 - (discountPercent as number) / 100);
+}

@@ -31,7 +31,9 @@
     "statusOk": "ღია",
     "statusWarn": "გაფრთხილება",
     "statusClosed": "დაკეტილი",
-    "statusNone": "ნეიტრალური"
+    "statusNone": "ნეიტრალური",
+    "searchPlaceholder": "ძიება (ID, სათაური)...",
+    "searchEmpty": "ბარათი ვერ მოიძებნა"
   },
   "Metadata": {
     "siteTitle": "MyBakuriani — პრემიუმ გაქირავება ბაკურიანში",
@@ -446,6 +448,7 @@
     "nightsLine": "{price} x {count} ღამე",
     "daysLine": "{price} x {count} დღე",
     "mixedPricingNote": "ფასი იცვლება დღეების მიხედვით",
+    "discountLine": "ფასდაკლება (-{percent}%)",
     "total": "ჯამში",
     "minBookingNotice": "მინ. ჯავშანი: {count} დღე",
     "callOwner": "დარეკვა მესაკუთრეთან",
@@ -752,7 +755,8 @@
           "sms": "/ 200 SMS"
         },
         "quantityLabel": "დღეების რაოდენობა",
-        "daysCount": "{count} დღე"
+        "daysCount": "{count} დღე",
+        "discountPercentLabel": "ფასდაკლების პროცენტი"
       }
     }
   },
@@ -3661,6 +3665,7 @@
       "entertainment": "გართობა",
       "employment": "დასაქმება"
     },
+    "searchPlaceholder": "ძიება (ID, სახელი, მფლობელი)...",
     "colObject": "ობიექტი",
     "colOwner": "მფლობელი",
     "colPrice": "ფასი",
@@ -3684,6 +3689,7 @@
     "title": "SMS დადასტურება",
     "subtitle": "მომხმარებლების მიერ გასაგზავნი SMS შეტყობინებების შემოწმება და დადასტურება.",
     "empty": "არცერთი SMS არ არის ამ კატეგორიაში",
+    "searchPlaceholder": "ძიება (ID, გამომგზავნი, მიმღები, ტელეფონი)...",
     "approvedToast": "SMS დადასტურდა და დასაგზავნია",
     "rejectedToast": "SMS უარყოფილია",
     "rejectModalTitle": "SMS-ის უარყოფა",
@@ -3708,13 +3714,16 @@
     "activeCodes": "აქტიური კოდები ({count})",
     "noActiveCodes": "აქტიური კოდი ჯერ არ არის",
     "uses": "გამოყ.: {count}",
-    "noExpiry": "უვადოდ"
+    "noExpiry": "უვადოდ",
+    "searchPlaceholder": "ძიება (ID, კოდი)..."
   },
   "AdminModeration": {
     "title": "B2B რეკლამები",
     "subtitle": "რესტორნების, ტრანსპორტისა და ინვენტარის ბანერების მართვა.",
     "addAd": "რეკლამის დამატება",
+    "searchPlaceholder": "ძიება (ID, სათაური, პოზიცია)...",
     "empty": "ჯერ არ არის კამპანია. დააწკაპუნეთ «რეკლამის დამატება».",
+    "searchEmpty": "თქვენს ძიებას შედეგი არ მოეძებნა.",
     "adCreated": "რეკლამა შეიქმნა",
     "delete": "წაშლა",
     "deleteConfirm": "წავშალოთ რეკლამა \"{title}\"? ეს ქმედება შეუქცევადია.",
@@ -3855,6 +3864,8 @@
   "AdminBanners": {
     "title": "ბანერები და სიახლეები",
     "subtitle": "მართეთ მთავარი გვერდის ბანერები და ქვედა მიკრული სიახლეები საიტისთვის.",
+    "searchPlaceholder": "ძიება (ID, სათაური)...",
+    "searchEmpty": "ბანერი ვერ მოიძებნა",
     "add": "დამატება",
     "empty": "ჯერ არ არის ბანერი.",
     "editTitle": "ბანერის რედაქტირება",
@@ -4217,7 +4228,8 @@
       "noCompanies": "ახალი კომპანიები არ არის",
       "view": "ნახვა",
       "approvedToast": "კომპანია დადასტურდა",
-      "rejectedToast": "კომპანია უარყოფილია"
+      "rejectedToast": "კომპანია უარყოფილია",
+      "searchPlaceholder": "ძიება (ID, დასახელება, ს/კ)..."
     }
   }
 }

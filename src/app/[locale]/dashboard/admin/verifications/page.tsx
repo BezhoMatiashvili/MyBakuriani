@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPhone } from "@/lib/utils/format";
 import type { PendingListing } from "@/app/api/admin/listings/pending/route";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 
 const PAGE_SIZE = 8;
 
@@ -83,6 +84,7 @@ export default function VerificationsPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingListing[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -172,9 +174,20 @@ export default function VerificationsPage() {
   }, [items]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return items;
-    return items.filter((it) => it.category === filter);
-  }, [items, filter]);
+    const byCategory =
+      filter === "all" ? items : items.filter((it) => it.category === filter);
+    const q = search.trim().toLowerCase();
+    if (!q) return byCategory;
+    const digits = q.replace(/\D/g, "");
+    return byCategory.filter(
+      (it) =>
+        it.id.toLowerCase().includes(q) ||
+        it.title.toLowerCase().includes(q) ||
+        (it.owner?.display_name ?? "").toLowerCase().includes(q) ||
+        (digits.length > 0 &&
+          (it.owner?.phone ?? "").replace(/\D/g, "").includes(digits)),
+    );
+  }, [items, filter, search]);
 
   const rows = useMemo(() => {
     return filtered.map((item) => {
@@ -273,6 +286,19 @@ export default function VerificationsPage() {
           </span>
         </div>
       )}
+
+      <AdminSearchInput
+        value={search}
+        onChange={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
+        onClear={() => {
+          setSearch("");
+          setPage(1);
+        }}
+        placeholder="ძიება (ID, სახელი, ტელეფონი)..."
+      />
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
         <div className="hidden lg:grid lg:grid-cols-[1.2fr_140px_1.6fr_140px_160px_32px] items-center gap-3 border-b border-[#EDF2F7] px-6 py-4 text-sm font-semibold text-[#64748B]">

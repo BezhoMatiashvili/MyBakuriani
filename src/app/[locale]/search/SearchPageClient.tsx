@@ -464,6 +464,7 @@ export default function SearchPageClient({
                       isVip={p.is_vip ?? false}
                       isSuperVip={p.is_super_vip ?? false}
                       discountPercent={p.discount_percent ?? 0}
+                      discountExpiresAt={p.discount_expires_at}
                       isForSale={p.is_for_sale ?? false}
                     />
                   </ScrollReveal>
@@ -660,6 +661,7 @@ function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
             isVip={p.is_vip ?? false}
             isSuperVip={p.is_super_vip ?? false}
             discountPercent={p.discount_percent ?? 0}
+            discountExpiresAt={p.discount_expires_at}
             isForSale={p.is_for_sale ?? false}
           />
         </ScrollReveal>

@@ -34,6 +34,7 @@ import { useActiveZones } from "@/lib/zones/client";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import StatusCards from "@/components/landing/StatusCards";
 import type { StatusCard } from "@/lib/status-cards/types";
+import { isDiscountActive } from "@/lib/utils/pricing";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -63,6 +64,7 @@ export type HotelListing = Pick<
   | "is_vip"
   | "is_super_vip"
   | "discount_percent"
+  | "discount_expires_at"
   | "capacity"
   | "rooms"
   | "amenities"
@@ -135,7 +137,9 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
   const filteredProperties = useMemo(
     () =>
       onlyAvailable
-        ? properties.filter((p) => (p.discount_percent ?? 0) > 0)
+        ? properties.filter((p) =>
+            isDiscountActive(p.discount_percent, p.discount_expires_at),
+          )
         : properties,
     [properties, onlyAvailable],
   );
@@ -368,6 +372,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
                   isVip={p.is_vip ?? false}
                   isSuperVip={p.is_super_vip ?? false}
                   discountPercent={p.discount_percent ?? 0}
+                  discountExpiresAt={p.discount_expires_at}
                   isForSale={p.is_for_sale ?? false}
                   isHotel
                   numericRating={p.numeric_rating ?? undefined}

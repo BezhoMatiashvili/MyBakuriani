@@ -225,7 +225,8 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <EmploymentCard
                     id={s.id}
-                    title={s.title}
+                    title={s.position ?? s.title}
+                    employer={s.title}
                     location={s.location}
                     salaryLabel={salaryLabel(s)}
                     scheduleLabel={scheduleLabel(s)}

@@ -11,7 +11,6 @@ import {
   LogOut,
   Phone,
   RefreshCcw,
-  Search,
   UserRound,
   X,
 } from "lucide-react";
@@ -20,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Modal from "@/components/shared/Modal";
 import NumberField from "@/components/shared/NumberField";
 import { AuditTimeline } from "@/components/admin/AuditTimeline";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { Link } from "@/i18n/navigation";
 import { formatPhone, formatPrice } from "@/lib/utils/format";
 import type { Tables, Enums } from "@/lib/types/database";
@@ -231,16 +231,11 @@ function ClientsPageContent() {
         </button>
       </div>
 
-      <div className="relative max-w-[420px]">
-        <Search className="absolute left-4 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#94A3B8]" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t("searchPlaceholder")}
-          className="h-[42px] w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-4 text-[13px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-        />
-      </div>
+      <AdminSearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder={t("searchPlaceholder")}
+      />
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
         <div className="max-h-[calc(100vh-260px)] overflow-y-auto">

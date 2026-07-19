@@ -31,7 +31,9 @@
     "statusOk": "Open",
     "statusWarn": "Warning",
     "statusClosed": "Closed",
-    "statusNone": "Neutral"
+    "statusNone": "Neutral",
+    "searchPlaceholder": "Search (ID, title)...",
+    "searchEmpty": "No cards found"
   },
   "Metadata": {
     "siteTitle": "MyBakuriani — Premium Rentals in Bakuriani",
@@ -446,6 +448,7 @@
     "nightsLine": "{price} x {count, plural, =1 {# night} other {# nights}}",
     "daysLine": "{price} x {count, plural, =1 {# day} other {# days}}",
     "mixedPricingNote": "Price varies by day",
+    "discountLine": "Discount (-{percent}%)",
     "total": "Total",
     "minBookingNotice": "Min. booking: {count, plural, =1 {# day} other {# days}}",
     "callOwner": "Call the owner",
@@ -752,7 +755,8 @@
           "sms": "/ 200 SMS"
         },
         "quantityLabel": "Number of days",
-        "daysCount": "{count, plural, =1 {# day} other {# days}}"
+        "daysCount": "{count, plural, =1 {# day} other {# days}}",
+        "discountPercentLabel": "Discount percentage"
       }
     }
   },
@@ -3661,6 +3665,7 @@
       "entertainment": "Entertainment",
       "employment": "Employment"
     },
+    "searchPlaceholder": "Search (ID, name, owner)...",
     "colObject": "Listing",
     "colOwner": "Owner",
     "colPrice": "Price",
@@ -3684,6 +3689,7 @@
     "title": "SMS approval",
     "subtitle": "Review and approve user-sent SMS messages.",
     "empty": "No SMS in this category",
+    "searchPlaceholder": "Search (ID, sender, recipient, phone)...",
     "approvedToast": "SMS approved and queued for sending",
     "rejectedToast": "SMS rejected",
     "rejectModalTitle": "Reject SMS",
@@ -3708,13 +3714,16 @@
     "activeCodes": "Active codes ({count})",
     "noActiveCodes": "No active codes yet",
     "uses": "Used: {count}",
-    "noExpiry": "No expiry"
+    "noExpiry": "No expiry",
+    "searchPlaceholder": "Search (ID, code)..."
   },
   "AdminModeration": {
     "title": "B2B ads",
     "subtitle": "Manage banners for restaurants, transport and inventory.",
     "addAd": "Add ad",
+    "searchPlaceholder": "Search (ID, title, position)...",
     "empty": "No campaigns yet. Click «Add ad».",
+    "searchEmpty": "No ads match your search.",
     "adCreated": "Ad created",
     "delete": "Delete",
     "deleteConfirm": "Delete ad \"{title}\"? This cannot be undone.",
@@ -3855,6 +3864,8 @@
   "AdminBanners": {
     "title": "Banners & news",
     "subtitle": "Manage homepage banners and sticky news for the site.",
+    "searchPlaceholder": "Search (ID, title)...",
+    "searchEmpty": "No banners found",
     "add": "Add",
     "empty": "No banners yet.",
     "editTitle": "Edit banner",
@@ -4217,7 +4228,8 @@
       "noCompanies": "ახალი კომპანიები არ არის",
       "view": "ნახვა",
       "approvedToast": "კომპანია დადასტურდა",
-      "rejectedToast": "კომპანია უარყოფილია"
+      "rejectedToast": "კომპანია უარყოფილია",
+      "searchPlaceholder": "Search (ID, name, ID code)..."
     }
   }
 }

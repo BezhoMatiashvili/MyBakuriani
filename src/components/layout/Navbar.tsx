@@ -16,12 +16,12 @@ import {
   Menu,
   X,
   User,
-  Plus,
   ChevronRight,
   LogOut,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddListingButton } from "@/components/shared/AddListingButton";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { createClient } from "@/lib/supabase/client";
@@ -193,12 +193,7 @@ export function Navbar() {
         {/* Right side action buttons — desktop */}
         <div className="hidden items-center gap-3 md:flex">
           <LanguageSelector />
-          <Link href="/create">
-            <Button className="h-[39.5px] w-[222px] gap-1.5 rounded-xl bg-[#F97316] px-5 text-[13px] font-bold leading-5 text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]">
-              <Plus className="size-4" />
-              {t("addListing")}
-            </Button>
-          </Link>
+          <AddListingButton label={t("addListing")} className="h-[39.5px] w-[222px] px-5 leading-5" />
           {user && (
             <Link href={dashboardPath}>
               <Button
@@ -274,14 +269,7 @@ export function Navbar() {
               viewAllPath={viewAllNotificationsPath}
             />
           )}
-          <Link href="/create" aria-label={t("addListing")}>
-            <Button
-              size="icon"
-              className="size-11 rounded-xl bg-[#F97316] text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]"
-            >
-              <Plus className="size-5" />
-            </Button>
-          </Link>
+          <AddListingButton label={t("addListing")} variant="icon" />
           <Button
             variant="ghost"
             size="icon"
@@ -346,14 +334,7 @@ export function Navbar() {
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <Link
-                href="/create"
-                onClick={() => setMobileOpen(false)}
-                className="mb-2 flex items-center justify-center gap-2 rounded-xl bg-[#F97316] px-3 py-3 text-[14px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(249,115,22,0.2),0px_2px_4px_-2px_rgba(249,115,22,0.2)] hover:bg-[#EA580C]"
-              >
-                <Plus className="size-5" />
-                {t("addListing")}
-              </Link>
+              <AddListingButton label={t("addListing")} variant="mobile" className="mb-2 flex" onClick={() => setMobileOpen(false)} />
               {navItemKeys.map((item) => {
                 const Icon = item.icon;
                 return (

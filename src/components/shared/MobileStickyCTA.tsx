@@ -1,13 +1,14 @@
 "use client";
 
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface MobileStickyCTAProps {
   primary: ReactNode;
   secondary?: ReactNode;
   ctaLabel: string;
   onClick: () => void;
-  ctaClassName?: string;
+  tone?: "booking" | "contact" | "application";
 }
 
 export function MobileStickyCTA({
@@ -15,7 +16,7 @@ export function MobileStickyCTA({
   secondary,
   ctaLabel,
   onClick,
-  ctaClassName,
+  tone = "booking",
 }: MobileStickyCTAProps) {
   return (
     // lg:hidden (not md:hidden): the detail-page sidebars this bar hands off
@@ -35,10 +36,14 @@ export function MobileStickyCTA({
       <button
         type="button"
         onClick={onClick}
-        className={
-          ctaClassName ??
-          "shrink-0 rounded-xl bg-[#F97316] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#EA580C]"
-        }
+        data-slot="mobile-sticky-cta"
+        data-tone={tone}
+        className={cn(
+          "shrink-0 rounded-xl px-6 py-3 text-[14px] font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+          tone === "booking" && "bg-creation hover:bg-creation-hover focus-visible:ring-creation/35",
+          tone === "contact" && "bg-contact hover:bg-contact-hover focus-visible:ring-contact/35",
+          tone === "application" && "bg-[#2563EB] hover:bg-[#1D4ED8] focus-visible:ring-[#2563EB]/35",
+        )}
       >
         {ctaLabel}
       </button>

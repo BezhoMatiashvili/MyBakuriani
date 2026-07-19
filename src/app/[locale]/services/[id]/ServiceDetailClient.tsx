@@ -287,7 +287,7 @@ export default function ServiceDetailClient({
           <WhatsAppButton phone={service.phone} serviceId={service.id} />
           <CallButton
             phone={service.phone}
-            className="h-12 flex-1 gap-2 rounded-full bg-[#22C55E] px-8 text-[15px] font-bold text-white hover:bg-[#16A34A] sm:flex-none"
+            className="flex-1 px-8 sm:flex-none"
             label={tCard("call")}
             alwaysShowLabel
             onNoPhoneClick={() => router.push("/auth/login")}
@@ -306,7 +306,7 @@ export default function ServiceDetailClient({
               .getElementById("contact-sidebar")
               ?.scrollIntoView({ behavior: "smooth", block: "start" })
           }
-          ctaClassName="shrink-0 rounded-xl bg-[#22C55E] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#16A34A]"
+          tone="contact"
         />
       )}
     </div>

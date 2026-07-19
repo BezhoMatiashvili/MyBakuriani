@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 
 interface AdminReview {
   id: string;
@@ -64,6 +65,7 @@ export default function ReviewsPage() {
   const [rows, setRows] = useState<AdminReview[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,6 +128,20 @@ export default function ReviewsPage() {
     [rows],
   );
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    const digits = q.replace(/\D/g, "");
+    return rows.filter(
+      (r) =>
+        r.id.toLowerCase().includes(q) ||
+        (r.guest?.display_name ?? "").toLowerCase().includes(q) ||
+        (digits.length > 0 &&
+          (r.guest?.phone ?? "").replace(/\D/g, "").includes(digits)) ||
+        (r.property?.title ?? "").toLowerCase().includes(q),
+    );
+  }, [rows, search]);
+
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-8 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -161,19 +177,25 @@ export default function ReviewsPage() {
         </div>
       </header>
 
+      <AdminSearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="ძიება (ID, სახელი, ობიექტი)..."
+      />
+
       <div className="space-y-5">
         {loading ? (
           Array.from({ length: 3 }).map((_, idx) => (
             <Skeleton key={idx} className="h-44 w-full rounded-[24px]" />
           ))
-        ) : rows.length === 0 ? (
+        ) : filteredRows.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-[#E2E8F0] bg-white py-16 text-center">
             <p className="text-sm font-medium text-[#94A3B8]">
               ამ ფილტრით შეფასებები ვერ მოიძებნა
             </p>
           </div>
         ) : (
-          rows.map((review) => {
+          filteredRows.map((review) => {
             const sentimentTone =
               review.ai_sentiment && SENTIMENT_TONES[review.ai_sentiment]
                 ? SENTIMENT_TONES[review.ai_sentiment]

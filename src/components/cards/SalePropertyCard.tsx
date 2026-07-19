@@ -1,13 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Heart, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { formatNumber } from "@/lib/utils/format";
 import { useFavorite } from "@/lib/hooks/useFavorite";
+import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
+import { FavoriteButton } from "@/components/shared/FavoriteButton";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { ListingCardAction } from "@/components/shared/ListingCardAction";
 
 interface SalePropertyCardProps {
   id: string;
@@ -21,6 +25,8 @@ interface SalePropertyCardProps {
   roi?: number;
   constructionStatus?: string | null;
   constructionProgressPercent?: number | null;
+  discountPercent: number;
+  discountExpiresAt: string | null;
 }
 
 function formatUsd(n: number): string {
@@ -39,6 +45,8 @@ export default function SalePropertyCard({
   roi,
   constructionStatus,
   constructionProgressPercent,
+  discountPercent,
+  discountExpiresAt,
 }: SalePropertyCardProps) {
   const t = useTranslations("SalePropertyCard");
   const {
@@ -58,7 +66,14 @@ export default function SalePropertyCard({
     ? `${areaText}${roomsText ? ` • ${roomsText}` : ""}`
     : roomsText;
 
-  const pricePerSqm = area && priceUsd ? Math.round(priceUsd / area) : null;
+  const discountActive = isDiscountActive(discountPercent, discountExpiresAt);
+  const displayPriceUsd = applyDiscount(
+    priceUsd,
+    discountPercent,
+    discountExpiresAt,
+  );
+  const pricePerSqm =
+    area && displayPriceUsd ? Math.round(displayPriceUsd / area) : null;
 
   return (
     <motion.div
@@ -81,30 +96,26 @@ export default function SalePropertyCard({
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
 
-          <span className="absolute left-3 top-3 rounded-full bg-[#16A34A] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.5px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.12)]">
+          <ListingBadge variant="sale" className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] tracking-[0.5px]">
             {t("forSale")}
-          </span>
+          </ListingBadge>
 
           {isVip && (
-            <span className="absolute left-3 top-12 rounded-[4px] bg-[#F97316] px-2 py-1 text-[10px] font-black uppercase text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-              VIP
-            </span>
+            <ListingBadge variant="vip" className="absolute left-3 top-12">VIP</ListingBadge>
           )}
 
-          <button
-            type="button"
-            onClick={toggleFavorite}
-            disabled={favoriteBusy}
-            aria-label={t("favoriteAria")}
-            aria-pressed={isFavorited}
-            className={`absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors ${
-              isFavorited
-                ? "bg-[#16A34A] text-white"
-                : "bg-white text-[#94A3B8] hover:text-[#16A34A]"
-            } disabled:opacity-60`}
-          >
-            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
-          </button>
+          {discountActive && (
+            <ListingBadge
+              variant="discount"
+              className={`absolute left-3 ${
+                isVip ? "top-20" : "top-12"
+              }`}
+            >
+              -{discountPercent}%
+            </ListingBadge>
+          )}
+
+          <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("favoriteAria")} className="absolute right-3 top-3" />
         </div>
 
         <div className="flex flex-1 flex-col p-5">
@@ -142,8 +153,13 @@ export default function SalePropertyCard({
 
           <div className="mt-auto flex items-end justify-between gap-3 pt-4">
             <div>
+              {discountActive && (
+                <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
+                  {formatUsd(priceUsd)}
+                </span>
+              )}
               <span className="block whitespace-nowrap text-[22px] font-black leading-[28px] text-[#16A34A]">
-                {formatUsd(priceUsd)}
+                {formatUsd(displayPriceUsd)}
               </span>
               {pricePerSqm && (
                 <span className="block text-[11px] font-medium text-[#94A3B8]">
@@ -151,9 +167,9 @@ export default function SalePropertyCard({
                 </span>
               )}
             </div>
-            <span className="rounded-full bg-[#16A34A] px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]">
+            <ListingCardAction className="rounded-full px-4 py-2">
               {t("details")}
-            </span>
+            </ListingCardAction>
           </div>
         </div>
       </Link>

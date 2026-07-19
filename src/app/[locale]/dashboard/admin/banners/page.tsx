@@ -13,6 +13,7 @@ import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import MediaUploader, {
   type MediaValue,
 } from "@/components/forms/MediaUploader";
@@ -82,6 +83,7 @@ export default function AdminBannersPage() {
   const tDash = useTranslations("DashboardShared");
   const [loading, setLoading] = useState(true);
   const [banners, setBanners] = useState<LandingBanner[]>([]);
+  const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState("");
@@ -117,15 +119,24 @@ export default function AdminBannersPage() {
     };
   }, [open]);
 
+  const filteredBanners = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return banners;
+    return banners.filter(
+      (b) =>
+        b.id.toLowerCase().includes(q) || b.title.toLowerCase().includes(q),
+    );
+  }, [banners, search]);
+
   const grouped = useMemo(() => {
     const map: Record<BannerKind, LandingBanner[]> = {
       info: [],
       promo: [],
       sticky_news: [],
     };
-    for (const b of banners) map[b.kind].push(b);
+    for (const b of filteredBanners) map[b.kind].push(b);
     return map;
-  }, [banners]);
+  }, [filteredBanners]);
 
   function openCreate(kind: BannerKind) {
     setForm({
@@ -314,6 +325,12 @@ export default function AdminBannersPage() {
           </div>
         </div>
 
+        <AdminSearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={t("searchPlaceholder")}
+        />
+
         {loading ? (
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -344,7 +361,7 @@ export default function AdminBannersPage() {
 
               {grouped[kind].length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#E2E8F0] bg-white py-10 text-center text-sm font-medium text-[#94A3B8]">
-                  {t("empty")}
+                  {search.trim() ? t("searchEmpty") : t("empty")}
                 </div>
               ) : (
                 <div className="space-y-3">

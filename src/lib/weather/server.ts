@@ -10,9 +10,9 @@ const OPEN_METEO_URL =
   `https://api.open-meteo.com/v1/forecast?latitude=${BAKURIANI_LAT}` +
   `&longitude=${BAKURIANI_LNG}&current=temperature_2m,weather_code`;
 
-// Refresh cadence for the Next data cache. Weather changes slowly and this keeps
-// the landing page ISR-friendly (a handful of upstream requests per hour).
-const WEATHER_REVALIDATE_SECONDS = 900;
+// Refresh cadence for the Next data cache — the weather card updates every
+// 30 minutes (product decision), keeping the landing page ISR-friendly.
+const WEATHER_REVALIDATE_SECONDS = 1800;
 
 export type BakurianiWeather = {
   temperatureC: number;

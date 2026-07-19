@@ -215,6 +215,7 @@ export default function FoodDetailClient({
             .getElementById("contact-sidebar")
             ?.scrollIntoView({ behavior: "smooth", block: "start" })
         }
+        tone="contact"
       />
     </div>
   );

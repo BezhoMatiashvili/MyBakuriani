@@ -7,10 +7,7 @@ import {
 } from "../_shared/guards.ts";
 
 type PurchaseType =
-  | "vip_boost"
-  | "super_vip"
-  | "sms_package"
-  | "discount_badge";
+  "vip_boost" | "super_vip" | "sms_package" | "discount_badge";
 
 const VALID_TYPES: readonly PurchaseType[] = [
   "vip_boost",
@@ -57,11 +54,24 @@ serve(async (req) => {
         throw new Error("არასწორი რაოდენობა");
       }
 
+      const discount_percent = Number.isFinite(Number(body.discount_percent))
+        ? Number(body.discount_percent)
+        : null;
+      if (
+        discount_percent !== null &&
+        (!Number.isInteger(discount_percent) ||
+          discount_percent < 1 ||
+          discount_percent > 90)
+      ) {
+        throw new Error("არასწორი ფასდაკლების პროცენტი");
+      }
+
       const { data, error } = await supabase.rpc("purchase_package", {
         p_user_id: user.id,
         p_package_id: package_id,
         p_property_id: property_id ?? null,
         p_quantity: quantity,
+        p_discount_percent: discount_percent,
       });
       if (error) throw error;
       return jsonResponse({ data }, 200, cors);

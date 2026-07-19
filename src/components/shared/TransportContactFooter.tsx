@@ -35,7 +35,7 @@ export function TransportContactFooter({ phone, serviceId }: Props) {
           <WhatsAppButton phone={phone} serviceId={serviceId} />
           <CallButton
             phone={phone}
-            className="h-12 gap-2 rounded-full bg-[#22C55E] px-5 text-[14px] font-bold text-white hover:bg-[#16A34A] sm:px-6 sm:text-[15px]"
+            className="sm:px-6 sm:text-[15px]"
             label={tCard("call")}
             onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={serviceId}

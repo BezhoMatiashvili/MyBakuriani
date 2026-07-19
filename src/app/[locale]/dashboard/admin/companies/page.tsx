@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Building2, Check, Eye, Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { formatDate, formatPhone } from "@/lib/utils/format";
 import type { PendingCompany } from "@/app/api/admin/companies/pending/route";
 
@@ -13,6 +14,22 @@ export default function AdminCompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingCompany[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    const digits = q.replace(/\D/g, "");
+    return items.filter(
+      (c) =>
+        c.id.toLowerCase().includes(q) ||
+        c.brand_name.toLowerCase().includes(q) ||
+        c.legal_name.toLowerCase().includes(q) ||
+        c.identification_code.toLowerCase().includes(q) ||
+        (c.owner?.display_name ?? "").toLowerCase().includes(q) ||
+        (digits.length > 0 &&
+          (c.owner?.phone ?? "").replace(/\D/g, "").includes(digits)),
+    );
+  }, [items, search]);
 
   useEffect(() => {
     let active = true;
@@ -79,6 +96,13 @@ export default function AdminCompaniesPage() {
         </p>
       </div>
 
+      <AdminSearchInput
+        value={search}
+        onChange={setSearch}
+        onClear={() => setSearch("")}
+        placeholder={t("admin.searchPlaceholder")}
+      />
+
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
         {loading ? (
           <div className="space-y-3 p-6">
@@ -86,13 +110,13 @@ export default function AdminCompaniesPage() {
               <Skeleton key={i} className="h-20 w-full rounded-xl" />
             ))}
           </div>
-        ) : items.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 text-[#94A3B8]">
             <Search className="h-9 w-9" />
             <p className="text-sm">{t("admin.noCompanies")}</p>
           </div>
         ) : (
-          items.map((c) => (
+          filtered.map((c) => (
             <div
               key={c.id}
               className="flex flex-col gap-4 border-b border-[#F1F5F9] px-6 py-5 last:border-b-0 lg:flex-row lg:items-center"

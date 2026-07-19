@@ -219,12 +219,6 @@ export default function SellerDashboardClient({
             icon={<Heart className="h-5 w-5 fill-[#EF4444] text-[#EF4444]" />}
             loading={statsLoading}
           />
-          {/* RPC returns 0 for the 'sale' scope — uniform layout. */}
-          <MetricCard
-            label={tStats("stats.revenue")}
-            value={formatPrice(Number(stats?.revenue ?? 0))}
-            loading={statsLoading}
-          />
         </div>
       </motion.section>
 

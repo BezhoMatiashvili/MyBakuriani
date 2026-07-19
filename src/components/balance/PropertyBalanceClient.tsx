@@ -228,6 +228,7 @@ export default function PropertyBalanceClient() {
   const handleConfirmPurchase = async (
     propertyId: string,
     quantity: number,
+    discountPercent?: number,
   ) => {
     if (!user || !balance) return;
     const packageId = pickerModal.packageId;
@@ -239,6 +240,9 @@ export default function PropertyBalanceClient() {
           package_id: packageId,
           property_id: propertyId,
           quantity,
+          ...(discountPercent !== undefined && {
+            discount_percent: discountPercent,
+          }),
         },
       });
       if (error) throw error;

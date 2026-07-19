@@ -12,6 +12,7 @@ import {
 import { Flame, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import DateField from "@/components/shared/DateField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
@@ -53,6 +54,23 @@ export default function ModerationPage() {
   );
   const [loading, setLoading] = useState(true);
   const [ads, setAds] = useState<Ad[]>([]);
+  const [search, setSearch] = useState("");
+  const filteredAds = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ads;
+    return ads.filter((ad) => {
+      const positionLabel =
+        positionOptions.find((option) => option.value === ad.position)?.label ??
+        "";
+      return (
+        ad.id.toLowerCase().includes(q) ||
+        ad.title.toLowerCase().includes(q) ||
+        ad.url.toLowerCase().includes(q) ||
+        ad.position.toLowerCase().includes(q) ||
+        positionLabel.toLowerCase().includes(q)
+      );
+    });
+  }, [ads, search, positionOptions]);
   const [isAddAdModalOpen, setIsAddAdModalOpen] = useState(false);
   const [formState, setFormState] = useState(INITIAL_FORM_STATE);
   const [formError, setFormError] = useState("");
@@ -197,18 +215,26 @@ export default function ModerationPage() {
           </button>
         </div>
 
+        <AdminSearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={t("searchPlaceholder")}
+        />
+
         {loading ? (
           <div className="space-y-4">
             {Array.from({ length: 2 }).map((_, idx) => (
               <Skeleton key={idx} className="h-[200px] w-full rounded-3xl" />
             ))}
           </div>
-        ) : ads.length === 0 ? (
+        ) : filteredAds.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-[#E2E8F0] bg-white py-20 text-center">
-            <p className="text-sm font-medium text-[#94A3B8]">{t("empty")}</p>
+            <p className="text-sm font-medium text-[#94A3B8]">
+              {search.trim() ? t("searchEmpty") : t("empty")}
+            </p>
           </div>
         ) : (
-          ads.map((ad) => {
+          filteredAds.map((ad) => {
             const ctr =
               ad.views_count > 0
                 ? ((ad.clicks_count / ad.views_count) * 100).toFixed(1)

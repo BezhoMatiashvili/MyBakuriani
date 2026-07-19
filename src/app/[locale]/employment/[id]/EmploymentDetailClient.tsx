@@ -973,7 +973,7 @@ export default function EmploymentDetailClient({
             .getElementById("contact-sidebar")
             ?.scrollIntoView({ behavior: "smooth", block: "start" })
         }
-        ctaClassName="shrink-0 rounded-xl bg-[#2563EB] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+        tone="application"
       />
     </div>
   );

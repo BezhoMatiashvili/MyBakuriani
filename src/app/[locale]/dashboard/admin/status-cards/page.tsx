@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { ICON_MAP } from "@/lib/status-cards/icons";
 import {
   STATUS_ICONS,
@@ -124,6 +125,17 @@ export default function AdminStatusCardsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filteredCards = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cards;
+    return cards.filter(
+      (c) =>
+        c.id.toLowerCase().includes(q) ||
+        (c.label.ka ?? "").toLowerCase().includes(q),
+    );
+  }, [cards, search]);
 
   useEffect(() => {
     fetch("/api/admin/status-cards")
@@ -239,282 +251,299 @@ export default function AdminStatusCardsPage() {
         </button>
       </div>
 
+      <AdminSearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder={t("searchPlaceholder")}
+        onClear={() => setSearch("")}
+      />
+
       <div className="space-y-3">
-        {cards.map((card, idx) => {
-          const Icon = ICON_MAP[card.icon];
-          const isEditing = expandedId === card.id;
-          return (
-            <div
-              key={card.id}
-              className={cn(
-                "rounded-2xl border bg-white",
-                card.active
-                  ? "border-[#E2E8F0]"
-                  : "border-dashed border-[#CBD5E1]",
-              )}
-            >
-              {/* Header row */}
-              <div className="flex items-center gap-3 px-4 py-3">
-                <div className="flex flex-col">
-                  <button
-                    type="button"
-                    onClick={() => moveCard(idx, -1)}
-                    disabled={idx === 0}
-                    aria-label={t("moveUp")}
-                    className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
-                  >
-                    <ChevronUp className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveCard(idx, 1)}
-                    disabled={idx === cards.length - 1}
-                    aria-label={t("moveDown")}
-                    className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
-                  >
-                    <ChevronDown className="size-4" />
-                  </button>
-                </div>
-
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9] text-[#475569]">
-                  {Icon ? <Icon className="size-5" /> : <span>—</span>}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-[#0F172A]">
-                    {card.label.ka || t("untitled")}
-                  </p>
-                  <p className="truncate text-xs text-[#94A3B8]">
-                    {card.value.ka}
-                    {card.expandable
-                      ? ` · ${card.items.length} ${t("items").toLowerCase()}`
-                      : ""}
-                  </p>
-                </div>
-
-                {!card.active && (
-                  <span className="rounded-md bg-[#F1F5F9] px-2 py-1 text-[11px] font-bold text-[#64748B]">
-                    {t("hidden")}
-                  </span>
+        {filteredCards.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm font-medium text-[#64748B]">
+            {t("searchEmpty")}
+          </p>
+        ) : (
+          filteredCards.map((card) => {
+            const idx = cards.findIndex((c) => c.id === card.id);
+            const Icon = ICON_MAP[card.icon];
+            const isEditing = expandedId === card.id;
+            return (
+              <div
+                key={card.id}
+                className={cn(
+                  "rounded-2xl border bg-white",
+                  card.active
+                    ? "border-[#E2E8F0]"
+                    : "border-dashed border-[#CBD5E1]",
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(isEditing ? null : card.id)}
-                  className="rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#F8FAFC]"
-                >
-                  {isEditing ? t("done") : t("edit")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!window.confirm(t("deleteCardConfirm"))) return;
-                    setCards((prev) => prev.filter((_, i) => i !== idx));
-                  }}
-                  aria-label={t("delete")}
-                  className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-1.5 text-[#DC2626] hover:bg-[#FEE2E2]"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-
-              {/* Editor body */}
-              {isEditing && (
-                <div className="space-y-5 border-t border-[#E2E8F0] px-4 py-4">
-                  <div className="flex flex-wrap items-end gap-4">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                        {t("icon")}
-                      </span>
-                      <select
-                        value={card.icon}
-                        onChange={(e) =>
-                          patchCard(idx, { icon: e.target.value as StatusIcon })
-                        }
-                        className={inputClass}
-                      >
-                        {STATUS_ICONS.map((ic) => (
-                          <option key={ic} value={ic}>
-                            {ic}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <Toggle
-                      checked={card.active}
-                      onChange={(v) => patchCard(idx, { active: v })}
-                      label={t("active")}
-                    />
-                    <Toggle
-                      checked={card.redDot}
-                      onChange={(v) => patchCard(idx, { redDot: v })}
-                      label={t("redDot")}
-                    />
-                    <Toggle
-                      checked={card.expandable}
-                      onChange={(v) => patchCard(idx, { expandable: v })}
-                      label={t("expandable")}
-                    />
+              >
+                {/* Header row */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => moveCard(idx, -1)}
+                      disabled={idx === 0}
+                      aria-label={t("moveUp")}
+                      className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                    >
+                      <ChevronUp className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveCard(idx, 1)}
+                      disabled={idx === cards.length - 1}
+                      aria-label={t("moveDown")}
+                      className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                    >
+                      <ChevronDown className="size-4" />
+                    </button>
                   </div>
 
-                  <div>
-                    <p className="mb-1.5 text-xs font-bold text-[#334155]">
-                      {t("label")}
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9] text-[#475569]">
+                    {Icon ? <Icon className="size-5" /> : <span>—</span>}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-[#0F172A]">
+                      {card.label.ka || t("untitled")}
                     </p>
-                    <LocalizedField
-                      value={card.label}
-                      onChange={(v) => patchCard(idx, { label: v })}
-                    />
-                  </div>
-
-                  <div>
-                    <p className="mb-1.5 text-xs font-bold text-[#334155]">
-                      {t("value")}
+                    <p className="truncate text-xs text-[#94A3B8]">
+                      {card.value.ka}
+                      {card.expandable
+                        ? ` · ${card.items.length} ${t("items").toLowerCase()}`
+                        : ""}
                     </p>
-                    <LocalizedField
-                      value={card.value}
-                      onChange={(v) => patchCard(idx, { value: v })}
-                    />
                   </div>
 
-                  {/* Children items */}
-                  {card.expandable && (
-                    <div className="rounded-xl bg-[#F8FAFC] p-3">
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-bold text-[#334155]">
-                          {t("items")}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            patchCard(idx, {
-                              items: [...card.items, newItem()],
-                            })
-                          }
-                          className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs font-bold text-[#2563EB] hover:bg-[#F1F5F9]"
-                        >
-                          <Plus className="size-3.5" />
-                          {t("addItem")}
-                        </button>
-                      </div>
-
-                      {card.items.length === 0 ? (
-                        <p className="py-3 text-center text-xs text-[#94A3B8]">
-                          {t("noItems")}
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {card.items.map((item, j) => (
-                            <div
-                              key={item.id}
-                              className="rounded-lg border border-[#E2E8F0] bg-white p-3"
-                            >
-                              <div className="mb-2 flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => moveItem(idx, j, -1)}
-                                  disabled={j === 0}
-                                  aria-label={t("moveUp")}
-                                  className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
-                                >
-                                  <ChevronUp className="size-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moveItem(idx, j, 1)}
-                                  disabled={j === card.items.length - 1}
-                                  aria-label={t("moveDown")}
-                                  className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
-                                >
-                                  <ChevronDown className="size-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    patchCard(idx, {
-                                      items: card.items.filter(
-                                        (_, k) => k !== j,
-                                      ),
-                                    })
-                                  }
-                                  aria-label={t("delete")}
-                                  className="ml-1 rounded-md border border-[#FECACA] bg-[#FEF2F2] p-1 text-[#DC2626] hover:bg-[#FEE2E2]"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
-                              </div>
-
-                              <div className="space-y-2">
-                                <LocalizedField
-                                  value={item.label}
-                                  onChange={(v) =>
-                                    patchItem(idx, j, { label: v })
-                                  }
-                                />
-                                <LocalizedField
-                                  value={item.value ?? { ka: "" }}
-                                  onChange={(v) =>
-                                    patchItem(idx, j, { value: v })
-                                  }
-                                />
-                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                  <label className="flex flex-col gap-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                                      {t("status")}
-                                    </span>
-                                    <select
-                                      value={item.status}
-                                      onChange={(e) =>
-                                        patchItem(idx, j, {
-                                          status: e.target.value as StatusKind,
-                                        })
-                                      }
-                                      className={inputClass}
-                                    >
-                                      {STATUS_KINDS.map((s) => (
-                                        <option key={s} value={s}>
-                                          {t(STATUS_LABEL_KEY[s])}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                  <label className="flex flex-col gap-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                                      {t("url")}
-                                    </span>
-                                    <input
-                                      value={item.url ?? ""}
-                                      onChange={(e) =>
-                                        patchItem(idx, j, {
-                                          url: e.target.value,
-                                        })
-                                      }
-                                      placeholder={t("urlPlaceholder")}
-                                      className={inputClass}
-                                    />
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  {!card.active && (
+                    <span className="rounded-md bg-[#F1F5F9] px-2 py-1 text-[11px] font-bold text-[#64748B]">
+                      {t("hidden")}
+                    </span>
                   )}
 
-                  <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
-                    {card.active ? (
-                      <Eye className="size-3.5" />
-                    ) : (
-                      <EyeOff className="size-3.5" />
-                    )}
-                    {card.active ? t("active") : t("hidden")}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isEditing ? null : card.id)}
+                    className="rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#F8FAFC]"
+                  >
+                    {isEditing ? t("done") : t("edit")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!window.confirm(t("deleteCardConfirm"))) return;
+                      setCards((prev) => prev.filter((_, i) => i !== idx));
+                    }}
+                    aria-label={t("delete")}
+                    className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-1.5 text-[#DC2626] hover:bg-[#FEE2E2]"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                {/* Editor body */}
+                {isEditing && (
+                  <div className="space-y-5 border-t border-[#E2E8F0] px-4 py-4">
+                    <div className="flex flex-wrap items-end gap-4">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                          {t("icon")}
+                        </span>
+                        <select
+                          value={card.icon}
+                          onChange={(e) =>
+                            patchCard(idx, {
+                              icon: e.target.value as StatusIcon,
+                            })
+                          }
+                          className={inputClass}
+                        >
+                          {STATUS_ICONS.map((ic) => (
+                            <option key={ic} value={ic}>
+                              {ic}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <Toggle
+                        checked={card.active}
+                        onChange={(v) => patchCard(idx, { active: v })}
+                        label={t("active")}
+                      />
+                      <Toggle
+                        checked={card.redDot}
+                        onChange={(v) => patchCard(idx, { redDot: v })}
+                        label={t("redDot")}
+                      />
+                      <Toggle
+                        checked={card.expandable}
+                        onChange={(v) => patchCard(idx, { expandable: v })}
+                        label={t("expandable")}
+                      />
+                    </div>
+
+                    <div>
+                      <p className="mb-1.5 text-xs font-bold text-[#334155]">
+                        {t("label")}
+                      </p>
+                      <LocalizedField
+                        value={card.label}
+                        onChange={(v) => patchCard(idx, { label: v })}
+                      />
+                    </div>
+
+                    <div>
+                      <p className="mb-1.5 text-xs font-bold text-[#334155]">
+                        {t("value")}
+                      </p>
+                      <LocalizedField
+                        value={card.value}
+                        onChange={(v) => patchCard(idx, { value: v })}
+                      />
+                    </div>
+
+                    {/* Children items */}
+                    {card.expandable && (
+                      <div className="rounded-xl bg-[#F8FAFC] p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-xs font-bold text-[#334155]">
+                            {t("items")}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              patchCard(idx, {
+                                items: [...card.items, newItem()],
+                              })
+                            }
+                            className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs font-bold text-[#2563EB] hover:bg-[#F1F5F9]"
+                          >
+                            <Plus className="size-3.5" />
+                            {t("addItem")}
+                          </button>
+                        </div>
+
+                        {card.items.length === 0 ? (
+                          <p className="py-3 text-center text-xs text-[#94A3B8]">
+                            {t("noItems")}
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {card.items.map((item, j) => (
+                              <div
+                                key={item.id}
+                                className="rounded-lg border border-[#E2E8F0] bg-white p-3"
+                              >
+                                <div className="mb-2 flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveItem(idx, j, -1)}
+                                    disabled={j === 0}
+                                    aria-label={t("moveUp")}
+                                    className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                                  >
+                                    <ChevronUp className="size-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveItem(idx, j, 1)}
+                                    disabled={j === card.items.length - 1}
+                                    aria-label={t("moveDown")}
+                                    className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                                  >
+                                    <ChevronDown className="size-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      patchCard(idx, {
+                                        items: card.items.filter(
+                                          (_, k) => k !== j,
+                                        ),
+                                      })
+                                    }
+                                    aria-label={t("delete")}
+                                    className="ml-1 rounded-md border border-[#FECACA] bg-[#FEF2F2] p-1 text-[#DC2626] hover:bg-[#FEE2E2]"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <LocalizedField
+                                    value={item.label}
+                                    onChange={(v) =>
+                                      patchItem(idx, j, { label: v })
+                                    }
+                                  />
+                                  <LocalizedField
+                                    value={item.value ?? { ka: "" }}
+                                    onChange={(v) =>
+                                      patchItem(idx, j, { value: v })
+                                    }
+                                  />
+                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                                        {t("status")}
+                                      </span>
+                                      <select
+                                        value={item.status}
+                                        onChange={(e) =>
+                                          patchItem(idx, j, {
+                                            status: e.target
+                                              .value as StatusKind,
+                                          })
+                                        }
+                                        className={inputClass}
+                                      >
+                                        {STATUS_KINDS.map((s) => (
+                                          <option key={s} value={s}>
+                                            {t(STATUS_LABEL_KEY[s])}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                                        {t("url")}
+                                      </span>
+                                      <input
+                                        value={item.url ?? ""}
+                                        onChange={(e) =>
+                                          patchItem(idx, j, {
+                                            url: e.target.value,
+                                          })
+                                        }
+                                        placeholder={t("urlPlaceholder")}
+                                        className={inputClass}
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
+                      {card.active ? (
+                        <Eye className="size-3.5" />
+                      ) : (
+                        <EyeOff className="size-3.5" />
+                      )}
+                      {card.active ? t("active") : t("hidden")}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       <button

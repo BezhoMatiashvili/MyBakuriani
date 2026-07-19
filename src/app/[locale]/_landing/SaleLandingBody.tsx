@@ -140,6 +140,8 @@ export default function SaleLandingBody({
         roi: estimatedRoi(p.id),
         constructionStatus: p.construction_status ?? null,
         constructionProgressPercent: p.construction_progress_percent ?? null,
+        discountPercent: p.discount_percent ?? 0,
+        discountExpiresAt: p.discount_expires_at ?? null,
       }));
     }
     return [];

@@ -3,8 +3,9 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Briefcase, Home, Loader2, Search, UserRound, X } from "lucide-react";
+import { Briefcase, Home, UserRound, X } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { AuditTimeline } from "@/components/admin/AuditTimeline";
 import type { AuditSearchResult } from "@/app/api/admin/logs/route";
 
@@ -93,19 +94,13 @@ function LogsPageContent() {
       </div>
 
       <section className="rounded-[24px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-10 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-          />
-          {searching ? (
-            <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#94A3B8]" />
-          ) : null}
-        </div>
+        <AdminSearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder={t("searchPlaceholder")}
+          loading={searching}
+          onClear={() => setQuery("")}
+        />
 
         {results !== null ? (
           results.length === 0 ? (

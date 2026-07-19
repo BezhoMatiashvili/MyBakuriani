@@ -65,7 +65,9 @@ export function FoodContactCard({
         <CallButton
           phone={phone}
           label={t("getInTouch")}
-          className="h-[55px] w-full gap-2 rounded-2xl bg-[#10B981] text-[15px] font-bold text-white hover:bg-[#059669]"
+          className="w-full rounded-2xl"
+          layout="card"
+          size="lg"
           onNoPhoneClick={() => router.push("/auth/login")}
           serviceId={serviceId}
         />

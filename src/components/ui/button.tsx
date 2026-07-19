@@ -19,6 +19,14 @@ const buttonVariants = cva(
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+        contact:
+          "bg-contact text-white hover:bg-contact-hover focus-visible:border-contact focus-visible:ring-contact/35 disabled:bg-contact-disabled disabled:text-contact-disabled-foreground disabled:opacity-100",
+        creation:
+          "bg-creation text-white hover:bg-creation-hover focus-visible:border-creation focus-visible:ring-creation/35",
+        listing:
+          "bg-listing-action text-white hover:bg-listing-action-hover focus-visible:border-listing-action focus-visible:ring-listing-action/35",
+        whatsapp:
+          "bg-whatsapp text-white hover:bg-whatsapp-hover focus-visible:border-whatsapp focus-visible:ring-whatsapp/35 disabled:bg-whatsapp-disabled disabled:text-whatsapp-disabled-foreground disabled:opacity-100",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

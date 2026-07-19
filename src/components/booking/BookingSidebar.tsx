@@ -12,7 +12,12 @@ import {
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { formatPrice } from "@/lib/utils/format";
-import { sumNightlyPrice, type PriceOverride } from "@/lib/utils/pricing";
+import {
+  sumNightlyPrice,
+  isDiscountActive,
+  applyDiscount,
+  type PriceOverride,
+} from "@/lib/utils/pricing";
 import {
   differenceInDays,
   format,
@@ -58,6 +63,8 @@ interface BookingSidebarProps {
   perPersonPricing?: boolean;
   showGuestCount?: boolean;
   priceOverrides?: PriceOverride[];
+  discountPercent?: number | null;
+  discountExpiresAt?: string | null;
 }
 
 /* ── Inline mini-calendar (rendered inside the sidebar dropdown) ── */
@@ -199,6 +206,8 @@ export function BookingSidebar({
   perPersonPricing = false,
   showGuestCount = true,
   priceOverrides,
+  discountPercent,
+  discountExpiresAt,
 }: BookingSidebarProps) {
   const t = useTranslations("BookingSidebar");
   const { start, end } = selectedRange;
@@ -212,7 +221,14 @@ export function BookingSidebar({
       ? sumNightlyPrice(start, end, pricePerNight, priceOverrides)
       : 0;
   const subtotal = nightlySum * guestMultiplier;
-  const total = subtotal;
+  const discountActive = isDiscountActive(discountPercent, discountExpiresAt);
+  const discountedSubtotal = applyDiscount(
+    subtotal,
+    discountPercent,
+    discountExpiresAt,
+  );
+  const discountAmount = subtotal - discountedSubtotal;
+  const total = discountActive ? discountedSubtotal : subtotal;
   const avgNightly = days > 0 ? Math.round(nightlySum / days) : pricePerNight;
   const hasMixedPricing = days > 0 && nightlySum !== days * pricePerNight;
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -256,8 +272,23 @@ export function BookingSidebar({
       <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-5 sm:p-8 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
         <div className="flex items-center justify-between">
           <div>
+            {discountActive && (
+              <span className="block text-[11px] font-bold text-[#94A3B8] line-through">
+                {formatPrice(pricePerNight)}
+              </span>
+            )}
             <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">
-              {formatPrice(pricePerNight)}
+              {formatPrice(
+                discountActive
+                  ? Math.round(
+                      applyDiscount(
+                        pricePerNight,
+                        discountPercent,
+                        discountExpiresAt,
+                      ),
+                    )
+                  : pricePerNight,
+              )}
             </span>
             <span className="text-[15px] font-medium text-[#64748B]">
               {" "}
@@ -373,6 +404,16 @@ export function BookingSidebar({
                 {t("mixedPricingNote")}
               </p>
             )}
+            {discountActive && (
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-[#64748B]">
+                  {t("discountLine", { percent: discountPercent ?? 0 })}
+                </span>
+                <span className="font-bold text-[#1E293B]">
+                  -{formatPrice(Math.round(discountAmount))}
+                </span>
+              </div>
+            )}
             <div className="border-t border-[#E2E8F0] pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-black italic text-[#1E293B]">
@@ -391,10 +432,11 @@ export function BookingSidebar({
         <div className="mt-5 flex gap-2">
           <CallButton
             phone={ownerPhone}
-            className="h-12 flex-1 gap-2 rounded-full bg-[#F97316] text-[14px] font-bold text-white shadow-[0px_8px_20px_rgba(249,115,22,0.25)] hover:bg-[#EA580C]"
+            className="flex-1 shadow-[0px_8px_20px_rgba(34,197,94,0.25)]"
             label={t("callOwner")}
             onNoPhoneClick={onBook}
             propertyId={propertyId}
+            alwaysShowLabel
           />
           <WhatsAppButton
             phone={ownerWhatsapp ?? ownerPhone}

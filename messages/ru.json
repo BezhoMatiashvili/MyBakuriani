@@ -31,7 +31,9 @@
     "statusOk": "Открыт",
     "statusWarn": "Предупреждение",
     "statusClosed": "Закрыт",
-    "statusNone": "Нейтрально"
+    "statusNone": "Нейтрально",
+    "searchPlaceholder": "Поиск (ID, заголовок)...",
+    "searchEmpty": "Карточки не найдены"
   },
   "Metadata": {
     "siteTitle": "MyBakuriani — Премиум аренда в Бакуриани",
@@ -446,6 +448,7 @@
     "nightsLine": "{price} x {count, plural, one {# ночь} few {# ночи} many {# ночей} other {# ночи}}",
     "daysLine": "{price} x {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
     "mixedPricingNote": "Цена меняется в зависимости от дня",
+    "discountLine": "Скидка (-{percent}%)",
     "total": "Итого",
     "minBookingNotice": "Мин. бронирование: {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
     "callOwner": "Позвонить владельцу",
@@ -752,7 +755,8 @@
           "sms": "/ 200 SMS"
         },
         "quantityLabel": "Количество дней",
-        "daysCount": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}"
+        "daysCount": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
+        "discountPercentLabel": "Процент скидки"
       }
     }
   },
@@ -3661,6 +3665,7 @@
       "entertainment": "Развлечения",
       "employment": "Работа"
     },
+    "searchPlaceholder": "Поиск (ID, название, владелец)...",
     "colObject": "Объект",
     "colOwner": "Владелец",
     "colPrice": "Цена",
@@ -3684,6 +3689,7 @@
     "title": "Одобрение SMS",
     "subtitle": "Проверка и одобрение SMS, отправляемых пользователями.",
     "empty": "Нет SMS в этой категории",
+    "searchPlaceholder": "Поиск (ID, отправитель, получатель, телефон)...",
     "approvedToast": "SMS одобрено и поставлено в очередь",
     "rejectedToast": "SMS отклонено",
     "rejectModalTitle": "Отклонить SMS",
@@ -3708,13 +3714,16 @@
     "activeCodes": "Активные коды ({count})",
     "noActiveCodes": "Активных кодов пока нет",
     "uses": "Исп.: {count}",
-    "noExpiry": "Без срока"
+    "noExpiry": "Без срока",
+    "searchPlaceholder": "Поиск (ID, код)..."
   },
   "AdminModeration": {
     "title": "B2B реклама",
     "subtitle": "Управление баннерами ресторанов, транспорта и инвентаря.",
     "addAd": "Добавить рекламу",
+    "searchPlaceholder": "Поиск (ID, название, позиция)...",
     "empty": "Кампаний пока нет. Нажмите «Добавить рекламу».",
+    "searchEmpty": "По вашему запросу ничего не найдено.",
     "adCreated": "Реклама создана",
     "delete": "Удалить",
     "deleteConfirm": "Удалить рекламу «{title}»? Это необратимо.",
@@ -3855,6 +3864,8 @@
   "AdminBanners": {
     "title": "Баннеры и новости",
     "subtitle": "Управление баннерами главной и липкими новостями.",
+    "searchPlaceholder": "Поиск (ID, заголовок)...",
+    "searchEmpty": "Баннеры не найдены",
     "add": "Добавить",
     "empty": "Баннеров пока нет.",
     "editTitle": "Редактировать баннер",
@@ -4217,7 +4228,8 @@
       "noCompanies": "ახალი კომპანიები არ არის",
       "view": "ნახვა",
       "approvedToast": "კომპანია დადასტურდა",
-      "rejectedToast": "კომპანია უარყოფილია"
+      "rejectedToast": "კომპანია უარყოფილია",
+      "searchPlaceholder": "Поиск (ID, название, рег. код)..."
     }
   }
 }

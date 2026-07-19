@@ -71,69 +71,73 @@ export function StickyNewsBar() {
   }
 
   return (
-    <div
-      className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4 ${
-        isTransportDetail
-          ? "bottom-[calc(76px+env(safe-area-inset-bottom))]"
-          : isDetailRoute
-            ? "bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-0"
-            : "bottom-0"
-      }`}
-    >
+    <>
       <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setExpanded(visible)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") setExpanded(visible);
-        }}
-        className="pointer-events-auto flex w-full max-w-[1160px] cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] sm:px-5"
-        style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+        className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4 ${
+          isTransportDetail
+            ? "bottom-[calc(76px+env(safe-area-inset-bottom))]"
+            : isDetailRoute
+              ? "bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-0"
+              : "bottom-0"
+        }`}
       >
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <span
-            aria-hidden
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
-            style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
-          >
-            !
-          </span>
-          <p
-            className="min-w-0 text-[13px] font-medium leading-[20px]"
-            style={{ color: tone.text }}
-          >
-            <span className="font-bold" style={{ color: tone.title }}>
-              {visible.title}
-            </span>
-            {visible.body ? <> — {visible.body}</> : null}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {visible.cta_label && visible.cta_href ? (
-            <Link
-              href={visible.cta_href}
-              onClick={(e) => e.stopPropagation()}
-              className="rounded-full border bg-white px-4 py-2 text-[12px] font-bold transition-colors"
-              style={{ borderColor: tone.ctaBorder, color: tone.ctaText }}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setExpanded(visible)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setExpanded(visible);
+          }}
+          className="pointer-events-auto flex w-full max-w-[1160px] cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] sm:px-5"
+          style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+        >
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <span
+              aria-hidden
+              className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
+              style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
             >
-              {visible.cta_label}
-            </Link>
-          ) : null}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              dismiss(visible.id);
-            }}
-            aria-label={t("close")}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border bg-white"
-            style={{ borderColor: tone.ctaBorder, color: tone.text }}
-          >
-            <X className="h-4 w-4" />
-          </button>
+              !
+            </span>
+            <p
+              className="min-w-0 text-[13px] font-medium leading-[20px]"
+              style={{ color: tone.text }}
+            >
+              <span className="font-bold" style={{ color: tone.title }}>
+                {visible.title}
+              </span>
+              {visible.body ? <> — {visible.body}</> : null}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {visible.cta_label && visible.cta_href ? (
+              <Link
+                href={visible.cta_href}
+                onClick={(e) => e.stopPropagation()}
+                className="rounded-full border bg-white px-4 py-2 text-[12px] font-bold transition-colors"
+                style={{ borderColor: tone.ctaBorder, color: tone.ctaText }}
+              >
+                {visible.cta_label}
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                dismiss(visible.id);
+              }}
+              aria-label={t("close")}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border bg-white"
+              style={{ borderColor: tone.ctaBorder, color: tone.text }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
+      {/* Outside the pointer-events-none wrapper so the modal stays clickable
+        and its z-50 isn't trapped in the bar's z-40 stacking context. */}
       <BannerDetailModal banner={expanded} onClose={() => setExpanded(null)} />
-    </div>
+    </>
   );
 }

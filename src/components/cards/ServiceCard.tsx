@@ -5,9 +5,7 @@ import {
   Car,
   Check,
   Clock,
-  Heart,
   MapPin,
-  Phone,
   Star,
   Users,
 } from "lucide-react";
@@ -19,9 +17,12 @@ import {
   optionKeyFor,
   priceUnitPathFor,
 } from "@/lib/constants/listing-options";
-import { Badge } from "@/components/ui/badge";
-import { trackContactClick } from "@/lib/contact-tracking";
 import { useFavorite } from "@/lib/hooks/useFavorite";
+import { Badge } from "@/components/ui/badge";
+import { FavoriteButton } from "@/components/shared/FavoriteButton";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { CallButton } from "@/components/shared/CallButton";
+import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 
 interface ServiceCardProps {
   id: string;
@@ -97,11 +98,6 @@ export default function ServiceCard({
   const basePath = categoryRouteMap[category] ?? `/services/${category}`;
   const href = `${basePath}/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-service.jpg";
-  const whatsappDigits = phone ? phone.replace(/\D/g, "") : "";
-  const whatsappHref = whatsappDigits
-    ? `https://wa.me/${whatsappDigits}`
-    : undefined;
-  const telHref = phone ? `tel:${phone}` : undefined;
 
   const goToDetail = () => router.push(href);
   const onCardKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -111,14 +107,6 @@ export default function ServiceCard({
     }
   };
   const stop = (e: React.MouseEvent) => e.stopPropagation();
-  const onCallClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    trackContactClick({ channel: "call", serviceId: id });
-  };
-  const onWhatsappClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    trackContactClick({ channel: "whatsapp", serviceId: id });
-  };
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -165,22 +153,7 @@ export default function ServiceCard({
                 >
                   {isBusy ? t("statusBusy") : t("statusActive")}
                 </span>
-                <button
-                  type="button"
-                  onClick={toggleFavorite}
-                  disabled={favoriteBusy}
-                  aria-pressed={isFavorited}
-                  aria-label={t("addToFavorites")}
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-60 ${
-                    isFavorited
-                      ? "border-[#F97316] bg-[#F97316] text-white"
-                      : "border-[#E2E8F0] bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
-                  }`}
-                >
-                  <Heart
-                    className={`h-3.5 w-3.5 ${isFavorited ? "fill-current" : ""}`}
-                  />
-                </button>
+                <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("addToFavorites")} size="compact" />
               </div>
               <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
                 <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
@@ -231,31 +204,7 @@ export default function ServiceCard({
             >
               {t("details")}
             </Link>
-            {whatsappHref ? (
-              <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onWhatsappClick}
-                aria-label="WhatsApp"
-                className={`flex items-center justify-center whitespace-nowrap rounded-[12px] px-2 py-2.5 text-[12px] font-bold transition-colors ${
-                  isBusy
-                    ? "bg-[#BBF7D0] text-[#166534]"
-                    : "bg-[#22C55E] text-white hover:bg-[#16A34A]"
-                }`}
-              >
-                WhatsApp
-              </a>
-            ) : (
-              <span
-                onClick={stop}
-                aria-disabled="true"
-                aria-label="WhatsApp"
-                className="flex cursor-not-allowed items-center justify-center whitespace-nowrap rounded-[12px] bg-[#BBF7D0] px-2 py-2.5 text-[12px] font-bold text-[#166534]"
-              >
-                WhatsApp
-              </span>
-            )}
+            <WhatsAppButton phone={isBusy ? null : phone} serviceId={id} variant="label" size="default" onClick={stop} className="w-full rounded-[12px] px-2" />
           </div>
         </div>
       </motion.div>
@@ -290,40 +239,18 @@ export default function ServiceCard({
           <div className="relative z-10 flex h-full flex-1 flex-col p-5">
             <div className="flex items-start justify-between gap-2">
               <div className="flex gap-2">
-                {isVip && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-[#F97316] px-2.5 py-1 text-[11px] font-black uppercase text-white shadow-[0px_1px_2px_rgba(0,0,0,0.15)]">
-                    <Star className="h-3 w-3 fill-white" />
-                    VIP {t("partner")}
-                  </span>
-                )}
+                {isVip && <ListingBadge variant="vip" className="rounded-md px-2.5 py-1 text-[11px]">VIP {t("partner")}</ListingBadge>}
                 {discountPercent > 0 && (
-                  <span className="inline-flex items-center rounded-md bg-[#E11D48] px-2.5 py-1 text-[11px] font-black uppercase text-white">
+                  <ListingBadge variant="discount" className="rounded-md px-2.5 py-1 text-[11px]">
                     -{discountPercent}%
-                  </span>
+                  </ListingBadge>
                 )}
                 {!isVip && discountPercent === 0 && (
-                  <span className="inline-flex items-center rounded-md bg-[#2563EB] px-2.5 py-1 text-[11px] font-black uppercase text-white">
-                    {t("statusNew")}
-                  </span>
+                  <ListingBadge variant="new" className="rounded-md px-2.5 py-1 text-[11px]">{t("statusNew")}</ListingBadge>
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
-                <button
-                  type="button"
-                  onClick={toggleFavorite}
-                  disabled={favoriteBusy}
-                  aria-pressed={isFavorited}
-                  aria-label={t("addToFavorites")}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-sm transition-colors disabled:opacity-60 ${
-                    isFavorited
-                      ? "bg-[#F97316] text-white"
-                      : "bg-[#0F172A]/70 text-white hover:bg-[#F97316]"
-                  }`}
-                >
-                  <Heart
-                    className={`h-4 w-4 ${isFavorited ? "fill-current" : ""}`}
-                  />
-                </button>
+                <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("addToFavorites")} size="compact" className="border-0 bg-white/90 backdrop-blur-sm" />
                 <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#0F172A]/70 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
                   <Star className="h-3 w-3 fill-[#F97316] text-[#F97316]" />
                   4.9
@@ -343,29 +270,11 @@ export default function ServiceCard({
                 <Link
                   href={href}
                   onClick={stop}
-                  className="flex items-center justify-center rounded-[12px] bg-[#2563EB] px-2 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+                  className="flex items-center justify-center rounded-[12px] bg-listing-action px-2 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-listing-action-hover"
                 >
                   {t("details")}
                 </Link>
-                {telHref ? (
-                  <a
-                    href={telHref}
-                    onClick={onCallClick}
-                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#16A34A]"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    {t("call")}
-                  </a>
-                ) : (
-                  <span
-                    onClick={stop}
-                    aria-disabled="true"
-                    className="flex cursor-not-allowed items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] bg-[#BBF7D0] px-2 py-2.5 text-[13px] font-bold text-[#166534]"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    {t("call")}
-                  </span>
-                )}
+                <CallButton phone={phone} serviceId={id} label={t("call")} alwaysShowLabel layout="card" size="default" onClick={stop} className="w-full px-2" />
               </div>
             </div>
           </div>
@@ -404,11 +313,7 @@ export default function ServiceCard({
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-            {isVip && (
-              <span className="rounded-[4px] bg-[#DC2626] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-                VIP
-              </span>
-            )}
+            {isVip && <ListingBadge variant="vip">VIP</ListingBadge>}
             {isVerified && !isTransport && (
               <span className="inline-flex items-center gap-1 rounded-[4px] bg-[#2563EB] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
                 <Check className="h-3 w-3" strokeWidth={3} />
@@ -421,25 +326,12 @@ export default function ServiceCard({
               </span>
             )}
             {discountPercent > 0 && (
-              <span className="flex items-center gap-1 rounded-[4px] bg-[#E11D48] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <ListingBadge variant="discount">
                 -{discountPercent}%
-              </span>
+              </ListingBadge>
             )}
           </div>
-          <button
-            type="button"
-            onClick={toggleFavorite}
-            disabled={favoriteBusy}
-            aria-pressed={isFavorited}
-            className={`absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition-colors disabled:opacity-60 ${
-              isFavorited
-                ? "bg-[#F97316] text-white"
-                : "bg-white/80 text-[#F97316] hover:bg-white"
-            }`}
-            aria-label={t("addToFavorites")}
-          >
-            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
-          </button>
+          <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("addToFavorites")} className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm" />
           {!isFood && !isTransport && (
             <Badge
               variant="secondary"
@@ -545,54 +437,9 @@ export default function ServiceCard({
               {t("details")}
             </Link>
             {isFood ? (
-              telHref ? (
-                <a
-                  href={telHref}
-                  onClick={onCallClick}
-                  className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[12px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)] transition-colors hover:bg-[#16A34A]"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  {t("call")}
-                </a>
-              ) : (
-                <span
-                  onClick={stop}
-                  aria-disabled="true"
-                  className="flex min-w-0 cursor-not-allowed items-center justify-center gap-1.5 whitespace-nowrap rounded-[12px] bg-[#BBF7D0] px-2 py-2.5 text-[12px] font-bold text-[#166534]"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  {t("call")}
-                </span>
-              )
-            ) : isTransport && isBusy ? (
-              <span
-                onClick={stop}
-                aria-disabled="true"
-                aria-label="WhatsApp"
-                className="flex min-w-0 cursor-not-allowed items-center justify-center whitespace-nowrap rounded-[12px] bg-[#BBF7D0] px-2 py-2.5 text-[12px] font-bold text-[#166534]"
-              >
-                WhatsApp
-              </span>
-            ) : whatsappHref ? (
-              <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onWhatsappClick}
-                aria-label="WhatsApp"
-                className="flex min-w-0 items-center justify-center whitespace-nowrap rounded-[12px] bg-[#22C55E] px-2 py-2.5 text-[12px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2),0px_2px_4px_-2px_rgba(34,197,94,0.2)] transition-colors hover:bg-[#16A34A]"
-              >
-                WhatsApp
-              </a>
+              <CallButton phone={phone} serviceId={id} label={t("call")} alwaysShowLabel layout="card" size="default" onClick={stop} className="w-full min-w-0 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]" />
             ) : (
-              <span
-                onClick={stop}
-                aria-disabled="true"
-                aria-label="WhatsApp"
-                className="flex min-w-0 cursor-not-allowed items-center justify-center whitespace-nowrap rounded-[12px] bg-[#BBF7D0] px-2 py-2.5 text-[12px] font-bold text-[#166534]"
-              >
-                WhatsApp
-              </span>
+              <WhatsAppButton phone={isTransport && isBusy ? null : phone} serviceId={id} variant="label" size="default" onClick={stop} className="w-full min-w-0 rounded-[12px] px-2 shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]" />
             )}
           </div>
         </div>

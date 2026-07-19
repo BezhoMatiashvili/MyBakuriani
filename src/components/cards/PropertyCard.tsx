@@ -1,13 +1,17 @@
 "use client";
 
-import { Heart, MapPin, Clock, Star } from "lucide-react";
+import { MapPin, Clock, Star } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { optionKeyFor } from "@/lib/constants/listing-options";
+import { FavoriteButton } from "@/components/shared/FavoriteButton";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { ListingCardAction } from "@/components/shared/ListingCardAction";
 
 function formatNum(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -26,6 +30,7 @@ interface PropertyCardProps {
   isVip: boolean;
   isSuperVip: boolean;
   discountPercent: number;
+  discountExpiresAt: string | null;
   isForSale: boolean;
   isHotel?: boolean;
   numericRating?: number;
@@ -63,6 +68,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     isVip,
     isSuperVip,
     discountPercent,
+    discountExpiresAt,
     isForSale,
     isHotel,
     numericRating,
@@ -110,14 +116,16 @@ export default function PropertyCard(props: PropertyCardProps) {
     }
   }
 
+  const active = isDiscountActive(discountPercent, discountExpiresAt);
   const currentPrice = isForSale ? salePrice : pricePerNight;
-  const originalPrice =
-    discountPercent > 0 && currentPrice != null
-      ? Math.round(currentPrice / (1 - discountPercent / 100))
-      : null;
+  const displayPrice =
+    active && currentPrice != null
+      ? applyDiscount(currentPrice, discountPercent, discountExpiresAt)
+      : currentPrice;
+  const originalPrice = active && currentPrice != null ? currentPrice : null;
 
-  // For hotels: show discount badge when discount > 0, stars when no discount
-  const showHotelDiscount = isHotel && discountPercent > 0;
+  // For hotels: show discount badge when discount is active, stars when not
+  const showHotelDiscount = isHotel && active;
   const showHotelStars =
     isHotel && !showHotelDiscount && hotelStars != null && hotelStars > 0;
 
@@ -146,37 +154,24 @@ export default function PropertyCard(props: PropertyCardProps) {
           )}
 
           {showHotelDiscount && (
-            <span className="absolute top-4 left-4 flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+            <ListingBadge variant="discount" className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case">
               <Clock className="h-3 w-3" />-{discountPercent}%
-            </span>
+            </ListingBadge>
           )}
 
-          {!isHotel && discountPercent > 0 && (
-            <span className="absolute top-4 left-4 flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+          {!isHotel && active && (
+            <ListingBadge variant="discount" className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case">
               <Clock className="h-3 w-3" />-{discountPercent}%
-            </span>
+            </ListingBadge>
           )}
 
-          {!isHotel && discountPercent === 0 && (isSuperVip || isVip) && (
-            <span className="absolute top-4 left-4 rounded-[4px] bg-[#F97316] px-2 py-1 text-[10px] font-black text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+          {!isHotel && !active && (isSuperVip || isVip) && (
+            <ListingBadge variant="vip" className="absolute top-4 left-4">
               {isSuperVip ? "SUPER VIP" : "VIP"}
-            </span>
+            </ListingBadge>
           )}
 
-          <button
-            type="button"
-            onClick={toggleFavorite}
-            disabled={favoriteBusy}
-            aria-label={isFavorited ? t("favoriteRemove") : t("favoriteAdd")}
-            aria-pressed={isFavorited}
-            className={`absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors ${
-              isFavorited
-                ? "bg-[#F97316] text-white"
-                : "bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
-            } disabled:opacity-60`}
-          >
-            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
-          </button>
+          <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={isFavorited ? t("favoriteRemove") : t("favoriteAdd")} className="absolute top-4 right-4" />
 
           {isHotel && isB2BPartner && (
             <span className="absolute bottom-4 right-4 rounded-lg bg-[#F97316] px-3 py-1 text-[10px] font-bold uppercase text-white">
@@ -262,14 +257,14 @@ export default function PropertyCard(props: PropertyCardProps) {
               ) : (
                 <span className="block h-[16px]" aria-hidden="true" />
               )}
-              {isForSale && salePrice != null ? (
+              {isForSale && displayPrice != null ? (
                 <span className="whitespace-nowrap text-[24px] font-black leading-[32px] text-[#1E293B]">
-                  {formatPrice(salePrice)}
+                  {formatPrice(Math.round(displayPrice))}
                 </span>
-              ) : pricePerNight != null ? (
+              ) : displayPrice != null ? (
                 <span className="flex items-baseline gap-1">
                   <span className="text-[24px] font-black leading-[32px] text-[#1E293B]">
-                    {formatNum(pricePerNight)}
+                    {formatNum(Math.round(displayPrice))}
                   </span>
                   <span className="text-[14px] font-black leading-[20px] text-[#64748B]">
                     {t("perNight")}
@@ -277,15 +272,9 @@ export default function PropertyCard(props: PropertyCardProps) {
                 </span>
               ) : null}
             </div>
-            <span
-              className={`rounded-[12px] px-5 py-2 text-[13px] font-bold text-white transition-colors ${
-                isForSale
-                  ? "bg-[#16A34A] hover:bg-[#15803D]"
-                  : "bg-[#1E293B] hover:bg-[#334155]"
-              }`}
-            >
+            <ListingCardAction className={isForSale ? "px-5 py-2 text-[13px]" : "bg-[#1E293B] px-5 py-2 text-[13px] group-hover:bg-[#334155]"}>
               {isForSale ? t("details") : t("view")}
-            </span>
+            </ListingCardAction>
           </div>
         </div>
       </Link>

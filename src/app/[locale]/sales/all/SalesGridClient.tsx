@@ -8,6 +8,7 @@ import PropertyCard from "@/components/cards/PropertyCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SalePagination } from "@/components/search/SalePagination";
 import { cn } from "@/lib/utils";
+import { isDiscountActive } from "@/lib/utils/pricing";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -184,7 +185,9 @@ export default function SalesGridClient({
       list = list.filter((p) => p.is_vip || p.is_super_vip);
     }
     if (listingTab === "discount") {
-      list = list.filter((p) => (p.discount_percent ?? 0) > 0);
+      list = list.filter((p) =>
+        isDiscountActive(p.discount_percent, p.discount_expires_at),
+      );
     }
 
     return list;
@@ -306,6 +309,7 @@ export default function SalesGridClient({
                   isVip={p.is_vip ?? false}
                   isSuperVip={p.is_super_vip ?? false}
                   discountPercent={p.discount_percent ?? 0}
+                  discountExpiresAt={p.discount_expires_at}
                   isForSale
                   amenityTags={
                     Array.isArray(p.amenities) ? (p.amenities as string[]) : []

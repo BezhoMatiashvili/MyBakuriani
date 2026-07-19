@@ -39,6 +39,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { formatPricePerNight } from "@/lib/utils/format";
+import { applyDiscount } from "@/lib/utils/pricing";
 import { cleanAmenityLabel } from "@/lib/constants/amenity-icons";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
@@ -455,6 +456,8 @@ export default function HotelDetailClient({
               maxGuests={property.capacity ?? 10}
               perPersonPricing
               priceOverrides={priceOverrides}
+              discountPercent={property.discount_percent}
+              discountExpiresAt={property.discount_expires_at}
             />
           )}
         </motion.div>
@@ -462,7 +465,16 @@ export default function HotelDetailClient({
 
       {property.price_per_night != null && (
         <MobileStickyCTA
-          primary={formatPricePerNight(property.price_per_night, locale)}
+          primary={formatPricePerNight(
+            Math.round(
+              applyDiscount(
+                property.price_per_night,
+                property.discount_percent,
+                property.discount_expires_at,
+              ),
+            ),
+            locale,
+          )}
           secondary={property.location ?? undefined}
           ctaLabel={tDetail("book")}
           onClick={() =>
@@ -470,6 +482,7 @@ export default function HotelDetailClient({
               .getElementById("booking-sidebar")
               ?.scrollIntoView({ behavior: "smooth", block: "start" })
           }
+          tone="booking"
         />
       )}
     </div>

@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { Check, Plus, Settings } from "lucide-react";
+import { Check, Settings } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { AddListingButton } from "@/components/shared/AddListingButton";
 
 interface SwitcherItem {
   key: string;
@@ -122,14 +123,7 @@ export function CabinetSwitcher({
             </ul>
 
             <div className="border-t border-[#F1F5F9] px-3 py-2.5">
-              <Link
-                href="/create"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#F97316] px-4 py-2.5 text-[13px] font-bold text-white shadow-[0px_6px_14px_-4px_rgba(249,115,22,0.45)] transition-colors hover:bg-[#EA6C0E]"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2.4} />
-                {t("switcher.addListing")}
-              </Link>
+              <AddListingButton label={t("switcher.addListing")} variant="full" onClick={() => setOpen(false)} />
             </div>
 
             <div className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5">

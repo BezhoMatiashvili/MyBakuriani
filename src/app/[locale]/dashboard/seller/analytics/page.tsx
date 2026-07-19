@@ -171,7 +171,6 @@ export default function SellerAnalyticsPage() {
   const maxValue = Math.max(1, ...funnel.map((s) => s.value));
 
   const sources: SourceRow[] = [
-    { label: "Smart Match", value: 0, percent: 0, color: "bg-[#2563EB]" },
     { label: t("sourceDirect"), value: 0, percent: 0, color: "bg-[#10B981]" },
     { label: t("sourceReferral"), value: 0, percent: 0, color: "bg-[#F59E0B]" },
     { label: t("sourceOther"), value: 0, percent: 0, color: "bg-[#94A3B8]" },

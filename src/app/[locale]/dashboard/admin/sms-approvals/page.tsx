@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Check,
@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { maskPhone, formatDate } from "@/lib/utils/format";
 import type { AdminPendingSms } from "@/app/api/admin/sms/pending/route";
 
@@ -27,6 +28,21 @@ export default function AdminSmsApprovalsPage() {
   const [rejectingFor, setRejectingFor] = useState<AdminPendingSms | null>(
     null,
   );
+  const [search, setSearch] = useState("");
+  const filteredRows = useMemo(() => {
+    if (rows === null) return rows;
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    const digits = q.replace(/\D/g, "");
+    return rows.filter(
+      (row) =>
+        row.id.toLowerCase().includes(q) ||
+        (row.sender_name ?? "").toLowerCase().includes(q) ||
+        (row.recipient_name ?? "").toLowerCase().includes(q) ||
+        (digits.length > 0 &&
+          (row.recipient_phone ?? "").replace(/\D/g, "").includes(digits)),
+    );
+  }, [rows, search]);
 
   const load = useCallback(async () => {
     setRows(null);
@@ -96,20 +112,27 @@ export default function AdminSmsApprovalsPage() {
         ))}
       </div>
 
-      {rows === null ? (
+      <AdminSearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder={t("searchPlaceholder")}
+        className="mb-4"
+      />
+
+      {filteredRows === null ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-36 w-full rounded-2xl" />
           ))}
         </div>
-      ) : rows.length === 0 ? (
+      ) : filteredRows.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-[#CBD5E1] bg-white p-12 text-center">
           <ShieldCheck className="mx-auto mb-3 size-8 text-[#94A3B8]" />
           <p className="text-[14px] font-bold text-[#0F172A]">{t("empty")}</p>
         </div>
       ) : (
         <ul className="space-y-3">
-          {rows.map((row) => (
+          {filteredRows.map((row) => (
             <li
               key={row.id}
               className="rounded-[20px] border border-[#E2E8F0] bg-white p-5"

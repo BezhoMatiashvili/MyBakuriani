@@ -247,21 +247,37 @@ Any new service-favorite call site must copy `useFavorite`'s branching, not
 are written **only** by `purchase_package`'s `discount` tier branch (mirroring how
 `is_vip`/`vip_expires_at` work), guarded against direct writes by
 `prevent_listing_protected_field_change`, and cleared on expiry by `vip-lifecycle`
-— the same three-sided pattern as VIP itself. `discount_expires_at` exists as a
+— the same three-sided pattern as VIP itself. The percentage itself is
+**buyer-chosen at purchase time** (1-90, validated server-side in the RPC) via
+`p_discount_percent`, passed from `VipPropertyPickerModal`'s percent stepper
+through `purchase-vip`'s edge function to the RPC — it is no longer a hardcoded
+`10`. `discount_expires_at` exists as a
 column on **both** `properties` and `services` (required so the shared trigger
 function, bound to both tables, can reference `NEW.discount_expires_at`
 unconditionally without a 42703 — same reason `is_vip`/`vip_expires_at` are on
 both), but is only ever **written** on `properties`: `purchase_package` has no
 `p_service_id` parameter and `vip-lifecycle`'s sweep is properties-only, so the
-column stays permanently NULL on every `services` row.
+column stays permanently NULL on every `services` row. The discount is no longer
+purely cosmetic: `create_booking` (`20260719130000_create_booking_apply_discount.sql`,
+superseding `20260628120000_create_booking_inclusive_days.sql`'s pricing) now reads
+`discount_percent`/`discount_expires_at` server-side to reduce the booking's
+`total_price`, and `PropertyCard`/`SalePropertyCard`/`BookingSidebar`/
+`SaleDetailClient` apply the same percentage to displayed prices client-side via
+the new `isDiscountActive`/`applyDiscount` helpers in `src/lib/utils/pricing.ts`.
 
 Participating symbols:
 
-- `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:purchase_package` — `discount` tier branch: sets `discount_percent = 10` unconditionally and `discount_expires_at = v_expires_at`
-- `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role
+- `supabase/migrations/20260719095438_discount_percent_choice.sql:purchase_package` — `discount` tier branch: validates `p_discount_percent` is `[1,90]` and sets `discount_percent = p_discount_percent` (supersedes the hardcoded-10 version in `20260719120000_fix_discount_badge_duration.sql`) plus `discount_expires_at = v_expires_at`; the old 4-arg overload is dropped by `20260719095704_discount_percent_choice_drop_old_overload.sql` (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement)
+- `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role (current trigger BODY now lives in `20260719140000_org_auto_link_sale_listings.sql`, which re-declares it verbatim + an owner org-attach exception — see **C11**; discount-field guarding is unchanged)
+- `supabase/functions/purchase-vip/index.ts:serve` — validates `discount_percent` from the request body ([1,90] or null) and forwards it as `p_discount_percent`
+- `src/components/renter/VipPropertyPickerModal.tsx:VipPropertyPickerModal` — renders the percent stepper (only when `tier === "discount"`) and passes the chosen value through `onConfirm`
+- `src/components/balance/PropertyBalanceClient.tsx:handleConfirmPurchase` — forwards `discountPercent` into the `purchase-vip` invoke body
 - `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — properties-only sweep: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
 - `src/components/cards/PropertyCard.tsx:discountPercent` — badge render prop, `> 0` shows the discount badge
 - `src/app/[locale]/apartments/ApartmentsPageClient.tsx` — "discounted only" filter reads `discount_percent`
+- `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`
+- `src/lib/utils/pricing.ts:isDiscountActive` — fail-open expiry check (`discount_expires_at IS NULL` counts as active, matching how `purchase_package` writes the columns; strict `>` mirrors `create_booking`'s own check) shared by every price-display and pricing call site
+- `src/lib/utils/pricing.ts:applyDiscount` — applies the percentage to a price (no-op when `isDiscountActive` is false); used by `PropertyCard`, `SalePropertyCard`, `BookingSidebar`, and `SaleDetailClient` so displayed prices match what `create_booking` actually charges
 
 **Also check:** `src/lib/types/database.ts` must carry `discount_expires_at` after
 regen (**C3**); any new discount read/write path on `properties` must go through
@@ -274,4 +290,47 @@ service-role, but silently no-ops under `service_role`); or a new discount surfa
 is added for `services` assuming `discount_expires_at` is actively maintained there
 (column exists but is never written — `purchase_package` takes no
 `p_service_id`/`vip-lifecycle`'s `clearExpiredDiscounts` sweep is properties-only —
-so a `services`-side reader would see permanent NULLs, not real expiry data).
+so a `services`-side reader would see permanent NULLs, not real expiry data); or a
+future price-display or booking-price code path reads `discount_percent`/
+`discount_expires_at` directly instead of calling `isDiscountActive`/
+`applyDiscount` — it would silently regress back to showing (or charging) the
+undiscounted price, since nothing else enforces that the percentage is actually
+applied.
+
+---
+
+## C11 — Company (org) listing linkage & auto-link
+
+**Invariant:** `properties.organization_id` is the sole link between a listing and
+a company, and every write path to it is gated by TWO triggers on `properties`:
+`enforce_org_listing_rules` (BEFORE INSERT OR UPDATE OF
+`organization_id, owner_id, status` — approved membership + active
+`organization_subscriptions` row + `listing_limit` cap) and
+`prevent_listing_protected_field_change` (blocks `organization_id` changes from
+non-admin client sessions, EXCEPT the row owner changing their own listing's org
+without changing `owner_id`). The enforcement trigger fires whenever the UPDATE's
+SET list mentions `organization_id` — **even if the value is unchanged** — so
+client update payloads must include the column only when it actually changed, or
+unrelated edits of an org listing whose subscription lapsed will be rejected.
+Company tagging is **sale-only** (`is_for_sale = true`) by product decision;
+rentals stay personal.
+
+Participating symbols:
+
+- `supabase/migrations/20260719140000_org_auto_link_sale_listings.sql:_auto_link_org_sale_listings` — links owner's untagged sale listings to an org, oldest first, capped at remaining `listing_limit` quota (uncapped would abort the purchase transaction via the enforcement trigger); also holds the CURRENT body of `prevent_listing_protected_field_change` (owner org-attach exception) and of `purchase_company_subscription` (calls the helper after the sub INSERT — order matters: the enforcement trigger's active-sub check needs the new row)
+- `supabase/migrations/20260627090300_org_enforcement_trigger.sql:enforce_org_listing_rules` — membership/active-sub/cap gate; no-ops when `NEW.organization_id IS NULL` (detach is always allowed)
+- `src/app/[locale]/create/sale/page.tsx:initialOrgIdRef` — edit flow hydrates the listing's org, renders the same "post as" picker as create, and spreads `organization_id` into the update payload ONLY when it differs from the hydrated value; active-sub pre-check likewise only on change
+- `src/app/[locale]/dashboard/seller/organizations/[id]/page.tsx` — org stats read: `properties` where `organization_id = org AND status = 'active'`; apartments = `sum(units_total ?? 1)`
+- `supabase/functions/company-subscription/index.ts:serve` — edge caller of `purchase_company_subscription` (name/body per **C4**; RPC signature unchanged, no redeploy needed for RPC-body changes)
+
+**Also check:** newly linked listings appear in BOTH personal dashboard scope
+(`owner_id` filter) and org scope (`organization_id` filter) — intended, not a
+bug. `create_organization` always inserts the owner as an approved member, which
+the auto-link helper relies on.
+
+**Breaks silently when:** a client update payload unconditionally includes
+`organization_id` (fires the enforcement trigger on every edit → 42501 once the
+sub lapses); or a new attach path skips the quota check by writing under
+`service_role` (both triggers pass, cap silently exceeded); or an org-listing
+surface assumes rentals can be attached (`is_for_sale = false` rows are never
+auto-linked and the edit picker is sale-only).

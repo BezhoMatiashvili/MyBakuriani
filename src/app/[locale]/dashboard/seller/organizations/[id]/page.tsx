@@ -102,7 +102,8 @@ export default function OrganizationCabinetPage() {
         supabase
           .from("properties")
           .select("units_total")
-          .eq("organization_id", orgId),
+          .eq("organization_id", orgId)
+          .eq("status", "active"),
         supabase
           .from("balances")
           .select("amount")
@@ -135,7 +136,8 @@ export default function OrganizationCabinetPage() {
     const props = (propRes.data ?? []) as { units_total: number | null }[];
     setStats({
       projects: props.length,
-      apartments: props.reduce((sum, p) => sum + (p.units_total ?? 0), 0),
+      // A listing without a stated building unit count is at least 1 apartment.
+      apartments: props.reduce((sum, p) => sum + (p.units_total ?? 1), 0),
     });
     setLoading(false);
   }, [orgId, user]);

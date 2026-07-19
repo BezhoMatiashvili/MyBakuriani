@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { Link } from "@/i18n/navigation";
 import { formatPrice } from "@/lib/utils/format";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
@@ -78,6 +79,7 @@ export default function ListingsPage() {
   const [rows, setRows] = useState<ListingRow[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   // One silent auto-retry per failure: transient auth/network hiccups (e.g.
   // Supabase 522s make requireAdmin briefly return 401) shouldn't strand the
   // admin on an error screen.
@@ -198,6 +200,17 @@ export default function ListingsPage() {
   const currentCategory =
     CATEGORY_OPTIONS.find((o) => o.value === category) ?? CATEGORY_OPTIONS[0];
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (r) =>
+        r.id.toLowerCase().includes(q) ||
+        r.title.toLowerCase().includes(q) ||
+        (r.owner?.display_name ?? "").toLowerCase().includes(q),
+    );
+  }, [rows, search]);
+
   return (
     <div className="bg-[#F8FAFC]">
       <div className="h-full w-full px-0 py-0">
@@ -263,6 +276,13 @@ export default function ListingsPage() {
           </div>
         </div>
 
+        <AdminSearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={t("searchPlaceholder")}
+          className="mb-4"
+        />
+
         <div className="w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
           <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-[#E2E8F0] bg-[#F8FAFCCC] px-6 py-5 text-[11px] font-bold uppercase tracking-[1.2px] text-[#64748B]">
             <span>{t("colObject")}</span>
@@ -290,12 +310,12 @@ export default function ListingsPage() {
                 {t("retry")}
               </button>
             </div>
-          ) : rows.length === 0 ? (
+          ) : filteredRows.length === 0 ? (
             <div className="flex min-h-[200px] items-center justify-center text-sm text-[#94A3B8]">
               {t("empty")}
             </div>
           ) : (
-            rows.map((row) => {
+            filteredRows.map((row) => {
               const price =
                 row.price_per_night != null
                   ? `${formatPrice(row.price_per_night)}${tShared("perNight")}`

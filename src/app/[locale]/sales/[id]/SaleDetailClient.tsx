@@ -26,6 +26,7 @@ import { optionKeyFor } from "@/lib/constants/listing-options";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
+import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { createClient } from "@/lib/supabase/client";
 import { useFavorite } from "@/lib/hooks/useFavorite";
@@ -194,6 +195,17 @@ export default function SaleDetailClient({
 
   const salePrice = property.sale_price ?? 0;
   const roiPercent = property.roi_percent ?? 0;
+  const discountActive = isDiscountActive(
+    property.discount_percent,
+    property.discount_expires_at,
+  );
+  const displaySalePrice = discountActive
+    ? applyDiscount(
+        salePrice,
+        property.discount_percent,
+        property.discount_expires_at,
+      )
+    : salePrice;
 
   const postedAgo = (() => {
     if (!property.created_at) return null;
@@ -670,20 +682,27 @@ export default function SaleDetailClient({
               )}
 
               <div className="mb-1 text-sm text-[#94A3B8]">{t("price")}</div>
+              {discountActive && salePrice > 0 && (
+                <div className="text-sm font-bold text-[#94A3B8] line-through">
+                  {formatPrice(salePrice)}
+                </div>
+              )}
               <div className="text-[32px] font-black leading-[34px] text-[#1E293B]">
-                {salePrice > 0 ? formatPrice(salePrice) : t("negotiable")}
+                {salePrice > 0
+                  ? formatPrice(Math.round(displaySalePrice))
+                  : t("negotiable")}
               </div>
               {property.area_sqm != null && salePrice > 0 && (
                 <div className="mt-1 text-sm text-[#94A3B8]">
                   {t("pricePerSqm", {
                     price: formatPrice(
-                      Math.round(salePrice / property.area_sqm),
+                      Math.round(displaySalePrice / property.area_sqm),
                     ),
                   })}
                 </div>
               )}
 
-              {(property.discount_percent ?? 0) > 0 && (
+              {discountActive && (
                 <div className="mt-3 rounded-lg bg-red-50 p-2 text-center text-sm font-semibold text-red-600">
                   {t("discountPct", {
                     percent: property.discount_percent ?? 0,
@@ -730,7 +749,9 @@ export default function SaleDetailClient({
                 <CallButton
                   phone={property.phone ?? property.profiles?.phone ?? null}
                   onNoPhoneClick={() => router.push("/auth/login")}
-                  className="h-[55px] flex-1 gap-2 rounded-2xl bg-[#16A34A] text-[15px] font-bold tracking-[0.375px] text-white hover:bg-[#15803D]"
+                  className="flex-1 rounded-2xl tracking-[0.375px]"
+                  layout="card"
+                  size="lg"
                   label={t("call")}
                   propertyId={property.id}
                 />
@@ -864,7 +885,7 @@ export default function SaleDetailClient({
             .getElementById("seller-sidebar")
             ?.scrollIntoView({ behavior: "smooth", block: "start" })
         }
-        ctaClassName="shrink-0 rounded-xl bg-[#16A34A] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#15803D]"
+        tone="contact"
       />
     </div>
   );

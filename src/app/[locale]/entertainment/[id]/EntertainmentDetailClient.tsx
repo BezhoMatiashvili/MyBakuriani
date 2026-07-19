@@ -279,7 +279,7 @@ export default function EntertainmentDetailClient({
           <WhatsAppButton phone={service.phone} serviceId={service.id} />
           <CallButton
             phone={service.phone}
-            className="h-12 flex-1 gap-2 rounded-full bg-[#1E293B] px-8 text-[15px] font-bold text-white hover:bg-[#0F172A] sm:flex-none"
+            className="flex-1 px-8 sm:flex-none"
             label={t("callOrBook")}
             onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={service.id}
@@ -297,7 +297,7 @@ export default function EntertainmentDetailClient({
               .getElementById("contact-sidebar")
               ?.scrollIntoView({ behavior: "smooth", block: "start" })
           }
-          ctaClassName="shrink-0 rounded-xl bg-[#1E293B] px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#0F172A]"
+          tone="contact"
         />
       )}
     </div>
