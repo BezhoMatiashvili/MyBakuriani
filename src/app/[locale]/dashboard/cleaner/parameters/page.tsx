@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Check,
+  Clock,
   IdCard,
   MapPin,
   MessageCircle,
@@ -18,6 +19,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import TimeRangePicker, {
+  isValidTimeRange,
+} from "@/components/shared/TimeRangePicker";
+import { Link } from "@/i18n/navigation";
 
 type FormValues = {
   firstName: string;
@@ -37,6 +42,21 @@ const EMPTY_FORM: FormValues = {
   address: "",
 };
 
+const DEFAULT_WORKING_HOURS = "09:00 - 19:00";
+
+type CleaningService = {
+  id: string;
+  title: string;
+  provider_name: string | null;
+  schedule: string | null;
+  operating_hours: string | null;
+};
+
+type ServiceHours = {
+  workingHours: string;
+  is24_7: boolean;
+};
+
 function toNullable(value: string): string | null {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
@@ -52,6 +72,17 @@ export default function CleanerParametersPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [cleaningServices, setCleaningServices] = useState<CleaningService[]>(
+    [],
+  );
+  const [serviceHours, setServiceHours] = useState<
+    Record<string, ServiceHours>
+  >({});
+  const [savingServiceId, setSavingServiceId] = useState<string | null>(null);
+  const [savedServiceId, setSavedServiceId] = useState<string | null>(null);
+  const [serviceSaveError, setServiceSaveError] = useState<string | null>(null);
+
   const [form, setForm] = useState<FormValues>(EMPTY_FORM);
   const [savedValues, setSavedValues] = useState<FormValues>(EMPTY_FORM);
 
@@ -63,18 +94,25 @@ export default function CleanerParametersPage() {
   useEffect(() => {
     if (!user) return;
     async function fetchData() {
-      const [{ data: cleaner }, { data: profile }] = await Promise.all([
-        supabase
-          .from("cleaner_profiles")
-          .select("*")
-          .eq("id", user!.id)
-          .maybeSingle(),
-        supabase
-          .from("profiles")
-          .select("display_name, avatar_url, phone")
-          .eq("id", user!.id)
-          .single(),
-      ]);
+      const [{ data: cleaner }, { data: profile }, { data: services }] =
+        await Promise.all([
+          supabase
+            .from("cleaner_profiles")
+            .select("*")
+            .eq("id", user!.id)
+            .maybeSingle(),
+          supabase
+            .from("profiles")
+            .select("display_name, avatar_url, phone")
+            .eq("id", user!.id)
+            .single(),
+          supabase
+            .from("services")
+            .select("id, title, provider_name, schedule, operating_hours")
+            .eq("owner_id", user!.id)
+            .eq("category", "cleaning")
+            .order("created_at", { ascending: true }),
+        ]);
 
       let values: FormValues;
       if (cleaner) {
@@ -101,7 +139,30 @@ export default function CleanerParametersPage() {
       setForm(values);
       setSavedValues(values);
       setAvatarUrl(profile?.avatar_url ?? null);
+      const ownedCleaningServices = (services ?? []) as CleaningService[];
+      setCleaningServices(ownedCleaningServices);
+      setServiceHours(
+        Object.fromEntries(
+          ownedCleaningServices.map((service) => {
+            const storedHours =
+              service.schedule?.trim() ||
+              service.operating_hours?.trim() ||
+              DEFAULT_WORKING_HOURS;
+            return [
+              service.id,
+              {
+                workingHours:
+                  storedHours === "24/7"
+                    ? DEFAULT_WORKING_HOURS
+                    : storedHours,
+                is24_7: storedHours === "24/7",
+              },
+            ];
+          }),
+        ),
+      );
       setLoading(false);
+      setServicesLoading(false);
     }
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,6 +175,64 @@ export default function CleanerParametersPage() {
   function resetForm() {
     setForm(savedValues);
     setSaved(false);
+  }
+
+  function updateServiceHours(
+    serviceId: string,
+    update: Partial<ServiceHours>,
+  ) {
+    setServiceHours((previous) => ({
+      ...previous,
+      [serviceId]: { ...previous[serviceId], ...update },
+    }));
+    setSavedServiceId((previous) =>
+      previous === serviceId ? null : previous,
+    );
+    setServiceSaveError(null);
+  }
+
+  async function saveServiceHours(service: CleaningService) {
+    if (!user) return;
+    const values = serviceHours[service.id];
+    if (!values || (!values.is24_7 && !isValidTimeRange(values.workingHours))) {
+      return;
+    }
+
+    const hours = values.is24_7 ? "24/7" : values.workingHours.trim();
+    setSavingServiceId(service.id);
+    setSavedServiceId(null);
+    setServiceSaveError(null);
+
+    const { error } = await supabase
+      .from("services")
+      .update({
+        schedule: hours,
+        operating_hours: hours,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", service.id)
+      .eq("owner_id", user.id)
+      .eq("category", "cleaning");
+
+    setSavingServiceId(null);
+    if (error) {
+      setServiceSaveError(service.id);
+      return;
+    }
+
+    setCleaningServices((previous) =>
+      previous.map((item) =>
+        item.id === service.id
+          ? { ...item, schedule: hours, operating_hours: hours }
+          : item,
+      ),
+    );
+    setSavedServiceId(service.id);
+    setTimeout(() => {
+      setSavedServiceId((previous) =>
+        previous === service.id ? null : previous,
+      );
+    }, 2500);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -414,6 +533,156 @@ export default function CleanerParametersPage() {
           </div>
         </form>
       </motion.div>
+
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)] sm:p-8"
+      >
+        <div>
+          <h2 className="text-[20px] font-black text-[#0F172A]">
+            {t("workingHours")}
+          </h2>
+          <p className="mt-1 text-[13px] font-medium text-[#64748B]">
+            {t("workingHoursDescription")}
+          </p>
+        </div>
+
+        {servicesLoading ? (
+          <div className="mt-5 space-y-4">
+            <Skeleton className="h-44 rounded-2xl" />
+            <Skeleton className="h-44 rounded-2xl" />
+          </div>
+        ) : cleaningServices.length === 0 ? (
+          <div className="mt-5 rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-5 py-8 text-center">
+            <Clock className="mx-auto size-8 text-[#94A3B8]" />
+            <h3 className="mt-3 text-[15px] font-bold text-[#0F172A]">
+              {t("workingHoursEmpty")}
+            </h3>
+            <p className="mx-auto mt-1 max-w-md text-[13px] font-medium text-[#64748B]">
+              {t("workingHoursEmptyDescription")}
+            </p>
+            <Link
+              href="/create/service"
+              className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+            >
+              {t("createCleaningService")}
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            {cleaningServices.map((service) => {
+              const values = serviceHours[service.id];
+              const hasValidHours =
+                values?.is24_7 ||
+                (values ? isValidTimeRange(values.workingHours) : false);
+              const isSavingThisService = savingServiceId === service.id;
+              const isSavedThisService = savedServiceId === service.id;
+              const hasSaveError = serviceSaveError === service.id;
+
+              return (
+                <div
+                  key={service.id}
+                  data-testid={`cleaning-hours-${service.id}`}
+                  className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-5"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="text-[15px] font-black text-[#0F172A]">
+                        {service.title}
+                      </h3>
+                      {service.provider_name && (
+                        <p className="mt-1 text-[12px] font-medium text-[#64748B]">
+                          {service.provider_name}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      data-testid="working-hours-247"
+                      onClick={() =>
+                        updateServiceHours(service.id, {
+                          is24_7: !values?.is24_7,
+                        })
+                      }
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                        values?.is24_7
+                          ? "border-[#16A34A] bg-[#F0FDF4]"
+                          : "border-[#E2E8F0] bg-white hover:border-[#CBD5E1]"
+                      }`}
+                      aria-pressed={values?.is24_7 ?? false}
+                    >
+                      <span>
+                        <span className="block text-[13px] font-bold text-[#0F172A]">
+                          {t("workingHours247")}
+                        </span>
+                        <span className="block text-[11px] font-medium text-[#64748B]">
+                          {t("workingHours247Description")}
+                        </span>
+                      </span>
+                      <span
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                          values?.is24_7 ? "bg-[#16A34A]" : "bg-[#E2E8F0]"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block size-5 rounded-full bg-white shadow transition-transform ${
+                            values?.is24_7
+                              ? "translate-x-[22px]"
+                              : "translate-x-0.5"
+                          }`}
+                        />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="mt-4 max-w-md">
+                    <TimeRangePicker
+                      value={values?.workingHours ?? DEFAULT_WORKING_HOURS}
+                      onChange={(workingHours) =>
+                        updateServiceHours(service.id, { workingHours })
+                      }
+                      disabled={values?.is24_7}
+                      error={!values?.is24_7 && !hasValidHours}
+                    />
+                    {!values?.is24_7 && !hasValidHours && (
+                      <p className="mt-1.5 text-xs font-medium text-[#EF4444]">
+                        {t("workingHoursInvalid")}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      data-testid="save-working-hours"
+                      disabled={isSavingThisService || !hasValidHours}
+                      onClick={() => saveServiceHours(service)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSavedThisService ? (
+                        <Check className="size-4" />
+                      ) : (
+                        <Save className="size-4" />
+                      )}
+                      {isSavingThisService
+                        ? t("saving")
+                        : isSavedThisService
+                          ? t("savedWorkingHours")
+                          : t("saveWorkingHours")}
+                    </button>
+                    {hasSaveError && (
+                      <p className="text-[12px] font-medium text-[#EF4444]">
+                        {t("workingHoursSaveError")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.section>
     </div>
   );
 }

@@ -2853,6 +2853,39 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      create_guest_manual_booking: {
+        Args: {
+          p_check_in: string;
+          p_check_out: string;
+          p_name: string;
+          p_note?: string;
+          p_phone?: string;
+          p_property_id: string;
+        };
+        Returns: {
+          amount: number | null;
+          check_in: string;
+          check_out: string;
+          client_list: string | null;
+          created_at: string | null;
+          guest_name: string | null;
+          guest_phone: string | null;
+          guests_count: number | null;
+          id: string;
+          note: string | null;
+          owner_id: string;
+          property_id: string;
+          renter_guest_id: string | null;
+          source: string | null;
+          status: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "manual_bookings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       create_organization: {
         Args: {
           p_address?: string;
@@ -2943,6 +2976,7 @@ export type Database = {
           p_package_id: string;
           p_property_id?: string;
           p_quantity?: number;
+          p_service_id?: string;
           p_user_id: string;
         };
         Returns: Json;

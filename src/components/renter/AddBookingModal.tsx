@@ -53,7 +53,6 @@ export interface AddBookingPayload {
   note: string;
   status: "booked" | "manual";
   clientList: string;
-  saveToContacts: boolean;
 }
 
 // Read-only payload for platform (guest-made) bookings, which live in the
@@ -110,7 +109,6 @@ export default function AddBookingModal({
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"booked" | "manual">("manual");
   const [clientListKey, setClientListKey] = useState<ClientListKey>("platform");
-  const [saveToContacts, setSaveToContacts] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -138,7 +136,6 @@ export default function AddBookingModal({
           CLIENT_LIST_KEY_BY_VALUE[existing.client_list]) ||
           "platform",
       );
-      setSaveToContacts(false);
     } else if (mode === "create") {
       setCheckIn(initialCheckIn);
       setCheckOut(initialCheckOut);
@@ -150,7 +147,6 @@ export default function AddBookingModal({
       setNote("");
       setStatus("manual");
       setClientListKey("platform");
-      setSaveToContacts(false);
     }
   }, [isOpen, mode, existing, initialCheckIn, initialCheckOut]);
 
@@ -170,17 +166,14 @@ export default function AddBookingModal({
     return () => window.removeEventListener("keydown", h);
   }, [isOpen, onClose]);
 
-  // Instant client-side overlap check: reject a check-out on/before check-in, or
-  // a range that touches an already-occupied night. The server RPC is the hard
+  // Both selected dates are occupied. A one-day stay is therefore valid; only
+  // an inverted range or an already occupied day is rejected here.
   // guarantee; this just gives immediate feedback and disables submit.
   const rangeError = useMemo<string | null>(() => {
     if (mode === "view" || !checkIn || !checkOut) return null;
-    if (checkOut <= checkIn) return t("invalidDates");
+    if (checkOut < checkIn) return t("invalidDates");
     if (!occupiedNights || occupiedNights.size === 0) return null;
-    const nights = datesInRange(checkIn, checkOut).filter(
-      (d) => d !== checkOut,
-    );
-    return nights.some((d) => occupiedNights.has(d))
+    return datesInRange(checkIn, checkOut).some((d) => occupiedNights.has(d))
       ? t("datesUnavailable")
       : null;
   }, [mode, checkIn, checkOut, occupiedNights, t]);
@@ -198,7 +191,6 @@ export default function AddBookingModal({
     note,
     status,
     clientList: CLIENT_LIST_DB_VALUES[clientListKey],
-    saveToContacts,
   });
 
   async function handleSubmit() {
@@ -424,26 +416,14 @@ export default function AddBookingModal({
                     </Field>
                   </div>
 
-                  <label
-                    className={`mt-4 flex items-center gap-2.5 text-[12px] font-semibold ${
-                      guestName.trim()
-                        ? "cursor-pointer text-[#0F172A]"
-                        : "cursor-not-allowed text-[#94A3B8]"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={saveToContacts && Boolean(guestName.trim())}
-                      disabled={!guestName.trim()}
-                      onChange={(e) => setSaveToContacts(e.target.checked)}
-                      className="h-4 w-4 rounded border-[#CBD5E1] text-[#2563EB] focus:ring-[#2563EB]"
-                    />
-                    {t("saveToContacts")}
-                  </label>
-
                   <button
                     type="submit"
-                    disabled={submitting || Boolean(rangeError) || phoneInvalid}
+                    disabled={
+                      submitting ||
+                      Boolean(rangeError) ||
+                      phoneInvalid ||
+                      !guestName.trim()
+                    }
                     className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {mode === "edit" ? tShared("save") : tShared("add")}

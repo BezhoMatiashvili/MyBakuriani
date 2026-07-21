@@ -29,7 +29,6 @@ import BulkActionBar, {
   BulkApplyChanges,
 } from "@/components/calendar/BulkActionBar";
 import { datesInRange } from "@/lib/utils/availability";
-import { toLocalGePhone } from "@/lib/utils/number";
 import { revalidatePublicProperty } from "@/app/actions/revalidateListing";
 import type { Tables } from "@/lib/types/database";
 
@@ -214,7 +213,10 @@ export default function RenterCalendarPage() {
           table: "calendar_blocks",
           filter: `property_id=eq.${selectedPropertyId}`,
         },
-        () => fetchBlocks(),
+        () => {
+          fetchBlocks();
+          fetchBookings();
+        },
       )
       .subscribe();
 
@@ -260,9 +262,8 @@ export default function RenterCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
-  // Fetch the manual + platform bookings that occupy a night in the visible
-  // month. A booking overlaps the month when it starts on/before the last day
-  // and its (exclusive) check-out is after the first day.
+  // Fetch the manual + platform bookings that occupy the visible month. New and
+  // edited stays include their check-out date as an occupied calendar day.
   const fetchBookings = useCallback(async () => {
     if (!selectedPropertyId || !user) return;
     const startDate = `${year}-${pad(month + 1)}-01`;
@@ -274,7 +275,7 @@ export default function RenterCalendarPage() {
         .eq("owner_id", user.id)
         .eq("property_id", selectedPropertyId)
         .lte("check_in", endDate)
-        .gt("check_out", startDate),
+        .gte("check_out", startDate),
       supabase
         .from("bookings")
         .select(
@@ -284,7 +285,7 @@ export default function RenterCalendarPage() {
         .eq("property_id", selectedPropertyId)
         .neq("status", "cancelled")
         .lte("check_in", endDate)
-        .gt("check_out", startDate),
+        .gte("check_out", startDate),
     ]);
     if (manualRes.data) setManualBookings(manualRes.data);
     if (platformRes.data) {
@@ -356,14 +357,12 @@ export default function RenterCalendarPage() {
         status: b.status,
       };
       for (const d of datesInRange(b.check_in, b.check_out)) {
-        if (d === b.check_out) continue;
         map.set(d, { type: "platform", label, view });
       }
     }
     for (const b of manualBookings) {
       const label = b.guest_name || b.source || tShared("guest");
       for (const d of datesInRange(b.check_in, b.check_out)) {
-        if (d === b.check_out) continue;
         map.set(d, { type: "manual", label, manual: b });
       }
     }
@@ -666,44 +665,6 @@ export default function RenterCalendarPage() {
     return s;
   }, [calendarBlocks, editingBooking]);
 
-  // Optionally mirror the booking's guest into the renter's contacts list and
-  // return the contact id so the booking links to it. De-dupes by normalized
-  // phone (reuses an existing contact instead of creating a duplicate). When no
-  // contact is created the booking RPC still auto-links by phone if one matches.
-  const resolveContactId = async (
-    payload: AddBookingPayload,
-  ): Promise<string | undefined> => {
-    if (!payload.saveToContacts || !payload.guestName.trim() || !user)
-      return undefined;
-    const phone = payload.guestPhone.trim() || null;
-    const key = toLocalGePhone(phone);
-    try {
-      if (key.length === 9) {
-        const { data: existing } = await supabase
-          .from("renter_guests")
-          .select("id, phone")
-          .eq("owner_id", user.id);
-        const match = (existing ?? []).find(
-          (c) => toLocalGePhone(c.phone) === key,
-        );
-        if (match) return match.id;
-      }
-      const { data: inserted } = await supabase
-        .from("renter_guests")
-        .insert({
-          owner_id: user.id,
-          name: payload.guestName.trim(),
-          phone,
-        })
-        .select("id")
-        .single();
-      return inserted?.id;
-    } catch (err) {
-      console.error("Failed to save guest to contacts", err);
-      return undefined;
-    }
-  };
-
   const parseCount = (v: string) => {
     const n = parseInt(v, 10);
     return Number.isFinite(n) ? n : null;
@@ -721,9 +682,8 @@ export default function RenterCalendarPage() {
   ): Promise<BookingResult> => {
     if (!selectedPropertyId || !user)
       return { ok: false, errorCode: "generic" };
-    if (!payload.checkIn || !payload.checkOut)
+    if (!payload.checkIn || !payload.checkOut || !payload.guestName.trim())
       return { ok: false, errorCode: "generic" };
-    const guestId = await resolveContactId(payload);
     const { error } = await supabase.rpc("create_manual_booking", {
       p_property_id: selectedPropertyId,
       p_check_in: payload.checkIn,
@@ -736,7 +696,6 @@ export default function RenterCalendarPage() {
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
-      p_renter_guest_id: guestId ?? undefined,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
     await Promise.all([fetchBlocks(), fetchBookings()]);
@@ -751,9 +710,8 @@ export default function RenterCalendarPage() {
     payload: AddBookingPayload,
   ): Promise<BookingResult> => {
     if (!editingBooking || !user) return { ok: false, errorCode: "generic" };
-    if (!payload.checkIn || !payload.checkOut)
+    if (!payload.checkIn || !payload.checkOut || !payload.guestName.trim())
       return { ok: false, errorCode: "generic" };
-    const guestId = await resolveContactId(payload);
     const { error } = await supabase.rpc("update_manual_booking", {
       p_id: editingBooking.id,
       p_check_in: payload.checkIn,
@@ -766,7 +724,6 @@ export default function RenterCalendarPage() {
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
-      p_renter_guest_id: guestId ?? undefined,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
     await Promise.all([fetchBlocks(), fetchBookings()]);
@@ -774,16 +731,10 @@ export default function RenterCalendarPage() {
     return { ok: true };
   };
 
-  // Cancel a manual booking: remove its calendar blocks (freeing the nights)
-  // and delete the booking row. Scoped to the owner's own booking.
+  // A DB trigger releases this booking's calendar blocks in the same transaction.
   const handleCancelBooking = async () => {
     if (!editingBooking || !selectedPropertyId || !user) return;
     try {
-      await supabase
-        .from("calendar_blocks")
-        .delete()
-        .eq("property_id", selectedPropertyId)
-        .eq("booking_id", editingBooking.id);
       await supabase
         .from("manual_bookings")
         .delete()

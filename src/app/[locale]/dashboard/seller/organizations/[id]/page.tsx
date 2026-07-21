@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Building2,
@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils/format";
 
 type Org = {
   id: string;
@@ -49,6 +50,7 @@ type Agent = {
 
 export default function OrganizationCabinetPage() {
   const t = useTranslations("Organizations");
+  const locale = useLocale();
   const params = useParams();
   const orgId = String(params.id);
   const { user, loading: authLoading } = useAuth();
@@ -156,6 +158,15 @@ export default function OrganizationCabinetPage() {
   const selectedPkg = packages.find(
     (p) => p.code.replace("company-", "") === selectedTier,
   );
+  const daysLeft = sub
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(sub.expires_at).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      )
+    : null;
 
   async function handleActivate() {
     if (!selectedTier || !isOwner) return;
@@ -265,9 +276,22 @@ export default function OrganizationCabinetPage() {
             {t("statSubscription")}
           </p>
           {sub ? (
-            <p className="mt-2 inline-flex rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[13px] font-bold text-[#166534]">
-              {sub.tier.toUpperCase()}
-            </p>
+            <div className="mt-2">
+              <p className="inline-flex rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[13px] font-bold text-[#166534]">
+                {sub.tier.toUpperCase()}
+              </p>
+              <p
+                data-testid="organization-subscription-expiry"
+                className="mt-2 text-[12px] font-medium text-[#64748B]"
+              >
+                {t("expiresAt", {
+                  date: formatDateTime(sub.expires_at, locale),
+                })}{" "}
+                <span className="font-bold text-[#475569]">
+                  {t("daysLeft", { count: daysLeft ?? 0 })}
+                </span>
+              </p>
+            </div>
           ) : (
             <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#FEF3C7] px-2.5 py-1 text-[13px] font-bold text-[#92400E]">
               {t("noPackage")} <AlertTriangle className="h-3.5 w-3.5" />

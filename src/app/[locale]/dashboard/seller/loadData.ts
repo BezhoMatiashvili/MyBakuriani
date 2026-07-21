@@ -31,7 +31,9 @@ export async function loadSellerData(
   if (scope?.mode === "org" && scope.organizationId) {
     query = query.eq("organization_id", scope.organizationId);
   } else {
-    query = query.eq("owner_id", userId);
+    // Personal scope shows only untagged listings — company-linked ones live
+    // exclusively under their org scope.
+    query = query.eq("owner_id", userId).is("organization_id", null);
   }
 
   const { data } = await query

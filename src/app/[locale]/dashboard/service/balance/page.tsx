@@ -1,13 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
-  Rocket,
-  Star,
-  Percent,
-  MessageSquare,
   History,
   ArrowDownLeft,
   ArrowUpRight,
@@ -15,77 +11,21 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import VipInfoModal, {
-  type VipInfoTier,
-} from "@/components/renter/VipInfoModal";
+import VipInfoModal, { inferVipInfoTier, type VipInfoTier } from "@/components/renter/VipInfoModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
-import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import {
+  fetchPricingPackages,
+  getPackageDisplay,
+  type PricingPackage,
+} from "@/lib/pricing-packages";
 import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
 type Service = Tables<"services">;
-
-interface Tier {
-  id: "super_vip" | "vip" | "discount" | "sms";
-  price: number;
-  icon: typeof Rocket;
-  iconBg: string;
-  iconColor: string;
-  cta: string;
-}
-
-const TIER_META: Omit<Tier, "price">[] = [
-  {
-    id: "super_vip",
-    icon: Rocket,
-    iconBg: "bg-[#DCFCE7]",
-    iconColor: "text-[#16A34A]",
-    cta: "bg-[#F97316] hover:bg-[#EA580C] text-white",
-  },
-  {
-    id: "vip",
-    icon: Star,
-    iconBg: "bg-[#FFEDD5]",
-    iconColor: "text-[#F97316]",
-    cta: "bg-[#EC4899] hover:bg-[#DB2777] text-white",
-  },
-  {
-    id: "discount",
-    icon: Percent,
-    iconBg: "bg-[#DCFCE7]",
-    iconColor: "text-[#16A34A]",
-    cta: "bg-[#22C55E] hover:bg-[#16A34A] text-white",
-  },
-  {
-    id: "sms",
-    icon: MessageSquare,
-    iconBg: "bg-[#DBEAFE]",
-    iconColor: "text-[#2563EB]",
-    cta: "bg-[#2563EB] hover:bg-[#1E40AF] text-white",
-  },
-];
-
-const TIER_PRICES: Record<Tier["id"], number> = {
-  super_vip: 5.0,
-  vip: 1.5,
-  discount: 1.0,
-  sms: 10.0,
-};
-
-// Maps a local tier id to the backend's purchase_type enum accepted by the
-// purchase-vip edge function / purchase_vip RPC.
-const PURCHASE_TYPE_MAP: Record<
-  Tier["id"],
-  "super_vip" | "vip_boost" | "discount_badge" | "sms_package"
-> = {
-  super_vip: "super_vip",
-  vip: "vip_boost",
-  discount: "discount_badge",
-  sms: "sms_package",
-};
 
 const TX_TYPES = [
   "topup",
@@ -97,16 +37,7 @@ const TX_TYPES = [
   "commission",
 ] as const;
 
-// Maps a local tier id to the shared info-modal tier whose copy it should show.
-const TIER_TO_INFO: Record<string, VipInfoTier> = {
-  super_vip: "super-vip",
-  vip: "vip",
-  discount: "discount",
-  sms: "sms",
-};
-
 export default function ServiceBalancePage() {
-  const tBalance = useTranslations("ServiceBalance");
   const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
@@ -114,17 +45,22 @@ export default function ServiceBalancePage() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [vipModal, setVipModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
-  const [confirmTier, setConfirmTier] = useState<Tier["id"] | null>(null);
+  const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
-    tierId: Tier["id"];
-  }>({ open: false, tierId: "vip" });
+    pkg: PricingPackage | null;
+  }>({ open: false, pkg: null });
+
+  useEffect(() => {
+    void fetchPricingPackages(["vip", "sms"]).then(setPackages);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -191,15 +127,14 @@ export default function ServiceBalancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  async function handlePurchase(tierId: Tier["id"], serviceId?: string) {
+  async function handlePurchase(pkg: PricingPackage) {
     if (!user || !balance) return;
-    setPurchasing(tierId);
+    setPurchasing(pkg.id);
     try {
       const { error } = await supabase.functions.invoke("purchase-vip", {
         body: {
-          purchase_type: PURCHASE_TYPE_MAP[tierId],
-          days: 1,
-          service_id: serviceId,
+          package_id: pkg.id,
+          quantity: 1,
         },
       });
       if (error) throw error;
@@ -261,28 +196,30 @@ export default function ServiceBalancePage() {
         transition={{ delay: 0.05 }}
         className="grid grid-cols-1 gap-4 md:grid-cols-2"
       >
-        {TIER_META.map((tier) => {
-          const price = TIER_PRICES[tier.id];
+        {packages.map((pkg) => {
+          const display = getPackageDisplay(pkg);
+          const tier = inferVipInfoTier(pkg);
+          const price = pkg.amount_gel;
           return (
             <BalancePackageCard
-              key={tier.id}
-              icon={tier.icon}
-              iconBg={tier.iconBg}
-              iconColor={tier.iconColor}
-              title={tBalance(`tiers.${tier.id}.title`)}
-              description={tBalance(`tiers.${tier.id}.description`)}
+              key={pkg.id}
+              icon={display.icon}
+              iconBg={display.iconBg}
+              iconColor={display.iconColor}
+              title={pkg.name}
+              description={pkg.description ?? pkg.label ?? ""}
               price={price}
-              unit={tBalance(`tiers.${tier.id}.unit`)}
-              ctaColor={tier.cta}
+              unit={display.unit}
+              ctaColor={display.ctaColor}
               canAfford={(balance?.amount ?? 0) >= price}
-              purchasing={purchasing === tier.id}
+              purchasing={purchasing === pkg.id}
               onHowItWorks={() =>
-                setVipModal({ open: true, tier: TIER_TO_INFO[tier.id] })
+                setVipModal({ open: true, tier })
               }
               onActivate={() =>
-                tier.id === "sms"
-                  ? setConfirmTier(tier.id)
-                  : setPickerModal({ open: true, tierId: tier.id })
+                pkg.category === "sms"
+                  ? setConfirmPkg(pkg)
+                  : setPickerModal({ open: true, pkg })
               }
             />
           );
@@ -362,33 +299,40 @@ export default function ServiceBalancePage() {
         tier={vipModal.tier}
       />
 
-      <VipPropertyPickerModal
+      <PackagePromotionPicker
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
-        tier={TIER_TO_INFO[pickerModal.tierId]}
+        tier={pickerModal.pkg ? inferVipInfoTier(pickerModal.pkg) : "vip"}
+        packageId={pickerModal.pkg?.id}
+        target="service"
         flat
-        properties={services.map((s) => ({
+        listings={services.map((s) => ({
           id: s.id,
           title: s.title,
           photoUrl: (s.photos ?? [])[0] ?? null,
         }))}
-        onConfirm={async (serviceId) => {
-          await handlePurchase(pickerModal.tierId, serviceId);
+        onPurchased={async () => {
+          if (!user) return;
+          const { data } = await supabase
+            .from("services")
+            .select("*")
+            .eq("owner_id", user.id)
+            .in("category", ["transport", "entertainment", "employment", "handyman"])
+            .order("created_at", { ascending: false });
+          if (data) setServices(data);
         }}
       />
 
       <ConfirmPaymentModal
-        isOpen={!!confirmTier}
-        onClose={() => setConfirmTier(null)}
+        isOpen={!!confirmPkg}
+        onClose={() => setConfirmPkg(null)}
         onConfirm={async () => {
-          if (confirmTier) await handlePurchase(confirmTier);
+          if (confirmPkg) await handlePurchase(confirmPkg);
         }}
-        title={confirmTier ? tBalance(`tiers.${confirmTier}.title`) : ""}
-        description={
-          confirmTier ? tBalance(`tiers.${confirmTier}.description`) : ""
-        }
+        title={confirmPkg?.name ?? ""}
+        description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
         priceLabel={
-          confirmTier ? `${TIER_PRICES[confirmTier].toFixed(2)} ₾` : ""
+          confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""
         }
         balance={balance?.amount}
       />

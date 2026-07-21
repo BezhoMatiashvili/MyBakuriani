@@ -125,7 +125,8 @@ Participating symbols:
 
 - `src/components/forms/PhotoUploader.tsx:PhotoUploader` — client upload to `property-photos`
 - `supabase/functions/upload-photos/index.ts:serve` — server-side write to `property-photos`
-- `supabase/migrations/20260518120000_landing_media_bucket_and_video_columns.sql:storage` — bucket + policies for `landing-media`
+- `supabase/migrations/20260518120000_landing_media_bucket_and_video_columns.sql:storage` — bucket + policies for `landing-media`; allowed mimes now also include `image/gif` (`20260721170000_landing_media_allow_gif.sql`) — the mime list is mirrored in `src/components/forms/MediaUploader.tsx:ACCEPT_TYPES` and `src/app/api/admin/media/sign-upload/route.ts:IMAGE_TYPES`, all three must agree
+- `src/app/api/admin/media/sign-upload/route.ts:ALLOWED_KINDS` — upload subfolders of `landing-media`: `banner`, `blog`, `ads` (ads = admin B2B ad banners from the moderation page)
 - `supabase/migrations/20260528120000_restaurant_menus_bucket.sql:storage` — `restaurant-menus` bucket
 - `supabase/migrations/20260424120100_avatars_bucket.sql:storage` — `avatars` bucket
 - `next.config.ts:remotePatterns` — `<Image>` host allow-list (Supabase public objects)
@@ -270,7 +271,7 @@ Participating symbols:
 - `supabase/migrations/20260719095438_discount_percent_choice.sql:purchase_package` — `discount` tier branch: validates `p_discount_percent` is `[1,90]` and sets `discount_percent = p_discount_percent` (supersedes the hardcoded-10 version in `20260719120000_fix_discount_badge_duration.sql`) plus `discount_expires_at = v_expires_at`; the old 4-arg overload is dropped by `20260719095704_discount_percent_choice_drop_old_overload.sql` (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement)
 - `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role (current trigger BODY now lives in `20260719140000_org_auto_link_sale_listings.sql`, which re-declares it verbatim + an owner org-attach exception — see **C11**; discount-field guarding is unchanged)
 - `supabase/functions/purchase-vip/index.ts:serve` — validates `discount_percent` from the request body ([1,90] or null) and forwards it as `p_discount_percent`
-- `src/components/renter/VipPropertyPickerModal.tsx:VipPropertyPickerModal` — renders the percent stepper (only when `tier === "discount"`) and passes the chosen value through `onConfirm`
+- `src/components/renter/VipPropertyPickerModal.tsx:VipPropertyPickerModal` — renders the percent stepper (only when `tier === "discount"`) and passes the chosen value through `onConfirm`; the percent can also be derived from a typed target price (second, synced "ახალი ფასი" field — shown only when the caller supplies `PickerProperty.price`, i.e. `is_for_sale ? sale_price : price_per_night`; rounds to nearest whole percent and snaps the price on blur). Client-side sugar only — the wire contract still carries just the integer percent
 - `src/components/balance/PropertyBalanceClient.tsx:handleConfirmPurchase` — forwards `discountPercent` into the `purchase-vip` invoke body
 - `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — properties-only sweep: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
 - `src/components/cards/PropertyCard.tsx:discountPercent` — badge render prop, `> 0` shows the discount badge
@@ -322,15 +323,32 @@ Participating symbols:
 - `src/app/[locale]/create/sale/page.tsx:initialOrgIdRef` — edit flow hydrates the listing's org, renders the same "post as" picker as create, and spreads `organization_id` into the update payload ONLY when it differs from the hydrated value; active-sub pre-check likewise only on change
 - `src/app/[locale]/dashboard/seller/organizations/[id]/page.tsx` — org stats read: `properties` where `organization_id = org AND status = 'active'`; apartments = `sum(units_total ?? 1)`
 - `supabase/functions/company-subscription/index.ts:serve` — edge caller of `purchase_company_subscription` (name/body per **C4**; RPC signature unchanged, no redeploy needed for RPC-body changes)
+- `supabase/migrations/20260721180000_org_member_read_access.sql:is_approved_org_member` — SECURITY DEFINER helper backing the agent-read policies on `organizations` + `organization_subscriptions`. An `organizations` policy must NEVER subquery `organization_members` inline: the members read policy itself subqueries `organizations`, so an inline subquery creates a 42P17 infinite-recursion cycle on every read of either table (same trap `is_admin_user` exists for)
+- `src/lib/dashboard/orgScope.tsx:readStoredActiveOrgId` — the active dashboard scope persists to localStorage (`mb-active-org`); `create/sale` pre-selects the stored company in its "post as" picker (create mode only, validated against the user's own approved companies)
+- `src/lib/data/getPropertyById.ts:PublicOrganization` — public detail fetchers (`getPropertyById`, `getCachedPublicProperty`) embed `organizations!properties_organization_id_fkey(...)`; `SaleDetailClient` renders the company (brand/logo/verified) as the seller when the embed is non-null, falling back to the owner profile (RLS nulls the embed for pending orgs viewed anonymously)
+- `src/app/[locale]/sales/all/SalesGridClient.tsx` — public "developer vs individual" filter classifies developer = `organization_id != null OR developer` free-text non-empty (not `developer` text alone)
 
-**Also check:** newly linked listings appear in BOTH personal dashboard scope
-(`owner_id` filter) and org scope (`organization_id` filter) — intended, not a
-bug. `create_organization` always inserts the owner as an approved member, which
-the auto-link helper relies on.
+**Also check:** the seller dashboard splits personal vs company **exclusively**:
+personal scope filters `owner_id = uid AND organization_id IS NULL`, org scope
+filters `organization_id = org`. The personal-branch exclusion lives in six
+client sites (`dashboard/seller/loadData.ts`, `dashboard/seller/listings/page.tsx`,
+`SellerDashboardClient.tsx`, `dashboard/seller/analytics/page.tsx`,
+`components/seller/SalesBoard.tsx`, `components/layout/DashboardShell.tsx`) and in
+the stats RPCs (`20260721181000_stats_personal_scope_excludes_org.sql` +
+`20260721182000_seller_stats_contact_events_exclude_org.sql`, which extends the
+exclusion to the personal `contact_events` branches via a NOT EXISTS on the
+event's property being org-linked). Realtime
+`postgres_changes` filter strings stay coarse (`owner_id=eq.<uid>` — single-filter
+limitation); exclusion is applied by the refetching fetchers, so org-row events
+are harmless refetch triggers. `create_organization` always inserts the owner as
+an approved member, which the auto-link helper relies on.
 
 **Breaks silently when:** a client update payload unconditionally includes
 `organization_id` (fires the enforcement trigger on every edit → 42501 once the
 sub lapses); or a new attach path skips the quota check by writing under
 `service_role` (both triggers pass, cap silently exceeded); or an org-listing
 surface assumes rentals can be attached (`is_for_sale = false` rows are never
-auto-linked and the edit picker is sale-only).
+auto-linked and the edit picker is sale-only); or a new personal-scope dashboard
+query filters only `owner_id` (org listings leak back into the personal view);
+or a new `organizations`/`organization_members` policy reintroduces the inline
+cross-subquery (42P17 on every read).

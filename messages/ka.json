@@ -756,7 +756,9 @@
         },
         "quantityLabel": "დღეების რაოდენობა",
         "daysCount": "{count} დღე",
-        "discountPercentLabel": "ფასდაკლების პროცენტი"
+        "discountPercentLabel": "ფასდაკლების პროცენტი",
+        "newPriceLabel": "ახალი ფასი",
+        "currentPriceLabel": "მიმდინარე ფასი"
       }
     }
   },
@@ -1243,6 +1245,9 @@
     "discountPct": "-{percent}% ფასდაკლება",
     "ownerInitial": "მ",
     "verifiedOwner": "ვერიფიცირებული მესაკუთრე",
+    "verifiedCompany": "ვერიფიცირებული კომპანია",
+    "companyDeveloper": "დეველოპერი",
+    "companyAgency": "უძრავი ქონების სააგენტო",
     "ownerInvestor": "მესაკუთრე / ინვესტორი",
     "call": "დარეკვა",
     "sendMessage": "შეტყობინების მიწერა",
@@ -1838,8 +1843,9 @@
     "convertFailed": "{count} HEIC ფაილი ვერ გადაკეთდა — გამოიყენეთ JPG/PNG"
   },
   "MediaUploader": {
-    "defaultLabel": "მედია (სურათი ან ვიდეო)",
-    "defaultHelper": "JPG / PNG / WEBP მაქს. 5MB ან MP4 / WebM მაქს. 50MB",
+    "defaultLabel": "მედია (სურათი, GIF ან ვიდეო)",
+    "defaultHelper": "JPG / PNG / WEBP / GIF მაქს. 5MB ან MP4 / WebM მაქს. 50MB",
+    "previewUnavailable": "პრევიუ მიუწვდომელია (გარე ბმული)",
     "invalidFileType": "არასწორი ფაილის ტიპი: {type}",
     "posterMustBeImage": "პოსტერი უნდა იყოს სურათი",
     "fileTooLarge": "ფაილი ძალიან დიდია. მაქს. {mb}MB",
@@ -3144,7 +3150,11 @@
     "loadError": "მონაცემების ჩატვირთვა ვერ მოხერხდა. განაახლეთ გვერდი.",
     "needActiveTitle": "გჭირდებათ აქტიური განცხადება",
     "needActiveDesc": "სტუმრების მოთხოვნების სანახავად და შეთავაზებების გასაგზავნად საჭიროა მინიმუმ ერთი აქტიური გასაქირავებელი განცხადება.",
-    "needActiveCta": "ჩემი განცხადებები"
+    "needActiveCta": "ჩემი განცხადებები",
+    "sentOffersTitle": "ჩემი შეთავაზებები",
+    "sentOffersEmpty": "თქვენ ჯერ არ გაგიგზავნიათ შეთავაზება.",
+    "sentOffersSeen": "ნანახია სტუმრის მიერ",
+    "sentOffersNotSeen": "სტუმარს ჯერ არ უნახავს"
   },
   "RenterCleaners": {
     "title": "დამლაგებლები",
@@ -3745,7 +3755,9 @@
     "redirectUrl": "გადამისამართება (URL)",
     "startDate": "დაწყება",
     "endDate": "დასრულება",
+    "bannerMedia": "ბანერი (სურათი, GIF ან ვიდეო)",
     "bannerUrl": "ბანერის URL (სურვილისამებრ)",
+    "invalidBannerUrl": "ბანერის URL არასწორია — მიუთითეთ სრული http(s) მისამართი.",
     "launch": "კამპანიის გაშვება",
     "slots": {
       "slot-a": "სლოტი A (Hero)",
@@ -4088,7 +4100,18 @@
     "cancel": "გაუქმება",
     "saving": "ინახება...",
     "saved": "შენახულია",
-    "saveChanges": "ცვლილებების შენახვა"
+    "saveChanges": "ცვლილებების შენახვა",
+    "workingHours": "სამუშაო საათები",
+    "workingHoursDescription": "ეს საათები ჩანს თითოეული სერვისის პროფილზე და არ ზღუდავს დამქირავებლის მოთხოვნებს.",
+    "workingHours247": "24/7",
+    "workingHours247Description": "ხელმისაწვდომია ნებისმიერ დროს",
+    "saveWorkingHours": "საათების შენახვა",
+    "savedWorkingHours": "საათები შენახულია",
+    "workingHoursInvalid": "მიუთითეთ დაწყების დროზე გვიანდელი დასრულების დრო.",
+    "workingHoursSaveError": "სამუშაო საათების შენახვა ვერ მოხერხდა. სცადეთ თავიდან.",
+    "workingHoursEmpty": "დასუფთავების სერვისი ჯერ არ გაქვთ",
+    "workingHoursEmptyDescription": "შექმენით დასუფთავების სერვისი მის პროფილზე სამუშაო საათების საჩვენებლად.",
+    "createCleaningService": "დასუფთავების სერვისის შექმნა"
   },
   "Zones": {
     "didveli": {
@@ -4198,6 +4221,8 @@
     "statApartmentsUnit": "ბინა",
     "statSubscription": "აქტიური საბონენტო",
     "noPackage": "არ გაქვთ პაკეტი",
+    "expiresAt": "ვადა: {date}",
+    "daysLeft": "{count, plural, other {დარჩენილია # დღე}}",
     "subSectionTitle": "საბონენტო პაკეტის მართვა",
     "packageInactive": "პაკეტი არააქტიურია",
     "packageActive": "პაკეტი აქტიურია",

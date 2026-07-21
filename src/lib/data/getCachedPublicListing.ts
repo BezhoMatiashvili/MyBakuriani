@@ -40,7 +40,9 @@ export function getCachedPublicProperty(
       const supabase = createPublicClient();
       const { data, error } = await supabase
         .from("properties")
-        .select("*, profiles!properties_owner_id_fkey(*)")
+        .select(
+          "*, profiles!properties_owner_id_fkey(*), organizations!properties_organization_id_fkey(id, brand_name, logo_url, phone, verified_at, status, company_type)",
+        )
         .eq("id", id)
         .eq("status", "active")
         .maybeSingle();

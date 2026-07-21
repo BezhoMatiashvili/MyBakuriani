@@ -4,6 +4,15 @@ import { createServiceClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function GET() {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
@@ -36,6 +45,18 @@ export async function POST(req: NextRequest) {
   ) {
     return Response.json(
       { error: "title, position, url, start_at, end_at required" },
+      { status: 400 },
+    );
+  }
+  if (!isHttpUrl(body.url)) {
+    return Response.json(
+      { error: "url must be a valid http(s) URL" },
+      { status: 400 },
+    );
+  }
+  if (body.banner_url && !isHttpUrl(body.banner_url)) {
+    return Response.json(
+      { error: "banner_url must be a valid http(s) URL" },
       { status: 400 },
     );
   }

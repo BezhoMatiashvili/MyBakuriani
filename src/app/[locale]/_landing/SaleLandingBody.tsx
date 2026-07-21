@@ -4,7 +4,7 @@ import { useCallback, useMemo, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Flame, Plus } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
@@ -18,6 +18,7 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
@@ -96,6 +97,7 @@ export default function SaleLandingBody({
   }, [mode, setListingMode]);
 
   const [showMap, setShowMap] = useState(false);
+  const [discountOnly, setDiscountOnly] = useState(false);
 
   const handleSearch = useCallback(
     (sf: SaleSearchFilters) => {
@@ -147,7 +149,16 @@ export default function SaleLandingBody({
     return [];
   }, [saleProperties]);
 
-  const gridCards = saleCards.slice(0, 3);
+  const gridCards = useMemo(
+    () =>
+      (discountOnly
+        ? saleCards.filter((card) =>
+            isDiscountActive(card.discountPercent, card.discountExpiresAt),
+          )
+        : saleCards
+      ).slice(0, 3),
+    [discountOnly, saleCards],
+  );
 
   const mapProperties = useMemo<MapProperty[]>(
     () =>
@@ -269,6 +280,35 @@ export default function SaleLandingBody({
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDiscountOnly((value) => !value)}
+                  aria-pressed={discountOnly}
+                  className={cn(
+                    "hidden items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:flex",
+                    discountOnly
+                      ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+                      : "border border-[#E2E8F0] bg-white text-[#64748B]",
+                  )}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Flame className="h-3.5 w-3.5" />
+                    {t("discountsOnly")}
+                  </span>
+                  <span
+                    className={cn(
+                      "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+                      discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+                        discountOnly ? "right-0.5" : "left-0.5",
+                      )}
+                    />
+                  </span>
+                </button>
                 <Link
                   href="/create/sale"
                   className="inline-flex items-center gap-1.5 rounded-full bg-[#16A34A] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_4px_10px_-2px_rgba(22,163,74,0.35)] transition-colors hover:bg-[#15803D]"

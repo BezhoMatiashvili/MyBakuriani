@@ -18,11 +18,13 @@ import VipInfoModal, {
 } from "@/components/renter/VipInfoModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
+import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import { formatDate } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
+type Service = Tables<"services">;
 
 const TX_TYPES = [
   "topup",
@@ -50,6 +52,8 @@ export default function FoodBalancePage() {
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
   const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
+  const [restaurant, setRestaurant] = useState<Service | null>(null);
+  const [pickerPkg, setPickerPkg] = useState<PricingPackage | null>(null);
 
   useEffect(() => {
     fetchPricingPackages(["vip", "sms"]).then(setPackages);
@@ -58,7 +62,7 @@ export default function FoodBalancePage() {
   useEffect(() => {
     if (!user) return;
     async function fetchData() {
-      const [balRes, txRes] = await Promise.all([
+      const [balRes, txRes, restaurantRes] = await Promise.all([
         supabase
           .from("balances")
           .select("*")
@@ -70,9 +74,16 @@ export default function FoodBalancePage() {
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("services")
+          .select("*")
+          .eq("owner_id", user!.id)
+          .eq("category", "food")
+          .maybeSingle(),
       ]);
       if (balRes.data) setBalance(balRes.data);
       if (txRes.data) setTransactions(txRes.data);
+      if (restaurantRes.data) setRestaurant(restaurantRes.data);
       setLoading(false);
     }
     fetchData();
@@ -196,7 +207,9 @@ export default function FoodBalancePage() {
                 canAfford={(balance?.amount ?? 0) >= pkg.amount_gel}
                 purchasing={purchasing === pkg.id}
                 onHowItWorks={() => setVipModal({ open: true, tier })}
-                onActivate={() => setConfirmPkg(pkg)}
+                onActivate={() =>
+                  pkg.category === "vip" ? setPickerPkg(pkg) : setConfirmPkg(pkg)
+                }
               />
             );
           })
@@ -274,6 +287,32 @@ export default function FoodBalancePage() {
         isOpen={vipModal.open}
         onClose={() => setVipModal((p) => ({ ...p, open: false }))}
         tier={vipModal.tier}
+      />
+
+      <PackagePromotionPicker
+        isOpen={!!pickerPkg}
+        onClose={() => setPickerPkg(null)}
+        tier={pickerPkg ? inferVipInfoTier(pickerPkg) : "vip"}
+        packageId={pickerPkg?.id}
+        target="service"
+        flat
+        listings={restaurant ? [{
+          id: restaurant.id,
+          title: restaurant.title,
+          subtitle: restaurant.location ?? undefined,
+          photoUrl: (restaurant.photos ?? [])[0] ?? null,
+          badgeLabel: tShared("foodBadge"),
+          badgeColor: "blue",
+        }] : []}
+        onPurchased={async () => {
+          if (!user || !restaurant) return;
+          const { data } = await supabase
+            .from("services")
+            .select("*")
+            .eq("id", restaurant.id)
+            .maybeSingle();
+          if (data) setRestaurant(data);
+        }}
       />
 
       <ConfirmPaymentModal

@@ -48,6 +48,16 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
+  organizations?: Pick<
+    Tables<"organizations">,
+    | "id"
+    | "brand_name"
+    | "logo_url"
+    | "phone"
+    | "verified_at"
+    | "status"
+    | "company_type"
+  > | null;
 };
 
 interface ReviewWithGuest {
@@ -188,6 +198,7 @@ export default function SaleDetailClient({
   }, [isConstructionModalOpen]);
 
   const owner = property.profiles;
+  const org = property.organizations ?? null;
   const avgRating =
     reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
@@ -712,42 +723,83 @@ export default function SaleDetailClient({
 
               <div className="my-5 border-t border-[#E2E8F0]" />
 
-              {/* Owner */}
-              <div className="mb-5 flex items-center gap-3">
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
-                  {owner?.avatar_url ? (
-                    <Image
-                      src={owner.avatar_url}
-                      alt={owner.display_name}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex size-full items-center justify-center text-sm font-bold text-[#94A3B8]">
-                      {owner?.display_name?.charAt(0) ?? t("ownerInitial")}
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-bold text-[#1E293B]">
-                    {owner?.display_name ?? tDetail("ownerFallback")}
-                  </p>
-                  {owner?.is_verified ? (
-                    <div className="flex items-center gap-1 text-xs text-[#16A34A]">
-                      <BadgeCheck className="size-3.5" />
-                      {t("verifiedOwner")}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[#94A3B8]">
-                      {t("ownerInvestor")}
+              {/* Seller: linked company when the listing is org-tagged, else owner */}
+              {org ? (
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="relative size-11 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
+                    {org.logo_url ? (
+                      <Image
+                        src={org.logo_url}
+                        alt={org.brand_name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center text-sm font-bold text-[#94A3B8]">
+                        {org.brand_name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-bold text-[#1E293B]">
+                      {org.brand_name}
                     </p>
-                  )}
+                    {org.verified_at ? (
+                      <div className="flex items-center gap-1 text-xs text-[#16A34A]">
+                        <BadgeCheck className="size-3.5" />
+                        {t("verifiedCompany")}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#94A3B8]">
+                        {org.company_type === "agency"
+                          ? t("companyAgency")
+                          : t("companyDeveloper")}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="relative size-11 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
+                    {owner?.avatar_url ? (
+                      <Image
+                        src={owner.avatar_url}
+                        alt={owner.display_name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center text-sm font-bold text-[#94A3B8]">
+                        {owner?.display_name?.charAt(0) ?? t("ownerInitial")}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-bold text-[#1E293B]">
+                      {owner?.display_name ?? tDetail("ownerFallback")}
+                    </p>
+                    {owner?.is_verified ? (
+                      <div className="flex items-center gap-1 text-xs text-[#16A34A]">
+                        <BadgeCheck className="size-3.5" />
+                        {t("verifiedOwner")}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#94A3B8]">
+                        {t("ownerInvestor")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <CallButton
-                  phone={property.phone ?? property.profiles?.phone ?? null}
+                  phone={
+                    property.phone ??
+                    org?.phone ??
+                    property.profiles?.phone ??
+                    null
+                  }
                   onNoPhoneClick={() => router.push("/auth/login")}
                   className="flex-1 rounded-2xl tracking-[0.375px]"
                   layout="card"
@@ -759,6 +811,7 @@ export default function SaleDetailClient({
                   phone={
                     property.whatsapp ??
                     property.phone ??
+                    org?.phone ??
                     property.profiles?.phone ??
                     null
                   }

@@ -10,6 +10,7 @@ const IMAGE_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "image/gif": "gif",
 };
 
 const VIDEO_TYPES: Record<string, string> = {
@@ -20,7 +21,7 @@ const VIDEO_TYPES: Record<string, string> = {
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const VIDEO_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
-const ALLOWED_KINDS = new Set(["banner", "blog"]);
+const ALLOWED_KINDS = new Set(["banner", "blog", "ads"]);
 
 export async function POST(req: NextRequest) {
   const guard = await requireAdmin();

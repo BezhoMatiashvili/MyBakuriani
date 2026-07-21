@@ -14,6 +14,8 @@ import {
   verifications,
   smsMessages,
   leads,
+  organizations,
+  organizationSubscriptions,
 } from "./supabase";
 
 // ---------------------------------------------------------------------------
@@ -31,6 +33,10 @@ export const TEST_IDS = {
   entertainment: "aae2ff00-0008-4000-a000-000000000008",
   employment: "aae2ff00-0009-4000-a000-000000000009",
 
+  // Seller organization and its subscription
+  organization: "aae2ff00-d001-4000-a000-000000000001",
+  organizationSubscription: "aae2ff00-d002-4000-a000-000000000001",
+
   // Properties
   apartment: "aae2ff00-1001-4000-a000-000000000001",
   villa: "aae2ff00-1002-4000-a000-000000000002",
@@ -47,6 +53,8 @@ export const TEST_IDS = {
   transportService: "aae2ff00-4002-4000-a000-000000000002",
   entertainmentService: "aae2ff00-4003-4000-a000-000000000003",
   employmentService: "aae2ff00-4004-4000-a000-000000000004",
+  cleaningServicePrimary: "aae2ff00-4005-4000-a000-000000000005",
+  cleaningServiceSecondary: "aae2ff00-4006-4000-a000-000000000006",
 
   // Calendar blocks
   calendarBlock1: "aae2ff00-5001-4000-a000-000000000001",
@@ -97,6 +105,10 @@ export const PHONES = {
   entertainment: "+995599000008",
   employment: "+995599000009",
 } as const;
+
+/** Stable future timestamp for the organization subscription expiry E2E case. */
+export const ORGANIZATION_SUBSCRIPTION_EXPIRES_AT =
+  "2036-06-15T14:30:00.000Z";
 
 // ---------------------------------------------------------------------------
 // Date helpers
@@ -199,6 +211,27 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     entertainment,
     employment,
   };
+
+  // ---- Seller organization and active subscription ----
+  await organizations.create({
+    id: TEST_IDS.organization,
+    owner_id: TEST_IDS.seller,
+    org_type: "shps",
+    legal_name: "შპს E2E დეველოპერი",
+    identification_code: "123456789",
+    brand_name: "E2E Development",
+    company_type: "developer",
+    status: "active",
+  });
+  await organizationSubscriptions.create({
+    id: TEST_IDS.organizationSubscription,
+    organization_id: TEST_IDS.organization,
+    tier: "pro",
+    listing_limit: 50,
+    amount_gel: 200,
+    expires_at: ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
+    status: "active",
+  });
 
   // ---- Properties ----
   await properties.create({
@@ -380,6 +413,35 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     status: "active",
   });
 
+  await services.create({
+    id: TEST_IDS.cleaningServicePrimary,
+    owner_id: TEST_IDS.cleaner,
+    category: "cleaning",
+    title: "E2E დილის დასუფთავება",
+    provider_name: "E2E დამლაგებელი",
+    description: "ტესტ დასუფთავების სერვისი",
+    price: 80,
+    price_unit: "საათი",
+    location: "ბაკურიანი",
+    schedule: "08:00 - 16:00",
+    operating_hours: "08:00 - 16:00",
+    status: "active",
+  });
+
+  await services.create({
+    id: TEST_IDS.cleaningServiceSecondary,
+    owner_id: TEST_IDS.cleaner,
+    category: "cleaning",
+    title: "E2E საღამოს დასუფთავება",
+    provider_name: "E2E დამლაგებელი",
+    description: "ტესტ დასუფთავების სერვისი",
+    price: 90,
+    price_unit: "საათი",
+    location: "ბაკურიანი",
+    operating_hours: "10:00 - 18:00",
+    status: "active",
+  });
+
   // ---- Balances (update, not insert — trigger auto-creates them) ----
   await supabaseAdmin
     .from("balances")
@@ -485,6 +547,12 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
 export async function cleanupTestData(): Promise<void> {
   const ignore = () => {};
 
+  // Organization subscriptions must be deleted before their organization.
+  await organizationSubscriptions
+    .delete(TEST_IDS.organizationSubscription)
+    .catch(ignore);
+  await organizations.delete(TEST_IDS.organization).catch(ignore);
+
   // Seller leads (depends on profiles + properties)
   await leads.delete(TEST_IDS.sellerLead).catch(ignore);
 
@@ -513,6 +581,8 @@ export async function cleanupTestData(): Promise<void> {
   await services.delete(TEST_IDS.transportService).catch(ignore);
   await services.delete(TEST_IDS.entertainmentService).catch(ignore);
   await services.delete(TEST_IDS.employmentService).catch(ignore);
+  await services.delete(TEST_IDS.cleaningServicePrimary).catch(ignore);
+  await services.delete(TEST_IDS.cleaningServiceSecondary).catch(ignore);
 
   // SMS messages (cleanup any created during tests)
   await smsMessages.deleteWhere("from_user_id", TEST_IDS.guest).catch(ignore);

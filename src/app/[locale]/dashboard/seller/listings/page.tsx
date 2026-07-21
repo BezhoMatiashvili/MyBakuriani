@@ -18,7 +18,9 @@ import { getUnitsBreakdown } from "@/lib/constants/construction";
 import { formatRelativeGe } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
-import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 
 const constructionStatusLabel: Record<string, string> = {
@@ -45,7 +47,9 @@ export default function SellerListingsPage() {
   // Live sale listings — status / progress / VIP changes arrive without refresh.
   // The list is scoped by owner_id (or organization_id in org scope) AND is_for_sale,
   // but a postgres_changes filter only takes one condition, so we refetch on any
-  // change to the scoped properties.
+  // change to the scoped properties. In personal scope the coarse owner_id filter
+  // still fires for the user's org-linked rows — harmless, the refetch below
+  // excludes them (organization_id IS NULL).
   const {
     rows: properties,
     setRows: setProperties,
@@ -67,7 +71,7 @@ export default function SellerListingsPage() {
         .eq("is_for_sale", true);
       query = isOrgScope
         ? query.eq("organization_id", scope.organizationId!)
-        : query.eq("owner_id", user!.id);
+        : query.eq("owner_id", user!.id).is("organization_id", null);
       const { data } = await query.order("created_at", { ascending: false });
       return data ?? [];
     },
@@ -202,6 +206,14 @@ export default function SellerListingsPage() {
                         VIP
                       </span>
                     )}
+                    {isDiscountActive(
+                      property.discount_percent,
+                      property.discount_expires_at,
+                    ) && (
+                      <ListingBadge variant="discount" className="normal-case">
+                        −{property.discount_percent}%
+                      </ListingBadge>
+                    )}
                   </div>
                   <div className="absolute bottom-4 left-4 right-4">
                     <h3 className="text-[22px] font-black leading-[28px] text-white">
@@ -302,33 +314,21 @@ export default function SellerListingsPage() {
         }
       />
 
-      <VipPropertyPickerModal
+      <PackagePromotionPicker
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
-        properties={properties.map((p) => ({
+        listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
+          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
         }))}
-        onConfirm={async (propertyId) => {
-          const { error } = await supabase.functions.invoke("purchase-vip", {
-            body: {
-              purchase_type:
-                pickerModal.tier === "super-vip"
-                  ? "super_vip"
-                  : pickerModal.tier === "vip"
-                    ? "vip_boost"
-                    : pickerModal.tier === "discount"
-                      ? "discount_badge"
-                      : "sms_package",
-              days: 1,
-              property_id: propertyId,
-            },
-          });
-          if (error) throw error;
+        target="property"
+        onPurchased={async () => {
+          await refetch();
         }}
       />
     </div>

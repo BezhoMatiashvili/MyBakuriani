@@ -36,6 +36,26 @@ export interface PackageDisplay {
   unit: string;
 }
 
+export type PromotionTier = "super-vip" | "vip" | "discount" | "sms";
+
+/** Find the enabled package that backs a dashboard promotion tier. */
+export function packageForPromotionTier(
+  packages: PricingPackage[],
+  tier: PromotionTier,
+): PricingPackage | undefined {
+  if (tier === "sms") return packages.find((pkg) => pkg.category === "sms");
+
+  const packageTier = tier === "super-vip" ? "super" : tier === "vip" ? "standard" : "discount";
+  return packages.find(
+    (pkg) => pkg.category === "vip" && metaString(pkg.meta, "tier") === packageTier,
+  );
+}
+
+/** Duration used by the picker; package metadata is admin-managed. */
+export function packageDurationHours(pkg: PricingPackage | undefined): number {
+  return metaNumber(pkg?.meta ?? null, "duration_hours") ?? 24;
+}
+
 /** Unit fragments rendered next to the GEL price (e.g. "₾ / 24სთ"). */
 const UNIT_LABELS: Record<"ka" | "en" | "ru", { hour: string; day: string }> = {
   ka: { hour: "სთ", day: "დღე" },

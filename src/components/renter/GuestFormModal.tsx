@@ -16,6 +16,8 @@ interface GuestFormModalProps {
   onClose: () => void;
   onSaved: () => void;
   guest?: Tables<"renter_guests"> | null;
+  bookingGuest?: Tables<"renter_guests"> | null;
+  properties: Tables<"properties">[];
 }
 
 export default function GuestFormModal({
@@ -23,6 +25,8 @@ export default function GuestFormModal({
   onClose,
   onSaved,
   guest,
+  bookingGuest,
+  properties,
 }: GuestFormModalProps) {
   const t = useTranslations("RenterDashboard.modals.guestForm");
   const tShared = useTranslations("DashboardShared");
@@ -30,28 +34,34 @@ export default function GuestFormModal({
   const { user } = useAuth();
   const supabase = createClient();
 
-  const isEdit = Boolean(guest);
+  const isEdit = Boolean(guest) && !bookingGuest;
+  const activeGuest = bookingGuest ?? guest;
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [note, setNote] = useState("");
+  const [propertyId, setPropertyId] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      const [ci, co] = splitVisitDates(guest?.visit_dates);
-      setName(guest?.name ?? "");
-      setPhone(toLocalGePhone(guest?.phone));
-      setCheckIn(ci);
-      setCheckOut(co);
-      setNote(guest?.note ?? "");
+      const [legacyCheckIn, legacyCheckOut] = bookingGuest
+        ? splitVisitDates(bookingGuest.visit_dates)
+        : ["", ""];
+      setName(activeGuest?.name ?? "");
+      setPhone(toLocalGePhone(activeGuest?.phone));
+      setCheckIn(legacyCheckIn);
+      setCheckOut(legacyCheckOut);
+      setNote(activeGuest?.note ?? "");
+      setPropertyId(properties[0]?.id ?? "");
+      setError(null);
     }
-  }, [isOpen, guest]);
+  }, [isOpen, activeGuest, bookingGuest, properties]);
 
-  // Both ISO dates compare chronologically as strings (zero-padded).
-  const datesValid = Boolean(checkIn && checkOut && checkOut > checkIn);
+  const datesValid = Boolean(checkIn && checkOut && checkOut >= checkIn);
 
   useEffect(() => {
     if (isOpen) {
@@ -73,7 +83,7 @@ export default function GuestFormModal({
     const trimmedName = name.trim();
     if (
       !trimmedName ||
-      !datesValid ||
+      (!isEdit && (!datesValid || !propertyId)) ||
       saving ||
       (phone && !isValidGePhone(phone))
     )
@@ -84,21 +94,61 @@ export default function GuestFormModal({
       const payload = {
         name: trimmedName,
         phone: phone ? "+995" + phone : null,
-        visit_dates: `${checkIn}/${checkOut}`,
         note: note.trim() || null,
       };
 
       if (isEdit && guest) {
-        await supabase.from("renter_guests").update(payload).eq("id", guest.id);
+        const { error: updateError } = await supabase
+          .from("renter_guests")
+          .update(payload)
+          .eq("id", guest.id);
+        if (updateError) throw updateError;
+      } else if (bookingGuest) {
+        if (!propertyId) return;
+        const { error: bookingError } = await supabase.rpc(
+          "create_manual_booking",
+          {
+            p_property_id: propertyId,
+            p_check_in: checkIn,
+            p_check_out: checkOut,
+            p_guest_name: trimmedName,
+            p_guest_phone: payload.phone ?? undefined,
+            p_note: payload.note ?? undefined,
+            p_renter_guest_id: bookingGuest.id,
+          },
+        );
+        if (bookingError) throw bookingError;
+        // A legacy free-text visit is only migrated when the owner explicitly
+        // creates this property-bound booking; ambiguous text otherwise stays.
+        if (bookingGuest.visit_dates) {
+          const { error: clearError } = await supabase
+            .from("renter_guests")
+            .update({ visit_dates: null })
+            .eq("id", bookingGuest.id);
+          if (clearError) throw clearError;
+        }
       } else {
         if (!user) return;
-        await supabase
-          .from("renter_guests")
-          .insert({ owner_id: user.id, ...payload });
+        if (!propertyId) return;
+        const { error: bookingError } = await supabase.rpc(
+          "create_guest_manual_booking",
+          {
+            p_property_id: propertyId,
+            p_check_in: checkIn,
+            p_check_out: checkOut,
+            p_name: trimmedName,
+            p_phone: payload.phone ?? undefined,
+            p_note: payload.note ?? undefined,
+          },
+        );
+        if (bookingError) throw bookingError;
       }
 
       onSaved();
       onClose();
+    } catch (submitError) {
+      console.error("Failed to save guest", submitError);
+      setError(tShared("genericRetry"));
     } finally {
       setSaving(false);
     }
@@ -159,6 +209,7 @@ export default function GuestFormModal({
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    disabled={Boolean(bookingGuest)}
                     placeholder={t("namePlaceholder")}
                     className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
@@ -176,22 +227,34 @@ export default function GuestFormModal({
                   />
                 </Field>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label={t("checkIn")}>
-                    <DateField
-                      value={checkIn}
-                      onChange={setCheckIn}
-                      max={checkOut || undefined}
-                    />
-                  </Field>
-                  <Field label={t("checkOut")}>
-                    <DateField
-                      value={checkOut}
-                      onChange={setCheckOut}
-                      min={checkIn || undefined}
-                    />
-                  </Field>
-                </div>
+                {!isEdit && (
+                  <>
+                    <Field label={tShared("defaultProperty")}>
+                      <select
+                        value={propertyId}
+                        onChange={(e) => setPropertyId(e.target.value)}
+                        className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                      >
+                        <option value="" disabled>
+                          {tShared("selectProperty")}
+                        </option>
+                        {properties.map((property) => (
+                          <option key={property.id} value={property.id}>
+                            {property.title}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label={t("checkIn")}>
+                        <DateField value={checkIn} onChange={setCheckIn} />
+                      </Field>
+                      <Field label={t("checkOut")}>
+                        <DateField value={checkOut} onChange={setCheckOut} />
+                      </Field>
+                    </div>
+                  </>
+                )}
 
                 <Field label={tShared("note")}>
                   <textarea
@@ -208,7 +271,7 @@ export default function GuestFormModal({
                 type="submit"
                 disabled={
                   !name.trim() ||
-                  !datesValid ||
+                  (!isEdit && (!datesValid || !propertyId)) ||
                   saving ||
                   (phone && !isValidGePhone(phone))
                     ? true
@@ -218,24 +281,17 @@ export default function GuestFormModal({
               >
                 {saving ? tShared("saving") : tShared("save")}
               </button>
+              {error && (
+                <p className="mt-3 text-center text-[12px] font-semibold text-[#B91C1C]">
+                  {error}
+                </p>
+              )}
             </form>
           </motion.div>
         </div>
       )}
     </AnimatePresence>
   );
-}
-
-/**
- * Split a stored visit_dates value into [checkIn, checkOut] ISO strings.
- * "2026-02-10/2026-02-12" -> ["2026-02-10", "2026-02-12"]
- * Legacy single ISO date    -> [date, ""]
- * Legacy free text          -> ["", ""] (forces re-entry of both dates)
- */
-function splitVisitDates(raw: string | null | undefined): [string, string] {
-  const isISO = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
-  const [a, b] = (raw ?? "").split("/");
-  return [isISO(a) ? a : "", isISO(b) ? b : ""];
 }
 
 function Field({
@@ -253,4 +309,12 @@ function Field({
       {children}
     </div>
   );
+}
+
+function splitVisitDates(raw: string | null): [string, string] {
+  const [checkIn = "", checkOut = ""] = (raw ?? "").split("/");
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  return iso.test(checkIn) && iso.test(checkOut)
+    ? [checkIn, checkOut]
+    : ["", ""];
 }

@@ -59,7 +59,7 @@ export default function SellerAnalyticsPage() {
       if (scope.mode === "org" && scope.organizationId) {
         query = query.eq("organization_id", scope.organizationId);
       } else {
-        query = query.eq("owner_id", user!.id);
+        query = query.eq("owner_id", user!.id).is("organization_id", null);
       }
 
       const { data } = await query.order("created_at", { ascending: false });
@@ -83,7 +83,9 @@ export default function SellerAnalyticsPage() {
       if (scope.mode === "org" && scope.organizationId) {
         leadsQuery = leadsQuery.eq("organization_id", scope.organizationId);
       } else {
-        leadsQuery = leadsQuery.eq("owner_id", user!.id);
+        leadsQuery = leadsQuery
+          .eq("owner_id", user!.id)
+          .is("organization_id", null);
       }
       if (listingIds.length) {
         leadsQuery = leadsQuery.in("property_id", listingIds);

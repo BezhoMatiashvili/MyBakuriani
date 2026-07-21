@@ -14,7 +14,7 @@ type PlatformCleaner =
 interface AddCleanerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Already deduped to one entry per cleaner by the page. */
+  /** One row per active cleaning service (a person may appear twice). */
   cleaners: PlatformCleaner[];
   loading: boolean;
   savedIds: Set<string>;
@@ -95,13 +95,13 @@ export default function AddCleanerModal({
           </p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="max-h-[50dvh] space-y-2 overflow-y-auto">
           {cleaners.map((cleaner) => {
             const isSaved = savedIds.has(cleaner.cleaner_id);
             const isPending = pendingIds.has(cleaner.cleaner_id);
             return (
               <li
-                key={cleaner.cleaner_id}
+                key={cleaner.service_id}
                 className="flex items-center gap-3 rounded-2xl border border-[#EEF1F4] bg-white p-3"
               >
                 {cleaner.avatar_url ? (

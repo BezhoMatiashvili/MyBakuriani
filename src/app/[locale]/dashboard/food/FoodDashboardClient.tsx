@@ -19,7 +19,9 @@ import { useRealtimeSubscription } from "@/lib/hooks/useRealtime";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
-import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
@@ -262,6 +264,9 @@ export default function FoodDashboardClient({
         <h2 className="text-[15px] font-black text-[#0F172A]">
           {t("myListing")}
         </h2>
+        {isDiscountActive(restaurant?.discount_percent, restaurant?.discount_expires_at) && (
+          <ListingBadge variant="discount" className="mt-2 normal-case">−{restaurant?.discount_percent}%</ListingBadge>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2 text-[13px] font-medium text-[#64748B]">
             <Clock className="h-4 w-4 text-[#2563EB]" />
@@ -295,12 +300,12 @@ export default function FoodDashboardClient({
         )}
       </motion.div>
 
-      <VipPropertyPickerModal
+      <PackagePromotionPicker
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
         flat
-        properties={
+        listings={
           restaurant
             ? [
                 {
@@ -314,23 +319,8 @@ export default function FoodDashboardClient({
               ]
             : []
         }
-        onConfirm={async (serviceId) => {
-          const { error } = await supabase.functions.invoke("purchase-vip", {
-            body: {
-              purchase_type:
-                pickerModal.tier === "super-vip"
-                  ? "super_vip"
-                  : pickerModal.tier === "vip"
-                    ? "vip_boost"
-                    : pickerModal.tier === "discount"
-                      ? "discount_badge"
-                      : "sms_package",
-              days: 1,
-              service_id: serviceId,
-            },
-          });
-          if (error) throw error;
-        }}
+        target="service"
+        onPurchased={() => loadFoodData(supabase, userId).then(apply)}
       />
     </div>
   );

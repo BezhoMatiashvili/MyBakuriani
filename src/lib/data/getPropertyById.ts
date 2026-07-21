@@ -9,8 +9,22 @@ import { isUuid } from "@/lib/utils/uuid";
 import { sanitizePhotos } from "@/lib/utils/photos";
 import type { Tables } from "@/lib/types/database";
 
+export type PublicOrganization = Pick<
+  Tables<"organizations">,
+  | "id"
+  | "brand_name"
+  | "logo_url"
+  | "phone"
+  | "verified_at"
+  | "status"
+  | "company_type"
+>;
+
 export type PropertyWithProfile = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
+  // Optional: only the detail-page fetchers embed it; RLS hides non-active
+  // orgs from anon, so a pending org comes back null (owner-profile fallback).
+  organizations?: PublicOrganization | null;
 };
 
 // cache(): generateMetadata + page body share one query per request.
@@ -49,7 +63,9 @@ export const getPropertyById = cache(
           : createPublicClient();
       const { data } = await supabase
         .from("properties")
-        .select("*, profiles!properties_owner_id_fkey(*)")
+        .select(
+          "*, profiles!properties_owner_id_fkey(*), organizations!properties_organization_id_fkey(id, brand_name, logo_url, phone, verified_at, status, company_type)",
+        )
         .eq("id", id)
         .maybeSingle();
 

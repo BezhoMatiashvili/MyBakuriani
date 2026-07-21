@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { List, Ban, Pencil, UserPlus, ChevronDown } from "lucide-react";
+import { List, Ban, Pencil, UserPlus, ChevronDown, CalendarPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,6 +55,26 @@ function formatVisit(raw: string | null, locale: string): string {
   return raw || "—";
 }
 
+function primaryVisit(
+  stays: VisitHistory[],
+  legacyVisit: string | null,
+  locale: string,
+): string {
+  if (stays.length === 0) return formatVisit(legacyVisit, locale);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const upcoming = stays
+    .filter((stay) => stay.checkIn >= today)
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
+  const last = [...stays].sort((a, b) => b.checkIn.localeCompare(a.checkIn))[0];
+  const stay = upcoming ?? last;
+  return formatDateRange(
+    parseISODate(stay.checkIn)!,
+    parseISODate(stay.checkOut)!,
+    locale,
+  );
+}
+
 export default function RenterGuestsPage() {
   const t = useTranslations("RenterGuests");
   const tShared = useTranslations("DashboardShared");
@@ -65,12 +85,14 @@ export default function RenterGuestsPage() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [manualStays, setManualStays] = useState<ManualStayRow[]>([]);
   const [platformStays, setPlatformStays] = useState<PlatformStayRow[]>([]);
+  const [properties, setProperties] = useState<Tables<"properties">[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{ open: boolean; guest: Guest | null }>({
     open: false,
     guest: null,
   });
+  const [bookingGuest, setBookingGuest] = useState<Guest | null>(null);
 
   const fetchGuests = useCallback(async () => {
     if (!user) return;
@@ -81,6 +103,17 @@ export default function RenterGuestsPage() {
       .order("created_at", { ascending: false });
     if (data) setGuests(data);
     setLoading(false);
+  }, [supabase, user]);
+
+  const fetchProperties = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("properties")
+      .select("*")
+      .eq("owner_id", user.id)
+      .eq("is_for_sale", false)
+      .order("created_at", { ascending: false });
+    setProperties(data ?? []);
   }, [supabase, user]);
 
   // Stay history: the renter's manual + platform bookings, fetched once. These
@@ -111,7 +144,8 @@ export default function RenterGuestsPage() {
 
   useEffect(() => {
     fetchGuests();
-  }, [fetchGuests]);
+    fetchProperties();
+  }, [fetchGuests, fetchProperties]);
 
   useEffect(() => {
     fetchStays();
@@ -270,6 +304,7 @@ export default function RenterGuestsPage() {
                   isLast={i === visibleGuests.length - 1}
                   onToggle={() => toggle(g.id)}
                   onEdit={() => setModal({ open: true, guest: g })}
+                  onAddBooking={() => setBookingGuest(g)}
                   onBlacklist={() => handleBlacklist(g, true)}
                   onRestore={() => handleBlacklist(g, false)}
                 />
@@ -287,8 +322,22 @@ export default function RenterGuestsPage() {
       <GuestFormModal
         isOpen={modal.open}
         guest={modal.guest}
+        properties={properties}
         onClose={() => setModal({ open: false, guest: null })}
-        onSaved={fetchGuests}
+        onSaved={() => {
+          fetchGuests();
+          fetchStays();
+        }}
+      />
+      <GuestFormModal
+        isOpen={Boolean(bookingGuest)}
+        bookingGuest={bookingGuest}
+        properties={properties}
+        onClose={() => setBookingGuest(null)}
+        onSaved={() => {
+          fetchGuests();
+          fetchStays();
+        }}
       />
     </div>
   );
@@ -336,6 +385,7 @@ function GuestRow({
   isLast,
   onToggle,
   onEdit,
+  onAddBooking,
   onBlacklist,
   onRestore,
 }: {
@@ -345,6 +395,7 @@ function GuestRow({
   isLast: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  onAddBooking: () => void;
   onBlacklist: () => void;
   onRestore: () => void;
 }) {
@@ -383,7 +434,7 @@ function GuestRow({
         </div>
         <div>
           <p className="text-[13px] font-extrabold text-[#0F172A]">
-            {formatVisit(guest.visit_dates, locale)}
+            {primaryVisit(stays, guest.visit_dates, locale)}
           </p>
           <span
             className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
@@ -417,6 +468,17 @@ function GuestRow({
                 aria-label={tShared("edit")}
               >
                 <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddBooking();
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#DBEAFE] text-[#2563EB] transition-colors hover:bg-[#BFDBFE] sm:h-8 sm:w-8"
+                aria-label={tShared("add")}
+              >
+                <CalendarPlus className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"

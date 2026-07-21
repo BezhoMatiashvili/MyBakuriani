@@ -276,8 +276,8 @@ export default function RenterCleanersPage() {
 
   const visibleTasks = tasks.filter((task) => task.status !== "cancelled");
 
-  // One entry per person (a cleaner may list several cleaning services);
-  // the deduped list feeds both the grid and the add dialog so they agree.
+  // One entry per person for the GRID only (a cleaner may list several
+  // cleaning services); the add dialog gets the raw per-service list.
   const uniqueCleaners = cleaners.filter(
     (c, i) => cleaners.findIndex((o) => o.cleaner_id === c.cleaner_id) === i,
   );
@@ -381,7 +381,13 @@ export default function RenterCleanersPage() {
                 )}
 
                 <div className="mt-5 flex items-center gap-2">
-                  <CallButton phone={c.phone} label={tShared("call")} alwaysShowLabel layout="card" className="flex-1" />
+                  <CallButton
+                    phone={c.phone}
+                    label={tShared("call")}
+                    alwaysShowLabel
+                    layout="card"
+                    className="flex-1"
+                  />
                   <button
                     type="button"
                     onClick={() => setFormModal({ open: true, cleaner: c })}
@@ -487,7 +493,13 @@ export default function RenterCleanersPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <CallButton phone={cleaner.phone} label={tShared("call")} alwaysShowLabel layout="card" className="w-full" />
+                <CallButton
+                  phone={cleaner.phone}
+                  label={tShared("call")}
+                  alwaysShowLabel
+                  layout="card"
+                  className="w-full"
+                />
                 <button
                   type="button"
                   onClick={() => openCall(cleaner)}
@@ -592,7 +604,7 @@ export default function RenterCleanersPage() {
       <AddCleanerModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        cleaners={uniqueCleaners}
+        cleaners={cleaners}
         loading={!listReady}
         savedIds={savedIds}
         onToggle={toggleSaved}

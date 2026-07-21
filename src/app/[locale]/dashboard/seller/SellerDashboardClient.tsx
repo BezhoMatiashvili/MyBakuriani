@@ -18,7 +18,9 @@ import {
 } from "@/components/dashboard/ListingScopeSelect";
 import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
-import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
 import { loadSellerData, type SellerData } from "./loadData";
@@ -79,6 +81,9 @@ export default function SellerDashboardClient({
       setProperties(data.properties);
     }
 
+    // Coarse single-condition realtime filter; in personal scope events for
+    // the user's org-linked rows still fire, but loadSellerData excludes them
+    // (organization_id IS NULL) so they only cause a harmless refetch.
     const filter =
       scope.mode === "org" && scope.organizationId
         ? `organization_id=eq.${scope.organizationId}`
@@ -126,7 +131,7 @@ export default function SellerDashboardClient({
       if (scope.mode === "org" && scope.organizationId) {
         query = query.eq("organization_id", scope.organizationId);
       } else {
-        query = query.eq("owner_id", userId);
+        query = query.eq("owner_id", userId).is("organization_id", null);
       }
 
       const { data } = await query.order("created_at", { ascending: false });
@@ -334,6 +339,17 @@ export default function SellerDashboardClient({
                           VIP
                         </span>
                       )}
+                      {isDiscountActive(
+                        property.discount_percent,
+                        property.discount_expires_at,
+                      ) && (
+                        <ListingBadge
+                          variant="discount"
+                          className="normal-case"
+                        >
+                          −{property.discount_percent}%
+                        </ListingBadge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -349,33 +365,22 @@ export default function SellerDashboardClient({
         </div>
       </motion.section>
 
-      <VipPropertyPickerModal
+      <PackagePromotionPicker
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
-        properties={properties.map((p) => ({
+        listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? true,
+          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
         }))}
-        onConfirm={async (propertyId) => {
-          const { error } = await supabase.functions.invoke("purchase-vip", {
-            body: {
-              purchase_type:
-                pickerModal.tier === "super-vip"
-                  ? "super_vip"
-                  : pickerModal.tier === "vip"
-                    ? "vip_boost"
-                    : pickerModal.tier === "discount"
-                      ? "discount_badge"
-                      : "sms_package",
-              days: 1,
-              property_id: propertyId,
-            },
-          });
-          if (error) throw error;
+        target="property"
+        onPurchased={async () => {
+          const data = await loadSellerData(supabase, userId, scope);
+          setProperties(data.properties);
         }}
       />
     </div>

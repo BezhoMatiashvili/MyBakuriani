@@ -85,8 +85,8 @@ const ServiceTopbar = dynamic(() =>
 /**
  * Fetches the "new" leads count for the seller sidebar badge. Rendered inside
  * ActiveOrgScopeProvider so it can read the active scope: counts the active
- * company's new leads in org mode, the signed-in user's own leads otherwise
- * (personal mode is a no-op vs. the previous owner_id-only query).
+ * company's new leads in org mode, the signed-in user's own untagged leads
+ * otherwise (personal mode excludes org-linked leads, matching the SalesBoard).
  */
 function SellerLeadsCountEffect({
   userId,
@@ -114,7 +114,7 @@ function SellerLeadsCountEffect({
         .eq("stage", "new");
       query = organizationId
         ? query.eq("organization_id", organizationId)
-        : query.eq("owner_id", userId);
+        : query.eq("owner_id", userId).is("organization_id", null);
 
       const res = (await query) as {
         count: number | null;

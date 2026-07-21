@@ -8,6 +8,7 @@ import { X, Home, CreditCard } from "lucide-react";
 import type { VipInfoTier } from "./VipInfoModal";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import NumberField from "@/components/shared/NumberField";
+import { clampNumber, parseNumeric } from "@/lib/utils/number";
 
 export interface PickerProperty {
   id: string;
@@ -16,6 +17,9 @@ export interface PickerProperty {
   photoUrl?: string | null;
   /** Property listings split into rental/sale groups. Optional for services. */
   isForSale?: boolean;
+  /** Current listing price (per night for rentals, sale price for sales) —
+   * enables the target-price input for the discount tier when set. */
+  price?: number | null;
   /** Overrides the rental/sale badge (e.g. a service category label). */
   badgeLabel?: string;
   badgeColor?: "blue" | "orange" | "green";
@@ -78,6 +82,75 @@ export default function VipPropertyPickerModal({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [discountPercent, setDiscountPercent] = useState("10");
+  const [targetPrice, setTargetPrice] = useState("");
+
+  const listingPrice = (p: PickerProperty | undefined) =>
+    typeof p?.price === "number" && p.price > 0 ? p.price : null;
+
+  const basePrice =
+    tier === "discount"
+      ? listingPrice(properties.find((p) => p.id === selectedId))
+      : null;
+
+  const priceAtPercent = (base: number, pct: number) =>
+    String(clampNumber(base * (1 - pct / 100), { decimals: 2 }));
+
+  const handlePercentChange = (value: string) => {
+    setDiscountPercent(value);
+    const pct = parseNumeric(value);
+    if (basePrice && pct !== null) {
+      setTargetPrice(
+        priceAtPercent(
+          basePrice,
+          clampNumber(pct, { min: 1, max: 90, integer: true }),
+        ),
+      );
+    }
+  };
+
+  const handleTargetPriceChange = (value: string) => {
+    setTargetPrice(value);
+    const price = parseNumeric(value);
+    if (basePrice && price !== null) {
+      setDiscountPercent(
+        String(
+          clampNumber((1 - price / basePrice) * 100, {
+            min: 1,
+            max: 90,
+            integer: true,
+          }),
+        ),
+      );
+    }
+  };
+
+  /** On blur, snap the typed price to the exact price the whole percent yields. */
+  const snapTargetPrice = () => {
+    if (!basePrice) return;
+    setTargetPrice((cur) => {
+      const price = parseNumeric(cur);
+      if (price === null) return cur;
+      const pct = clampNumber((1 - price / basePrice) * 100, {
+        min: 1,
+        max: 90,
+        integer: true,
+      });
+      return priceAtPercent(basePrice, pct);
+    });
+  };
+
+  const selectProperty = (p: PickerProperty) => {
+    setSelectedId(p.id);
+    if (tier === "discount") {
+      const base = listingPrice(p);
+      const pct = clampNumber(parseNumeric(discountPercent) ?? 10, {
+        min: 1,
+        max: 90,
+        integer: true,
+      });
+      setTargetPrice(base ? priceAtPercent(base, pct) : "");
+    }
+  };
 
   useEffect(() => {
     if (properties.length > 0 && !selectedId) {
@@ -89,7 +162,15 @@ export default function VipPropertyPickerModal({
     if (isOpen) {
       setQuantity(1);
       setDiscountPercent("10");
+      const base =
+        tier === "discount"
+          ? listingPrice(
+              properties.find((p) => p.id === selectedId) ?? properties[0],
+            )
+          : null;
+      setTargetPrice(base ? priceAtPercent(base, 10) : "");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open
   }, [isOpen]);
 
   useEffect(() => {
@@ -185,7 +266,7 @@ export default function VipPropertyPickerModal({
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => setSelectedId(p.id)}
+                        onClick={() => selectProperty(p)}
                         className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
                           isSelected
                             ? "border-[#2563EB] bg-[#EFF6FF]"
@@ -284,7 +365,7 @@ export default function VipPropertyPickerModal({
                     </p>
                     <NumberField
                       value={discountPercent}
-                      onChange={setDiscountPercent}
+                      onChange={handlePercentChange}
                       min={1}
                       max={90}
                       integer
@@ -292,6 +373,29 @@ export default function VipPropertyPickerModal({
                       accent="green"
                       className="w-36"
                     />
+                  </div>
+                )}
+                {tier === "discount" && basePrice !== null && (
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
+                        {t("newPriceLabel")}
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
+                        {t("currentPriceLabel")}: {basePrice} ₾
+                      </p>
+                    </div>
+                    <div className="w-36" onBlur={snapTargetPrice}>
+                      <NumberField
+                        value={targetPrice}
+                        onChange={handleTargetPriceChange}
+                        min={basePrice * 0.1}
+                        max={basePrice * 0.99}
+                        decimals={2}
+                        suffix="₾"
+                        accent="green"
+                      />
+                    </div>
                   </div>
                 )}
                 {pkg && (

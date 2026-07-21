@@ -1,7 +1,15 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "../helpers/fixtures";
-import { TEST_IDS } from "../helpers/seed";
-import { leads } from "../helpers/supabase";
+import {
+  ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
+  TEST_IDS,
+} from "../helpers/seed";
+import {
+  leads,
+  organizationSubscriptions,
+  properties,
+} from "../helpers/supabase";
+import { formatDateTime } from "../../src/lib/utils/format";
 
 const SELLER_LEADS_PATH = "/dashboard/seller/leads";
 const LEAD_NAME = "E2E Drag Lead";
@@ -147,6 +155,106 @@ test.describe("Seller Dashboard", () => {
         pageContent.getByText(label, { exact: false }).first(),
       ).toBeVisible();
     }
+  });
+
+  test("land-sale edit hides construction fields and clears their saved metadata", async ({
+    sellerPage,
+  }) => {
+    // Keep the edit fixture valid so this test exercises the real save path.
+    await properties.update(TEST_IDS.sale, {
+      type: "apartment",
+      cadastral_code: "05.32.12.345",
+      photos: ["e2e-sale-1.jpg", "e2e-sale-2.jpg", "e2e-sale-3.jpg"],
+      phone: "+995599000004",
+      construction_status: "under_construction",
+      construction_progress_percent: 65,
+      completion_year: 2030,
+      units_total: 20,
+      units_sold: 5,
+      units_reserved: 3,
+      house_rules: { handover_month: 8 },
+    });
+
+    await sellerPage.goto(`/create/sale?edit=${TEST_IDS.sale}`);
+    if (sellerPage.url().includes("/auth/login")) return;
+
+    const propertyTypeTrigger = sellerPage
+      .getByText("ობიექტის ტიპი", { exact: true })
+      .locator("xpath=../../following-sibling::button");
+    const constructionStatus = sellerPage.getByText("მშენებლობის სტატუსი", {
+      exact: true,
+    });
+    const handoverDate = sellerPage.getByText("ჩაბარების დრო", {
+      exact: true,
+    });
+
+    await expect(propertyTypeTrigger).toBeVisible();
+    await expect(constructionStatus).toBeVisible();
+    await expect(handoverDate).toBeVisible();
+
+    await propertyTypeTrigger.click();
+    await sellerPage.getByText("მიწის ნაკვეთი", { exact: true }).click();
+    await expect(constructionStatus).toHaveCount(0);
+    await expect(handoverDate).toHaveCount(0);
+
+    await propertyTypeTrigger.click();
+    await sellerPage.getByText("აპარტამენტი", { exact: true }).click();
+    await expect(constructionStatus).toBeVisible();
+    await expect(handoverDate).toBeVisible();
+
+    await propertyTypeTrigger.click();
+    await sellerPage.getByText("მიწის ნაკვეთი", { exact: true }).click();
+    await sellerPage.getByRole("button", { name: "შენახვა" }).click();
+
+    await expect(sellerPage).toHaveURL(/\/dashboard\/seller(?:$|[/?#])/);
+    await expect.poll(async () => properties.get(TEST_IDS.sale)).toMatchObject({
+      type: "villa",
+      construction_status: null,
+      construction_progress_percent: null,
+      completion_year: null,
+      units_total: null,
+      units_sold: 0,
+      units_reserved: 0,
+      house_rules: expect.objectContaining({ handover_month: null }),
+    });
+  });
+
+  test("organization cabinet shows an active package expiry and hides it once expired", async ({
+    sellerPage,
+  }) => {
+    await organizationSubscriptions.update(TEST_IDS.organizationSubscription, {
+      status: "active",
+      expires_at: ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
+    });
+
+    const cabinetPath = `/dashboard/seller/organizations/${TEST_IDS.organization}`;
+    await sellerPage.goto(cabinetPath);
+    if (!(await assertDashboard(sellerPage, cabinetPath))) return;
+
+    const expiry = sellerPage.getByTestId("organization-subscription-expiry");
+    const expectedDaysLeft = Math.max(
+      0,
+      Math.ceil(
+        (new Date(ORGANIZATION_SUBSCRIPTION_EXPIRES_AT).getTime() -
+          Date.now()) /
+          (1000 * 60 * 60 * 24),
+      ),
+    );
+
+    await expect(sellerPage.getByText("PRO", { exact: true })).toBeVisible();
+    await expect(expiry).toContainText(
+      formatDateTime(ORGANIZATION_SUBSCRIPTION_EXPIRES_AT, "ka"),
+    );
+    await expect(expiry).toContainText(`${expectedDaysLeft} დღე`);
+
+    await organizationSubscriptions.update(TEST_IDS.organizationSubscription, {
+      status: "expired",
+      expires_at: new Date(Date.now() - 60_000).toISOString(),
+    });
+    await sellerPage.reload();
+
+    await expect(sellerPage.getByText("არ გაქვთ პაკეტი", { exact: true })).toBeVisible();
+    await expect(expiry).toHaveCount(0);
   });
 });
 

@@ -158,10 +158,13 @@ export default function SalesGridClient({
       const wantsDeveloper = initialSellerTypes.includes("developer");
       const wantsIndividual = initialSellerTypes.includes("individual");
       if (wantsDeveloper !== wantsIndividual) {
+        // A "developer" listing is company-linked (organization_id) or carries
+        // legacy free-text developer branding.
+        const isCompanyListing = (p: (typeof list)[number]) =>
+          p.organization_id != null ||
+          (p.developer != null && p.developer !== "");
         list = list.filter((p) =>
-          wantsDeveloper
-            ? p.developer != null && p.developer !== ""
-            : !p.developer,
+          wantsDeveloper ? isCompanyListing(p) : !isCompanyListing(p),
         );
       }
     }

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Plus, AlertCircle, Calendar } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -341,10 +335,7 @@ export default function SalesBoard({
   const persistedScopeKey = useMemo(
     () =>
       user
-        ? sellerLeadsScopeKey(
-            user.id,
-            orgScoped ? scope.organizationId : null,
-          )
+        ? sellerLeadsScopeKey(user.id, orgScoped ? scope.organizationId : null)
         : null,
     [orgScoped, scope.organizationId, user],
   );
@@ -412,7 +403,7 @@ export default function SalesBoard({
         .select("*, property:properties(title)");
       query = orgScoped
         ? query.eq("organization_id", scope.organizationId!)
-        : query.eq("owner_id", user!.id);
+        : query.eq("owner_id", user!.id).is("organization_id", null);
       const leadsRes = await query.order("created_at", {
         ascending: false,
       });
@@ -478,7 +469,10 @@ export default function SalesBoard({
     ? (leads.find((lead) => lead.id === activeLeadId) ?? null)
     : null;
 
-  function notifyPersistedMutation(previous: LeadStage | null, next: LeadStage) {
+  function notifyPersistedMutation(
+    previous: LeadStage | null,
+    next: LeadStage,
+  ) {
     if (!persistedScopeKey) return;
     emitSellerLeadsChanged({
       scopeKey: persistedScopeKey,
@@ -487,10 +481,7 @@ export default function SalesBoard({
   }
 
   function openLeadEditor(lead: Lead, fromPointer: boolean) {
-    if (
-      fromPointer &&
-      Date.now() - lastPointerDragEndedAtRef.current < 350
-    ) {
+    if (fromPointer && Date.now() - lastPointerDragEndedAtRef.current < 350) {
       return;
     }
     setEditingLead(lead);
@@ -518,11 +509,7 @@ export default function SalesBoard({
     if (typeof leadId !== "string" || !targetStage) return;
 
     const lead = leads.find((item) => item.id === leadId);
-    if (
-      !lead ||
-      lead.stage === targetStage ||
-      pendingLeadIds.has(leadId)
-    ) {
+    if (!lead || lead.stage === targetStage || pendingLeadIds.has(leadId)) {
       return;
     }
     void moveLeadToStage(lead, targetStage);
@@ -741,12 +728,8 @@ export default function SalesBoard({
       lead.priority === "high"
         ? t("hotCase")
         : lead.source
-          ? SOURCE_KEYS.includes(
-              lead.source as (typeof SOURCE_KEYS)[number],
-            )
-            ? t(
-                `sources.${lead.source as (typeof SOURCE_KEYS)[number]}`,
-              )
+          ? SOURCE_KEYS.includes(lead.source as (typeof SOURCE_KEYS)[number])
+            ? t(`sources.${lead.source as (typeof SOURCE_KEYS)[number]}`)
             : lead.source
           : null;
 

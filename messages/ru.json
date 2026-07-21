@@ -756,7 +756,9 @@
         },
         "quantityLabel": "Количество дней",
         "daysCount": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
-        "discountPercentLabel": "Процент скидки"
+        "discountPercentLabel": "Процент скидки",
+        "newPriceLabel": "Новая цена",
+        "currentPriceLabel": "Текущая цена"
       }
     }
   },
@@ -1243,6 +1245,9 @@
     "discountPct": "-{percent}% скидка",
     "ownerInitial": "В",
     "verifiedOwner": "Верифицированный владелец",
+    "verifiedCompany": "Проверенная компания",
+    "companyDeveloper": "Застройщик",
+    "companyAgency": "Агентство недвижимости",
     "ownerInvestor": "Владелец / инвестор",
     "call": "Позвонить",
     "sendMessage": "Написать сообщение",
@@ -1838,8 +1843,9 @@
     "convertFailed": "{count} HEIC-файл(ов) не удалось преобразовать — используйте JPG/PNG"
   },
   "MediaUploader": {
-    "defaultLabel": "Медиа (изображение или видео)",
-    "defaultHelper": "JPG / PNG / WEBP макс. 5MB или MP4 / WebM макс. 50MB",
+    "defaultLabel": "Медиа (изображение, GIF или видео)",
+    "defaultHelper": "JPG / PNG / WEBP / GIF макс. 5MB или MP4 / WebM макс. 50MB",
+    "previewUnavailable": "Предпросмотр недоступен (внешняя ссылка)",
     "invalidFileType": "Неверный тип файла: {type}",
     "posterMustBeImage": "Постер должен быть изображением",
     "fileTooLarge": "Файл слишком большой. Макс. {mb}MB",
@@ -3144,7 +3150,11 @@
     "loadError": "Не удалось загрузить данные. Обновите страницу.",
     "needActiveTitle": "Нужно активное объявление",
     "needActiveDesc": "Чтобы видеть запросы гостей и отправлять предложения, нужно минимум одно активное объявление об аренде.",
-    "needActiveCta": "Мои объявления"
+    "needActiveCta": "Мои объявления",
+    "sentOffersTitle": "Мои предложения",
+    "sentOffersEmpty": "Вы ещё не отправляли предложения.",
+    "sentOffersSeen": "Просмотрено гостем",
+    "sentOffersNotSeen": "Ещё не просмотрено"
   },
   "RenterCleaners": {
     "title": "Уборщики",
@@ -3745,7 +3755,9 @@
     "redirectUrl": "Переадресация (URL)",
     "startDate": "Начало",
     "endDate": "Окончание",
+    "bannerMedia": "Баннер (изображение, GIF или видео)",
     "bannerUrl": "URL баннера (необяз.)",
+    "invalidBannerUrl": "Некорректный URL баннера — укажите полный http(s) адрес.",
     "launch": "Запустить кампанию",
     "slots": {
       "slot-a": "Слот A (Hero)",
@@ -4088,7 +4100,18 @@
     "cancel": "Отмена",
     "saving": "Сохранение...",
     "saved": "Сохранено",
-    "saveChanges": "Сохранить изменения"
+    "saveChanges": "Сохранить изменения",
+    "workingHours": "Рабочие часы",
+    "workingHoursDescription": "Эти часы отображаются в профиле каждой услуги и не ограничивают запросы арендаторов.",
+    "workingHours247": "24/7",
+    "workingHours247Description": "Доступно в любое время",
+    "saveWorkingHours": "Сохранить часы",
+    "savedWorkingHours": "Часы сохранены",
+    "workingHoursInvalid": "Укажите время окончания позже времени начала.",
+    "workingHoursSaveError": "Не удалось сохранить рабочие часы. Попробуйте ещё раз.",
+    "workingHoursEmpty": "Услуг по уборке пока нет",
+    "workingHoursEmptyDescription": "Создайте услугу по уборке, чтобы указать часы в её профиле.",
+    "createCleaningService": "Создать услугу по уборке"
   },
   "Zones": {
     "didveli": {
@@ -4198,6 +4221,8 @@
     "statApartmentsUnit": "ბინა",
     "statSubscription": "აქტიური საბონენტო",
     "noPackage": "არ გაქვთ პაკეტი",
+    "expiresAt": "Истекает: {date}",
+    "daysLeft": "{count, plural, =0 {Дней не осталось} one {# день остался} few {# дня осталось} many {# дней осталось} other {# дня осталось}}",
     "subSectionTitle": "საბონენტო პაკეტის მართვა",
     "packageInactive": "პაკეტი არააქტიურია",
     "packageActive": "პაკეტი აქტიურია",

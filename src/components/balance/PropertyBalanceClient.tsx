@@ -254,6 +254,16 @@ export default function PropertyBalanceClient() {
         .order("created_at", { ascending: false })
         .limit(20);
       if (txData) setTransactions(txData);
+      const { data: property } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", propertyId)
+        .maybeSingle();
+      if (property) {
+        setProperties((current) =>
+          current.map((item) => (item.id === property.id ? property : item)),
+        );
+      }
     } finally {
       setPurchasing(null);
     }
@@ -428,6 +438,7 @@ export default function PropertyBalanceClient() {
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
+          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
         }))}
         pkg={{
           amountGel: pickerPkg?.amount_gel ?? 0,

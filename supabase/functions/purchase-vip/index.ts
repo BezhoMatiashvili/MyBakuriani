@@ -70,6 +70,7 @@ serve(async (req) => {
         p_user_id: user.id,
         p_package_id: package_id,
         p_property_id: property_id ?? null,
+        p_service_id: service_id ?? null,
         p_quantity: quantity,
         p_discount_percent: discount_percent,
       });

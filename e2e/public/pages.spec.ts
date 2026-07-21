@@ -31,6 +31,21 @@ test.describe("Landing page", () => {
     const interactable = hero.locator("a, button, input").first();
     await expect(interactable).toBeVisible();
   });
+
+  test("can toggle sale landing discounts-only filter", async ({ page }) => {
+    await page.goto("/en");
+
+    await page.getByRole("button", { name: "Buy (Investment)" }).click();
+
+    const discountsOnly = page.getByRole("button", {
+      name: "Discounts only",
+    });
+    await expect(discountsOnly).toBeVisible();
+    await expect(discountsOnly).toHaveAttribute("aria-pressed", "false");
+
+    await discountsOnly.click();
+    await expect(discountsOnly).toHaveAttribute("aria-pressed", "true");
+  });
 });
 
 // ---------------------------------------------------------------------------

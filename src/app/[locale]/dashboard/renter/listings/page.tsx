@@ -19,11 +19,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRealtimeList } from "@/lib/hooks/useRealtime";
 import { Badge } from "@/components/ui/badge";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
-import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 
@@ -263,10 +265,13 @@ export default function RenterListingsPage() {
                         Super VIP
                       </Badge>
                     )}
-                    {(property.discount_percent ?? 0) > 0 && (
-                      <Badge variant="secondary">
-                        -{property.discount_percent}%
-                      </Badge>
+                    {isDiscountActive(
+                      property.discount_percent,
+                      property.discount_expires_at,
+                    ) && (
+                      <ListingBadge variant="discount" className="normal-case">
+                        −{property.discount_percent}%
+                      </ListingBadge>
                     )}
                   </div>
                 </div>
@@ -329,35 +334,20 @@ export default function RenterListingsPage() {
         )}
       </div>
 
-      <VipPropertyPickerModal
+      <PackagePromotionPicker
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
-        properties={properties.map((p) => ({
+        listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
+          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
         }))}
-        onConfirm={async (propertyId) => {
-          const { error } = await supabase.functions.invoke("purchase-vip", {
-            body: {
-              purchase_type:
-                pickerModal.tier === "super-vip"
-                  ? "super_vip"
-                  : pickerModal.tier === "vip"
-                    ? "vip_boost"
-                    : pickerModal.tier === "discount"
-                      ? "discount_badge"
-                      : "sms_package",
-              days: 1,
-              property_id: propertyId,
-            },
-          });
-          if (error) throw error;
-          // `properties` is no longer in the realtime publication, so refresh
-          // the list explicitly to reflect the new VIP/discount badge.
+        target="property"
+        onPurchased={async () => {
           await refetch();
         }}
       />

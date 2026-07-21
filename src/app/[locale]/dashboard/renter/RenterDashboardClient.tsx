@@ -23,7 +23,9 @@ import PaymentModal from "@/components/renter/PaymentModal";
 import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
-import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
+import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import { useActiveZones } from "@/lib/zones/client";
 import {
@@ -372,33 +374,24 @@ export default function RenterDashboardClient({
         tier={vipModal.tier}
       />
 
-      <VipPropertyPickerModal
+      <PackagePromotionPicker
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
-        properties={properties.map((p) => ({
+        listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
+          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
         }))}
-        onConfirm={async (propertyId) => {
-          const { error } = await supabase.functions.invoke("purchase-vip", {
-            body: {
-              purchase_type:
-                pickerModal.tier === "super-vip"
-                  ? "super_vip"
-                  : pickerModal.tier === "vip"
-                    ? "vip_boost"
-                    : pickerModal.tier === "discount"
-                      ? "discount_badge"
-                      : "sms_package",
-              days: 1,
-              property_id: propertyId,
-            },
-          });
-          if (error) throw error;
+        target="property"
+        onPurchased={async () => {
+          const data = await loadRenterOverview(supabase, userId);
+          setProfile(data.profile);
+          setProperties(data.properties);
+          setStats(data.stats);
         }}
       />
     </div>
@@ -460,6 +453,14 @@ function PropertyRow({
           <h3 className="truncate text-[15px] font-extrabold text-[#0F172A]">
             {property.title}
           </h3>
+          {isDiscountActive(
+            property.discount_percent,
+            property.discount_expires_at,
+          ) && (
+            <ListingBadge variant="discount" className="mt-1 normal-case">
+              −{property.discount_percent}%
+            </ListingBadge>
+          )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[#94A3B8]">
             {property.is_for_sale ? (
               <span className="rounded-md bg-[#FFEDD5] px-2 py-0.5 font-bold text-[#EA580C]">

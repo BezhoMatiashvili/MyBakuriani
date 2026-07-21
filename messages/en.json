@@ -756,7 +756,9 @@
         },
         "quantityLabel": "Number of days",
         "daysCount": "{count, plural, =1 {# day} other {# days}}",
-        "discountPercentLabel": "Discount percentage"
+        "discountPercentLabel": "Discount percentage",
+        "newPriceLabel": "New price",
+        "currentPriceLabel": "Current price"
       }
     }
   },
@@ -1243,6 +1245,9 @@
     "discountPct": "-{percent}% discount",
     "ownerInitial": "O",
     "verifiedOwner": "Verified owner",
+    "verifiedCompany": "Verified company",
+    "companyDeveloper": "Developer",
+    "companyAgency": "Real-estate agency",
     "ownerInvestor": "Owner / investor",
     "call": "Call",
     "sendMessage": "Send a message",
@@ -1838,8 +1843,9 @@
     "convertFailed": "{count} HEIC file(s) couldn't be converted — use JPG/PNG"
   },
   "MediaUploader": {
-    "defaultLabel": "Media (image or video)",
-    "defaultHelper": "JPG / PNG / WEBP max 5MB or MP4 / WebM max 50MB",
+    "defaultLabel": "Media (image, GIF or video)",
+    "defaultHelper": "JPG / PNG / WEBP / GIF max 5MB or MP4 / WebM max 50MB",
+    "previewUnavailable": "Preview unavailable (external link)",
     "invalidFileType": "Invalid file type: {type}",
     "posterMustBeImage": "Poster must be an image",
     "fileTooLarge": "File too large. Max {mb}MB",
@@ -3144,7 +3150,11 @@
     "loadError": "Failed to load data. Please refresh the page.",
     "needActiveTitle": "You need an active listing",
     "needActiveDesc": "To see guest requests and send offers you need at least one active rental listing.",
-    "needActiveCta": "My listings"
+    "needActiveCta": "My listings",
+    "sentOffersTitle": "My offers",
+    "sentOffersEmpty": "You haven't sent any offers yet.",
+    "sentOffersSeen": "Seen by guest",
+    "sentOffersNotSeen": "Not seen yet"
   },
   "RenterCleaners": {
     "title": "Cleaners",
@@ -3745,7 +3755,9 @@
     "redirectUrl": "Redirect (URL)",
     "startDate": "Start",
     "endDate": "End",
+    "bannerMedia": "Banner (image, GIF or video)",
     "bannerUrl": "Banner URL (optional)",
+    "invalidBannerUrl": "Banner URL is invalid — enter a full http(s) address.",
     "launch": "Launch campaign",
     "slots": {
       "slot-a": "Slot A (Hero)",
@@ -4088,7 +4100,18 @@
     "cancel": "Cancel",
     "saving": "Saving...",
     "saved": "Saved",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "workingHours": "Working hours",
+    "workingHoursDescription": "These hours are shown on each service profile and do not restrict renter requests.",
+    "workingHours247": "24/7",
+    "workingHours247Description": "Available at any time",
+    "saveWorkingHours": "Save hours",
+    "savedWorkingHours": "Hours saved",
+    "workingHoursInvalid": "Enter an end time later than the start time.",
+    "workingHoursSaveError": "Could not save working hours. Please try again.",
+    "workingHoursEmpty": "No cleaning services yet",
+    "workingHoursEmptyDescription": "Create a cleaning service to set the hours shown on its profile.",
+    "createCleaningService": "Create a cleaning service"
   },
   "Zones": {
     "didveli": {
@@ -4198,6 +4221,8 @@
     "statApartmentsUnit": "ბინა",
     "statSubscription": "აქტიური საბონენტო",
     "noPackage": "არ გაქვთ პაკეტი",
+    "expiresAt": "Expires: {date}",
+    "daysLeft": "{count, plural, =0 {No days left} one {# day left} other {# days left}}",
     "subSectionTitle": "საბონენტო პაკეტის მართვა",
     "packageInactive": "პაკეტი არააქტიურია",
     "packageActive": "პაკეტი აქტიურია",

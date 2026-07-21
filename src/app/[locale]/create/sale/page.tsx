@@ -19,6 +19,7 @@ import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
+import { readStoredActiveOrgId } from "@/lib/dashboard/orgScope";
 import {
   isValidGePhone,
   isValidCadastralCode,
@@ -297,14 +298,27 @@ function CreateSalePageInner() {
           has_active_sub: activeSet.has(r.org!.id),
         })),
       );
+      // Pre-select the dashboard's active company scope (create mode only —
+      // edit mode hydrates the listing's own org). No active-sub check here:
+      // the handleContinue gate + hint already cover subscription-less picks.
+      if (!editId) {
+        const stored = readStoredActiveOrgId();
+        if (stored && rows.some((r) => r.org!.id === stored)) {
+          setOrganizationId(stored);
+        }
+      }
       setCompaniesLoaded(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, editId]);
 
-  const isUnderConstruction = constructionStatus === "under_construction";
+  // Within the sale form, the existing `villa` enum value represents a land
+  // plot. Land plots do not have construction or handover metadata.
+  const isLandPlot = propertyType === "villa";
+  const isUnderConstruction =
+    !isLandPlot && constructionStatus === "under_construction";
 
   const handoverYearOptions = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -620,7 +634,7 @@ function CreateSalePageInner() {
         sale_price: priceNum,
         cadastral_code: cadastralCodeTrimmed,
         renovation_status: renovationStatus,
-        construction_status: constructionStatus,
+        construction_status: isLandPlot ? null : constructionStatus,
         construction_progress_percent: progressNum,
         completion_year: yearNum,
         units_total: unitsTotalNum,
@@ -950,46 +964,48 @@ function CreateSalePageInner() {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label={t("constructionStatus")} required>
-                      <StyledSelect
-                        value={constructionStatus}
-                        onValueChange={setConstructionStatus}
-                        options={constructionStatusOptions}
-                        accent="blue"
-                      />
-                    </Field>
+                  {!isLandPlot && (
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                      <Field label={t("constructionStatus")} required>
+                        <StyledSelect
+                          value={constructionStatus}
+                          onValueChange={setConstructionStatus}
+                          options={constructionStatusOptions}
+                          accent="blue"
+                        />
+                      </Field>
 
-                    <Field
-                      label={t("handoverDate")}
-                      chip={
-                        isUnderConstruction
-                          ? { label: tShared("onlyUnderConstruction") }
-                          : undefined
-                      }
-                    >
-                      <div className="flex gap-2">
-                        <div className="min-w-0 flex-1">
-                          <StyledSelect
-                            value={handoverMonth}
-                            onValueChange={setHandoverMonth}
-                            options={handoverMonthOptions}
-                            accent="blue"
-                            disabled={!isUnderConstruction}
-                          />
+                      <Field
+                        label={t("handoverDate")}
+                        chip={
+                          isUnderConstruction
+                            ? { label: tShared("onlyUnderConstruction") }
+                            : undefined
+                        }
+                      >
+                        <div className="flex gap-2">
+                          <div className="min-w-0 flex-1">
+                            <StyledSelect
+                              value={handoverMonth}
+                              onValueChange={setHandoverMonth}
+                              options={handoverMonthOptions}
+                              accent="blue"
+                              disabled={!isUnderConstruction}
+                            />
+                          </div>
+                          <div className="w-[104px] shrink-0">
+                            <StyledSelect
+                              value={handoverYear}
+                              onValueChange={setHandoverYear}
+                              options={handoverYearOptions}
+                              accent="blue"
+                              disabled={!isUnderConstruction}
+                            />
+                          </div>
                         </div>
-                        <div className="w-[104px] shrink-0">
-                          <StyledSelect
-                            value={handoverYear}
-                            onValueChange={setHandoverYear}
-                            options={handoverYearOptions}
-                            accent="blue"
-                            disabled={!isUnderConstruction}
-                          />
-                        </div>
-                      </div>
-                    </Field>
-                  </div>
+                      </Field>
+                    </div>
+                  )}
 
                   <Field
                     label={t("cadastralCode")}

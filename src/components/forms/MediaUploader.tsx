@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useRef, useState } from "react";
-import { ImagePlus, Loader2, Video, X } from "lucide-react";
+import { ImageOff, ImagePlus, Loader2, Video, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -11,11 +11,17 @@ const ACCEPT_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/gif",
   "video/mp4",
   "video/webm",
 ];
 const ACCEPT_ATTR = ACCEPT_TYPES.join(",");
-const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
 const IMAGE_MAX = 5 * 1024 * 1024;
 const VIDEO_MAX = 50 * 1024 * 1024;
@@ -23,7 +29,7 @@ const VIDEO_MAX = 50 * 1024 * 1024;
 type Props = {
   value: MediaValue;
   onChange: (v: MediaValue) => void;
-  kind: "banner" | "blog";
+  kind: "banner" | "blog" | "ads";
   label?: string;
   helper?: string;
   poster?: string | null;
@@ -46,6 +52,9 @@ export default function MediaUploader({
   const posterInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [posterUploading, setPosterUploading] = useState(false);
+  // External URLs may be blocked by CSP (next.config.ts img-src/media-src);
+  // keyed on the current url so it self-resets when the value changes.
+  const [errorUrl, setErrorUrl] = useState<string | null>(null);
 
   async function uploadFile(
     file: File,
@@ -148,13 +157,19 @@ export default function MediaUploader({
 
       {value ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC]">
-          {value.type === "video" ? (
+          {errorUrl === value.url ? (
+            <div className="flex h-[120px] w-full flex-col items-center justify-center gap-2 text-[13px] font-bold text-[#94A3B8]">
+              <ImageOff className="h-5 w-5" />
+              {t("previewUnavailable")}
+            </div>
+          ) : value.type === "video" ? (
             <video
               src={value.url}
               poster={poster ?? undefined}
               controls
               muted
               playsInline
+              onError={() => setErrorUrl(value.url)}
               className="block max-h-[260px] w-full object-cover"
             />
           ) : (
@@ -162,6 +177,7 @@ export default function MediaUploader({
             <img
               src={value.url}
               alt=""
+              onError={() => setErrorUrl(value.url)}
               className="block max-h-[260px] w-full object-cover"
             />
           )}

@@ -13,6 +13,9 @@ import SmartMatchRequestsModal, {
   type SmartMatchRequestItem,
   type OwnerProperty,
 } from "@/components/renter/SmartMatchRequestsModal";
+import SentOfferCard, {
+  type SentOffer,
+} from "@/components/renter/SentOfferCard";
 import { useActiveZones } from "@/lib/zones/client";
 import {
   isStale,
@@ -30,6 +33,9 @@ type SmartMatchRequest = Tables<"smart_match_requests"> & {
     "display_name" | "phone" | "avatar_url"
   > | null;
 };
+
+const SENT_OFFER_SELECT =
+  "*, properties(title), smart_match_requests(zone, check_in, check_out, budget_min, budget_max, guests_count, profiles(display_name))";
 
 function shortRequestId(id: string) {
   return `REQ-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
@@ -100,6 +106,7 @@ export default function RenterSmartMatchPage() {
   const [submittedRequestIds, setSubmittedRequestIds] = useState<Set<string>>(
     new Set(),
   );
+  const [sentOffers, setSentOffers] = useState<SentOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [noActiveListings, setNoActiveListings] = useState(false);
@@ -194,29 +201,31 @@ export default function RenterSmartMatchPage() {
           (r) => !isStale(toMatchRequest(r), today),
         );
         setRequests(filtered);
-
-        // Mark requests this renter has already submitted offers on
-        const propIds = properties.map((p) => p.id);
-        if (propIds.length > 0 && filtered.length > 0) {
-          const { data: existingOffers } = await supabase
-            .from("smart_match_offers")
-            .select("request_id")
-            .eq("renter_id", user!.id)
-            .in(
-              "request_id",
-              filtered.map((r) => r.id),
-            );
-          if (existingOffers) {
-            // Merge, don't replace: a reseed racing a just-sent offer (this tab
-            // or another) must not wipe its id — offers are never deleted, so
-            // ids only ever become true.
-            setSubmittedRequestIds(
-              (prev) =>
-                new Set([...prev, ...existingOffers.map((o) => o.request_id)]),
-            );
-          }
-        }
       }
+
+      // All offers this renter has ever sent — drives both the "responded"
+      // set (below) and the sent-offers list. Unconditional: unlike `requests`
+      // above (limited to currently-active ones), a sent offer stays visible
+      // even after its target request goes stale/matched/cancelled.
+      const { data: offersData, error: offersError } = await supabase
+        .from("smart_match_offers")
+        .select(SENT_OFFER_SELECT)
+        .eq("renter_id", user!.id)
+        .order("created_at", { ascending: false });
+
+      if (offersError) {
+        setLoadError(true);
+      } else if (offersData) {
+        const offers = offersData as unknown as SentOffer[];
+        setSentOffers(offers);
+        // Merge, don't replace: a reseed racing a just-sent offer (this tab
+        // or another) must not wipe its id — offers are never deleted, so
+        // ids only ever become true.
+        setSubmittedRequestIds(
+          (prev) => new Set([...prev, ...offers.map((o) => o.request_id)]),
+        );
+      }
+
       setLoading(false);
     }
 
@@ -236,12 +245,30 @@ export default function RenterSmartMatchPage() {
           // refetch. RLS (renter_read_own_offers) already scopes delivery to
           // this renter's offers; the guard is defensive.
           const offer = payload.new as {
+            id?: string;
             renter_id?: string;
             request_id?: string;
           };
           if (offer.renter_id === user!.id && offer.request_id) {
             const offerRequestId = offer.request_id;
             setSubmittedRequestIds((prev) => new Set(prev).add(offerRequestId));
+          }
+          // Fetch just this row's embedded details for the sent-offers list —
+          // avoids a full fetchData() refetch for a single new offer.
+          if (offer.renter_id === user!.id && offer.id) {
+            supabase
+              .from("smart_match_offers")
+              .select(SENT_OFFER_SELECT)
+              .eq("id", offer.id)
+              .single()
+              .then(({ data }) => {
+                if (data) {
+                  setSentOffers((prev) => [
+                    data as unknown as SentOffer,
+                    ...prev,
+                  ]);
+                }
+              });
           }
         },
       )
@@ -323,8 +350,7 @@ export default function RenterSmartMatchPage() {
     if (!user) return false;
     // Look up the real DB id by short id
     const requestRow = modalRequests.find((r) => r.id === requestId) as
-      | (SmartMatchRequestItem & { _dbId: string })
-      | undefined;
+      (SmartMatchRequestItem & { _dbId: string }) | undefined;
     const realRequestId = requestRow?._dbId ?? requestId;
 
     const guestRequest = requests.find((r) => r.id === realRequestId);
@@ -436,6 +462,37 @@ export default function RenterSmartMatchPage() {
           {t("viewRequests")}
         </button>
       </motion.div>
+
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <h2 className="text-[18px] font-black text-[#0F172A]">
+          {t("sentOffersTitle")}
+        </h2>
+        {loading ? (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-[20px]" />
+            ))}
+          </div>
+        ) : sentOffers.length === 0 ? (
+          <p className="mt-3 rounded-[20px] border border-[#EEF1F4] bg-[#FAFBFC] px-5 py-8 text-center text-[13px] font-medium text-[#94A3B8]">
+            {t("sentOffersEmpty")}
+          </p>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {sentOffers.map((offer) => (
+              <SentOfferCard
+                key={offer.id}
+                offer={offer}
+                allZonesLabel={t("allZones")}
+              />
+            ))}
+          </div>
+        )}
+      </motion.section>
 
       {!loading && loadError && (
         <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#FECACA] bg-[#FEF2F2] py-16 text-center">

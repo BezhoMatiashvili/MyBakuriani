@@ -13,6 +13,9 @@ import { Flame, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
+import MediaUploader, {
+  type MediaValue,
+} from "@/components/forms/MediaUploader";
 import DateField from "@/components/shared/DateField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
@@ -40,6 +43,47 @@ const INITIAL_FORM_STATE = {
   endDate: "",
   bannerUrl: "",
 };
+
+const VIDEO_URL_RE = /\.(mp4|webm)(\?|#|$)/i;
+
+function inferBannerType(url: string): "image" | "video" {
+  return VIDEO_URL_RE.test(url) ? "video" : "image";
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function AdBannerThumb({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className="text-[30px]">📣</span>;
+  if (inferBannerType(url) === "video") {
+    return (
+      <video
+        src={url}
+        muted
+        playsInline
+        preload="metadata"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-cover"
+      />
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      onError={() => setFailed(true)}
+      className="h-full w-full object-cover"
+    />
+  );
+}
 
 export default function ModerationPage() {
   const t = useTranslations("AdminModeration");
@@ -74,6 +118,9 @@ export default function ModerationPage() {
   const [isAddAdModalOpen, setIsAddAdModalOpen] = useState(false);
   const [formState, setFormState] = useState(INITIAL_FORM_STATE);
   const [formError, setFormError] = useState("");
+  const bannerMedia: MediaValue = isHttpUrl(formState.bannerUrl)
+    ? { url: formState.bannerUrl, type: inferBannerType(formState.bannerUrl) }
+    : null;
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -161,6 +208,10 @@ export default function ModerationPage() {
       setFormError(t("invalidUrl"));
       return;
     }
+    if (formState.bannerUrl.trim() && !isHttpUrl(formState.bannerUrl.trim())) {
+      setFormError(t("invalidBannerUrl"));
+      return;
+    }
     if (new Date(formState.endDate) < new Date(formState.startDate)) {
       setFormError(t("endBeforeStart"));
       return;
@@ -174,7 +225,7 @@ export default function ModerationPage() {
           title: formState.title,
           position: formState.position,
           url: formState.url,
-          banner_url: formState.bannerUrl || undefined,
+          banner_url: formState.bannerUrl.trim() || undefined,
           start_at: new Date(formState.startDate).toISOString(),
           end_at: new Date(formState.endDate).toISOString(),
         }),
@@ -291,12 +342,7 @@ export default function ModerationPage() {
                 <div className="flex flex-wrap items-center gap-6 px-6 py-6">
                   <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2E8F0] bg-white">
                     {ad.banner_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={ad.banner_url}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
+                      <AdBannerThumb url={ad.banner_url} />
                     ) : (
                       <span className="text-[30px]">📣</span>
                     )}
@@ -471,6 +517,17 @@ export default function ModerationPage() {
               </div>
 
               <div className="space-y-2">
+                <MediaUploader
+                  value={bannerMedia}
+                  onChange={(v) =>
+                    setFormState((previous) => ({
+                      ...previous,
+                      bannerUrl: v?.url ?? "",
+                    }))
+                  }
+                  kind="ads"
+                  label={t("bannerMedia")}
+                />
                 <label
                   htmlFor="banner-url"
                   className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
