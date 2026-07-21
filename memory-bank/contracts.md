@@ -252,13 +252,13 @@ are written **only** by `purchase_package`'s `discount` tier branch (mirroring h
 **buyer-chosen at purchase time** (1-90, validated server-side in the RPC) via
 `p_discount_percent`, passed from `VipPropertyPickerModal`'s percent stepper
 through `purchase-vip`'s edge function to the RPC — it is no longer a hardcoded
-`10`. `discount_expires_at` exists as a
-column on **both** `properties` and `services` (required so the shared trigger
-function, bound to both tables, can reference `NEW.discount_expires_at`
-unconditionally without a 42703 — same reason `is_vip`/`vip_expires_at` are on
-both), but is only ever **written** on `properties`: `purchase_package` has no
-`p_service_id` parameter and `vip-lifecycle`'s sweep is properties-only, so the
-column stays permanently NULL on every `services` row. The discount is no longer
+`10`. Since `20260721110000_purchase_package_service_targets.sql`, the RPC takes
+`p_service_id` too: a VIP-category package must target **exactly one** of an owned
+property or an owned service, and the discount/VIP/super-VIP branches write the
+same columns on whichever table was targeted (`discount_percent`/
+`discount_expires_at` exist on both tables). `vip-lifecycle`'s
+`clearExpiredDiscounts` sweep likewise iterates both listing tables, so
+service-side discounts expire the same way property ones do. The discount is no longer
 purely cosmetic: `create_booking` (`20260719130000_create_booking_apply_discount.sql`,
 superseding `20260628120000_create_booking_inclusive_days.sql`'s pricing) now reads
 `discount_percent`/`discount_expires_at` server-side to reduce the booking's
@@ -268,12 +268,12 @@ the new `isDiscountActive`/`applyDiscount` helpers in `src/lib/utils/pricing.ts`
 
 Participating symbols:
 
-- `supabase/migrations/20260719095438_discount_percent_choice.sql:purchase_package` — `discount` tier branch: validates `p_discount_percent` is `[1,90]` and sets `discount_percent = p_discount_percent` (supersedes the hardcoded-10 version in `20260719120000_fix_discount_badge_duration.sql`) plus `discount_expires_at = v_expires_at`; the old 4-arg overload is dropped by `20260719095704_discount_percent_choice_drop_old_overload.sql` (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement)
+- `supabase/migrations/20260721110000_purchase_package_service_targets.sql:purchase_package` — CURRENT body: 6-arg signature with `p_service_id`; drops both prior overloads first (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement; same trap the earlier `20260719095704_discount_percent_choice_drop_old_overload.sql` existed for). `discount` tier branch validates `p_discount_percent` is `[1,90]` and sets `discount_percent`/`discount_expires_at` on the targeted table (supersedes the property-only version in `20260719095438_discount_percent_choice.sql`)
 - `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role (current trigger BODY now lives in `20260719140000_org_auto_link_sale_listings.sql`, which re-declares it verbatim + an owner org-attach exception — see **C11**; discount-field guarding is unchanged)
 - `supabase/functions/purchase-vip/index.ts:serve` — validates `discount_percent` from the request body ([1,90] or null) and forwards it as `p_discount_percent`
 - `src/components/renter/VipPropertyPickerModal.tsx:VipPropertyPickerModal` — renders the percent stepper (only when `tier === "discount"`) and passes the chosen value through `onConfirm`; the percent can also be derived from a typed target price (second, synced "ახალი ფასი" field — shown only when the caller supplies `PickerProperty.price`, i.e. `is_for_sale ? sale_price : price_per_night`; rounds to nearest whole percent and snaps the price on blur). Client-side sugar only — the wire contract still carries just the integer percent
 - `src/components/balance/PropertyBalanceClient.tsx:handleConfirmPurchase` — forwards `discountPercent` into the `purchase-vip` invoke body
-- `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — properties-only sweep: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
+- `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — per-table sweep over `properties` AND `services`: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
 - `src/components/cards/PropertyCard.tsx:discountPercent` — badge render prop, `> 0` shows the discount badge
 - `src/app/[locale]/apartments/ApartmentsPageClient.tsx` — "discounted only" filter reads `discount_percent`
 - `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`
@@ -287,11 +287,10 @@ sessions.
 
 **Breaks silently when:** a caller updates `discount_percent`/`discount_expires_at`
 directly instead of via `purchase_package` (trigger blocks it for non-admin/non-
-service-role, but silently no-ops under `service_role`); or a new discount surface
-is added for `services` assuming `discount_expires_at` is actively maintained there
-(column exists but is never written — `purchase_package` takes no
-`p_service_id`/`vip-lifecycle`'s `clearExpiredDiscounts` sweep is properties-only —
-so a `services`-side reader would see permanent NULLs, not real expiry data); or a
+service-role, but silently no-ops under `service_role`); or a caller passes BOTH
+`p_property_id` and `p_service_id` (or neither) for a VIP-category package — the
+RPC rejects it with 22023, so an invoke body that sends both fields breaks at
+runtime only; or a
 future price-display or booking-price code path reads `discount_percent`/
 `discount_expires_at` directly instead of calling `isDiscountActive`/
 `applyDiscount` — it would silently regress back to showing (or charging) the
