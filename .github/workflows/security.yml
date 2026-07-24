@@ -27,6 +27,6 @@ jobs:
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@e6c23b76c5a57dc1d4c6d119d6eb0a0e011f5ecf # v3.28.17
-      - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
