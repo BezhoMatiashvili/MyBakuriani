@@ -6,11 +6,21 @@
 // the "no photos" placeholder instead of crashing the route.
 const MAX_PHOTO_REF_LENGTH = 2048;
 
-const isRenderablePhoto = (value: string): boolean =>
-  value.length <= MAX_PHOTO_REF_LENGTH &&
-  (value.startsWith("https://") ||
-    value.startsWith("http://") ||
-    value.startsWith("/"));
+const isRenderablePhoto = (value: string): boolean => {
+  if (value.length > MAX_PHOTO_REF_LENGTH) return false;
+  // Local placeholders are repository-controlled. Remote legacy values are
+  // accepted only from this project's Storage origin, never arbitrary hosts.
+  if (value.startsWith("/")) return !value.startsWith("//");
+  const origin = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!origin) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.origin === new URL(origin).origin &&
+      /^\/storage\/v1\/object\/(public|sign)\//.test(url.pathname);
+  } catch {
+    return false;
+  }
+};
 
 export function sanitizePhotos(
   photos: (string | null | undefined)[] | null | undefined,

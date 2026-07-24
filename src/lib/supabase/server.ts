@@ -17,6 +17,11 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       global: { fetch: timeoutFetch(SERVER_FETCH_TIMEOUT_MS) },
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -42,6 +47,11 @@ export function createPublicClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       global: { fetch: timeoutFetch(SERVER_FETCH_TIMEOUT_MS) },
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
       cookies: {
         getAll() {
           return [];

@@ -1098,7 +1098,7 @@ function HouseRuleField({
           <button
             type="button"
             onClick={() => onChange(true)}
-            className={`h-8 rounded-[10px] border px-3 text-xs font-semibold transition-colors ${
+            className={`h-8 min-h-11 rounded-[10px] border px-3 text-xs font-semibold transition-colors lg:min-h-0 ${
               value === true
                 ? "border-[#16A34A] bg-[#16A34A] text-white"
                 : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"
@@ -1109,7 +1109,7 @@ function HouseRuleField({
           <button
             type="button"
             onClick={() => onChange(false)}
-            className={`h-8 rounded-[10px] border px-3 text-xs font-semibold transition-colors ${
+            className={`h-8 min-h-11 rounded-[10px] border px-3 text-xs font-semibold transition-colors lg:min-h-0 ${
               value === false
                 ? "border-[#EF4444] bg-[#EF4444] text-white"
                 : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]"

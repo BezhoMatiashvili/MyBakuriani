@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, Share2, Heart } from "lucide-react";
@@ -23,8 +23,10 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
     toggle: toggleFavorite,
   } = useFavorite({ propertyId });
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const openLightbox = useCallback((index: number) => {
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
     setLightboxIndex(index);
     document.body.style.overflow = "hidden";
   }, []);
@@ -45,6 +47,20 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
       prev !== null ? (prev - 1 + photos.length) % photos.length : null,
     );
   }, [photos.length]);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeLightbox();
+      if (event.key === "ArrowLeft") goPrev();
+      if (event.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      returnFocusRef.current?.focus();
+    };
+  }, [lightboxIndex, closeLightbox, goNext, goPrev]);
 
   if (photos.length === 0) {
     return (
@@ -75,7 +91,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
               error: tShare("error"),
             })
           }
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] md:h-10 md:w-10"
           aria-label={t("share")}
         >
           <Share2 className="h-[18px] w-[18px]" />
@@ -86,7 +102,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
           disabled={favoriteBusy}
           aria-pressed={isFavorited}
           aria-label={t("addToFavorites")}
-          className={`flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white transition-colors hover:bg-[#F8FAFC] disabled:opacity-60 ${
+          className={`flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white transition-colors hover:bg-[#F8FAFC] disabled:opacity-60 md:h-10 md:w-10 ${
             isFavorited ? "text-red-500" : "text-[#64748B] hover:text-red-500"
           }`}
         >
@@ -190,18 +206,23 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("viewAllPhotos", { count: photos.length })}
             onClick={closeLightbox}
           >
             {/* Close button */}
             <button
+              type="button"
               onClick={closeLightbox}
-              className="absolute top-4 right-4 z-10 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+              aria-label={t("close")}
+              className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] z-10 flex size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
             >
               <X className="h-6 w-6" />
             </button>
 
             {/* Counter */}
-            <div className="absolute top-4 left-4 rounded-full bg-white/10 px-4 py-2 text-sm text-white backdrop-blur-sm">
+            <div className="absolute left-4 top-[calc(1rem+env(safe-area-inset-top))] rounded-full bg-white/10 px-4 py-2 text-sm text-white backdrop-blur-sm">
               {lightboxIndex + 1} / {photos.length}
             </div>
 
@@ -212,7 +233,8 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
                   e.stopPropagation();
                   goPrev();
                 }}
-                className="absolute left-4 hidden rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:block"
+                aria-label="Previous photo"
+                className="absolute left-4 hidden size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:flex"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
@@ -232,7 +254,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
                 if (info.offset.x > 80) goPrev();
                 else if (info.offset.x < -80) goNext();
               }}
-              className="relative h-[80vh] w-[90vw] max-w-5xl touch-pan-y"
+              className="relative h-[80dvh] w-[90vw] max-w-5xl touch-pan-y"
               onClick={(e) => e.stopPropagation()}
             >
               <Image
@@ -252,7 +274,8 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
                   e.stopPropagation();
                   goNext();
                 }}
-                className="absolute right-4 hidden rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:block"
+                aria-label="Next photo"
+                className="absolute right-4 hidden size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:flex"
               >
                 <ChevronRight className="h-6 w-6" />
               </button>

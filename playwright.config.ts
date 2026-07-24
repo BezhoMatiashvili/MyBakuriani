@@ -1,10 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
-import dotenv from "dotenv";
-import path from "path";
+import { configureIsolatedE2E } from "./e2e/helpers/env";
 
-// override: true so that empty/stale shell env (e.g. SUPABASE_SERVICE_ROLE_KEY="")
-// does not shadow values from .env.local in the spawned `next dev` process.
-dotenv.config({ path: path.resolve(__dirname, ".env.local"), override: true });
+// E2E accepts only a dedicated project supplied through TEST_* variables.
+const e2e = configureIsolatedE2E();
 
 export default defineConfig({
   testDir: "./e2e",
@@ -17,12 +15,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
 
   use: {
-    // E2E_BASE_URL wins because dotenv (override: true) stomps any shell-set
-    // NEXT_PUBLIC_SITE_URL with the .env.local value (often the prod URL).
-    baseURL:
-      process.env.E2E_BASE_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "http://localhost:3000",
+    baseURL: e2e.baseUrl,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -140,12 +133,20 @@ export default defineConfig({
     {
       name: "mobile",
       testMatch: /mobile\/.+\.spec\.ts/,
-      dependencies: ["setup"],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 844 },
         isMobile: true,
         hasTouch: true,
+      },
+    },
+    // Public mobile checks intentionally do not depend on seeded QA data so
+    // they can run against any preview and cover WebKit regressions as well.
+    {
+      name: "mobile-webkit",
+      testMatch: /mobile\/.+\.spec\.ts/,
+      use: {
+        ...devices["iPhone 13"],
       },
     },
   ],

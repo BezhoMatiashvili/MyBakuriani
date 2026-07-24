@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { List, Ban, Pencil, UserPlus, ChevronDown, CalendarPlus } from "lucide-react";
+import {
+  List,
+  Ban,
+  Pencil,
+  UserPlus,
+  ChevronDown,
+  CalendarPlus,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -464,7 +471,7 @@ function GuestRow({
                   e.stopPropagation();
                   onEdit();
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] sm:h-8 sm:w-8"
+                className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] lg:h-8 lg:w-8"
                 aria-label={tShared("edit")}
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -475,7 +482,7 @@ function GuestRow({
                   e.stopPropagation();
                   onAddBooking();
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#DBEAFE] text-[#2563EB] transition-colors hover:bg-[#BFDBFE] sm:h-8 sm:w-8"
+                className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#DBEAFE] text-[#2563EB] transition-colors hover:bg-[#BFDBFE] lg:h-8 lg:w-8"
                 aria-label={tShared("add")}
               >
                 <CalendarPlus className="h-3.5 w-3.5" />
@@ -486,7 +493,7 @@ function GuestRow({
                   e.stopPropagation();
                   onBlacklist();
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] sm:h-8 sm:w-8"
+                className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] lg:h-8 lg:w-8"
                 aria-label={t("block")}
               >
                 <Ban className="h-3.5 w-3.5" />

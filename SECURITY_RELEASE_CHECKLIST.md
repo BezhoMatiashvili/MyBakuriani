@@ -1,0 +1,45 @@
+# Production security release checklist
+
+Source changes alone cannot configure Supabase Auth, Vercel, DNS, Cloudflare,
+Upstash, or GitHub. Do not deploy the accompanying migration until every item
+below has an owner and evidence recorded in the release ticket.
+
+- Snapshot the database schema, RLS policies, grants, functions, storage
+  policies, Auth configuration, and pending payment rows. Apply
+  `20260723000000_production_security_remediation.sql` to staging first, then
+  run anonymous/user/admin-AAL1/admin-AAL2 adversarial checks.
+- Keep `https://my-bakuriani.vercel.app` as the only canonical origin for this
+  release. Do **not** add `mybakuriani.ge` or `www` to redirects, Supabase Auth,
+  CSP, CORS, or `NEXT_PUBLIC_SITE_URL` until both certificates are valid. Run a
+  separate cutover checklist for that domain after TLS, redirect, Auth URL, CSP,
+  and CORS verification succeeds.
+- Rotate the exposed Vercel credential, inspect its audit log for use, and
+  record the incident decision in the release ticket. `.env.local` must remain
+  owner-only (`0600`); `npm run security:secrets` is a required release gate.
+- In Supabase Auth enable CAPTCHA (Turnstile), leaked-password protection,
+  12-character passwords, generic auth responses, and mandatory TOTP AAL2 for
+  administrators. Enforce AAL2 in every admin Edge function before deploying.
+- Set `ALLOWED_ORIGINS` to exact canonical, preview-test, and localhost origins;
+  set `SMS_AUTOMATION_RUN_SECRET` and rotate no historical test key without a
+  separately approved incident decision.
+- Configure Vercel WAF, Turnstile server verification, and Upstash-backed
+  distributed limits. The repository's in-memory limits are not a production
+  control.
+- Create a fresh isolated E2E Supabase project and preview deployment. Provide
+  only `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`, and
+  `TEST_SUPABASE_SERVICE_ROLE_KEY`; the suite rejects the known production ref
+  and production domains. Retire and pause the old test project after proving
+  it contains no production data.
+- Protect `main` with PRs, approval, required build/security checks, no force
+  pushes, CodeQL, Dependabot, secret scanning and push protection. Pin all
+  GitHub Action revisions.
+- Deploy the Cloud Run scanner (service-identity authentication, ClamAV and
+  byte-signature validation) and prove every legacy asset has been rescanned
+  before the final browser-Storage policy revocation. Upload intents must have
+  an atomic pending → scanning → approved/rejected lifecycle; only approved
+  derivatives may be public and CV downloads remain authorized/signed only.
+
+The production audit currently has no high/critical findings. Three moderate
+transitive findings remain in the optional `@google/genai` MCP stack; keep it
+outside request paths or upgrade it once its upstream publishes a compatible
+fix.

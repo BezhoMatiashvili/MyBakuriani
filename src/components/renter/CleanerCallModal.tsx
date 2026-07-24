@@ -20,7 +20,7 @@ interface PropertyOption {
 interface CleanerCallModalProps {
   isOpen: boolean;
   onClose: () => void;
-  cleaner: { cleanerId: string; name: string } | null;
+  cleaner: { cleanerId: string; serviceId: string; name: string } | null;
   onSent?: () => void;
   prefill?: {
     propertyId?: string;
@@ -127,19 +127,18 @@ export default function CleanerCallModal({
     setSending(true);
     setError(null);
 
-    const { error: insertError } = await supabase
-      .from("cleaning_tasks")
-      .insert({
-        property_id: propertyId,
-        owner_id: user.id,
-        cleaner_id: cleaner.cleanerId,
-        cleaning_type: cleaningType,
-        scheduled_at: new Date(`${date}T${time}`).toISOString(),
-        price: priceNumber,
-        address: address.trim() || null,
-        notes: notes.trim() || null,
-        status: "pending",
-      });
+    // The database derives owner, cleaner and price from the selected listing.
+    // Do not send any authority-bearing values from the browser.
+    const { error: insertError } = await (supabase as any).rpc(
+      "create_cleaning_task",
+      {
+        p_property_id: propertyId,
+        p_cleaner_service_id: cleaner.serviceId,
+        p_cleaning_type: cleaningType,
+        p_scheduled_at: new Date(`${date}T${time}`).toISOString(),
+        p_notes: notes.trim() || null,
+      },
+    );
 
     setSending(false);
     if (insertError) {
@@ -251,14 +250,14 @@ export default function CleanerCallModal({
                     <DateField
                       value={date}
                       onChange={setDate}
-                      className="h-[42px]"
+                      className="h-12 lg:h-[42px]"
                     />
                   </Field>
                   <Field label={tShared("time")}>
                     <TimeField
                       value={time}
                       onChange={setTime}
-                      className="h-[42px]"
+                      className="h-12 lg:h-[42px]"
                     />
                   </Field>
                 </div>

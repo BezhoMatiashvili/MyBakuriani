@@ -425,7 +425,7 @@ export default function AdminZonesPage() {
             <button
               type="button"
               onClick={() => setShowCreate(false)}
-              className="h-10 rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A] hover:bg-[#F8FAFC]"
+              className="h-10 min-h-11 rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A] hover:bg-[#F8FAFC] lg:min-h-0"
             >
               გაუქმება
             </button>
@@ -433,7 +433,7 @@ export default function AdminZonesPage() {
               type="button"
               onClick={createZone}
               disabled={creating}
-              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#2563EB] px-4 text-sm font-bold text-white disabled:opacity-50"
+              className="inline-flex h-10 min-h-11 items-center gap-2 rounded-full bg-[#2563EB] px-4 text-sm font-bold text-white disabled:opacity-50 lg:min-h-0"
             >
               {creating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -495,7 +495,7 @@ export default function AdminZonesPage() {
                         <button
                           type="button"
                           onClick={() => cancelEditing(zone.id)}
-                          className="h-9 rounded-full border border-[#E2E8F0] bg-white px-3 text-sm font-bold text-[#0F172A] hover:bg-[#F8FAFC]"
+                          className="h-9 min-h-11 rounded-full border border-[#E2E8F0] bg-white px-3 text-sm font-bold text-[#0F172A] hover:bg-[#F8FAFC] lg:min-h-0"
                         >
                           გაუქმება
                         </button>
@@ -503,7 +503,7 @@ export default function AdminZonesPage() {
                           type="button"
                           onClick={() => saveEdit(zone)}
                           disabled={isSaving}
-                          className="inline-flex h-9 items-center gap-2 rounded-full bg-[#10B981] px-3 text-sm font-bold text-white disabled:opacity-50"
+                          className="inline-flex h-9 min-h-11 items-center gap-2 rounded-full bg-[#10B981] px-3 text-sm font-bold text-white disabled:opacity-50 lg:min-h-0"
                         >
                           {isSaving ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -544,7 +544,7 @@ export default function AdminZonesPage() {
                           type="button"
                           onClick={() => move(zone, -1)}
                           disabled={idx === 0 || isSaving}
-                          className="rounded-full p-3 lg:p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
+                          className="rounded-full p-3.5 lg:p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
                           aria-label="ზემოთ"
                         >
                           <ArrowUp className="h-4 w-4" />
@@ -553,7 +553,7 @@ export default function AdminZonesPage() {
                           type="button"
                           onClick={() => move(zone, 1)}
                           disabled={idx === ordered.length - 1 || isSaving}
-                          className="rounded-full p-3 lg:p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
+                          className="rounded-full p-3.5 lg:p-2 text-[#64748B] hover:bg-white disabled:opacity-30"
                           aria-label="ქვემოთ"
                         >
                           <ArrowDown className="h-4 w-4" />
@@ -578,7 +578,7 @@ export default function AdminZonesPage() {
                         <button
                           type="button"
                           onClick={() => startEditing(zone)}
-                          className="rounded-full p-3 lg:p-2 text-[#2563EB] hover:bg-white"
+                          className="rounded-full p-3.5 lg:p-2 text-[#2563EB] hover:bg-white"
                           aria-label="რედაქტირება"
                         >
                           <Pencil className="h-4 w-4" />
@@ -587,7 +587,7 @@ export default function AdminZonesPage() {
                           type="button"
                           onClick={() => softDelete(zone)}
                           disabled={isSaving || !zone.is_active}
-                          className="rounded-full p-3 lg:p-2 text-[#DC2626] hover:bg-white disabled:opacity-30"
+                          className="rounded-full p-3.5 lg:p-2 text-[#DC2626] hover:bg-white disabled:opacity-30"
                           aria-label="გათიშვა"
                         >
                           <Trash2 className="h-4 w-4" />

@@ -82,7 +82,7 @@ export default function OrganizationLinkPage() {
         <button
           type="button"
           onClick={() => router.push("/dashboard/seller/organizations")}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] lg:h-10 lg:w-10"
           aria-label="Back"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -157,7 +157,7 @@ export default function OrganizationLinkPage() {
                 type="button"
                 disabled={done || busyId === org.id}
                 onClick={() => handleLink(org.id)}
-                className="inline-flex h-[40px] items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#94A3B8]"
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#94A3B8] lg:h-[40px]"
               >
                 {busyId === org.id ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -123,6 +123,7 @@
     "reviews": "შეფასებები",
     "logout": "გასვლა",
     "menu": "მენიუ",
+    "close": "მენიუს დახურვა",
     "dashboard": "კაბინეტი",
     "notifications": "შეტყობინებები",
     "noNotifications": "ჯერ არ გაქვთ შეტყობინებები",
@@ -215,6 +216,7 @@
       "banners": "ბანერები",
       "news": "სიახლეები",
       "logs": "ლოგები",
+      "more": "მეტი",
       "graphic": "გრაფიკი",
       "myOrganizations": "ჩემი ორგანიზაციები",
       "myCompany": "ჩემი კომპანია",
@@ -1050,6 +1052,7 @@
   "PhotoGallery": {
     "noPhotos": "ფოტო არ არის",
     "share": "გაზიარება",
+    "close": "ფოტოების დათვალიერების დახურვა",
     "addToFavorites": "ფავორიტებში დამატება",
     "allPhotos": "ყველა ფოტო ({count})",
     "viewAllPhotos": "ყველა ფოტოს ნახვა ({count})"
@@ -1152,6 +1155,7 @@
     "tabServices": "სერვისები",
     "tabBlog": "ბლოგი",
     "viewResults": "შედეგების ნახვა",
+    "resetFilters": "გასუფთავება",
     "emptyTitle": "შედეგი ვერ მოიძებნა",
     "emptyHint": "სცადეთ სხვა საძიებო სიტყვა ან შეცვალეთ ფილტრები",
     "seeAll": "ყველას ნახვა →"

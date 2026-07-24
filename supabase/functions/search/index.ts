@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
-  corsHeaders,
+  buildCorsHeaders,
+  checkRateLimit,
   createServiceClient,
   errorResponse,
   jsonResponse,
@@ -8,8 +9,13 @@ import {
 import { sanitizeQuery } from "../_shared/sanitize.ts";
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (!(await checkRateLimit(req, "search", 30, 60_000))) {
+    return jsonResponse({ error: "rate_limited", code: "RATE_LIMITED" }, 429, corsHeaders);
   }
 
   try {
@@ -42,9 +48,9 @@ serve(async (req) => {
       per_page: requestedPerPage = 20,
     } = await req.json();
 
-    // Bound page size — this is an unauthenticated, service-role-backed query
-    // that joins owner phone numbers; an unbounded per_page would let a single
-    // request bulk-scrape every active listing's contact info.
+    // Bound page size for this unauthenticated endpoint.  It reads only the
+    // explicit public views below; contact and owner fields never enter its
+    // response regardless of a future base-table column addition.
     const per_page = Math.min(Math.max(1, Number(requestedPerPage) || 20), 100);
 
     // Global keyword search path: when `q` is set, fan out across
@@ -82,28 +88,32 @@ serve(async (req) => {
       };
 
       const rows = (hits ?? []) as Hit[];
-      const propertiesArr = rows
-        .filter((r) => r.entity_type === "properties")
-        .map((r) => r.payload);
-      const servicesArr = rows
-        .filter((r) => r.entity_type === "services")
-        .map((r) => r.payload);
+      const propertyIds = rows.filter((r) => r.entity_type === "properties").map((r) => r.entity_id);
+      const serviceIds = rows.filter((r) => r.entity_type === "services").map((r) => r.entity_id);
+      const [{ data: propertiesArr }, { data: servicesArr }] = await Promise.all([
+        propertyIds.length
+          ? supabase.from("public_properties").select("*").in("id", propertyIds)
+          : Promise.resolve({ data: [] }),
+        serviceIds.length
+          ? supabase.from("public_services").select("*").in("id", serviceIds)
+          : Promise.resolve({ data: [] }),
+      ]);
       const blogArr = rows
         .filter((r) => r.entity_type === "blog_posts")
-        .map((r) => r.payload);
+        .map((r) => ({ id: r.entity_id, title: r.title, excerpt: r.snippet, slug: r.slug, image_url: r.photo }));
 
       return jsonResponse(
         {
           data: {
-            properties: propertiesArr,
-            services: servicesArr,
+            properties: propertiesArr ?? [],
+            services: servicesArr ?? [],
             blog: blogArr,
           },
           totals: {
-            properties: propertiesArr.length,
-            services: servicesArr.length,
+            properties: propertiesArr?.length ?? 0,
+            services: servicesArr?.length ?? 0,
             blog: blogArr.length,
-            all: propertiesArr.length + servicesArr.length + blogArr.length,
+            all: (propertiesArr?.length ?? 0) + (servicesArr?.length ?? 0) + blogArr.length,
           },
           page: 1,
           per_page: rows.length,
@@ -112,17 +122,9 @@ serve(async (req) => {
       );
     }
 
-    const profileJoin = verified_only
-      ? "profiles!owner_id!inner"
-      : "profiles!owner_id";
-
     let dbQuery = supabase
-      .from("properties")
-      .select(
-        `*, ${profileJoin}(display_name, phone, avatar_url, rating, is_verified), organizations(status)`,
-        { count: "exact" },
-      )
-      .eq("status", "active");
+      .from("public_properties")
+      .select("*", { count: "exact" });
 
     // Location trigram search (also search title)
     if (query) {
@@ -154,7 +156,7 @@ serve(async (req) => {
     if (cadastral_code) dbQuery = dbQuery.eq("cadastral_code", cadastral_code);
     if (area_min) dbQuery = dbQuery.gte("area_sqm", area_min);
     if (area_max) dbQuery = dbQuery.lte("area_sqm", area_max);
-    if (verified_only) dbQuery = dbQuery.eq("profiles.is_verified", true);
+    if (verified_only) dbQuery = dbQuery.eq("profile_is_verified", true);
 
     // Investment-mode filters. ROI excludes nulls so "min 5%" means
     // "listings whose ROI is known to be ≥ 5%" — not unknown-ROI listings.
@@ -191,15 +193,7 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    // Hide listings posted under a company that isn't admin-verified yet. The
-    // service-role client bypasses RLS, so this gate must be applied explicitly
-    // here (the anon/public read paths get it from the properties RLS policy).
-    let filtered = (properties ?? []).filter(
-      (p: {
-        organization_id?: string | null;
-        organizations?: { status?: string } | null;
-      }) => !p.organization_id || p.organizations?.status === "active",
-    );
+    let filtered = properties ?? [];
 
     // Filter by date availability if dates provided
     if (check_in && check_out) {
@@ -251,6 +245,6 @@ serve(async (req) => {
       200,
     );
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, corsHeaders);
   }
 });

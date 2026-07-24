@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ChevronDown, type LucideIcon } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import { safeInternalPath } from "@/lib/security";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 
 export interface NotificationCardItem {
@@ -56,6 +57,7 @@ export function NotificationCard({
   const tShared = useTranslations("DashboardShared");
   const [expanded, setExpanded] = useState(false);
   const { Icon } = tone;
+  const actionPath = safeInternalPath(n.action_url);
 
   function toggle() {
     setExpanded((prev) => {
@@ -138,9 +140,9 @@ export function NotificationCard({
                   {formatExactDate(n.created_at)}
                 </p>
               )}
-              {n.action_url && (
+              {actionPath && (
                 <Link
-                  href={n.action_url as never}
+                  href={actionPath as never}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
                 >
                   {tShared("viewNotification")}

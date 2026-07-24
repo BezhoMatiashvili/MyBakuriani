@@ -28,7 +28,7 @@ export default function DateTimeField({
           onChange={(d) => onChange(d ? `${d}T${timePart || "00:00"}` : "")}
         />
       </div>
-      <div className="w-[120px]">
+      <div className="w-[104px] min-[360px]:w-[120px]">
         <TimeField
           value={timePart}
           className={className}

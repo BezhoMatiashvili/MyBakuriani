@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminLayout({
   children,
@@ -16,6 +17,12 @@ export default async function AdminLayout({
 
   if (!profile || profile.role !== "admin") {
     redirect("/dashboard");
+  }
+
+  const supabase = await createClient();
+  const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (assurance?.currentLevel !== "aal2") {
+    redirect("/auth/mfa?next=/dashboard/admin");
   }
 
   return <>{children}</>;

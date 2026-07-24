@@ -37,9 +37,8 @@ export default async function SalesGridPage({ searchParams }: Props) {
   const supabase = createPublicClient();
 
   const { data: properties, error } = await supabase
-    .from("properties")
+    .from("public_properties")
     .select("*")
-    .eq("status", "active")
     .eq("is_for_sale", true)
     .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })

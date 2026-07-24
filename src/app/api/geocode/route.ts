@@ -24,8 +24,8 @@ const NOMINATIM_VIEWBOX = "43.4094,41.8309,43.6494,41.6709";
 const REQUEST_HEADERS = {
   // Verify the production domain before shipping if it changes.
   "User-Agent":
-    "MyBakuriani/1.0 (https://mybakuriani.ge; beji.matiashvili@gmail.com)",
-  Referer: "https://mybakuriani.ge",
+    "MyBakuriani/1.0 (https://my-bakuriani.vercel.app; beji.matiashvili@gmail.com)",
+  Referer: "https://my-bakuriani.vercel.app",
   Accept: "application/json",
 };
 
@@ -36,7 +36,7 @@ interface GeocodeResult {
 }
 
 export async function GET(req: NextRequest) {
-  if (!checkRateLimit(`geocode:${getClientIp(req)}`, 20, 60_000)) {
+  if (!(await checkRateLimit(`geocode:${getClientIp(req)}`, 20, 60_000))) {
     return Response.json(
       { error: "rate limited", results: [] },
       { status: 429 },

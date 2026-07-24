@@ -59,40 +59,35 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
 
   const queries = Promise.all([
     supabase
-      .from("properties")
+      .from("public_properties")
       .select("*")
-      .eq("status", "active")
       .eq("is_for_sale", false)
       .order("is_super_vip", { ascending: false })
       .order("is_vip", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(8),
     supabase
-      .from("properties")
+      .from("public_properties")
       .select("*")
-      .eq("status", "active")
       .eq("type", "hotel")
       .order("is_vip", { ascending: false })
       .limit(4),
     supabase
-      .from("properties")
+      .from("public_properties")
       .select("*")
-      .eq("status", "active")
       .eq("is_for_sale", true)
       .order("is_vip", { ascending: false })
       .limit(4),
     supabase
-      .from("properties")
+      .from("public_properties")
       .select("*")
-      .eq("status", "active")
       .eq("is_for_sale", false)
       .or("is_vip.eq.true,is_super_vip.eq.true")
       .order("price_per_night", { ascending: true, nullsFirst: false })
       .limit(12),
     supabase
-      .from("services")
+      .from("public_services")
       .select("*")
-      .eq("status", "active")
       .order("is_vip", { ascending: false })
       .limit(20),
     supabase
@@ -102,9 +97,8 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
       .order("published_at", { ascending: false })
       .limit(3),
     supabase
-      .from("properties")
+      .from("public_properties")
       .select("sale_price, area_sqm, location_lat, location_lng")
-      .eq("status", "active")
       .eq("is_for_sale", true)
       .not("sale_price", "is", null)
       .not("area_sqm", "is", null)

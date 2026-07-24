@@ -17,6 +17,7 @@ import { formatPrice } from "@/lib/utils/format";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeCadastralCode } from "@/lib/utils/number";
+import BottomSheet from "@/components/shared/BottomSheet";
 
 // Seeded zone slugs have display translations under Zones.<slug>; unknown
 // (admin-created) zones fall back to their Georgian name_ka. Display only —
@@ -91,6 +92,25 @@ type SaleActiveDropdown =
   | "renovation"
   | "zone"
   | null;
+
+type MobileFilterDraft = {
+  propertyTypes: string[];
+  priceMin: string;
+  priceMax: string;
+  cadastralCode: string;
+  statuses: string[];
+  rooms: number[];
+  areaMin: number;
+  areaMax: number;
+  amenities: string[];
+  payment: string[];
+  developers: string[];
+  sellerTypes: string[];
+  roiMin: number | null;
+  areaBucket: AreaBucket;
+  constructionStatus: string | null;
+  renovationStatus: string | null;
+};
 
 interface SaleSearchBoxProps {
   onSearch: (filters: SaleSearchFilters) => void;
@@ -286,11 +306,22 @@ export function SaleSearchBox({
 
   const [activeDropdown, setActiveDropdown] =
     useState<SaleActiveDropdown>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileFilterDraft, setMobileFilterDraft] =
+    useState<MobileFilterDraft | null>(null);
 
   const containerRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (!activeDropdown) return;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!activeDropdown || isMobile) return;
     function handleClickOutside(event: MouseEvent) {
       if (!containerRef.current?.contains(event.target as Node)) {
         setActiveDropdown(null);
@@ -298,7 +329,7 @@ export function SaleSearchBox({
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [activeDropdown]);
+  }, [activeDropdown, isMobile]);
 
   const toggleDropdown = useCallback((name: SaleActiveDropdown) => {
     setActiveDropdown((prev) => (prev === name ? null : name));
@@ -331,9 +362,85 @@ export function SaleSearchBox({
     setSellerTypes([]);
   }, []);
 
+  const openMobileFilters = useCallback(() => {
+    setMobileFilterDraft({
+      propertyTypes: [...propertyTypes],
+      priceMin,
+      priceMax,
+      cadastralCode,
+      statuses: [...statuses],
+      rooms: [...rooms],
+      areaMin,
+      areaMax,
+      amenities: [...amenities],
+      payment: [...payment],
+      developers: [...developers],
+      sellerTypes: [...sellerTypes],
+      roiMin,
+      areaBucket,
+      constructionStatus,
+      renovationStatus,
+    });
+    setActiveDropdown("filters");
+  }, [
+    propertyTypes,
+    priceMin,
+    priceMax,
+    cadastralCode,
+    statuses,
+    rooms,
+    areaMin,
+    areaMax,
+    amenities,
+    payment,
+    developers,
+    sellerTypes,
+    roiMin,
+    areaBucket,
+    constructionStatus,
+    renovationStatus,
+  ]);
+
+  const resetMobileFilters = useCallback(() => {
+    setMobileFilterDraft({
+      propertyTypes: [], priceMin: "", priceMax: "", cadastralCode: "",
+      statuses: [], rooms: [], areaMin: DEFAULT_AREA_MIN,
+      areaMax: DEFAULT_AREA_MAX, amenities: [], payment: [], developers: [],
+      sellerTypes: [], roiMin: null, areaBucket: null,
+      constructionStatus: null, renovationStatus: null,
+    });
+  }, []);
+
+  const applyMobileFilters = useCallback(() => {
+    if (!mobileFilterDraft) return;
+    setPropertyTypes(mobileFilterDraft.propertyTypes);
+    setPriceMin(mobileFilterDraft.priceMin);
+    setPriceMax(mobileFilterDraft.priceMax);
+    setCadastralCode(mobileFilterDraft.cadastralCode);
+    setStatuses(mobileFilterDraft.statuses);
+    setRooms(mobileFilterDraft.rooms);
+    setAreaMin(mobileFilterDraft.areaMin);
+    setAreaMax(mobileFilterDraft.areaMax);
+    setAmenities(mobileFilterDraft.amenities);
+    setPayment(mobileFilterDraft.payment);
+    setDevelopers(mobileFilterDraft.developers);
+    setSellerTypes(mobileFilterDraft.sellerTypes);
+    setRoiMin(mobileFilterDraft.roiMin);
+    setAreaBucket(mobileFilterDraft.areaBucket);
+    setConstructionStatus(mobileFilterDraft.constructionStatus);
+    setRenovationStatus(mobileFilterDraft.renovationStatus);
+    setActiveDropdown(null);
+  }, [mobileFilterDraft]);
+
   const priceMinNum = priceMin ? Number(priceMin) || DEFAULT_PRICE_MIN : 0;
   const priceMaxNum = priceMax
     ? Number(priceMax) || DEFAULT_PRICE_MAX
+    : PRICE_MAX;
+  const mobileDraftPriceMin = mobileFilterDraft?.priceMin
+    ? Number(mobileFilterDraft.priceMin) || DEFAULT_PRICE_MIN
+    : 0;
+  const mobileDraftPriceMax = mobileFilterDraft?.priceMax
+    ? Number(mobileFilterDraft.priceMax) || DEFAULT_PRICE_MAX
     : PRICE_MAX;
 
   const runAppraisal = useCallback(
@@ -492,7 +599,11 @@ export function SaleSearchBox({
     amenities.length +
     payment.length +
     developers.length +
-    sellerTypes.length;
+    sellerTypes.length +
+    (roiMin !== null ? 1 : 0) +
+    (areaBucket !== null ? 1 : 0) +
+    (constructionStatus !== null ? 1 : 0) +
+    (renovationStatus !== null ? 1 : 0);
 
   const appraisalZoneLabel = appraisalZone
     ? zoneDisplayName(zones, tZones, appraisalZone)
@@ -562,7 +673,7 @@ export function SaleSearchBox({
                   onChange={(e) =>
                     setPriceMin(e.target.value.replace(/\D/g, ""))
                   }
-                  className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
+                  className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
                 />
                 <input
                   type="text"
@@ -572,7 +683,7 @@ export function SaleSearchBox({
                   onChange={(e) =>
                     setPriceMax(e.target.value.replace(/\D/g, ""))
                   }
-                  className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
+                  className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8]"
                 />
               </div>
             </div>
@@ -608,9 +719,10 @@ export function SaleSearchBox({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => toggleDropdown("filters")}
+                onClick={openMobileFilters}
+                data-testid="sale-mobile-filters"
                 className={cn(
-                  "flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#1E293B] transition-colors",
+                  "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#1E293B] transition-colors",
                   activeDropdown === "filters" &&
                     "border-[#16A34A] text-[#16A34A]",
                 )}
@@ -627,7 +739,7 @@ export function SaleSearchBox({
                 type="button"
                 onClick={handleMapToggle}
                 className={cn(
-                  "flex h-10 items-center justify-center gap-1.5 rounded-lg border px-4 text-[13px] font-bold transition-colors",
+                  "flex h-11 items-center justify-center gap-1.5 rounded-lg border px-4 text-[13px] font-bold transition-colors",
                   showMap
                     ? "border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]"
                     : "border-[#E2E8F0] bg-white text-[#1E293B]",
@@ -769,7 +881,7 @@ export function SaleSearchBox({
 
           {/* ═══ Investment quick-filter row (ROI / Area / Status / Renovation) ═══ */}
           {showInvestmentFilters && (
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4 md:gap-4">
+            <div className="mt-4 hidden grid-cols-4 gap-4 lg:grid">
               <QuickSelect
                 label={t("quickRoi")}
                 value={roiLabel}
@@ -917,7 +1029,92 @@ export function SaleSearchBox({
         </div>
       )}
 
-      {tab === "search" && activeDropdown === "filters" && (
+      {tab === "search" && isMobile && (
+        <BottomSheet
+          isOpen={activeDropdown === "filters"}
+          onClose={() => setActiveDropdown(null)}
+          title={t("detailed")}
+        >
+          {mobileFilterDraft && (
+            <FiltersPanel
+              mobile
+              propertyTypes={mobileFilterDraft.propertyTypes}
+              onToggleType={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
+                ...draft,
+                propertyTypes: draft.propertyTypes.includes(v)
+                  ? draft.propertyTypes.filter((item) => item !== v)
+                  : [...draft.propertyTypes, v],
+              })}
+              priceMin={mobileDraftPriceMin}
+              priceMax={mobileDraftPriceMax}
+              onChangeMin={(v) => setMobileFilterDraft((draft) => draft && { ...draft, priceMin: String(v) })}
+              onChangeMax={(v) => setMobileFilterDraft((draft) => draft && { ...draft, priceMax: String(v) })}
+              cadastralCode={mobileFilterDraft.cadastralCode}
+              onChangeCadastral={(v) => setMobileFilterDraft((draft) => draft && { ...draft, cadastralCode: v })}
+              statuses={mobileFilterDraft.statuses}
+              onToggleStatus={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
+                ...draft,
+                statuses: draft.statuses.includes(v)
+                  ? draft.statuses.filter((item) => item !== v)
+                  : [...draft.statuses, v],
+              })}
+              rooms={mobileFilterDraft.rooms}
+              onToggleRoom={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
+                ...draft,
+                rooms: draft.rooms.includes(v)
+                  ? draft.rooms.filter((item) => item !== v)
+                  : [...draft.rooms, v],
+              })}
+              areaMin={mobileFilterDraft.areaMin}
+              areaMax={mobileFilterDraft.areaMax}
+              onChangeAreaMin={(v) => setMobileFilterDraft((draft) => draft && { ...draft, areaMin: v })}
+              onChangeAreaMax={(v) => setMobileFilterDraft((draft) => draft && { ...draft, areaMax: v })}
+              amenities={mobileFilterDraft.amenities}
+              onToggleAmenity={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
+                ...draft,
+                amenities: draft.amenities.includes(v)
+                  ? draft.amenities.filter((item) => item !== v)
+                  : [...draft.amenities, v],
+              })}
+              payment={mobileFilterDraft.payment}
+              onTogglePayment={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
+                ...draft,
+                payment: draft.payment.includes(v)
+                  ? draft.payment.filter((item) => item !== v)
+                  : [...draft.payment, v],
+              })}
+              developers={mobileFilterDraft.developers}
+              onToggleDeveloper={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
+                ...draft,
+                developers: draft.developers.includes(v)
+                  ? draft.developers.filter((item) => item !== v)
+                  : [...draft.developers, v],
+              })}
+              sellerTypes={mobileFilterDraft.sellerTypes}
+              onToggleSellerType={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
+                ...draft,
+                sellerTypes: draft.sellerTypes.includes(v)
+                  ? draft.sellerTypes.filter((item) => item !== v)
+                  : [...draft.sellerTypes, v],
+              })}
+              investment={{
+                roiMin: mobileFilterDraft.roiMin,
+                areaBucket: mobileFilterDraft.areaBucket,
+                constructionStatus: mobileFilterDraft.constructionStatus,
+                renovationStatus: mobileFilterDraft.renovationStatus,
+                onRoiChange: (roiMin) => setMobileFilterDraft((draft) => draft && { ...draft, roiMin }),
+                onAreaChange: (areaBucket) => setMobileFilterDraft((draft) => draft && { ...draft, areaBucket }),
+                onConstructionChange: (constructionStatus) => setMobileFilterDraft((draft) => draft && { ...draft, constructionStatus }),
+                onRenovationChange: (renovationStatus) => setMobileFilterDraft((draft) => draft && { ...draft, renovationStatus }),
+              }}
+              onReset={resetMobileFilters}
+              onApply={applyMobileFilters}
+            />
+          )}
+        </BottomSheet>
+      )}
+
+      {tab === "search" && !isMobile && activeDropdown === "filters" && (
         <div className="absolute left-0 right-0 top-full z-50 mt-3 rounded-[24px] border border-[#E2E8F0] bg-white p-6 text-left shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
           <FiltersPanel
             propertyTypes={propertyTypes}
@@ -1065,7 +1262,7 @@ function MobileField({
       <button
         type="button"
         onClick={onClick}
-        className="flex h-10 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#1E293B] outline-none"
+        className="flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#1E293B] outline-none"
       >
         <span className="truncate">{value}</span>
         <ChevronDown className="size-4 text-[#94A3B8]" />
@@ -1493,8 +1690,10 @@ function FiltersPanel({
   onToggleDeveloper,
   sellerTypes,
   onToggleSellerType,
+  investment,
   onReset,
   onApply,
+  mobile = false,
 }: {
   propertyTypes: string[];
   onToggleType: (value: string) => void;
@@ -1520,12 +1719,79 @@ function FiltersPanel({
   onToggleDeveloper: (v: string) => void;
   sellerTypes: string[];
   onToggleSellerType: (v: string) => void;
+  investment?: {
+    roiMin: number | null;
+    areaBucket: AreaBucket;
+    constructionStatus: string | null;
+    renovationStatus: string | null;
+    onRoiChange: (value: number | null) => void;
+    onAreaChange: (value: AreaBucket) => void;
+    onConstructionChange: (value: string | null) => void;
+    onRenovationChange: (value: string | null) => void;
+  };
   onReset: () => void;
   onApply: () => void;
+  mobile?: boolean;
 }) {
   const t = useTranslations("SaleSearchBox");
   return (
     <div className="text-left">
+      {investment && (
+        <div className="mb-6 grid grid-cols-1 gap-5 border-b border-[#F1F5F9] pb-6">
+          <FilterCell label={t("quickRoi")}>
+            <div className="flex flex-wrap gap-2">
+              {ROI_OPTIONS.map((option) => (
+                <FilterChip
+                  key={option.value ?? "any"}
+                  selected={investment.roiMin === option.value}
+                  onClick={() => investment.onRoiChange(option.value)}
+                >
+                  {option.value == null ? t("roiAny") : t("roiFrom", { value: option.value })}
+                </FilterChip>
+              ))}
+            </div>
+          </FilterCell>
+          <FilterCell label={t("quickArea")}>
+            <div className="flex flex-wrap gap-2">
+              {AREA_OPTIONS.map((option) => (
+                <FilterChip
+                  key={option.value ?? "any"}
+                  selected={investment.areaBucket === option.value}
+                  onClick={() => investment.onAreaChange(option.value)}
+                >
+                  {option.value == null ? t("anyOption") : t("areaRange", { range: option.value })}
+                </FilterChip>
+              ))}
+            </div>
+          </FilterCell>
+          <FilterCell label={t("quickStatus")}>
+            <div className="flex flex-wrap gap-2">
+              {CONSTRUCTION_OPTIONS.map((option) => (
+                <FilterChip
+                  key={option.value ?? "any"}
+                  selected={investment.constructionStatus === option.value}
+                  onClick={() => investment.onConstructionChange(option.value)}
+                >
+                  {t(option.labelKey)}
+                </FilterChip>
+              ))}
+            </div>
+          </FilterCell>
+          <FilterCell label={t("quickRenovation")}>
+            <div className="flex flex-wrap gap-2">
+              {RENOVATION_OPTIONS.map((option) => (
+                <FilterChip
+                  key={option.value ?? "any"}
+                  selected={investment.renovationStatus === option.value}
+                  onClick={() => investment.onRenovationChange(option.value)}
+                >
+                  {t(option.labelKey)}
+                </FilterChip>
+              ))}
+            </div>
+          </FilterCell>
+        </div>
+      )}
       <p className="mb-3 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
         {t("seller")}
       </p>
@@ -1745,14 +2011,22 @@ function FiltersPanel({
         <button
           type="button"
           onClick={onReset}
-          className="h-10 rounded-full px-5 text-[13px] font-bold text-[#64748B] transition-colors hover:text-[#1E293B]"
+          data-testid={mobile ? "sale-mobile-filter-reset" : undefined}
+          className={cn(
+            "rounded-full px-5 text-[13px] font-bold text-[#64748B] transition-colors hover:text-[#1E293B]",
+            mobile ? "min-h-11" : "h-10",
+          )}
         >
           {t("cancel")}
         </button>
         <button
           type="button"
           onClick={onApply}
-          className="h-10 rounded-full bg-[#16A34A] px-6 text-[13px] font-bold text-white transition-colors hover:bg-[#15803D]"
+          data-testid={mobile ? "sale-mobile-filter-apply" : undefined}
+          className={cn(
+            "rounded-full bg-[#16A34A] px-6 text-[13px] font-bold text-white transition-colors hover:bg-[#15803D]",
+            mobile ? "min-h-11" : "h-10",
+          )}
         >
           {t("applyFilter")}
         </button>
@@ -1777,6 +2051,31 @@ function FilterCell({
       </p>
       {children}
     </div>
+  );
+}
+
+function FilterChip({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "min-h-11 rounded-full border px-4 text-[13px] font-bold transition-colors",
+        selected
+          ? "border-[#1E419A] bg-[#1E419A] text-white"
+          : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#1E419A] hover:text-[#1E419A]",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

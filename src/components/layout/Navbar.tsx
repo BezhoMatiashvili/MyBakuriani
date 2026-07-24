@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { usePathname } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
@@ -77,6 +77,8 @@ export function Navbar() {
   } = useNotifications();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const [profile, setProfile] = useState<{
     display_name: string;
     role: string;
@@ -154,13 +156,41 @@ export function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const menuTrigger = mobileMenuTriggerRef.current;
+    document.body.style.overflow = "hidden";
+    const focusable = () => Array.from(
+      mobileMenuRef.current?.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      ) ?? [],
+    );
+    const timer = window.setTimeout(() => focusable()[0]?.focus(), 0);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = "";
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      menuTrigger?.focus();
     };
   }, [mobileOpen]);
 
@@ -271,11 +301,13 @@ export function Navbar() {
           )}
           <AddListingButton label={t("addListing")} variant="icon" />
           <Button
+            ref={mobileMenuTriggerRef}
             variant="ghost"
             size="icon"
             className="size-11"
             onClick={() => setMobileOpen(true)}
             aria-label={t("menu")}
+            data-testid="menu-toggle"
           >
             <Menu className="size-5" />
           </Button>
@@ -319,7 +351,13 @@ export function Navbar() {
             className="fixed inset-0 z-50 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="fixed right-0 top-0 z-50 flex h-full w-[88vw] max-w-[320px] md:w-[320px] flex-col bg-white shadow-2xl">
+          <div
+            ref={mobileMenuRef}
+            className="fixed right-0 top-0 z-50 flex h-[100dvh] w-[88vw] max-w-[320px] flex-col bg-white pt-[env(safe-area-inset-top)] shadow-2xl md:w-[320px]"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("menu")}
+          >
             <div className="flex items-center justify-between border-b border-[#F1F5F9] p-4">
               <span className="text-lg font-bold text-[#1E293B]">
                 {t("menu")}
@@ -329,6 +367,7 @@ export function Navbar() {
                 size="icon"
                 className="size-11"
                 onClick={() => setMobileOpen(false)}
+                aria-label={t("close")}
               >
                 <X className="size-5" />
               </Button>

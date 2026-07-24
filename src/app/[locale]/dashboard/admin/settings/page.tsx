@@ -285,7 +285,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setCreateModal({ open: true, category })}
-                  className={`inline-flex h-8 items-center gap-1 rounded-lg px-3 text-[12px] font-bold transition-colors ${meta.tint}`}
+                  className={`inline-flex h-8 min-h-11 items-center gap-1 rounded-lg px-3 text-[12px] font-bold transition-colors lg:min-h-0 ${meta.tint}`}
                   aria-label={`დაამატე ახალი ${meta.label}`}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -351,7 +351,7 @@ export default function SettingsPage() {
                             onClick={() => openEdit(pkg)}
                             title="რედაქტირება (ფასი, ხანგრძლივობა)"
                             aria-label="რედაქტირება"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+                            className="flex h-11 w-11 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F1F5F9] lg:h-8 lg:w-8"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
@@ -433,7 +433,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={() => openEdit(pkg)}
                       title="რედაქტირება"
-                      className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+                      className="inline-flex h-8 min-h-11 items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9] lg:min-h-0"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       რედაქტირება
@@ -445,7 +445,7 @@ export default function SettingsPage() {
                       }
                       disabled={isSaving}
                       title="ჩართეთ რომ მომხმარებლებმა დაინახონ"
-                      className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#DCFCE7] px-3 text-[12px] font-bold text-[#059669] transition-colors hover:bg-[#BBF7D0] disabled:opacity-50"
+                      className="inline-flex h-8 min-h-11 items-center gap-1 rounded-lg bg-[#DCFCE7] px-3 text-[12px] font-bold text-[#059669] transition-colors hover:bg-[#BBF7D0] disabled:opacity-50 lg:min-h-0"
                     >
                       {isSaving ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

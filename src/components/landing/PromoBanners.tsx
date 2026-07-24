@@ -6,6 +6,7 @@ import Link from "next/link";
 import BannerDetailModal from "@/components/shared/BannerDetailModal";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
+import { safeInternalPath, safeHttpsUrl } from "@/lib/security";
 
 interface PromoBannersProps {
   banners: LandingBanner[];
@@ -19,6 +20,8 @@ export function PromoBanners({ banners }: PromoBannersProps) {
       <div className="mx-auto max-w-[1160px] space-y-4">
         {banners.map((banner) => {
           const tone = BANNER_TONE_STYLES[banner.tone];
+          const ctaHref =
+            safeInternalPath(banner.cta_href) ?? safeHttpsUrl(banner.cta_href);
           return (
             <ScrollReveal key={banner.id}>
               <div
@@ -85,9 +88,9 @@ export function PromoBanners({ banners }: PromoBannersProps) {
                       </p>
                     ) : null}
                   </div>
-                  {banner.cta_label && banner.cta_href ? (
+                  {banner.cta_label && ctaHref ? (
                     <Link
-                      href={banner.cta_href}
+                      href={ctaHref}
                       onClick={(e) => e.stopPropagation()}
                       className="shrink-0 rounded-full border-2 bg-white px-6 py-3 text-[13px] font-bold transition-colors"
                       style={{

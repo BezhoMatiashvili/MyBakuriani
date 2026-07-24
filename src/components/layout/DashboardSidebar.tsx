@@ -171,7 +171,7 @@ export function DashboardSidebar({
 
   return (
     <motion.aside
-      className="hidden h-screen border-r border-[#E2E8F0] bg-white md:flex md:flex-col"
+      className="hidden h-screen border-r border-[#E2E8F0] bg-white lg:flex lg:flex-col"
       animate={{ width: collapsed ? 72 : 275 }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
     >

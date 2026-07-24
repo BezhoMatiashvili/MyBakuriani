@@ -1,22 +1,19 @@
 // Standalone responsive-UI audit script (NOT part of the e2e/ CI suite).
-// Drives real headless Chromium against a given base URL (defaults to
-// production), captures full-page screenshots at a matrix of viewports for
+// Drives real headless Chromium against an explicitly configured isolated
+// test/preview URL, captures full-page screenshots at a matrix of viewports for
 // every route, composes them into per-route contact sheets, and records
 // cheap diagnostics (horizontal overflow, undersized touch targets, console
 // errors) into a JSON report.
 //
 // Usage:
+//   E2E_BASE_URL=https://preview.example TEST_SUPABASE_URL=https://test.supabase.co \
+//   TEST_SUPABASE_ANON_KEY=... TEST_QA_PASSWORD=... \
 //   node scripts/responsive-audit.mjs [--base-url=https://...] [--routes=public|dashboard|all] [--out=DIR] [--filter=substring]
 
 import { chromium } from "playwright";
 import sharp from "sharp";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, "..", ".env.local") });
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -25,23 +22,48 @@ const args = Object.fromEntries(
   }),
 );
 
-const BASE_URL = args["base-url"] || "https://my-bakuriani.vercel.app";
 const OUT_DIR = args.out || "responsive-audit";
 const ROUTE_FILTER = args.filter || null;
 const ROUTE_SET = args.routes || "all"; // public | dashboard | all
 const CONCURRENCY = Number(args.concurrency || 4);
 
-const SUPABASE_URL = "https://yuwyrmxccrpfjvidwhhg.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1d3lybXhjY3JwZmp2aWR3aGhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzIyMjAsImV4cCI6MjA5MDAwODIyMH0.RGq_DzGTOZfjO13VPdgjelwb02zvENU0UHS5dxuHDz0";
-const PROJECT_REF = "yuwyrmxccrpfjvidwhhg";
-const QA_PASSWORD = process.env.QA_TEST_PASSWORD;
-if (!QA_PASSWORD) {
-  console.error(
-    "QA_TEST_PASSWORD env var is not set — see .env.example. Never hardcode this in source.",
-  );
-  process.exit(1);
+const PRODUCTION_HOSTS = new Set([
+  "mybakuriani.ge",
+  "www.mybakuriani.ge",
+  "my-bakuriani.vercel.app",
+]);
+const PRODUCTION_PROJECT_REFS = new Set(["yuwyrmxccrpfjvidwhhg"]);
+
+function requireTestEnv(name) {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`Responsive audit requires ${name}`);
+  return value;
 }
+
+function assertSafeTestUrl(value, name, supabase = false) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid URL`);
+  }
+  const host = url.hostname.toLowerCase();
+  if (PRODUCTION_HOSTS.has(host) || host.endsWith(".mybakuriani.ge")) {
+    throw new Error(`${name} points at a production domain`);
+  }
+  if (supabase && PRODUCTION_PROJECT_REFS.has(host.split(".")[0])) {
+    throw new Error(`${name} points at the production Supabase project`);
+  }
+}
+
+const BASE_URL = args["base-url"] || requireTestEnv("E2E_BASE_URL");
+const SUPABASE_URL = requireTestEnv("TEST_SUPABASE_URL");
+const SUPABASE_ANON_KEY = requireTestEnv("TEST_SUPABASE_ANON_KEY");
+const PROJECT_REF = new URL(SUPABASE_URL).hostname.split(".")[0];
+const QA_PASSWORD =
+  ROUTE_SET === "public" ? null : requireTestEnv("TEST_QA_PASSWORD");
+assertSafeTestUrl(BASE_URL, "E2E_BASE_URL");
+assertSafeTestUrl(SUPABASE_URL, "TEST_SUPABASE_URL", true);
 const QA_EMAILS = {
   admin: "qa-admin@qa.mybakuriani.test",
   guest: "qa-guest@qa.mybakuriani.test",
@@ -73,7 +95,9 @@ const QA = {
 };
 
 const VIEWPORTS_FULL = [
+  { name: "mobile-xs", width: 320, height: 568 },
   { name: "mobile-s", width: 375, height: 812 },
+  { name: "mobile-m", width: 390, height: 844 },
   { name: "mobile-l", width: 428, height: 926 },
   { name: "tablet-p", width: 768, height: 1024 },
   { name: "tablet-l", width: 1024, height: 768 },
@@ -82,9 +106,14 @@ const VIEWPORTS_FULL = [
 ];
 
 const VIEWPORTS_CORE = [
+  { name: "mobile-xs", width: 320, height: 568 },
   { name: "mobile-s", width: 375, height: 812 },
+  { name: "mobile-m", width: 390, height: 844 },
+  { name: "mobile-l", width: 428, height: 926 },
   { name: "tablet-p", width: 768, height: 1024 },
+  { name: "tablet-l", width: 1024, height: 768 },
   { name: "laptop", width: 1440, height: 900 },
+  { name: "desktop", width: 1920, height: 1080 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -111,6 +140,9 @@ const PUBLIC_ROUTES = [
   { path: "/employment", label: "employment-list" },
   { path: `/employment/${QA.employment}`, label: "employment-detail" },
   { path: "/blog", label: "blog-list" },
+  ...(process.env.AUDIT_BLOG_ID
+    ? [{ path: `/blog/${process.env.AUDIT_BLOG_ID}`, label: "blog-detail" }]
+    : []),
   { path: "/faq", label: "faq" },
   { path: "/contact", label: "contact" },
   { path: "/terms", label: "terms" },
@@ -122,6 +154,7 @@ const PUBLIC_ROUTES = [
   },
   { path: "/auth/login", label: "auth-login" },
   { path: "/auth/register", label: "auth-register" },
+  { path: "/auth/mfa", label: "auth-mfa" },
   { path: "/checkout", label: "checkout-no-params" },
   { path: "/nonexistent-page-xyz", label: "404" },
 ];

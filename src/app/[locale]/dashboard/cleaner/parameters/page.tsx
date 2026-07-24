@@ -152,9 +152,7 @@ export default function CleanerParametersPage() {
               service.id,
               {
                 workingHours:
-                  storedHours === "24/7"
-                    ? DEFAULT_WORKING_HOURS
-                    : storedHours,
+                  storedHours === "24/7" ? DEFAULT_WORKING_HOURS : storedHours,
                 is24_7: storedHours === "24/7",
               },
             ];
@@ -185,9 +183,7 @@ export default function CleanerParametersPage() {
       ...previous,
       [serviceId]: { ...previous[serviceId], ...update },
     }));
-    setSavedServiceId((previous) =>
-      previous === serviceId ? null : previous,
-    );
+    setSavedServiceId((previous) => (previous === serviceId ? null : previous));
     setServiceSaveError(null);
   }
 
@@ -367,7 +363,7 @@ export default function CleanerParametersPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#CBD5E1] disabled:opacity-50"
+              className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#CBD5E1] disabled:opacity-50 lg:min-h-0"
             >
               <Upload className="h-4 w-4" />
               {uploadingAvatar ? t("uploading") : t("uploadPhoto")}
@@ -564,7 +560,7 @@ export default function CleanerParametersPage() {
             </p>
             <Link
               href="/create/service"
-              className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] lg:min-h-0"
             >
               {t("createCleaningService")}
             </Link>
@@ -658,7 +654,7 @@ export default function CleanerParametersPage() {
                       data-testid="save-working-hours"
                       disabled={isSavingThisService || !hasValidHours}
                       onClick={() => saveServiceHours(service)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-0"
                     >
                       {isSavedThisService ? (
                         <Check className="size-4" />

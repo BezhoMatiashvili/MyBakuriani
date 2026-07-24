@@ -413,7 +413,7 @@ export default function OrganizationCabinetPage() {
           {agents.map((agent) => (
             <div
               key={agent.id}
-              className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
+              className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E2E8F0] text-[13px] font-bold text-[#475569]">
                 {(agent.user?.display_name ?? "?").slice(0, 2)}
@@ -437,7 +437,7 @@ export default function OrganizationCabinetPage() {
                     type="button"
                     disabled={busyAgent === agent.id}
                     onClick={() => handleAgent(agent.id, "reject")}
-                    className="inline-flex h-[38px] items-center gap-1.5 rounded-xl border border-[#FECACA] bg-white px-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2] disabled:opacity-60"
+                    className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-[#FECACA] bg-white px-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2] disabled:opacity-60 lg:h-[38px]"
                   >
                     <X className="h-4 w-4" />
                     {t("reject")}
@@ -446,7 +446,7 @@ export default function OrganizationCabinetPage() {
                     type="button"
                     disabled={busyAgent === agent.id}
                     onClick={() => handleAgent(agent.id, "approve")}
-                    className="inline-flex h-[38px] items-center gap-1.5 rounded-xl bg-[#2563EB] px-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
+                    className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-[#2563EB] px-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60 lg:h-[38px]"
                   >
                     {busyAgent === agent.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

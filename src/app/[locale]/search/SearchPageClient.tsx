@@ -352,7 +352,8 @@ export default function SearchPageClient({
                   variant="outline"
                   size="sm"
                   onClick={() => setMobileFiltersOpen(true)}
-                  className="gap-2"
+                  className="min-h-11 gap-2 lg:min-h-0"
+                  data-testid="search-mobile-filters"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                   {t("filters")}
@@ -524,12 +525,25 @@ export default function SearchPageClient({
           title={t("filters")}
         >
           <FilterPanel filters={filters} onFilterChange={setFilters} />
-          <Button
-            className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent-hover"
-            onClick={() => setMobileFiltersOpen(false)}
-          >
-            {t("viewResults")}
-          </Button>
+          <div className="sticky bottom-[-1.25rem] -mx-5 mt-5 border-t border-[#E2E8F0] bg-white/95 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="min-h-11 flex-1"
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+                data-testid="mobile-filter-reset"
+              >
+                {t("resetFilters")}
+              </Button>
+              <Button
+                className="min-h-11 flex-[1.4] bg-brand-accent text-white hover:bg-brand-accent-hover"
+                onClick={() => setMobileFiltersOpen(false)}
+                data-testid="mobile-filter-apply"
+              >
+                {t("viewResults")}
+              </Button>
+            </div>
+          </div>
         </BottomSheet>
       </div>
     </div>

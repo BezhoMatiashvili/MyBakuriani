@@ -9,6 +9,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { useEscapeToClose } from "@/components/shared/DateField";
+import BottomSheet from "@/components/shared/BottomSheet";
 import { cn } from "@/lib/utils";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
@@ -63,10 +64,18 @@ export default function TimeField({
 }: TimeFieldProps) {
   const t = useTranslations("Calendar");
   const [open, setOpen] = useState(false);
+  const [isPhone, setIsPhone] = useState(false);
   const hourColRef = useRef<HTMLDivElement>(null);
   const minuteColRef = useRef<HTMLDivElement>(null);
 
   useEscapeToClose(open, () => setOpen(false));
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsPhone(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const [hour = "", minute = ""] = value ? value.split(":") : [];
   // Keep off-step prefilled minutes (e.g. "14:37") selectable/visible.
@@ -109,6 +118,66 @@ export default function TimeField({
     return () => cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  if (isPhone) {
+    return (
+      <>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen(true)}
+          className={cn(
+            "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[16px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+            error && "border-[#EF4444]",
+            className,
+          )}
+        >
+          <Clock className="size-4 shrink-0 text-[#94A3B8]" />
+          <span className={cn("flex-1 truncate", !value && "text-[#94A3B8]")}>
+            {value || (placeholder ?? t("selectTime"))}
+          </span>
+        </button>
+        <BottomSheet
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          title={placeholder ?? t("selectTime")}
+        >
+          <div className="flex gap-1">
+            <TimeColumn
+              label={t("hours")}
+              colRef={hourColRef}
+              options={HOURS}
+              selected={hour}
+              accent={accent}
+              fluid
+              onSelect={(hh) => onChange(`${hh}:${minute || "00"}`)}
+            />
+            <TimeColumn
+              label={t("minutes")}
+              colRef={minuteColRef}
+              options={minuteOptions}
+              selected={minute}
+              accent={accent}
+              fluid
+              onSelect={(mm) => onChange(`${hour || "12"}:${mm}`)}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className={cn(
+              "mt-3 h-11 w-full rounded-lg text-[13px] font-bold text-white transition-colors",
+              ACCENT[accent].doneBg,
+            )}
+          >
+            {t("done")}
+          </button>
+        </BottomSheet>
+      </>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -170,6 +239,7 @@ function TimeColumn({
   options,
   selected,
   accent,
+  fluid,
   onSelect,
 }: {
   label: string;
@@ -177,6 +247,8 @@ function TimeColumn({
   options: string[];
   selected: string;
   accent: Accent;
+  /** Fill the available width (mobile bottom sheet); desktop keeps w-16. */
+  fluid?: boolean;
   onSelect: (option: string) => void;
 }) {
   return (
@@ -186,7 +258,10 @@ function TimeColumn({
       </span>
       <div
         ref={colRef}
-        className="max-h-[224px] w-16 overflow-y-auto overscroll-contain pr-0.5"
+        className={cn(
+          "max-h-[224px] w-16 overflow-y-auto overscroll-contain pr-0.5",
+          fluid && "w-full",
+        )}
       >
         {options.map((option) => (
           <button

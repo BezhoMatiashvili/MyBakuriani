@@ -18,7 +18,6 @@ import { shareListing } from "@/lib/share";
 import { formatPrice } from "@/lib/utils/format";
 import { TransportContactFooter } from "@/components/shared/TransportContactFooter";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
-import { createClient } from "@/lib/supabase/client";
 import {
   optionKeyFor,
   parseRoutePricing,
@@ -88,12 +87,7 @@ export default function TransportDetailClient({
 
   useEffect(() => {
     if (isMock) return;
-    const supabase = createClient();
-    supabase
-      .from("services")
-      .update({ views_count: (service.views_count ?? 0) + 1 })
-      .eq("id", service.id)
-      .then();
+    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service.id, isMock]);
 

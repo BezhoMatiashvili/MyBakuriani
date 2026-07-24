@@ -23,9 +23,8 @@ export default async function TransportPage() {
   const supabase = createPublicClient();
 
   const { data: services, error } = await supabase
-    .from("services")
-    .select("*, owner:profiles!services_owner_id_fkey(is_verified)")
-    .eq("status", "active")
+    .from("public_services")
+    .select("*")
     .eq("category", "transport")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })

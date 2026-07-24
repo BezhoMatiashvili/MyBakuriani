@@ -35,7 +35,7 @@ export default function TopUpModal({
       <div className="space-y-5">
         <p className="text-sm text-[#64748B]">{t("topUp.subtitle")}</p>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {PRESETS.map((p) => (
             <button
               key={p}

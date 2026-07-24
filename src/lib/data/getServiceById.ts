@@ -49,7 +49,7 @@ export const getServiceById = cache(
           : createPublicClient();
       const { data } = await supabase
         .from("services")
-        .select("*, profiles!services_owner_id_fkey(*)")
+        .select("*, profiles!services_owner_id_fkey(id, display_name, avatar_url, is_verified, phone)")
         .eq("id", id)
         .maybeSingle();
 

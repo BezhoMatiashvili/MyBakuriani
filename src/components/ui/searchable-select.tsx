@@ -120,7 +120,7 @@ export function SearchableSelect({
               <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
               <Combobox.Input
                 placeholder={searchPlaceholderText}
-                className="h-10 w-full rounded-lg bg-[#F8FAFC] pr-3 pl-9 text-sm font-medium text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:bg-white"
+                className="h-11 w-full rounded-lg bg-[#F8FAFC] pr-3 pl-9 text-sm font-medium text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:bg-white lg:h-10"
               />
             </div>
 
@@ -135,7 +135,7 @@ export function SearchableSelect({
                   value={item}
                   index={index}
                   className={cn(
-                    "flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-[#334155] outline-none transition-colors",
+                    "flex min-h-11 cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-[#334155] outline-none transition-colors lg:min-h-[auto]",
                     "data-[highlighted]:bg-[#F1F5F9]",
                     a.selectedBg,
                     a.selectedText,

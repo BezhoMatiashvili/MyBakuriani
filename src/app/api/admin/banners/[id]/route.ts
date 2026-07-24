@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isBannerKind, isBannerTone } from "@/lib/banners";
 import { isTimeoutError } from "@/lib/with-timeout";
+import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -44,22 +45,34 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       typeof body.cta_label === "string" ? body.cta_label.trim() || null : null;
   }
   if ("cta_href" in body) {
-    update.cta_href =
-      typeof body.cta_href === "string" ? body.cta_href.trim() || null : null;
+    const value = typeof body.cta_href === "string" ? body.cta_href.trim() : "";
+    if (value && !(safeInternalPath(value) ?? safeHttpsUrl(value))) {
+      return Response.json({ error: "invalid cta_href" }, { status: 400 });
+    }
+    update.cta_href = value ? safeInternalPath(value) ?? safeHttpsUrl(value) : null;
   }
   if ("image_url" in body) {
-    update.image_url =
-      typeof body.image_url === "string" ? body.image_url.trim() || null : null;
+    const value = typeof body.image_url === "string" ? body.image_url.trim() : "";
+    if (value && !safeHttpsUrl(value)) {
+      return Response.json({ error: "invalid image_url" }, { status: 400 });
+    }
+    update.image_url = value ? safeHttpsUrl(value) : null;
   }
   if ("video_url" in body) {
-    update.video_url =
-      typeof body.video_url === "string" ? body.video_url.trim() || null : null;
+    const value = typeof body.video_url === "string" ? body.video_url.trim() : "";
+    if (value && !safeHttpsUrl(value)) {
+      return Response.json({ error: "invalid video_url" }, { status: 400 });
+    }
+    update.video_url = value ? safeHttpsUrl(value) : null;
   }
   if ("video_poster_url" in body) {
-    update.video_poster_url =
-      typeof body.video_poster_url === "string"
-        ? body.video_poster_url.trim() || null
-        : null;
+    const value = typeof body.video_poster_url === "string"
+      ? body.video_poster_url.trim()
+      : "";
+    if (value && !safeHttpsUrl(value)) {
+      return Response.json({ error: "invalid video_poster_url" }, { status: 400 });
+    }
+    update.video_poster_url = value ? safeHttpsUrl(value) : null;
   }
   if (typeof body.tone === "string") {
     if (!isBannerTone(body.tone)) {

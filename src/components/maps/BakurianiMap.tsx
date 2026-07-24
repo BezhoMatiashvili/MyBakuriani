@@ -1,7 +1,7 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import {
   MapContainer,
@@ -15,6 +15,7 @@ import {
 import { useTranslations } from "next-intl";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { formatNumber } from "@/lib/utils/format";
+import Modal from "@/components/shared/Modal";
 
 const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
 
@@ -213,25 +214,6 @@ function ExpandIcon({ className: cls }: { className?: string }) {
   );
 }
 
-function CollapseIcon({ className: cls }: { className?: string }) {
-  return (
-    <svg
-      className={cls}
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="1 5 5 5 5 1" />
-      <polyline points="19 5 15 5 15 1" />
-      <polyline points="15 19 15 15 19 15" />
-      <polyline points="5 19 5 15 1 15" />
-    </svg>
-  );
-}
-
 // ── Main Component ──
 export default function BakurianiMap({
   className,
@@ -249,6 +231,38 @@ export default function BakurianiMap({
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [isPhone, setIsPhone] = useState<boolean | null>(null);
+  const mapFrameRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsPhone(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const frame = mapFrameRef.current;
+    // On phones the visible map is deliberately a lightweight preview. The
+    // Leaflet instance is mounted only after the user opens the full map.
+    if (!frame || mapReady || isPhone === null || (isPhone && !expanded)) return;
+    if (!window.IntersectionObserver) {
+      setMapReady(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setMapReady(true);
+        observer.disconnect();
+      },
+      { rootMargin: "240px" },
+    );
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [mapReady, isPhone, expanded]);
 
   const hasProperties = !!properties && properties.length > 0;
 
@@ -270,7 +284,7 @@ export default function BakurianiMap({
     [properties],
   );
 
-  const mapContent = (
+  const mapContent = mapReady && (!isPhone || expanded) ? (
     <MapContainer
       center={initialCenter}
       zoom={initialZoom}
@@ -326,58 +340,64 @@ export default function BakurianiMap({
         ))
       )}
     </MapContainer>
+  ) : (
+    <div
+      className="flex h-full w-full items-center justify-center bg-[#F1F5F9]"
+      aria-busy="true"
+      aria-label={t("mapTitle")}
+    >
+      <span className="sr-only">{t("mapTitle")}</span>
+    </div>
   );
 
   return (
     <>
       <div
+        ref={mapFrameRef}
         className={`relative overflow-hidden ${embedded ? "" : "rounded-[16px] border border-[#E2E8F0]"} ${className ?? ""}`}
       >
-        {mapContent}
+        {expanded ? (
+          <div className="h-full w-full bg-[#F1F5F9]" aria-hidden="true" />
+        ) : isPhone ? (
+          <div
+            className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#DBEAFE,transparent_45%),linear-gradient(135deg,#F8FAFC,#E2E8F0)]"
+            aria-hidden="true"
+          >
+            <div className="rounded-full border border-white/80 bg-white/80 px-4 py-2 text-[13px] font-bold text-[#334155] shadow-sm">
+              {t("mapTitle")}
+            </div>
+          </div>
+        ) : (
+          mapContent
+        )}
 
-        {/* Expand button */}
-        {expandable && (
+        {/* Phone previews always expose a full-size interactive map. */}
+        {(expandable || isPhone) && (
           <button
             type="button"
-            onClick={() => setExpanded(true)}
-            className="absolute bottom-3 right-3 z-10 flex size-[36px] items-center justify-center rounded-lg border border-[#E2E8F0] bg-white shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9]"
-            title={t("expandMap")}
+            onClick={() => {
+              setMapReady(true);
+              setExpanded(true);
+            }}
+            className="absolute bottom-3 right-3 z-10 flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9] lg:size-[36px] lg:px-0 lg:text-[0px]"
+            aria-label={t("expandMap")}
           >
             <ExpandIcon className="size-4 text-[#334155]" />
+            <span className="lg:hidden">{t("expandMap")}</span>
           </button>
         )}
       </div>
 
       {/* Expanded modal overlay */}
-      {expanded && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/50 px-4 pb-6 pt-16 backdrop-blur-sm md:px-10 md:pb-10 md:pt-[200px]"
-          onClick={() => setExpanded(false)}
-        >
-          <div
-            className="relative h-full w-full max-w-[1100px] overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.4)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header with collapse button */}
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] px-5 py-3">
-              <h3 className="text-[15px] font-black text-[#1E293B]">
-                {t("mapTitle")}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setExpanded(false)}
-                className="flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-[12px] font-bold text-[#334155] transition-colors hover:bg-[#F1F5F9]"
-              >
-                <CollapseIcon className="size-3.5" />
-                {t("collapse")}
-              </button>
-            </div>
-
-            {/* Full map */}
-            <div className="h-[calc(100%-48px)]">{mapContent}</div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={expanded}
+        onClose={() => setExpanded(false)}
+        title={t("mapTitle")}
+        size="xl"
+        bodyClassName="h-[min(70dvh,760px)] max-h-none p-0"
+      >
+        {mapContent}
+      </Modal>
     </>
   );
 }

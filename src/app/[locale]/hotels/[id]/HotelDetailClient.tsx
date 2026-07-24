@@ -35,7 +35,6 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 import { type CalendarDate } from "@/components/booking/CalendarGrid";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import ReviewCard from "@/components/cards/ReviewCard";
-import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/types/database";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { formatPricePerNight } from "@/lib/utils/format";
@@ -100,8 +99,7 @@ export default function HotelDetailClient({
   }>({ start: null, end: null });
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.rpc("increment_views", { prop_id: property.id });
+    void fetch(`/api/listings/property/${property.id}/view`, { method: "POST" });
   }, [property.id]);
 
   const owner = property.profiles;

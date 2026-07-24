@@ -123,6 +123,7 @@
     "reviews": "Reviews",
     "logout": "Sign Out",
     "menu": "Menu",
+    "close": "Close menu",
     "dashboard": "Dashboard",
     "notifications": "Notifications",
     "noNotifications": "No notifications yet",
@@ -215,6 +216,7 @@
       "banners": "Banners",
       "news": "News",
       "logs": "Logs",
+      "more": "More",
       "graphic": "Schedule",
       "myOrganizations": "ჩემი ორგანიზაციები",
       "myCompany": "ჩემი კომპანია",
@@ -1050,6 +1052,7 @@
   "PhotoGallery": {
     "noPhotos": "No photo",
     "share": "Share",
+    "close": "Close photo viewer",
     "addToFavorites": "Add to favorites",
     "allPhotos": "All photos ({count})",
     "viewAllPhotos": "View all photos ({count})"
@@ -1152,6 +1155,7 @@
     "tabServices": "Services",
     "tabBlog": "Blog",
     "viewResults": "View results",
+    "resetFilters": "Reset",
     "emptyTitle": "No results found",
     "emptyHint": "Try a different search term or change the filters",
     "seeAll": "See all →"

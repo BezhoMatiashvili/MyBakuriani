@@ -150,7 +150,7 @@ export function DateRangeFilter({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[330px] max-w-[calc(100vw-2rem)] gap-0 p-0 md:w-[330px]"
+        className="max-h-[80dvh] w-[330px] max-w-[calc(100vw-2rem)] gap-0 overflow-y-auto p-0 md:w-[330px] lg:max-h-none"
       >
         <div className="flex flex-wrap gap-2 p-3">
           {presets.map((p) => (
@@ -159,7 +159,7 @@ export function DateRangeFilter({
               type="button"
               onClick={() => apply(p.build(), p.preset)}
               className={cn(
-                "rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition-colors",
+                "min-h-11 rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition-colors lg:min-h-0",
                 preset === p.preset
                   ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
                   : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]",
@@ -179,7 +179,7 @@ export function DateRangeFilter({
               type="button"
               onClick={() => setYear((y) => y - 1)}
               aria-label={t("prevYear")}
-              className="inline-flex size-7 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+              className="inline-flex size-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#F1F5F9] lg:size-7"
             >
               <ChevronLeft className="size-4" aria-hidden />
             </button>
@@ -189,12 +189,12 @@ export function DateRangeFilter({
               onClick={() => setYear((y) => y + 1)}
               disabled={year >= currentYear}
               aria-label={t("nextYear")}
-              className="inline-flex size-7 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex size-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40 lg:size-7"
             >
               <ChevronRight className="size-4" aria-hidden />
             </button>
           </div>
-          <div className="mt-2.5 grid grid-cols-3 gap-2">
+          <div className="mt-2.5 grid grid-cols-2 gap-2 min-[360px]:grid-cols-3">
             {MONTH_KEYS.map((monthKey, i) => {
               const isFuture = year === currentYear && i > currentMonth;
               const isActive =
@@ -208,7 +208,7 @@ export function DateRangeFilter({
                   disabled={isFuture}
                   onClick={() => apply(monthRange(year, i), "month")}
                   className={cn(
-                    "rounded-lg px-2 py-1.5 text-[12px] font-bold transition-colors",
+                    "min-h-11 rounded-lg px-2 py-1.5 text-[12px] font-bold transition-colors lg:min-h-0",
                     isActive
                       ? "bg-[#EFF6FF] text-[#2563EB]"
                       : "text-[#334155] hover:bg-[#F1F5F9]",

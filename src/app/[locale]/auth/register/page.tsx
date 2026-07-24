@@ -393,7 +393,7 @@ export default function RegisterPage() {
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder={t("namePlaceholder")}
-                      className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50"
+                      className="min-h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50 lg:min-h-0"
                     />
                   </div>
 
@@ -416,7 +416,7 @@ export default function RegisterPage() {
                   <Button
                     type="submit"
                     disabled={!displayName.trim()}
-                    className="w-full"
+                    className="min-h-11 w-full lg:min-h-0"
                     size="lg"
                   >
                     {t("next")}
@@ -457,7 +457,7 @@ export default function RegisterPage() {
                   <Button
                     variant="outline"
                     onClick={() => setStep(1)}
-                    className="flex-1"
+                    className="min-h-11 flex-1 lg:min-h-0"
                     size="lg"
                   >
                     {t("back")}
@@ -465,7 +465,7 @@ export default function RegisterPage() {
                   <Button
                     onClick={handleRoleSubmit}
                     disabled={loading || !selectedRole}
-                    className="flex-1"
+                    className="min-h-11 flex-1 lg:min-h-0"
                     size="lg"
                   >
                     {loading ? (
@@ -496,7 +496,7 @@ export default function RegisterPage() {
                     </p>
                     <Link
                       href="/dashboard/seller/organizations"
-                      className="mt-6 text-sm font-bold text-brand-accent hover:underline"
+                      className="mt-6 inline-flex min-h-11 items-center text-sm font-bold text-brand-accent hover:underline lg:min-h-0"
                     >
                       {t("seller.requestSentLink")}
                     </Link>
@@ -648,7 +648,7 @@ export default function RegisterPage() {
                       <Button
                         variant="outline"
                         onClick={goBackToRoleStep}
-                        className="flex-1"
+                        className="min-h-11 flex-1 lg:min-h-0"
                         size="lg"
                       >
                         {t("back")}
@@ -660,7 +660,7 @@ export default function RegisterPage() {
                           !sellerKind ||
                           (sellerKind === "agent" && !selectedOrg)
                         }
-                        className="flex-1"
+                        className="min-h-11 flex-1 lg:min-h-0"
                         size="lg"
                       >
                         {loading ? (

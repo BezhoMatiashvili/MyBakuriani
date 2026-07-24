@@ -2735,7 +2735,30 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      // These are deliberately typed as their legacy listing shapes while the
+      // application finishes its staged migration.  The SQL views themselves
+      // are the security boundary: they expose an allowlist and never contact,
+      // owner, moderation, booking, or AI fields.
+      public_properties: {
+        Row: Database["public"]["Tables"]["properties"]["Row"];
+        Relationships: [];
+      };
+      public_services: {
+        Row: Database["public"]["Tables"]["services"]["Row"];
+        Relationships: [];
+      };
+      public_listing_profiles: {
+        Row: Database["public"]["Tables"]["profiles"]["Row"];
+        Relationships: [];
+      };
+      public_organizations: {
+        Row: Database["public"]["Tables"]["organizations"]["Row"];
+        Relationships: [];
+      };
+      public_reviews: {
+        Row: Database["public"]["Tables"]["reviews"]["Row"];
+        Relationships: [];
+      };
     };
     Functions: {
       _enqueue_system_sms: {

@@ -29,7 +29,7 @@ export default async function ApartmentsPage() {
   const [statusCards, { data: properties, error }] = await Promise.all([
     getStatusCards(),
     supabase
-      .from("properties")
+      .from("public_properties")
       // Only the columns the listing cards + map use (not all 57) — keeps the
       // prerendered RSC payload small. Keep in sync with ApartmentListing.
       .select(
@@ -37,7 +37,6 @@ export default async function ApartmentsPage() {
       )
       .eq("is_for_sale", false)
       .in("type", ["apartment", "cottage", "villa", "studio"])
-      .eq("status", "active")
       .order("is_super_vip", { ascending: false })
       .order("is_vip", { ascending: false })
       .order("created_at", { ascending: false })

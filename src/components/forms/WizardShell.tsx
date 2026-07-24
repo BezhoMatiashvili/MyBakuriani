@@ -271,7 +271,7 @@ export function WizardFooter({
           backHref ? (
             <Link
               href={backHref}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A]"
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A] lg:min-h-0"
             >
               <ArrowLeft className="size-4" />
               {backLabelText}
@@ -280,7 +280,7 @@ export function WizardFooter({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A]"
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A] lg:min-h-0"
             >
               <ArrowLeft className="size-4" />
               {backLabelText}

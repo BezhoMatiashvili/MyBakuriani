@@ -1,22 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Reflect the request origin only if it is in the allowlist (ALLOWED_ORIGINS
-// env var, comma-separated) or is a deployment URL of our own Vercel team,
-// else fall back to the first configured origin (or the hardcoded production
-// origin if none configured).
+// Reflect only an exact origin listed in ALLOWED_ORIGINS (comma-separated).
+// Preview deployments must be added explicitly by CI; suffix matching lets an
+// attacker-controlled or misconfigured Vercel host become a trusted origin.
 //
 // Note: these endpoints rely on Bearer tokens, not cookies, so CORS is a
 // defense-in-depth measure against browser-driven token abuse rather than the
 // primary auth boundary. The fallback is the production origin (not "*") so
 // a missing env never silently opens CORS to the world.
-const PRODUCTION_ORIGIN = "https://mybakuriani.ge";
-
-// Vercel deployment/preview URLs look like
-// https://<project>-<hash>-bezhomatiashvilis-projects.vercel.app and the hash
-// changes per deploy, so they can't be exact-listed. Only this Vercel team can
-// mint hosts with this suffix, so reflecting them is safe.
-const VERCEL_TEAM_SUFFIX = "-bezhomatiashvilis-projects.vercel.app";
-
 function parseAllowedOrigins(): string[] {
   const raw = Deno.env.get("ALLOWED_ORIGINS") ?? Deno.env.get("APP_ORIGIN");
   if (!raw) return [];
@@ -28,25 +19,22 @@ function parseAllowedOrigins(): string[] {
 
 function isAllowedOrigin(origin: string, allowed: string[]): boolean {
   if (!origin.startsWith("https://")) return false;
-  if (allowed.includes(origin)) return true;
-  return origin.endsWith(VERCEL_TEAM_SUFFIX);
+  return allowed.includes(origin);
 }
 
 export function buildCorsHeaders(req: Request): Record<string, string> {
   const allowed = parseAllowedOrigins();
   const requestOrigin = req.headers.get("origin") ?? "";
 
-  let allowOrigin: string;
+  let allowOrigin: string | null = null;
   if (isAllowedOrigin(requestOrigin, allowed)) {
     allowOrigin = requestOrigin;
   } else if (allowed.length > 0) {
     allowOrigin = allowed[0];
-  } else {
-    allowOrigin = PRODUCTION_ORIGIN;
   }
 
   return {
-    "Access-Control-Allow-Origin": allowOrigin,
+    ...(allowOrigin ? { "Access-Control-Allow-Origin": allowOrigin } : {}),
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -54,12 +42,42 @@ export function buildCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
-// Legacy export — kept so older function files keep compiling until migrated.
+// Legacy export — public endpoints that still use it receive the canonical
+// production origin, never a wildcard. New functions must call buildCorsHeaders.
 export const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+const edgeBuckets = new Map<string, { count: number; resetAt: number }>();
+
+/** Shared Upstash limiter for Edge functions; production fails closed. */
+export async function checkRateLimit(
+  req: Request, scope: string, limit: number, windowMs: number,
+): Promise<boolean> {
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const key = `${scope}:${forwarded}`;
+  const url = Deno.env.get("UPSTASH_REDIS_REST_URL")?.replace(/\/$/, "");
+  const token = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
+  if (url && token) {
+    try {
+      const response = await fetch(`${url}/pipeline`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify([["INCR", key], ["PEXPIRE", key, String(windowMs), "NX"]]),
+        signal: AbortSignal.timeout(1500),
+      });
+      const result = await response.json() as Array<{ result?: unknown }>;
+      return response.ok && Number(result[0]?.result) <= limit;
+    } catch { return false; }
+  }
+  if (Deno.env.get("DENO_DEPLOYMENT_ID") || Deno.env.get("ENVIRONMENT") === "production") return false;
+  const now = Date.now();
+  const bucket = edgeBuckets.get(key);
+  if (!bucket || bucket.resetAt < now) { edgeBuckets.set(key, { count: 1, resetAt: now + windowMs }); return true; }
+  if (bucket.count >= limit) return false;
+  bucket.count += 1;
+  return true;
+}
 
 type ErrorCode =
   | "AUTH_HEADER_MISSING"
@@ -103,11 +121,17 @@ export function errorResponse(
     );
   }
 
-  const message =
-    error instanceof Error ? error.message : "Internal server error";
+  const correlationId = crypto.randomUUID();
+  // Do not serialize database/provider exception strings to callers. They are
+  // useful in logs but frequently disclose schema, policy, or token details.
+  console.error(JSON.stringify({ correlationId, error: String(error) }));
   return jsonResponse(
-    { error: message, code: "BAD_REQUEST" satisfies ErrorCode },
-    400,
+    {
+      error: "Request could not be completed",
+      code: "BAD_REQUEST" satisfies ErrorCode,
+      correlation_id: correlationId,
+    },
+    500,
     extraHeaders,
   );
 }

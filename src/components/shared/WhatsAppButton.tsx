@@ -1,8 +1,10 @@
 "use client";
 
-import type { MouseEventHandler } from "react";
+import { useCallback, useState, type MouseEventHandler } from "react";
 import { cn } from "@/lib/utils";
 import { trackContactClick } from "@/lib/contact-tracking";
+import { normalizeE164Phone } from "@/lib/security";
+import { getTurnstileToken } from "@/lib/turnstile-client";
 
 type WhatsAppButtonProps = {
   phone: string | null | undefined;
@@ -33,6 +35,8 @@ export function WhatsAppButton({
   label = "WhatsApp",
   onClick,
 }: WhatsAppButtonProps) {
+  const [resolvedPhone, setResolvedPhone] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
   const isLabel = variant === "label";
   const sizeClass = isLabel
     ? ({ sm: "h-9 px-3 text-xs", default: "h-11 px-4 text-sm", lg: "h-12 px-5 text-[15px]" } as const)[size]
@@ -44,15 +48,43 @@ export function WhatsAppButton({
   );
   const content = <><WhatsAppIcon className={isLabel ? "size-4" : undefined} />{isLabel && <span>{label}</span>}</>;
 
-  if (!phone) {
-    return <button type="button" data-slot="whatsapp-button" data-variant={variant} disabled aria-label={label} className={classes}>{content}</button>;
+  const normalizedPhone = normalizeE164Phone(resolvedPhone ?? phone);
+
+  const revealContact = useCallback(async () => {
+    const kind = propertyId ? "property" : serviceId ? "service" : null;
+    const id = propertyId ?? serviceId;
+    if (!kind || !id || isResolving) return;
+    setIsResolving(true);
+    try {
+      const storageKey = "mybakuriani-contact-device";
+      let deviceId = window.localStorage.getItem(storageKey);
+      if (!deviceId) {
+        deviceId = crypto.randomUUID().replace(/-/g, "");
+        window.localStorage.setItem(storageKey, deviceId);
+      }
+      const turnstileToken = await getTurnstileToken();
+      const response = await fetch(`/api/listings/${kind}/${id}/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_id: deviceId, turnstile_token: turnstileToken }),
+      });
+      if (!response.ok) return;
+      const result = (await response.json()) as { whatsapp?: string | null; phone?: string | null };
+      setResolvedPhone(result.whatsapp ?? result.phone ?? null);
+    } finally {
+      setIsResolving(false);
+    }
+  }, [isResolving, propertyId, serviceId]);
+
+  if (!normalizedPhone) {
+    return <button type="button" data-slot="whatsapp-button" data-variant={variant} disabled={!propertyId && !serviceId || isResolving} onClick={() => void revealContact()} aria-label={label} className={classes}>{content}</button>;
   }
 
   return (
     <a
       data-slot="whatsapp-button"
       data-variant={variant}
-      href={`https://wa.me/${phone.replace(/\D/g, "")}`}
+      href={`https://wa.me/${normalizedPhone.slice(1)}`}
       target="_blank"
       rel="noreferrer"
       aria-label={isLabel ? undefined : label}

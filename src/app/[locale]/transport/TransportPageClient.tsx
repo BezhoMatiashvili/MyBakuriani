@@ -26,9 +26,10 @@ const KNOWN_ROUTES = new Set([
 
 const ITEMS_PER_PAGE = 9;
 
-type TransportService = Tables<"services"> & {
-  owner: { is_verified: boolean | null } | null;
-};
+// Public services are delivered from the allowlisted read model.  Verification
+// is represented by the listing/profile fields used by cards, never an owner
+// relation or owner identifier.
+type TransportService = Tables<"services"> & { profile_is_verified?: boolean | null };
 
 interface Props {
   services: TransportService[];
@@ -203,7 +204,7 @@ export default function TransportPageClient({ services }: Props) {
                     discountPercent={s.discount_percent ?? 0}
                     isVip={s.is_vip ?? false}
                     isNew={s.is_new ?? false}
-                    isVerified={s.owner?.is_verified ?? false}
+                    isVerified={s.profile_is_verified ?? false}
                     phone={s.phone}
                     transportType={s.transport_type}
                     vehicleCapacity={s.vehicle_capacity}

@@ -24,7 +24,6 @@ import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
-import { createClient } from "@/lib/supabase/client";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
@@ -101,8 +100,7 @@ export default function ApartmentDetailClient({
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.rpc("increment_views", { prop_id: property.id });
+    void fetch(`/api/listings/property/${property.id}/view`, { method: "POST" });
   }, [property.id]);
 
   const owner = property.profiles;

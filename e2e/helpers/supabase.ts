@@ -1,7 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
 import WebSocket from "ws";
+import { configureIsolatedE2E } from "./env";
 import type {
   Database,
   Tables,
@@ -9,13 +8,7 @@ import type {
   TablesUpdate,
 } from "../../src/lib/types/database";
 
-dotenv.config({
-  path: path.resolve(__dirname, "../../.env.local"),
-  override: true,
-});
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const { supabaseUrl, serviceRoleKey } = configureIsolatedE2E();
 
 export const supabaseAdmin: SupabaseClient<Database> = createClient<Database>(
   supabaseUrl,

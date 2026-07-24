@@ -36,8 +36,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { revalidatePublicService } from "@/app/actions/revalidateListing";
 import { shareListing } from "@/lib/share";
-import { useAuth } from "@/lib/hooks/useAuth";
-import type { Tables, TablesInsert } from "@/lib/types/database";
+import type { Tables } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { formatDate } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -180,7 +179,6 @@ export default function EmploymentDetailClient({
   const t = useTranslations("EmploymentDetail");
   const tShare = useTranslations("ShareListing");
   const locale = useLocale();
-  const { user } = useAuth();
   const owner = service.profiles;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -289,29 +287,15 @@ export default function EmploymentDetailClient({
     }
 
     setSubmitting(true);
-    const supabase = createClient();
-
-    let cvPath: string | null = null;
+    // CV binaries are deliberately disabled until an asynchronous malware
+    // scanner is deployed. Structured applications remain available.
     if (cvFile) {
-      const ext = cvFile.name.split(".").pop()?.toLowerCase() ?? "pdf";
-      const path = `${service.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("cv-documents")
-        .upload(path, cvFile, {
-          contentType: cvFile.type,
-          upsert: false,
-        });
-      if (uploadError) {
-        setSubmitting(false);
-        toast.error(t("errors.cvUpload"));
-        return;
-      }
-      cvPath = path;
+      setSubmitting(false);
+      toast.error(t("errors.cvUpload"));
+      return;
     }
-
-    const payload: TablesInsert<"job_applications"> = {
+    const payload = {
       service_id: service.id,
-      applicant_user_id: user?.id ?? null,
       full_name: form.full_name.trim(),
       phone: `+995${form.phone}`,
       birth_date: form.birth_date || null,
@@ -323,20 +307,17 @@ export default function EmploymentDetailClient({
       has_experience: form.has_experience,
       last_workplace: form.has_experience ? form.last_workplace.trim() : null,
       desired_salary: form.desired_salary ? Number(form.desired_salary) : null,
-      cv_path: cvPath,
     };
 
-    const { error: insertError } = await supabase
-      .from("job_applications")
-      .insert(payload);
+    const response = await fetch("/api/job-applications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
     setSubmitting(false);
 
-    if (insertError) {
-      // Roll back the orphaned upload to keep the bucket clean.
-      if (cvPath) {
-        await supabase.storage.from("cv-documents").remove([cvPath]);
-      }
+    if (!response.ok) {
       toast.error(t("errors.submitFailed"));
       return;
     }
@@ -363,7 +344,7 @@ export default function EmploymentDetailClient({
           : null);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 md:pb-8">
+    <div className="mx-auto max-w-6xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
       <div className="mb-6 flex items-center justify-between">
         <motion.button

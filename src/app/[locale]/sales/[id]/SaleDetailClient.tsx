@@ -28,7 +28,6 @@ import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
-import { createClient } from "@/lib/supabase/client";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { shareListing } from "@/lib/share";
 import type { Tables, Database } from "@/lib/types/database";
@@ -180,8 +179,9 @@ export default function SaleDetailClient({
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.rpc("increment_views", { prop_id: property.id });
+    void fetch(`/api/listings/property/${property.id}/view`, {
+      method: "POST",
+    });
   }, [property.id]);
 
   useEffect(() => {
@@ -857,7 +857,7 @@ export default function SaleDetailClient({
                   </span>
                   <button
                     onClick={() => setConstructionModalOpen(false)}
-                    className="flex size-8 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9]"
+                    className="flex size-11 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] lg:size-8"
                     aria-label={tShared("close")}
                   >
                     <X className="size-4" />

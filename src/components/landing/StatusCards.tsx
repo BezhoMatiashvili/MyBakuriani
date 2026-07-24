@@ -12,6 +12,7 @@ import {
   type StatusKind,
 } from "@/lib/status-cards/types";
 import BottomSheet from "@/components/shared/BottomSheet";
+import { safeHttpsUrl } from "@/lib/security";
 
 const DOT_COLOR: Record<StatusKind, string | null> = {
   ok: "#22C55E",
@@ -44,15 +45,16 @@ function ItemRow({
   const value = pickLocalized(item.value, locale);
   const labelColor = variant === "dark" ? "text-[#E2E8F0]" : "text-[#1E293B]";
   const valueColor = variant === "dark" ? "text-[#94A3B8]" : "text-[#64748B]";
+  const href = safeHttpsUrl(item.url);
   return (
     <li className="flex items-center justify-between gap-3 text-[14px]">
       <span className={cn("flex items-center gap-2 font-medium", labelColor)}>
         <StatusDot status={item.status} />
         {label}
       </span>
-      {item.url ? (
+      {href ? (
         <a
-          href={item.url}
+          href={href}
           target="_blank"
           rel="noreferrer"
           className="flex items-center gap-1 font-semibold text-[#2E79FF] hover:underline"

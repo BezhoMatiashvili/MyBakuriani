@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isBannerKind, isBannerTone } from "@/lib/banners";
 import { isTimeoutError } from "@/lib/with-timeout";
+import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -58,6 +59,23 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "title required" }, { status: 400 });
   }
   const tone = body.tone && isBannerTone(body.tone) ? body.tone : "orange";
+  const ctaHref = body.cta_href?.trim()
+    ? safeInternalPath(body.cta_href) ?? safeHttpsUrl(body.cta_href)
+    : null;
+  const imageUrl = body.image_url?.trim() ? safeHttpsUrl(body.image_url) : null;
+  const videoUrl = body.video_url?.trim() ? safeHttpsUrl(body.video_url) : null;
+  const videoPosterUrl = body.video_poster_url?.trim()
+    ? safeHttpsUrl(body.video_poster_url)
+    : null;
+
+  if (
+    (body.cta_href?.trim() && !ctaHref) ||
+    (body.image_url?.trim() && !imageUrl) ||
+    (body.video_url?.trim() && !videoUrl) ||
+    (body.video_poster_url?.trim() && !videoPosterUrl)
+  ) {
+    return Response.json({ error: "invalid URL" }, { status: 400 });
+  }
 
   if (
     body.start_at &&
@@ -78,10 +96,10 @@ export async function POST(req: NextRequest) {
       title: body.title.trim(),
       body: body.body?.trim() || null,
       cta_label: body.cta_label?.trim() || null,
-      cta_href: body.cta_href?.trim() || null,
-      image_url: body.image_url?.trim() || null,
-      video_url: body.video_url?.trim() || null,
-      video_poster_url: body.video_poster_url?.trim() || null,
+      cta_href: ctaHref,
+      image_url: imageUrl,
+      video_url: videoUrl,
+      video_poster_url: videoPosterUrl,
       tone,
       active: body.active ?? true,
       start_at: body.start_at || null,

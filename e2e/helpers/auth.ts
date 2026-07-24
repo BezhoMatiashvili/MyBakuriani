@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { supabaseAdmin } from "./supabase";
+import { configureIsolatedE2E } from "./env";
 import type { Database } from "../../src/lib/types/database";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -144,9 +145,10 @@ export async function createTestUser(opts: {
   });
   const { createClient } = await import("@supabase/supabase-js");
   const WebSocket = (await import("ws")).default;
+  const e2e = configureIsolatedE2E();
   const anonClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    e2e.supabaseUrl,
+    e2e.anonKey,
     {
       realtime: {
         transport: WebSocket as unknown as typeof globalThis.WebSocket,
@@ -179,7 +181,7 @@ export async function authenticateAsRole(
   page: Page,
 ): Promise<void> {
   const projectRef = new URL(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    configureIsolatedE2E().supabaseUrl,
   ).hostname.split(".")[0];
   const cookieBase = `sb-${projectRef}-auth-token`;
   const sessionPayload = JSON.stringify({

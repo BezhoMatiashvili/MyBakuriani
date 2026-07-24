@@ -382,7 +382,7 @@ export default function LoginPage() {
                       <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full"
+                        className="min-h-11 w-full lg:min-h-0"
                         size="lg"
                       >
                         {loading && (
@@ -492,7 +492,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={loading || phone.length < 9}
-                    className="w-full"
+                    className="min-h-11 w-full lg:min-h-0"
                     size="lg"
                   >
                     {loading && (
@@ -538,7 +538,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={loading || otp.length < 6}
-                    className="w-full"
+                    className="min-h-11 w-full lg:min-h-0"
                     size="lg"
                   >
                     {loading && (

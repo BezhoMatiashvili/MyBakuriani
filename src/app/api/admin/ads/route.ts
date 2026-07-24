@@ -1,17 +1,9 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { safeHttpsUrl } from "@/lib/security";
 
 export const runtime = "nodejs";
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const u = new URL(value);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 export async function GET() {
   const guard = await requireAdmin();
@@ -48,15 +40,17 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  if (!isHttpUrl(body.url)) {
+  const adUrl = safeHttpsUrl(body.url);
+  const bannerUrl = body.banner_url ? safeHttpsUrl(body.banner_url) : null;
+  if (!adUrl) {
     return Response.json(
-      { error: "url must be a valid http(s) URL" },
+      { error: "url must be a valid HTTPS URL" },
       { status: 400 },
     );
   }
-  if (body.banner_url && !isHttpUrl(body.banner_url)) {
+  if (body.banner_url && !bannerUrl) {
     return Response.json(
-      { error: "banner_url must be a valid http(s) URL" },
+      { error: "banner_url must be a valid HTTPS URL" },
       { status: 400 },
     );
   }
@@ -72,8 +66,8 @@ export async function POST(req: NextRequest) {
     .insert({
       title: body.title,
       position: body.position,
-      url: body.url,
-      banner_url: body.banner_url ?? null,
+      url: adUrl,
+      banner_url: bannerUrl,
       start_at: body.start_at,
       end_at: body.end_at,
       created_by: guard.admin.userId,

@@ -73,11 +73,6 @@ export default function FoodParametersPage() {
         );
         setPhone(toLocalGePhone(data.phone));
       }
-      const saved =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem(`mb-whatsapp-${user!.id}`)
-          : null;
-      if (saved) setWhatsapp(toLocalGePhone(saved));
       setLoading(false);
     }
     fetchData();
@@ -104,12 +99,6 @@ export default function FoodParametersPage() {
         phone: phone ? "+995" + phone : null,
       })
       .eq("id", service.id);
-    if (!error && user && typeof window !== "undefined") {
-      window.localStorage.setItem(
-        `mb-whatsapp-${user.id}`,
-        whatsapp ? "+995" + whatsapp : "",
-      );
-    }
     setSaving(false);
     if (!error) {
       setSaved(true);

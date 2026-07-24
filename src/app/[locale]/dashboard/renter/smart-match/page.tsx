@@ -457,7 +457,7 @@ export default function RenterSmartMatchPage() {
           type="button"
           disabled={modalRequests.length === 0}
           onClick={() => setModalOpen(true)}
-          className="mt-5 rounded-xl bg-white px-5 py-2.5 text-[13px] font-black text-[#0F172A] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+          className="mt-5 min-h-11 rounded-xl bg-white px-5 py-2.5 text-[13px] font-black text-[#0F172A] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 lg:min-h-0"
         >
           {t("viewRequests")}
         </button>
@@ -514,7 +514,7 @@ export default function RenterSmartMatchPage() {
           </p>
           <Link
             href="/dashboard/renter/listings"
-            className="mt-5 rounded-xl bg-[#0F8F60] px-5 py-2.5 text-[13px] font-black text-white transition-colors hover:bg-[#0B7A52]"
+            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0F8F60] px-5 py-2.5 text-[13px] font-black text-white transition-colors hover:bg-[#0B7A52] lg:min-h-0"
           >
             {t("needActiveCta")}
           </Link>

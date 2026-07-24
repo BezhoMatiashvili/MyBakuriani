@@ -10,7 +10,7 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!checkRateLimit(`menu-track:${getClientIp(req)}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`menu-track:${getClientIp(req)}`, 30, 60_000))) {
     return Response.json(
       { tracked: false, reason: "rate_limited" },
       {
@@ -56,9 +56,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
+    console.error("menu tracking failed", error);
     return Response.json(
-      { tracked: false, reason: error.message },
-      { status: 400 },
+      { tracked: false, reason: "unavailable" },
+      { status: 502 },
     );
   }
 

@@ -207,7 +207,7 @@ function StageColumn({
       ref={setNodeRef}
       data-stage={stage.value}
       data-drop-target={isValidTarget ? "true" : undefined}
-      className={`flex min-h-[480px] flex-col rounded-2xl p-3 transition-[background-color,box-shadow] ${
+      className={`flex min-h-[200px] flex-col rounded-2xl p-3 transition-[background-color,box-shadow] lg:min-h-[480px] ${
         isValidTarget
           ? "bg-[#EFF6FF] shadow-[inset_0_0_0_2px_#2563EB]"
           : "bg-[#F8FAFC]"
@@ -805,7 +805,7 @@ export default function SalesBoard({
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 self-start rounded-xl bg-[#0F172A] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,23,42,0.3)] hover:bg-[#1E293B]"
+            className="flex min-h-11 items-center gap-2 self-start rounded-xl bg-[#0F172A] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,23,42,0.3)] hover:bg-[#1E293B] lg:min-h-0"
           >
             <Plus className="h-4 w-4" />
             {t("addLead")}

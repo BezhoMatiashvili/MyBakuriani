@@ -62,7 +62,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   // (already dynamic), so there's no need for the cookie-bound client's auth cost.
   const supabase = createPublicClient();
 
-  let query = supabase.from("properties").select("*").eq("status", "active");
+  let query = supabase.from("public_properties").select("*");
 
   // Apply mode filter server-side so initial data matches
   if (params.mode === "sale") {

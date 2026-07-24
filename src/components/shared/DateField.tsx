@@ -10,6 +10,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import BottomSheet from "@/components/shared/BottomSheet";
 import { getDateFnsLocale } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +85,7 @@ export default function DateField({
   const t = useTranslations("Calendar");
   const locale = useLocale();
   const [open, setOpen] = useState(false);
+  const [isPhone, setIsPhone] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEscapeToClose(open, () => setOpen(false));
@@ -93,6 +95,13 @@ export default function DateField({
     },
     [],
   );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsPhone(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const selected = parseISODate(value);
   const minDate = min ? parseISODate(min) : undefined;
@@ -102,63 +111,98 @@ export default function DateField({
 
   return (
     <div className="relative">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          id={id}
-          disabled={disabled}
-          className={cn(
-            "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[13px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
-            error && "border-[#EF4444]",
-            showClear && "pr-10",
-            className,
-          )}
-        >
-          <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
-          <span
-            className={cn("flex-1 truncate", !selected && "text-[#94A3B8]")}
+      {isPhone ? (
+        <>
+          <button
+            id={id}
+            type="button"
+            disabled={disabled}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => setOpen(true)}
+            className={cn(
+              "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[16px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+              error && "border-[#EF4444]",
+              showClear && "pr-10",
+              className,
+            )}
           >
-            {selected
-              ? format(selected, "d MMM, yyyy", {
-                  locale: getDateFnsLocale(locale),
-                })
-              : (placeholder ?? t("selectDate"))}
-          </span>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          sideOffset={8}
-          className="w-auto max-w-none p-2 md:w-auto"
-        >
-          <Calendar
-            mode="single"
-            selected={selected}
-            defaultMonth={selected ?? minDate}
-            locale={getDateFnsLocale(locale)}
-            captionLayout={withYearDropdown ? "dropdown" : "label"}
-            startMonth={
-              withYearDropdown
-                ? new Date(startYear ?? thisYear - 100, 0)
-                : undefined
-            }
-            endMonth={
-              withYearDropdown ? new Date(endYear ?? thisYear, 11) : undefined
-            }
-            disabled={[
-              ...(minDate ? [{ before: minDate }] : []),
-              ...(maxDate ? [{ after: maxDate }] : []),
-            ]}
-            classNames={{
-              day_button: "active:scale-90 transition-transform duration-100",
-            }}
-            onSelect={(d) => {
-              if (!d) return;
-              onChange(toISODate(d));
-              // Let the blue selection fill register before the zoom-out.
-              closeTimer.current = setTimeout(() => setOpen(false), 120);
-            }}
-          />
-        </PopoverContent>
-      </Popover>
+            <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
+            <span className={cn("flex-1 truncate", !selected && "text-[#94A3B8]")}>
+              {selected
+                ? format(selected, "d MMM, yyyy", { locale: getDateFnsLocale(locale) })
+                : (placeholder ?? t("selectDate"))}
+            </span>
+          </button>
+          <BottomSheet
+            isOpen={open}
+            onClose={() => setOpen(false)}
+            title={placeholder ?? t("selectDate")}
+          >
+            <Calendar
+              mode="single"
+              selected={selected}
+              defaultMonth={selected ?? minDate}
+              locale={getDateFnsLocale(locale)}
+              captionLayout={withYearDropdown ? "dropdown" : "label"}
+              startMonth={withYearDropdown ? new Date(startYear ?? thisYear - 100, 0) : undefined}
+              endMonth={withYearDropdown ? new Date(endYear ?? thisYear, 11) : undefined}
+              disabled={[
+                ...(minDate ? [{ before: minDate }] : []),
+                ...(maxDate ? [{ after: maxDate }] : []),
+              ]}
+              className="w-full [--cell-size:36px] min-[360px]:[--cell-size:40px]"
+              classNames={{ day_button: "active:scale-90 transition-transform duration-100" }}
+              onSelect={(d) => {
+                if (!d) return;
+                onChange(toISODate(d));
+                closeTimer.current = setTimeout(() => setOpen(false), 120);
+              }}
+            />
+          </BottomSheet>
+        </>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            id={id}
+            disabled={disabled}
+            className={cn(
+              "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[13px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+              error && "border-[#EF4444]",
+              showClear && "pr-10",
+              className,
+            )}
+          >
+            <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
+            <span className={cn("flex-1 truncate", !selected && "text-[#94A3B8]")}>
+              {selected
+                ? format(selected, "d MMM, yyyy", { locale: getDateFnsLocale(locale) })
+                : (placeholder ?? t("selectDate"))}
+            </span>
+          </PopoverTrigger>
+          <PopoverContent align="start" sideOffset={8} className="w-auto max-w-none p-2 md:w-auto">
+            <Calendar
+              mode="single"
+              selected={selected}
+              defaultMonth={selected ?? minDate}
+              locale={getDateFnsLocale(locale)}
+              captionLayout={withYearDropdown ? "dropdown" : "label"}
+              startMonth={withYearDropdown ? new Date(startYear ?? thisYear - 100, 0) : undefined}
+              endMonth={withYearDropdown ? new Date(endYear ?? thisYear, 11) : undefined}
+              disabled={[
+                ...(minDate ? [{ before: minDate }] : []),
+                ...(maxDate ? [{ after: maxDate }] : []),
+              ]}
+              classNames={{ day_button: "active:scale-90 transition-transform duration-100" }}
+              onSelect={(d) => {
+                if (!d) return;
+                onChange(toISODate(d));
+                closeTimer.current = setTimeout(() => setOpen(false), 120);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
       {showClear && (
         <button
           type="button"

@@ -12,6 +12,7 @@ import { formatDateShort } from "@/lib/utils/format";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import BottomSheet from "@/components/shared/BottomSheet";
 
 export interface SearchFilters {
   location: string;
@@ -258,12 +259,15 @@ export function SearchBox({
         setActiveDropdown(null);
       }
     }
-    if (activeDropdown) {
+    // Phone sheets are rendered outside this form, so treating their controls
+    // as an outside click would close the sheet before a filter/date can be
+    // selected. Desktop popovers still use the normal outside-click behavior.
+    if (activeDropdown && !isMobile) {
       document.addEventListener("mousedown", handleClickOutside);
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [activeDropdown, dropdownPortalRef, dropdownBoundaryRef]);
+  }, [activeDropdown, dropdownPortalRef, dropdownBoundaryRef, isMobile]);
 
   // Track portal readiness — ref can appear one frame later when parent
   // conditionally mounts the portal container.
@@ -365,7 +369,7 @@ export function SearchBox({
               placeholder={t("keywordPlaceholder")}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+              className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] lg:h-10"
             />
           </div>
         </div>
@@ -378,7 +382,7 @@ export function SearchBox({
           <button
             type="button"
             onClick={() => toggleDropdown("location")}
-            className="flex h-10 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none"
+            className="flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10"
           >
             <span className={location ? "text-[#1E293B]" : "text-[#94A3B8]"}>
               {location || t("locationPlaceholder")}
@@ -405,43 +409,14 @@ export function SearchBox({
           <button
             type="button"
             onClick={() => toggleDropdown("calendar")}
+            data-testid="search-mobile-dates"
             className={cn(
-              "h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none",
+              "h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
               !dateLabel && "text-[#94A3B8]",
             )}
           >
             {dateLabel || t("selectDate")}
           </button>
-          {activeDropdown === "calendar" && isMobile && (
-            <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-2rem)] rounded-[24px] border border-[#E2E8F0] bg-white p-3 min-[360px]:p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={handleRangeSelect}
-                numberOfMonths={1}
-                min={1}
-                locale={calendarLocale}
-                disabled={{ before: new Date() }}
-                className="rounded-md bg-white [--cell-size:36px] min-[360px]:[--cell-size:40px]"
-              />
-              <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setDateRange(undefined)}
-                  className="text-[14px] font-medium text-[#64748B] hover:text-[#1E293B]"
-                >
-                  {t("clear")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveDropdown(null)}
-                  className="h-[38px] rounded-xl bg-[#E8612D] px-5 text-[12px] font-bold text-white hover:bg-[#D4551F]"
-                >
-                  {t("confirm")}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Filters */}
@@ -452,7 +427,8 @@ export function SearchBox({
           <button
             type="button"
             onClick={() => toggleDropdown("filters")}
-            className="flex h-10 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#94A3B8] outline-none"
+            data-testid="search-mobile-filters"
+            className="flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#94A3B8] outline-none lg:h-10"
           >
             {t("priceCapacity")}
             <ChevronDown className="size-4" />
@@ -463,7 +439,7 @@ export function SearchBox({
           <Button
             type="submit"
             disabled={isPending}
-            className="h-10 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover disabled:opacity-70"
+            className="min-h-11 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover disabled:opacity-70 lg:h-10"
           >
             {isPending ? (
               <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -614,15 +590,52 @@ export function SearchBox({
         if (isMobile) {
           return (
             <>
-              {activeDropdown === "filters" && (
+              <BottomSheet
+                isOpen={activeDropdown === "filters"}
+                onClose={() => setActiveDropdown(null)}
+                title={t("filters")}
+              >
                 <FiltersDropdown
                   filters={filters}
                   onChange={setFilters}
                   onApply={handleApplyFilters}
                   onClear={() => setFilters(DEFAULT_FILTERS)}
                   mobile
+                  sheet
                 />
-              )}
+              </BottomSheet>
+              <BottomSheet
+                isOpen={activeDropdown === "calendar"}
+                onClose={() => setActiveDropdown(null)}
+                title={t("date")}
+              >
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={handleRangeSelect}
+                  numberOfMonths={1}
+                  min={1}
+                  locale={calendarLocale}
+                  disabled={{ before: new Date() }}
+                  className="w-full rounded-md bg-white [--cell-size:36px] min-[360px]:[--cell-size:40px]"
+                />
+                <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setDateRange(undefined)}
+                    className="min-h-11 px-2 text-[14px] font-medium text-[#64748B] hover:text-[#1E293B]"
+                  >
+                    {t("clear")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveDropdown(null)}
+                    className="min-h-11 rounded-xl bg-[#E8612D] px-5 text-[12px] font-bold text-white hover:bg-[#D4551F]"
+                  >
+                    {t("confirm")}
+                  </button>
+                </div>
+              </BottomSheet>
             </>
           );
         }
@@ -780,6 +793,7 @@ function FiltersDropdown({
   onClear,
   mobile,
   inline,
+  sheet,
 }: {
   filters: FilterState;
   onChange: (f: FilterState) => void;
@@ -787,6 +801,7 @@ function FiltersDropdown({
   onClear: () => void;
   mobile?: boolean;
   inline?: boolean;
+  sheet?: boolean;
 }) {
   const t = useTranslations("SearchBox");
   const updateFilter = <K extends keyof FilterState>(
@@ -806,11 +821,12 @@ function FiltersDropdown({
   return (
     <div
       className={cn(
-        "bg-white p-6 md:p-8",
-        inline
+        "bg-white p-4 sm:p-6 md:p-8",
+        sheet && "p-0",
+        sheet || inline
           ? "w-full"
           : "absolute z-50 rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-        !inline &&
+        !inline && !sheet &&
           (mobile
             ? "left-0 right-0 top-full mt-2"
             : "left-0 top-full mt-2 w-[700px]"),
@@ -1008,14 +1024,19 @@ function FiltersDropdown({
         <button
           type="button"
           onClick={onClear}
-          className="text-[14px] font-bold text-[#64748B] hover:text-[#1E293B]"
+          data-testid={sheet ? "mobile-filter-reset" : undefined}
+          className={cn(
+            "text-[14px] font-bold text-[#64748B] hover:text-[#1E293B]",
+            sheet && "min-h-11 px-2",
+          )}
         >
           {t("clear")}
         </button>
         <Button
           type="button"
           onClick={onApply}
-          className="h-[47px] rounded-[12px] bg-[#2563EB] px-8 text-[14px] font-bold text-white shadow-[0px_4px_12px_rgba(37,99,235,0.2)] hover:bg-[#1D4ED8]"
+          data-testid={sheet ? "mobile-filter-apply" : undefined}
+          className="min-h-11 rounded-[12px] bg-[#2563EB] px-8 text-[14px] font-bold text-white shadow-[0px_4px_12px_rgba(37,99,235,0.2)] hover:bg-[#1D4ED8]"
         >
           {t("showResults")}
         </Button>

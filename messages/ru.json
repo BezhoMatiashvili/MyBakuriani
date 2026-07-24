@@ -123,6 +123,7 @@
     "reviews": "Отзывы",
     "logout": "Выйти",
     "menu": "Меню",
+    "close": "Закрыть меню",
     "dashboard": "Кабинет",
     "notifications": "Уведомления",
     "noNotifications": "Пока нет уведомлений",
@@ -215,6 +216,7 @@
       "banners": "Баннеры",
       "news": "Новости",
       "logs": "Логи",
+      "more": "Ещё",
       "graphic": "График",
       "myOrganizations": "ჩემი ორგანიზაციები",
       "myCompany": "ჩემი კომპანია",
@@ -1050,6 +1052,7 @@
   "PhotoGallery": {
     "noPhotos": "Нет фото",
     "share": "Поделиться",
+    "close": "Закрыть просмотр фото",
     "addToFavorites": "Добавить в избранное",
     "allPhotos": "Все фото ({count})",
     "viewAllPhotos": "Смотреть все фото ({count})"
@@ -1152,6 +1155,7 @@
     "tabServices": "Сервисы",
     "tabBlog": "Блог",
     "viewResults": "Показать результаты",
+    "resetFilters": "Сбросить",
     "emptyTitle": "Ничего не найдено",
     "emptyHint": "Попробуйте другой запрос или измените фильтры",
     "seeAll": "Смотреть все →"

@@ -86,7 +86,7 @@ export function CleanerSidebar({
   const shortId = userId ? userId.replace(/-/g, "").slice(0, 8) : null;
 
   return (
-    <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white md:flex">
+    <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white lg:flex">
       {/* Logo */}
       <div className="px-6 py-6">
         <Link href="/">

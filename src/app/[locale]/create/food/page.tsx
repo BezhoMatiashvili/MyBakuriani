@@ -536,7 +536,7 @@ function CreateFoodPageInner() {
                         setMenuFile(null);
                         if (menuFileRef.current) menuFileRef.current.value = "";
                       }}
-                      className="flex size-6 items-center justify-center rounded-md text-[#94A3B8] hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
+                      className="flex size-11 items-center justify-center rounded-md text-[#94A3B8] hover:bg-[#EF4444]/10 hover:text-[#EF4444] lg:size-6"
                       aria-label={tShared("delete")}
                     >
                       <X className="size-4" />

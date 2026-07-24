@@ -564,7 +564,7 @@ function CreateTransportPageInner() {
               <button
                 type="button"
                 onClick={addRouteRow}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-dashed border-[#CBD5E1] px-4 text-[13px] font-semibold text-[#2563EB] transition-colors hover:border-[#2563EB] hover:bg-[#EFF6FF]"
+                className="inline-flex h-10 min-h-11 items-center gap-1.5 rounded-xl border border-dashed border-[#CBD5E1] px-4 text-[13px] font-semibold text-[#2563EB] transition-colors hover:border-[#2563EB] hover:bg-[#EFF6FF] lg:min-h-0"
               >
                 <Plus className="h-4 w-4" />
                 {t("addRoute")}

@@ -117,7 +117,7 @@ function SetMainButton({
       aria-label={label}
       className={`absolute z-10 flex items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-[#2563EB] ${className ?? ""}`}
     >
-      <Star className="size-3.5" />
+      <Star className="size-5 lg:size-3.5" />
     </button>
   );
 }
@@ -126,7 +126,7 @@ function SetMainButton({
 function RemoveButton({
   onClick,
   className,
-  iconClassName = "size-3.5",
+  iconClassName = "size-5 lg:size-3.5",
 }: {
   onClick: () => void;
   className?: string;
@@ -563,8 +563,8 @@ export default function PhotoUploader({
                   />
                   <RemoveButton
                     onClick={() => handleRemove(0)}
-                    className="right-2 top-2 size-7"
-                    iconClassName="size-4"
+                    className="right-2 top-2 size-11 lg:size-7"
+                    iconClassName="size-5 lg:size-4"
                   />
                   <MainBadge label={t("mainBadge")} className="left-2 top-2" />
                 </SortablePhoto>
@@ -622,12 +622,12 @@ export default function PhotoUploader({
                       />
                       <RemoveButton
                         onClick={() => handleRemove(photoIndex)}
-                        className="right-1 top-1 size-6 opacity-100 transition-opacity group-hover:opacity-100 lg:opacity-0"
+                        className="right-1 top-1 size-11 opacity-100 transition-opacity group-hover:opacity-100 lg:size-6 lg:opacity-0"
                       />
                       <SetMainButton
                         onClick={() => handleSetMain(photoIndex)}
                         label={t("setAsMain")}
-                        className="left-1 top-1 size-6 opacity-100 group-hover:opacity-100 lg:opacity-0"
+                        className="left-1 top-1 size-11 opacity-100 group-hover:opacity-100 lg:size-6 lg:opacity-0"
                       />
                     </SortablePhoto>
                   );
@@ -668,12 +668,12 @@ export default function PhotoUploader({
                       />
                       <RemoveButton
                         onClick={() => handleRemove(photoIndex)}
-                        className="right-1 top-1 size-6 opacity-100 transition-opacity group-hover:opacity-100 lg:opacity-0"
+                        className="right-1 top-1 size-11 opacity-100 transition-opacity group-hover:opacity-100 lg:size-6 lg:opacity-0"
                       />
                       <SetMainButton
                         onClick={() => handleSetMain(photoIndex)}
                         label={t("setAsMain")}
-                        className="left-1 top-1 size-6 opacity-100 group-hover:opacity-100 lg:opacity-0"
+                        className="left-1 top-1 size-11 opacity-100 group-hover:opacity-100 lg:size-6 lg:opacity-0"
                       />
                     </SortablePhoto>
                   );
@@ -778,7 +778,7 @@ export default function PhotoUploader({
                   />
                   <RemoveButton
                     onClick={() => handleRemove(index)}
-                    className="right-1 top-1 size-6 opacity-100 transition-opacity group-hover:opacity-100 lg:opacity-0"
+                    className="right-1 top-1 size-11 opacity-100 transition-opacity group-hover:opacity-100 lg:size-6 lg:opacity-0"
                   />
                   {index === 0 ? (
                     <MainBadge
@@ -789,7 +789,7 @@ export default function PhotoUploader({
                     <SetMainButton
                       onClick={() => handleSetMain(index)}
                       label={t("setAsMain")}
-                      className="left-1 top-1 size-6 opacity-100 group-hover:opacity-100 lg:opacity-0"
+                      className="left-1 top-1 size-11 opacity-100 group-hover:opacity-100 lg:size-6 lg:opacity-0"
                     />
                   )}
                 </SortablePhoto>

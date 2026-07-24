@@ -111,7 +111,7 @@ export function StyledSelect<T extends string>({
                   key={opt.value}
                   value={opt.value}
                   className={cn(
-                    "flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-[#334155] outline-none transition-colors",
+                    "flex min-h-11 cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-[#334155] outline-none transition-colors lg:min-h-[auto]",
                     "data-[highlighted]:bg-[#F1F5F9]",
                     a.selectedBg,
                     a.selectedText,

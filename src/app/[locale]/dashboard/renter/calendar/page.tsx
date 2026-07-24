@@ -139,6 +139,15 @@ export default function RenterCalendarPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragMoved, setDragMoved] = useState(false);
   const suppressClickRef = useRef(false);
+  // Touch drag-select: armed by a long-press on a day cell (grid onPointerDown
+  // below), active while the finger keeps dragging across cells.
+  const [touchDragActive, setTouchDragActive] = useState(false);
+  const touchPressRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
   const [priceInput, setPriceInput] = useState("");
   const [savingPrice, setSavingPrice] = useState(false);
   const [savingBlocks, setSavingBlocks] = useState(false);
@@ -401,6 +410,30 @@ export default function RenterCalendarPage() {
     };
   }, [isDragging, dragAnchor, dragHover, dragMoved, blocksByDate]);
 
+  // While a touch drag is active, stop the page from scrolling under the
+  // finger (touch-action can't change mid-gesture, so preventDefault the
+  // touchmoves) and let Escape abort the drag without committing it.
+  useEffect(() => {
+    if (!touchDragActive) return;
+    const prevent = (e: Event) => e.preventDefault();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setTouchDragActive(false);
+      setIsDragging(false);
+      setDragAnchor(null);
+      setDragHover(null);
+      setDragMoved(false);
+    };
+    document.addEventListener("touchmove", prevent, { passive: false });
+    document.addEventListener("contextmenu", prevent);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("touchmove", prevent);
+      document.removeEventListener("contextmenu", prevent);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [touchDragActive]);
+
   const selectedProperty = properties.find((p) => p.id === selectedPropertyId);
   const basePrice = selectedProperty?.price_per_night ?? 0;
 
@@ -547,6 +580,79 @@ export default function RenterCalendarPage() {
       else next.add(dateStr);
       return next;
     });
+  };
+
+  // ── Touch drag-select ────────────────────────────────────────────────
+  // The mouse path above uses per-cell onMouseDown/onMouseEnter. Touch
+  // pointers implicitly capture to the touchstart target, so per-cell enters
+  // never fire on touch; instead a long-press (~350ms hold without moving) on
+  // a day cell arms the drag, then the grid's pointermove hit-tests
+  // document.elementFromPoint against [data-day] cells. Page scroll survives:
+  // before activation a moved finger cancels the hold (and a browser-initiated
+  // scroll fires pointercancel), and scrolling is suppressed only once active.
+
+  const cancelTouchPress = () => {
+    if (touchPressRef.current) {
+      clearTimeout(touchPressRef.current.timer);
+      touchPressRef.current = null;
+    }
+  };
+
+  const handleGridPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch" || touchDragActive) return;
+    const dateStr = (e.target as HTMLElement)
+      .closest("[data-day]")
+      ?.getAttribute("data-day");
+    if (!dateStr) return;
+    cancelTouchPress();
+    touchPressRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      timer: setTimeout(() => {
+        touchPressRef.current = null;
+        // data-day exists only on selectable (in-month, non-booked) cells,
+        // so handleCellMouseDown's booked guard is already satisfied.
+        handleCellMouseDown(dateStr, "free");
+        setTouchDragActive(true);
+      }, 350),
+    };
+  };
+
+  const handleGridPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") return;
+    const pending = touchPressRef.current;
+    if (pending && pending.pointerId === e.pointerId) {
+      // Finger moved during the hold — that's a scroll, not a long-press.
+      if (
+        Math.abs(e.clientX - pending.startX) > 10 ||
+        Math.abs(e.clientY - pending.startY) > 10
+      ) {
+        cancelTouchPress();
+      }
+      return;
+    }
+    if (!touchDragActive) return;
+    const dateStr = document
+      .elementFromPoint(e.clientX, e.clientY)
+      ?.closest("[data-day]")
+      ?.getAttribute("data-day");
+    if (dateStr) handleCellMouseEnter(dateStr);
+  };
+
+  const handleGridPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") return;
+    cancelTouchPress();
+    if (!touchDragActive) return;
+    setTouchDragActive(false);
+    if (e.type === "pointercancel") {
+      // The browser took over the gesture — abort without committing.
+      setIsDragging(false);
+      setDragAnchor(null);
+      setDragHover(null);
+      setDragMoved(false);
+    }
+    // On pointerup the shared mouseup/touchend handler commits the range.
   };
 
   const applyPrice = async () => {
@@ -797,7 +903,7 @@ export default function RenterCalendarPage() {
     <div
       className={cn(
         "space-y-5",
-        hasActionable ? "pb-72 md:pb-28" : "pb-32 md:pb-5",
+        hasActionable ? "pb-72 lg:pb-28" : "pb-32 lg:pb-5",
       )}
     >
       {/* Header row */}
@@ -964,6 +1070,10 @@ export default function RenterCalendarPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-[#EEF1F4] select-none"
+        onPointerDown={handleGridPointerDown}
+        onPointerMove={handleGridPointerMove}
+        onPointerUp={handleGridPointerEnd}
+        onPointerCancel={handleGridPointerEnd}
         onMouseLeave={() => {
           // Keep selection but stop drag tracking when user leaves the grid
         }}
@@ -1006,7 +1116,7 @@ export default function RenterCalendarPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] md:bottom-0 md:left-[272px] md:px-5 md:py-4"
+            className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] lg:bottom-0 lg:left-[272px] lg:px-5 lg:py-4"
           >
             <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
@@ -1205,6 +1315,7 @@ function DayCell({
   return (
     <button
       type="button"
+      data-day={isSelectable ? meta.date : undefined}
       onMouseDown={isSelectable ? onMouseDown : undefined}
       onMouseEnter={isSelectable ? onMouseEnter : undefined}
       onClick={onClick}
@@ -1233,7 +1344,7 @@ function DayCell({
           {meta.day}
         </span>
         {isToday && (
-          <span className="rounded-full bg-[#DBEAFE] px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#2563EB] sm:text-[10px]">
+          <span className="hidden rounded-full bg-[#DBEAFE] px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#2563EB] sm:inline sm:text-[10px]">
             დღეს
           </span>
         )}
@@ -1252,7 +1363,7 @@ function DayCell({
             )}
           >
             {meta.hasOverride && (
-              <span className="h-1.5 w-1.5 rounded-full bg-[#F97316]" />
+              <span className="hidden h-1.5 w-1.5 rounded-full bg-[#F97316] min-[360px]:inline" />
             )}
             {meta.price}₾
           </span>

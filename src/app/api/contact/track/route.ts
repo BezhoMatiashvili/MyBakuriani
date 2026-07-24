@@ -12,7 +12,7 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!checkRateLimit(`contact-track:${getClientIp(req)}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`contact-track:${getClientIp(req)}`, 30, 60_000))) {
     return Response.json(
       { tracked: false, reason: "rate_limited" },
       { status: 429 },
@@ -87,9 +87,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
+    console.error("contact tracking failed", error);
     return Response.json(
-      { tracked: false, reason: error.message },
-      { status: 400 },
+      { tracked: false, reason: "unavailable" },
+      { status: 502 },
     );
   }
 

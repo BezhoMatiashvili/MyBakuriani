@@ -91,17 +91,17 @@ export default function CleanerDashboardClient({
     };
   }, [supabase, userId, fetchTasks]);
 
-  async function updateTask(
-    id: string,
-    patch: { status: string; completed_at?: string },
-  ) {
-    await supabase.from("cleaning_tasks").update(patch).eq("id", id);
+  async function updateTask(id: string, status: string) {
+    await (supabase as any).rpc("transition_cleaning_task", {
+      p_task_id: id,
+      p_status: status,
+    });
     fetchTasks();
   }
 
   function declineTask(id: string) {
     setTasks((prev) => prev.filter((task) => task.id !== id));
-    void updateTask(id, { status: "declined" });
+    void updateTask(id, "declined");
   }
 
   function acceptTask(id: string) {
@@ -110,15 +110,12 @@ export default function CleanerDashboardClient({
         task.id === id ? { ...task, status: "accepted" } : task,
       ),
     );
-    void updateTask(id, { status: "accepted" });
+    void updateTask(id, "accepted");
   }
 
   function completeTask(id: string) {
     setTasks((prev) => prev.filter((task) => task.id !== id));
-    void updateTask(id, {
-      status: "completed",
-      completed_at: new Date().toISOString(),
-    });
+    void updateTask(id, "completed");
   }
 
   const pendingTasks = tasks.filter((task) => task.status === "pending");

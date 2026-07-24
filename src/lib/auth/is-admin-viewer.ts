@@ -1,5 +1,6 @@
 import { unstable_rethrow } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-user";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Returns true if the current request is from a signed-in admin.
@@ -12,7 +13,10 @@ import { getCurrentProfile } from "@/lib/auth/current-user";
 export async function isAdminViewer(): Promise<boolean> {
   try {
     const profile = await getCurrentProfile();
-    return profile?.role === "admin";
+    if (profile?.role !== "admin") return false;
+    const supabase = await createClient();
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    return data?.currentLevel === "aal2";
   } catch (err) {
     // Never swallow Next's control-flow signals (dynamic-rendering bail-out,
     // redirect, notFound) — doing so corrupts the render. Treat only real

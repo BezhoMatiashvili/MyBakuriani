@@ -27,8 +27,8 @@ export function Footer() {
 
   return (
     <footer className="border-t border-white/[0.05] bg-[#0B1C2D] text-white">
-      <div className="mx-auto max-w-[1160px] px-4 py-20 sm:px-6 lg:px-8">
-        <div className="grid gap-20 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto max-w-[1160px] px-4 py-12 sm:px-6 sm:py-20 lg:px-8">
+        <div className="grid gap-10 sm:grid-cols-2 sm:gap-20 lg:grid-cols-4">
           {/* Brand column */}
           <div className="flex flex-col gap-[23px]">
             <Link
@@ -47,11 +47,11 @@ export function Footer() {
             <p className="max-w-[252px] text-sm leading-[23px] text-white/60">
               {t("brandDescription")}
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <a
                 href="#"
                 aria-label="Facebook"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.05] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
               >
                 <svg
                   className="h-4 w-4"
@@ -64,7 +64,7 @@ export function Footer() {
               <a
                 href="#"
                 aria-label="Instagram"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.05] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
               >
                 <svg
                   className="h-4 w-4"
@@ -87,7 +87,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/60 transition-colors hover:text-white"
+                    className="inline-flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white sm:min-h-0"
                   >
                     {link.label}
                   </Link>
@@ -106,7 +106,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/60 transition-colors hover:text-white"
+                    className="inline-flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white sm:min-h-0"
                   >
                     {link.label}
                   </Link>
@@ -123,7 +123,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/60 transition-colors hover:text-white"
+                    className="inline-flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white sm:min-h-0"
                   >
                     {link.label}
                   </Link>
@@ -134,7 +134,7 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-20 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-8 text-[10px] font-bold uppercase tracking-[1px] text-white/60">
+        <div className="mt-12 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-8 text-[10px] font-bold uppercase tracking-[1px] text-white/60 sm:mt-20">
           <span>{t("copyright")}</span>
           <div className="flex gap-6">
             <Link

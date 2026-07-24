@@ -212,7 +212,7 @@ export default function PriceRangeModal({
 
               <div className="mt-3">
                 <Field label={t("applyTo")}>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     <FilterButton
                       active={filter === "all"}
                       onClick={() => setFilter("all")}
@@ -289,7 +289,7 @@ function FilterButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-3 py-2 text-[12px] font-bold transition-colors ${
+      className={`min-h-11 rounded-xl border px-3 py-2 text-[12px] font-bold transition-colors lg:min-h-0 ${
         active
           ? "border-[#F97316] bg-[#FFF7ED] text-[#F97316]"
           : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]"

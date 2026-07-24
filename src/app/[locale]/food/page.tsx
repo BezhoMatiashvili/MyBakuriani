@@ -23,9 +23,8 @@ export default async function FoodPage() {
   const supabase = createPublicClient();
 
   const { data: services, error } = await supabase
-    .from("services")
+    .from("public_services")
     .select("*")
-    .eq("status", "active")
     .eq("category", "food")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })

@@ -343,7 +343,7 @@ export function DashboardShell({
 
   if (isAdmin) {
     return (
-      <div className="flex h-screen w-full overflow-hidden bg-[#02060E]">
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#02060E] lg:h-screen">
         <AdminSidebar
           verificationAlerts={verificationCount}
           onSignOut={handleSignOut}
@@ -353,18 +353,23 @@ export function DashboardShell({
             userName={displayName}
             notificationCount={notificationCount}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8 xl:p-10">
+          <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 xl:p-10">
             {children}
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole="admin" />
+        <MobileBottomNav
+          currentPath={pathname}
+          userRole="admin"
+          onSignOut={handleSignOut}
+          notificationCount={notificationCount}
+        />
       </div>
     );
   }
 
   if (isRenter) {
     return (
-      <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
         <RenterSidebar
           userName={displayName}
           userId={shortUserId}
@@ -379,11 +384,16 @@ export function DashboardShell({
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <RenterTopbar balance={balance} smsRemaining={smsRemaining} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
+        <MobileBottomNav
+          currentPath={pathname}
+          userRole={activeRole}
+          onSignOut={handleSignOut}
+          notificationCount={notificationCount}
+        />
       </div>
     );
   }
@@ -392,7 +402,7 @@ export function DashboardShell({
     return (
       <ActiveOrgScopeProvider companies={companies}>
         <SellerLeadsCountEffect userId={userId} onCount={setLeadsCount} />
-        <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
           <SellerSidebar
             userName={displayName}
             avatarUrl={avatarUrl ?? undefined}
@@ -406,13 +416,19 @@ export function DashboardShell({
           />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <SellerTopbar balance={balance} smsRemaining={smsRemaining} />
-            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
                 {children}
               </div>
             </main>
           </div>
-          <MobileBottomNav currentPath={pathname} userRole={activeRole} />
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole={activeRole}
+            onSignOut={handleSignOut}
+            notificationCount={notificationCount}
+            leadsCount={leadsCount}
+          />
         </div>
       </ActiveOrgScopeProvider>
     );
@@ -420,7 +436,7 @@ export function DashboardShell({
 
   if (isGuest) {
     return (
-      <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
         <GuestSidebar
           userName={displayName}
           avatarUrl={avatarUrl ?? undefined}
@@ -431,18 +447,23 @@ export function DashboardShell({
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <GuestTopbar notificationCount={notificationCount} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
+        <MobileBottomNav
+          currentPath={pathname}
+          userRole={activeRole}
+          onSignOut={handleSignOut}
+          notificationCount={notificationCount}
+        />
       </div>
     );
   }
 
   if (isCleaner) {
     return (
-      <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
         <CleanerSidebar
           userName={displayName}
           userId={userId}
@@ -457,18 +478,23 @@ export function DashboardShell({
             available={cleanerAvailable}
             onAvailableChange={handleCleanerAvailableChange}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
+        <MobileBottomNav
+          currentPath={pathname}
+          userRole={activeRole}
+          onSignOut={handleSignOut}
+          notificationCount={notificationCount}
+        />
       </div>
     );
   }
 
   if (isFood) {
     return (
-      <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
         <FoodSidebar
           restaurantName={displayName}
           currentPath={pathname}
@@ -478,11 +504,16 @@ export function DashboardShell({
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <FoodTopbar balance={balance} smsRemaining={smsRemaining} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
+        <MobileBottomNav
+          currentPath={pathname}
+          userRole={activeRole}
+          onSignOut={handleSignOut}
+          notificationCount={notificationCount}
+        />
       </div>
     );
   }
@@ -490,7 +521,7 @@ export function DashboardShell({
   if (serviceSegment) {
     const serviceBasePath = `/dashboard/${serviceSegment}`;
     return (
-      <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
         <ServiceSidebar
           userName={displayName}
           avatarUrl={avatarUrl ?? undefined}
@@ -509,11 +540,16 @@ export function DashboardShell({
             smsRemaining={smsRemaining}
             basePath={serviceBasePath}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
         </div>
-        <MobileBottomNav currentPath={pathname} userRole={activeRole} />
+        <MobileBottomNav
+          currentPath={pathname}
+          userRole={activeRole}
+          onSignOut={handleSignOut}
+          notificationCount={notificationCount}
+        />
       </div>
     );
   }
@@ -527,12 +563,17 @@ export function DashboardShell({
         smsCount={notificationCount}
         currentPath={pathname}
       />
-      <div className="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <div className="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </div>
       </div>
-      <MobileBottomNav currentPath={pathname} userRole={activeRole} />
+      <MobileBottomNav
+        currentPath={pathname}
+        userRole={activeRole}
+        onSignOut={handleSignOut}
+        notificationCount={notificationCount}
+      />
     </div>
   );
 }

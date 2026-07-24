@@ -42,7 +42,7 @@ type MyTask = Tables<"cleaning_tasks"> & {
 };
 
 type CallTarget = {
-  cleaner: { cleanerId: string; name: string };
+  cleaner: { cleanerId: string; serviceId: string; name: string };
   prefill?: {
     propertyId?: string;
     cleaningType?: string;
@@ -247,7 +247,11 @@ export default function RenterCleanersPage() {
 
   function openCall(cleaner: PlatformCleaner) {
     setCallModal({
-      cleaner: { cleanerId: cleaner.cleaner_id, name: cleaner.name },
+      cleaner: {
+        cleanerId: cleaner.cleaner_id,
+        serviceId: cleaner.service_id,
+        name: cleaner.name,
+      },
     });
   }
 
@@ -257,7 +261,13 @@ export default function RenterCleanersPage() {
       cleaners.find((c) => c.cleaner_id === task.cleaner_id)?.name ??
       t("defaultCleaner");
     setCallModal({
-      cleaner: { cleanerId: task.cleaner_id, name },
+      cleaner: {
+        cleanerId: task.cleaner_id,
+        serviceId:
+          cleaners.find((c) => c.cleaner_id === task.cleaner_id)?.service_id ??
+          "",
+        name,
+      },
       prefill: {
         propertyId: task.property_id,
         cleaningType: task.cleaning_type,
@@ -455,7 +465,7 @@ export default function RenterCleanersPage() {
                   type="button"
                   onClick={() => toggleSaved(cleaner.cleaner_id, false)}
                   aria-label={t("addModal.remove")}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA]"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] lg:h-9 lg:w-9"
                 >
                   <X className="h-4 w-4" strokeWidth={2.4} />
                 </button>
@@ -574,7 +584,7 @@ export default function RenterCleanersPage() {
                 <button
                   type="button"
                   onClick={() => redial(task)}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] lg:min-h-0"
                 >
                   <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.4} />
                   {t("redial")}

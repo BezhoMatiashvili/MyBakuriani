@@ -39,18 +39,38 @@ export function getCachedPublicProperty(
     async (): Promise<PropertyWithProfile | null> => {
       const supabase = createPublicClient();
       const { data, error } = await supabase
-        .from("properties")
-        .select(
-          "*, profiles!properties_owner_id_fkey(*), organizations!properties_organization_id_fkey(id, brand_name, logo_url, phone, verified_at, status, company_type)",
-        )
+        .from("public_properties")
+        .select("*")
         .eq("id", id)
-        .eq("status", "active")
         .maybeSingle();
       // Don't cache a transient failure as "not found": throw so unstable_cache
       // skips caching and the caller falls through to the dynamic path.
       if (error) throw error;
-      const row = (data as PropertyWithProfile) ?? null;
+      const row = (data as PropertyWithProfile & {
+        profile_display_name?: string | null;
+        profile_avatar_url?: string | null;
+        profile_is_verified?: boolean | null;
+        organization_brand_name?: string | null;
+        organization_logo_url?: string | null;
+        organization_verified_at?: string | null;
+        organization_company_type?: string | null;
+      }) ?? null;
       if (!row) return null;
+      // The view has no owner or contact fields.  Reconstitute only the small,
+      // presentation-safe profile/org objects expected by legacy detail UI.
+      row.profiles = {
+        display_name: row.profile_display_name ?? null,
+        avatar_url: row.profile_avatar_url ?? null,
+        is_verified: row.profile_is_verified ?? false,
+      } as PropertyWithProfile["profiles"];
+      if (row.organization_brand_name) {
+        row.organizations = {
+          brand_name: row.organization_brand_name,
+          logo_url: row.organization_logo_url ?? null,
+          verified_at: row.organization_verified_at ?? null,
+          company_type: row.organization_company_type as PropertyWithProfile["organizations"] extends infer T ? T extends { company_type: infer C } ? C : never : never,
+        } as PropertyWithProfile["organizations"];
+      }
       row.photos = sanitizePhotos(row.photos);
       return row;
     },
@@ -70,14 +90,22 @@ export function getCachedPublicService(
     async (): Promise<ServiceWithFoodExtras | null> => {
       const supabase = createPublicClient();
       const { data, error } = await supabase
-        .from("services")
-        .select("*, profiles!services_owner_id_fkey(*)")
+        .from("public_services")
+        .select("*")
         .eq("id", id)
-        .eq("status", "active")
         .maybeSingle();
       if (error) throw error;
-      const row = (data as ServiceWithFoodExtras) ?? null;
+      const row = (data as ServiceWithFoodExtras & {
+        profile_display_name?: string | null;
+        profile_avatar_url?: string | null;
+        profile_is_verified?: boolean | null;
+      }) ?? null;
       if (!row) return null;
+      row.profiles = {
+        display_name: row.profile_display_name ?? null,
+        avatar_url: row.profile_avatar_url ?? null,
+        is_verified: row.profile_is_verified ?? false,
+      } as ServiceWithFoodExtras["profiles"];
       row.photos = sanitizePhotos(row.photos);
       return row;
     },
@@ -94,12 +122,18 @@ export function getCachedPublicReviews(id: string) {
     async () => {
       const supabase = createPublicClient();
       const { data } = await supabase
-        .from("reviews")
-        .select("*, profiles!reviews_guest_id_fkey(display_name)")
+        .from("public_reviews")
+        .select("*")
         .eq("property_id", id)
         .order("created_at", { ascending: false })
         .limit(20);
-      return data ?? [];
+      return (data ?? []).map((review) => {
+        const row = review as typeof review & { guest_display_name?: string | null };
+        return {
+          ...row,
+          profiles: { display_name: row.guest_display_name ?? "" },
+        };
+      });
     },
     ["public-reviews", id],
     {

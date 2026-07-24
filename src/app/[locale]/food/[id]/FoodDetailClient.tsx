@@ -10,7 +10,6 @@ import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
-import { createClient } from "@/lib/supabase/client";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -52,12 +51,7 @@ export default function FoodDetailClient({
 
   useEffect(() => {
     if (isMock) return;
-    const supabase = createClient();
-    supabase
-      .from("services")
-      .update({ views_count: (service.views_count ?? 0) + 1 })
-      .eq("id", service.id)
-      .then();
+    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service.id, isMock]);
 

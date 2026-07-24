@@ -92,7 +92,7 @@ function Toggle({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex items-center gap-2 text-sm font-medium text-[#334155]"
+      className="flex min-h-11 items-center gap-2 text-sm font-medium text-[#334155] lg:min-h-0"
     >
       <span
         className={cn(
@@ -286,7 +286,7 @@ export default function AdminStatusCardsPage() {
                       onClick={() => moveCard(idx, -1)}
                       disabled={idx === 0}
                       aria-label={t("moveUp")}
-                      className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                      className="flex size-11 items-center justify-center text-[#94A3B8] hover:text-[#334155] disabled:opacity-30 lg:size-auto"
                     >
                       <ChevronUp className="size-4" />
                     </button>
@@ -295,7 +295,7 @@ export default function AdminStatusCardsPage() {
                       onClick={() => moveCard(idx, 1)}
                       disabled={idx === cards.length - 1}
                       aria-label={t("moveDown")}
-                      className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                      className="flex size-11 items-center justify-center text-[#94A3B8] hover:text-[#334155] disabled:opacity-30 lg:size-auto"
                     >
                       <ChevronDown className="size-4" />
                     </button>
@@ -326,7 +326,7 @@ export default function AdminStatusCardsPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedId(isEditing ? null : card.id)}
-                    className="rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#F8FAFC]"
+                    className="flex min-h-11 items-center justify-center rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#F8FAFC] lg:min-h-0"
                   >
                     {isEditing ? t("done") : t("edit")}
                   </button>
@@ -337,7 +337,7 @@ export default function AdminStatusCardsPage() {
                       setCards((prev) => prev.filter((_, i) => i !== idx));
                     }}
                     aria-label={t("delete")}
-                    className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-1.5 text-[#DC2626] hover:bg-[#FEE2E2]"
+                    className="flex size-11 items-center justify-center rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-1.5 text-[#DC2626] hover:bg-[#FEE2E2] lg:size-auto"
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -418,7 +418,7 @@ export default function AdminStatusCardsPage() {
                                 items: [...card.items, newItem()],
                               })
                             }
-                            className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs font-bold text-[#2563EB] hover:bg-[#F1F5F9]"
+                            className="flex min-h-11 items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs font-bold text-[#2563EB] hover:bg-[#F1F5F9] lg:min-h-0"
                           >
                             <Plus className="size-3.5" />
                             {t("addItem")}
@@ -442,7 +442,7 @@ export default function AdminStatusCardsPage() {
                                     onClick={() => moveItem(idx, j, -1)}
                                     disabled={j === 0}
                                     aria-label={t("moveUp")}
-                                    className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                                    className="flex size-11 items-center justify-center text-[#94A3B8] hover:text-[#334155] disabled:opacity-30 lg:size-auto"
                                   >
                                     <ChevronUp className="size-4" />
                                   </button>
@@ -451,7 +451,7 @@ export default function AdminStatusCardsPage() {
                                     onClick={() => moveItem(idx, j, 1)}
                                     disabled={j === card.items.length - 1}
                                     aria-label={t("moveDown")}
-                                    className="text-[#94A3B8] hover:text-[#334155] disabled:opacity-30"
+                                    className="flex size-11 items-center justify-center text-[#94A3B8] hover:text-[#334155] disabled:opacity-30 lg:size-auto"
                                   >
                                     <ChevronDown className="size-4" />
                                   </button>
@@ -465,7 +465,7 @@ export default function AdminStatusCardsPage() {
                                       })
                                     }
                                     aria-label={t("delete")}
-                                    className="ml-1 rounded-md border border-[#FECACA] bg-[#FEF2F2] p-1 text-[#DC2626] hover:bg-[#FEE2E2]"
+                                    className="ml-1 flex size-11 items-center justify-center rounded-md border border-[#FECACA] bg-[#FEF2F2] p-1 text-[#DC2626] hover:bg-[#FEE2E2] lg:size-auto"
                                   >
                                     <Trash2 className="size-3.5" />
                                   </button>

@@ -365,11 +365,11 @@ export default function ModerationPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4">
                   {metrics.map((metric) => (
                     <div
                       key={metric.key}
-                      className="flex h-[86px] flex-col items-center justify-center border-l border-[#E2E8F0] px-3 first:border-l-0 bg-white"
+                      className="flex h-[86px] flex-col items-center justify-center border-[#E2E8F0] px-3 bg-white even:border-l [&:nth-child(n+3)]:border-t sm:border-l sm:first:border-l-0 sm:[&:nth-child(n+3)]:border-t-0"
                     >
                       <span className="text-[10px] font-bold uppercase leading-[15px] tracking-[0.5px] text-[#94A3B8]">
                         {t(metric.key)}
@@ -393,7 +393,7 @@ export default function ModerationPage() {
           role="presentation"
         >
           <div
-            className="max-h-[calc(100vh-2rem)] w-full max-w-[600px] overflow-y-auto rounded-[32px] bg-white p-6 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] sm:p-10"
+            className="max-h-[90dvh] w-full max-w-[600px] overflow-y-auto rounded-[32px] bg-white p-6 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] sm:p-10 lg:max-h-[calc(100vh-2rem)]"
             onClick={handleModalContainerClick}
           >
             <div className="flex items-start justify-between gap-4 pb-8">

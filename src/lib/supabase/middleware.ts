@@ -22,6 +22,11 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       global: { fetch: timeoutFetch(MIDDLEWARE_FETCH_TIMEOUT_MS) },
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -78,6 +83,16 @@ export async function updateSession(request: NextRequest) {
         const url = request.nextUrl.clone();
         url.pathname = "/auth/login";
         url.searchParams.set("next", getSafeNextPath(request));
+        return NextResponse.redirect(url);
+      }
+    }
+
+    if (normalizedPath.startsWith("/dashboard/admin")) {
+      const aal = data?.claims?.aal;
+      if (aal !== "aal2") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/auth/login";
+        url.searchParams.set("mfa", "required");
         return NextResponse.redirect(url);
       }
     }

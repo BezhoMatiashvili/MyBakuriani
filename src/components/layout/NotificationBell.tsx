@@ -15,6 +15,7 @@ import Modal from "@/components/shared/Modal";
 import { createClient } from "@/lib/supabase/client";
 import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
+import { safeInternalPath } from "@/lib/security";
 import type { Database } from "@/lib/types/database";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
@@ -232,9 +233,9 @@ export function NotificationBell({
                         {selected.message}
                       </p>
                     )}
-                    {selected.action_url && (
+                    {safeInternalPath(selected.action_url) && (
                       <Link
-                        href={selected.action_url as never}
+                        href={safeInternalPath(selected.action_url)! as never}
                         onClick={() => setSelected(null)}
                         className="inline-flex items-center justify-center rounded-xl bg-[#2563EB] px-5 py-2.5 text-[13px] font-bold text-white hover:bg-[#1D4ED8]"
                       >

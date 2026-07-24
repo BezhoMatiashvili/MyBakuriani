@@ -316,7 +316,7 @@ export default function GuestRatePage() {
             <button
               type="submit"
               disabled={submitting || rating === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#0F8F60] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,143,96,0.35)] transition-colors hover:bg-[#0B7A52] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0F8F60] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(15,143,96,0.35)] transition-colors hover:bg-[#0B7A52] disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-0"
             >
               {submitting ? t("submitting") : t("submit")}
             </button>

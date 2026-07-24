@@ -55,11 +55,6 @@ export default function ServiceParametersPage() {
         setPhone(toLocalGePhone(data.phone));
         setEmail(user!.email ?? "");
       }
-      const saved =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem(`mb-whatsapp-${user!.id}`)
-          : null;
-      if (saved) setWhatsapp(toLocalGePhone(saved));
       setLoading(false);
     }
     fetchData();
@@ -82,12 +77,6 @@ export default function ServiceParametersPage() {
       .eq("id", user.id);
     setSaving(false);
     if (!error) {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(
-          `mb-whatsapp-${user.id}`,
-          whatsapp ? "+995" + whatsapp : "",
-        );
-      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     }

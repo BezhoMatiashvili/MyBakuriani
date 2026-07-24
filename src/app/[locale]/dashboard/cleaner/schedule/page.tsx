@@ -121,10 +121,7 @@ export default function CleanerSchedulePage() {
 
   async function startTask(id: string) {
     const startedAt = new Date().toISOString();
-    await supabase
-      .from("cleaning_tasks")
-      .update({ status: "in_progress", started_at: startedAt })
-      .eq("id", id);
+    await (supabase as any).rpc("transition_cleaning_task", { p_task_id: id, p_status: "in_progress" });
     setTasks((prev) =>
       prev.map((task) =>
         task.id === id
@@ -136,10 +133,7 @@ export default function CleanerSchedulePage() {
 
   async function completeTask(id: string) {
     const completedAt = new Date().toISOString();
-    await supabase
-      .from("cleaning_tasks")
-      .update({ status: "completed", completed_at: completedAt })
-      .eq("id", id);
+    await (supabase as any).rpc("transition_cleaning_task", { p_task_id: id, p_status: "completed" });
     setTasks((prev) =>
       prev.map((task) =>
         task.id === id

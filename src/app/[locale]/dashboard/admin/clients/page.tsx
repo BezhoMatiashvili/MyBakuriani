@@ -224,7 +224,7 @@ function ClientsPageContent() {
         </div>
         <button
           type="button"
-          className="inline-flex h-[42px] items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-sm hover:bg-[#F8FAFC]"
+          className="inline-flex h-[42px] min-h-11 items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-sm hover:bg-[#F8FAFC] lg:min-h-0"
         >
           <Download className="h-[13px] w-[13px]" />
           {tShared("export")}
@@ -294,7 +294,7 @@ function ClientsPageContent() {
                   <button
                     type="button"
                     onClick={() => setSelectedProfile(profile)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-[12px] bg-[#EFF6FF] px-3.5 text-[12px] font-bold text-[#2563EB] hover:bg-[#DBEAFE]"
+                    className="inline-flex h-8 min-h-11 items-center gap-1.5 rounded-[12px] bg-[#EFF6FF] px-3.5 text-[12px] font-bold text-[#2563EB] hover:bg-[#DBEAFE] lg:min-h-0"
                   >
                     <RefreshCcw className="h-3 w-3" />
                     {t("history")}
@@ -302,20 +302,20 @@ function ClientsPageContent() {
                   <button
                     type="button"
                     onClick={() => openBonus(profile)}
-                    className="inline-flex h-[34px] items-center gap-1.5 rounded-[12px] border border-[#D1FAE5] bg-[#ECFDF5] px-3.5 text-[12px] font-bold text-[#10B981] hover:bg-[#D1FAE5]"
+                    className="inline-flex h-[34px] min-h-11 items-center gap-1.5 rounded-[12px] border border-[#D1FAE5] bg-[#ECFDF5] px-3.5 text-[12px] font-bold text-[#10B981] hover:bg-[#D1FAE5] lg:min-h-0"
                   >
                     <Gift className="h-3 w-3" />
                     {t("bonus")}
                   </button>
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] hover:bg-white"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] hover:bg-white lg:h-9 lg:w-9"
                   >
                     <LogOut className="h-[13px] w-[13px]" />
                   </button>
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8] hover:bg-white"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-[#94A3B8] hover:bg-white lg:h-9 lg:w-9"
                   >
                     <Ban className="h-[13px] w-[13px]" />
                   </button>
@@ -410,7 +410,7 @@ function ClientsPageContent() {
               <button
                 type="button"
                 onClick={() => setSelectedProfile(null)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#F1F5F9] bg-[#F8FAFC] text-[#64748B] hover:bg-[#F1F5F9]"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#F1F5F9] bg-[#F8FAFC] text-[#64748B] hover:bg-[#F1F5F9] lg:h-10 lg:w-10"
               >
                 <X className="h-[18px] w-[18px]" />
               </button>
@@ -474,7 +474,7 @@ function ClientsPageContent() {
                       {t("txEmpty")}
                     </div>
                   ) : (
-                    <table className="w-full min-w-[640px] md:min-w-0">
+                    <table className="w-full min-w-[480px] md:min-w-0">
                       <thead className="bg-[#F8FAFC]">
                         <tr className="border-y border-[#E2E8F0]">
                           <th className="px-6 py-3 text-left text-[11px] font-bold uppercase text-[#94A3B8]">

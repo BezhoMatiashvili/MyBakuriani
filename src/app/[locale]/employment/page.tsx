@@ -24,9 +24,8 @@ export default async function EmploymentPage() {
   const supabase = createPublicClient();
 
   const { data: services, error } = await supabase
-    .from("services")
+    .from("public_services")
     .select("*")
-    .eq("status", "active")
     .eq("category", "employment")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })

@@ -1,36 +1,21 @@
 /**
- * Best-effort per-IP rate limiting for cheap, unauthenticated public routes
- * (geocode proxy, view-tracking endpoints). In-memory only — no Redis/Upstash
- * is wired into this deployment, and a serverless instance's warm lifetime is
- * enough to blunt a single client hammering an endpoint, even though it can't
- * coordinate across instances/regions. Reach for a shared store (Upstash
- * Ratelimit, etc.) if this ever needs to be airtight.
+ * Distributed, fixed-window rate limiting.  Upstash's REST API is deliberately
+ * used directly so the security boundary does not depend on a browser-facing
+ * SDK or a process-local cache.  Development keeps a small in-memory fallback;
+ * production fails closed until the shared store is configured.
  */
-
 type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
+const MAX_BUCKETS = 5_000;
 
-// Cheap bound on unbounded growth from IP-spoofing/scanning traffic — sweep
-// expired entries once the map gets large rather than tracking a timer.
-const MAX_BUCKETS = 5000;
-
-function sweep(now: number) {
-  if (buckets.size < MAX_BUCKETS) return;
-  for (const [key, bucket] of buckets) {
-    if (now > bucket.resetAt) buckets.delete(key);
-  }
-}
-
-/** Returns true if the call is allowed, false if the caller is over `limit` requests per `windowMs`. */
-export function checkRateLimit(
-  key: string,
-  limit: number,
-  windowMs: number,
-): boolean {
+function localLimit(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
-  sweep(now);
-
+  if (buckets.size >= MAX_BUCKETS) {
+    for (const [bucketKey, bucket] of buckets) {
+      if (now > bucket.resetAt) buckets.delete(bucketKey);
+    }
+  }
   const bucket = buckets.get(key);
   if (!bucket || now > bucket.resetAt) {
     buckets.set(key, { count: 1, resetAt: now + windowMs });
@@ -41,7 +26,47 @@ export function checkRateLimit(
   return true;
 }
 
-/** Best-effort client IP from Vercel/standard proxy headers; falls back to a shared bucket if absent. */
+function redisConfig() {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  return url && token ? { url: url.replace(/\/$/, ""), token } : null;
+}
+
+/** Returns false for a missing or unavailable shared limiter in production. */
+export async function checkRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<boolean> {
+  const config = redisConfig();
+  if (!config) {
+    return process.env.NODE_ENV !== "production" && localLimit(key, limit, windowMs);
+  }
+
+  try {
+    const response = await fetch(`${config.url}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        ["INCR", key],
+        ["PEXPIRE", key, String(windowMs), "NX"],
+      ]),
+      cache: "no-store",
+      signal: AbortSignal.timeout(1_500),
+    });
+    if (!response.ok) return false;
+    const result = (await response.json()) as Array<{ result?: unknown }>;
+    const count = Number(result[0]?.result);
+    return Number.isFinite(count) && count <= limit;
+  } catch {
+    return false;
+  }
+}
+
+/** Client address from the trusted deployment proxy; never accept user input. */
 export function getClientIp(req: {
   headers: { get(name: string): string | null };
 }): string {

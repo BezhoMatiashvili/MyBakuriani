@@ -64,7 +64,7 @@ export const getPropertyById = cache(
       const { data } = await supabase
         .from("properties")
         .select(
-          "*, profiles!properties_owner_id_fkey(*), organizations!properties_organization_id_fkey(id, brand_name, logo_url, phone, verified_at, status, company_type)",
+          "*, profiles!properties_owner_id_fkey(id, display_name, avatar_url, is_verified, phone), organizations!properties_organization_id_fkey(id, brand_name, logo_url, phone, verified_at, status, company_type)",
         )
         .eq("id", id)
         .maybeSingle();

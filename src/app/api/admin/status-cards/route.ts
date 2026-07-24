@@ -13,6 +13,7 @@ import {
   type StatusCard,
   type StatusCardItem,
 } from "@/lib/status-cards/types";
+import { safeHttpsUrl } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -44,13 +45,15 @@ function sanitizeItem(value: unknown): StatusCardItem | null {
   const label = sanitizeLocalized(obj.label, true);
   if (!label) return null;
   const itemValue = sanitizeLocalized(obj.value, false);
-  const url = str(obj.url);
+  const rawUrl = str(obj.url);
+  const url = rawUrl ? safeHttpsUrl(rawUrl) : null;
+  if (rawUrl && !url) return null;
   return {
     id: str(obj.id) || randomUUID(),
     label,
     value: itemValue && itemValue.ka ? itemValue : null,
     status: isStatusKind(obj.status) ? obj.status : "none",
-    url: url || null,
+    url,
   };
 }
 

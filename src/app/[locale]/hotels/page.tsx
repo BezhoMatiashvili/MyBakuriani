@@ -26,13 +26,12 @@ export default async function HotelsPage() {
   const [statusCards, { data: properties, error }] = await Promise.all([
     getStatusCards(),
     supabase
-      .from("properties")
+      .from("public_properties")
       // Only the columns the hotel cards + map use (not all 57). Keep in sync
       // with HotelListing in HotelsPageClient.
       .select(
         "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, discount_expires_at, capacity, rooms, amenities, hotel_stars, numeric_rating, room_type, is_b2b_partner",
       )
-      .eq("status", "active")
       .eq("is_for_sale", false)
       .eq("type", "hotel")
       .order("is_super_vip", { ascending: false })

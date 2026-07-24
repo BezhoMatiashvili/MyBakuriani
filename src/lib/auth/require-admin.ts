@@ -1,4 +1,5 @@
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
+import { createClient } from "@/lib/supabase/server";
 
 export type AdminSession = {
   userId: string;
@@ -30,6 +31,16 @@ export async function requireAdmin(): Promise<
     return {
       ok: false,
       response: Response.json({ error: "forbidden" }, { status: 403 }),
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: assurance } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (assurance?.currentLevel !== "aal2") {
+    return {
+      ok: false,
+      response: Response.json({ error: "mfa_required" }, { status: 403 }),
     };
   }
 

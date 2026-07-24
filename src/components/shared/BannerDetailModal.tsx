@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/shared/Modal";
 import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
+import { safeInternalPath, safeHttpsUrl } from "@/lib/security";
 
 interface BannerDetailModalProps {
   banner: LandingBanner | null;
@@ -33,6 +34,8 @@ export default function BannerDetailModal({
   if (!banner) return null;
 
   const tone = BANNER_TONE_STYLES[banner.tone];
+  const ctaHref =
+    safeInternalPath(banner.cta_href) ?? safeHttpsUrl(banner.cta_href);
 
   return (
     <Modal isOpen onClose={onClose} title={banner.title} size="lg">
@@ -80,9 +83,9 @@ export default function BannerDetailModal({
           </div>
         ) : null}
 
-        {banner.cta_label && banner.cta_href ? (
+        {banner.cta_label && ctaHref ? (
           <Link
-            href={banner.cta_href}
+            href={ctaHref}
             className="flex w-full items-center justify-center rounded-full border-2 bg-white px-6 py-3 text-[14px] font-bold transition-colors"
             style={{ borderColor: tone.ctaText, color: tone.ctaText }}
           >

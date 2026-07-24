@@ -8,7 +8,16 @@ export function createClient() {
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { fetch: timeoutFetch(BROWSER_FETCH_TIMEOUT_MS) } },
+    {
+      global: { fetch: timeoutFetch(BROWSER_FETCH_TIMEOUT_MS) },
+      cookieOptions: {
+        // No domain attribute: sessions are host-only and cannot leak to a
+        // sibling subdomain. The browser client needs readable refresh cookies.
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   );
 }
 
@@ -23,6 +32,13 @@ export function createUploadClient() {
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { fetch: timeoutFetch(UPLOAD_FETCH_TIMEOUT_MS) } },
+    {
+      global: { fetch: timeoutFetch(UPLOAD_FETCH_TIMEOUT_MS) },
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   );
 }
