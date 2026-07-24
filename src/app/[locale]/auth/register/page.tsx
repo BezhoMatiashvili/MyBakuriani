@@ -162,6 +162,17 @@ export default function RegisterPage() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError(t("errors.fileTooLarge"));
+      e.target.value = "";
+      return;
+    }
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      setError(t("errors.invalidFormat"));
+      e.target.value = "";
+      return;
+    }
+    setError(null);
     setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => setAvatarUrl(ev.target?.result as string);
@@ -186,10 +197,13 @@ export default function RegisterPage() {
     let uploadedAvatarUrl: string | null = null;
 
     if (avatarFile) {
-      const ext = avatarFile.name.split(".").pop();
-      const path = `${user.id}/avatar.${ext}`;
+      // Avatars live in the dedicated `avatars` bucket (public, 2MB, jpeg/png
+      // only — enforced both by handleAvatarChange and the bucket policy). Ext
+      // is derived from the validated mime type, not the (untrusted) filename.
+      const ext = avatarFile.type === "image/png" ? "png" : "jpg";
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from("property-photos")
+        .from("avatars")
         .upload(path, avatarFile, {
           upsert: true,
           contentType: avatarFile.type,
@@ -198,7 +212,7 @@ export default function RegisterPage() {
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from("property-photos").getPublicUrl(path);
+      } = supabase.storage.from("avatars").getPublicUrl(path);
       uploadedAvatarUrl = publicUrl;
     }
 

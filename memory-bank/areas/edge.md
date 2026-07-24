@@ -10,7 +10,10 @@ run outside Next.js.
   `company-subscription`.
 - Discovery: `search`, `smart-match`.
 - Media/admin: `upload-photos`, `verify-listing`, `admin-stats`.
-- Scheduled/SMS: `sms-dispatch`, `sms-automation-run`, `vip-lifecycle`.
+- Scheduled/SMS: `sms-dispatch`, `sms-automation-run`, `vip-lifecycle`,
+  `road-condition-refresh` (every 30 min via pg_cron; calls the **Google Routes
+  API** server-side and upserts `public.road_conditions` — shared-secret gated
+  (`ROAD_CONDITION_SECRET`), no client `invoke` caller; deploy `verify_jwt=false`).
 - `_shared/guards.ts` — `requireUser` (Bearer auth), `createServiceClient`,
   `buildCorsHeaders` (origin allow-list via `ALLOWED_ORIGINS` + hardcoded
   `*-bezhomatiashvilis-projects.vercel.app` suffix for Vercel deploy URLs),

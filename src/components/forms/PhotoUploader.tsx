@@ -282,7 +282,8 @@ export default function PhotoUploader({
       const processed = await watermarkFile(working, {
         outputType: "image/jpeg",
         maxEdge: MAX_EDGE,
-        opacity: 0.5,
+        // opacity/widthRatio inherit watermark.ts DEFAULTS (single source of
+        // truth) so the logo stays consistent across every upload path.
       });
       if (processed.size > MAX_UPLOAD_BYTES) {
         return { ok: false, reason: "too_large" };

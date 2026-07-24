@@ -1784,6 +1784,8 @@
     "errors": {
       "enterName": "გთხოვთ შეიყვანოთ სახელი",
       "roleUpdateFailed": "როლის განახლება ვერ მოხერხდა. სცადეთ თავიდან.",
+      "fileTooLarge": "ფაილი არ უნდა აღემატებოდეს 2MB-ს",
+      "invalidFormat": "მხოლოდ JPG და PNG ფორმატია დაშვებული",
       "generic": "შეცდომა. სცადეთ თავიდან."
     },
     "seller": {
@@ -2436,6 +2438,7 @@
     "recentTitle": "ბოლოს ნანახი განცხადებები",
     "recentSubtitle": "გააგრძელე სადაც გაჩერდი.",
     "viewAll": "ყველას ნახვა",
+    "showLess": "ნაკლების ჩვენება",
     "views": "{count} ნახვა",
     "perNight": "/ღამე",
     "newRequestModal": {
@@ -3158,7 +3161,11 @@
     "sentOffersTitle": "ჩემი შეთავაზებები",
     "sentOffersEmpty": "თქვენ ჯერ არ გაგიგზავნიათ შეთავაზება.",
     "sentOffersSeen": "ნანახია სტუმრის მიერ",
-    "sentOffersNotSeen": "სტუმარს ჯერ არ უნახავს"
+    "sentOffersNotSeen": "სტუმარს ჯერ არ უნახავს",
+    "sentOffersCancelled": "გაუქმებული",
+    "cancel": "გაუქმება",
+    "cancelConfirm": "დაადასტურე",
+    "cancelBack": "უკან"
   },
   "RenterCleaners": {
     "title": "დამლაგებლები",

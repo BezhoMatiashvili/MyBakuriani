@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/types/database";
 import type { GuestOffer } from "@/components/guest/GuestOffersModal";
 
+/** Max listings loaded for the "recently viewed" section. The dashboard shows a
+ *  few collapsed; the rest are revealed in-place by the expand toggle. */
+const RECENT_LIMIT = 12;
+
 /** A Smart Match request the guest sent, shown back to them on the dashboard. */
 export type MyRequest = {
   id: string;
@@ -45,13 +49,16 @@ export async function loadGuestData(
         .select("*")
         .eq("status", "active")
         .order("views_count", { ascending: false })
-        .limit(3),
+        .limit(RECENT_LIMIT),
       supabase
         .from("smart_match_offers")
         .select(
           "*, smart_match_requests!inner(id, guest_id), properties(id, title, photos, capacity, price_per_night, is_vip, numeric_rating, owner_id, profiles!owner_id(display_name, avatar_url, rating))",
         )
         .eq("smart_match_requests.guest_id", userId)
+        // A renter can withdraw a sent offer (status -> 'cancelled'); it must not
+        // remain visible/acceptable to the guest.
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false }),
       supabase
         .from("notifications")

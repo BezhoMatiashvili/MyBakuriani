@@ -13,6 +13,7 @@ import NumberField from "@/components/shared/NumberField";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
+import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { cn } from "@/lib/utils";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
@@ -331,7 +332,7 @@ function CreateEmploymentPageInner() {
         router.push("/dashboard/employment");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : tShared("genericError"));
+      setError(formatSupabaseError(err, tShared("genericError")));
       submittingRef.current = false;
       setLoading(false);
     }

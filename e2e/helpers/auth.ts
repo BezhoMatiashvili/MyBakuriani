@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { supabaseAdmin } from "./supabase";
 import { configureIsolatedE2E } from "./env";
@@ -15,6 +16,39 @@ export interface TestUser {
 }
 
 const createdUserIds: string[] = [];
+const E2E_PASSWORD = "test-password-e2e-12345";
+
+function base32Decode(value: string): Buffer {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const char of value.replace(/=|\s/g, "").toUpperCase()) {
+    const index = alphabet.indexOf(char);
+    if (index === -1) throw new Error("Invalid TOTP secret returned by Supabase");
+    bits += index.toString(2).padStart(5, "0");
+  }
+
+  const bytes: number[] = [];
+  for (let index = 0; index + 8 <= bits.length; index += 8) {
+    bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
+export function generateTotpCode(secret: string, timestamp = Date.now()): string {
+  const counter = Math.floor(timestamp / 30_000);
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(counter));
+  const digest = createHmac("sha1", base32Decode(secret))
+    .update(counterBuffer)
+    .digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  const value =
+    ((digest[offset] & 0x7f) << 24) |
+    (digest[offset + 1] << 16) |
+    (digest[offset + 2] << 8) |
+    digest[offset + 3];
+  return String(value % 1_000_000).padStart(6, "0");
+}
 
 export async function createTestUser(opts: {
   id: string;
@@ -141,7 +175,7 @@ export async function createTestUser(opts: {
 
   // Get session tokens
   await supabaseAdmin.auth.admin.updateUserById(authData!.user.id, {
-    password: "test-password-e2e-12345",
+    password: E2E_PASSWORD,
   });
   const { createClient } = await import("@supabase/supabase-js");
   const WebSocket = (await import("ws")).default;
@@ -160,7 +194,7 @@ export async function createTestUser(opts: {
     error: signInError,
   } = await anonClient.auth.signInWithPassword({
     email,
-    password: "test-password-e2e-12345",
+    password: E2E_PASSWORD,
   });
   if (signInError)
     throw new Error(`Failed to sign in test user: ${signInError.message}`);
@@ -173,6 +207,69 @@ export async function createTestUser(opts: {
     role: opts.role,
     accessToken: session?.access_token ?? "",
     refreshToken: session?.refresh_token ?? "",
+  };
+}
+
+/**
+ * Completes real TOTP enrollment and verification for an isolated test user.
+ * The returned access token is AAL2 and can therefore exercise admin pages
+ * without weakening their production MFA guard.
+ */
+export async function elevateTestUserToAal2(user: TestUser): Promise<TestUser> {
+  const { createClient } = await import("@supabase/supabase-js");
+  const e2e = configureIsolatedE2E();
+  const client = createClient(e2e.supabaseUrl, e2e.anonKey);
+  const { error: setSessionError } = await client.auth.setSession({
+    access_token: user.accessToken,
+    refresh_token: user.refreshToken,
+  });
+  if (setSessionError) {
+    throw new Error(`Failed to restore test session: ${setSessionError.message}`);
+  }
+
+  const { data: enrollment, error: enrollmentError } =
+    await client.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: "E2E administrator",
+      issuer: "MyBakuriani E2E",
+    });
+  if (enrollmentError || !enrollment) {
+    throw new Error(
+      `Failed to enroll test TOTP factor: ${enrollmentError?.message ?? "no data"}`,
+    );
+  }
+
+  const { data: challenge, error: challengeError } =
+    await client.auth.mfa.challenge({ factorId: enrollment.id });
+  if (challengeError || !challenge) {
+    throw new Error(
+      `Failed to challenge test TOTP factor: ${challengeError?.message ?? "no data"}`,
+    );
+  }
+
+  const { error: verifyError } = await client.auth.mfa.verify({
+    factorId: enrollment.id,
+    challengeId: challenge.id,
+    code: generateTotpCode(enrollment.totp.secret),
+  });
+  if (verifyError) {
+    throw new Error(`Failed to verify test TOTP factor: ${verifyError.message}`);
+  }
+
+  const {
+    data: { session },
+    error: refreshError,
+  } = await client.auth.refreshSession();
+  if (refreshError || !session) {
+    throw new Error(
+      `Failed to refresh AAL2 test session: ${refreshError?.message ?? "no session"}`,
+    );
+  }
+
+  return {
+    ...user,
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
   };
 }
 
@@ -197,7 +294,16 @@ export async function authenticateAsRole(
       user_metadata: { role: user.role },
     },
   });
-  const encoded = Buffer.from(sessionPayload).toString("base64");
+  // @supabase/ssr uses a base64url value prefixed with "base64-". This is the
+  // same serialization used by the browser client and understood by server
+  // middleware; a raw base64 cookie is intentionally rejected.
+  const encoded =
+    "base64-" +
+    Buffer.from(sessionPayload)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
   const cookieDefaults = {
     domain: "localhost",
     path: "/",
@@ -207,7 +313,6 @@ export async function authenticateAsRole(
   };
   await page.context().addCookies([
     { name: cookieBase, value: encoded, ...cookieDefaults },
-    { name: `${cookieBase}.0`, value: encoded, ...cookieDefaults },
   ]);
 }
 

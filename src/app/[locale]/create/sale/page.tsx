@@ -19,6 +19,7 @@ import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
+import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { readStoredActiveOrgId } from "@/lib/dashboard/orgScope";
 import {
   isValidGePhone,
@@ -693,7 +694,7 @@ function CreateSalePageInner() {
         setError(tShared("cadastralAlreadyUsed"));
         scrollToField("cadastralCode");
       } else {
-        setError(err instanceof Error ? err.message : tShared("genericError"));
+        setError(formatSupabaseError(err, tShared("genericError")));
       }
       submittingRef.current = false;
       setLoading(false);

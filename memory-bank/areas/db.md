@@ -12,6 +12,11 @@ Database schema, policies, and the generated type mirror.
   (tables, `Enums` incl. `user_role`, RPC signatures). Consumed via the `Database`
   generic everywhere.
 - `supabase/config.toml`, `supabase/seed/`.
+- `public.road_conditions` — single-row-per-route live road status (public read,
+  admin/service write). Written every 30 min by the `road-condition-refresh` edge
+  function; read + overlaid onto the landing "road" status card by
+  `src/lib/road-condition/server.ts` (`getRoadCondition` / `withLiveRoad`), same
+  live-overlay pattern as the weather card.
 
 ## Responsibilities
 

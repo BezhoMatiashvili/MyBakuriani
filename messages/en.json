@@ -1784,6 +1784,8 @@
     "errors": {
       "enterName": "Please enter your name",
       "roleUpdateFailed": "Failed to update the role. Try again.",
+      "fileTooLarge": "File must not exceed 2MB",
+      "invalidFormat": "Only JPG and PNG formats are allowed",
       "generic": "Error. Please try again."
     },
     "seller": {
@@ -2436,6 +2438,7 @@
     "recentTitle": "Recently viewed listings",
     "recentSubtitle": "Pick up where you left off.",
     "viewAll": "View all",
+    "showLess": "Show less",
     "views": "{count} views",
     "perNight": "/night",
     "newRequestModal": {
@@ -3158,7 +3161,11 @@
     "sentOffersTitle": "My offers",
     "sentOffersEmpty": "You haven't sent any offers yet.",
     "sentOffersSeen": "Seen by guest",
-    "sentOffersNotSeen": "Not seen yet"
+    "sentOffersNotSeen": "Not seen yet",
+    "sentOffersCancelled": "Cancelled",
+    "cancel": "Cancel",
+    "cancelConfirm": "Confirm",
+    "cancelBack": "Back"
   },
   "RenterCleaners": {
     "title": "Cleaners",

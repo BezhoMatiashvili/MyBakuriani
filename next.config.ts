@@ -11,6 +11,12 @@ const withBundleAnalyzer = withBundleAnalyzerInit({
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The media-finalize route reads public/watermark.png at runtime via fs;
+  // Vercel's serverless bundler doesn't trace public/ automatically, so include
+  // it explicitly or the read 404s in production.
+  outputFileTracingIncludes: {
+    "/api/media/intents/[id]/finalize": ["./public/watermark.png"],
+  },
   async headers() {
     // Applies to API and static responses, which intentionally do not receive
     // the page-only nonce CSP emitted by middleware.
@@ -20,15 +26,25 @@ const nextConfig: NextConfig = {
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
       { key: "Cross-Origin-Resource-Policy", value: "same-site" },
-      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
+      {
+        key: "Permissions-Policy",
+        value: "camera=(), microphone=(), geolocation=(self)",
+      },
       ...(process.env.NODE_ENV === "production"
-        ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
+        ? [
+            {
+              key: "Strict-Transport-Security",
+              value: "max-age=63072000; includeSubDomains; preload",
+            },
+          ]
         : []),
     ];
-    return [{
-      source: "/:path*",
-      headers: baseline,
-    }];
+    return [
+      {
+        source: "/:path*",
+        headers: baseline,
+      },
+    ];
   },
   images: {
     formats: ["image/avif", "image/webp"],

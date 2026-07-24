@@ -382,6 +382,24 @@ export default function RenterSmartMatchPage() {
     return true;
   }
 
+  async function handleCancelOffer(offerId: string) {
+    // Optimistic — flip to cancelled, revert if the update fails. Non-destructive
+    // (sets status rather than deleting); the guest side filters cancelled offers
+    // out of their list via loadGuestData, so a withdrawn offer disappears there.
+    setSentOffers((prev) =>
+      prev.map((o) => (o.id === offerId ? { ...o, status: "cancelled" } : o)),
+    );
+    const { error } = await supabase
+      .from("smart_match_offers")
+      .update({ status: "cancelled" })
+      .eq("id", offerId);
+    if (error) {
+      setSentOffers((prev) =>
+        prev.map((o) => (o.id === offerId ? { ...o, status: "pending" } : o)),
+      );
+    }
+  }
+
   // Responded cards stay visible in the modal; only unanswered ones count as
   // "incoming" for the stat and banner. "Sent" counts responded cards within
   // the same visible window so the two stats always add up.
@@ -488,6 +506,7 @@ export default function RenterSmartMatchPage() {
                 key={offer.id}
                 offer={offer}
                 allZonesLabel={t("allZones")}
+                onCancel={handleCancelOffer}
               />
             ))}
           </div>

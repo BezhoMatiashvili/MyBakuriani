@@ -110,6 +110,15 @@ does nothing until every function that imports it is redeployed (14 of them;
 have per-function file layouts and `verify_jwt` flags — preserve both when
 redeploying via MCP `deploy_edge_function`.
 
+Not every function is client-invoked: the scheduled jobs (`vip-lifecycle`,
+`sms-dispatch`, `booking-finalize`, `road-condition-refresh`) have **no `invoke`
+caller** — they are triggered by pg_cron via `net.http_post` (see the
+`supabase/migrations/*schedule*.sql` files) and gated by a per-function **shared
+secret** (their own `requireSharedSecret` comparing the Bearer to
+`<NAME>_SECRET`), deployed `verify_jwt=false`. `road-condition-refresh` also calls
+the external `routes.googleapis.com` **server-side** (Deno), so it needs no CSP /
+`remotePatterns` entry (**C6** governs only browser + Next-image-optimizer hosts).
+
 **Breaks silently when:** a body field is renamed on one side only → runtime 400 /
 missing field, no compile error.
 

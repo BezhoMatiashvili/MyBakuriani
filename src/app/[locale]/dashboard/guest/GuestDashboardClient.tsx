@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Eye, Plus, Star } from "lucide-react";
+import { ArrowRight, ChevronDown, Eye, Plus, Star } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +21,9 @@ import MyRequestCard from "@/components/guest/MyRequestCard";
 import { loadGuestData, type GuestData, type MyRequest } from "./loadData";
 
 type Property = Tables<"properties">;
+
+/** How many "recently viewed" cards show before the user expands the section. */
+const COLLAPSED_COUNT = 3;
 
 export default function GuestDashboardClient({
   userId,
@@ -52,9 +55,14 @@ export default function GuestDashboardClient({
 
   const [newRequestOpen, setNewRequestOpen] = useState(false);
   const [offersOpen, setOffersOpen] = useState(false);
+  const [recentExpanded, setRecentExpanded] = useState(false);
 
   const pendingOffers = offers.filter((o) => o.status === "pending");
   const newOfferCount = pendingOffers.length;
+  const canExpandRecent = recent.length > COLLAPSED_COUNT;
+  const visibleRecent = recentExpanded
+    ? recent
+    : recent.slice(0, COLLAPSED_COUNT);
 
   const apply = useCallback((data: GuestData) => {
     setProfile(data.profile);
@@ -299,21 +307,32 @@ export default function GuestDashboardClient({
               {t("recentSubtitle")}
             </p>
           </div>
-          <Link
-            href="/apartments"
-            className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
-          >
-            {t("viewAll")}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          {canExpandRecent && (
+            <button
+              type="button"
+              onClick={() => setRecentExpanded((v) => !v)}
+              className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
+            >
+              {recentExpanded ? t("showLess") : t("viewAll")}
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${
+                  recentExpanded ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          )}
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={`mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${
+            recentExpanded ? "max-h-[560px] overflow-y-auto pr-1" : ""
+          }`}
+        >
           {loading
             ? Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-[260px] rounded-[20px]" />
               ))
-            : recent.map((p) => (
+            : visibleRecent.map((p) => (
                 <Link
                   key={p.id}
                   href={

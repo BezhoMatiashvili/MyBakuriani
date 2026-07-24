@@ -17,6 +17,7 @@ import NumberField from "@/components/shared/NumberField";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
@@ -366,7 +367,7 @@ function CreateTransportPageInner() {
         router.push("/dashboard/transport");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : tShared("genericError"));
+      setError(formatSupabaseError(err, tShared("genericError")));
       submittingRef.current = false;
       setLoading(false);
     }

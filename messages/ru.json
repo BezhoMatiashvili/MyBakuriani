@@ -1784,6 +1784,8 @@
     "errors": {
       "enterName": "Пожалуйста, введите имя",
       "roleUpdateFailed": "Не удалось обновить роль. Попробуйте снова.",
+      "fileTooLarge": "Файл не должен превышать 2MB",
+      "invalidFormat": "Допустимы только форматы JPG и PNG",
       "generic": "Ошибка. Попробуйте снова."
     },
     "seller": {
@@ -2436,6 +2438,7 @@
     "recentTitle": "Недавно просмотренные объявления",
     "recentSubtitle": "Продолжите с того места, где остановились.",
     "viewAll": "Смотреть все",
+    "showLess": "Показать меньше",
     "views": "{count} просмотров",
     "perNight": "/ночь",
     "newRequestModal": {
@@ -3158,7 +3161,11 @@
     "sentOffersTitle": "Мои предложения",
     "sentOffersEmpty": "Вы ещё не отправляли предложения.",
     "sentOffersSeen": "Просмотрено гостем",
-    "sentOffersNotSeen": "Ещё не просмотрено"
+    "sentOffersNotSeen": "Ещё не просмотрено",
+    "sentOffersCancelled": "Отменён",
+    "cancel": "Отменить",
+    "cancelConfirm": "Подтвердить",
+    "cancelBack": "Назад"
   },
   "RenterCleaners": {
     "title": "Уборщики",

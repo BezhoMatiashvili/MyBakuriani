@@ -104,65 +104,10 @@ test.describe("Admin Dashboard", () => {
   });
 });
 
-// Real admin sign-in using the password createTestUser sets — bypasses the
-// broken cookie-injection helper in this suite for the audit-panel checks.
-async function signInAdmin(page: import("@playwright/test").Page) {
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const email = "test-admin-aae2ff00@e2e.mybakuriani.test";
-  const password = "test-password-e2e-12345";
-
-  // Get session tokens from gotrue.
-  const tokenRes = await page.request.post(
-    `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      headers: {
-        apikey: SUPABASE_ANON,
-        "Content-Type": "application/json",
-      },
-      data: { email, password },
-    },
-  );
-  if (!tokenRes.ok())
-    throw new Error("token endpoint failed: " + (await tokenRes.text()));
-  const session = await tokenRes.json();
-
-  const projectRef = new URL(SUPABASE_URL).hostname.split(".")[0];
-  const cookieName = `sb-${projectRef}-auth-token`;
-  const json = JSON.stringify({
-    access_token: session.access_token,
-    refresh_token: session.refresh_token,
-    expires_in: session.expires_in,
-    expires_at: session.expires_at,
-    token_type: "bearer",
-    user: session.user,
-  });
-  // @supabase/ssr expects base64url + "base64-" prefix
-  const b64url = Buffer.from(json)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-  const cookieValue = "base64-" + b64url;
-
-  await page.context().addCookies([
-    {
-      name: cookieName,
-      value: cookieValue,
-      domain: "localhost",
-      path: "/",
-      httpOnly: false,
-      secure: false,
-      sameSite: "Lax",
-    },
-  ]);
-}
-
 test.describe("Admin verifications — expandable audit panel", () => {
   test("clicking a row reveals owner + listing audit details", async ({
     adminPage,
   }) => {
-    await signInAdmin(adminPage);
     await adminPage.goto("/dashboard/admin/verifications");
     console.log("URL after goto:", adminPage.url());
     expect(adminPage.url(), "should not redirect to login").not.toContain(
@@ -188,27 +133,15 @@ test.describe("Admin verifications — expandable audit panel", () => {
       adminPage.getByText("ადმინისტრატორის კომენტარი"),
     ).toBeVisible();
 
-    const { writeFileSync, mkdirSync } = await import("node:fs");
-    const buf = await adminPage.screenshot({ fullPage: true });
-    mkdirSync("/Users/bezhomatiashvili/Desktop/MyBakuriani/playwright-report", {
-      recursive: true,
+    await adminPage.screenshot({
+      path: "playwright-report/admin-verifications-expanded.png",
+      fullPage: true,
     });
-    writeFileSync(
-      "/Users/bezhomatiashvili/Desktop/MyBakuriani/playwright-report/admin-verifications-expanded.png",
-      buf,
-    );
-    console.log(
-      "WROTE SCREENSHOT BYTES=" +
-        buf.length +
-        " AT " +
-        new Date().toISOString(),
-    );
   });
 
   test("property row shows საკადასტრო კოდი + napr.gov.ge link", async ({
     adminPage,
   }) => {
-    await signInAdmin(adminPage);
     await adminPage.goto("/dashboard/admin/verifications");
     if (!(await assertDashboard(adminPage))) return;
 

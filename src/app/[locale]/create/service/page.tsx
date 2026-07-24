@@ -20,6 +20,7 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient, createUploadClient } from "@/lib/supabase/client";
+import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
@@ -299,7 +300,7 @@ function CreateServicePageInner() {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : tShared("genericError"));
+      setError(formatSupabaseError(err, tShared("genericError")));
       submittingRef.current = false;
       setLoading(false);
     }
@@ -711,7 +712,8 @@ function ProfilePhotoUpload({
       const watermarked = await watermarkFile(file, {
         outputType: "image/jpeg",
         maxEdge: 2560,
-        opacity: 0.5,
+        // opacity/widthRatio inherit watermark.ts DEFAULTS (single source of
+        // truth) so the logo stays consistent across every upload path.
       });
       const path = `${user.id}/${crypto.randomUUID()}-wm.jpg`;
       const { error: upErr } = await client.storage

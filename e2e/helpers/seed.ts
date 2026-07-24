@@ -1,4 +1,8 @@
-import { createTestUser, type TestUser } from "./auth";
+import {
+  createTestUser,
+  elevateTestUserToAal2,
+  type TestUser,
+} from "./auth";
 import {
   supabaseAdmin,
   properties,
@@ -145,12 +149,12 @@ export type TestUserMap = Record<
 // ---------------------------------------------------------------------------
 export async function seedTestData(): Promise<{ users: TestUserMap }> {
   // ---- Users ----
-  const admin = await createTestUser({
+  const admin = await elevateTestUserToAal2(await createTestUser({
     id: TEST_IDS.admin,
     phone: PHONES.admin,
     displayName: "E2E ადმინი",
     role: "admin",
-  });
+  }));
   const guest = await createTestUser({
     id: TEST_IDS.guest,
     phone: PHONES.guest,

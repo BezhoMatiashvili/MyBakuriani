@@ -26,8 +26,8 @@ export type StatusIcon =
   | "route"
   | "video"
   | "camera"
-  // Weather-condition icons — auto-assigned to the live weather card from the
-  // Open-Meteo WMO code (see src/lib/weather/server.ts).
+  // Weather-condition icons — auto-assigned to the live weather card from
+  // WeatherAPI conditions (see src/lib/weather/weatherapi.ts).
   | "sun"
   | "cloudSun"
   | "cloudRain"

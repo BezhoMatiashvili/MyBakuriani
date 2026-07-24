@@ -14,6 +14,24 @@ function getSafeNextPath(request: NextRequest) {
   return redirectTo;
 }
 
+function redirectToLogin(
+  request: NextRequest,
+  sessionResponse: NextResponse,
+) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/auth/login";
+  url.searchParams.set("next", getSafeNextPath(request));
+
+  // A confirmed signed-out result can arrive after Supabase refreshed or
+  // cleared cookies. Preserve those mutations on the redirect so the browser
+  // does not retain stale session state.
+  const response = NextResponse.redirect(url);
+  sessionResponse.cookies.getAll().forEach((cookie) => {
+    response.cookies.set(cookie);
+  });
+  return response;
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -80,20 +98,7 @@ export async function updateSession(request: NextRequest) {
           error.message,
         );
       } else {
-        const url = request.nextUrl.clone();
-        url.pathname = "/auth/login";
-        url.searchParams.set("next", getSafeNextPath(request));
-        return NextResponse.redirect(url);
-      }
-    }
-
-    if (normalizedPath.startsWith("/dashboard/admin")) {
-      const aal = data?.claims?.aal;
-      if (aal !== "aal2") {
-        const url = request.nextUrl.clone();
-        url.pathname = "/auth/login";
-        url.searchParams.set("mfa", "required");
-        return NextResponse.redirect(url);
+        return redirectToLogin(request, supabaseResponse);
       }
     }
   } catch (err) {

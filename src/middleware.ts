@@ -5,6 +5,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { isAllowedMutationOrigin } from "@/lib/security";
 
 const intlMiddleware = createIntlMiddleware(routing);
+const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
 
 function applySecurityHeaders(response: Response) {
   // script-src/style-src keep 'unsafe-inline': next-themes and Next's bootstrap
@@ -85,6 +86,13 @@ export async function middleware(request: NextRequest) {
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  // This value is deliberately overwritten rather than forwarded from the
+  // browser. Server layouts use it for post-auth redirects, so it must reflect
+  // the actual request (including locale and query string), not user input.
+  requestHeaders.set(
+    ORIGINAL_REQUEST_PATH_HEADER,
+    request.nextUrl.pathname + request.nextUrl.search,
+  );
   const nonceRequest = new NextRequest(request, { headers: requestHeaders });
 
   // Run next-intl middleware first to handle locale routing

@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
+import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone, sanitizeCadastralCode } from "@/lib/utils/number";
 import {
   useCadastralTaken,
@@ -512,7 +513,7 @@ function CreateRentalPageInner() {
         setInvalidFields(new Set(["cadastralCode"]));
         setError(tShared("cadastralAlreadyUsed"));
       } else {
-        setError(err instanceof Error ? err.message : t("submitError"));
+        setError(formatSupabaseError(err, t("submitError")));
       }
       submittingRef.current = false;
       setLoading(false);

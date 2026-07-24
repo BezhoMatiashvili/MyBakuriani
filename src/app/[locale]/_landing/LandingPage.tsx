@@ -39,7 +39,7 @@ import { InfoBanners } from "@/components/landing/InfoBanners";
 import { PromoBanners } from "@/components/landing/PromoBanners";
 import type { LandingBanner } from "@/lib/banners";
 import type { Zone } from "@/lib/zones/types";
-import StatusCards from "@/components/landing/StatusCards";
+import HomeStatusCards from "@/components/landing/HomeStatusCards";
 import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
 
@@ -385,7 +385,7 @@ export default function LandingPage({
           </div>
 
           {/* Rental status cards — weather / lifts / road / cameras */}
-          <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
+          <HomeStatusCards cards={statusCards} />
         </div>
       </section>
 

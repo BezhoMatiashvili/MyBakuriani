@@ -27,6 +27,7 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
+import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
@@ -321,7 +322,7 @@ function CreateFoodPageInner() {
         router.push("/dashboard/food");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : tShared("genericError"));
+      setError(formatSupabaseError(err, tShared("genericError")));
       submittingRef.current = false;
       setLoading(false);
     }

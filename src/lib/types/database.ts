@@ -1909,6 +1909,48 @@ export type Database = {
           },
         ];
       };
+      road_conditions: {
+        Row: {
+          computed_at: string;
+          created_at: string;
+          distance_meters: number | null;
+          duration_seconds: number | null;
+          id: string;
+          ratio: number | null;
+          route_slug: string;
+          source: string;
+          static_duration_seconds: number | null;
+          status_code: string;
+          updated_at: string;
+        };
+        Insert: {
+          computed_at?: string;
+          created_at?: string;
+          distance_meters?: number | null;
+          duration_seconds?: number | null;
+          id?: string;
+          ratio?: number | null;
+          route_slug: string;
+          source?: string;
+          static_duration_seconds?: number | null;
+          status_code?: string;
+          updated_at?: string;
+        };
+        Update: {
+          computed_at?: string;
+          created_at?: string;
+          distance_meters?: number | null;
+          duration_seconds?: number | null;
+          id?: string;
+          ratio?: number | null;
+          route_slug?: string;
+          source?: string;
+          static_duration_seconds?: number | null;
+          status_code?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       services: {
         Row: {
           accommodation: string | null;
