@@ -82,6 +82,17 @@ it changed (the `property_type` enum for **C13**, `placement` on ads +
 landing_banners for **C12**). Hand-editing is the deliberate exception, not the
 rule — keep the edit to the affected lines so a future regen is a clean diff.
 
+**Never run `supabase db push`.** This project's migrations are applied through MCP
+`apply_migration`, which assigns its **own** ledger version at apply time, so the
+`supabase_migrations.schema_migrations` versions do NOT correspond to the local
+filenames (`001_initial_schema.sql` is recorded as `20260325120722`;
+`20260724180000_content_change_requests.sql` as `20260724195934`). A `db push` compares
+local prefixes against the ledger, would consider almost every file unapplied, and
+would try to re-run the entire directory against a live schema. MCP `apply_migration`
+is the only supported path from this repo. Filename prefixes are therefore just a
+human-readable ordering; 9 pairs still share a prefix (`20260628120000` etc.), which is
+untidy but inert given the above.
+
 **Also check:** RPC signatures called from edge functions (**C4**) and API routes;
 every consumer of the `user_role` enum (**C8**). After regen, run `tsc` — new
 required columns / changed arg lists surface as errors at call sites.
@@ -123,9 +134,14 @@ flat `index.ts` name makes `../` escape the bundle root and the function fails t
 Never echo back the `user_fn_<uuid>_<version>/…` names some deployed functions report:
 they are per-deploy artifacts and re-sending them nests one layer deeper each time.
 **`verify_jwt` must be read from the deployed function and preserved** — the deployed
-values are the truth and `supabase/config.toml` is STALE (it declares `verify_jwt = false`
-for 9 functions that are live with `true`, so a CLI `functions deploy` would silently
-strip gateway JWT verification).
+value is the truth. `supabase/config.toml` was reconciled to match prod on 2026-07-25
+(it had declared `false` for 8 functions live with `true`, and omitted two entirely,
+which the CLI defaults to `true` — that direction is the dangerous one: it 401s the
+pg_cron caller of `booking-finalize` / `road-condition-refresh` and the job stops
+silently). Keep the two in lock-step: changing a `verify_jwt` in `config.toml` without
+redeploying that function, or redeploying with a different flag than the file declares,
+re-opens the drift. `ai-respond` and `webhook-facebook` are deployed but have **no
+source in this repo**, so they are deliberately absent from `config.toml`.
 
 Not every function is client-invoked: the scheduled jobs (`vip-lifecycle`,
 `sms-dispatch`, `booking-finalize`, `road-condition-refresh`) have **no `invoke`
@@ -544,7 +560,7 @@ contains plots.
 
 ## C14 — Editorial review gate for public content
 
-**Invariant:** after `20260724120000_content_change_requests.sql`, a browser session can
+**Invariant:** after `20260724180000_content_change_requests.sql`, a browser session can
 no longer UPDATE the _public-content_ columns of `profiles`, `cleaner_profiles`,
 `properties`, `services` or `organizations`. A BEFORE UPDATE trigger raises **42501**
 for any non-admin, non-`service_role` session that changes a column in that table's
@@ -562,8 +578,8 @@ enforces that they agree:
 
 Participating symbols:
 
-- `supabase/migrations/20260724120000_content_change_requests.sql:prevent_unreviewed_public_content_update` — the BEFORE UPDATE trigger (B); early-returns when `auth.role()` IS NULL or `service_role`, or `is_admin_user()`
-- `supabase/migrations/20260724120000_content_change_requests.sql:approve_content_change_request` — SECURITY DEFINER apply-on-approve (C). Its staleness check compares `before_snapshot` key-by-key against the live row; for a `profile` target the nested `cleaner_profile` object **must be projected onto the keys the API snapshotted** (`jsonb_object_agg` over `jsonb_object_keys(before_snapshot->'cleaner_profile')`) — comparing `to_jsonb(cp)` made every cleaner request auto-supersede, because jsonb object equality requires identical key sets
+- `supabase/migrations/20260724180000_content_change_requests.sql:prevent_unreviewed_public_content_update` — the BEFORE UPDATE trigger (B); early-returns when `auth.role()` IS NULL or `service_role`, or `is_admin_user()`
+- `supabase/migrations/20260724180000_content_change_requests.sql:approve_content_change_request` — SECURITY DEFINER apply-on-approve (C). Its staleness check compares `before_snapshot` key-by-key against the live row; for a `profile` target the nested `cleaner_profile` object **must be projected onto the keys the API snapshotted** (`jsonb_object_agg` over `jsonb_object_keys(before_snapshot->'cleaner_profile')`) — comparing `to_jsonb(cp)` made every cleaner request auto-supersede, because jsonb object equality requires identical key sets
 - `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` (A) + `:CLEANER_PROFILE_FIELDS` (the 6 nested keys) + `:hasOnlyReviewableValues` — **all-or-nothing**: one non-allow-listed key rejects the whole payload, which is why a MIXED payload cannot be submitted at all
 - `src/app/api/content-change-requests/route.ts:POST` — validates against A, snapshots `before`, writes the row; maps 23505 → 409 `target_locked`
 - `src/lib/content-change/client.ts:submitContentChange` — the only writer; `:contentChangeErrorKey` / `:isContentChangeError` map API codes onto `CreateShared.contentChange.*` (**C1**) so users never see a raw code

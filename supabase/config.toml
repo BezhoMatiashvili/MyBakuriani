@@ -31,44 +31,47 @@ enable_confirmations = true
 enabled = true
 file_size_limit = "5MB"
 
+# EVERY function below must mirror the flag it is DEPLOYED with (read it from
+# `list_edge_functions`; the deployed value is the truth). This block used to declare
+# false for eight functions that are live with true, so a `supabase functions deploy`
+# would have silently stripped gateway JWT verification from all of them.
+#
+# Two rules when adding a function here:
+#   1. An OMITTED function is not neutral — the CLI defaults it to verify_jwt = true.
+#      For the pg_cron-triggered jobs that authenticate with a shared Bearer secret
+#      rather than a JWT, true makes the gateway 401 the cron caller and the job stops
+#      silently. They must be listed explicitly as false.
+#   2. Tightening one of these to true is a deliberate change that requires redeploying
+#      that function in the same breath, or this file drifts from prod again.
+#
+# Client-invoked endpoints: verify_jwt = true at the gateway, and every handler still
+# re-checks the bearer token via requireUser() — defense in depth, not a substitute.
 [functions.admin-stats]
-verify_jwt = false
+verify_jwt = true
 
 [functions.balance-topup]
-verify_jwt = false
+verify_jwt = true
 
 [functions.booking-create]
-verify_jwt = false
+verify_jwt = true
 
 [functions.booking-manage]
-verify_jwt = false
-
-[functions.company-subscription]
-verify_jwt = false
+verify_jwt = true
 
 [functions.purchase-vip]
-verify_jwt = false
+verify_jwt = true
 
 [functions.search]
-verify_jwt = false
+verify_jwt = true
 
 [functions.smart-match]
-verify_jwt = false
-
-[functions.sms-automation-run]
-verify_jwt = false
-
-[functions.sms-dispatch]
-verify_jwt = false
+verify_jwt = true
 
 [functions.upload-photos]
 verify_jwt = true
 
 [functions.verify-listing]
-verify_jwt = false
-
-[functions.vip-lifecycle]
-verify_jwt = false
+verify_jwt = true
 
 # Payment endpoints require an authenticated user. They also enforce the bearer
 # token via requireUser(), so verify_jwt is defense-in-depth — keep it true.
@@ -77,3 +80,27 @@ verify_jwt = true
 
 [functions.payment-process]
 verify_jwt = true
+
+# Client-invoked but deployed with verify_jwt = false. Mirroring prod deliberately:
+# the handler does its own requireUser(), so it is safe but looser than its siblings.
+# Hardening it to true means flipping this AND redeploying the function.
+[functions.company-subscription]
+verify_jwt = false
+
+# pg_cron-triggered jobs. The scheduler sends `Bearer <shared secret>`, NOT a JWT, so
+# verify_jwt MUST stay false or the gateway rejects the call before the handler's own
+# requireSharedSecret() check ever runs.
+[functions.booking-finalize]
+verify_jwt = false
+
+[functions.road-condition-refresh]
+verify_jwt = false
+
+[functions.sms-automation-run]
+verify_jwt = false
+
+[functions.sms-dispatch]
+verify_jwt = false
+
+[functions.vip-lifecycle]
+verify_jwt = false
