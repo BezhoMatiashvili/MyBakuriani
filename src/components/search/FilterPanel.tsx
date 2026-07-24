@@ -14,6 +14,9 @@ const PROPERTY_TYPE_KEYS = [
   "hotel",
   "villa",
   "studio",
+  // Sale-only in practice: this panel is shared between rent and sale mode and
+  // takes no mode prop, so the chip is a no-op in rent mode (same as "hotel").
+  "land",
 ] as const;
 
 // "no_balcony" is excluded: amenity filters are "must have X" matches.

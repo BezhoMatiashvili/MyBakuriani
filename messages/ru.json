@@ -350,7 +350,8 @@
       "cottage": "Коттедж",
       "hotel": "Отель",
       "villa": "Вилла",
-      "studio": "Студия"
+      "studio": "Студия",
+      "land": "Земельный участок"
     }
   },
   "RentBuyToggle": {
@@ -1024,6 +1025,7 @@
   "SalePropertyCard": {
     "forSale": "Продаётся",
     "areaSqm": "{area} м²",
+    "plotAreaSqm": "{area} м² участок",
     "rooms": "{count, plural, one {# комната} few {# комнаты} many {# комнат} other {# комнаты}}",
     "construction": "Строительство",
     "pricePerSqm": "{price} / м²",
@@ -1034,6 +1036,7 @@
     "forSale": "Продаётся",
     "completed": "Завершено",
     "areaSqm": "{area}м²",
+    "plotAreaSqm": "{area}м² участок",
     "pricePerSqm": "{price} / м²",
     "details": "Подробнее",
     "favoriteAria": "Добавить в избранное"
@@ -1213,6 +1216,7 @@
     "typeHotel": "Отель",
     "typeStudio": "Студия",
     "typeVilla": "Вилла",
+    "typeLand": "Земельный участок",
     "typeFallback": "Недвижимость",
     "underConstruction": "Строится",
     "completed": "Завершено",
@@ -1223,6 +1227,7 @@
     "save": "Сохранить",
     "addToFavorites": "Добавить в избранное",
     "areaLabel": "Площадь",
+    "plotAreaLabel": "Площадь участка",
     "objectType": "Тип объекта",
     "layout": "Планировка",
     "investmentMetrics": "Инвестиционные метрики и статус",
@@ -1283,6 +1288,7 @@
     "typeApartment": "Жилая квартира",
     "typeStudio": "Студия",
     "typeVilla": "Вилла",
+    "typeLand": "Земельный участок",
     "typeCottage": "Домик",
     "typeHotel": "Отель",
     "statusNew": "Новый",
@@ -1906,6 +1912,15 @@
     "invalidPersonalId": "Личный номер должен состоять из 11 цифр",
     "save": "Сохранить",
     "publishListing": "Опубликовать объявление",
+    "contentChange": {
+      "submitForReview": "Отправить на проверку",
+      "pending": "Изменение отправлено на проверку администратору",
+      "target_locked": "По этому объявлению уже есть изменение на рассмотрении. Дождитесь решения администратора.",
+      "no_changes": "Нет изменений для отправки",
+      "forbidden_or_not_found": "Объявление не найдено или у вас нет прав на его редактирование",
+      "unauthenticated": "Пожалуйста, войдите в систему",
+      "failed": "Не удалось отправить изменение. Попробуйте снова."
+    },
     "loading": "Загрузка...",
     "basicInfo": "Основная информация",
     "contactInfo": "Контактная информация",
@@ -2074,8 +2089,9 @@
       "studio": "Студия",
       "apartment": "Апартаменты",
       "cottage": "Коттедж",
-      "villa": "Земельный участок",
-      "hotel": "Гостиничный номер"
+      "villa": "Вилла",
+      "hotel": "Гостиничный номер",
+      "land": "Земельный участок"
     },
     "constructionStatuses": {
       "under_construction": "Строится",
@@ -2137,7 +2153,8 @@
       "studio": "Студия",
       "cottage": "Коттедж",
       "hotel": "Гостиничный номер",
-      "villa": "Вилла"
+      "villa": "Вилла",
+      "land": "Земельный участок"
     },
     "serviceCategories": {
       "food": "Питание",
@@ -2357,6 +2374,7 @@
     "managementService": "Управляющая компания",
     "expectedRoi": "Ожидаемый ROI (%)",
     "totalArea": "Общая площадь (кв.м)",
+    "plotArea": "Площадь участка (кв.м)",
     "priceUsd": "Цена (USD)",
     "photosRenders": "Фото / рендеры",
     "descriptionPlaceholder": "Подробное описание объекта...",
@@ -3646,7 +3664,32 @@
     },
     "apiErrors": {
       "duplicate_package_code": "Этот код уже используется в этой категории"
-    }
+    },
+    "placement": "Размещение",
+    "placementGroups": {
+      "site": "На всём сайте",
+      "home": "Главная страница",
+      "listing": "Страницы каталога",
+      "detail": "Страница объекта",
+      "blog": "Блог"
+    },
+    "placements": {
+      "header_strip": "Верхняя полоса (все страницы)",
+      "footer_leaderboard": "Нижний баннер (все страницы)",
+      "sticky_bottom": "Закреплённая полоса (все страницы)",
+      "home_hero": "Главная — герой-баннер",
+      "home_top_strip": "Главная — верхняя инфополоса",
+      "home_promo": "Главная — промо-карточка",
+      "home_between_sections": "Главная — между секциями",
+      "listing_top": "Каталог — над сеткой",
+      "listing_grid": "Каталог — среди карточек",
+      "detail_sidebar": "Страница объекта — боковой баннер",
+      "blog_inline": "Блог — внутри статьи"
+    },
+    "preview": "Предпросмотр",
+    "previewEmpty": "Добавьте заголовок и загрузите медиа, чтобы увидеть предпросмотр.",
+    "previewDesktop": "Десктоп",
+    "previewMobile": "Мобильный"
   },
   "AdminDashboard": {
     "title": "Главная",
@@ -3774,7 +3817,19 @@
       "slot-a": "Слот A (Hero)",
       "slot-b": "Слот B (Между карточками)",
       "slot-c": "Слот C (Сайдбар)"
-    }
+    },
+    "editTitle": "Редактировать рекламу",
+    "edit": "Редактировать",
+    "save": "Сохранить",
+    "updated": "Реклама обновлена",
+    "pause": "Пауза",
+    "resume": "Запустить",
+    "statusPaused": "На паузе",
+    "statusExpired": "Истекла",
+    "statusActive": "Активна",
+    "bannerRequired": "Требуется изображение или видео баннера",
+    "needsImage": "Баннер отсутствует — загрузите изображение, чтобы он появился на сайте",
+    "expiredHint": "Срок истёк — продлите дату окончания, чтобы показать снова"
   },
   "AdminFinances": {
     "title": "Финансовый обзор",

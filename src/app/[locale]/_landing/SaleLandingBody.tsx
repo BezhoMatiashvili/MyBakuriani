@@ -14,6 +14,8 @@ import {
 } from "@/components/search/SaleSearchBox";
 import SalePropertyCard from "@/components/cards/SalePropertyCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
+import BannerSlotView from "@/components/banners/BannerSlotView";
+import type { BannerCreative } from "@/lib/banner-creative";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
@@ -39,6 +41,7 @@ interface SaleLandingBodyProps {
   saleProperties?: Tables<"properties">[];
   pricePerSqmByZone?: Record<string, number | null>;
   zones: Zone[];
+  bannerCreatives?: BannerCreative[];
 }
 
 // Seeded zone slugs have display translations under Zones.<slug>; unknown
@@ -81,6 +84,7 @@ export default function SaleLandingBody({
   saleProperties,
   pricePerSqmByZone,
   zones,
+  bannerCreatives = [],
 }: SaleLandingBodyProps) {
   const t = useTranslations("Landing");
   const tZones = useTranslations("Zones");
@@ -137,9 +141,13 @@ export default function SaleLandingBody({
         location: p.location,
         photos: Array.isArray(p.photos) ? (p.photos as string[]) : [],
         priceUsd: toUsd(p.sale_price ? Number(p.sale_price) : null),
+        type: p.type,
         area: p.area_sqm ?? null,
         rooms: p.rooms,
-        roi: estimatedRoi(p.id),
+        // estimatedRoi is synthetic (derived from the id), so nulling
+        // roi_percent in the DB does not suppress it — a bare plot has no
+        // rental yield, so skip it here.
+        roi: p.type === "land" ? undefined : estimatedRoi(p.id),
         constructionStatus: p.construction_status ?? null,
         constructionProgressPercent: p.construction_progress_percent ?? null,
         discountPercent: p.discount_percent ?? 0,
@@ -265,6 +273,10 @@ export default function SaleLandingBody({
           </div>
         </div>
       )}
+
+      <BannerSlotView placement="home_top_strip" creatives={bannerCreatives} />
+
+      <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
 
       {/* ═══ Sales grid ═══ */}
       <section className="bg-[#F8FAFC] px-4 py-16">

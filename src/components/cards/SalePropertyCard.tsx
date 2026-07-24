@@ -19,6 +19,8 @@ interface SalePropertyCardProps {
   location: string;
   photos: string[];
   priceUsd: number;
+  /** `properties.type` — only used to render land plots as plots, not houses. */
+  type?: string | null;
   area?: number | null;
   rooms?: number | null;
   isVip?: boolean;
@@ -39,6 +41,7 @@ export default function SalePropertyCard({
   location,
   photos,
   priceUsd,
+  type,
   area,
   rooms,
   isVip,
@@ -54,14 +57,18 @@ export default function SalePropertyCard({
     busy: favoriteBusy,
     toggle: toggleFavorite,
   } = useFavorite({ propertyId: id });
+  const isLand = type === "land";
   const showProgress =
+    !isLand &&
     constructionStatus === "under_construction" &&
     constructionProgressPercent != null;
   const href = `/sales/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-property.jpg";
 
-  const areaText = area ? t("areaSqm", { area }) : null;
-  const roomsText = rooms ? t("rooms", { count: rooms }) : null;
+  const areaText = area
+    ? t(isLand ? "plotAreaSqm" : "areaSqm", { area })
+    : null;
+  const roomsText = !isLand && rooms ? t("rooms", { count: rooms }) : null;
   const sizePill = areaText
     ? `${areaText}${roomsText ? ` • ${roomsText}` : ""}`
     : roomsText;
@@ -73,7 +80,9 @@ export default function SalePropertyCard({
     discountExpiresAt,
   );
   const pricePerSqm =
-    area && displayPriceUsd ? Math.round(displayPriceUsd / area) : null;
+    !isLand && area && displayPriceUsd
+      ? Math.round(displayPriceUsd / area)
+      : null;
 
   return (
     <motion.div
@@ -96,26 +105,35 @@ export default function SalePropertyCard({
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
 
-          <ListingBadge variant="sale" className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] tracking-[0.5px]">
+          <ListingBadge
+            variant="sale"
+            className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] tracking-[0.5px]"
+          >
             {t("forSale")}
           </ListingBadge>
 
           {isVip && (
-            <ListingBadge variant="vip" className="absolute left-3 top-12">VIP</ListingBadge>
+            <ListingBadge variant="vip" className="absolute left-3 top-12">
+              VIP
+            </ListingBadge>
           )}
 
           {discountActive && (
             <ListingBadge
               variant="discount"
-              className={`absolute left-3 ${
-                isVip ? "top-20" : "top-12"
-              }`}
+              className={`absolute left-3 ${isVip ? "top-20" : "top-12"}`}
             >
               -{discountPercent}%
             </ListingBadge>
           )}
 
-          <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("favoriteAria")} className="absolute right-3 top-3" />
+          <FavoriteButton
+            pressed={isFavorited}
+            onPressedChange={toggleFavorite}
+            disabled={favoriteBusy}
+            ariaLabel={t("favoriteAria")}
+            className="absolute right-3 top-3"
+          />
         </div>
 
         <div className="flex flex-1 flex-col p-5">

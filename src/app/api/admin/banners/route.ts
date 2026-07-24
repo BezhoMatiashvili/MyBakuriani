@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { isBannerKind, isBannerTone } from "@/lib/banners";
+import { isBannerTone } from "@/lib/banners";
+import {
+  isBannerPlacement,
+  legacyKindForPlacement,
+} from "@/lib/banner-placements";
 import { isTimeoutError } from "@/lib/with-timeout";
 import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
 
@@ -16,7 +20,7 @@ export async function GET() {
   const { data, error } = await db
     .from("landing_banners")
     .select("*")
-    .order("kind", { ascending: true })
+    .order("placement", { ascending: true })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
@@ -37,7 +41,7 @@ export async function POST(req: NextRequest) {
   if (!guard.ok) return guard.response;
 
   const body = (await req.json().catch(() => null)) as {
-    kind?: string;
+    placement?: string;
     title?: string;
     body?: string | null;
     cta_label?: string | null;
@@ -52,9 +56,12 @@ export async function POST(req: NextRequest) {
     sort_order?: number;
   } | null;
 
-  if (!body?.kind || !isBannerKind(body.kind)) {
-    return Response.json({ error: "invalid kind" }, { status: 400 });
+  if (!body?.placement || !isBannerPlacement(body.placement)) {
+    return Response.json({ error: "invalid placement" }, { status: 400 });
   }
+  // `kind` is the pre-placement enum and is still NOT NULL. Derive it rather
+  // than trusting the client, so the column stays coherent as the revert path.
+  const kind = legacyKindForPlacement(body.placement);
   if (!body.title?.trim()) {
     return Response.json({ error: "title required" }, { status: 400 });
   }
@@ -92,7 +99,8 @@ export async function POST(req: NextRequest) {
   const { data, error } = await db
     .from("landing_banners")
     .insert({
-      kind: body.kind,
+      kind,
+      placement: body.placement,
       title: body.title.trim(),
       body: body.body?.trim() || null,
       cta_label: body.cta_label?.trim() || null,

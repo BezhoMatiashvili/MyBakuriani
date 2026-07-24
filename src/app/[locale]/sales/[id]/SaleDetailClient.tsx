@@ -35,6 +35,7 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -101,6 +102,7 @@ const PROPERTY_TYPE_LABEL_KEYS: Record<PropertyType, string> = {
   hotel: "typeHotel",
   studio: "typeStudio",
   villa: "typeVilla",
+  land: "typeLand",
 };
 
 const MONTH_KEYS = [
@@ -204,6 +206,12 @@ export default function SaleDetailClient({
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
+  // A land plot has no building, so none of the construction / renovation /
+  // management / ROI / rooms metrics apply. The create form and the backfill
+  // both null those columns, but listings converted to land before that shipped
+  // — or still waiting on content-change approval — can still carry them.
+  const isLand = property.type === "land";
+
   const salePrice = property.sale_price ?? 0;
   const roiPercent = property.roi_percent ?? 0;
   const discountActive = isDiscountActive(
@@ -234,7 +242,9 @@ export default function SaleDetailClient({
     ? (property.construction_progress_percent ?? 0)
     : 100;
   const showConstructionSection =
-    isUnderConstruction && property.construction_progress_percent !== null;
+    !isLand &&
+    isUnderConstruction &&
+    property.construction_progress_percent !== null;
 
   const heroPhoto =
     Array.isArray(property.photos) && property.photos.length > 0
@@ -287,7 +297,7 @@ export default function SaleDetailClient({
     ? tOpts(`managementServices.${managementKey}`)
     : managementValue;
   const metricCells: { label: string; value: ReactNode; sub?: string }[] = [];
-  if (statusInfo) {
+  if (statusInfo && !isLand) {
     metricCells.push({
       label: t("constructionStage"),
       value: statusInfo.labelKey ? t(statusInfo.labelKey) : statusInfo.raw,
@@ -300,19 +310,19 @@ export default function SaleDetailClient({
         : undefined,
     });
   }
-  if (renovationLabel) {
+  if (renovationLabel && !isLand) {
     metricCells.push({
       label: t("renovationState"),
       value: renovationLabel,
     });
   }
-  if (managementLabel) {
+  if (managementLabel && !isLand) {
     metricCells.push({
       label: t("managementService"),
       value: managementLabel,
     });
   }
-  if (roiPercent > 0) {
+  if (roiPercent > 0 && !isLand) {
     metricCells.push({
       label: t("expectedRoi"),
       value: (
@@ -459,7 +469,7 @@ export default function SaleDetailClient({
                 {tDetail("areaSqm", { area: property.area_sqm })}
               </p>
               <p className="text-[11px] font-medium text-[#94A3B8]">
-                {t("areaLabel")}
+                {t(isLand ? "plotAreaLabel" : "areaLabel")}
               </p>
             </div>
           </div>
@@ -477,7 +487,7 @@ export default function SaleDetailClient({
             </p>
           </div>
         </div>
-        {property.rooms != null && (
+        {property.rooms != null && !isLand && (
           <div className="flex flex-1 min-w-[140px] items-center gap-3 rounded-[16px] border border-[#E2E8F0] bg-white px-4 py-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F1F5F9] text-[#475569]">
               <BedDouble className="h-4 w-4" />
@@ -703,7 +713,7 @@ export default function SaleDetailClient({
                   ? formatPrice(Math.round(displaySalePrice))
                   : t("negotiable")}
               </div>
-              {property.area_sqm != null && salePrice > 0 && (
+              {property.area_sqm != null && salePrice > 0 && !isLand && (
                 <div className="mt-1 text-sm text-[#94A3B8]">
                   {t("pricePerSqm", {
                     price: formatPrice(
@@ -820,6 +830,7 @@ export default function SaleDetailClient({
               </div>
             </div>
           </div>
+          <BannerSlot placement="detail_sidebar" />
         </motion.div>
       </div>
 

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 const ENTERTAINMENT_TYPES = [
   "all",
@@ -238,6 +239,9 @@ export default function EntertainmentPageClient({ services }: Props) {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <BannerSlot placement="listing_top" bare className="col-span-full" />
+            <BannerSlot placement="listing_grid" bare />
+
               {paginated.map((s, i) => (
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <ServiceCard

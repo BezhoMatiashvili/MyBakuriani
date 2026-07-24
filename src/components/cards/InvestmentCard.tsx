@@ -39,6 +39,8 @@ interface InvestmentCardProps {
   location: string;
   photo: string;
   salePrice: number | null;
+  /** `properties.type` — only used to render land plots as plots, not houses. */
+  type?: string | null;
   areaSqm: number | null;
   roiPercent: number | null;
   constructionStatus: string | null;
@@ -51,6 +53,7 @@ export default function InvestmentCard({
   location,
   photo,
   salePrice,
+  type,
   areaSqm,
   roiPercent,
   constructionStatus,
@@ -78,15 +81,20 @@ export default function InvestmentCard({
     return key ? tOpts(`${group}.${key}`) : value;
   };
 
+  const isLand = type === "land";
+
   const subtitleParts: string[] = [];
   if (frameType) subtitleParts.push(optLabel("renovationStatuses", frameType));
-  if (constructionStatus && !isCompleted)
+  if (constructionStatus && !isCompleted && !isLand)
     subtitleParts.push(optLabel("constructionStatuses", constructionStatus));
-  if (areaSqm) subtitleParts.push(t("areaSqm", { area: areaSqm }));
+  if (areaSqm)
+    subtitleParts.push(
+      t(isLand ? "plotAreaSqm" : "areaSqm", { area: areaSqm }),
+    );
   const subtitle = subtitleParts.join(" • ");
 
   const pricePerSqm =
-    salePrice != null && areaSqm && areaSqm > 0
+    !isLand && salePrice != null && areaSqm && areaSqm > 0
       ? Math.round(salePrice / areaSqm)
       : null;
 

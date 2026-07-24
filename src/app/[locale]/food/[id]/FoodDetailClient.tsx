@@ -18,6 +18,7 @@ import {
   optionKeyFor,
   priceUnitPathFor,
 } from "@/lib/constants/listing-options";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 interface Props {
   service: ServiceWithFoodExtras;
@@ -196,6 +197,7 @@ export default function FoodDetailClient({
               location={service.location}
               serviceId={service.id}
             />
+            <BannerSlot placement="detail_sidebar" />
           </div>
         </motion.aside>
       </div>

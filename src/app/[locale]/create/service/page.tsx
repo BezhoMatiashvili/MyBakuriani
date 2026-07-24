@@ -23,6 +23,11 @@ import { createClient, createUploadClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
+import {
+  contentChangeErrorKey,
+  isContentChangeError,
+  submitContentChange,
+} from "@/lib/content-change/client";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { watermarkFile } from "@/lib/utils/watermark";
 
@@ -273,14 +278,7 @@ function CreateServicePageInner() {
       };
 
       if (editId) {
-        const { error: updateError } = await supabase
-          .from("services")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .update(payload as any)
-          .eq("id", editId)
-          .eq("owner_id", user.id);
-
-        if (updateError) throw updateError;
+        await submitContentChange("service", editId, payload);
         router.push(
           resolvedCategory === "cleaning"
             ? "/dashboard/cleaner"
@@ -300,7 +298,11 @@ function CreateServicePageInner() {
         );
       }
     } catch (err) {
-      setError(formatSupabaseError(err, tShared("genericError")));
+      setError(
+        isContentChangeError(err)
+          ? tShared(contentChangeErrorKey(err))
+          : formatSupabaseError(err, tShared("genericError")),
+      );
       submittingRef.current = false;
       setLoading(false);
     }
@@ -319,7 +321,7 @@ function CreateServicePageInner() {
         <WizardFooter
           accent="blue"
           backHref="/create"
-          submitLabel={isEditMode ? tShared("save") : tShared("publishListing")}
+          submitLabel={isEditMode ? tShared("contentChange.submitForReview") : tShared("publishListing")}
           submitDisabled={loading}
           loading={loading}
           error={error}

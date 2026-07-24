@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -12,6 +13,10 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  contentChangeErrorKey,
+  submitContentChange,
+} from "@/lib/content-change/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import NewPromotionModal from "@/components/shared/NewPromotionModal";
@@ -33,6 +38,7 @@ interface MenuData {
 }
 
 export default function FoodOrdersPage() {
+  const tCreate = useTranslations("CreateShared");
   const supabase = createClient();
   const { user } = useAuth();
   const [service, setService] = useState<Service | null>(null);
@@ -41,6 +47,8 @@ export default function FoodOrdersPage() {
   const [menuUrl, setMenuUrl] = useState("");
   const [menuUrlError, setMenuUrlError] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [reviewNotice, setReviewNotice] = useState("");
+  const [reviewError, setReviewError] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -77,6 +85,24 @@ export default function FoodOrdersPage() {
     (service?.menu as unknown as MenuData | null) ?? {};
   const promotions = menuData.promotions ?? [];
 
+  // The whole `menu` column is review-gated, so these three actions queue a change
+  // request instead of writing the row. Nothing on screen can update until an admin
+  // approves, so the outcome has to be reported explicitly.
+  async function submitMenuChange(nextMenu: MenuData) {
+    if (!service) return;
+    setReviewNotice("");
+    setReviewError("");
+    try {
+      await submitContentChange("service", service.id, { menu: nextMenu });
+      setReviewNotice(tCreate("contentChange.pending"));
+      // Re-read the row: an admin may have approved an earlier request, and building the
+      // next proposal from a stale snapshot would silently drop the approved values.
+      await fetchData();
+    } catch (cause) {
+      setReviewError(tCreate(contentChangeErrorKey(cause)));
+    }
+  }
+
   async function saveMenuUrl() {
     if (!service) return;
     const trimmed = menuUrl.trim();
@@ -85,12 +111,7 @@ export default function FoodOrdersPage() {
       return;
     }
     setMenuUrlError(false);
-    const next: MenuData = { ...menuData, url: trimmed };
-    await supabase
-      .from("services")
-      .update({ menu: next as unknown as never })
-      .eq("id", service.id);
-    setService({ ...service, menu: next as unknown as never });
+    await submitMenuChange({ ...menuData, url: trimmed });
   }
 
   async function addPromotion(data: { title: string; description: string }) {
@@ -105,23 +126,13 @@ export default function FoodOrdersPage() {
         created_at: new Date().toISOString(),
       },
     ];
-    const nextMenu: MenuData = { ...menuData, promotions: nextPromos };
-    await supabase
-      .from("services")
-      .update({ menu: nextMenu as unknown as never })
-      .eq("id", service.id);
-    setService({ ...service, menu: nextMenu as unknown as never });
+    await submitMenuChange({ ...menuData, promotions: nextPromos });
   }
 
   async function deletePromotion(id: string) {
     if (!service) return;
     const nextPromos = promotions.filter((p) => p.id !== id);
-    const nextMenu: MenuData = { ...menuData, promotions: nextPromos };
-    await supabase
-      .from("services")
-      .update({ menu: nextMenu as unknown as never })
-      .eq("id", service.id);
-    setService({ ...service, menu: nextMenu as unknown as never });
+    await submitMenuChange({ ...menuData, promotions: nextPromos });
   }
 
   return (
@@ -136,6 +147,16 @@ export default function FoodOrdersPage() {
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
           მართე მენიუ, სტუმრების ციფრული ხედი და აქციები.
         </p>
+        {reviewNotice && (
+          <p className="mt-3 rounded-xl bg-[#ECFDF5] px-4 py-3 text-[13px] font-medium text-[#0F8F60]">
+            {reviewNotice}
+          </p>
+        )}
+        {reviewError && (
+          <p className="mt-3 rounded-xl bg-[#FEF2F2] px-4 py-3 text-[13px] font-medium text-[#DC2626]">
+            {reviewError}
+          </p>
+        )}
       </motion.div>
 
       <motion.section

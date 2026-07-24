@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import { SkierLoader } from "@/components/shared/SkierLoader";
-import { fetchActiveBanners } from "@/lib/banners-server";
+import { fetchSlotCreatives } from "@/lib/banner-slots-server";
 import {
   getActiveZones,
   nearestZoneFrom,
@@ -18,7 +18,7 @@ import {
 import { getBakurianiWeather, withLiveWeather } from "@/lib/weather/server";
 import { getRoadCondition, withLiveRoad } from "@/lib/road-condition/server";
 import { withTimeout } from "@/lib/with-timeout";
-import type { LandingBanner } from "@/lib/banners";
+import type { BannerCreative } from "@/lib/banner-creative";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 const LANDING_DEP_TIMEOUT_MS = 7_000;
@@ -203,19 +203,17 @@ async function LandingWithData() {
     LANDING_DEP_TIMEOUT_MS,
     FALLBACK_ZONES,
   );
-  const [zones, props, infoBanners, promoBanners, statusCards, weather, road] =
+  const [zones, props, bannerCreatives, statusCards, weather, road] =
     await Promise.all([
       zonesPromise,
       fetchLandingProps(zonesPromise),
+      // One fetch covers every home placement. The landing page renders these
+      // server-side (no flash, no layout shift above the fold); every other
+      // surface gets them client-side from /api/banner-slots.
       withTimeout(
-        fetchActiveBanners("info"),
+        fetchSlotCreatives(),
         LANDING_DEP_TIMEOUT_MS,
-        [] as LandingBanner[],
-      ),
-      withTimeout(
-        fetchActiveBanners("promo"),
-        LANDING_DEP_TIMEOUT_MS,
-        [] as LandingBanner[],
+        [] as BannerCreative[],
       ),
       withTimeout(
         getStatusCards(),
@@ -242,8 +240,7 @@ async function LandingWithData() {
       vipProperties={props.vipProperties}
       services={props.services}
       blogPosts={props.blogPosts}
-      infoBanners={infoBanners}
-      promoBanners={promoBanners}
+      bannerCreatives={bannerCreatives}
       pricePerSqmByZone={props.pricePerSqmByZone}
     />
   );

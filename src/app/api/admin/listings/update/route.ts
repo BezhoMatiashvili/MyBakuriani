@@ -148,6 +148,7 @@ const PROPERTY_TYPE_VALUES = new Set([
   "hotel",
   "studio",
   "villa",
+  "land",
 ]);
 const SERVICE_CATEGORY_VALUES = new Set([
   "cleaning",

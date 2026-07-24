@@ -23,6 +23,10 @@ import TimeRangePicker, {
   isValidTimeRange,
 } from "@/components/shared/TimeRangePicker";
 import { Link } from "@/i18n/navigation";
+import {
+  contentChangeErrorKey,
+  submitContentChange,
+} from "@/lib/content-change/client";
 
 type FormValues = {
   firstName: string;
@@ -65,12 +69,14 @@ function toNullable(value: string): string | null {
 export default function CleanerParametersPage() {
   const t = useTranslations("CleanerParameters");
   const tShared = useTranslations("DashboardShared");
+  const tCreate = useTranslations("CreateShared");
   const { user } = useAuth();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   const [servicesLoading, setServicesLoading] = useState(true);
   const [cleaningServices, setCleaningServices] = useState<CleaningService[]>(
@@ -199,16 +205,15 @@ export default function CleanerParametersPage() {
     setSavedServiceId(null);
     setServiceSaveError(null);
 
-    const { error } = await supabase
-      .from("services")
-      .update({
+    let error: Error | null = null;
+    try {
+      await submitContentChange("service", service.id, {
         schedule: hours,
         operating_hours: hours,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", service.id)
-      .eq("owner_id", user.id)
-      .eq("category", "cleaning");
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause : new Error("submit_failed");
+    }
 
     setSavingServiceId(null);
     if (error) {
@@ -238,35 +243,35 @@ export default function CleanerParametersPage() {
     if (form.whatsapp && !isValidGePhone(form.whatsapp)) return;
     setSaving(true);
     setSaved(false);
+    setReviewError("");
 
-    const { error } = await supabase.from("cleaner_profiles").upsert({
-      id: user.id,
-      first_name: toNullable(form.firstName),
-      last_name: toNullable(form.lastName),
-      personal_number: toNullable(form.personalNumber),
-      phone: form.phone ? "+995" + form.phone : null,
-      whatsapp: form.whatsapp ? "+995" + form.whatsapp : null,
-      address: toNullable(form.address),
-      updated_at: new Date().toISOString(),
-    });
-
-    let profileOk = true;
+    let error: Error | null = null;
     const displayName = [form.firstName.trim(), form.lastName.trim()]
       .filter(Boolean)
       .join(" ");
-    if (displayName) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ display_name: displayName })
-        .eq("id", user.id);
-      profileOk = !profileError;
+    try {
+      await submitContentChange("profile", user.id, {
+        ...(displayName ? { display_name: displayName } : {}),
+        cleaner_profile: {
+          first_name: toNullable(form.firstName),
+          last_name: toNullable(form.lastName),
+          personal_number: toNullable(form.personalNumber),
+          phone: form.phone ? "+995" + form.phone : null,
+          whatsapp: form.whatsapp ? "+995" + form.whatsapp : null,
+          address: toNullable(form.address),
+        },
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause : new Error("submit_failed");
     }
 
     setSaving(false);
-    if (!error && profileOk) {
+    if (!error) {
       setSavedValues(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } else {
+      setReviewError(tCreate(contentChangeErrorKey(error)));
     }
   }
 
@@ -300,11 +305,7 @@ export default function CleanerParametersPage() {
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
       const newUrl = pub.publicUrl;
 
-      const { error: dbErr } = await supabase
-        .from("profiles")
-        .update({ avatar_url: newUrl })
-        .eq("id", user.id);
-      if (dbErr) throw dbErr;
+      await submitContentChange("profile", user.id, { avatar_url: newUrl });
 
       setAvatarUrl(newUrl);
     } catch {
@@ -527,6 +528,16 @@ export default function CleanerParametersPage() {
               {saving ? t("saving") : saved ? t("saved") : t("saveChanges")}
             </button>
           </div>
+          {saved && (
+            <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
+              {tCreate("contentChange.pending")}
+            </p>
+          )}
+          {reviewError && (
+            <p className="mt-3 text-[13px] font-medium text-[#DC2626]">
+              {reviewError}
+            </p>
+          )}
         </form>
       </motion.div>
 

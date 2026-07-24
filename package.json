@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/i18n-scope.mjs --check",
+    "prebuild": "node scripts/check-production-config.mjs && node scripts/i18n-scope.mjs --check",
     "build": "next build",
     "i18n:scope": "node scripts/i18n-scope.mjs",
     "start": "next start",
@@ -15,6 +15,7 @@
     "test:e2e:auth": "npx playwright test --project=auth",
     "test:e2e:setup": "npx playwright test --project=setup",
     "typecheck": "tsc --noEmit",
+    "test:production-config": "node --test scripts/check-production-config.test.mjs",
     "security:secrets": "node scripts/check-secret-permissions.mjs",
     "security:audit": "npm audit --audit-level=high && npm audit --omit=dev --audit-level=high"
   },

@@ -30,6 +30,11 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { AvailabilityStatus, buildNext30Days } from "@/lib/utils/availability";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
+import {
+  contentChangeErrorKey,
+  isContentChangeError,
+  submitContentChange,
+} from "@/lib/content-change/client";
 
 const PROPERTY_TYPES: Enums<"property_type">[] = [
   "apartment",
@@ -413,13 +418,12 @@ function CreateRentalPageInner() {
 
       let propertyId: string;
       if (editId) {
-        const { error: updateError } = await supabase
-          .from("properties")
-          .update(payload)
-          .eq("id", editId)
-          .eq("owner_id", user.id);
-
-        if (updateError) throw updateError;
+        // The review submit is deferred to AFTER the non-gated writes below.
+        // submitContentChange can throw (most often because a change for this
+        // listing is already awaiting review), and the calendar_blocks /
+        // price_overrides writes are NOT review-gated — running them first keeps a
+        // failed review submit from silently discarding the renter's availability
+        // and per-day price edits.
         propertyId = editId;
       } else {
         const { data: inserted, error: insertError } = await supabase
@@ -506,6 +510,10 @@ function CreateRentalPageInner() {
         }
       }
 
+      if (editId) {
+        await submitContentChange("property", editId, payload);
+      }
+
       router.push("/dashboard/renter");
     } catch (err) {
       if (isCadastralDuplicateError(err)) {
@@ -513,7 +521,11 @@ function CreateRentalPageInner() {
         setInvalidFields(new Set(["cadastralCode"]));
         setError(tShared("cadastralAlreadyUsed"));
       } else {
-        setError(formatSupabaseError(err, t("submitError")));
+        setError(
+          isContentChangeError(err)
+            ? tShared(contentChangeErrorKey(err))
+            : formatSupabaseError(err, t("submitError")),
+        );
       }
       submittingRef.current = false;
       setLoading(false);
@@ -560,7 +572,7 @@ function CreateRentalPageInner() {
           submitLabel={
             isFinalStep
               ? isEditMode
-                ? t("save")
+                ? tShared("contentChange.submitForReview")
                 : t("publish")
               : t("continue")
           }

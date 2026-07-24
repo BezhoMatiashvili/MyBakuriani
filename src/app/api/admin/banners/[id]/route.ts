@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { isBannerKind, isBannerTone } from "@/lib/banners";
+import { isBannerTone } from "@/lib/banners";
+import {
+  isBannerPlacement,
+  legacyKindForPlacement,
+} from "@/lib/banner-placements";
 import { isTimeoutError } from "@/lib/with-timeout";
 import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
 
@@ -25,11 +29,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   const update: Record<string, unknown> = {};
 
-  if (typeof body.kind === "string") {
-    if (!isBannerKind(body.kind)) {
-      return Response.json({ error: "invalid kind" }, { status: 400 });
+  if (typeof body.placement === "string") {
+    if (!isBannerPlacement(body.placement)) {
+      return Response.json({ error: "invalid placement" }, { status: 400 });
     }
-    update.kind = body.kind;
+    update.placement = body.placement;
+    // Keep the legacy NOT NULL enum coherent with the new placement.
+    update.kind = legacyKindForPlacement(body.placement);
   }
   if (typeof body.title === "string") {
     const t = body.title.trim();

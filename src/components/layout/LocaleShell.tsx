@@ -16,9 +16,7 @@ const Navbar = dynamic(() =>
 const Footer = dynamic(() =>
   import("@/components/layout/Footer").then((mod) => mod.Footer),
 );
-const StickyNewsBar = dynamic(() =>
-  import("@/components/layout/StickyNewsBar").then((mod) => mod.StickyNewsBar),
-);
+const BannerSlot = dynamic(() => import("@/components/banners/BannerSlot"));
 const CriticalNotificationGate = dynamic(
   () =>
     import("@/components/notifications/CriticalNotificationGate").then(
@@ -48,10 +46,6 @@ function isAuthRoute(pathname: string) {
   return /(^|\/)auth(\/|$)/.test(pathname);
 }
 
-function isHomeRoute(pathname: string) {
-  return /^\/(en|ru)?\/?$/.test(pathname);
-}
-
 export function LocaleShell({ children }: LocaleShellProps) {
   const pathname = usePathname();
   const isDashboard = isDashboardRoute(pathname);
@@ -59,7 +53,6 @@ export function LocaleShell({ children }: LocaleShellProps) {
   const isCheckout = isCheckoutRoute(pathname);
   const isSalesIndex = isSalesIndexRoute(pathname);
   const isAuth = isAuthRoute(pathname);
-  const isHome = isHomeRoute(pathname);
 
   const content = (() => {
     // Checkout is a standalone hosted-style payment page — no app chrome.
@@ -76,9 +69,16 @@ export function LocaleShell({ children }: LocaleShellProps) {
     return (
       <HomeListingModeProvider>
         <Navbar />
+        {/* Site-wide slots. The home page renders its own placements
+            server-side; these three are client-fetched and share one request
+            with every other slot on the page. */}
+        <BannerSlot placement="header_strip" />
         <main className="flex-1">{children}</main>
+        <BannerSlot placement="footer_leaderboard" />
         <Footer />
-        {isHome && <StickyNewsBar />}
+        {/* Was gated to the home page, which contradicted the admin help text
+            promising "ხილული საიტის ყველა საჯარო გვერდზე". */}
+        <BannerSlot placement="sticky_bottom" />
       </HomeListingModeProvider>
     );
   })();

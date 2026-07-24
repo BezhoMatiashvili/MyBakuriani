@@ -8,12 +8,17 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
+import {
+  contentChangeErrorKey,
+  submitContentChange,
+} from "@/lib/content-change/client";
 
 type ProfileType = "personal" | "company";
 
 export default function RenterSettingsPage() {
   const t = useTranslations("RenterProfile");
   const tShared = useTranslations("DashboardShared");
+  const tCreate = useTranslations("CreateShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -68,21 +73,24 @@ export default function RenterSettingsPage() {
     setSuccessMsg("");
     setErrorMsg("");
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+    let error: Error | null = null;
+    try {
+      await submitContentChange("profile", user.id, {
         display_name: displayName,
         phone: normalizedPhone,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause : new Error("submit_failed");
+    }
 
     if (!error) {
       setProfile((prev) => (prev ? { ...prev, phone: normalizedPhone } : prev));
-      setSuccessMsg(t("success"));
+      // The change is queued for review, not applied — say so rather than claiming
+      // the profile was updated.
+      setSuccessMsg(tCreate("contentChange.pending"));
       setTimeout(() => setSuccessMsg(""), 3000);
     } else {
-      setErrorMsg(t("error"));
+      setErrorMsg(tCreate(contentChangeErrorKey(error)));
     }
     setSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps

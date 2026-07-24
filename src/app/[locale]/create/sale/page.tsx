@@ -35,6 +35,11 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
 import {
+  contentChangeErrorKey,
+  isContentChangeError,
+  submitContentChange,
+} from "@/lib/content-change/client";
+import {
   MANAGEMENT_SERVICES,
   RENOVATION_STATUSES,
 } from "@/lib/constants/sale-listing";
@@ -45,6 +50,7 @@ const PROPERTY_TYPES: { value: Enums<"property_type"> }[] = [
   { value: "cottage" },
   { value: "villa" },
   { value: "hotel" },
+  { value: "land" },
 ];
 
 const CONSTRUCTION_STATUSES: {
@@ -315,9 +321,11 @@ function CreateSalePageInner() {
     };
   }, [user, authLoading, editId]);
 
-  // Within the sale form, the existing `villa` enum value represents a land
-  // plot. Land plots do not have construction or handover metadata.
-  const isLandPlot = propertyType === "villa";
+  // A land plot has no building on it: no rooms/bathrooms, no construction or
+  // handover metadata, no renovation state, no management service, no ROI.
+  // Every one of those is hidden below AND written as null, because the display
+  // surfaces rely on those columns being null rather than re-checking the type.
+  const isLandPlot = propertyType === "land";
   const isUnderConstruction =
     !isLandPlot && constructionStatus === "under_construction";
 
@@ -626,15 +634,19 @@ function CreateSalePageInner() {
         location_lat: coords?.lat ?? null,
         location_lng: coords?.lng ?? null,
         area_sqm: areaNum,
-        rooms: roomsNum,
-        bathrooms: bathroomsNum,
+        rooms: isLandPlot ? null : roomsNum,
+        bathrooms: isLandPlot ? null : bathroomsNum,
+        // The sale form has no capacity input, so a new listing never sets it —
+        // but converting an existing apartment to land must clear the guest
+        // count it already carries, or the cards render "N სტუმარი" on a plot.
+        ...(isLandPlot ? { capacity: null } : {}),
         developer: developer.trim() || null,
-        roi_percent: roiNum,
-        roi_percent_max: roiMaxNum,
+        roi_percent: isLandPlot ? null : roiNum,
+        roi_percent_max: isLandPlot ? null : roiMaxNum,
         photos,
         sale_price: priceNum,
         cadastral_code: cadastralCodeTrimmed,
-        renovation_status: renovationStatus,
+        renovation_status: isLandPlot ? null : renovationStatus,
         construction_status: isLandPlot ? null : constructionStatus,
         construction_progress_percent: progressNum,
         completion_year: yearNum,
@@ -644,7 +656,7 @@ function CreateSalePageInner() {
         house_rules: {
           handover_month: monthNum,
           exact_location: exactLocation.trim() || null,
-          management_service: managementService,
+          management_service: isLandPlot ? null : managementService,
           price_currency: "USD",
         },
         phone: phone ? `+995${phone}` : null,
@@ -660,16 +672,14 @@ function CreateSalePageInner() {
         // UPDATE whose SET list mentions the column, even with an unchanged
         // value, and would reject unrelated edits of a lapsed-sub org listing.
         const orgChanged = organizationId !== initialOrgIdRef.current;
-        const { error: updateError } = await supabase
-          .from("properties")
-          .update(
-            orgChanged
-              ? { ...payload, organization_id: organizationId }
-              : payload,
-          )
-          .eq("id", editId);
-
-        if (updateError) throw updateError;
+        await submitContentChange("property", editId, payload);
+        if (orgChanged) {
+          const { error: organizationError } = await supabase
+            .from("properties")
+            .update({ organization_id: organizationId })
+            .eq("id", editId);
+          if (organizationError) throw organizationError;
+        }
         router.push("/dashboard/seller");
       } else {
         const { data: inserted, error: insertError } = await supabase
@@ -694,7 +704,11 @@ function CreateSalePageInner() {
         setError(tShared("cadastralAlreadyUsed"));
         scrollToField("cadastralCode");
       } else {
-        setError(formatSupabaseError(err, tShared("genericError")));
+        setError(
+        isContentChangeError(err)
+          ? tShared(contentChangeErrorKey(err))
+          : formatSupabaseError(err, tShared("genericError")),
+      );
       }
       submittingRef.current = false;
       setLoading(false);
@@ -887,7 +901,7 @@ function CreateSalePageInner() {
                 }
               : { backHref: "/create" })}
             submitLabel={
-              isEditMode ? tShared("save") : tShared("publishListing")
+              isEditMode ? tShared("contentChange.submitForReview") : tShared("publishListing")
             }
             submitDisabled={loading}
             loading={loading}
@@ -1031,19 +1045,26 @@ function CreateSalePageInner() {
                     )}
                   </Field>
 
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label={t("roomsCount")}>
-                      <NumberField
-                        value={rooms}
-                        onChange={setRooms}
-                        min={0}
-                        max={50}
-                        integer
-                        stepper
-                        accent="green"
-                        placeholder={t("roomsPlaceholder")}
-                      />
-                    </Field>
+                  <div
+                    className={cn(
+                      "grid grid-cols-1 gap-5",
+                      !isLandPlot && "md:grid-cols-2",
+                    )}
+                  >
+                    {!isLandPlot && (
+                      <Field label={t("roomsCount")}>
+                        <NumberField
+                          value={rooms}
+                          onChange={setRooms}
+                          min={0}
+                          max={50}
+                          integer
+                          stepper
+                          accent="green"
+                          placeholder={t("roomsPlaceholder")}
+                        />
+                      </Field>
+                    )}
 
                     <Field label={t("exactLocation")}>
                       <div className="flex gap-2">
@@ -1072,48 +1093,52 @@ function CreateSalePageInner() {
                   )}
                 </WizardInnerCard>
 
+                {/* Renovation state, management service and ROI are all
+                    building concepts — a bare plot has none of them. */}
+                {!isLandPlot && (
+                  <WizardInnerCard
+                    number={2}
+                    title={t("sectionCondition")}
+                    accent="green"
+                  >
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                      <Field label={t("renovationStatus")}>
+                        <StyledSelect
+                          value={renovationStatus}
+                          onValueChange={setRenovationStatus}
+                          options={renovationOptions}
+                          accent="blue"
+                        />
+                      </Field>
+
+                      <Field label={t("managementService")}>
+                        <StyledSelect
+                          value={managementService}
+                          onValueChange={setManagementService}
+                          options={managementOptions}
+                          accent="blue"
+                        />
+                      </Field>
+
+                      <Field label={t("expectedRoi")}>
+                        <StyledSelect
+                          value={roiRange}
+                          onValueChange={setRoiRange}
+                          options={roiOptions}
+                          accent="blue"
+                        />
+                      </Field>
+                    </div>
+                  </WizardInnerCard>
+                )}
+
                 <WizardInnerCard
-                  number={2}
-                  title={t("sectionCondition")}
-                  accent="green"
-                >
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                    <Field label={t("renovationStatus")}>
-                      <StyledSelect
-                        value={renovationStatus}
-                        onValueChange={setRenovationStatus}
-                        options={renovationOptions}
-                        accent="blue"
-                      />
-                    </Field>
-
-                    <Field label={t("managementService")}>
-                      <StyledSelect
-                        value={managementService}
-                        onValueChange={setManagementService}
-                        options={managementOptions}
-                        accent="blue"
-                      />
-                    </Field>
-
-                    <Field label={t("expectedRoi")}>
-                      <StyledSelect
-                        value={roiRange}
-                        onValueChange={setRoiRange}
-                        options={roiOptions}
-                        accent="blue"
-                      />
-                    </Field>
-                  </div>
-                </WizardInnerCard>
-
-                <WizardInnerCard
-                  number={3}
+                  number={isLandPlot ? 2 : 3}
                   title={t("sectionFinance")}
                   accent="green"
                 >
                   <Field
-                    label={t("totalArea")}
+                    label={t(isLandPlot ? "plotArea" : "totalArea")}
                     required
                     fieldKey="areaSqm"
                     error={invalidFields.has("areaSqm")}
@@ -1190,7 +1215,7 @@ function CreateSalePageInner() {
                 </WizardInnerCard>
 
                 <WizardInnerCard
-                  number={4}
+                  number={isLandPlot ? 3 : 4}
                   title={t("sectionDetailsContact")}
                   accent="green"
                 >

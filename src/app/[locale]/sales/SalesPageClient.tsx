@@ -8,6 +8,7 @@ import InvestmentCard from "@/components/cards/InvestmentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SalePagination } from "@/components/search/SalePagination";
 import { SalesTopBar } from "@/components/layout/SalesTopBar";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -70,6 +71,13 @@ export default function SalesPageClient({ properties }: Props) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <BannerSlot
+              placement="listing_top"
+              bare
+              className="col-span-full"
+            />
+            <BannerSlot placement="listing_grid" bare />
+
             {paginatedProperties.map((p, i) => {
               const photos = Array.isArray(p.photos)
                 ? (p.photos as string[])
@@ -85,6 +93,7 @@ export default function SalesPageClient({ properties }: Props) {
                     location={p.location}
                     photo={photos[0] ?? "/placeholder-property.jpg"}
                     salePrice={p.sale_price ? Number(p.sale_price) : null}
+                    type={p.type}
                     areaSqm={p.area_sqm ? Number(p.area_sqm) : null}
                     roiPercent={p.roi_percent ? Number(p.roi_percent) : null}
                     constructionStatus={p.construction_status}

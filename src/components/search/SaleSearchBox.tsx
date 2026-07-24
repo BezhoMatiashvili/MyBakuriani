@@ -131,6 +131,7 @@ const PROPERTY_TYPES = [
   { value: "apartment", labelKey: "typeApartment" },
   { value: "studio", labelKey: "typeStudio" },
   { value: "villa", labelKey: "typeVilla" },
+  { value: "land", labelKey: "typeLand" },
   { value: "cottage", labelKey: "typeCottage" },
   { value: "hotel", labelKey: "typeHotel" },
 ];
@@ -403,11 +404,22 @@ export function SaleSearchBox({
 
   const resetMobileFilters = useCallback(() => {
     setMobileFilterDraft({
-      propertyTypes: [], priceMin: "", priceMax: "", cadastralCode: "",
-      statuses: [], rooms: [], areaMin: DEFAULT_AREA_MIN,
-      areaMax: DEFAULT_AREA_MAX, amenities: [], payment: [], developers: [],
-      sellerTypes: [], roiMin: null, areaBucket: null,
-      constructionStatus: null, renovationStatus: null,
+      propertyTypes: [],
+      priceMin: "",
+      priceMax: "",
+      cadastralCode: "",
+      statuses: [],
+      rooms: [],
+      areaMin: DEFAULT_AREA_MIN,
+      areaMax: DEFAULT_AREA_MAX,
+      amenities: [],
+      payment: [],
+      developers: [],
+      sellerTypes: [],
+      roiMin: null,
+      areaBucket: null,
+      constructionStatus: null,
+      renovationStatus: null,
     });
   }, []);
 
@@ -1039,73 +1051,147 @@ export function SaleSearchBox({
             <FiltersPanel
               mobile
               propertyTypes={mobileFilterDraft.propertyTypes}
-              onToggleType={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
-                ...draft,
-                propertyTypes: draft.propertyTypes.includes(v)
-                  ? draft.propertyTypes.filter((item) => item !== v)
-                  : [...draft.propertyTypes, v],
-              })}
+              onToggleType={(v) =>
+                setMobileFilterDraft((draft) =>
+                  !draft
+                    ? draft
+                    : {
+                        ...draft,
+                        propertyTypes: draft.propertyTypes.includes(v)
+                          ? draft.propertyTypes.filter((item) => item !== v)
+                          : [...draft.propertyTypes, v],
+                      },
+                )
+              }
               priceMin={mobileDraftPriceMin}
               priceMax={mobileDraftPriceMax}
-              onChangeMin={(v) => setMobileFilterDraft((draft) => draft && { ...draft, priceMin: String(v) })}
-              onChangeMax={(v) => setMobileFilterDraft((draft) => draft && { ...draft, priceMax: String(v) })}
+              onChangeMin={(v) =>
+                setMobileFilterDraft(
+                  (draft) => draft && { ...draft, priceMin: String(v) },
+                )
+              }
+              onChangeMax={(v) =>
+                setMobileFilterDraft(
+                  (draft) => draft && { ...draft, priceMax: String(v) },
+                )
+              }
               cadastralCode={mobileFilterDraft.cadastralCode}
-              onChangeCadastral={(v) => setMobileFilterDraft((draft) => draft && { ...draft, cadastralCode: v })}
+              onChangeCadastral={(v) =>
+                setMobileFilterDraft(
+                  (draft) => draft && { ...draft, cadastralCode: v },
+                )
+              }
               statuses={mobileFilterDraft.statuses}
-              onToggleStatus={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
-                ...draft,
-                statuses: draft.statuses.includes(v)
-                  ? draft.statuses.filter((item) => item !== v)
-                  : [...draft.statuses, v],
-              })}
+              onToggleStatus={(v) =>
+                setMobileFilterDraft((draft) =>
+                  !draft
+                    ? draft
+                    : {
+                        ...draft,
+                        statuses: draft.statuses.includes(v)
+                          ? draft.statuses.filter((item) => item !== v)
+                          : [...draft.statuses, v],
+                      },
+                )
+              }
               rooms={mobileFilterDraft.rooms}
-              onToggleRoom={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
-                ...draft,
-                rooms: draft.rooms.includes(v)
-                  ? draft.rooms.filter((item) => item !== v)
-                  : [...draft.rooms, v],
-              })}
+              onToggleRoom={(v) =>
+                setMobileFilterDraft((draft) =>
+                  !draft
+                    ? draft
+                    : {
+                        ...draft,
+                        rooms: draft.rooms.includes(v)
+                          ? draft.rooms.filter((item) => item !== v)
+                          : [...draft.rooms, v],
+                      },
+                )
+              }
               areaMin={mobileFilterDraft.areaMin}
               areaMax={mobileFilterDraft.areaMax}
-              onChangeAreaMin={(v) => setMobileFilterDraft((draft) => draft && { ...draft, areaMin: v })}
-              onChangeAreaMax={(v) => setMobileFilterDraft((draft) => draft && { ...draft, areaMax: v })}
+              onChangeAreaMin={(v) =>
+                setMobileFilterDraft(
+                  (draft) => draft && { ...draft, areaMin: v },
+                )
+              }
+              onChangeAreaMax={(v) =>
+                setMobileFilterDraft(
+                  (draft) => draft && { ...draft, areaMax: v },
+                )
+              }
               amenities={mobileFilterDraft.amenities}
-              onToggleAmenity={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
-                ...draft,
-                amenities: draft.amenities.includes(v)
-                  ? draft.amenities.filter((item) => item !== v)
-                  : [...draft.amenities, v],
-              })}
+              onToggleAmenity={(v) =>
+                setMobileFilterDraft((draft) =>
+                  !draft
+                    ? draft
+                    : {
+                        ...draft,
+                        amenities: draft.amenities.includes(v)
+                          ? draft.amenities.filter((item) => item !== v)
+                          : [...draft.amenities, v],
+                      },
+                )
+              }
               payment={mobileFilterDraft.payment}
-              onTogglePayment={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
-                ...draft,
-                payment: draft.payment.includes(v)
-                  ? draft.payment.filter((item) => item !== v)
-                  : [...draft.payment, v],
-              })}
+              onTogglePayment={(v) =>
+                setMobileFilterDraft((draft) =>
+                  !draft
+                    ? draft
+                    : {
+                        ...draft,
+                        payment: draft.payment.includes(v)
+                          ? draft.payment.filter((item) => item !== v)
+                          : [...draft.payment, v],
+                      },
+                )
+              }
               developers={mobileFilterDraft.developers}
-              onToggleDeveloper={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
-                ...draft,
-                developers: draft.developers.includes(v)
-                  ? draft.developers.filter((item) => item !== v)
-                  : [...draft.developers, v],
-              })}
+              onToggleDeveloper={(v) =>
+                setMobileFilterDraft((draft) =>
+                  !draft
+                    ? draft
+                    : {
+                        ...draft,
+                        developers: draft.developers.includes(v)
+                          ? draft.developers.filter((item) => item !== v)
+                          : [...draft.developers, v],
+                      },
+                )
+              }
               sellerTypes={mobileFilterDraft.sellerTypes}
-              onToggleSellerType={(v) => setMobileFilterDraft((draft) => !draft ? draft : {
-                ...draft,
-                sellerTypes: draft.sellerTypes.includes(v)
-                  ? draft.sellerTypes.filter((item) => item !== v)
-                  : [...draft.sellerTypes, v],
-              })}
+              onToggleSellerType={(v) =>
+                setMobileFilterDraft((draft) =>
+                  !draft
+                    ? draft
+                    : {
+                        ...draft,
+                        sellerTypes: draft.sellerTypes.includes(v)
+                          ? draft.sellerTypes.filter((item) => item !== v)
+                          : [...draft.sellerTypes, v],
+                      },
+                )
+              }
               investment={{
                 roiMin: mobileFilterDraft.roiMin,
                 areaBucket: mobileFilterDraft.areaBucket,
                 constructionStatus: mobileFilterDraft.constructionStatus,
                 renovationStatus: mobileFilterDraft.renovationStatus,
-                onRoiChange: (roiMin) => setMobileFilterDraft((draft) => draft && { ...draft, roiMin }),
-                onAreaChange: (areaBucket) => setMobileFilterDraft((draft) => draft && { ...draft, areaBucket }),
-                onConstructionChange: (constructionStatus) => setMobileFilterDraft((draft) => draft && { ...draft, constructionStatus }),
-                onRenovationChange: (renovationStatus) => setMobileFilterDraft((draft) => draft && { ...draft, renovationStatus }),
+                onRoiChange: (roiMin) =>
+                  setMobileFilterDraft(
+                    (draft) => draft && { ...draft, roiMin },
+                  ),
+                onAreaChange: (areaBucket) =>
+                  setMobileFilterDraft(
+                    (draft) => draft && { ...draft, areaBucket },
+                  ),
+                onConstructionChange: (constructionStatus) =>
+                  setMobileFilterDraft(
+                    (draft) => draft && { ...draft, constructionStatus },
+                  ),
+                onRenovationChange: (renovationStatus) =>
+                  setMobileFilterDraft(
+                    (draft) => draft && { ...draft, renovationStatus },
+                  ),
               }}
               onReset={resetMobileFilters}
               onApply={applyMobileFilters}
@@ -1746,7 +1832,9 @@ function FiltersPanel({
                   selected={investment.roiMin === option.value}
                   onClick={() => investment.onRoiChange(option.value)}
                 >
-                  {option.value == null ? t("roiAny") : t("roiFrom", { value: option.value })}
+                  {option.value == null
+                    ? t("roiAny")
+                    : t("roiFrom", { value: option.value })}
                 </FilterChip>
               ))}
             </div>
@@ -1759,7 +1847,9 @@ function FiltersPanel({
                   selected={investment.areaBucket === option.value}
                   onClick={() => investment.onAreaChange(option.value)}
                 >
-                  {option.value == null ? t("anyOption") : t("areaRange", { range: option.value })}
+                  {option.value == null
+                    ? t("anyOption")
+                    : t("areaRange", { range: option.value })}
                 </FilterChip>
               ))}
             </div>

@@ -44,6 +44,7 @@ import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import DateField, { toISODate } from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -942,6 +943,7 @@ export default function EmploymentDetailClient({
               ) : null}
             </dl>
           </div>
+          <BannerSlot placement="detail_sidebar" />
         </motion.aside>
       </div>
 

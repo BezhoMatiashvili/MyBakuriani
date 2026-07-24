@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import type { Tables } from "@/lib/types/database";
 import { formatDate } from "@/lib/utils/format";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 interface Props {
   posts?: Tables<"blog_posts">[];
@@ -42,6 +43,9 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
           </p>
         </ScrollReveal>
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <BannerSlot placement="listing_top" bare className="col-span-full" />
+          <BannerSlot placement="listing_grid" bare />
+
           {displayPosts.map((post, i) => (
             <ScrollReveal key={post.id} delay={i * 0.08}>
               <Link

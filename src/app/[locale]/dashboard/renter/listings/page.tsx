@@ -69,7 +69,12 @@ export default function RenterListingsPage() {
       const { data, error } = await supabase
         .from("properties")
         .select("*")
+        // Rentals only — this cabinet renders nightly prices and a
+        // "rooms | guests" line, which is nonsense for a sale listing (and
+        // doubly so for a land plot, where both columns are null by design).
+        // Matches renter/loadOverview.ts and renter/smart-match.
         .eq("owner_id", user!.id)
+        .eq("is_for_sale", false)
         .order("created_at", { ascending: false });
       // Surface the failure so the hook exposes `error` and the page shows a
       // retry — the owner's listings must not silently vanish into the empty

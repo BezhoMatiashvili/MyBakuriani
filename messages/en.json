@@ -350,7 +350,8 @@
       "cottage": "Cottage",
       "hotel": "Hotel",
       "villa": "Villa",
-      "studio": "Studio"
+      "studio": "Studio",
+      "land": "Land plot"
     }
   },
   "RentBuyToggle": {
@@ -1024,6 +1025,7 @@
   "SalePropertyCard": {
     "forSale": "For sale",
     "areaSqm": "{area} m²",
+    "plotAreaSqm": "{area} m² plot",
     "rooms": "{count, plural, one {# room} other {# rooms}}",
     "construction": "Construction",
     "pricePerSqm": "{price} / m²",
@@ -1034,6 +1036,7 @@
     "forSale": "For sale",
     "completed": "Completed",
     "areaSqm": "{area}m²",
+    "plotAreaSqm": "{area}m² plot",
     "pricePerSqm": "{price} / m²",
     "details": "Details",
     "favoriteAria": "Add to favorites"
@@ -1213,6 +1216,7 @@
     "typeHotel": "Hotel",
     "typeStudio": "Studio",
     "typeVilla": "Villa",
+    "typeLand": "Land plot",
     "typeFallback": "Property",
     "underConstruction": "Under construction",
     "completed": "Completed",
@@ -1223,6 +1227,7 @@
     "save": "Save",
     "addToFavorites": "Add to favorites",
     "areaLabel": "Area",
+    "plotAreaLabel": "Plot area",
     "objectType": "Property type",
     "layout": "Layout",
     "investmentMetrics": "Investment metrics and status",
@@ -1283,6 +1288,7 @@
     "typeApartment": "Residential apartment",
     "typeStudio": "Studio",
     "typeVilla": "Villa",
+    "typeLand": "Land plot",
     "typeCottage": "Cabin",
     "typeHotel": "Hotel",
     "statusNew": "New",
@@ -1906,6 +1912,15 @@
     "invalidPersonalId": "Personal ID must be 11 digits",
     "save": "Save",
     "publishListing": "Publish listing",
+    "contentChange": {
+      "submitForReview": "Submit for review",
+      "pending": "Change submitted for admin review",
+      "target_locked": "You already have a change pending review for this listing. Please wait for the admin's decision.",
+      "no_changes": "No changes to submit",
+      "forbidden_or_not_found": "Listing not found, or you do not have permission to edit it",
+      "unauthenticated": "Please sign in",
+      "failed": "Could not submit the change. Please try again."
+    },
     "loading": "Loading...",
     "basicInfo": "Basic information",
     "contactInfo": "Contact information",
@@ -2074,8 +2089,9 @@
       "studio": "Studio",
       "apartment": "Apartment",
       "cottage": "Cottage",
-      "villa": "Land plot",
-      "hotel": "Hotel room"
+      "villa": "Villa",
+      "hotel": "Hotel room",
+      "land": "Land plot"
     },
     "constructionStatuses": {
       "under_construction": "Under construction",
@@ -2137,7 +2153,8 @@
       "studio": "Studio",
       "cottage": "Cottage",
       "hotel": "Hotel room",
-      "villa": "Villa"
+      "villa": "Villa",
+      "land": "Land plot"
     },
     "serviceCategories": {
       "food": "Food",
@@ -2357,6 +2374,7 @@
     "managementService": "Management service",
     "expectedRoi": "Expected ROI (%)",
     "totalArea": "Total area (sq.m)",
+    "plotArea": "Plot area (sq.m)",
     "priceUsd": "Price (USD)",
     "photosRenders": "Photos / renders",
     "descriptionPlaceholder": "Detailed description of the property...",
@@ -3646,7 +3664,32 @@
     },
     "apiErrors": {
       "duplicate_package_code": "This code is already in use in this category"
-    }
+    },
+    "placement": "Placement",
+    "placementGroups": {
+      "site": "Site-wide",
+      "home": "Home page",
+      "listing": "Listing pages",
+      "detail": "Detail page",
+      "blog": "Blog"
+    },
+    "placements": {
+      "header_strip": "Top strip (all pages)",
+      "footer_leaderboard": "Footer banner (all pages)",
+      "sticky_bottom": "Sticky bar (all pages)",
+      "home_hero": "Home — hero banner",
+      "home_top_strip": "Home — top info strip",
+      "home_promo": "Home — promo card",
+      "home_between_sections": "Home — between sections",
+      "listing_top": "Listings — above the grid",
+      "listing_grid": "Listings — among the cards",
+      "detail_sidebar": "Detail page — sidebar banner",
+      "blog_inline": "Blog — inside the article"
+    },
+    "preview": "Preview",
+    "previewEmpty": "Add a title and upload media to see the preview.",
+    "previewDesktop": "Desktop",
+    "previewMobile": "Mobile"
   },
   "AdminDashboard": {
     "title": "Dashboard",
@@ -3774,7 +3817,19 @@
       "slot-a": "Slot A (Hero)",
       "slot-b": "Slot B (Between cards)",
       "slot-c": "Slot C (Sidebar)"
-    }
+    },
+    "editTitle": "Edit ad",
+    "edit": "Edit",
+    "save": "Save",
+    "updated": "Ad updated",
+    "pause": "Pause",
+    "resume": "Resume",
+    "statusPaused": "Paused",
+    "statusExpired": "Expired",
+    "statusActive": "Active",
+    "bannerRequired": "A banner image or video is required",
+    "needsImage": "Banner missing — upload an image so it can appear on the site",
+    "expiredHint": "Expired — extend the end date to show it again"
   },
   "AdminFinances": {
     "title": "Financial overview",

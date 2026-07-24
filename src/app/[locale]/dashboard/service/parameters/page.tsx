@@ -10,6 +10,10 @@ import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Tables } from "@/lib/types/database";
+import {
+  contentChangeErrorKey,
+  submitContentChange,
+} from "@/lib/content-change/client";
 
 interface NotifPrefs {
   newInquiry: boolean;
@@ -19,6 +23,7 @@ interface NotifPrefs {
 export default function ServiceParametersPage() {
   const t = useTranslations("ServiceParameters");
   const tShared = useTranslations("DashboardShared");
+  const tCreate = useTranslations("CreateShared");
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -26,6 +31,7 @@ export default function ServiceParametersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -68,17 +74,22 @@ export default function ServiceParametersPage() {
     if (whatsapp && !isValidGePhone(whatsapp)) return;
     setSaving(true);
     setSaved(false);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+    setReviewError("");
+    let error: Error | null = null;
+    try {
+      await submitContentChange("profile", user.id, {
         display_name: [firstName, lastName].filter(Boolean).join(" "),
         phone: phone ? "+995" + phone : null,
-      })
-      .eq("id", user.id);
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause : new Error("submit_failed");
+    }
     setSaving(false);
     if (!error) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } else {
+      setReviewError(tCreate(contentChangeErrorKey(error)));
     }
   }
 
@@ -273,6 +284,16 @@ export default function ServiceParametersPage() {
                 ? tShared("saved")
                 : tShared("saveChanges")}
           </button>
+          {saved && (
+            <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
+              {tCreate("contentChange.pending")}
+            </p>
+          )}
+          {reviewError && (
+            <p className="mt-3 text-[13px] font-medium text-[#DC2626]">
+              {reviewError}
+            </p>
+          )}
         </motion.form>
 
         <motion.div

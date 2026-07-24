@@ -350,7 +350,8 @@
       "cottage": "კოტეჯი",
       "hotel": "სასტუმრო",
       "villa": "ვილა",
-      "studio": "სტუდიო"
+      "studio": "სტუდიო",
+      "land": "მიწის ნაკვეთი"
     }
   },
   "RentBuyToggle": {
@@ -1024,6 +1025,7 @@
   "SalePropertyCard": {
     "forSale": "იყიდება",
     "areaSqm": "{area} მ²",
+    "plotAreaSqm": "{area} მ² ნაკვეთი",
     "rooms": "{count} ოთახი",
     "construction": "მშენებლობა",
     "pricePerSqm": "{price} / მ²",
@@ -1034,6 +1036,7 @@
     "forSale": "იყიდება",
     "completed": "დასრულებული",
     "areaSqm": "{area}მ²",
+    "plotAreaSqm": "{area}მ² ნაკვეთი",
     "pricePerSqm": "{price} / მ²",
     "details": "დეტალები",
     "favoriteAria": "რჩეულებში დამატება"
@@ -1213,6 +1216,7 @@
     "typeHotel": "სასტუმრო",
     "typeStudio": "სტუდია",
     "typeVilla": "ვილა",
+    "typeLand": "მიწის ნაკვეთი",
     "typeFallback": "ქონება",
     "underConstruction": "მშენებარე",
     "completed": "დასრულებული",
@@ -1223,6 +1227,7 @@
     "save": "შენახვა",
     "addToFavorites": "ფავორიტებში დამატება",
     "areaLabel": "ფართობი",
+    "plotAreaLabel": "ნაკვეთის ფართობი",
     "objectType": "ობიექტის ტიპი",
     "layout": "გეგმარება",
     "investmentMetrics": "საინვესტიციო მეტრიკები და სტატუსი",
@@ -1283,6 +1288,7 @@
     "typeApartment": "საცხოვრებელი ბინა",
     "typeStudio": "სტუდიო",
     "typeVilla": "ვილა",
+    "typeLand": "მიწის ნაკვეთი",
     "typeCottage": "ქოხი",
     "typeHotel": "სასტუმრო",
     "statusNew": "ახალი",
@@ -1906,6 +1912,15 @@
     "invalidPersonalId": "პირადი ნომერი უნდა შედგებოდეს 11 ციფრისგან",
     "save": "შენახვა",
     "publishListing": "განცხადების გამოქვეყნება",
+    "contentChange": {
+      "submitForReview": "განხილვაზე გაგზავნა",
+      "pending": "ცვლილება გაიგზავნა ადმინის განხილვაზე",
+      "target_locked": "ამ განცხადებაზე უკვე გაქვთ განსახილველი ცვლილება. დაელოდეთ ადმინის პასუხს.",
+      "no_changes": "ცვლილება არ არის",
+      "forbidden_or_not_found": "ობიექტი ვერ მოიძებნა ან არ გაქვთ რედაქტირების უფლება",
+      "unauthenticated": "გთხოვთ, გაიარეთ ავტორიზაცია",
+      "failed": "ცვლილების გაგზავნა ვერ მოხერხდა. სცადეთ ხელახლა."
+    },
     "loading": "იტვირთება...",
     "basicInfo": "ძირითადი ინფორმაცია",
     "contactInfo": "საკონტაქტო ინფორმაცია",
@@ -2074,8 +2089,9 @@
       "studio": "სტუდიო",
       "apartment": "აპარტამენტი",
       "cottage": "კოტეჯი",
-      "villa": "მიწის ნაკვეთი",
-      "hotel": "სასტუმრო ოთახი"
+      "villa": "ვილა",
+      "hotel": "სასტუმრო ოთახი",
+      "land": "მიწის ნაკვეთი"
     },
     "constructionStatuses": {
       "under_construction": "მშენებარე",
@@ -2137,7 +2153,8 @@
       "studio": "სტუდიო",
       "cottage": "კოტეჯი",
       "hotel": "სასტუმრო ოთახი",
-      "villa": "ვილა"
+      "villa": "ვილა",
+      "land": "მიწის ნაკვეთი"
     },
     "serviceCategories": {
       "food": "კვება",
@@ -2357,6 +2374,7 @@
     "managementService": "მართვის სერვისი",
     "expectedRoi": "მოსალოდნელი ROI (%)",
     "totalArea": "საერთო ფართობი (კვ.მ)",
+    "plotArea": "ნაკვეთის ფართობი (კვ.მ)",
     "priceUsd": "ფასი (USD)",
     "photosRenders": "ფოტოები / რენდერები",
     "descriptionPlaceholder": "დეტალური აღწერა ობიექტის შესახებ...",
@@ -3646,7 +3664,32 @@
     },
     "apiErrors": {
       "duplicate_package_code": "ეს კოდი უკვე გამოყენებულია ამ კატეგორიაში"
-    }
+    },
+    "placement": "განთავსების ადგილი",
+    "placementGroups": {
+      "site": "მთელ საიტზე",
+      "home": "მთავარი გვერდი",
+      "listing": "კატალოგის გვერდები",
+      "detail": "დეტალური გვერდი",
+      "blog": "ბლოგი"
+    },
+    "placements": {
+      "header_strip": "ზედა ზოლი (ყველა გვერდზე)",
+      "footer_leaderboard": "ქვედა ბანერი (ყველა გვერდზე)",
+      "sticky_bottom": "მიკრული ზოლი (ყველა გვერდზე)",
+      "home_hero": "მთავარი — ჰერო ბანერი",
+      "home_top_strip": "მთავარი — ზედა ინფო ზოლი",
+      "home_promo": "მთავარი — პრომო ბარათი",
+      "home_between_sections": "მთავარი — სექციებს შორის",
+      "listing_top": "კატალოგი — ბადის ზემოთ",
+      "listing_grid": "კატალოგი — ბარათებს შორის",
+      "detail_sidebar": "დეტალური გვერდი — გვერდითი ბანერი",
+      "blog_inline": "ბლოგი — სტატიის შიგნით"
+    },
+    "preview": "წინასწარი ხედი",
+    "previewEmpty": "შეავსეთ სათაური და ატვირთეთ მედია, რომ ნახოთ წინასწარი ხედი.",
+    "previewDesktop": "დესკტოპი",
+    "previewMobile": "მობილური"
   },
   "AdminDashboard": {
     "title": "მთავარი გვერდი",
@@ -3774,7 +3817,19 @@
       "slot-a": "სლოტი A (Hero)",
       "slot-b": "სლოტი B (Between cards)",
       "slot-c": "სლოტი C (Sidebar)"
-    }
+    },
+    "editTitle": "რეკლამის რედაქტირება",
+    "edit": "რედაქტირება",
+    "save": "შენახვა",
+    "updated": "რეკლამა განახლდა",
+    "pause": "დაპაუზება",
+    "resume": "გაშვება",
+    "statusPaused": "დაპაუზებული",
+    "statusExpired": "ვადაგასული",
+    "statusActive": "აქტიური",
+    "bannerRequired": "ბანერის სურათი ან ვიდეო აუცილებელია",
+    "needsImage": "ბანერი აკლია — ატვირთეთ სურათი, რომ გამოჩნდეს საიტზე",
+    "expiredHint": "ვადა ამოიწურა — გაახანგრძლივეთ თარიღი, რომ ისევ გამოჩნდეს"
   },
   "AdminFinances": {
     "title": "ფინანსური მიმოხილვა",

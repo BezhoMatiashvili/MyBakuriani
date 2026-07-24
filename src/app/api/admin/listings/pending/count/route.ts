@@ -12,7 +12,7 @@ export async function GET() {
 
   const db = createServiceClient();
 
-  const [propertiesRes, servicesRes] = await Promise.all([
+  const [propertiesRes, servicesRes, changesRes] = await Promise.all([
     db
       .from("properties")
       .select("*", { count: "exact", head: true })
@@ -21,16 +21,20 @@ export async function GET() {
       .from("services")
       .select("*", { count: "exact", head: true })
       .eq("status", "pending"),
+    // content_change_requests is introduced after generated DB types; keep
+    // this endpoint compatible until the next Supabase type generation.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from("content_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
   ]);
 
-  if (propertiesRes.error || servicesRes.error) {
+  if (propertiesRes.error || servicesRes.error || changesRes.error) {
     const message =
-      propertiesRes.error?.message ?? servicesRes.error?.message ?? "error";
+      propertiesRes.error?.message ?? servicesRes.error?.message ?? changesRes.error?.message ?? "error";
     return Response.json({ error: message }, { status: 500 });
   }
 
   return Response.json(
-    { count: (propertiesRes.count ?? 0) + (servicesRes.count ?? 0) },
+    { count: (propertiesRes.count ?? 0) + (servicesRes.count ?? 0) + (changesRes.count ?? 0) },
     // Short private cache: the badge refetches on every admin navigation,
     // so let rapid navigations reuse the response for 30s.
     { headers: { "Cache-Control": "private, max-age=30" } },

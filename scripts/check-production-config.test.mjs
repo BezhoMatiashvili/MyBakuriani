@@ -1,0 +1,64 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  assertProductionConfig,
+  validateProductionConfig,
+} from "./check-production-config.mjs";
+
+const canonicalOrigin = "https://my-bakuriani.vercel.app";
+
+test("accepts an exact allowed canonical origin in Vercel Production", () => {
+  assert.deepEqual(
+    validateProductionConfig({
+      VERCEL_ENV: "production",
+      ALLOWED_ORIGINS: canonicalOrigin,
+      NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+    }),
+    [],
+  );
+});
+
+test("does not activate outside Vercel Production", () => {
+  assert.doesNotThrow(() =>
+    assertProductionConfig({
+      VERCEL_ENV: "preview",
+      NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+    }),
+  );
+});
+
+test("rejects a missing production allowed-origin list", () => {
+  assert.throws(
+    () =>
+      assertProductionConfig({
+        VERCEL_ENV: "production",
+        NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+      }),
+    /ALLOWED_ORIGINS must be set/,
+  );
+});
+
+test("rejects malformed or non-exact allowed origins", () => {
+  assert.throws(
+    () =>
+      assertProductionConfig({
+        VERCEL_ENV: "production",
+        ALLOWED_ORIGINS: "https://my-bakuriani.vercel.app/",
+        NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+      }),
+    /contains invalid exact origin/,
+  );
+});
+
+test("rejects an allowed-origin list that omits the canonical site origin", () => {
+  assert.throws(
+    () =>
+      assertProductionConfig({
+        VERCEL_ENV: "production",
+        ALLOWED_ORIGINS: "https://preview.my-bakuriani.vercel.app",
+        NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+      }),
+    /must include the exact NEXT_PUBLIC_SITE_URL origin/,
+  );
+});

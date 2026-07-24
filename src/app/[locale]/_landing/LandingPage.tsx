@@ -35,9 +35,8 @@ import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import type { Tables } from "@/lib/types/database";
-import { InfoBanners } from "@/components/landing/InfoBanners";
-import { PromoBanners } from "@/components/landing/PromoBanners";
-import type { LandingBanner } from "@/lib/banners";
+import BannerSlotView from "@/components/banners/BannerSlotView";
+import type { BannerCreative } from "@/lib/banner-creative";
 import type { Zone } from "@/lib/zones/types";
 import HomeStatusCards from "@/components/landing/HomeStatusCards";
 import { AddListingButton } from "@/components/shared/AddListingButton";
@@ -52,8 +51,7 @@ interface LandingPageProps {
   vipProperties?: Tables<"properties">[];
   services?: Tables<"services">[];
   blogPosts?: Tables<"blog_posts">[];
-  infoBanners?: LandingBanner[];
-  promoBanners?: LandingBanner[];
+  bannerCreatives?: BannerCreative[];
   pricePerSqmByZone?: Record<string, number | null>;
 }
 
@@ -83,8 +81,7 @@ export default function LandingPage({
   vipProperties: serverVipProperties,
   services: serverServices,
   blogPosts: serverBlogPosts,
-  infoBanners = [],
-  promoBanners = [],
+  bannerCreatives = [],
   pricePerSqmByZone,
 }: LandingPageProps) {
   const t = useTranslations("Landing");
@@ -279,6 +276,7 @@ export default function LandingPage({
         saleProperties={serverSaleProperties}
         pricePerSqmByZone={pricePerSqmByZone}
         zones={zones}
+        bannerCreatives={bannerCreatives}
       />
     );
   }
@@ -390,7 +388,13 @@ export default function LandingPage({
       </section>
 
       {/* ═══ 2.5 Verified-listings info banner (admin-managed) ═══ */}
-      <InfoBanners banners={infoBanners} />
+      <BannerSlotView
+        placement="home_top_strip"
+        creatives={bannerCreatives}
+        className="mt-[70px] sm:mt-[84px]"
+      />
+
+      <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
 
       {/* ═══ 3. Hot Offers — VIP / Super VIP Carousel ═══ */}
       {vipPropertyCards.length > 0 && (
@@ -452,6 +456,11 @@ export default function LandingPage({
         </section>
       )}
 
+      <BannerSlotView
+        placement="home_between_sections"
+        creatives={bannerCreatives}
+      />
+
       {/* ═══ 4. Apartments Section ═══ */}
       <PropertySection
         title={t("apartmentsAndCottages")}
@@ -474,7 +483,7 @@ export default function LandingPage({
       />
 
       {/* ═══ 5.5 Promo banners (admin-managed) ═══ */}
-      <PromoBanners banners={promoBanners} />
+      <BannerSlotView placement="home_promo" creatives={bannerCreatives} />
 
       {/* ═══ 6. Transport Section ═══ */}
       <ServiceSection
@@ -604,7 +613,10 @@ export default function LandingPage({
             <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
               {t("addListingCTA")}
             </p>
-            <AddListingButton label={t("addListing")} className="mt-6 h-12 rounded-full px-8" />
+            <AddListingButton
+              label={t("addListing")}
+              className="mt-6 h-12 rounded-full px-8"
+            />
           </ScrollReveal>
         </div>
       </section>
@@ -709,7 +721,10 @@ function ServiceSection({
                 </button>
               )}
               {showAddButton && (
-                <AddListingButton label={t("add")} className="rounded-full px-4 py-2" />
+                <AddListingButton
+                  label={t("add")}
+                  className="rounded-full px-4 py-2"
+                />
               )}
               <Link
                 href={href}
@@ -779,7 +794,10 @@ function EmploymentSection({
               </p>
             </div>
             <div className="hidden items-center gap-4 sm:flex">
-              <AddListingButton label={t("add")} className="rounded-full px-4 py-2" />
+              <AddListingButton
+                label={t("add")}
+                className="rounded-full px-4 py-2"
+              />
               <Link
                 href={href}
                 className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-bold text-[#0F172A] hover:underline"
@@ -915,7 +933,10 @@ function PropertySection({
                 </button>
               )}
               {showAddButton && (
-                <AddListingButton label={t("add")} className="rounded-full px-4 py-2" />
+                <AddListingButton
+                  label={t("add")}
+                  className="rounded-full px-4 py-2"
+                />
               )}
               <Link
                 href={href}

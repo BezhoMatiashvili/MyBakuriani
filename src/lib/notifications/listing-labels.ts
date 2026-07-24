@@ -14,6 +14,7 @@ const PROPERTY_TYPE_LABEL_KA: Record<Enums<"property_type">, string> = {
   cottage: "კოტეჯი",
   hotel: "სასტუმრო ოთახი",
   villa: "ვილა",
+  land: "მიწის ნაკვეთი",
 };
 
 const SERVICE_CATEGORY_LABEL_KA: Record<Enums<"service_category">, string> = {

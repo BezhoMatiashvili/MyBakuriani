@@ -22,6 +22,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -448,6 +449,9 @@ export default function SearchPageClient({
             {/* Property-only path (no keyword) */}
             {!loading && !hasKeyword && properties.length > 0 && (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <BannerSlot placement="listing_top" bare className="col-span-full" />
+            <BannerSlot placement="listing_grid" bare />
+
                 {properties.map((p, i) => (
                   <ScrollReveal key={p.id} delay={i * 0.05}>
                     <PropertyCard

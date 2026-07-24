@@ -10,6 +10,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
+import {
+  contentChangeErrorKey,
+  submitContentChange,
+} from "@/lib/content-change/client";
 
 export default function GuestProfilePage() {
   const t = useTranslations("GuestProfile");
@@ -21,6 +25,7 @@ export default function GuestProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -69,17 +74,22 @@ export default function GuestProfilePage() {
     if (phone && !isValidGePhone(phone)) return;
     setSaving(true);
     setSaved(false);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+    setReviewError("");
+    let error: Error | null = null;
+    try {
+      await submitContentChange("profile", user.id, {
         display_name: [firstName, lastName].filter(Boolean).join(" "),
         phone: phone ? "+995" + phone : null,
-      })
-      .eq("id", user.id);
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause : new Error("submit_failed");
+    }
     setSaving(false);
     if (!error) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } else {
+      setReviewError(tShared(contentChangeErrorKey(error)));
     }
   }
 
@@ -113,11 +123,7 @@ export default function GuestProfilePage() {
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
       const newUrl = pub.publicUrl;
 
-      const { error: dbErr } = await supabase
-        .from("profiles")
-        .update({ avatar_url: newUrl })
-        .eq("id", user.id);
-      if (dbErr) throw dbErr;
+      await submitContentChange("profile", user.id, { avatar_url: newUrl });
 
       setAvatarUrl(newUrl);
     } catch {
@@ -285,6 +291,16 @@ export default function GuestProfilePage() {
               {saving ? t("saving") : saved ? t("saved") : t("saveChanges")}
             </button>
           </div>
+          {saved && (
+            <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
+              {tShared("contentChange.pending")}
+            </p>
+          )}
+          {reviewError && (
+            <p className="mt-3 text-[13px] font-medium text-[#DC2626]">
+              {reviewError}
+            </p>
+          )}
         </form>
       </motion.div>
     </div>

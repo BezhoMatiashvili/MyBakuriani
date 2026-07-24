@@ -22,6 +22,7 @@ export type Database = {
           created_by: string | null;
           end_at: string;
           id: string;
+          placement: string;
           position: string;
           start_at: string;
           status: string;
@@ -36,6 +37,7 @@ export type Database = {
           created_by?: string | null;
           end_at: string;
           id?: string;
+          placement?: string;
           position: string;
           start_at: string;
           status?: string;
@@ -669,6 +671,7 @@ export type Database = {
           id: string;
           image_url: string | null;
           kind: Database["public"]["Enums"]["landing_banner_kind"];
+          placement: string;
           sort_order: number;
           start_at: string | null;
           title: string;
@@ -688,6 +691,7 @@ export type Database = {
           id?: string;
           image_url?: string | null;
           kind: Database["public"]["Enums"]["landing_banner_kind"];
+          placement?: string;
           sort_order?: number;
           start_at?: string | null;
           title: string;
@@ -707,6 +711,7 @@ export type Database = {
           id?: string;
           image_url?: string | null;
           kind?: Database["public"]["Enums"]["landing_banner_kind"];
+          placement?: string;
           sort_order?: number;
           start_at?: string | null;
           title?: string;
@@ -3006,6 +3011,10 @@ export type Database = {
           title: string;
         }[];
       };
+      increment_ad_metric: {
+        Args: { p_ad_id: string; p_event: string };
+        Returns: undefined;
+      };
       increment_service_menu_views: {
         Args: { p_service_id: string };
         Returns: undefined;
@@ -3185,7 +3194,8 @@ export type Database = {
         "smart_match" | "direct" | "call" | "walk_in" | "referral" | "other";
       lead_stage: "new" | "contacted" | "shown" | "negotiating" | "closed";
       listing_status: "active" | "blocked" | "pending" | "draft";
-      property_type: "apartment" | "cottage" | "hotel" | "studio" | "villa";
+      property_type:
+        "apartment" | "cottage" | "hotel" | "studio" | "villa" | "land";
       service_category:
         | "transport"
         | "cleaning"
@@ -3375,7 +3385,14 @@ export const Constants = {
       ],
       lead_stage: ["new", "contacted", "shown", "negotiating", "closed"],
       listing_status: ["active", "blocked", "pending", "draft"],
-      property_type: ["apartment", "cottage", "hotel", "studio", "villa"],
+      property_type: [
+        "apartment",
+        "cottage",
+        "hotel",
+        "studio",
+        "villa",
+        "land",
+      ],
       service_category: [
         "transport",
         "cleaning",

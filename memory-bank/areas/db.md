@@ -36,9 +36,25 @@ Database schema, policies, and the generated type mirror.
   — preserve existing names, don't renumber.
 - Applied against remote (Hobby auto-deploy is Vercel-only; migrations run via the
   Supabase CLI / MCP).
+- **Adding an enum value is a two-transaction operation.** `ALTER TYPE … ADD
+VALUE` may run inside a transaction, but the new label cannot be _evaluated_
+  until that transaction commits (`check_safe_enum_use` → `55P04`). Put the
+  `ADD VALUE` in its own migration file and anything that uses the label
+  (backfill `UPDATE`, CHECK, default) in a second file, applied separately —
+  `apply_migration` wraps each call in one transaction. End the enum migration
+  with `notify pgrst, 'reload schema'`: PostgREST caches enum labels, so
+  `?col=eq.<newvalue>` 400s until it reloads. Precedent:
+  `20260724160000_property_type_add_land.sql` +
+  `20260724160100_land_backfill.sql` (**C13**).
+- An `ALTER COLUMN … TYPE` on a column referenced by a view requires dropping and
+  recreating the view — and re-stating its grants and `security_invoker` setting.
+  `public.public_properties` (created in
+  `20260723000000_production_security_remediation.sql`) covers most listing
+  columns, so most widenings hit this.
 
 ## Contracts touching this area
 
 C3 (schema ↔ types), C5 (buckets/RLS), C7 (realtime publication), C8 (role enum +
 RLS), C10 (discount badge duration/expiry — RPC + trigger; column on both
-properties and services, only written on properties).
+properties and services, only written on properties), C13 (`property_type` enum
+fan-out — two-transaction add, 2 compile tripwires + 7 silent participants).

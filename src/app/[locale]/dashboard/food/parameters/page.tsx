@@ -8,6 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import {
+  contentChangeErrorKey,
+  submitContentChange,
+} from "@/lib/content-change/client";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { CUISINE_TYPES } from "@/lib/constants/listing-options";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
@@ -26,6 +30,7 @@ export default function FoodParametersPage() {
   const supabase = createClient();
   const tOpts = useTranslations("ListingOptions");
   const tShared = useTranslations("DashboardShared");
+  const tCreate = useTranslations("CreateShared");
   const cuisineTypeOptions = useMemo(
     () =>
       CUISINE_TYPES.map((o) => ({
@@ -39,6 +44,7 @@ export default function FoodParametersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   const [name, setName] = useState("");
   const [cuisine, setCuisine] = useState("");
@@ -90,19 +96,24 @@ export default function FoodParametersPage() {
     }
     setSaving(true);
     setSaved(false);
-    const { error } = await supabase
-      .from("services")
-      .update({
+    setReviewError("");
+    let error: Error | null = null;
+    try {
+      await submitContentChange("service", service.id, {
         title: name,
         cuisine_type:
           CUISINE_TYPES.find((t) => t.value === cuisine)?.label || null,
         phone: phone ? "+995" + phone : null,
-      })
-      .eq("id", service.id);
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause : new Error("submit_failed");
+    }
     setSaving(false);
     if (!error) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } else {
+      setReviewError(tCreate(contentChangeErrorKey(error)));
     }
   }
 
@@ -115,7 +126,13 @@ export default function FoodParametersPage() {
     onChange: (v: boolean) => void;
     color?: string;
   }) {
-    return <Switch checked={checked} onCheckedChange={onChange} tone={color === "#16A34A" ? "contact" : "primary"} />;
+    return (
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        tone={color === "#16A34A" ? "contact" : "primary"}
+      />
+    );
   }
 
   return (
@@ -238,6 +255,16 @@ export default function FoodParametersPage() {
               {saving ? "შენახვა..." : saved ? "შენახულია" : "შენახვა"}
             </button>
           </div>
+          {saved && (
+            <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
+              {tCreate("contentChange.pending")}
+            </p>
+          )}
+          {reviewError && (
+            <p className="mt-3 text-[13px] font-medium text-[#DC2626]">
+              {reviewError}
+            </p>
+          )}
         </motion.form>
 
         <motion.div

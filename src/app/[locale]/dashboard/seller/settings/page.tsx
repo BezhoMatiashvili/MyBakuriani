@@ -10,6 +10,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
+import {
+  contentChangeErrorKey,
+  submitContentChange,
+} from "@/lib/content-change/client";
 
 type ProfileType = "ფიზიკური პირი" | "იურიდიული პირი";
 
@@ -23,10 +27,12 @@ export default function SellerSettingsPage() {
   const { user } = useAuth();
   const supabase = createClient();
   const tShared = useTranslations("DashboardShared");
+  const tCreate = useTranslations("CreateShared");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   const [profileType, setProfileType] = useState<ProfileType>("ფიზიკური პირი");
   const [displayName, setDisplayName] = useState("");
@@ -62,17 +68,22 @@ export default function SellerSettingsPage() {
     if (phone && !isValidGePhone(phone)) return;
     setSaving(true);
     setSaved(false);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+    setReviewError("");
+    let error: Error | null = null;
+    try {
+      await submitContentChange("profile", user.id, {
         display_name: displayName,
         phone: phone ? "+995" + phone : null,
-      })
-      .eq("id", user.id);
+      });
+    } catch (cause) {
+      error = cause instanceof Error ? cause : new Error("submit_failed");
+    }
     setSaving(false);
     if (!error) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } else {
+      setReviewError(tCreate(contentChangeErrorKey(error)));
     }
   }
 
@@ -85,7 +96,13 @@ export default function SellerSettingsPage() {
     onChange: (v: boolean) => void;
     color?: string;
   }) {
-    return <Switch checked={checked} onCheckedChange={onChange} tone={color === "#16A34A" ? "whatsapp" : "primary"} />;
+    return (
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        tone={color === "#16A34A" ? "whatsapp" : "primary"}
+      />
+    );
   }
 
   return (
@@ -221,6 +238,16 @@ export default function SellerSettingsPage() {
               {saving ? "შენახვა..." : saved ? "შენახულია" : "შენახვა"}
             </button>
           </div>
+          {saved && (
+            <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
+              {tCreate("contentChange.pending")}
+            </p>
+          )}
+          {reviewError && (
+            <p className="mt-3 text-[13px] font-medium text-[#DC2626]">
+              {reviewError}
+            </p>
+          )}
         </motion.form>
 
         <motion.div

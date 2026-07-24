@@ -73,6 +73,7 @@ const PROPERTY_TYPE_OPTIONS: Enums<"property_type">[] = [
   "cottage",
   "hotel",
   "villa",
+  "land",
 ];
 
 const SERVICE_CATEGORY_OPTIONS: Enums<"service_category">[] = [

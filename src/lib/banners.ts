@@ -1,15 +1,18 @@
 export type BannerKind = "info" | "promo" | "sticky_news";
 
 export type BannerTone =
-  | "orange"
-  | "amber"
-  | "blue"
-  | "green"
-  | "red"
-  | "slate";
+  "orange" | "amber" | "blue" | "green" | "red" | "slate";
 
 export type LandingBanner = {
   id: string;
+  /**
+   * Where this banner renders — see BANNER_PLACEMENTS in banner-placements.ts.
+   * Typed as a plain string (not the BannerPlacement union) to keep this module
+   * free of a circular import, and because a DB row can legitimately hold a
+   * value this build doesn't know about. Narrow it with getPlacementSpec().
+   */
+  placement: string;
+  /** Pre-placement enum, still NOT NULL in the DB. Nothing reads it. */
   kind: BannerKind;
   title: string;
   body: string | null;

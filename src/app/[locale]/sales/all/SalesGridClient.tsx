@@ -9,6 +9,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SalePagination } from "@/components/search/SalePagination";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -295,6 +296,9 @@ export default function SalesGridClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <BannerSlot placement="listing_top" bare className="col-span-full" />
+            <BannerSlot placement="listing_grid" bare />
+
             {paginatedProperties.map((p, i) => (
               <ScrollReveal key={p.id} delay={i * 0.05}>
                 <PropertyCard

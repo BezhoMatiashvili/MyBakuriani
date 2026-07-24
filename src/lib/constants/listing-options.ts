@@ -345,8 +345,9 @@ const DB_VALUE_KEYS = {
     სტუდიო: "studio",
     აპარტამენტი: "apartment",
     კოტეჯი: "cottage",
-    "მიწის ნაკვეთი": "villa",
+    ვილა: "villa",
     "სასტუმრო ოთახი": "hotel",
+    "მიწის ნაკვეთი": "land",
   },
   constructionStatuses: {
     მშენებარე: "under_construction",
@@ -392,6 +393,7 @@ const DB_VALUE_KEYS = {
     კოტეჯი: "cottage",
     "სასტუმრო ოთახი": "hotel",
     ვილა: "villa",
+    "მიწის ნაკვეთი": "land",
   },
   serviceCategories: {
     კვება: "food",

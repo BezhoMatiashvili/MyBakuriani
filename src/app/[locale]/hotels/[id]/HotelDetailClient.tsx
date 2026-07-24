@@ -42,6 +42,7 @@ import { applyDiscount } from "@/lib/utils/pricing";
 import { cleanAmenityLabel } from "@/lib/constants/amenity-icons";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -459,6 +460,11 @@ export default function HotelDetailClient({
             />
           )}
         </motion.div>
+
+        <BannerSlot
+          placement="detail_sidebar"
+          className="lg:col-start-3"
+        />
       </div>
 
       {property.price_per_night != null && (

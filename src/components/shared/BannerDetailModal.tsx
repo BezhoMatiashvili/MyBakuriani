@@ -2,21 +2,20 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Modal from "@/components/shared/Modal";
-import { BANNER_TONE_STYLES, type LandingBanner } from "@/lib/banners";
-import { safeInternalPath, safeHttpsUrl } from "@/lib/security";
+import { getTonePalette, type BannerCreative } from "@/lib/banner-creative";
 
 interface BannerDetailModalProps {
-  banner: LandingBanner | null;
+  creative: BannerCreative | null;
   onClose: () => void;
 }
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, locale: string): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("ka-GE", {
+  return d.toLocaleString(locale === "ka" ? "ka-GE" : locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -26,31 +25,30 @@ function formatDate(iso: string | null): string {
 }
 
 export default function BannerDetailModal({
-  banner,
+  creative,
   onClose,
 }: BannerDetailModalProps) {
   const t = useTranslations("Shared");
+  const locale = useLocale();
 
-  if (!banner) return null;
+  if (!creative) return null;
 
-  const tone = BANNER_TONE_STYLES[banner.tone];
-  const ctaHref =
-    safeInternalPath(banner.cta_href) ?? safeHttpsUrl(banner.cta_href);
+  const tone = getTonePalette(creative.tone);
 
   return (
-    <Modal isOpen onClose={onClose} title={banner.title} size="lg">
+    <Modal isOpen onClose={onClose} title={creative.title} size="lg">
       <div className="space-y-4">
-        {banner.video_url ? (
+        {creative.videoUrl ? (
           <video
-            src={banner.video_url}
-            poster={banner.video_poster_url ?? banner.image_url ?? undefined}
+            src={creative.videoUrl}
+            poster={creative.videoPosterUrl ?? creative.imageUrl ?? undefined}
             controls
             className="w-full rounded-2xl"
           />
-        ) : banner.image_url ? (
+        ) : creative.imageUrl ? (
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
             <Image
-              src={banner.image_url}
+              src={creative.imageUrl}
               alt=""
               fill
               sizes="(max-width: 640px) 100vw, 512px"
@@ -59,37 +57,37 @@ export default function BannerDetailModal({
           </div>
         ) : null}
 
-        {banner.body ? (
+        {creative.body ? (
           <p
             className="text-[14px] font-medium leading-[22px]"
             style={{ color: tone.text }}
           >
-            {banner.body}
+            {creative.body}
           </p>
         ) : null}
 
-        {banner.start_at || banner.end_at ? (
+        {creative.startAt || creative.endAt ? (
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] font-medium text-[#64748B]">
-            {banner.start_at ? (
+            {creative.startAt ? (
               <span>
-                {t("bannerValidFrom")}: {formatDate(banner.start_at)}
+                {t("bannerValidFrom")}: {formatDate(creative.startAt, locale)}
               </span>
             ) : null}
-            {banner.end_at ? (
+            {creative.endAt ? (
               <span>
-                {t("bannerValidUntil")}: {formatDate(banner.end_at)}
+                {t("bannerValidUntil")}: {formatDate(creative.endAt, locale)}
               </span>
             ) : null}
           </div>
         ) : null}
 
-        {banner.cta_label && ctaHref ? (
+        {creative.ctaLabel && creative.href ? (
           <Link
-            href={ctaHref}
+            href={creative.href}
             className="flex w-full items-center justify-center rounded-full border-2 bg-white px-6 py-3 text-[14px] font-bold transition-colors"
             style={{ borderColor: tone.ctaText, color: tone.ctaText }}
           >
-            {banner.cta_label}
+            {creative.ctaLabel}
           </Link>
         ) : null}
       </div>

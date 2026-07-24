@@ -9,7 +9,7 @@ import { ArrowRight, Heart, MapPin, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatNumber, formatPrice } from "@/lib/utils/format";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 
@@ -243,12 +243,21 @@ function FavoritePropertyCard({
         </p>
         <div className="mt-auto flex items-end justify-between gap-2 pt-3">
           <div className="flex items-baseline gap-1">
+            {/* Sale prices are entered and stored in USD (the create form
+                prefixes "$" and stamps price_currency: "USD"), so they render
+                with "$" like the sale cards do — not with the GEL nightly
+                price + "/ღამე", which used to render "0 ₾ /ღამე" on every
+                favourited sale listing. */}
             <span className="text-[16px] font-black text-[#0F172A]">
-              {formatPrice(Number(property.price_per_night ?? 0))}
+              {property.is_for_sale
+                ? `$${formatNumber(Number(property.sale_price ?? 0))}`
+                : formatPrice(Number(property.price_per_night ?? 0))}
             </span>
-            <span className="text-[11px] font-medium text-[#94A3B8]">
-              {t("perNight")}
-            </span>
+            {!property.is_for_sale && (
+              <span className="text-[11px] font-medium text-[#94A3B8]">
+                {t("perNight")}
+              </span>
+            )}
           </div>
           <Link
             href={href}

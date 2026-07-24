@@ -76,7 +76,11 @@ Participating symbols:
 - `src/lib/supabase/admin.ts:createServiceClient` — service-role client
 
 **Regen command:** `npx supabase gen types typescript --project-id <id> > src/lib/types/database.ts`
-(see `CLAUDE.md`).
+(see `CLAUDE.md`). **The committed file is currently STALE vs. the live schema and
+a full regen breaks the build**, so recent schema work hand-edits only the lines
+it changed (the `property_type` enum for **C13**, `placement` on ads +
+landing_banners for **C12**). Hand-editing is the deliberate exception, not the
+rule — keep the edit to the affected lines so a future regen is a clean diff.
 
 **Also check:** RPC signatures called from edge functions (**C4**) and API routes;
 every consumer of the `user_role` enum (**C8**). After regen, run `tsc` — new
@@ -100,15 +104,28 @@ Participating symbols (name → caller):
 - `supabase/functions/payment-process/index.ts:serve` ← `src/components/payments/CheckoutClient.tsx`
 - `supabase/functions/company-subscription/index.ts:serve` ← `src/app/[locale]/dashboard/seller/organizations/[id]/page.tsx`
 - `supabase/functions/_shared/guards.ts:requireUser` — every function auths the Bearer token here
-- `supabase/functions/_shared/guards.ts:buildCorsHeaders` — origin allow-list (env `ALLOWED_ORIGINS`) **plus** a hardcoded Vercel-team suffix: any `https://*-bezhomatiashvilis-projects.vercel.app` origin is reflected (deployment/preview URLs have per-deploy hashes, so they can't be exact-listed)
+- `supabase/functions/_shared/guards.ts:buildCorsHeaders` — **exact-match** origin allow-list (env `ALLOWED_ORIGINS`, comma-separated). The Vercel-team suffix match and the `"*"` wildcard on the legacy `corsHeaders` export were both removed in `9828eba`; it now **fails closed** (emits no `Access-Control-Allow-Origin` at all when `ALLOWED_ORIGINS`/`APP_ORIGIN` is unset), so a preview deployment must be added to the env explicitly. Verified live: an allowed origin is echoed exactly, any other origin gets `allowed[0]` (which the browser then blocks). The legacy `corsHeaders` export is now dead — no function imports it
 
 **Also check:** renaming a function directory changes the deploy slug; the
 `invoke("…")` string must change in lock-step. Edge functions in turn call DB RPCs
 (subject to C3). `_shared/guards.ts` is **bundled at deploy time** — editing it
-does nothing until every function that imports it is redeployed (14 of them;
-`search` and `upload-photos` don't use `buildCorsHeaders`). Deployed functions
-have per-function file layouts and `verify_jwt` flags — preserve both when
-redeploying via MCP `deploy_edge_function`.
+does nothing until every function that imports it is redeployed. All 17 local
+functions import it (only `search` also imports `_shared/sanitize.ts`), and every one
+of them now runs the `9828eba` bundle: the 8 that still carried the pre-`9828eba`
+copy (`search`, `vip-lifecycle`, `booking-create`, `booking-manage`,
+`booking-finalize`, `sms-dispatch`, `sms-automation-run`, `road-condition-refresh`)
+were redeployed and byte-verified on 2026-07-24.
+
+**Redeploy recipe (MCP `deploy_edge_function`):** files
+`[{name:"source/index.ts"},{name:"_shared/guards.ts"}]` with
+`entrypoint_path:"source/index.ts"` — `index.ts` imports `../_shared/guards.ts`, so a
+flat `index.ts` name makes `../` escape the bundle root and the function fails to boot.
+Never echo back the `user_fn_<uuid>_<version>/…` names some deployed functions report:
+they are per-deploy artifacts and re-sending them nests one layer deeper each time.
+**`verify_jwt` must be read from the deployed function and preserved** — the deployed
+values are the truth and `supabase/config.toml` is STALE (it declares `verify_jwt = false`
+for 9 functions that are live with `true`, so a CLI `functions deploy` would silently
+strip gateway JWT verification).
 
 Not every function is client-invoked: the scheduled jobs (`vip-lifecycle`,
 `sms-dispatch`, `booking-finalize`, `road-condition-refresh`) have **no `invoke`
@@ -128,7 +145,9 @@ missing field, no compile error.
 
 **Invariant:** a storage bucket id is a string literal that must agree across the
 upload code, the bucket-creation migration + its RLS, and the image/CSP allow-list.
-Buckets in use: `property-photos`, `avatars`, `landing-media`, `restaurant-menus`.
+Buckets in use: `property-photos`, `avatars`, `landing-media`, `restaurant-menus`,
+`content-change-media` (private; created by the **C14** migration, currently has no
+writer — its preview route exists but nothing uploads to it yet).
 
 Participating symbols:
 
@@ -158,12 +177,15 @@ runtime block.
 
 Participating symbols:
 
-- `next.config.ts:CSP` — `img-src` / `connect-src` / `media-src` / `font-src` directives
+- `src/middleware.ts:Content-Security-Policy` — the live CSP: `img-src` / `connect-src` / `media-src` / `font-src` directives. **The CSP now ships from the middleware, not `next.config.ts`** (moved when the nonce approach was abandoned); the old `next.config.ts:CSP` / `:securityHeaders` anchors no longer exist
 - `next.config.ts:remotePatterns` — Next image optimizer host allow-list
-- `next.config.ts:securityHeaders` — array that ships the CSP header
 
 Current external hosts: `*.supabase.co` (+ `wss://`), `images.unsplash.com`,
-`*.basemaps.cartocdn.com` (Leaflet/CARTO tiles).
+`*.basemaps.cartocdn.com` (Leaflet/CARTO tiles). Note the two lists are **not**
+symmetric: `img-src` allows unsplash but `media-src` does **not**, and
+`remotePatterns` narrows supabase to `/storage/v1/object/public/**` while the CSP
+allows the whole host. Code that picks a renderable URL must intersect all of
+them — see `src/lib/banner-creative.ts:renderableImageUrl` (**C12**).
 
 **Also check:** put the host in the directive it's actually used from — `img-src`
 for images, `connect-src` for fetch/websocket, `media-src` for video/audio,
@@ -360,3 +382,214 @@ auto-linked and the edit picker is sale-only); or a new personal-scope dashboard
 query filters only `owner_id` (org listings leak back into the personal view);
 or a new `organizations`/`organization_members` policy reintroduces the inline
 cross-subquery (42P17 on every read).
+
+---
+
+## C12 — Banner placement registry
+
+**Invariant:** `src/lib/banner-placements.ts:BANNER_PLACEMENTS` is the single
+source of truth for **where a banner can appear**. Its 11 ids are simultaneously
+(a) a CHECK constraint on **two** tables, (b) the option list in **two** admin
+forms, (c) the `placement` prop at every public mount site, and (d) the switch in
+the renderer. Adding, renaming, or removing a placement touches all four — the
+string is the only thing holding them together.
+
+The two banner systems stay **separate tables, one renderer**: `landing_banners`
+is editorial (tone colours, body copy, CTA, detail modal), `ads` is paid B2B
+(single click-through, impression/click counters, advertising disclosure). Both
+normalize into one `BannerCreative` before rendering.
+
+Participating symbols:
+
+- `src/lib/banner-placements.ts:BANNER_PLACEMENTS` — the 11-entry catalog (id, renderStyle, surface, aspect, legacyKind)
+- `src/lib/banner-placements.ts:getPlacementSpec` — returns `null`, never throws, for an unmapped value. **Never replace with an index lookup** — that is exactly the shape that makes `BANNER_TONE_STYLES[tone]` crash on an off-union tone
+- `supabase/migrations/20260724140000_banner_placements.sql:landing_banners_placement_check` — the CHECK on both tables; backfilled from `kind` / `position` BEFORE constraining
+- `src/lib/banner-creative.ts:BannerCreative` — the normalized shape both tables adapt into (`landingBannerToCreative`, `adRowToCreative`)
+- `src/lib/banner-creative.ts:renderableImageUrl` — intersection of CSP `img-src` and `remotePatterns` (**C6**). Deliberately **not** `safeStorageImageUrl`, which accepts `/object/sign/` URLs that `next/image` rejects. `renderableVideoUrl` is strictly narrower still (no unsplash in `media-src`)
+- `src/lib/banner-creative.ts:isCreativeMediaUrl` — write-boundary guard; rejects a page URL saved as a creative (the bug that broke 3 live ad rows)
+- `src/components/banners/BannerSlotView.tsx:BannerSlotView` — pure renderer, takes creatives as a prop, NEVER fetches
+- `src/components/banners/BannerSlot.tsx:BannerSlot` — client wrapper; resolves creatives from the shared store
+- `src/lib/banner-slots-client.ts:loadBannerCreatives` — module singleton: N slots on a page = ONE request, and a client-side navigation = zero
+- `src/lib/banner-slots-server.ts:fetchSlotCreatives` — server read; explicit column lists (`ads` has `views_count`/`created_by` that must not reach anon), ad-side filter is `status='active'` AND in-window
+- `src/app/api/banner-slots/route.ts:GET` — param-free public endpoint, `s-maxage=60`
+- `src/components/admin/BannerLivePreview.tsx:BannerLivePreview` — renders the REAL `BannerSlotView` with `interactive={false}`; imports `BannerSlotView` (pure) and never `BannerSlot` (fetching), so the preview is structurally incapable of reading live data
+- `supabase/migrations/20260724170000_ad_metrics_rpc.sql:increment_ad_metric` — SECURITY DEFINER counter bump; only for an active, in-window ad
+- `src/app/api/banner-slots/track/route.ts:POST` — the beacon. Enforces the rate limit **only when a limiter is configured**, because `checkRateLimit` fails _closed_ and would otherwise pin every counter at zero — the exact bug the endpoint exists to fix
+
+**Two style invariants inside `BannerSlotView`, both load-bearing:**
+
+1. **No new i18n namespace.** It renders DB text plus `useLocale()` + a literal
+   `SPONSORED_LABEL` map. Only `"Shared"` is used (already in
+   `PUBLIC_NAMESPACES`, already pulled in by `BannerDetailModal`). Adding a
+   namespace here means adding it to `PUBLIC_NAMESPACES` or `prebuild` fails
+   (**C1**).
+2. **Container queries, not viewport breakpoints.** Creative styling uses
+   `@[640px]:` / `@[768px]:` — arbitrary widths, never the named `@md` (which is
+   448px, not the site's 768px). This is what makes the admin's 390px preview
+   frame truthful; a `md:` class would render the desktop layout inside a narrow
+   box and lie. The `sticky` frame is the one exception: its bottom offsets
+   depend on the real window (clearing `MobileStickyCTA` /
+   `TransportContactFooter`), so viewport prefixes are correct there.
+
+**Legacy columns kept on purpose:** `landing_banners.kind` and `ads.position` are
+still NOT NULL and are still written (derived via `legacyKindForPlacement` /
+`legacyPositionForPlacement`). **Nothing reads them.** They exist so a code
+revert still renders every banner somewhere sane — that is what makes the
+placement migration reversible. Do not "clean them up" without a migration that
+drops them.
+
+**Also check:** a new placement needs (1) an entry in `BANNER_PLACEMENTS`, (2) the
+CHECK constraint widened on **both** tables, (3) `AdminShared.placements.<id>` in
+**all three** catalogs (**C1**), and (4) an actual mount — a placement with no
+`<BannerSlot>` anywhere is an option in the admin UI that silently renders
+nowhere. Ad creatives live in `landing-media/ads/` (**C5**) and are now
+user-visible, so that bucket's contents are public-facing, not just admin chrome.
+
+**Breaks silently when:** a placement is added to the registry but not to the
+CHECK (writes 23514 at runtime only); or added to the CHECK but never mounted
+(admin can "publish" into a void); or a new mount hard-codes a placement string
+instead of importing the union (typo renders nothing, no error); or a creative
+read path is added that skips `renderableImageUrl` (passes validation, then CSP-
+blocks or throws in `next/image` in the browser only); or the ad-side query drops
+its `status='active'` filter (pause/resume silently stops working publicly,
+because the service client bypasses the RLS policy that would have enforced it).
+
+---
+
+## C13 — `property_type` enum fan-out
+
+**Invariant:** `public.property_type` is a 6-value Postgres enum
+(`apartment`, `cottage`, `hotel`, `studio`, `villa`, `land`). Adding or renaming a
+value touches **two compile-time tripwires and eight silent participants**. The
+compiler catches only the first two; everything else fails invisibly at runtime.
+
+This contract exists because it was already violated: `land` did not exist, so
+`src/app/[locale]/create/sale/page.tsx` overloaded `villa` to mean "land plot" and
+relabelled it in **one** i18n map. Every other surface kept rendering those rows
+as "ვილა". Fixed by `20260724160000_property_type_add_land.sql` +
+`20260724160100_land_backfill.sql`.
+
+**Compile-time tripwires** (exhaustive `Record` over the enum — `tsc` fails until updated):
+
+- `src/app/[locale]/sales/[id]/SaleDetailClient.tsx:PROPERTY_TYPE_LABEL_KEYS` — enum value → `SaleDetail.type*` key
+- `src/lib/notifications/listing-labels.ts:PROPERTY_TYPE_LABEL_KA` — server-side Georgian labels for notification bodies (API routes can't use `useTranslations`)
+
+**Silent participants** (no compile error; a forgotten one is invisible):
+
+- `src/lib/types/database.ts:property_type` — the TS union **and** the `Constants` array (generated; hand-edited per **C3**)
+- `src/app/[locale]/create/sale/page.tsx:PROPERTY_TYPES` — the sale form's own list; `isLandPlot` gates the land branch
+- `src/app/[locale]/create/rental/page.tsx` — separate hardcoded list; land is deliberately absent (rentals only)
+- `src/components/search/SaleSearchBox.tsx:PROPERTY_TYPES` — sale filter chips (`SaleSearchBox.type*` keys)
+- `src/components/search/FilterPanel.tsx:PROPERTY_TYPE_KEYS` — shared rent/sale panel, no mode prop → a sale-only value is a dead chip in rent mode
+- `src/components/admin/ListingAuditPanel.tsx:PROPERTY_TYPE_OPTIONS` **and** `src/app/api/admin/listings/update/route.ts:PROPERTY_TYPE_VALUES` — the admin dropdown and the server write allow-list must change **together** or the admin save 400s
+- `src/lib/constants/listing-options.ts:salePropertyTypes` / `:propertyTypes` — legacy Georgian-label → code maps; two **different** vocabularies for the same enum (sale calls `hotel` "სასტუმრო ოთახი"). No live `optionKeyFor` consumer today, but a stale entry is how the overload got created
+- `src/app/[locale]/apartments/page.tsx` — `.in("type", [...])` rental whitelist. Sale-only values must **not** be added here (it also filters `is_for_sale = false`)
+
+**Land-specific rule — the null-set.** A land listing has no building, so
+`rooms`, `bathrooms`, `capacity`, `construction_status`,
+`construction_progress_percent`, `completion_year`, `renovation_status`,
+`units_total`, `units_sold`, `units_reserved`, `roi_percent`, `roi_percent_max`,
+`house_rules.handover_month` and `house_rules.management_service` are written as
+**null/0** for land by `create/sale/page.tsx`'s payload and were cleared for the
+two pre-existing rows by `20260724160100_land_backfill.sql`. **These two sets must
+stay identical** — the whole card layer leans on it. (One benign shape difference:
+the form writes `house_rules.handover_month`/`management_service` as present-but-null
+keys, the backfill deleted the keys outright. Every read site treats both as absent.)
+
+Some of the payload's nulls are indirect: `construction_progress_percent`,
+`completion_year`, `units_*` and `handover_month` are derived from
+`isUnderConstruction`, which is itself `!isLandPlot && …`, so they fall out
+without an explicit land branch. `capacity` is the odd one — the sale form has no
+capacity input at all, so it is spread in as `{ capacity: null }` **only** for
+land, purely to clear the value an apartment→land conversion would otherwise keep
+(`PropertyCard` would render "N სტუმარი" on a plot).
+
+Because the data is null, most suppressions are free: `PropertyCard` needs **no**
+land branch at all — its rooms/capacity tags and construction bar are all
+truthiness-gated. Explicit `type === "land"` checks exist only where data cannot
+express the difference (the `plotAreaSqm`/`plotAreaLabel` relabels, price-per-m²
+suppression, and `src/app/[locale]/_landing/SaleLandingBody.tsx:estimatedRoi`,
+which is synthetic — derived from the row id — and so immune to DB nulling) **and**
+defensively on `sales/[id]`, `SalePropertyCard` and `InvestmentCard` for the
+construction / renovation / management / ROI / rooms blocks. Those defensive gates
+are deliberate, not redundant: an admin can retype a listing to land through
+`ListingAuditPanel` without clearing any column, and that panel has no land
+branch. Do not "simplify" them away.
+
+**Also check:** `supabase/functions/search/index.ts` uses
+`.eq("type", property_type)` and is value-agnostic — no edge redeploy needed
+(**C4**). Adding a value needs **two separate transactions**: `ALTER TYPE … ADD
+VALUE` cannot be _used_ in the xid that adds it (`55P04`), and PostgREST caches
+enum labels, so the migration must end with `notify pgrst, 'reload schema'`.
+
+**Breaks silently when:** a new value is added to the enum + the two `Record`s
+(build goes green) but not to the sale form list (unselectable), the admin write
+allow-list (400 on save), or the filter lists (unsearchable); or the form's
+null-set and the backfill/edit null-set drift apart, at which point the
+truthiness-gated card suppressions silently stop working for the drifted column
+(the `capacity` case above is exactly that, caught in review).
+
+**Known open follow-ups** (each independently reproducible, none fixed here):
+land is still pooled into the building-oriented `₾/m²` zone average and the
+`SaleSearchBox` appraisal (`src/app/[locale]/page.tsx` `aggregatePricePerSqm`), so
+one 83 ₾/m² plot roughly halves the apartment price/m² shown for its zone; the
+company cabinet counts `units_total ?? 1` and so reports plots as "სულ ბინები"
+(`dashboard/seller/organizations/[id]/page.tsx`); the guest dashboard's
+popular-listings section still renders `0 ₾ /ღამე` for any sale row
+(`dashboard/guest/GuestDashboardClient.tsx`); and `SalesPage.title` /
+`SalesGrid.title` still read "იყიდება ბინები ბაკურიანში" above a grid that now
+contains plots.
+
+---
+
+## C14 — Editorial review gate for public content
+
+**Invariant:** after `20260724120000_content_change_requests.sql`, a browser session can
+no longer UPDATE the _public-content_ columns of `profiles`, `cleaner_profiles`,
+`properties`, `services` or `organizations`. A BEFORE UPDATE trigger raises **42501**
+for any non-admin, non-`service_role` session that changes a column in that table's
+reviewable allow-list. Every such edit must instead be queued as a
+`content_change_requests` row and applied by an admin. The allow-list is
+**quadruplicated** — the same field set is written out in four places and nothing
+enforces that they agree:
+
+| #   | Location                                             | What a mismatch does                          |
+| --- | ---------------------------------------------------- | --------------------------------------------- |
+| A   | `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` | key missing → API 400s `non_reviewable_field` |
+| B   | trigger `v_reviewable` CASE in the migration         | key missing → user may write it directly      |
+| C   | `approve_content_change_request` `v_allowed` CASE    | key missing → approval silently drops it      |
+| D   | the payload each form actually submits               | extra key → **every** save on that form 400s  |
+
+Participating symbols:
+
+- `supabase/migrations/20260724120000_content_change_requests.sql:prevent_unreviewed_public_content_update` — the BEFORE UPDATE trigger (B); early-returns when `auth.role()` IS NULL or `service_role`, or `is_admin_user()`
+- `supabase/migrations/20260724120000_content_change_requests.sql:approve_content_change_request` — SECURITY DEFINER apply-on-approve (C). Its staleness check compares `before_snapshot` key-by-key against the live row; for a `profile` target the nested `cleaner_profile` object **must be projected onto the keys the API snapshotted** (`jsonb_object_agg` over `jsonb_object_keys(before_snapshot->'cleaner_profile')`) — comparing `to_jsonb(cp)` made every cleaner request auto-supersede, because jsonb object equality requires identical key sets
+- `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` (A) + `:CLEANER_PROFILE_FIELDS` (the 6 nested keys) + `:hasOnlyReviewableValues` — **all-or-nothing**: one non-allow-listed key rejects the whole payload, which is why a MIXED payload cannot be submitted at all
+- `src/app/api/content-change-requests/route.ts:POST` — validates against A, snapshots `before`, writes the row; maps 23505 → 409 `target_locked`
+- `src/lib/content-change/client.ts:submitContentChange` — the only writer; `:contentChangeErrorKey` / `:isContentChangeError` map API codes onto `CreateShared.contentChange.*` (**C1**) so users never see a raw code
+- `src/app/[locale]/dashboard/admin/verifications/page.tsx` — the ONLY approval surface (calls `/api/admin/content-change-requests`)
+- `content_change_one_pending_target` — UNIQUE (target_type, target_id) WHERE status='pending': scoped to the **target**, not the requester, so one pending request blocks every later edit of that listing until an admin acts (the withdraw endpoint has no UI caller yet)
+
+**Mixed payloads are the trap.** A write that touches both reviewable and
+non-reviewable columns cannot go through the API (A is all-or-nothing) and cannot go
+direct (B raises). It must be **split**, as
+`src/components/seller/ConstructionManagementModal.tsx:handlePublish` now does:
+`construction_stages` + `construction_progress_percent` via `submitContentChange`,
+`progress_note` + `progress_note_updated_at` by direct UPDATE, and the
+`project_updates` feed insert **before** the review submit so a rejected request
+cannot swallow the seller's update history.
+
+**Also check:** `role` is deliberately NOT reviewable, which is what lets
+`auth/register`'s 23505 insert-conflict fallback re-apply `{ role }` only — updating the
+whole profile payload there raises 42501 and turns a benign retry into a hard
+registration failure. `progress_note` is publicly rendered but is in none of the four
+lists (an intentional unreviewed channel — do not "fix" it without also giving it a
+submit path). The `organization` target has no submitting surface yet.
+
+**Breaks silently when:** a new form field is added to D without A/B/C (that form's every
+save 400s — exactly the `roi_percent_max` bug); or a key is added to A but not C
+(approval drops the value with no error); or a new edit surface writes a reviewable
+column directly (42501, raw Postgres text in the UI unless it maps through
+`contentChangeErrorKey`); or a handler calls `submitContentChange` without a catch and
+without telling the user the change is pending — the write silently appears to do
+nothing, because the row it renders from cannot change until approval.

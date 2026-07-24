@@ -234,9 +234,15 @@ export default function RegisterPage() {
       const isConflict = insertError.code === "23505";
       if (!isConflict) throw insertError;
 
+      // The row already exists from an earlier attempt of this same wizard, so its
+      // public fields already carry this payload. Re-apply only `role`: display_name,
+      // phone, bio and avatar_url are review-gated
+      // (prevent_unreviewed_public_content_update), and updating them from a browser
+      // session raises 42501 — which would turn a benign retry into a hard
+      // registration failure.
       const { error: updateError } = await supabase
         .from("profiles")
-        .update(profilePayload)
+        .update({ role: selectedRole })
         .eq("id", user.id);
 
       if (updateError) throw updateError;

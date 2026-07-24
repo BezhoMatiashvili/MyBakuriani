@@ -28,6 +28,7 @@ import { useActiveZones } from "@/lib/zones/client";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import StatusCards from "@/components/landing/StatusCards";
 import type { StatusCard } from "@/lib/status-cards/types";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -340,6 +341,9 @@ export default function ApartmentsPageClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <BannerSlot placement="listing_top" bare className="col-span-full" />
+            <BannerSlot placement="listing_grid" bare />
+
             {paginatedProperties.map((p, i) => (
               <ScrollReveal key={p.id} delay={i * 0.05}>
                 <PropertyCard

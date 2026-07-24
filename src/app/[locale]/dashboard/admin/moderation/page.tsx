@@ -9,20 +9,37 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Flame, Loader2, Plus, Trash2, X } from "lucide-react";
+import {
+  Flame,
+  Loader2,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
+import BannerLivePreview from "@/components/admin/BannerLivePreview";
 import MediaUploader, {
   type MediaValue,
 } from "@/components/forms/MediaUploader";
 import DateField from "@/components/shared/DateField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
+import { adRowToCreative, looksLikeVideoUrl } from "@/lib/banner-creative";
+import {
+  BANNER_PLACEMENTS,
+  type BannerPlacement,
+  type BannerSurface,
+} from "@/lib/banner-placements";
 
 type Ad = {
   id: string;
   title: string;
+  placement: string;
   position: string;
   url: string;
   banner_url: string | null;
@@ -33,36 +50,50 @@ type Ad = {
   clicks_count: number;
 };
 
-const POSITION_VALUES = ["slot-a", "slot-b", "slot-c"] as const;
+const SURFACE_ORDER: BannerSurface[] = [
+  "site",
+  "home",
+  "listing",
+  "detail",
+  "blog",
+];
 
 const INITIAL_FORM_STATE = {
+  id: "",
   title: "",
-  position: "slot-a",
+  placement: "home_hero" as BannerPlacement,
   url: "",
   startDate: "",
   endDate: "",
   bannerUrl: "",
 };
 
-const VIDEO_URL_RE = /\.(mp4|webm)(\?|#|$)/i;
+type FormState = typeof INITIAL_FORM_STATE;
 
-function inferBannerType(url: string): "image" | "video" {
-  return VIDEO_URL_RE.test(url) ? "video" : "image";
-}
-
-function isHttpUrl(value: string): boolean {
+function isHttpsUrl(value: string): boolean {
   try {
-    const u = new URL(value);
-    return u.protocol === "http:" || u.protocol === "https:";
+    return new URL(value).protocol === "https:";
   } catch {
     return false;
   }
 }
 
+function toDateInput(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
+/** The `status` column is never updated by anything, so expiry is derived. */
+function effectiveStatus(ad: Ad): "active" | "paused" | "expired" {
+  if (ad.status === "paused") return "paused";
+  if (new Date(ad.end_at).getTime() < Date.now()) return "expired";
+  return "active";
+}
+
 function AdBannerThumb({ url }: { url: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <span className="text-[30px]">📣</span>;
-  if (inferBannerType(url) === "video") {
+  if (looksLikeVideoUrl(url)) {
     return (
       <video
         src={url}
@@ -88,41 +119,68 @@ function AdBannerThumb({ url }: { url: string }) {
 export default function ModerationPage() {
   const t = useTranslations("AdminModeration");
   const tShared = useTranslations("AdminShared");
-  const positionOptions = useMemo(
-    () =>
-      POSITION_VALUES.map((value) => ({
-        value,
-        label: t(`slots.${value}`),
-      })),
-    [t],
+
+  const placementLabel = useCallback(
+    (id: string) =>
+      BANNER_PLACEMENTS.some((p) => p.id === id)
+        ? tShared(`placements.${id}`)
+        : id,
+    [tShared],
   );
+
+  const groupedPlacements = useMemo(
+    () =>
+      SURFACE_ORDER.map((surface) => ({
+        surface,
+        label: tShared(`placementGroups.${surface}`),
+        options: BANNER_PLACEMENTS.filter((p) => p.surface === surface),
+      })).filter((g) => g.options.length > 0),
+    [tShared],
+  );
+
   const [loading, setLoading] = useState(true);
   const [ads, setAds] = useState<Ad[]>([]);
   const [search, setSearch] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formState, setFormState] = useState<FormState>(INITIAL_FORM_STATE);
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const isEditing = formState.id !== "";
+
   const filteredAds = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return ads;
-    return ads.filter((ad) => {
-      const positionLabel =
-        positionOptions.find((option) => option.value === ad.position)?.label ??
-        "";
-      return (
+    return ads.filter(
+      (ad) =>
         ad.id.toLowerCase().includes(q) ||
         ad.title.toLowerCase().includes(q) ||
         ad.url.toLowerCase().includes(q) ||
-        ad.position.toLowerCase().includes(q) ||
-        positionLabel.toLowerCase().includes(q)
-      );
-    });
-  }, [ads, search, positionOptions]);
-  const [isAddAdModalOpen, setIsAddAdModalOpen] = useState(false);
-  const [formState, setFormState] = useState(INITIAL_FORM_STATE);
-  const [formError, setFormError] = useState("");
-  const bannerMedia: MediaValue = isHttpUrl(formState.bannerUrl)
-    ? { url: formState.bannerUrl, type: inferBannerType(formState.bannerUrl) }
+        ad.placement.toLowerCase().includes(q) ||
+        placementLabel(ad.placement).toLowerCase().includes(q),
+    );
+  }, [ads, search, placementLabel]);
+
+  const bannerMedia: MediaValue = isHttpsUrl(formState.bannerUrl)
+    ? {
+        url: formState.bannerUrl,
+        type: looksLikeVideoUrl(formState.bannerUrl) ? "video" : "image",
+      }
     : null;
-  const [submitting, setSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Built with the SAME adapter the public site uses, so the preview cannot
+  // show something the renderer wouldn't.
+  const previewCreative = useMemo(() => {
+    if (!formState.title.trim() || !formState.bannerUrl) return null;
+    return adRowToCreative({
+      id: formState.id || "preview",
+      title: formState.title,
+      url: isHttpsUrl(formState.url) ? formState.url : "https://example.com",
+      banner_url: formState.bannerUrl,
+      placement: formState.placement,
+    });
+  }, [formState]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,9 +200,9 @@ export default function ModerationPage() {
   }, [load]);
 
   useEffect(() => {
-    if (!isAddAdModalOpen) return;
+    if (!isModalOpen) return;
     const handleEscClose = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsAddAdModalOpen(false);
+      if (event.key === "Escape") setIsModalOpen(false);
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleEscClose);
@@ -152,10 +210,30 @@ export default function ModerationPage() {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleEscClose);
     };
-  }, [isAddAdModalOpen]);
+  }, [isModalOpen]);
+
+  function openCreate() {
+    setFormState(INITIAL_FORM_STATE);
+    setFormError("");
+    setIsModalOpen(true);
+  }
+
+  function openEdit(ad: Ad) {
+    setFormState({
+      id: ad.id,
+      title: ad.title,
+      placement: ad.placement as BannerPlacement,
+      url: ad.url,
+      startDate: toDateInput(ad.start_at),
+      endDate: toDateInput(ad.end_at),
+      bannerUrl: ad.banner_url ?? "",
+    });
+    setFormError("");
+    setIsModalOpen(true);
+  }
 
   const closeModal = () => {
-    setIsAddAdModalOpen(false);
+    setIsModalOpen(false);
     setFormError("");
   };
 
@@ -171,9 +249,9 @@ export default function ModerationPage() {
   };
 
   async function handleDelete(ad: Ad) {
-    if (deletingId) return;
+    if (busyId) return;
     if (!confirm(t("deleteConfirm", { title: ad.title }))) return;
-    setDeletingId(ad.id);
+    setBusyId(ad.id);
     try {
       const res = await fetch(`/api/admin/ads/${ad.id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -186,7 +264,30 @@ export default function ModerationPage() {
     } catch {
       toast.error(tShared("deleteFailed"));
     } finally {
-      setDeletingId(null);
+      setBusyId(null);
+    }
+  }
+
+  async function togglePause(ad: Ad) {
+    if (busyId) return;
+    setBusyId(ad.id);
+    const next = effectiveStatus(ad) === "paused" ? "active" : "paused";
+    try {
+      const res = await fetch(`/api/admin/ads/${ad.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) toast.error(data.error ?? tShared("error"));
+      else {
+        toast.success(t("updated"));
+        await load();
+      }
+    } catch {
+      toast.error(tShared("error"));
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -194,7 +295,7 @@ export default function ModerationPage() {
     event.preventDefault();
     if (
       !formState.title.trim() ||
-      !formState.position ||
+      !formState.placement ||
       !formState.url.trim() ||
       !formState.startDate ||
       !formState.endDate
@@ -202,40 +303,45 @@ export default function ModerationPage() {
       setFormError(t("fillRequired"));
       return;
     }
-    try {
-      new URL(formState.url);
-    } catch {
+    // Matches the server, which requires HTTPS. The old check accepted http:
+    // and any scheme, so admins hit an opaque 400 after submitting.
+    if (!isHttpsUrl(formState.url.trim())) {
       setFormError(t("invalidUrl"));
       return;
     }
-    if (formState.bannerUrl.trim() && !isHttpUrl(formState.bannerUrl.trim())) {
-      setFormError(t("invalidBannerUrl"));
+    if (!formState.bannerUrl) {
+      setFormError(t("bannerRequired"));
       return;
     }
     if (new Date(formState.endDate) < new Date(formState.startDate)) {
       setFormError(t("endBeforeStart"));
       return;
     }
+
     setSubmitting(true);
     try {
-      const res = await fetch("/api/admin/ads", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: formState.title,
-          position: formState.position,
-          url: formState.url,
-          banner_url: formState.bannerUrl.trim() || undefined,
-          start_at: new Date(formState.startDate).toISOString(),
-          end_at: new Date(formState.endDate).toISOString(),
-        }),
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? tShared("createFailed"));
-      toast.success(t("adCreated"));
+      const payload = {
+        title: formState.title,
+        placement: formState.placement,
+        url: formState.url,
+        banner_url: formState.bannerUrl,
+        start_at: new Date(formState.startDate).toISOString(),
+        end_at: new Date(formState.endDate).toISOString(),
+      };
+      const res = await fetch(
+        isEditing ? `/api/admin/ads/${formState.id}` : "/api/admin/ads",
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? tShared("createFailed"));
+      toast.success(isEditing ? t("updated") : t("adCreated"));
       setFormState(INITIAL_FORM_STATE);
       setFormError("");
-      setIsAddAdModalOpen(false);
+      setIsModalOpen(false);
       await load();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : tShared("error"));
@@ -258,7 +364,7 @@ export default function ModerationPage() {
           </div>
           <button
             type="button"
-            onClick={() => setIsAddAdModalOpen(true)}
+            onClick={openCreate}
             className="inline-flex h-[53px] min-h-[44px] items-center gap-2 rounded-xl bg-[#0F172A] px-6 text-[14px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
           >
             <Plus className="h-[13px] w-[13px]" strokeWidth={2.8} />
@@ -286,6 +392,8 @@ export default function ModerationPage() {
           </div>
         ) : (
           filteredAds.map((ad) => {
+            const status = effectiveStatus(ad);
+            const live = status === "active";
             const ctr =
               ad.views_count > 0
                 ? ((ad.clicks_count / ad.views_count) * 100).toFixed(1)
@@ -301,36 +409,76 @@ export default function ModerationPage() {
               { key: "views", value: formatNumber(ad.views_count) },
               { key: "clicks", value: formatNumber(ad.clicks_count) },
               { key: "ctr", value: `${ctr}%` },
-              {
-                key: "daysLeft",
-                value: t("daysUnit", { count: daysLeft }),
-              },
+              { key: "daysLeft", value: t("daysUnit", { count: daysLeft }) },
             ] as const;
+            const accent = live ? "#10B981" : "#94A3B8";
+            const accentBg = live ? "#ECFDF5" : "#F8FAFC";
+
             return (
               <article
                 key={ad.id}
-                className="overflow-hidden rounded-3xl border border-[#10B981] border-t-[6px] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]"
+                className="overflow-hidden rounded-3xl border border-t-[6px] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]"
+                style={{ borderColor: accent }}
               >
-                <div className="flex items-center justify-between bg-[#ECFDF5] px-6 py-3">
+                <div
+                  className="flex flex-wrap items-center justify-between gap-2 px-6 py-3"
+                  style={{ backgroundColor: accentBg }}
+                >
                   <div className="flex items-center gap-2">
-                    <Flame className="h-4 w-4 text-[#059669]" />
-                    <span className="text-[11px] font-black uppercase tracking-[1.1px] text-[#047857]">
+                    <Flame className="h-4 w-4" style={{ color: accent }} />
+                    <span
+                      className="text-[11px] font-black uppercase tracking-[1.1px]"
+                      style={{ color: live ? "#047857" : "#64748B" }}
+                    >
                       {ad.title}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded bg-[#10B981] px-[10px] py-1 text-[10px] font-black uppercase tracking-[0.5px] text-white">
-                      {ad.status}
+                    <span
+                      className="inline-flex items-center rounded px-[10px] py-1 text-[10px] font-black uppercase tracking-[0.5px] text-white"
+                      style={{ backgroundColor: accent }}
+                    >
+                      {status === "active"
+                        ? t("statusActive")
+                        : status === "paused"
+                          ? t("statusPaused")
+                          : t("statusExpired")}
                     </span>
                     <button
                       type="button"
+                      onClick={() => openEdit(ad)}
+                      disabled={busyId !== null}
+                      aria-label={t("edit")}
+                      title={t("edit")}
+                      className="inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#EFF6FF] hover:text-[#2563EB] disabled:opacity-50"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => togglePause(ad)}
+                      disabled={busyId !== null || status === "expired"}
+                      aria-label={
+                        status === "paused" ? t("resume") : t("pause")
+                      }
+                      title={status === "paused" ? t("resume") : t("pause")}
+                      className="inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#FFF7ED] hover:text-[#F97316] disabled:opacity-40"
+                    >
+                      {status === "paused" ? (
+                        <Play className="h-4 w-4" />
+                      ) : (
+                        <Pause className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleDelete(ad)}
-                      disabled={deletingId !== null}
+                      disabled={busyId !== null}
                       aria-label={t("delete")}
                       title={t("delete")}
                       className="inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:opacity-50"
                     >
-                      {deletingId === ad.id ? (
+                      {busyId === ad.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Trash2 className="h-4 w-4" />
@@ -352,7 +500,7 @@ export default function ModerationPage() {
                       {ad.title}
                     </h3>
                     <p className="text-[13px] font-bold leading-5 text-[#F97316]">
-                      {t("positionLabel", { position: ad.position })}
+                      {placementLabel(ad.placement)}
                     </p>
                     <a
                       href={ad.url}
@@ -365,11 +513,17 @@ export default function ModerationPage() {
                   </div>
                 </div>
 
+                {!ad.banner_url || status === "expired" ? (
+                  <p className="mx-6 mb-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[13px] font-semibold text-[#92400E]">
+                    {!ad.banner_url ? t("needsImage") : t("expiredHint")}
+                  </p>
+                ) : null}
+
                 <div className="grid grid-cols-2 sm:grid-cols-4">
                   {metrics.map((metric) => (
                     <div
                       key={metric.key}
-                      className="flex h-[86px] flex-col items-center justify-center border-[#E2E8F0] px-3 bg-white even:border-l [&:nth-child(n+3)]:border-t sm:border-l sm:first:border-l-0 sm:[&:nth-child(n+3)]:border-t-0"
+                      className="flex h-[86px] flex-col items-center justify-center border-[#E2E8F0] bg-white px-3 even:border-l [&:nth-child(n+3)]:border-t sm:border-l sm:first:border-l-0 sm:[&:nth-child(n+3)]:border-t-0"
                     >
                       <span className="text-[10px] font-bold uppercase leading-[15px] tracking-[0.5px] text-[#94A3B8]">
                         {t(metric.key)}
@@ -386,7 +540,7 @@ export default function ModerationPage() {
         )}
       </div>
 
-      {isAddAdModalOpen && (
+      {isModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/60 p-4 backdrop-blur-[2px] sm:p-6"
           onClick={closeModal}
@@ -399,7 +553,7 @@ export default function ModerationPage() {
             <div className="flex items-start justify-between gap-4 pb-8">
               <div className="space-y-1">
                 <h2 className="text-2xl font-black leading-6 tracking-[-0.6px] text-[#1E293B]">
-                  {t("modalTitle")}
+                  {isEditing ? t("editTitle") : t("modalTitle")}
                 </h2>
                 <p className="text-xs font-medium leading-[18px] text-[#64748B]">
                   {t("modalSubtitle")}
@@ -436,22 +590,26 @@ export default function ModerationPage() {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="space-y-2">
                   <label
-                    htmlFor="ad-position"
+                    htmlFor="ad-placement"
                     className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
                   >
-                    {t("position")}
+                    {tShared("placement")}
                   </label>
                   <select
-                    id="ad-position"
-                    name="position"
-                    value={formState.position}
+                    id="ad-placement"
+                    name="placement"
+                    value={formState.placement}
                     onChange={handleInputChange}
                     className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] bg-white px-4 text-sm font-medium leading-[21px] text-[#1E293B] focus:border-[#2563EB] focus:outline-none"
                   >
-                    {positionOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                    {groupedPlacements.map((group) => (
+                      <optgroup key={group.surface} label={group.label}>
+                        {group.options.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {tShared(`placements.${option.id}`)}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -516,33 +674,31 @@ export default function ModerationPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <MediaUploader
-                  value={bannerMedia}
-                  onChange={(v) =>
-                    setFormState((previous) => ({
-                      ...previous,
-                      bannerUrl: v?.url ?? "",
-                    }))
-                  }
-                  kind="ads"
-                  label={t("bannerMedia")}
-                />
-                <label
-                  htmlFor="banner-url"
-                  className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
-                >
-                  {t("bannerUrl")}
-                </label>
-                <input
-                  id="banner-url"
-                  name="bannerUrl"
-                  value={formState.bannerUrl}
-                  onChange={handleInputChange}
-                  placeholder="https://.../banner.png"
-                  className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] px-4 text-sm font-medium leading-[21px] text-[#1E293B] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none"
-                />
-              </div>
+              {/*
+                The uploader is the ONLY writer of banner_url. There used to be
+                a free-text "banner URL" input bound to the same field, which is
+                how three live ads ended up with a page URL where the image
+                belongs (and therefore a broken thumbnail).
+              */}
+              <MediaUploader
+                value={bannerMedia}
+                onChange={(v) =>
+                  setFormState((previous) => ({
+                    ...previous,
+                    bannerUrl: v?.url ?? "",
+                  }))
+                }
+                kind="ads"
+                label={t("bannerMedia")}
+              />
+
+              <BannerLivePreview
+                placement={formState.placement}
+                creative={previewCreative}
+                emptyLabel={tShared("previewEmpty")}
+                desktopLabel={tShared("previewDesktop")}
+                mobileLabel={tShared("previewMobile")}
+              />
 
               {formError && (
                 <p className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm font-semibold text-[#B91C1C]">
@@ -558,7 +714,7 @@ export default function ModerationPage() {
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
-                {t("launch")}
+                {isEditing ? t("save") : t("launch")}
               </button>
             </form>
           </div>

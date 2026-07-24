@@ -10,6 +10,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import { buildListingMetadata } from "@/lib/seo";
 import { formatDate } from "@/lib/utils/format";
 import { isUuid } from "@/lib/utils/uuid";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 interface Props {
   params: Promise<{ locale: AppLocale; id: string }>;
@@ -140,6 +141,8 @@ export default async function BlogDetailPage({ params }: Props) {
             {post.content}
           </div>
         </div>
+
+        <BannerSlot placement="blog_inline" bare className="mt-10" />
       </article>
     );
   } catch {

@@ -9,6 +9,7 @@ import {
 import type { Tables } from "@/lib/types/database";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
+import BannerSlot from "@/components/banners/BannerSlot";
 
 // `value` is matched against DB `position` values and must stay Georgian.
 const POSITIONS = [
@@ -221,6 +222,9 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <BannerSlot placement="listing_top" bare className="col-span-full" />
+            <BannerSlot placement="listing_grid" bare />
+
               {paginated.map((s, i) => (
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <EmploymentCard

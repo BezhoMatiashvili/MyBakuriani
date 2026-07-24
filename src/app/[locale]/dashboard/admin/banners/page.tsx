@@ -20,17 +20,30 @@ import MediaUploader, {
 import DateTimeField from "@/components/shared/DateTimeField";
 import NumberField from "@/components/shared/NumberField";
 import {
-  BANNER_KINDS,
   BANNER_TONE_STYLES,
   BANNER_TONES,
-  type BannerKind,
   type BannerTone,
   type LandingBanner,
 } from "@/lib/banners";
+import BannerLivePreview from "@/components/admin/BannerLivePreview";
+import { landingBannerToCreative } from "@/lib/banner-creative";
+import {
+  BANNER_PLACEMENTS,
+  type BannerPlacement,
+  type BannerSurface,
+} from "@/lib/banner-placements";
+
+const SURFACE_ORDER: BannerSurface[] = [
+  "site",
+  "home",
+  "listing",
+  "detail",
+  "blog",
+];
 
 type FormState = {
   id: string | null;
-  kind: BannerKind;
+  placement: BannerPlacement;
   title: string;
   body: string;
   cta_label: string;
@@ -47,7 +60,7 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   id: null,
-  kind: "info",
+  placement: "home_top_strip",
   title: "",
   body: "",
   cta_label: "",
@@ -129,20 +142,22 @@ export default function AdminBannersPage() {
   }, [banners, search]);
 
   const grouped = useMemo(() => {
-    const map: Record<BannerKind, LandingBanner[]> = {
-      info: [],
-      promo: [],
-      sticky_news: [],
-    };
-    for (const b of filteredBanners) map[b.kind].push(b);
+    const map = new Map<string, LandingBanner[]>();
+    for (const spec of BANNER_PLACEMENTS) map.set(spec.id, []);
+    for (const b of filteredBanners) {
+      // A row whose placement isn't in the registry is simply not listed under
+      // any section rather than crashing the page.
+      map.get(b.placement)?.push(b);
+    }
     return map;
   }, [filteredBanners]);
 
-  function openCreate(kind: BannerKind) {
+  function openCreate(placement: BannerPlacement) {
+    const spec = BANNER_PLACEMENTS.find((p) => p.id === placement);
     setForm({
       ...EMPTY_FORM,
-      kind,
-      tone: kind === "promo" ? "amber" : "orange",
+      placement,
+      tone: spec?.renderStyle === "promo-card" ? "amber" : "orange",
     });
     setError("");
     setOpen(true);
@@ -151,7 +166,7 @@ export default function AdminBannersPage() {
   function openEdit(b: LandingBanner) {
     setForm({
       id: b.id,
-      kind: b.kind,
+      placement: b.placement as BannerPlacement,
       title: b.title,
       body: b.body ?? "",
       cta_label: b.cta_label ?? "",
@@ -168,6 +183,27 @@ export default function AdminBannersPage() {
     setError("");
     setOpen(true);
   }
+
+  // Built with the same adapter the public renderer consumes, so the preview
+  // cannot show something the site wouldn't.
+  const previewCreative = useMemo(() => {
+    if (!form.title.trim()) return null;
+    return landingBannerToCreative({
+      id: form.id ?? "preview",
+      placement: form.placement,
+      title: form.title,
+      body: form.body || null,
+      cta_label: form.cta_label || null,
+      cta_href: form.cta_href || null,
+      image_url: form.image_url || null,
+      video_url: form.video_url || null,
+      video_poster_url: form.video_poster_url || null,
+      tone: form.tone,
+      sort_order: form.sort_order,
+      start_at: null,
+      end_at: null,
+    });
+  }, [form]);
 
   const mediaValue: MediaValue = form.video_url
     ? { url: form.video_url, type: "video" }
@@ -244,7 +280,7 @@ export default function AdminBannersPage() {
 
     setSubmitting(true);
     const payload = {
-      kind: form.kind,
+      placement: form.placement,
       title: form.title.trim(),
       body: form.body.trim() || null,
       cta_label: form.cta_label.trim() || null,
@@ -338,20 +374,21 @@ export default function AdminBannersPage() {
             ))}
           </div>
         ) : (
-          BANNER_KINDS.map((kind) => (
-            <section key={kind} className="space-y-4">
+          BANNER_PLACEMENTS.map((spec) => (
+            <section key={spec.id} className="space-y-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
                   <h2 className="text-[20px] font-black leading-7 text-[#1E293B]">
-                    {t(`kinds.${kind}`)}
+                    {tShared(`placements.${spec.id}`)}
                   </h2>
                   <p className="text-[12px] font-medium leading-[18px] text-[#94A3B8]">
-                    {t(`kindDescriptions.${kind}`)}
+                    {tShared(`placementGroups.${spec.surface}`)}
+                    {spec.aspect !== "—" ? ` · ${spec.aspect}` : ""}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => openCreate(kind)}
+                  onClick={() => openCreate(spec.id)}
                   className="inline-flex h-[44px] min-h-[44px] items-center gap-2 rounded-xl bg-[#0F172A] px-4 text-[13px] font-bold text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
                 >
                   <Plus className="h-[13px] w-[13px]" strokeWidth={2.8} />
@@ -359,13 +396,13 @@ export default function AdminBannersPage() {
                 </button>
               </div>
 
-              {grouped[kind].length === 0 ? (
+              {(grouped.get(spec.id) ?? []).length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#E2E8F0] bg-white py-10 text-center text-sm font-medium text-[#94A3B8]">
                   {search.trim() ? t("searchEmpty") : t("empty")}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {grouped[kind].map((b) => (
+                  {(grouped.get(spec.id) ?? []).map((b) => (
                     <BannerRow
                       key={b.id}
                       banner={b}
@@ -397,7 +434,7 @@ export default function AdminBannersPage() {
                   {form.id ? t("editTitle") : t("newTitle")}
                 </h2>
                 <p className="text-xs font-medium leading-[18px] text-[#64748B]">
-                  {t(`kinds.${form.kind}`)}
+                  {tShared(`placements.${form.placement}`)}
                 </p>
               </div>
               <button
@@ -412,18 +449,31 @@ export default function AdminBannersPage() {
 
             <form className="space-y-5" onSubmit={submit}>
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field label={t("type")}>
+                <Field label={tShared("placement")}>
                   <select
-                    name="kind"
-                    value={form.kind}
+                    name="placement"
+                    value={form.placement}
                     onChange={onField}
                     className={selectCls}
                   >
-                    {BANNER_KINDS.map((k) => (
-                      <option key={k} value={k}>
-                        {t(`kinds.${k}`)}
-                      </option>
-                    ))}
+                    {SURFACE_ORDER.map((surface) => {
+                      const options = BANNER_PLACEMENTS.filter(
+                        (spec) => spec.surface === surface,
+                      );
+                      if (options.length === 0) return null;
+                      return (
+                        <optgroup
+                          key={surface}
+                          label={tShared(`placementGroups.${surface}`)}
+                        >
+                          {options.map((spec) => (
+                            <option key={spec.id} value={spec.id}>
+                              {tShared(`placements.${spec.id}`)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
                 </Field>
                 <Field label={t("color")}>
@@ -490,6 +540,14 @@ export default function AdminBannersPage() {
                 kind="banner"
                 poster={form.video_poster_url || null}
                 onPosterChange={handlePosterChange}
+              />
+
+              <BannerLivePreview
+                placement={form.placement}
+                creative={previewCreative}
+                emptyLabel={tShared("previewEmpty")}
+                desktopLabel={tShared("previewDesktop")}
+                mobileLabel={tShared("previewMobile")}
               />
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -595,6 +653,7 @@ function BannerRow({
   onDelete: () => void;
 }) {
   const t = useTranslations("AdminBanners");
+  const tShared = useTranslations("AdminShared");
   const tDash = useTranslations("DashboardShared");
   const tCreate = useTranslations("CreateShared");
   const tone = BANNER_TONE_STYLES[banner.tone];
@@ -650,7 +709,7 @@ function BannerRow({
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.5px] text-[#64748B]">
               <span className="rounded bg-white/70 px-2 py-1">
-                {t(`kinds.${banner.kind}`)}
+                {tShared(`placements.${banner.placement}`)}
               </span>
               <span className="rounded bg-white/70 px-2 py-1">
                 {t(`tones.${banner.tone}`)}
