@@ -672,7 +672,9 @@ function CreateSalePageInner() {
         // UPDATE whose SET list mentions the column, even with an unchanged
         // value, and would reject unrelated edits of a lapsed-sub org listing.
         const orgChanged = organizationId !== initialOrgIdRef.current;
-        await submitContentChange("property", editId, payload);
+        // organization_id is NOT review-gated, so write it before the review submit:
+        // submitContentChange can throw (e.g. the proposal supersedes/collides), and
+        // running it first would silently discard the seller's company change.
         if (orgChanged) {
           const { error: organizationError } = await supabase
             .from("properties")
@@ -680,6 +682,7 @@ function CreateSalePageInner() {
             .eq("id", editId);
           if (organizationError) throw organizationError;
         }
+        await submitContentChange("property", editId, payload);
         router.push("/dashboard/seller");
       } else {
         const { data: inserted, error: insertError } = await supabase
@@ -705,10 +708,10 @@ function CreateSalePageInner() {
         scrollToField("cadastralCode");
       } else {
         setError(
-        isContentChangeError(err)
-          ? tShared(contentChangeErrorKey(err))
-          : formatSupabaseError(err, tShared("genericError")),
-      );
+          isContentChangeError(err)
+            ? tShared(contentChangeErrorKey(err))
+            : formatSupabaseError(err, tShared("genericError")),
+        );
       }
       submittingRef.current = false;
       setLoading(false);
@@ -901,7 +904,9 @@ function CreateSalePageInner() {
                 }
               : { backHref: "/create" })}
             submitLabel={
-              isEditMode ? tShared("contentChange.submitForReview") : tShared("publishListing")
+              isEditMode
+                ? tShared("contentChange.submitForReview")
+                : tShared("publishListing")
             }
             submitDisabled={loading}
             loading={loading}
