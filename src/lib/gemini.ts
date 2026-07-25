@@ -61,7 +61,10 @@ export async function analyzeReview(params: {
 }): Promise<ReviewAnalysis> {
   const { text } = await generateWithFallback((model) => ({
     model,
-    contents: `შეაფასე სტუმრის მიმოხილვა მესაკუთრის ბინაზე. რეიტინგი: ${params.rating}/5. კომენტარი: "${params.comment.replace(/"/g, '\\"')}". დააბრუნე JSON.`,
+    // JSON.stringify, not .replace(/"/g,'\\"') — that escaped the quote but not
+    // the backslash, so a comment ending in \ escaped its own closing quote and
+    // let the reviewer write instructions into the moderation prompt.
+    contents: `შეაფასე სტუმრის მიმოხილვა მესაკუთრის ბინაზე. რეიტინგი: ${params.rating}/5. კომენტარი: ${JSON.stringify(params.comment)}. დააბრუნე JSON.`,
     config: {
       systemInstruction:
         "You moderate guest reviews for a Georgian rental marketplace. Output strict JSON matching the schema. Keep summary_ka short (≤120 chars) and in Georgian. Risk tags from: LEGAL_RISK, SLANDER, HARASSMENT, SPAM, OFF_TOPIC, PROFANITY, FAKE.",

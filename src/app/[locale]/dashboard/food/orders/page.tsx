@@ -37,6 +37,12 @@ interface MenuData {
   promotions?: Promotion[];
 }
 
+// The "open menu" anchor below renders the LIVE input value, not the saved one,
+// so gating only the save left `javascript:` in an href while the owner typed.
+// Self-XSS only (own state, own dashboard), but the anchor and the save must
+// agree on what counts as a URL — hence one predicate, used by both.
+const isHttpUrl = (value: string) => /^https?:\/\/.+\..+/i.test(value);
+
 export default function FoodOrdersPage() {
   const tCreate = useTranslations("CreateShared");
   const supabase = createClient();
@@ -106,7 +112,7 @@ export default function FoodOrdersPage() {
   async function saveMenuUrl() {
     if (!service) return;
     const trimmed = menuUrl.trim();
-    if (trimmed && !/^https?:\/\/.+\..+/i.test(trimmed)) {
+    if (trimmed && !isHttpUrl(trimmed)) {
       setMenuUrlError(true);
       return;
     }
@@ -235,9 +241,9 @@ export default function FoodOrdersPage() {
                 <QrCode className="h-4 w-4" />
                 შენახვა და QR კოდის გენერაცია
               </button>
-              {menuUrl && (
+              {isHttpUrl(menuUrl.trim()) && (
                 <a
-                  href={menuUrl}
+                  href={menuUrl.trim()}
                   target="_blank"
                   rel="noreferrer"
                   className="flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-[#E2E8F0] text-[#64748B] hover:border-[#2563EB] hover:text-[#2563EB]"
