@@ -42,6 +42,8 @@ interface PropertyCardProps {
   distanceToSlopeM?: number | null;
   constructionStatus?: string | null;
   constructionProgressPercent?: number | null;
+  /** Sale-only: house_rules.payment_options codes via readPaymentOptions(). */
+  paymentOptions?: string[];
   // Set on the first 1–2 cards of the first visible section so Next/Image
   // preloads them — improves landing LCP. Default false (lazy).
   priority?: boolean;
@@ -80,6 +82,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     distanceToSlopeM,
     constructionStatus,
     constructionProgressPercent,
+    paymentOptions,
     priority,
   } = props;
   const {
@@ -115,6 +118,15 @@ export default function PropertyCard(props: PropertyCardProps) {
       tags.push(...amenityLabels.slice(0, 2));
     }
   }
+
+  // Sale-only. The tag row below is flex-nowrap + overflow-hidden inside a card
+  // that is md:h-[440px] (an extra row would be paid for by compressing the
+  // photo), so payment terms share that one row: they render FIRST and push the
+  // generic tags down to one, or a 375px card clips them out of existence.
+  const paymentChips = isForSale ? (paymentOptions ?? []) : [];
+  const shownPaymentChips = paymentChips.slice(0, 2);
+  const hiddenPaymentCount = paymentChips.length - shownPaymentChips.length;
+  const shownTags = shownPaymentChips.length > 0 ? tags.slice(0, 1) : tags;
 
   const active = isDiscountActive(discountPercent, discountExpiresAt);
   const currentPrice = isForSale ? salePrice : pricePerNight;
@@ -154,13 +166,19 @@ export default function PropertyCard(props: PropertyCardProps) {
           )}
 
           {showHotelDiscount && (
-            <ListingBadge variant="discount" className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case">
+            <ListingBadge
+              variant="discount"
+              className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case"
+            >
               <Clock className="h-3 w-3" />-{discountPercent}%
             </ListingBadge>
           )}
 
           {!isHotel && active && (
-            <ListingBadge variant="discount" className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case">
+            <ListingBadge
+              variant="discount"
+              className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case"
+            >
               <Clock className="h-3 w-3" />-{discountPercent}%
             </ListingBadge>
           )}
@@ -171,7 +189,13 @@ export default function PropertyCard(props: PropertyCardProps) {
             </ListingBadge>
           )}
 
-          <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={isFavorited ? t("favoriteRemove") : t("favoriteAdd")} className="absolute top-4 right-4" />
+          <FavoriteButton
+            pressed={isFavorited}
+            onPressedChange={toggleFavorite}
+            disabled={favoriteBusy}
+            ariaLabel={isFavorited ? t("favoriteRemove") : t("favoriteAdd")}
+            className="absolute top-4 right-4"
+          />
 
           {isHotel && isB2BPartner && (
             <span className="absolute bottom-4 right-4 rounded-lg bg-[#F97316] px-3 py-1 text-[10px] font-bold uppercase text-white">
@@ -218,9 +242,22 @@ export default function PropertyCard(props: PropertyCardProps) {
           )}
 
           <div className="mt-3 min-h-[30px]">
-            {tags.length > 0 && (
+            {(shownTags.length > 0 || shownPaymentChips.length > 0) && (
               <div className="flex flex-nowrap gap-1.5 overflow-hidden">
-                {tags.map((tag) => (
+                {shownPaymentChips.map((code) => (
+                  <span
+                    key={code}
+                    className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold leading-[14px] text-[#475569]"
+                  >
+                    {tOpts(`paymentOptions.${code}`)}
+                  </span>
+                ))}
+                {hiddenPaymentCount > 0 && (
+                  <span className="inline-flex shrink-0 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-[10px] font-bold leading-[14px] text-[#475569]">
+                    +{hiddenPaymentCount}
+                  </span>
+                )}
+                {shownTags.map((tag) => (
                   <span
                     key={tag}
                     className="truncate whitespace-nowrap rounded-full border border-[#E2E8F0] px-2.5 py-1 text-[11px] font-bold text-[#475569]"
@@ -272,7 +309,13 @@ export default function PropertyCard(props: PropertyCardProps) {
                 </span>
               ) : null}
             </div>
-            <ListingCardAction className={isForSale ? "px-5 py-2 text-[13px]" : "bg-[#1E293B] px-5 py-2 text-[13px] group-hover:bg-[#334155]"}>
+            <ListingCardAction
+              className={
+                isForSale
+                  ? "px-5 py-2 text-[13px]"
+                  : "bg-[#1E293B] px-5 py-2 text-[13px] group-hover:bg-[#334155]"
+              }
+            >
               {isForSale ? t("details") : t("view")}
             </ListingCardAction>
           </div>

@@ -13,6 +13,7 @@ import {
   type SaleSearchFilters,
 } from "@/components/search/SaleSearchBox";
 import SalePropertyCard from "@/components/cards/SalePropertyCard";
+import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlotView from "@/components/banners/BannerSlotView";
 import type { BannerCreative } from "@/lib/banner-creative";
@@ -152,6 +153,7 @@ export default function SaleLandingBody({
         constructionProgressPercent: p.construction_progress_percent ?? null,
         discountPercent: p.discount_percent ?? 0,
         discountExpiresAt: p.discount_expires_at ?? null,
+        paymentOptions: readPaymentOptions(p.house_rules),
       }));
     }
     return [];

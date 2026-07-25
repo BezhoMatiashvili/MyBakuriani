@@ -29,6 +29,8 @@ interface SalePropertyCardProps {
   constructionProgressPercent?: number | null;
   discountPercent: number;
   discountExpiresAt: string | null;
+  /** house_rules.payment_options codes; read via readPaymentOptions(). */
+  paymentOptions?: string[];
 }
 
 function formatUsd(n: number): string {
@@ -50,8 +52,10 @@ export default function SalePropertyCard({
   constructionProgressPercent,
   discountPercent,
   discountExpiresAt,
+  paymentOptions,
 }: SalePropertyCardProps) {
   const t = useTranslations("SalePropertyCard");
+  const tOpts = useTranslations("ListingOptions");
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -157,6 +161,19 @@ export default function SalePropertyCard({
             <p className="mt-2 text-[12px] font-medium text-[#64748B]">
               {sizePill}
             </p>
+          )}
+
+          {paymentOptions && paymentOptions.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {paymentOptions.map((code) => (
+                <span
+                  key={code}
+                  className="inline-flex shrink-0 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold leading-[14px] text-[#475569]"
+                >
+                  {tOpts(`paymentOptions.${code}`)}
+                </span>
+              ))}
+            </div>
           )}
 
           {showProgress && (

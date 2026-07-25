@@ -23,6 +23,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { optionKeyFor } from "@/lib/constants/listing-options";
+import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
@@ -296,6 +297,7 @@ export default function SaleDetailClient({
   const managementLabel = managementKey
     ? tOpts(`managementServices.${managementKey}`)
     : managementValue;
+  const paymentTerms = readPaymentOptions(houseRules);
   const metricCells: { label: string; value: ReactNode; sub?: string }[] = [];
   if (statusInfo && !isLand) {
     metricCells.push({
@@ -331,6 +333,25 @@ export default function SaleDetailClient({
           <span className="rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[11px] font-bold text-[#16A34A]">
             {roiPercent >= 12 ? t("roiHigh") : t("roiMedium")}
           </span>
+        </span>
+      ),
+    });
+  }
+  // No isLand gate, unlike its neighbours above: a plot is sold on installments
+  // the same way an apartment is.
+  if (paymentTerms.length > 0) {
+    metricCells.push({
+      label: t("paymentTerms"),
+      value: (
+        <span className="flex flex-wrap gap-1.5">
+          {paymentTerms.map((code) => (
+            <span
+              key={code}
+              className="inline-flex items-center rounded-full border border-[#E2E8F0] bg-white px-3 py-1 text-[12px] font-bold leading-[18px] text-[#475569]"
+            >
+              {tOpts(`paymentOptions.${code}`)}
+            </span>
+          ))}
         </span>
       ),
     });

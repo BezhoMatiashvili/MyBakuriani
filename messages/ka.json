@@ -1242,6 +1242,7 @@
     "deliveredOn": "ბარდდება: {date}",
     "renovationState": "რემონტის მდგომარეობა",
     "managementService": "მართვის სერვისი",
+    "paymentTerms": "გადახდის პირობები",
     "expectedRoi": "მოსალოდნელი ROI",
     "roiHigh": "მაღალი",
     "roiMedium": "საშუალო",
@@ -2136,6 +2137,11 @@
       "complex_management": "აქვს",
       "none": "არ აქვს"
     },
+    "paymentOptions": {
+      "internal_installment": "შიდა განვადება",
+      "full_payment": "ერთიანი გადახდა",
+      "bank_installment": "საბანკო განვადება"
+    },
     "other": "სხვა",
     "servicePriceUnits": {
       "hour": "საათი",
@@ -2382,6 +2388,7 @@
     "totalArea": "საერთო ფართობი (კვ.მ)",
     "plotArea": "ნაკვეთის ფართობი (კვ.მ)",
     "priceUsd": "ფასი (USD)",
+    "paymentTerms": "გადახდის პირობები",
     "photosRenders": "ფოტოები / რენდერები",
     "descriptionPlaceholder": "დეტალური აღწერა ობიექტის შესახებ...",
     "invalidTitle": "არასწორი სათაური",

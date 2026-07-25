@@ -1242,6 +1242,7 @@
     "deliveredOn": "Delivery: {date}",
     "renovationState": "Renovation condition",
     "managementService": "Management service",
+    "paymentTerms": "Payment terms",
     "expectedRoi": "Expected ROI",
     "roiHigh": "High",
     "roiMedium": "Medium",
@@ -2136,6 +2137,11 @@
       "complex_management": "Complex management included",
       "none": "None"
     },
+    "paymentOptions": {
+      "internal_installment": "Internal installment",
+      "full_payment": "Full payment",
+      "bank_installment": "Bank installment"
+    },
     "other": "Other",
     "servicePriceUnits": {
       "hour": "hour",
@@ -2382,6 +2388,7 @@
     "totalArea": "Total area (sq.m)",
     "plotArea": "Plot area (sq.m)",
     "priceUsd": "Price (USD)",
+    "paymentTerms": "Payment terms",
     "photosRenders": "Photos / renders",
     "descriptionPlaceholder": "Detailed description of the property...",
     "invalidTitle": "Invalid title",

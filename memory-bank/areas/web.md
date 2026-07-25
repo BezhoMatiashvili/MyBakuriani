@@ -40,6 +40,27 @@ subscribers), C8 (protected routes).
 
 ## Note
 
+**Sale payment terms live in `house_rules.payment_options`** (a jsonb string array
+on `properties`, codes in `src/lib/constants/sale-listing.ts:PAYMENT_OPTIONS`).
+Chosen over a real column because `house_rules` is already projected by the
+`public_properties` view, already in all three **C14** allow-lists, and already
+coerced by the admin PATCH route — so the feature needed no migration, no
+`database.ts` edit (**C3**) and no contract. `src/app/[locale]/create/sale/page.tsx`
+is the only writer; every reader goes through `readPaymentOptions()` (5 sites: the
+three sale cards, their mounts, and `SaleDetailClient`).
+
+Two hazards baked into that form, both of which fail **silently**:
+
+- The sale payload **replaces `house_rules` wholesale**, so any sub-key not
+  rebuilt in the literal is destroyed on the next edit (this is how legacy
+  `rules.handover_date` already bleeds). A new sub-key needs a hydrate read _and_
+  a payload entry, or an unrelated edit deletes it.
+- The key is **omitted when empty, never written as `[]`**. The C14 diff
+  (`src/app/api/content-change-requests/route.ts:canonical`) treats a missing key and an
+  empty array as different and does not sort arrays — so a bare key, or an
+  unsorted one, turns a no-op save into a queued review request that occupies the
+  one-pending-per-listing slot. `normalizePaymentOptions()` enforces the ordering.
+
 `src/app/[locale]/appartments/` (double-p) exists alongside `apartments/` — likely
 a legacy/redirect alias; confirm before assuming either is dead.
 

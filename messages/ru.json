@@ -1242,6 +1242,7 @@
     "deliveredOn": "Сдача: {date}",
     "renovationState": "Состояние ремонта",
     "managementService": "Сервис управления",
+    "paymentTerms": "Условия оплаты",
     "expectedRoi": "Ожидаемый ROI",
     "roiHigh": "Высокий",
     "roiMedium": "Средний",
@@ -2136,6 +2137,11 @@
       "complex_management": "Есть управление комплексом",
       "none": "Нет"
     },
+    "paymentOptions": {
+      "internal_installment": "Внутренняя рассрочка",
+      "full_payment": "Полная оплата",
+      "bank_installment": "Банковская рассрочка"
+    },
     "other": "Другое",
     "servicePriceUnits": {
       "hour": "час",
@@ -2382,6 +2388,7 @@
     "totalArea": "Общая площадь (кв.м)",
     "plotArea": "Площадь участка (кв.м)",
     "priceUsd": "Цена (USD)",
+    "paymentTerms": "Условия оплаты",
     "photosRenders": "Фото / рендеры",
     "descriptionPlaceholder": "Подробное описание объекта...",
     "invalidTitle": "Неверный заголовок",

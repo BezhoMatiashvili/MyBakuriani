@@ -41,7 +41,11 @@ import {
 } from "@/lib/content-change/client";
 import {
   MANAGEMENT_SERVICES,
+  PAYMENT_OPTIONS,
   RENOVATION_STATUSES,
+  normalizePaymentOptions,
+  readPaymentOptions,
+  type PaymentOption,
 } from "@/lib/constants/sale-listing";
 
 const PROPERTY_TYPES: { value: Enums<"property_type"> }[] = [
@@ -241,6 +245,9 @@ function CreateSalePageInner() {
   const [unitsTotal, setUnitsTotal] = useState("");
   const [unitsSold, setUnitsSold] = useState("");
   const [unitsReserved, setUnitsReserved] = useState("");
+  // Optional, and unlike every other sale attribute it applies to land too — a
+  // plot is bought on installments the same way an apartment is.
+  const [paymentOptions, setPaymentOptions] = useState<PaymentOption[]>([]);
 
   // "Post as" — null = personal listing, otherwise an approved company the user
   // belongs to. Companies without an active subscription can't publish (DB
@@ -454,6 +461,10 @@ function CreateSalePageInner() {
       if (typeof rules.management_service === "string") {
         setManagementService(rules.management_service);
       }
+      // Mandatory: the payload below rebuilds house_rules wholesale, so without
+      // this read an unrelated edit (a title typo fix) would silently drop the
+      // seller's payment terms.
+      setPaymentOptions(readPaymentOptions(rules));
 
       const stripPrefix = (v: string | null) =>
         v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
@@ -468,6 +479,19 @@ function CreateSalePageInner() {
       cancelled = true;
     };
   }, [editId, user, supabase, tShared]);
+
+  // normalizePaymentOptions keeps the array in registry order: the review-gate
+  // diff compares arrays element-by-element, so toggling a chip off and back on
+  // would otherwise queue a request for a set that never actually changed.
+  function togglePaymentOption(value: PaymentOption) {
+    setPaymentOptions((prev) =>
+      normalizePaymentOptions(
+        prev.includes(value)
+          ? prev.filter((v) => v !== value)
+          : [...prev, value],
+      ),
+    );
+  }
 
   // Two-way binding between total price and price/m², anchored on area.
   function handleAreaChange(value: string) {
@@ -657,6 +681,14 @@ function CreateSalePageInner() {
           handover_month: monthNum,
           exact_location: exactLocation.trim() || null,
           management_service: isLandPlot ? null : managementService,
+          // Omitted when empty, never written as []. The review-gate diff treats
+          // a missing key and an empty array as different, so a bare key would
+          // turn every no-op edit-and-save into a queued request that occupies
+          // the one-pending-per-listing slot until an admin acts. Deliberately
+          // not gated on isLandPlot — payment terms apply to a plot too.
+          ...(paymentOptions.length > 0
+            ? { payment_options: paymentOptions }
+            : {}),
           price_currency: "USD",
         },
         phone: phone ? `+995${phone}` : null,
@@ -1197,6 +1229,30 @@ function CreateSalePageInner() {
                       />
                     </Field>
                   </div>
+
+                  <Field label={t("paymentTerms")} helper={tShared("optional")}>
+                    <div className="flex flex-wrap gap-2">
+                      {PAYMENT_OPTIONS.map((opt) => {
+                        const active = paymentOptions.includes(opt.value);
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => togglePaymentOption(opt.value)}
+                            aria-pressed={active}
+                            className={cn(
+                              "min-h-[44px] rounded-[10px] border px-4 text-sm transition-colors",
+                              active
+                                ? "border-[#2563EB] bg-[#2563EB] font-semibold text-white"
+                                : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]",
+                            )}
+                          >
+                            {tOpts(`paymentOptions.${opt.value}`)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
 
                   <Field
                     label={t("photosRenders")}

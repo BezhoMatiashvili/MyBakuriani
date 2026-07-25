@@ -5,6 +5,7 @@ import { Home } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
+import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SalePagination } from "@/components/search/SalePagination";
 import { cn } from "@/lib/utils";
@@ -296,7 +297,11 @@ export default function SalesGridClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <BannerSlot placement="listing_top" bare className="col-span-full" />
+            <BannerSlot
+              placement="listing_top"
+              bare
+              className="col-span-full"
+            />
             <BannerSlot placement="listing_grid" bare />
 
             {paginatedProperties.map((p, i) => (
@@ -325,6 +330,7 @@ export default function SalesGridClient({
                   constructionProgressPercent={
                     p.construction_progress_percent ?? null
                   }
+                  paymentOptions={readPaymentOptions(p.house_rules)}
                 />
               </ScrollReveal>
             ))}
