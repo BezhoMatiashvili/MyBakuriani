@@ -189,8 +189,10 @@ a relative link into an SMS.
 `road-condition-refresh` was **retired on 2026-07-25**
 (`20260725160000_retire_road_conditions.sql` dropped `public.road_conditions`,
 unscheduled the `road-condition-30min` cron job, and the function directory +
-`config.toml` stanza were deleted; the deployed function is deleted separately in the
-dashboard, since MCP has no `delete_edge_function`). It had never produced a live
+`config.toml` stanza were deleted; the deployed function had to be deleted separately in
+the dashboard, since MCP has no `delete_edge_function` — **that step is DONE**, verified
+2026-07-26: `list_edge_functions` returns 18 functions and `road-condition-refresh` is not
+among them, so the retirement is complete on both sides). It had never produced a live
 value — `app.road_condition_url` was never set, so every run posted to a NULL url.
 The landing road badge now fetches `routing.openstreetmap.de` (FOSSGIS OSRM, keyless)
 **server-side from Node** in `src/lib/road-condition/server.ts`, so it needs no CSP
