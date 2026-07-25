@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/check-production-config.mjs && node scripts/i18n-scope.mjs --check",
+    "prebuild": "node scripts/check-production-config.mjs && node scripts/i18n-scope.mjs --check && node scripts/check-message-parity.mjs",
+    "i18n:parity": "node scripts/check-message-parity.mjs",
     "build": "next build",
     "i18n:scope": "node scripts/i18n-scope.mjs",
     "start": "next start",

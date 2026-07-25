@@ -7,26 +7,37 @@ on:
 
 permissions:
   contents: read
+  # Required by github/codeql-action/analyze to upload its SARIF results;
+  # `actions: read` is what lets it read the workflow run on a private repo.
+  security-events: write
+  actions: read
 
 jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-node@1e60f620b9541d4d9c7f2ccfc0b97d6d6d7e2c2a # v4.0.4
+      - uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4.0.4
         with:
           node-version: 22
           cache: npm
       - run: npm ci --omit=optional
       - run: node scripts/check-secret-permissions.mjs
       - run: npx tsc --noEmit
-      - run: npm run build
+      # `npm run build` deliberately does NOT run here. It needs
+      # SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_* to prerender
+      # /[locale]/employment, no Actions secrets are configured, and this step
+      # sat BEFORE the CodeQL steps — so it aborted the job every single run and
+      # is why CodeQL had never once scanned this repo. Vercel builds every push
+      # to main and every PR, so the build is still gated, just not here.
+      # To move it back: add those vars as Actions secrets and re-add the step
+      # AFTER the analyze step below.
       - run: npm audit --audit-level=high
       - run: npm audit --omit=dev --audit-level=high
-      - uses: github/codeql-action/init@e6c23b76c5a57dc1d4c6d119d6eb0a0e011f5ecf # v3.28.17
+      - uses: github/codeql-action/init@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v3.28.17
         with:
           languages: javascript-typescript
-      - uses: github/codeql-action/analyze@e6c23b76c5a57dc1d4c6d119d6eb0a0e011f5ecf # v3.28.17
+      - uses: github/codeql-action/analyze@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v3.28.17
       - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
