@@ -52,6 +52,11 @@ export default function FoodOrdersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [menuUrl, setMenuUrl] = useState("");
   const [menuUrlError, setMenuUrlError] = useState(false);
+  // Derived once rather than guarding at the call site: the value that reaches
+  // href is then itself the validated one, instead of an unvalidated value
+  // rendered under a separate condition.
+  const trimmedMenuUrl = menuUrl.trim();
+  const safeMenuUrl = isHttpUrl(trimmedMenuUrl) ? trimmedMenuUrl : null;
   const [balance, setBalance] = useState(0);
   const [reviewNotice, setReviewNotice] = useState("");
   const [reviewError, setReviewError] = useState("");
@@ -111,13 +116,14 @@ export default function FoodOrdersPage() {
 
   async function saveMenuUrl() {
     if (!service) return;
-    const trimmed = menuUrl.trim();
-    if (trimmed && !isHttpUrl(trimmed)) {
+    // Empty is allowed here (it clears the saved URL); safeMenuUrl is null for
+    // empty too, which is why the save can't just reuse it.
+    if (trimmedMenuUrl && !isHttpUrl(trimmedMenuUrl)) {
       setMenuUrlError(true);
       return;
     }
     setMenuUrlError(false);
-    await submitMenuChange({ ...menuData, url: trimmed });
+    await submitMenuChange({ ...menuData, url: trimmedMenuUrl });
   }
 
   async function addPromotion(data: { title: string; description: string }) {
@@ -241,9 +247,9 @@ export default function FoodOrdersPage() {
                 <QrCode className="h-4 w-4" />
                 შენახვა და QR კოდის გენერაცია
               </button>
-              {isHttpUrl(menuUrl.trim()) && (
+              {safeMenuUrl && (
                 <a
-                  href={menuUrl.trim()}
+                  href={safeMenuUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-[#E2E8F0] text-[#64748B] hover:border-[#2563EB] hover:text-[#2563EB]"
