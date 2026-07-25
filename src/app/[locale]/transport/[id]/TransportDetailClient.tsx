@@ -16,6 +16,7 @@ import {
 import { useTranslations } from "next-intl";
 import { shareListing } from "@/lib/share";
 import { formatPrice } from "@/lib/utils/format";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { TransportContactFooter } from "@/components/shared/TransportContactFooter";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
@@ -84,6 +85,24 @@ export default function TransportDetailClient({
     const path = priceUnitPathFor(unit);
     return path ? tOpts(path) : unit;
   };
+  // ServiceCard's isTransport branch renders a discount BADGE but no price, so
+  // the card advertised a discount that this page then contradicted with full
+  // prices. The two price blocks below are mutually exclusive — a listing with
+  // route pricing never renders the single-price one — so the discount has to
+  // reach BOTH, or the contradiction survives for whichever branch a given
+  // listing takes.
+  const discountActive = isDiscountActive(
+    service.discount_percent,
+    service.discount_expires_at,
+  );
+  const discounted = (value: number) =>
+    Math.round(
+      applyDiscount(
+        value,
+        service.discount_percent,
+        service.discount_expires_at,
+      ),
+    );
 
   useEffect(() => {
     if (isMock) return;
@@ -333,8 +352,13 @@ export default function TransportDetailClient({
                   )}
                 </div>
                 <div className="shrink-0 text-right">
+                  {discountActive && (
+                    <p className="text-[13px] font-bold text-[#94A3B8] line-through">
+                      {formatPrice(row.price)}
+                    </p>
+                  )}
                   <p className="text-[22px] font-black leading-tight text-[#1E293B] sm:text-[26px]">
-                    {formatPrice(row.price)}
+                    {formatPrice(discounted(row.price))}
                   </p>
                   <p className="mt-0.5 text-[12px] text-[#94A3B8]">
                     ({routeUnitLabel(row.unit)})
@@ -372,8 +396,13 @@ export default function TransportDetailClient({
               </div>
               {service.price != null && (
                 <div className="shrink-0 sm:text-right">
+                  {discountActive && (
+                    <p className="text-[13px] font-bold text-[#94A3B8] line-through">
+                      {formatPrice(service.price)}
+                    </p>
+                  )}
                   <p className="text-[26px] font-black leading-tight text-[#1E293B] sm:text-[28px]">
-                    {formatPrice(service.price)}
+                    {formatPrice(discounted(service.price))}
                   </p>
                   {service.price_unit && (
                     <p className="mt-0.5 text-[12px] text-[#94A3B8]">

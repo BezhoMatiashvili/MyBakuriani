@@ -10,6 +10,7 @@ import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
+import { applyDiscount } from "@/lib/utils/pricing";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -83,12 +84,23 @@ export default function FoodDetailClient({
     ? tOpts(priceUnitPath)
     : service.price_unit;
 
+  // ServiceCard's overlay variant (used by /food) shows a discount badge but no
+  // price, so the card advertised a discount this page then contradicted.
+  // Only the service.price fallback is discounted — avg_check is a different
+  // metric (typical spend per guest), not a price being discounted, so it must
+  // not be silently marked down.
   const avgCheckLabel =
     formatAvgCheck(service.avg_check) ??
     (service.price != null
-      ? `${formatPrice(service.price)}${
-          priceUnitLabel ? ` / ${priceUnitLabel}` : ""
-        }`
+      ? `${formatPrice(
+          Math.round(
+            applyDiscount(
+              service.price,
+              service.discount_percent,
+              service.discount_expires_at,
+            ),
+          ),
+        )}${priceUnitLabel ? ` / ${priceUnitLabel}` : ""}`
       : null);
 
   const amenityTags = FOOD_AMENITIES.filter(

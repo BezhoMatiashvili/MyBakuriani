@@ -961,7 +961,11 @@ export default function SaleDetailClient({
       </AnimatePresence>
 
       <MobileStickyCTA
-        primary={salePrice > 0 ? formatPrice(salePrice) : t("negotiable")}
+        primary={
+          salePrice > 0
+            ? formatPrice(Math.round(displaySalePrice))
+            : t("negotiable")
+        }
         secondary={property.location ?? undefined}
         ctaLabel={t("call")}
         onClick={() =>
