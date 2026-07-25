@@ -1,13 +1,24 @@
-// SMS dispatch.
+// SMS dispatch. See sms.md P5.
 //
-// Picks up rows in `sms_outbound` with status='approved' and hands each to the
-// SMS provider via the isolated `sendSms()` adapter below, then marks the row
-// 'sent' (with sent_at + provider_response) or 'failed'.
+// Retires stale automation rows, picks up the next batch of sendable rows, hands each
+// to the isolated `sendSms()` adapter, then marks the row 'sent' or 'failed'.
 //
-// The provider is not yet decided. `sendSms()` is the SINGLE integration point:
-// it reads SMS_PROVIDER_API_KEY and, until a provider is wired, SKIPS every row
-// (leaving it 'approved' so nothing is lost). Implement the marked TODO block to
-// go live — no other file changes are needed.
+// THE CREDIT RULE LIVES IN SQL, NOT HERE. Three mutually exclusive billing paths run
+// over this one table and this file must not re-implement any of them:
+//   * automation rows (check_in / review_request / win_back) -> charged 1 credit by
+//     sms_mark_sent, on gateway success only (D1/D6), guarded by charged_at
+//   * broadcast + 1:1 contact rows -> already charged at admin-approve time
+//     (sms_consume_credit / sms_consume_credits_bulk); automation_kind is NULL for them
+//   * system rows (vip_activation / vip_expiry / subscription) -> free
+//
+// sms_dispatch_batch already applies the 0-credit preflight, the per-sender ranking and
+// FIFO ordering. DO NOT re-implement the credit gate or the ranking in TypeScript, and
+// do not add a "broke senders" Set - the RPC already excludes those rows.
+//
+// The provider is not yet decided. `sendSms()` is the SINGLE integration point: until a
+// provider is wired it SKIPS every row, leaving it 'approved' so nothing is lost. That
+// also means NO CREDIT IS EVER DEDUCTED in production today - the charge lives in the
+// success branch. See B1.
 //
 // Auth: shared secret in SMS_DISPATCH_SECRET (Bearer header). The cron job and
 // any manual invocations must present this token.
@@ -54,12 +65,20 @@ async function sendSms(phone: string, message: string): Promise<SendResult> {
     };
   }
 
-  // TODO(provider): wire the chosen gateway (UBILL / Twilio / etc.) here.
-  //   Replace this block with a real `await fetch(<provider endpoint>, ...)`,
-  //   authenticating with `key`, sending `message` to `phone`, then map the
-  //   HTTP result to { status: 'sent' } on 2xx or { status: 'failed' } on a
-  //   provider/network error. Keep the response payload in `providerResponse`.
-  // Until implemented, skip so approved rows are preserved for later sending.
+  // TODO(B1 - provider): implement this and NOTHING ELSE in this file.
+  //   Contract:
+  //     - return { status: 'sent',   providerResponse } on a 2xx/accepted gateway reply
+  //     - return { status: 'failed', providerResponse } on any provider or network error
+  //     - return { status: 'skipped', providerResponse } ONLY while unimplemented
+  //   providerResponse MUST carry the gateway's message id (for reconciliation) and must
+  //   NOT contain the API key.
+  //   Billing: the caller charges exactly 1 credit per 'sent' row (D6) even though a
+  //   Georgian UCS-2 message of 150-250 chars is 3-4 real segments. Do not "fix" that here.
+  //   At-least-once: if the gateway succeeds and this function dies before sms_mark_sent,
+  //   the row is re-sent next run. Use a provider idempotency key derived from sms_outbound.id.
+  //
+  //   NOTE for B1: the `if (!key) return skipped` guard above is DEAD as a gate, because
+  //   this block returns unconditionally. Fix it when wiring the provider (sms.md B1).
   return {
     status: "skipped",
     providerResponse: {
@@ -82,20 +101,40 @@ serve(async (req) => {
     requireSharedSecret(req);
     const db = createServiceClient();
 
-    const { data: approved, error } = await db
-      .from("sms_outbound")
-      .select("id, recipient_phone, message")
-      .eq("status", "approved")
-      .order("created_at", { ascending: true })
-      .limit(BATCH_SIZE);
+    // 1. Retire stale automation rows FIRST. This is that function's only caller.
+    //    Doing it before the batch read is what lets sms_dispatch_batch carry no time
+    //    predicate of its own - one window definition, in one place. A stale T1
+    //    ("გელოდებით ხვალ") delivered days late is actively wrong, and a stale T3 embeds
+    //    the owner's own time-bounded promo, i.e. a false offer they must honour or refuse.
+    const { data: expiredRaw, error: expErr } = await db.rpc(
+      "sms_expire_stale_automation",
+    );
+    if (expErr) throw expErr;
+    const expired = Number(expiredRaw ?? 0);
+    if (expired > 0)
+      console.log(`sms-dispatch: expired ${expired} stale row(s)`);
 
+    // 2. The batch. The RPC applies status='approved' + charged_at IS NULL, the
+    //    per-sender 0-credit preflight (a sender with no balances row reads as 0),
+    //    per-sender ranking so one credit cannot release five messages, and FIFO order.
+    const { data: batch, error } = await db.rpc("sms_dispatch_batch", {
+      p_limit: BATCH_SIZE,
+    });
     if (error) throw error;
+
+    const rows = (batch ?? []) as Array<{
+      id: string;
+      recipient_phone: string;
+      message: string;
+    }>;
 
     let sent = 0;
     let failed = 0;
     let skipped = 0;
+    let charged = 0;
+    let uncharged = 0;
 
-    for (const row of approved ?? []) {
+    for (const row of rows) {
       const result = await sendSms(row.recipient_phone, row.message);
 
       if (result.status === "skipped") {
@@ -103,36 +142,69 @@ serve(async (req) => {
         continue; // leave the row 'approved' for a later run
       }
 
-      const patch =
-        result.status === "sent"
-          ? {
-              status: "sent",
-              sent_at: new Date().toISOString(),
-              provider_response: result.providerResponse,
-            }
-          : { status: "failed", provider_response: result.providerResponse };
-
-      const { error: upErr } = await db
-        .from("sms_outbound")
-        .update(patch)
-        .eq("id", row.id);
-
-      if (upErr) {
-        console.error("sms-dispatch: status update failed", upErr);
-        continue;
+      if (result.status === "sent") {
+        // Status flip AND the conditional charge happen inside ONE transaction so they
+        // cannot diverge. sms_mark_sent deliberately does NOT raise on insufficient
+        // credit: by this point the SMS has already been delivered, and raising would
+        // leave the row 'approved' for the next run to RE-SEND. One uncharged credit
+        // beats a duplicate message to a guest.
+        const { data: markRaw, error: markErr } = await db.rpc(
+          "sms_mark_sent",
+          {
+            p_sms_id: row.id,
+            p_provider_response: result.providerResponse ?? {},
+          },
+        );
+        if (markErr) {
+          console.error("sms-dispatch: sms_mark_sent failed", {
+            id: row.id,
+            error: markErr,
+          });
+          continue;
+        }
+        const mark = (markRaw ?? {}) as {
+          charged?: boolean;
+          uncharged_reason?: string | null;
+        };
+        sent++;
+        if (mark.charged) charged++;
+        else {
+          uncharged++;
+          // Expected and correct for broadcast/contact rows (charged at approve time)
+          // and for system kinds (free). Only worth attention when the reason is set.
+          if (mark.uncharged_reason) {
+            console.log(
+              `sms-dispatch: row ${row.id} sent but not charged (${mark.uncharged_reason})`,
+            );
+          }
+        }
+      } else {
+        // A failed send is never charged (spec section 6).
+        const { error: failErr } = await db.rpc("sms_mark_failed", {
+          p_sms_id: row.id,
+          p_provider_response: result.providerResponse ?? {},
+        });
+        if (failErr) {
+          console.error("sms-dispatch: sms_mark_failed failed", {
+            id: row.id,
+            error: failErr,
+          });
+          continue;
+        }
+        failed++;
       }
-
-      if (result.status === "sent") sent++;
-      else failed++;
     }
 
     return jsonResponse(
       {
         ok: true,
-        considered: approved?.length ?? 0,
+        expired,
+        considered: rows.length,
         sent,
         failed,
         skipped,
+        charged,
+        uncharged,
       },
       200,
       cors,

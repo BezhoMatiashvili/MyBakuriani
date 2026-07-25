@@ -31,6 +31,8 @@ interface BulkActionBarProps {
   onApply: (changes: BulkApplyChanges) => void;
   /** Dates the bar must never touch (e.g., already-booked days). */
   skipDates?: ReadonlySet<string>;
+  /** Blocks every action while the caller's write is in flight. */
+  pending?: boolean;
 }
 
 interface Action {
@@ -85,10 +87,10 @@ const ACTION_DEFS: Omit<Action, "labelKey">[] = [
   {
     key: "block-next-7",
     icon: <CalendarClock className="size-4" />,
-    compute: (dates) => {
-      const next7 = new Set(buildNextNDays(7));
-      return { available: [], blocked: dates.filter((d) => next7.has(d)) };
-    },
+    // Deliberately NOT intersected with the window: this action means "the next
+    // 7 days", not "whichever of them fall inside the month you're looking at".
+    // Intersecting made it a silent no-op on every month except the current one.
+    compute: () => ({ available: [], blocked: buildNextNDays(7) }),
   },
 ];
 
@@ -104,6 +106,7 @@ export default function BulkActionBar({
   windowDates,
   onApply,
   skipDates,
+  pending = false,
 }: BulkActionBarProps) {
   const t = useTranslations("BulkActionBar");
 
@@ -136,7 +139,8 @@ export default function BulkActionBar({
             key={action.key}
             type="button"
             onClick={() => handleClick(action)}
-            className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:bg-[#EFF6FF] hover:text-[#2563EB] active:scale-[0.98]"
+            disabled={pending}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:bg-[#EFF6FF] hover:text-[#2563EB] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[#E2E8F0] disabled:hover:bg-white disabled:hover:text-[#0F172A]"
           >
             <span className="shrink-0 text-[#2563EB]">{action.icon}</span>
             <span className="line-clamp-2 text-left leading-tight">

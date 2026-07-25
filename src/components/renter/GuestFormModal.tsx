@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, UserPlus } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
+import {
+  datesInRange,
+  isDateConflictError,
+  nextOccupiedAfter,
+  occupancyWindow,
+  previousIsoDate,
+  type OccupiedMap,
+} from "@/lib/utils/availability";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Tables } from "@/lib/types/database";
@@ -30,6 +38,7 @@ export default function GuestFormModal({
 }: GuestFormModalProps) {
   const t = useTranslations("RenterDashboard.modals.guestForm");
   const tShared = useTranslations("DashboardShared");
+  const tBooking = useTranslations("RenterDashboard.modals.addBooking");
 
   const { user } = useAuth();
   const supabase = createClient();
@@ -61,7 +70,53 @@ export default function GuestFormModal({
     }
   }, [isOpen, activeGuest, bookingGuest, properties]);
 
-  const datesValid = Boolean(checkIn && checkOut && checkOut >= checkIn);
+  // Nights already taken on the chosen property. This form writes through the
+  // same overlap-safe RPCs as the calendar, so its pickers must show the same
+  // unavailable days — otherwise the owner only learns of a clash on submit.
+  const [occupied, setOccupied] = useState<OccupiedMap>(new Map());
+
+  useEffect(() => {
+    if (!isOpen || !propertyId) {
+      setOccupied(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [from, to] = occupancyWindow();
+      const { data } = await supabase
+        .from("calendar_blocks")
+        .select("date, status")
+        .eq("property_id", propertyId)
+        .in("status", ["booked", "blocked"])
+        .gte("date", from)
+        .lte("date", to);
+      if (cancelled || !data) return;
+      setOccupied(
+        new Map(data.map((b) => [b.date, b.status as "booked" | "blocked"])),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, propertyId]);
+
+  const checkOutMax = useMemo<string | undefined>(() => {
+    if (!checkIn) return undefined;
+    const next = nextOccupiedAfter(occupied, checkIn);
+    return next ? previousIsoDate(next) : undefined;
+  }, [checkIn, occupied]);
+
+  // The pickers already make occupied endpoints unpickable, but `occupied`
+  // loads asynchronously — a range chosen before it arrives has no clamp. Check
+  // the whole span (inclusive, mirroring the RPC) so submit is disabled rather
+  // than deferring the clash to the server, matching AddBookingModal.
+  const datesValid = useMemo(
+    () =>
+      Boolean(checkIn && checkOut && checkOut >= checkIn) &&
+      !datesInRange(checkIn, checkOut).some((d) => occupied.has(d)),
+    [checkIn, checkOut, occupied],
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -148,7 +203,21 @@ export default function GuestFormModal({
       onClose();
     } catch (submitError) {
       console.error("Failed to save guest", submitError);
-      setError(tShared("genericRetry"));
+      // A date clash is the one failure the owner can actually act on, so name
+      // it instead of hiding it behind the generic retry copy. Supabase throws a
+      // PostgrestError — a plain object, NOT an Error — so an `instanceof Error`
+      // test would miss it and silently fall through to the generic message.
+      const message =
+        typeof submitError === "object" &&
+        submitError !== null &&
+        "message" in submitError
+          ? String((submitError as { message: unknown }).message)
+          : String(submitError);
+      setError(
+        isDateConflictError(message)
+          ? tBooking("datesUnavailable")
+          : tShared("genericRetry"),
+      );
     } finally {
       setSaving(false);
     }
@@ -247,10 +316,23 @@ export default function GuestFormModal({
                     </Field>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field label={t("checkIn")}>
-                        <DateField value={checkIn} onChange={setCheckIn} />
+                        <DateField
+                          value={checkIn}
+                          onChange={(v) => {
+                            setCheckIn(v);
+                            if (checkOut && checkOut < v) setCheckOut("");
+                          }}
+                          occupied={occupied}
+                        />
                       </Field>
                       <Field label={t("checkOut")}>
-                        <DateField value={checkOut} onChange={setCheckOut} />
+                        <DateField
+                          value={checkOut}
+                          onChange={setCheckOut}
+                          min={checkIn || undefined}
+                          max={checkOutMax}
+                          occupied={occupied}
+                        />
                       </Field>
                     </div>
                   </>

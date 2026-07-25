@@ -55,6 +55,7 @@ Define success criteria. Loop until verified.
 - **Storage**: Supabase Storage (`property-photos` bucket)
 - **Maps**: Leaflet.js via `react-leaflet` (CartoDB Positron tiles, no API key; OSM+CARTO attribution required)
 - **Weather**: WeatherAPI.com (server-only key; free-tier attribution required — rendered in `Footer`)
+- **Routing**: FOSSGIS OSRM (`routing.openstreetmap.de/routed-car`, no API key) for the landing road badge, called server-side only. FOSSGIS terms require an app-identifying User-Agent plus ODbL attribution + a `fixthemap` link — both rendered in `Footer`
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
 - **Deployment**: Vercel + Supabase Cloud

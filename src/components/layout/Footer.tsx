@@ -158,6 +158,31 @@ export function Footer() {
           >
             Powered by WeatherAPI.com
           </a>
+          {/* Required by the FOSSGIS OSM routing terms and the ODbL: clearly credit
+              OpenStreetMap contributors and link to "fix the map" wherever OSM-derived
+              data is shown. The landing road card's drive estimate comes from
+              routing.openstreetmap.de (src/lib/road-condition/server.ts), and the
+              Leaflet basemaps use OSM/CARTO tiles. Do not remove either link while
+              those are live. Wraps rather than sitting inline: the two labels
+              together overflow 375px at this tracking. */}
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer"
+              className="normal-case transition-colors hover:text-white"
+            >
+              © OpenStreetMap contributors (ODbL)
+            </a>
+            <a
+              href="https://www.openstreetmap.org/fixthemap"
+              target="_blank"
+              rel="noreferrer"
+              className="normal-case transition-colors hover:text-white"
+            >
+              Improve the map
+            </a>
+          </div>
         </div>
       </div>
     </footer>

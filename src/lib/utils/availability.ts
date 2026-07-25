@@ -59,3 +59,67 @@ export function datesInRange(a: string, b: string): string[] {
   }
   return out;
 }
+
+// How far around today an occupancy read reaches. Wider than any calendar month
+// on purpose: the booking pickers let the owner browse to any month, and a
+// month-scoped read would render occupied nights as free the moment they do.
+// Shared so the calendar page and the guests form can't drift apart.
+export const OCCUPANCY_MONTHS_BACK = 3;
+export const OCCUPANCY_MONTHS_AHEAD = 24;
+
+/** [from, to] ISO bounds of the occupancy window around today. */
+export function occupancyWindow(from: Date = new Date()): [string, string] {
+  const y = from.getFullYear();
+  const m = from.getMonth();
+  return [
+    isoDate(new Date(y, m - OCCUPANCY_MONTHS_BACK, 1)),
+    isoDate(new Date(y, m + OCCUPANCY_MONTHS_AHEAD, 0)),
+  ];
+}
+
+// Why a night can't be booked: a real stay, or a day the owner turned off.
+// Mirrors the `booked` / `blocked` members of the DB `calendar_status` enum —
+// `available` days are simply absent from an OccupiedMap.
+export type OccupiedMap = ReadonlyMap<string, "booked" | "blocked">;
+
+// The first occupied day strictly after `fromIso`, or null if none.
+// Used to cap a check-out picker so a selected range can never straddle an
+// occupied block — the manual-booking RPCs reject the whole span, not just its
+// endpoints, so capping here is what keeps the UI and the server in agreement.
+export function nextOccupiedAfter(
+  occupied: OccupiedMap | undefined,
+  fromIso: string,
+): string | null {
+  if (!occupied || occupied.size === 0 || !fromIso) return null;
+  let found: string | null = null;
+  for (const date of occupied.keys()) {
+    if (date <= fromIso) continue;
+    if (found === null || date < found) found = date;
+  }
+  return found;
+}
+
+// The ISO date one day before `iso`.
+export function previousIsoDate(iso: string): string {
+  const d = parseIsoDate(iso);
+  d.setDate(d.getDate() - 1);
+  return isoDate(d);
+}
+
+// The manual-booking RPCs raise a Georgian "…დაკავებულია" on a date conflict.
+// Every caller must map it to the translated `datesUnavailable` copy rather than
+// a generic retry message, or the owner is told the wrong thing.
+export function isDateConflictError(
+  message: string | null | undefined,
+): boolean {
+  return Boolean(message?.includes("დაკავებულია"));
+}
+
+// What a manual-booking write can fail with, as a translatable code.
+export type BookingErrorCode = "datesUnavailable" | "generic";
+
+export function mapBookingError(
+  message: string | null | undefined,
+): BookingErrorCode {
+  return isDateConflictError(message) ? "datesUnavailable" : "generic";
+}

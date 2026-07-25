@@ -209,6 +209,8 @@ export type Database = {
           guest_message: string | null;
           guests_count: number;
           id: string;
+          marketing_consent: boolean;
+          marketing_consent_at: string | null;
           owner_id: string;
           owner_response: string | null;
           property_id: string;
@@ -225,6 +227,8 @@ export type Database = {
           guest_message?: string | null;
           guests_count?: number;
           id?: string;
+          marketing_consent?: boolean;
+          marketing_consent_at?: string | null;
           owner_id: string;
           owner_response?: string | null;
           property_id: string;
@@ -241,6 +245,8 @@ export type Database = {
           guest_message?: string | null;
           guests_count?: number;
           id?: string;
+          marketing_consent?: boolean;
+          marketing_consent_at?: string | null;
           owner_id?: string;
           owner_response?: string | null;
           property_id?: string;
@@ -402,6 +408,65 @@ export type Database = {
             foreignKeyName: "cleaner_profiles_id_fkey";
             columns: ["id"];
             isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cleaner_manual_tasks: {
+        Row: {
+          address: string | null;
+          cleaner_id: string;
+          cleaning_type: string;
+          client_name: string;
+          client_phone: string | null;
+          completed_at: string | null;
+          created_at: string;
+          id: string;
+          notes: string | null;
+          price: number | null;
+          scheduled_at: string;
+          started_at: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          address?: string | null;
+          cleaner_id: string;
+          cleaning_type?: string;
+          client_name: string;
+          client_phone?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          price?: number | null;
+          scheduled_at: string;
+          started_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          address?: string | null;
+          cleaner_id?: string;
+          cleaning_type?: string;
+          client_name?: string;
+          client_phone?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          price?: number | null;
+          scheduled_at?: string;
+          started_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cleaner_manual_tasks_cleaner_id_fkey";
+            columns: ["cleaner_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -826,6 +891,8 @@ export type Database = {
           guest_phone: string | null;
           guests_count: number | null;
           id: string;
+          marketing_consent: boolean;
+          marketing_consent_at: string | null;
           note: string | null;
           owner_id: string;
           property_id: string;
@@ -843,6 +910,8 @@ export type Database = {
           guest_phone?: string | null;
           guests_count?: number | null;
           id?: string;
+          marketing_consent?: boolean;
+          marketing_consent_at?: string | null;
           note?: string | null;
           owner_id: string;
           property_id: string;
@@ -860,6 +929,8 @@ export type Database = {
           guest_phone?: string | null;
           guests_count?: number | null;
           id?: string;
+          marketing_consent?: boolean;
+          marketing_consent_at?: string | null;
           note?: string | null;
           owner_id?: string;
           property_id?: string;
@@ -1346,6 +1417,7 @@ export type Database = {
           display_name: string;
           id: string;
           is_verified: boolean | null;
+          marketing_opt_out: boolean;
           notification_prefs: Json | null;
           personal_id: string | null;
           phone: string | null;
@@ -1364,6 +1436,7 @@ export type Database = {
           display_name: string;
           id: string;
           is_verified?: boolean | null;
+          marketing_opt_out?: boolean;
           notification_prefs?: Json | null;
           personal_id?: string | null;
           phone?: string | null;
@@ -1382,6 +1455,7 @@ export type Database = {
           display_name?: string;
           id?: string;
           is_verified?: boolean | null;
+          marketing_opt_out?: boolean;
           notification_prefs?: Json | null;
           personal_id?: string | null;
           phone?: string | null;
@@ -1501,6 +1575,7 @@ export type Database = {
           bathrooms: number | null;
           cadastral_code: string | null;
           capacity: number | null;
+          check_in_time: string;
           cleaning_fee: number | null;
           completion_year: number | null;
           construction_image_url: string | null;
@@ -1559,6 +1634,7 @@ export type Database = {
           bathrooms?: number | null;
           cadastral_code?: string | null;
           capacity?: number | null;
+          check_in_time?: string;
           cleaning_fee?: number | null;
           completion_year?: number | null;
           construction_image_url?: string | null;
@@ -1617,6 +1693,7 @@ export type Database = {
           bathrooms?: number | null;
           cadastral_code?: string | null;
           capacity?: number | null;
+          check_in_time?: string;
           cleaning_fee?: number | null;
           completion_year?: number | null;
           construction_image_url?: string | null;
@@ -1913,48 +1990,6 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
-      };
-      road_conditions: {
-        Row: {
-          computed_at: string;
-          created_at: string;
-          distance_meters: number | null;
-          duration_seconds: number | null;
-          id: string;
-          ratio: number | null;
-          route_slug: string;
-          source: string;
-          static_duration_seconds: number | null;
-          status_code: string;
-          updated_at: string;
-        };
-        Insert: {
-          computed_at?: string;
-          created_at?: string;
-          distance_meters?: number | null;
-          duration_seconds?: number | null;
-          id?: string;
-          ratio?: number | null;
-          route_slug: string;
-          source?: string;
-          static_duration_seconds?: number | null;
-          status_code?: string;
-          updated_at?: string;
-        };
-        Update: {
-          computed_at?: string;
-          created_at?: string;
-          distance_meters?: number | null;
-          duration_seconds?: number | null;
-          id?: string;
-          ratio?: number | null;
-          route_slug?: string;
-          source?: string;
-          static_duration_seconds?: number | null;
-          status_code?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
       };
       services: {
         Row: {
@@ -2351,6 +2386,8 @@ export type Database = {
           updated_at: string;
           user_id: string;
           win_back_days_after: number;
+          win_back_discount_period: string | null;
+          win_back_discount_value: string | null;
           win_back_enabled: boolean;
         };
         Insert: {
@@ -2362,6 +2399,8 @@ export type Database = {
           updated_at?: string;
           user_id: string;
           win_back_days_after?: number;
+          win_back_discount_period?: string | null;
+          win_back_discount_value?: string | null;
           win_back_enabled?: boolean;
         };
         Update: {
@@ -2373,6 +2412,8 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
           win_back_days_after?: number;
+          win_back_discount_period?: string | null;
+          win_back_discount_value?: string | null;
           win_back_enabled?: boolean;
         };
         Relationships: [
@@ -2499,54 +2540,60 @@ export type Database = {
           admin_notes: string | null;
           automation_kind: string | null;
           broadcast_id: string | null;
+          charged_at: string | null;
           contact_event_id: string | null;
           created_at: string;
           id: string;
           message: string;
           provider_response: Json | null;
-          recipient_id: string;
+          recipient_id: string | null;
           recipient_phone: string;
           reviewed_at: string | null;
           reviewed_by: string | null;
           sender_id: string;
           sent_at: string | null;
           source_booking_id: string | null;
+          source_manual_booking_id: string | null;
           status: Database["public"]["Enums"]["sms_outbound_status"];
         };
         Insert: {
           admin_notes?: string | null;
           automation_kind?: string | null;
           broadcast_id?: string | null;
+          charged_at?: string | null;
           contact_event_id?: string | null;
           created_at?: string;
           id?: string;
           message: string;
           provider_response?: Json | null;
-          recipient_id: string;
+          recipient_id: string | null;
           recipient_phone: string;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
           sender_id: string;
           sent_at?: string | null;
           source_booking_id?: string | null;
+          source_manual_booking_id?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
         };
         Update: {
           admin_notes?: string | null;
           automation_kind?: string | null;
           broadcast_id?: string | null;
+          charged_at?: string | null;
           contact_event_id?: string | null;
           created_at?: string;
           id?: string;
           message?: string;
           provider_response?: Json | null;
-          recipient_id?: string;
+          recipient_id?: string | null;
           recipient_phone?: string;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
           sender_id?: string;
           sent_at?: string | null;
           source_booking_id?: string | null;
+          source_manual_booking_id?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
         };
         Relationships: [
@@ -2874,6 +2921,8 @@ export type Database = {
           guest_message: string | null;
           guests_count: number;
           id: string;
+          marketing_consent: boolean;
+          marketing_consent_at: string | null;
           owner_id: string;
           owner_response: string | null;
           property_id: string;
@@ -2897,6 +2946,7 @@ export type Database = {
           p_guest_name?: string;
           p_guest_phone?: string;
           p_guests_count?: number;
+          p_marketing_consent?: boolean;
           p_note?: string;
           p_property_id: string;
           p_renter_guest_id?: string;
@@ -2913,6 +2963,8 @@ export type Database = {
           guest_phone: string | null;
           guests_count: number | null;
           id: string;
+          marketing_consent: boolean;
+          marketing_consent_at: string | null;
           note: string | null;
           owner_id: string;
           property_id: string;
@@ -2931,6 +2983,7 @@ export type Database = {
         Args: {
           p_check_in: string;
           p_check_out: string;
+          p_marketing_consent?: boolean;
           p_name: string;
           p_note?: string;
           p_phone?: string;
@@ -2946,6 +2999,8 @@ export type Database = {
           guest_phone: string | null;
           guests_count: number | null;
           id: string;
+          marketing_consent: boolean;
+          marketing_consent_at: string | null;
           note: string | null;
           owner_id: string;
           property_id: string;
@@ -3141,6 +3196,35 @@ export type Database = {
         Args: { p_sender_id: string; p_sms_ids: string[] };
         Returns: number;
       };
+      sms_dispatch_batch: {
+        Args: { p_limit?: number };
+        Returns: {
+          id: string;
+          message: string;
+          recipient_phone: string;
+        }[];
+      };
+      sms_enqueue_automation: {
+        Args: {
+          p_booking_id?: string;
+          p_kind: string;
+          p_manual_booking_id?: string;
+          p_message: string;
+          p_recipient_id: string | null;
+          p_recipient_phone: string;
+          p_sender_id: string;
+        };
+        Returns: string | null;
+      };
+      sms_expire_stale_automation: { Args: never; Returns: number };
+      sms_mark_failed: {
+        Args: { p_provider_response?: Json; p_sms_id: string };
+        Returns: undefined;
+      };
+      sms_mark_sent: {
+        Args: { p_provider_response?: Json; p_sms_id: string };
+        Returns: Json;
+      };
       sms_send_broadcast: {
         Args: {
           p_audience: Database["public"]["Enums"]["sms_broadcast_audience"];
@@ -3163,6 +3247,7 @@ export type Database = {
           p_guest_phone?: string;
           p_guests_count?: number;
           p_id: string;
+          p_marketing_consent?: boolean;
           p_note?: string;
           p_renter_guest_id?: string;
           p_source?: string;
@@ -3178,6 +3263,8 @@ export type Database = {
           guest_phone: string | null;
           guests_count: number | null;
           id: string;
+          marketing_consent: boolean;
+          marketing_consent_at: string | null;
           note: string | null;
           owner_id: string;
           property_id: string;

@@ -12,6 +12,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import BottomSheet from "@/components/shared/BottomSheet";
 import { getDateFnsLocale } from "@/lib/utils/format";
+import type { OccupiedMap } from "@/lib/utils/availability";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,6 +66,12 @@ interface DateFieldProps {
   disabled?: boolean;
   id?: string;
   className?: string;
+  /**
+   * Nights that cannot be picked, mapped to why. Those days render colour-coded
+   * (booked = red, owner-blocked = amber), become unselectable, and switch on a
+   * legend under the grid. Omit it and the field behaves exactly as before.
+   */
+  occupied?: OccupiedMap;
 }
 
 export default function DateField({
@@ -81,6 +88,7 @@ export default function DateField({
   disabled,
   id,
   className,
+  occupied,
 }: DateFieldProps) {
   const t = useTranslations("Calendar");
   const locale = useLocale();
@@ -108,6 +116,24 @@ export default function DateField({
   const maxDate = max ? parseISODate(max) : undefined;
   const thisYear = new Date().getFullYear();
   const showClear = Boolean(clearable && value && !disabled);
+  const hasOccupied = Boolean(occupied && occupied.size > 0);
+
+  // An occupied night is unpickable, not merely discouraged — the manual-booking
+  // RPCs reject it anyway, so letting it be selected only defers the error.
+  const disabledMatchers = [
+    ...(minDate ? [{ before: minDate }] : []),
+    ...(maxDate ? [{ after: maxDate }] : []),
+    ...(occupied ? [(d: Date) => occupied.has(toISODate(d))] : []),
+  ];
+
+  // Custom modifiers reach CalendarDayButton, which turns them into
+  // data-booked / data-blocked attributes for styling.
+  const modifiers = occupied
+    ? {
+        booked: (d: Date) => occupied.get(toISODate(d)) === "booked",
+        blocked: (d: Date) => occupied.get(toISODate(d)) === "blocked",
+      }
+    : undefined;
 
   return (
     <div className="relative">
@@ -128,9 +154,13 @@ export default function DateField({
             )}
           >
             <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
-            <span className={cn("flex-1 truncate", !selected && "text-[#94A3B8]")}>
+            <span
+              className={cn("flex-1 truncate", !selected && "text-[#94A3B8]")}
+            >
               {selected
-                ? format(selected, "d MMM, yyyy", { locale: getDateFnsLocale(locale) })
+                ? format(selected, "d MMM, yyyy", {
+                    locale: getDateFnsLocale(locale),
+                  })
                 : (placeholder ?? t("selectDate"))}
             </span>
           </button>
@@ -145,20 +175,27 @@ export default function DateField({
               defaultMonth={selected ?? minDate}
               locale={getDateFnsLocale(locale)}
               captionLayout={withYearDropdown ? "dropdown" : "label"}
-              startMonth={withYearDropdown ? new Date(startYear ?? thisYear - 100, 0) : undefined}
-              endMonth={withYearDropdown ? new Date(endYear ?? thisYear, 11) : undefined}
-              disabled={[
-                ...(minDate ? [{ before: minDate }] : []),
-                ...(maxDate ? [{ after: maxDate }] : []),
-              ]}
+              startMonth={
+                withYearDropdown
+                  ? new Date(startYear ?? thisYear - 100, 0)
+                  : undefined
+              }
+              endMonth={
+                withYearDropdown ? new Date(endYear ?? thisYear, 11) : undefined
+              }
+              disabled={disabledMatchers}
+              modifiers={modifiers}
               className="w-full [--cell-size:36px] min-[360px]:[--cell-size:40px]"
-              classNames={{ day_button: "active:scale-90 transition-transform duration-100" }}
+              classNames={{
+                day_button: "active:scale-90 transition-transform duration-100",
+              }}
               onSelect={(d) => {
                 if (!d) return;
                 onChange(toISODate(d));
                 closeTimer.current = setTimeout(() => setOpen(false), 120);
               }}
             />
+            {hasOccupied && <OccupancyLegend t={t} />}
           </BottomSheet>
         </>
       ) : (
@@ -174,32 +211,47 @@ export default function DateField({
             )}
           >
             <CalendarDays className="size-4 shrink-0 text-[#94A3B8]" />
-            <span className={cn("flex-1 truncate", !selected && "text-[#94A3B8]")}>
+            <span
+              className={cn("flex-1 truncate", !selected && "text-[#94A3B8]")}
+            >
               {selected
-                ? format(selected, "d MMM, yyyy", { locale: getDateFnsLocale(locale) })
+                ? format(selected, "d MMM, yyyy", {
+                    locale: getDateFnsLocale(locale),
+                  })
                 : (placeholder ?? t("selectDate"))}
             </span>
           </PopoverTrigger>
-          <PopoverContent align="start" sideOffset={8} className="w-auto max-w-none p-2 md:w-auto">
+          <PopoverContent
+            align="start"
+            sideOffset={8}
+            className="w-auto max-w-none p-2 md:w-auto"
+          >
             <Calendar
               mode="single"
               selected={selected}
               defaultMonth={selected ?? minDate}
               locale={getDateFnsLocale(locale)}
               captionLayout={withYearDropdown ? "dropdown" : "label"}
-              startMonth={withYearDropdown ? new Date(startYear ?? thisYear - 100, 0) : undefined}
-              endMonth={withYearDropdown ? new Date(endYear ?? thisYear, 11) : undefined}
-              disabled={[
-                ...(minDate ? [{ before: minDate }] : []),
-                ...(maxDate ? [{ after: maxDate }] : []),
-              ]}
-              classNames={{ day_button: "active:scale-90 transition-transform duration-100" }}
+              startMonth={
+                withYearDropdown
+                  ? new Date(startYear ?? thisYear - 100, 0)
+                  : undefined
+              }
+              endMonth={
+                withYearDropdown ? new Date(endYear ?? thisYear, 11) : undefined
+              }
+              disabled={disabledMatchers}
+              modifiers={modifiers}
+              classNames={{
+                day_button: "active:scale-90 transition-transform duration-100",
+              }}
               onSelect={(d) => {
                 if (!d) return;
                 onChange(toISODate(d));
                 closeTimer.current = setTimeout(() => setOpen(false), 120);
               }}
             />
+            {hasOccupied && <OccupancyLegend t={t} />}
           </PopoverContent>
         </Popover>
       )}
@@ -214,5 +266,34 @@ export default function DateField({
         </button>
       )}
     </div>
+  );
+}
+
+/** Explains the colour coding, so a greyed-out day doesn't read as a bug. */
+function OccupancyLegend({ t }: { t: ReturnType<typeof useTranslations> }) {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[#F1F5F9] px-1 pt-2">
+      <LegendSwatch className="bg-[#FEE2E2]" label={t("legendBooked")} />
+      <LegendSwatch className="bg-[#FEF3C7]" label={t("legendBlocked")} />
+      <LegendSwatch
+        className="ring-1 ring-inset ring-[#2563EB]"
+        label={t("today")}
+      />
+    </div>
+  );
+}
+
+function LegendSwatch({
+  className,
+  label,
+}: {
+  className: string;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748B]">
+      <span className={cn("size-3 shrink-0 rounded-full", className)} />
+      {label}
+    </span>
   );
 }

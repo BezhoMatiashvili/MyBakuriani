@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Check, Clock, MapPin, Play, User } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  Clock,
+  MapPin,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
+  User,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -20,14 +30,18 @@ import {
   getDateFnsLocale,
 } from "@/lib/utils/format";
 import { optionKeyFor } from "@/lib/constants/listing-options";
-import type { Tables } from "@/lib/types/database";
-
-type TaskRow = Tables<"cleaning_tasks"> & {
-  properties: Pick<Tables<"properties">, "title" | "location"> | null;
-  profiles: Pick<Tables<"profiles">, "display_name" | "phone"> | null;
-};
+import ManualTaskModal from "@/components/cleaner/ManualTaskModal";
+import {
+  mergeCleanerTasks,
+  type CleanerTaskItem,
+  type ManualTaskRow,
+  type PlatformTaskRow,
+} from "@/lib/cleaner/tasks";
 
 const TAB_LABEL_KEYS = ["today", "tomorrow", "dayAfterTomorrow"] as const;
+
+const ADD_BUTTON_CLASS =
+  "inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]";
 
 function dayBucket(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -42,30 +56,53 @@ function dayPartKey(d: Date): "morning" | "afternoon" | "evening" {
 
 export default function CleanerSchedulePage() {
   const t = useTranslations("CleanerSchedule");
+  const tManual = useTranslations("CleanerSchedule.manualTask");
+  const tShared = useTranslations("DashboardShared");
   const tOpts = useTranslations("ListingOptions");
   const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [tasks, setTasks] = useState<CleanerTaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDate, setActiveDate] = useState<Date>(() => new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<ManualTaskRow | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    async function fetchData() {
-      const { data } = await supabase
+  const userId = user?.id;
+
+  // Hoisted out of the effect so the modal and the row actions can refetch.
+  const fetchData = useCallback(async () => {
+    if (!userId) return;
+    const [platform, manual] = await Promise.all([
+      supabase
         .from("cleaning_tasks")
         .select(
           "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone)",
         )
-        .eq("cleaner_id", user!.id)
+        .eq("cleaner_id", userId)
         .in("status", ["accepted", "in_progress", "completed"])
-        .order("scheduled_at", { ascending: true });
-      if (data) setTasks(data as TaskRow[]);
-      setLoading(false);
-    }
+        .order("scheduled_at", { ascending: true }),
+      supabase
+        .from("cleaner_manual_tasks")
+        .select("*")
+        .eq("cleaner_id", userId)
+        .order("scheduled_at", { ascending: true }),
+    ]);
+
+    setTasks(
+      mergeCleanerTasks(
+        (platform.data ?? []) as PlatformTaskRow[],
+        (manual.data ?? []) as ManualTaskRow[],
+      ),
+    );
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
     fetchData();
 
     const channel = supabase
@@ -76,7 +113,7 @@ export default function CleanerSchedulePage() {
           event: "*",
           schema: "public",
           table: "cleaning_tasks",
-          filter: `cleaner_id=eq.${user.id}`,
+          filter: `cleaner_id=eq.${userId}`,
         },
         () => fetchData(),
       )
@@ -86,7 +123,7 @@ export default function CleanerSchedulePage() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [userId, fetchData]);
 
   const dayTabs = useMemo(() => {
     const days: Date[] = [];
@@ -106,41 +143,57 @@ export default function CleanerSchedulePage() {
 
   const tasksForDay = useMemo(
     () =>
-      tasks
-        .filter(
-          (task) =>
-            dayBucket(new Date(task.scheduled_at)) === dayBucket(activeDate),
-        )
-        .sort(
-          (a, b) =>
-            new Date(a.scheduled_at).getTime() -
-            new Date(b.scheduled_at).getTime(),
-        ),
+      tasks.filter(
+        (task) =>
+          dayBucket(new Date(task.scheduledAt)) === dayBucket(activeDate),
+      ),
     [tasks, activeDate],
   );
 
-  async function startTask(id: string) {
-    const startedAt = new Date().toISOString();
-    await (supabase as any).rpc("transition_cleaning_task", { p_task_id: id, p_status: "in_progress" });
+  function openCreate() {
+    setEditing(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(row: ManualTaskRow) {
+    setEditing(row);
+    setModalOpen(true);
+  }
+
+  async function advance(
+    task: CleanerTaskItem,
+    next: "in_progress" | "completed",
+  ) {
+    const stamp = new Date().toISOString();
+
+    if (task.source === "manual") {
+      await supabase
+        .from("cleaner_manual_tasks")
+        .update({
+          status: next,
+          ...(next === "in_progress"
+            ? { started_at: stamp }
+            : { completed_at: stamp }),
+        })
+        .eq("id", task.id);
+    } else {
+      await (supabase as any).rpc("transition_cleaning_task", {
+        p_task_id: task.id,
+        p_status: next,
+      });
+    }
+
     setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id
-          ? { ...task, status: "in_progress", started_at: startedAt }
-          : task,
+      prev.map((item) =>
+        item.id === task.id ? { ...item, status: next } : item,
       ),
     );
   }
 
-  async function completeTask(id: string) {
-    const completedAt = new Date().toISOString();
-    await (supabase as any).rpc("transition_cleaning_task", { p_task_id: id, p_status: "completed" });
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id
-          ? { ...task, status: "completed", completed_at: completedAt }
-          : task,
-      ),
-    );
+  async function deleteManual(id: string) {
+    if (!window.confirm(tManual("deleteConfirm"))) return;
+    await supabase.from("cleaner_manual_tasks").delete().eq("id", id);
+    setTasks((prev) => prev.filter((item) => item.id !== id));
   }
 
   return (
@@ -150,13 +203,23 @@ export default function CleanerSchedulePage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
-        <div>
-          <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-            {t("title")}
-          </h1>
-          <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-            {t("subtitle")}
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+              {t("title")}
+            </h1>
+            <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+              {t("subtitle")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openCreate}
+            className={ADD_BUTTON_CLASS}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.4} />
+            {tManual("addButton")}
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-[#EEF1F4] bg-white p-1.5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
@@ -245,19 +308,33 @@ export default function CleanerSchedulePage() {
             {t("emptyDayTitle")}
           </p>
           <p className="mt-1 text-[12px] text-[#94A3B8]">{t("emptyDayDesc")}</p>
+          <button
+            type="button"
+            onClick={openCreate}
+            className={`mt-5 ${ADD_BUTTON_CLASS}`}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.4} />
+            {tManual("addButton")}
+          </button>
         </motion.div>
       ) : (
         <div>
           {tasksForDay.map((task, idx) => {
-            const d = new Date(task.scheduled_at);
+            const d = new Date(task.scheduledAt);
             const isDone = task.status === "completed";
             const isLast = idx === tasksForDay.length - 1;
             const isUrgent =
               !isDone && d.getTime() - Date.now() < 2 * 60 * 60 * 1000;
-            const typeKey = optionKeyFor("cleaningTypes", task.cleaning_type);
+            const isManual = task.source === "manual";
+            const typeKey = optionKeyFor("cleaningTypes", task.cleaningType);
             const typeLabel = typeKey
               ? tOpts(`cleaningTypes.${typeKey}`)
-              : task.cleaning_type;
+              : task.cleaningType;
+            const contactValue = isManual
+              ? (task.contactPhone ?? "—")
+              : `${task.contactName ?? "—"}${
+                  task.contactPhone ? ` (${task.contactPhone})` : ""
+                }`;
 
             return (
               <motion.div
@@ -299,14 +376,19 @@ export default function CleanerSchedulePage() {
                 <div className="min-w-0 flex-1 rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="truncate text-[17px] font-black text-[#0F172A]">
-                        {task.properties?.title ?? t("listingFallback")}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-[17px] font-black text-[#0F172A]">
+                          {task.title ?? t("listingFallback")}
+                        </h3>
+                        {isManual && (
+                          <span className="shrink-0 rounded-full bg-[#F1F5F9] px-2.5 py-0.5 text-[10px] font-bold text-[#64748B]">
+                            {tManual("manualBadge")}
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">
-                          {task.address ?? task.properties?.location ?? "—"}
-                        </span>
+                        <span className="truncate">{task.address ?? "—"}</span>
                       </p>
                     </div>
                     <span
@@ -327,13 +409,10 @@ export default function CleanerSchedulePage() {
                       </span>
                       <div className="min-w-0">
                         <p className="text-[11px] font-medium text-[#94A3B8]">
-                          {t("owner")}
+                          {isManual ? tManual("client") : t("owner")}
                         </p>
                         <p className="truncate text-[13px] font-bold text-[#0F172A]">
-                          {task.profiles?.display_name ?? "—"}
-                          {task.profiles?.phone
-                            ? ` (${task.profiles.phone})`
-                            : ""}
+                          {contactValue}
                         </p>
                       </div>
                     </div>
@@ -356,6 +435,12 @@ export default function CleanerSchedulePage() {
                     </div>
                   </div>
 
+                  {isManual && task.notes && (
+                    <p className="mt-3 text-[12px] font-medium leading-relaxed text-[#64748B]">
+                      {task.notes}
+                    </p>
+                  )}
+
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#EEF1F4] pt-4">
                     {task.price != null ? (
                       <p className="text-[22px] font-black leading-none text-[#16A34A]">
@@ -368,30 +453,53 @@ export default function CleanerSchedulePage() {
                       <span />
                     )}
 
-                    {isDone ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#BBF7D0] bg-[#DCFCE7] px-4 py-2.5 text-[12px] font-bold text-[#16A34A]">
-                        <Check className="h-4 w-4" />
-                        {t("completedBadge")}
-                      </span>
-                    ) : task.status === "in_progress" ? (
-                      <button
-                        type="button"
-                        onClick={() => completeTask(task.id)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#16A34A] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]"
-                      >
-                        <Check className="h-4 w-4" />
-                        {t("markCompleted")}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => startTask(task.id)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
-                      >
-                        <Play className="h-4 w-4" />
-                        {t("start")}
-                      </button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isManual && task.manual && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(task.manual!)}
+                            aria-label={tShared("edit")}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E2E8F0] text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteManual(task.id)}
+                            aria-label={tShared("delete")}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E2E8F0] text-[#94A3B8] transition-colors hover:border-[#EF4444] hover:text-[#EF4444]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+
+                      {isDone ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#BBF7D0] bg-[#DCFCE7] px-4 py-2.5 text-[12px] font-bold text-[#16A34A]">
+                          <Check className="h-4 w-4" />
+                          {t("completedBadge")}
+                        </span>
+                      ) : task.status === "in_progress" ? (
+                        <button
+                          type="button"
+                          onClick={() => advance(task, "completed")}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#16A34A] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]"
+                        >
+                          <Check className="h-4 w-4" />
+                          {t("markCompleted")}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => advance(task, "in_progress")}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+                        >
+                          <Play className="h-4 w-4" />
+                          {t("start")}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -399,6 +507,13 @@ export default function CleanerSchedulePage() {
           })}
         </div>
       )}
+
+      <ManualTaskModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        task={editing}
+        onSaved={fetchData}
+      />
     </div>
   );
 }

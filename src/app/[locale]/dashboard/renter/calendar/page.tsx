@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -28,7 +29,13 @@ import PriceRangeModal from "@/components/renter/PriceRangeModal";
 import BulkActionBar, {
   BulkApplyChanges,
 } from "@/components/calendar/BulkActionBar";
-import { datesInRange } from "@/lib/utils/availability";
+import {
+  datesInRange,
+  mapBookingError,
+  occupancyWindow,
+  type BookingErrorCode,
+  type OccupiedMap,
+} from "@/lib/utils/availability";
 import { revalidatePublicProperty } from "@/app/actions/revalidateListing";
 import type { Tables } from "@/lib/types/database";
 
@@ -38,14 +45,9 @@ type PriceOverrideRow = Tables<"price_overrides">;
 type ManualBooking = Tables<"manual_bookings">;
 
 // Result of a manual-booking RPC call, surfaced to the modal so it can show an
-// inline error (and stay open) instead of failing silently.
-type BookingErrorCode = "datesUnavailable" | "generic";
+// inline error (and stay open) instead of failing silently. The message→code
+// mapping is shared with the guests page via `mapBookingError`.
 type BookingResult = { ok: boolean; errorCode?: BookingErrorCode };
-
-// Map a Postgres RAISE EXCEPTION message to a translatable error code. The
-// overlap-safe RPCs raise the Georgian "...დაკავებულია" on a date conflict.
-const mapBookingError = (msg: string): BookingErrorCode =>
-  msg.includes("დაკავებულია") ? "datesUnavailable" : "generic";
 
 // A platform (guest-made) booking joined with the guest's contact profile.
 interface PlatformBookingRow {
@@ -123,6 +125,10 @@ export default function RenterCalendarPage() {
   );
   const [propertyOpen, setPropertyOpen] = useState(false);
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
+  // Wide-window occupancy for the modal date pickers (see `fetchOccupancy`).
+  const [occupancyRows, setOccupancyRows] = useState<
+    Pick<CalendarBlock, "date" | "status" | "booking_id">[]
+  >([]);
   const [priceOverrides, setPriceOverrides] = useState<PriceOverrideRow[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [addBookingOpen, setAddBookingOpen] = useState(false);
@@ -207,6 +213,29 @@ export default function RenterCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
+  // Occupancy over a much wider window than the month grid. The pickers inside
+  // the booking modals let the owner browse to any month, so a month-scoped read
+  // would render occupied nights as free the moment they navigate away.
+  // Deliberately month-independent: it refetches on property change and on
+  // writes, never on paging the grid.
+  const fetchOccupancy = useCallback(async () => {
+    if (!selectedPropertyId) return;
+    const [from, to] = occupancyWindow();
+    const { data } = await supabase
+      .from("calendar_blocks")
+      .select("date, status, booking_id")
+      .eq("property_id", selectedPropertyId)
+      .in("status", ["booked", "blocked"])
+      .gte("date", from)
+      .lte("date", to);
+    if (data) setOccupancyRows(data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId]);
+
+  useEffect(() => {
+    fetchOccupancy();
+  }, [fetchOccupancy]);
+
   useEffect(() => {
     if (!selectedPropertyId) return;
 
@@ -225,6 +254,7 @@ export default function RenterCalendarPage() {
         () => {
           fetchBlocks();
           fetchBookings();
+          fetchOccupancy();
         },
       )
       .subscribe();
@@ -492,8 +522,17 @@ export default function RenterCalendarPage() {
     return list;
   }, [year, month, blocksByDate, overridesByDate, basePrice, bookingByDate]);
 
-  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  // Selection must not survive month navigation: the grid only highlights days
+  // in the visible month, so a carried-over selection is invisible yet still
+  // writable by the action bar.
+  const handlePrevMonth = () => {
+    clearSelection();
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+  const handleNextMonth = () => {
+    clearSelection();
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
 
   // ── Selection helpers ────────────────────────────────────────────────
 
@@ -707,10 +746,13 @@ export default function RenterCalendarPage() {
       .from("calendar_blocks")
       .upsert(rows, { onConflict: "property_id,date" });
     setSavingBlocks(false);
-    if (!error) {
-      await revalidatePublicProperty(selectedPropertyId);
-      clearSelection();
+    if (error) {
+      toast.error(t("saveError"));
+      return;
     }
+    await Promise.all([fetchBlocks(), fetchOccupancy()]);
+    await revalidatePublicProperty(selectedPropertyId);
+    clearSelection();
   };
 
   // Clear an owner-set block. The extra status='blocked' guard prevents
@@ -725,10 +767,13 @@ export default function RenterCalendarPage() {
       .eq("status", "blocked")
       .in("date", blockedSelected);
     setSavingBlocks(false);
-    if (!error) {
-      await revalidatePublicProperty(selectedPropertyId);
-      clearSelection();
+    if (error) {
+      toast.error(t("saveError"));
+      return;
     }
+    await Promise.all([fetchBlocks(), fetchOccupancy()]);
+    await revalidatePublicProperty(selectedPropertyId);
+    clearSelection();
   };
 
   // Today's date in YYYY-MM-DD (browser-local), shared by the bulk bar and the
@@ -750,26 +795,43 @@ export default function RenterCalendarPage() {
     return out;
   }, [year, month, todayIso]);
 
+  // Booked nights the bulk bar must never overwrite. Read from the WIDE
+  // occupancy window rather than the visible month: "block next 7 days" writes
+  // real dates regardless of which month is on screen, and a month-scoped guard
+  // would let that upsert clobber a live reservation
+  // (status='booked', booking_id=<uuid>) into status='blocked', booking_id=null,
+  // orphaning its manual_bookings row.
   const bookedDateSet = useMemo(() => {
     const s = new Set<string>();
-    for (const b of calendarBlocks) {
+    for (const b of occupancyRows) {
       if (b.status === "booked") s.add(b.date);
     }
     return s;
-  }, [calendarBlocks]);
+  }, [occupancyRows]);
 
-  // Nights already occupied for the selected property (this month's window),
-  // excluding the booking being edited — fed to the modal for instant overlap
-  // feedback. The server RPC remains the hard guarantee.
-  const occupiedNights = useMemo(() => {
-    const s = new Set<string>();
-    for (const b of calendarBlocks) {
+  // Every unbookable night for this property. Fed to the CREATE modal, where
+  // nothing may be excluded.
+  const occupiedAll = useMemo<OccupiedMap>(() => {
+    const m = new Map<string, "booked" | "blocked">();
+    for (const b of occupancyRows) {
       if (b.status !== "booked" && b.status !== "blocked") continue;
-      if (editingBooking && b.booking_id === editingBooking.id) continue;
-      s.add(b.date);
+      m.set(b.date, b.status);
     }
-    return s;
-  }, [calendarBlocks, editingBooking]);
+    return m;
+  }, [occupancyRows]);
+
+  // Same, minus the nights held by the booking currently open for editing —
+  // otherwise a booking could never be saved over its own dates. Kept separate
+  // from `occupiedAll` because `editingBooking` outlives the details modal, and
+  // sharing one map would leak that exclusion into the create modal.
+  const occupiedForEdit = useMemo<OccupiedMap>(() => {
+    if (!editingBooking) return occupiedAll;
+    const m = new Map(occupiedAll);
+    for (const b of occupancyRows) {
+      if (b.booking_id === editingBooking.id) m.delete(b.date);
+    }
+    return m;
+  }, [occupiedAll, occupancyRows, editingBooking]);
 
   const parseCount = (v: string) => {
     const n = parseInt(v, 10);
@@ -804,7 +866,7 @@ export default function RenterCalendarPage() {
       p_client_list: payload.clientList,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await Promise.all([fetchBlocks(), fetchBookings()]);
+    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
     await revalidatePublicProperty(selectedPropertyId);
     return { ok: true };
   };
@@ -832,7 +894,7 @@ export default function RenterCalendarPage() {
       p_client_list: payload.clientList,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await Promise.all([fetchBlocks(), fetchBookings()]);
+    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
     if (selectedPropertyId) await revalidatePublicProperty(selectedPropertyId);
     return { ok: true };
   };
@@ -846,7 +908,7 @@ export default function RenterCalendarPage() {
         .delete()
         .eq("id", editingBooking.id)
         .eq("owner_id", user.id);
-      await Promise.all([fetchBlocks(), fetchBookings()]);
+      await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
       await revalidatePublicProperty(selectedPropertyId);
     } catch (err) {
       console.error("Failed to cancel booking", err);
@@ -871,15 +933,27 @@ export default function RenterCalendarPage() {
 
   const handleBulkApply = async ({ available, blocked }: BulkApplyChanges) => {
     if (!selectedPropertyId) return;
+    if (available.length === 0 && blocked.length === 0) {
+      toast.info(t("bulkNoChange"));
+      return;
+    }
     setSavingBlocks(true);
     try {
+      // Count rows the DB actually touched, never the input length. "Whole month
+      // available" hands us every future day, but the DELETE only removes
+      // status='blocked' rows — on a month with nothing blocked that is 0 rows,
+      // and reporting "31 days updated" would restate the very bug this fixes.
+      let affected = 0;
       if (available.length > 0) {
-        await supabase
+        const { data, error } = await supabase
           .from("calendar_blocks")
           .delete()
           .eq("property_id", selectedPropertyId)
           .eq("status", "blocked")
-          .in("date", available);
+          .in("date", available)
+          .select("date");
+        if (error) throw error;
+        affected += data?.length ?? 0;
       }
       if (blocked.length > 0) {
         const rows = blocked.map((d) => ({
@@ -888,12 +962,36 @@ export default function RenterCalendarPage() {
           status: "blocked" as const,
           booking_id: null,
         }));
-        await supabase
+        const { data, error } = await supabase
           .from("calendar_blocks")
-          .upsert(rows, { onConflict: "property_id,date" });
+          .upsert(rows, { onConflict: "property_id,date" })
+          .select("date");
+        if (error) throw error;
+        affected += data?.length ?? 0;
       }
+      if (affected === 0) {
+        toast.info(t("bulkNoChange"));
+        clearSelection();
+        return;
+      }
+      // "Block next 7 days" can write outside the visible month. `fetchBlocks`
+      // only reads the visible month, so navigate there instead of refetching
+      // the wrong window — the month effect then refetches on its own.
+      const earliest = [...available, ...blocked].sort()[0];
+      if (earliest.slice(0, 7) === `${year}-${pad(month + 1)}`) {
+        await fetchBlocks();
+      } else {
+        const [y, m] = earliest.split("-").map(Number);
+        setCurrentDate(new Date(y, m - 1, 1));
+      }
+      // Unconditional: the wide occupancy window is month-independent, so it
+      // must refresh on either branch or the pickers keep the pre-write state.
+      await fetchOccupancy();
       await revalidatePublicProperty(selectedPropertyId);
       clearSelection();
+      toast.success(t("bulkApplied", { count: affected }));
+    } catch {
+      toast.error(t("saveError"));
     } finally {
       setSavingBlocks(false);
     }
@@ -1047,6 +1145,7 @@ export default function RenterCalendarPage() {
           windowDates={visibleMonthDates}
           skipDates={bookedDateSet}
           onApply={handleBulkApply}
+          pending={savingBlocks}
         />
       )}
 
@@ -1222,19 +1321,27 @@ export default function RenterCalendarPage() {
         onSubmit={handleAddBooking}
         initialCheckIn={addBookingInitial.checkIn}
         initialCheckOut={addBookingInitial.checkOut}
-        occupiedNights={occupiedNights}
+        occupied={occupiedAll}
       />
 
       {/* Details for a tapped booked day — manual editable, platform read-only */}
       <AddBookingModal
         isOpen={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
+        // Clearing the edit target matters beyond tidiness: `occupiedForEdit`
+        // hides this booking's own nights, and a stale `editingBooking` would
+        // keep hiding them from the CREATE modal after this one closes.
+        // `viewBooking` is deliberately left alone — it feeds the read-only
+        // body, which would flash into the form branch mid exit-animation.
+        onClose={() => {
+          setDetailsOpen(false);
+          setEditingBooking(null);
+        }}
         mode={detailsMode}
         existing={editingBooking}
         viewBooking={viewBooking}
         onSave={handleEditBooking}
         onDelete={handleCancelBooking}
-        occupiedNights={occupiedNights}
+        occupied={occupiedForEdit}
       />
 
       {selectedPropertyId && (
@@ -1286,6 +1393,7 @@ function DayCell({
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
+  const tCalendar = useTranslations("Calendar");
   const isWeekend = WEEKEND_INDICES.includes(meta.weekendIndex);
   const isSelectable = meta.inMonth && meta.status !== "booked";
 
@@ -1345,7 +1453,7 @@ function DayCell({
         </span>
         {isToday && (
           <span className="hidden rounded-full bg-[#DBEAFE] px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#2563EB] sm:inline sm:text-[10px]">
-            დღეს
+            {tCalendar("today")}
           </span>
         )}
       </div>

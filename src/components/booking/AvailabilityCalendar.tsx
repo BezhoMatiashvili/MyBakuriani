@@ -60,20 +60,7 @@ export function AvailabilityCalendar({
   const getStatus = (day: Date) =>
     dates.find((d) => isSameDay(d.date, day))?.status ?? null;
 
-  const lastAvailableMonth =
-    dates.length > 0
-      ? startOfMonth(
-          dates.reduce(
-            (max, d) => (d.date > max ? d.date : max),
-            dates[0].date,
-          ),
-        )
-      : null;
-
   const canGoPrev = isAfter(monthStart, startOfMonth(today));
-  const canGoNext = lastAvailableMonth
-    ? isBefore(monthStart, lastAvailableMonth)
-    : true;
 
   const { start, end } = selectedRange;
 
@@ -95,7 +82,6 @@ export function AvailabilityCalendar({
           </button>
           <button
             type="button"
-            disabled={!canGoNext}
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
             className="flex size-8 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label={t("nextMonth")}

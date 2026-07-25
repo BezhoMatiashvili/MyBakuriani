@@ -1097,7 +1097,9 @@
     "minutes": "Минуты",
     "from": "Начало",
     "to": "Конец",
-    "endAfterStart": "Время окончания должно быть позже начала"
+    "endAfterStart": "Время окончания должно быть позже начала",
+    "legendBlocked": "Закрыто",
+    "today": "Сегодня"
   },
   "BakurianiMap": {
     "bakuriani": "Бакуриани",
@@ -1882,8 +1884,8 @@
     "quickSelect": "Быстрый выбор",
     "allAvailable": "Весь месяц доступен",
     "allBlocked": "Весь месяц занят",
-    "weekdaysOnly": "Только будни",
-    "weekendsOnly": "Только сб–вс",
+    "weekdaysOnly": "Только пн–чт",
+    "weekendsOnly": "Только пт–вс",
     "blockNext7": "Заблокировать 7 дней"
   },
   "AvailabilityWizard": {
@@ -3025,7 +3027,24 @@
     },
     "completedBadge": "Завершено",
     "markCompleted": "Отметить выполненным",
-    "start": "Начать"
+    "start": "Начать",
+    "manualTask": {
+      "addButton": "Добавить работу",
+      "createTitle": "Новая работа",
+      "editTitle": "Редактировать работу",
+      "subtitle": "Работа для личного клиента",
+      "clientName": "Имя клиента",
+      "clientNamePlaceholder": "напр. Нино Беридзе",
+      "cleaningType": "Тип уборки",
+      "address": "Адрес",
+      "addressPlaceholder": "Улица, дом, квартира",
+      "price": "Цена",
+      "notesPlaceholder": "Дополнительная информация...",
+      "client": "Клиент",
+      "manualBadge": "Личная",
+      "saveError": "Не удалось сохранить, попробуйте снова",
+      "deleteConfirm": "Удалить эту работу?"
+    }
   },
   "CleanerEarnings": {
     "title": "Доход",
@@ -3147,7 +3166,10 @@
       "fri": "Пт",
       "sat": "Сб",
       "sun": "Вс"
-    }
+    },
+    "bulkApplied": "Обновлено дней: {count}",
+    "bulkNoChange": "Нечего изменять",
+    "saveError": "Не удалось сохранить. Попробуйте снова."
   },
   "RenterListings": {
     "title": "Мои объекты",

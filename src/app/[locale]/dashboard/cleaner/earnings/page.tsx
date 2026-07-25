@@ -16,15 +16,16 @@ import StatCard from "@/components/cards/StatCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatDateShort, formatTime } from "@/lib/utils/format";
-import type { Tables } from "@/lib/types/database";
+import {
+  mergeCleanerTasks,
+  type CleanerTaskItem,
+  type ManualTaskRow,
+  type PlatformTaskRow,
+} from "@/lib/cleaner/tasks";
 
 const rand = (i: number, s: number) => {
   const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453;
   return x - Math.floor(x);
-};
-
-type CleaningTask = Tables<"cleaning_tasks"> & {
-  properties: Pick<Tables<"properties">, "title" | "location"> | null;
 };
 
 export default function CleanerEarningsPage() {
@@ -34,7 +35,7 @@ export default function CleanerEarningsPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState<CleaningTask[]>([]);
+  const [tasks, setTasks] = useState<CleanerTaskItem[]>([]);
   const [filterPeriod, setFilterPeriod] = useState<"week" | "month" | "all">(
     "month",
   );
@@ -43,14 +44,27 @@ export default function CleanerEarningsPage() {
     if (!user) return;
 
     async function fetchTasks() {
-      const { data } = await supabase
-        .from("cleaning_tasks")
-        .select("*, properties(title, location)")
-        .eq("cleaner_id", user!.id)
-        .eq("status", "completed")
-        .order("scheduled_at", { ascending: false });
+      // Completed work comes from two tables: platform call-outs and the
+      // cleaner's own off-platform jobs. Both are real income.
+      const [platform, manual] = await Promise.all([
+        supabase
+          .from("cleaning_tasks")
+          .select("*, properties(title, location)")
+          .eq("cleaner_id", user!.id)
+          .eq("status", "completed"),
+        supabase
+          .from("cleaner_manual_tasks")
+          .select("*")
+          .eq("cleaner_id", user!.id)
+          .eq("status", "completed"),
+      ]);
 
-      if (data) setTasks(data as CleaningTask[]);
+      setTasks(
+        mergeCleanerTasks(
+          (platform.data ?? []) as PlatformTaskRow[],
+          (manual.data ?? []) as ManualTaskRow[],
+        ).reverse(),
+      );
       setLoading(false);
     }
 
@@ -73,7 +87,7 @@ export default function CleanerEarningsPage() {
         return tasks;
     }
 
-    return tasks.filter((task) => new Date(task.scheduled_at) >= cutoff);
+    return tasks.filter((task) => new Date(task.scheduledAt) >= cutoff);
   }, [tasks, filterPeriod]);
 
   const totalEarnings = filteredTasks.reduce(
@@ -162,7 +176,7 @@ export default function CleanerEarningsPage() {
             : (() => {
                 const earningsByDate = new Map<string, number>();
                 filteredTasks.forEach((task) => {
-                  const date = task.scheduled_at.split("T")[0];
+                  const date = task.scheduledAt.split("T")[0];
                   earningsByDate.set(
                     date,
                     (earningsByDate.get(date) ?? 0) + (task.price ?? 0),
@@ -229,11 +243,11 @@ export default function CleanerEarningsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-[#1E293B]">
-                      {task.properties?.title ?? tShared("cleaningTask")}
+                      {task.title ?? tShared("cleaningTask")}
                     </p>
                     <p className="text-[10px] text-[#94A3B8]">
-                      {formatDateShort(task.scheduled_at)},{" "}
-                      {formatTime(task.scheduled_at)}
+                      {formatDateShort(task.scheduledAt)},{" "}
+                      {formatTime(task.scheduledAt)}
                     </p>
                   </div>
                 </div>

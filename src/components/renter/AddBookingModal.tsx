@@ -7,7 +7,12 @@ import { X, Briefcase, ChevronDown, Trash2, Check } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import PhoneInput from "@/components/forms/PhoneInput";
-import { datesInRange } from "@/lib/utils/availability";
+import {
+  datesInRange,
+  nextOccupiedAfter,
+  previousIsoDate,
+  type OccupiedMap,
+} from "@/lib/utils/availability";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
@@ -79,8 +84,9 @@ interface AddBookingModalProps {
   existing?: Tables<"manual_bookings"> | null; // edit prefill
   viewBooking?: ViewBooking | null; // view (platform) data
   /** Nights already taken (booked/blocked) for this property, excluding the
-   *  booking being edited — used for instant client-side overlap feedback. */
-  occupiedNights?: Set<string>;
+   *  booking being edited. Drives the pickers' disabled days as well as the
+   *  inline overlap check; the server RPC remains the hard guarantee. */
+  occupied?: OccupiedMap;
 }
 
 export default function AddBookingModal({
@@ -94,7 +100,7 @@ export default function AddBookingModal({
   initialCheckOut = "",
   existing = null,
   viewBooking = null,
-  occupiedNights,
+  occupied,
 }: AddBookingModalProps) {
   const t = useTranslations("RenterDashboard.modals.addBooking");
   const tShared = useTranslations("DashboardShared");
@@ -172,11 +178,20 @@ export default function AddBookingModal({
   const rangeError = useMemo<string | null>(() => {
     if (mode === "view" || !checkIn || !checkOut) return null;
     if (checkOut < checkIn) return t("invalidDates");
-    if (!occupiedNights || occupiedNights.size === 0) return null;
-    return datesInRange(checkIn, checkOut).some((d) => occupiedNights.has(d))
+    if (!occupied || occupied.size === 0) return null;
+    return datesInRange(checkIn, checkOut).some((d) => occupied.has(d))
       ? t("datesUnavailable")
       : null;
-  }, [mode, checkIn, checkOut, occupiedNights, t]);
+  }, [mode, checkIn, checkOut, occupied, t]);
+
+  // Cap check-out at the night before the next occupied day, so a range can
+  // never span an occupied block while both of its endpoints look free — the
+  // RPC rejects the whole span, not just the endpoints.
+  const checkOutMax = useMemo<string | undefined>(() => {
+    if (mode === "view" || !checkIn) return undefined;
+    const next = nextOccupiedAfter(occupied, checkIn);
+    return next ? previousIsoDate(next) : undefined;
+  }, [mode, checkIn, occupied]);
 
   const phoneInvalid = Boolean(guestPhone) && !isValidGePhone(guestPhone);
 
@@ -283,9 +298,16 @@ export default function AddBookingModal({
                     <Field label={tShared("checkIn")}>
                       <DateField
                         value={checkIn}
-                        onChange={setCheckIn}
+                        onChange={(v) => {
+                          setCheckIn(v);
+                          // A check-out left beyond the new check-in's next
+                          // occupied night would be unreachable in its own
+                          // picker; clear it rather than strand an invalid value.
+                          if (checkOut && checkOut < v) setCheckOut("");
+                        }}
                         placeholder={t("datePlaceholder")}
                         className="h-[42px]"
+                        occupied={occupied}
                       />
                     </Field>
                     <Field label={tShared("checkOut")}>
@@ -294,6 +316,9 @@ export default function AddBookingModal({
                         onChange={setCheckOut}
                         placeholder={t("datePlaceholder")}
                         className="h-[42px]"
+                        min={checkIn || undefined}
+                        max={checkOutMax}
+                        occupied={occupied}
                       />
                     </Field>
                   </div>

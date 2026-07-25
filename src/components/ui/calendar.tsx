@@ -19,6 +19,7 @@ import {
 function Calendar({
   className,
   classNames,
+  modifiersClassNames,
   showOutsideDays = true,
   captionLayout = "label",
   buttonVariant = "ghost",
@@ -121,7 +122,10 @@ function Calendar({
           "rounded-r-full bg-[#EFF6FF]",
           defaultClassNames.range_end,
         ),
-        today: cn("font-bold text-[#1E293B]", defaultClassNames.today),
+        // The visible "today" treatment lives on the day button
+        // (`data-today`), so it can be suppressed when today is also the
+        // selected day without relying on Tailwind class ordering.
+        today: cn(defaultClassNames.today),
         outside: cn(
           "text-[#CBD5E1] opacity-60 aria-selected:text-[#CBD5E1]",
           defaultClassNames.outside,
@@ -129,6 +133,13 @@ function Calendar({
         disabled: cn("text-[#CBD5E1]", defaultClassNames.disabled),
         hidden: cn("invisible", defaultClassNames.hidden),
         ...classNames,
+      }}
+      // Fills for the `booked` / `blocked` modifiers DateField sets. On the cell
+      // rather than the day button, so `disabled:opacity-50` can't wash them out.
+      modifiersClassNames={{
+        booked: "rounded-full bg-[#FEE2E2]",
+        blocked: "rounded-full bg-[#FEF3C7]",
+        ...modifiersClassNames,
       }}
       components={{
         Root: ({ className, rootRef, ...props }) => {
@@ -214,8 +225,22 @@ function CalendarDayButton({
       data-range-start={modifiers.range_start}
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
+      // Selection already paints the cell, so only mark today when it isn't
+      // selected. Deciding this here (rather than with an override class) keeps
+      // the two states mutually exclusive — Tailwind precedence is stylesheet
+      // order, not class-string order.
+      data-today={modifiers.today && !modifiers.selected ? true : undefined}
+      // Set by DateField's `occupied` map: nights that cannot be booked.
+      data-booked={modifiers.booked ? true : undefined}
+      data-blocked={modifiers.blocked ? true : undefined}
       className={cn(
-        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 text-[13px] font-medium leading-[20px] text-[#1E293B] hover:bg-[#F1F5F9] hover:rounded-full group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-full data-[range-end=true]:bg-[#2563EB] data-[range-end=true]:text-white data-[range-end=true]:hover:bg-[#2563EB] data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#1E293B] data-[range-start=true]:rounded-full data-[range-start=true]:bg-[#2563EB] data-[range-start=true]:text-white data-[range-start=true]:hover:bg-[#2563EB] data-[selected-single=true]:rounded-full data-[selected-single=true]:bg-[#2563EB] data-[selected-single=true]:text-white data-[selected-single=true]:hover:bg-[#2563EB] dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
+        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 text-[13px] font-medium leading-[20px] text-[#1E293B] hover:bg-[#F1F5F9] hover:rounded-full group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-full data-[range-end=true]:bg-[#2563EB] data-[range-end=true]:text-white data-[range-end=true]:hover:bg-[#2563EB] data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#1E293B] data-[range-start=true]:rounded-full data-[range-start=true]:bg-[#2563EB] data-[range-start=true]:text-white data-[range-start=true]:hover:bg-[#2563EB] data-[selected-single=true]:rounded-full data-[selected-single=true]:bg-[#2563EB] data-[selected-single=true]:text-white data-[selected-single=true]:hover:bg-[#2563EB] data-[today=true]:rounded-full data-[today=true]:font-bold data-[today=true]:text-[#2563EB] data-[today=true]:ring-1 data-[today=true]:ring-inset data-[today=true]:ring-[#2563EB] dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
+        // Unavailable nights (DateField's `occupied` map): the number only.
+        // The fill lives on the day CELL via modifiersClassNames below — an
+        // unavailable day is also `disabled`, and Button's `disabled:opacity-50`
+        // would wash a button-level fill out to near-white.
+        "data-[booked=true]:font-semibold data-[booked=true]:text-[#B91C1C] data-[booked=true]:line-through",
+        "data-[blocked=true]:font-semibold data-[blocked=true]:text-[#D97706]",
         defaultClassNames.day,
         className,
       )}

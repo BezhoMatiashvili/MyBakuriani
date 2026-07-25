@@ -10,10 +10,11 @@ run outside Next.js.
   `company-subscription`.
 - Discovery: `search`, `smart-match`.
 - Media/admin: `upload-photos`, `verify-listing`, `admin-stats`.
-- Scheduled/SMS: `sms-dispatch`, `sms-automation-run`, `vip-lifecycle`,
-  `road-condition-refresh` (every 30 min via pg_cron; calls the **Google Routes
-  API** server-side and upserts `public.road_conditions` — shared-secret gated
-  (`ROAD_CONDITION_SECRET`), no client `invoke` caller; deploy `verify_jwt=false`).
+- Scheduled/SMS: `sms-dispatch`, `sms-automation-run`, `vip-lifecycle` (pg_cron via
+  `net.http_post`, shared-secret gated, no client `invoke` caller; deploy
+  `verify_jwt=false`). `road-condition-refresh` was retired on 2026-07-25 — the
+  landing road badge now routes on OpenStreetMap inline from
+  `src/lib/road-condition/server.ts`, no edge function, table or cron involved.
 - `_shared/guards.ts` — `requireUser` (Bearer auth), `createServiceClient`,
   `buildCorsHeaders` (origin allow-list via `ALLOWED_ORIGINS` + hardcoded
   `*-bezhomatiashvilis-projects.vercel.app` suffix for Vercel deploy URLs),

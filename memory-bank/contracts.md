@@ -79,8 +79,23 @@ Participating symbols:
 (see `CLAUDE.md`). **The committed file is currently STALE vs. the live schema and
 a full regen breaks the build**, so recent schema work hand-edits only the lines
 it changed (the `property_type` enum for **C13**, `placement` on ads +
-landing_banners for **C12**). Hand-editing is the deliberate exception, not the
-rule — keep the edit to the affected lines so a future regen is a clean diff.
+landing_banners for **C12**, the whole `cleaner_manual_tasks` table block for
+**C17**, and for **C18** the marketing/consent fan-out: `marketing_consent` +
+`marketing_consent_at` on `bookings` AND `manual_bookings`,
+`profiles.marketing_opt_out`, `properties.check_in_time`,
+`sms_automation_rules.win_back_discount_{value,period}`,
+`sms_outbound.{source_manual_booking_id,charged_at}` + `recipient_id` relaxed to
+nullable, the five `sms_*` RPC signatures, and `p_marketing_consent` added to the
+three manual-booking RPCs). The same pass **removed** the `road_conditions` block,
+which had been a type lie since `20260725160000` dropped the table. Hand-editing
+is the deliberate exception, not the rule — keep the edit to the affected lines so
+a future regen is a clean diff.
+
+**Verified 2026-07-25:** every hand-edit above was probed against the live schema
+(column types, nullability, defaults, and `pg_get_functiondef` for each RPC) and
+matches. The file is truthful for everything C17/C18 touch; it remains stale for
+six unrelated tables a full regen would re-add — which is why the regen still
+breaks the build.
 
 **Never run `supabase db push`.** This project's migrations are applied through MCP
 `apply_migration`, which assigns its **own** ledger version at apply time, so the
@@ -120,12 +135,12 @@ Participating symbols (name → caller):
 **Also check:** renaming a function directory changes the deploy slug; the
 `invoke("…")` string must change in lock-step. Edge functions in turn call DB RPCs
 (subject to C3). `_shared/guards.ts` is **bundled at deploy time** — editing it
-does nothing until every function that imports it is redeployed. All 17 local
+does nothing until every function that imports it is redeployed. All 16 local
 functions import it (only `search` also imports `_shared/sanitize.ts`), and every one
 of them now runs the `9828eba` bundle: the 8 that still carried the pre-`9828eba`
 copy (`search`, `vip-lifecycle`, `booking-create`, `booking-manage`,
-`booking-finalize`, `sms-dispatch`, `sms-automation-run`, `road-condition-refresh`)
-were redeployed and byte-verified on 2026-07-24.
+`booking-finalize`, `sms-dispatch`, `sms-automation-run`, and the since-retired
+`road-condition-refresh`) were redeployed and byte-verified on 2026-07-24.
 
 **Redeploy recipe (MCP `deploy_edge_function`):** files
 `[{name:"source/index.ts"},{name:"_shared/guards.ts"}]` with
@@ -137,20 +152,52 @@ they are per-deploy artifacts and re-sending them nests one layer deeper each ti
 value is the truth. `supabase/config.toml` was reconciled to match prod on 2026-07-25
 (it had declared `false` for 8 functions live with `true`, and omitted two entirely,
 which the CLI defaults to `true` — that direction is the dangerous one: it 401s the
-pg_cron caller of `booking-finalize` / `road-condition-refresh` and the job stops
+pg_cron caller of `booking-finalize` and the job stops
 silently). Keep the two in lock-step: changing a `verify_jwt` in `config.toml` without
 redeploying that function, or redeploying with a different flag than the file declares,
 re-opens the drift. `ai-respond` and `webhook-facebook` are deployed but have **no
 source in this repo**, so they are deliberately absent from `config.toml`.
 
-Not every function is client-invoked: the scheduled jobs (`vip-lifecycle`,
-`sms-dispatch`, `booking-finalize`, `road-condition-refresh`) have **no `invoke`
-caller** — they are triggered by pg_cron via `net.http_post` (see the
-`supabase/migrations/*schedule*.sql` files) and gated by a per-function **shared
-secret** (their own `requireSharedSecret` comparing the Bearer to
-`<NAME>_SECRET`), deployed `verify_jwt=false`. `road-condition-refresh` also calls
-the external `routes.googleapis.com` **server-side** (Deno), so it needs no CSP /
-`remotePatterns` entry (**C6** governs only browser + Next-image-optimizer hosts).
+Not every function is client-invoked: the would-be scheduled jobs
+(`vip-lifecycle`, `sms-dispatch`, `sms-automation-run`, `booking-finalize`) have
+**no `invoke` caller** — they are _designed_ to be driven by pg_cron via
+`net.http_post` (see the `supabase/migrations/*schedule*.sql` files) and are gated
+by a per-function **shared secret** (their own `requireSharedSecret` comparing the
+Bearer to `<NAME>_SECRET`), deployed `verify_jwt=false`.
+
+**None of them is actually scheduled, and none ever has been.** Verified live
+2026-07-25: `select count(*) from cron.job` = **1**, and the single job is
+`rate-limit-gc` (`23 * * * *`). `cron.job_run_details` holds 1676 rows across
+jobids 1–7 and not one of them is a `vip-lifecycle-daily`,
+`booking-finalize-daily`, `sms-dispatch-frequent` or `sms-automation-*` run. So
+VIP/discount expiry (**C10**'s `clearExpiredDiscounts`) and booking finalization
+have **never executed in production** — their scheduling migrations hit the
+`IF EXISTS (pg_cron) AND EXISTS (pg_net)` guard's ELSE branch when applied and
+swallowed it. This paragraph previously asserted the opposite; the `verify_jwt`
+drift risk described above is real but downstream of a caller that does not exist.
+Do not "fix" a silent scheduled job by redeploying the function — check `cron.job`
+first.
+
+**`sms-automation-run` (v8) and `sms-dispatch` (v7) were redeployed 2026-07-25**
+and byte-verified equal to their working-tree sources (sha256 `f7a0f311…` and
+`76e9ec0e…`), both carrying the post-`d162bd9` fail-open `guards.ts`
+(`0169b829…`), both `verify_jwt=false` in lock-step with `config.toml`. Their
+rewrite needs a third secret beyond the shared one: **`SITE_URL`** — `NEXT_PUBLIC_*`
+is invisible inside Deno, and `sms-automation-run` refuses to run rather than emit
+a relative link into an SMS.
+
+`road-condition-refresh` was **retired on 2026-07-25**
+(`20260725160000_retire_road_conditions.sql` dropped `public.road_conditions`,
+unscheduled the `road-condition-30min` cron job, and the function directory +
+`config.toml` stanza were deleted; the deployed function is deleted separately in the
+dashboard, since MCP has no `delete_edge_function`). It had never produced a live
+value — `app.road_condition_url` was never set, so every run posted to a NULL url.
+The landing road badge now fetches `routing.openstreetmap.de` (FOSSGIS OSRM, keyless)
+**server-side from Node** in `src/lib/road-condition/server.ts`, so it needs no CSP
+`connect-src` / `remotePatterns` entry (**C6** governs only browser + Next-image-optimizer
+hosts) — moving that call into the browser or adding client polling **would** require one.
+FOSSGIS's terms also require the ODbL credit + fix-the-map link rendered in
+`src/components/layout/Footer.tsx`; removing those puts us out of compliance.
 
 **Breaks silently when:** a body field is renamed on one side only → runtime 400 /
 missing field, no compile error.
@@ -229,9 +276,41 @@ Participating symbols:
 **Also check:** RLS on the subscribed table must permit `SELECT` for the
 subscribing user, or rows are filtered out even when the publication is correct.
 
+**A filtered subscription cannot see DELETEs.** Every table here has
+`REPLICA IDENTITY DEFAULT` (verified live: `pg_class.relreplident = 'd'` for
+`calendar_blocks`, `price_overrides`, `manual_bookings`), so a DELETE's WAL
+`old_record` carries **only the primary key**. A subscription filtered on any other
+column — e.g. `filter: property_id=eq.<id>` in
+`src/app/[locale]/dashboard/renter/calendar/page.tsx` — therefore matches INSERT and
+UPDATE but **never DELETE**. This is why the renter calendar's two DELETE-based
+actions (bulk "whole month available" and the Unlock button) refreshed nothing while
+the UPSERT-based ones eventually did. **A write path must never rely on realtime as
+its own refresh mechanism** — refetch explicitly after the write and treat realtime
+purely as cross-client convergence (that page now `await fetchBlocks()`es; the price
+handlers always did `await fetchOverrides()`).
+
+That page reads `calendar_blocks` **twice**, and a write must refresh both:
+`fetchBlocks` (visible month only, feeds the grid) and `fetchOccupancy` (a fixed
+−3/+24-month window via `src/lib/utils/availability.ts:occupancyWindow`, deliberately
+month-independent). The second one feeds the `occupied` map that greys out and
+disables booked/blocked nights in the check-in/check-out pickers of
+`AddBookingModal`/`GuestFormModal`. Refresh only the first and the grid updates while
+the pickers keep offering a night that was just taken or freed.
+
+**`REPLICA IDENTITY FULL` is NOT an escape hatch here** — do not reach for it. Realtime
+does not apply RLS to DELETEs (Postgres cannot check a policy against an already-deleted
+row), so to avoid leaking rows the subscriber may not read, Realtime reduces a DELETE's
+`old_record` to the **primary key alone on any RLS-enabled table, even under
+`REPLICA IDENTITY FULL`**. Every table in this contract has RLS enabled, so setting FULL
+would add WAL volume and still never deliver a `property_id`-filtered DELETE. Explicit
+refetch is the only fix. (Dropping the filter and subscribing unfiltered would deliver
+DELETEs — to every subscriber of the table, which is the leak the reduction prevents.)
+
 **Breaks silently when:** a new dashboard subscribes to a table not yet in
 `supabase_realtime` → the channel connects but **no events ever arrive**; nothing
-errors.
+errors. Or a mutation relies on its own realtime event to re-render — a DELETE under
+a non-PK filter never arrives (above), so the UI silently keeps the pre-write state
+and the action reads as a no-op even though the write committed.
 
 ---
 
@@ -603,6 +682,14 @@ registration failure. `progress_note` is publicly rendered but is in none of the
 lists (an intentional unreviewed channel — do not "fix" it without also giving it a
 submit path). The `organization` target has no submitting surface yet.
 
+**`check_in_time`, `marketing_consent` and `marketing_opt_out` are deliberately NOT
+reviewable** either (see **C18**). They are operational, not public-content, fields:
+`properties.check_in_time` is edited from `/dashboard/sms` and never appears in a
+listing form, and the two consent fields are written by the owner attesting consent
+on a manual booking and by the guest opting out. Adding any of them to allow-list A
+would 42501 those writes and route a guest's opt-out through admin approval — which
+is both wrong and, for opt-out, the wrong direction legally.
+
 **Breaks silently when:** a new form field is added to D without A/B/C (that form's every
 save 400s — exactly the `roi_percent_max` bug); or a key is added to A but not C
 (approval drops the value with no error); or a new edit surface writes a reviewable
@@ -745,3 +832,151 @@ only honest clients; or `rateLimit.ts` is imported from a client component
 replaced by making `verifyTurnstile` return `true` when unconfigured; or the
 four optional env vars become required again in `check-production-config.mjs`
 (the production build fails, prod silently keeps serving the previous commit).
+
+---
+
+## C17 — A cleaner's work lives in TWO tables
+
+**Invariant:** every surface that shows a cleaner their work must read **both**
+`public.cleaning_tasks` (platform call-outs, created by a property owner via
+`create_cleaning_task`) **and** `public.cleaner_manual_tasks` (off-platform jobs the
+cleaner typed in themselves). Reading only the first silently under-reports — the
+schedule looks empty and earnings look lower than they are. Same failure shape as
+**C9**: two nullable-ish sources, one user-facing total, no compile error either way.
+
+Participating symbols:
+
+- `supabase/migrations/20260725170000_cleaner_manual_tasks.sql:cleaner_manual_tasks` — the table. RLS is ONE policy, `FOR ALL USING (cleaner_id = (select auth.uid()))`, and that is legitimate **only because a manual job has no counterparty**: the cleaner is its sole author, sole reader and sole subject, so there is no authority to derive server-side. The same policy on `cleaning_tasks` would be a security regression — `20260723000000:317-322` dropped its INSERT/UPDATE policies precisely because a platform job's cleaner and price must NOT come from a browser
+- `src/lib/cleaner/tasks.ts:mergeCleanerTasks` — the only correct way to combine them; `fromPlatformTask` / `fromManualTask` normalize into `CleanerTaskItem`
+- `src/app/[locale]/dashboard/cleaner/schedule/page.tsx` — reads both, merges, renders one timeline
+- `src/app/[locale]/dashboard/cleaner/earnings/page.tsx` — reads both, filtered to `status='completed'`
+- `src/components/cleaner/ManualTaskModal.tsx` — the only writer; create + edit, direct table writes (no RPC)
+
+**`status` starts at `'accepted'`, not `'pending'`.** The cleaner books the job
+themselves so there is nobody to accept it from, and `'accepted'` is inside the set
+the schedule page filters on — a `'pending'` row would be invisible on the very page
+that created it. The CHECK deliberately omits `'pending'`, `'declined'` and
+`'cancelled'` so that trap cannot be reintroduced.
+
+**Three deliberate omissions — do not "fix" without re-reading the migration comment:**
+
+1. **No audit trigger.** `audit_row_change()` snapshots the whole row into
+   `audit_logs.new_values`, which the admin log UI renders. These rows hold an
+   off-platform third party's name and phone; that PII should not become
+   admin-readable because a cleaner kept their own diary.
+2. **Not in the `supabase_realtime` publication (C7).** The row owner is the only
+   writer AND the only reader, so there is no second party to notify. The page
+   refetches after its own writes — which is the rule C7 already states.
+3. **Nothing about `cleaning_tasks` changed.** Its columns, RLS, triggers and RPCs
+   are untouched, so `dashboard_layout_data.cleaning_tasks_count` (cabinet
+   derivation), `get_cleaner_renter_counts` (public "renters served" stat) and the
+   renter "my calls" list are all unaffected. Putting manual jobs in
+   `cleaning_tasks` instead would have corrupted **all three**.
+
+**Also check:** `src/lib/types/database.ts` carries the `cleaner_manual_tasks` block
+(hand-added — **C3**), and the migration ends with `notify pgrst, 'reload schema'`
+because PostgREST caches the table catalogue.
+
+**Breaks silently when:** a new cleaner-facing surface queries only
+`cleaning_tasks` (totals and calendars under-report, nothing errors); or a manual row
+is written with `status='pending'` (invisible on the schedule); or someone "unifies"
+the two tables by relaxing `cleaning_tasks.property_id`/`owner_id` to NULL — that
+re-opens the browser write path the security remediation closed, fires the
+owner-notification triggers back at the cleaner, and leaks manual rows into the renter
+and cabinet-derivation queries listed above.
+
+---
+
+## C18 — Owner SMS automation: templates, links, and the three billing paths
+
+**Invariant:** the automation pipeline is held together by five couplings no call-graph tool can
+see: (1) the message templates and their bracket placeholders exist ONLY in the Deno function's
+inline `TEMPLATES`; (2) the public-listing URL logic and the phone-normalisation logic are
+DUPLICATED into Deno because `src/` cannot be imported there; (3) `sms_outbound` carries THREE
+mutually exclusive billing paths over one table; (4) `automation_kind` is NULL for broadcast and
+contact rows, so every predicate over it must be `IS TRUE` / `IS NOT TRUE`; and (5) the cron GUCs,
+the edge secrets and `config.toml`'s `verify_jwt` must agree in three places at once.
+
+Participating symbols:
+
+- `supabase/functions/sms-automation-run/index.ts:TEMPLATES` — the ONLY live templates. Four
+  entries: the three spec texts plus `win_back_fallback`. Placeholders are the spec's own
+  `[Bracket]` names. The fallback is used when EITHER win-back field is empty after trim, so a
+  half-filled `([Discount_Period])` can never render
+- `src/lib/sms/templates.ts:renderTemplate` — **DEAD**: zero importers, and its `{brace}`
+  placeholders diverge from the live set. Do not edit it, do not sync to it, do not treat it as
+  the source of truth (follow-up `sms-f7` deletes it)
+- `src/lib/utils/listingUrls.ts:propertyViewUrl` — the source of the 3-way sale/hotel/apartment
+  logic duplicated into `supabase/functions/sms-automation-run/index.ts:propertyViewPath`. The
+  sale branch is unreachable while the scans are rental-only but is kept so the two match
+- `src/lib/utils/number.ts:toLocalGePhone` — likewise duplicated into
+  `supabase/functions/sms-automation-run/index.ts:toLocalGePhone`. Do NOT substitute the strict
+  `^(\+995)?5\d{8}$` regex from `trg_ge_phone`: that trigger is never attached to `profiles`, and
+  `profiles.phone` is written verbatim from Supabase auth. The SAME helper normalises both sides
+  of the opt-out comparison AND the manual win-back re-booked-since check — verified live,
+  `manual_bookings.guest_phone` holds at least three shapes, so a raw `.eq()` there silently
+  misses matches
+- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_enqueue_automation` — dedup
+  lives in the DB. Both uniqueness guarantees are PARTIAL indexes, and ON CONFLICT will not infer
+  a partial index as arbiter unless the statement repeats the predicate, which PostgREST's
+  `on_conflict=` cannot supply (42P10). The body BRANCHES per source so each ON CONFLICT names its
+  own partial index; a single OR-ed form cannot name two arbiters
+- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_dispatch_batch` — `IS TRUE` /
+  `IS NOT TRUE`, never a bare `IN`. Per-sender RANKED against `balances.sms_remaining` (LEFT JOIN,
+  so a missing row reads as 0), not a flat `>= 1`
+- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_mark_sent` — charges exactly 1
+  credit, ONLY for automation kinds with `charged_at IS NULL`. **MUST NOT raise on insufficient
+  credit:** the SMS is already delivered by then, and raising would leave the row `approved` for
+  the next run to RE-SEND
+- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_expire_stale_automation` — the
+  per-kind expiry sweep (36h / 7d / 30d from `created_at`). Its ONLY caller is
+  `supabase/functions/sms-dispatch/index.ts`, which calls it FIRST so `sms_dispatch_batch` needs
+  no time predicate of its own
+- `src/app/api/admin/sms/moderate/route.ts:sms_consume_credit` — the approve-time deduction for
+  broadcast and 1:1 contact rows. Those rows keep `charged_at IS NULL`, which is why the
+  `automation_kind` filter in `sms_mark_sent` is an INDEPENDENT second guard, not a duplicate
+- `supabase/migrations/20260611000100_notification_sms_helpers.sql:_enqueue_system_sms` — the
+  free path (`vip_activation` / `vip_expiry` / `subscription`); never charged
+- `supabase/functions/sms-dispatch/index.ts:sendSms` — the single provider integration point.
+  Returns `skipped` unconditionally (D3), so **no credit is ever deducted in production today**
+  and no SMS is delivered. `B1` is the only prompt that may touch it
+- `supabase/migrations/20260726100000_sms_automation_schema.sql:check_in_time` — `properties`
+  gains a `time NOT NULL DEFAULT '14:00'`, edited from `/dashboard/sms` per D7, deliberately kept
+  out of the listing forms so it never enters C14's four-way allow-list
+- `supabase/migrations/20260726120000_manual_booking_consent.sql:create_guest_manual_booking` —
+  its inner call to `create_manual_booking` is NAMED, not positional. A positional 12-arg call
+  plus a defaulted 13th parameter silently records `false` for every booking made from the guests
+  page
+- `src/app/api/sms/automation/route.ts:RULES_COLUMNS` — the rules column list. THREE call sites
+  need it: GET, the PUT's returning `.select()`, and `dashboard/sms/page.tsx`'s own query plus its
+  duplicated `DEFAULT_RULES`
+- `supabase/migrations/20260726130000_schedule_sms_automation.sql:sms_automation_run_cron` — drops
+  the empty stub that made `sms-automation-hourly` "succeed" for months while doing nothing, and
+  schedules BOTH `sms-automation-daily` and `sms-dispatch-frequent`. Refuses to apply unless all
+  four `app.sms_*` GUCs are set
+- `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` — `check_in_time`, `marketing_consent` and
+  `marketing_opt_out` are deliberately ABSENT, so the owner and the guest can write them directly
+  without an admin approving each change (C14 would otherwise 42501 them)
+
+**Also check:** **T1 is pinned to `check_in = today + 1`** because the template hardcodes "ხვალ"
+(tomorrow), and `sms_expire_stale_automation`'s 36-hour `check_in` window depends on that pinning
+— change one and the other MUST change. `check_in_reminder_hours_before` is therefore vestigial for
+the message (follow-up `sms-f5`). **Consent lives on two tables**, and `bookings.marketing_consent`
+has NO WRITER: there is no online booking flow, so it exists for forward compatibility only — do
+not go looking for the writer. **T2 (review request) queues zero rows by construction** and that is
+correct: its link requires a `bookings` row whose `guest_id` matches the logged-in user, which an
+offline guest can never have (follow-up `sms-f10`). Both SMS functions are `verify_jwt = false` in
+`supabase/config.toml` and in the deployment; the pg_cron caller sends a shared Bearer secret, not a
+JWT, so flipping either side to `true` silently 401s the job.
+
+**Breaks silently when:** someone edits `src/lib/sms/templates.ts` believing it is live (it is
+dead and divergent); or a new predicate over `automation_kind` uses a bare `IN` (NULL is not FALSE,
+so broadcast and contact rows are filtered OUT **after** their credit was already taken at
+admin-approve — the entire user-initiated pipeline stops delivering with no error); or a second
+charge path is added without checking `charged_at` (double-billing, since three billing paths share
+one table); or `propertyViewUrl` / `toLocalGePhone` changes in `src/` without the Deno copy
+changing (links point at the wrong route, or opt-out and re-booking checks stop matching); or a GUC
+is set to a different value than its edge secret (the cron job reports SUCCESS while the function
+401s and `sms_outbound` never gains a row — the hardest failure here to notice); or `sendSms` is
+implemented without a provider idempotency key (the at-least-once retry duplicates a delivered
+message — `sms-f2`).

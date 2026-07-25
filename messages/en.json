@@ -1097,7 +1097,9 @@
     "minutes": "Minutes",
     "from": "From",
     "to": "To",
-    "endAfterStart": "End time must be after start time"
+    "endAfterStart": "End time must be after start time",
+    "legendBlocked": "Blocked",
+    "today": "Today"
   },
   "BakurianiMap": {
     "bakuriani": "Bakuriani",
@@ -1882,8 +1884,8 @@
     "quickSelect": "Quick select",
     "allAvailable": "Whole month available",
     "allBlocked": "Whole month blocked",
-    "weekdaysOnly": "Weekdays only",
-    "weekendsOnly": "Sat–Sun only",
+    "weekdaysOnly": "Mon–Thu only",
+    "weekendsOnly": "Fri–Sun only",
     "blockNext7": "Block next 7 days"
   },
   "AvailabilityWizard": {
@@ -3025,7 +3027,24 @@
     },
     "completedBadge": "Completed",
     "markCompleted": "Mark as completed",
-    "start": "Start"
+    "start": "Start",
+    "manualTask": {
+      "addButton": "Add job",
+      "createTitle": "New job",
+      "editTitle": "Edit job",
+      "subtitle": "Off-platform client job",
+      "clientName": "Client name",
+      "clientNamePlaceholder": "e.g. Nino Beridze",
+      "cleaningType": "Cleaning type",
+      "address": "Address",
+      "addressPlaceholder": "Street, building, apartment",
+      "price": "Price",
+      "notesPlaceholder": "Additional information...",
+      "client": "Client",
+      "manualBadge": "Personal",
+      "saveError": "Could not save, please try again",
+      "deleteConfirm": "Delete this job?"
+    }
   },
   "CleanerEarnings": {
     "title": "Earnings",
@@ -3147,7 +3166,10 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
-    }
+    },
+    "bulkApplied": "{count} days updated",
+    "bulkNoChange": "Nothing to change",
+    "saveError": "Couldn't save. Please try again."
   },
   "RenterListings": {
     "title": "My properties",

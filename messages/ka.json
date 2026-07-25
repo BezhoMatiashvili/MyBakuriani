@@ -1097,7 +1097,9 @@
     "minutes": "წუთი",
     "from": "დაწყება",
     "to": "დასრულება",
-    "endAfterStart": "დასრულების დრო უნდა იყოს დაწყებაზე გვიან"
+    "endAfterStart": "დასრულების დრო უნდა იყოს დაწყებაზე გვიან",
+    "legendBlocked": "გათიშული",
+    "today": "დღეს"
   },
   "BakurianiMap": {
     "bakuriani": "ბაკურიანი",
@@ -3025,7 +3027,24 @@
     },
     "completedBadge": "დასრულებულია",
     "markCompleted": "დასრულებულად მონიშვნა",
-    "start": "დაწყება"
+    "start": "დაწყება",
+    "manualTask": {
+      "addButton": "სამუშაოს დამატება",
+      "createTitle": "ახალი სამუშაო",
+      "editTitle": "სამუშაოს რედაქტირება",
+      "subtitle": "პირადი კლიენტის სამუშაო",
+      "clientName": "კლიენტის სახელი",
+      "clientNamePlaceholder": "მაგ. ნინო ბერიძე",
+      "cleaningType": "დასუფთავების ტიპი",
+      "address": "მისამართი",
+      "addressPlaceholder": "ქუჩა, კორპუსი, ბინა",
+      "price": "ფასი",
+      "notesPlaceholder": "დამატებითი ინფორმაცია...",
+      "client": "კლიენტი",
+      "manualBadge": "პირადი",
+      "saveError": "შენახვა ვერ მოხერხდა, სცადეთ თავიდან",
+      "deleteConfirm": "წაშალოთ ეს სამუშაო?"
+    }
   },
   "CleanerEarnings": {
     "title": "შემოსავალი",
@@ -3147,7 +3166,10 @@
       "fri": "პარ",
       "sat": "შაბ",
       "sun": "კვი"
-    }
+    },
+    "bulkApplied": "{count} დღე განახლდა",
+    "bulkNoChange": "შესაცვლელი დღე არ არის",
+    "saveError": "ვერ შეინახა. სცადეთ ხელახლა."
   },
   "RenterListings": {
     "title": "ჩემი ობიექტები",

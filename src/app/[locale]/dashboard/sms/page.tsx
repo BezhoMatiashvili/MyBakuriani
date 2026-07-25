@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { SmsCenterClient } from "./SmsCenterClient";
 import { canUseSmsCenter } from "@/lib/sms/sender-access";
 
+// Mirrors DEFAULTS in src/app/api/sms/automation/route.ts. Both must carry every
+// rules column: this seeds the client's state, and the client PUTs that whole object
+// back, so a column missing here is not just unread — it is un-round-trippable.
 const DEFAULT_RULES = {
   check_in_reminder_enabled: false,
   check_in_reminder_hours_before: 24,
@@ -10,6 +13,8 @@ const DEFAULT_RULES = {
   review_request_hours_after: 24,
   win_back_enabled: false,
   win_back_days_after: 90,
+  win_back_discount_value: null,
+  win_back_discount_period: null,
 };
 
 export default async function SmsCenterPage() {
@@ -41,7 +46,7 @@ export default async function SmsCenterPage() {
     supabase
       .from("sms_automation_rules")
       .select(
-        "check_in_reminder_enabled, check_in_reminder_hours_before, review_request_enabled, review_request_hours_after, win_back_enabled, win_back_days_after",
+        "check_in_reminder_enabled, check_in_reminder_hours_before, review_request_enabled, review_request_hours_after, win_back_enabled, win_back_days_after, win_back_discount_value, win_back_discount_period",
       )
       .eq("user_id", user.id)
       .maybeSingle(),
