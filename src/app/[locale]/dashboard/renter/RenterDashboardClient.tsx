@@ -27,14 +27,6 @@ import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicke
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
-import { useActiveZones } from "@/lib/zones/client";
-import {
-  isCompatible,
-  isStale,
-  resolvePropertyZoneName,
-  type MatchProperty,
-  type MatchRequest,
-} from "@/lib/smart-match/match";
 import type { Tables } from "@/lib/types/database";
 import {
   loadRenterOverview,
@@ -84,7 +76,6 @@ export default function RenterDashboardClient({
   const t = useTranslations("RenterDashboard");
   const tShared = useTranslations("DashboardShared");
   const supabase = createClient();
-  const { zones: activeZones } = useActiveZones();
 
   // Seeded from the server render — content is present on first paint, so there
   // is no loading skeleton on initial load. Realtime updates refresh silently.
@@ -111,62 +102,25 @@ export default function RenterDashboardClient({
   }>({ open: false, tier: "super-vip" });
 
   useEffect(() => {
-    // Counts fresh, zone-compatible requests with the same query, limit and
-    // filters as the smart-match inbox so the two numbers always agree.
-    async function refreshMatches(props: Property[]) {
-      const matchProps: MatchProperty[] = props
-        .filter((p) => p.status === "active")
-        .map((p) => ({
-          id: p.id,
-          zoneName: resolvePropertyZoneName(
-            activeZones,
-            p.location,
-            p.location_lat != null ? Number(p.location_lat) : null,
-            p.location_lng != null ? Number(p.location_lng) : null,
-          ),
-          price: Number(p.price_per_night ?? 0),
-          capacity: p.capacity ?? null,
-        }));
-
-      // No active listings: skip the fetch — isCompatible fail-opens to true
-      // on an empty list (the inbox early-returns the same way).
-      if (matchProps.length === 0) {
-        setMatchesCount(0);
-        return;
-      }
-
-      const { data: reqData } = await supabase
-        .from("smart_match_requests")
-        .select(
-          "zone, budget_min, budget_max, guests_count, check_in, check_out",
-        )
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      const today = new Date().toISOString().slice(0, 10);
-      const count = (reqData ?? []).filter((r) => {
-        const req: MatchRequest = {
-          zone: r.zone,
-          budgetMin: r.budget_min != null ? Number(r.budget_min) : null,
-          budgetMax: r.budget_max != null ? Number(r.budget_max) : null,
-          guestsCount: r.guests_count ?? null,
-          checkIn: r.check_in,
-          checkOut: r.check_out,
-        };
-        return !isStale(req, today) && isCompatible(req, matchProps);
-      }).length;
-      setMatchesCount(count);
+    // Single source of truth for every Smart Match number on the site: open
+    // requests this renter has not answered yet. The sidebar promo card and the
+    // inbox's "შემოსავალი მოთხოვნები" stat resolve to the same value, so the
+    // three can no longer disagree.
+    async function refreshMatches() {
+      const { data, error } = await supabase.rpc(
+        "smart_match_actionable_count",
+      );
+      if (!error) setMatchesCount(data ?? 0);
     }
 
     function applyOverview(data: RenterOverview) {
       setProfile(data.profile);
       setProperties(data.properties);
       setStats(data.stats);
-      void refreshMatches(data.properties);
+      void refreshMatches();
     }
 
-    void refreshMatches(properties);
+    void refreshMatches();
 
     // Live: new bookings (income/receivable) and listing status changes refresh
     // the overview without a reload.
@@ -198,7 +152,7 @@ export default function RenterDashboardClient({
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, activeZones]);
+  }, [userId]);
 
   const firstName = profile?.display_name?.split(" ")[0] ?? t("defaultName");
 

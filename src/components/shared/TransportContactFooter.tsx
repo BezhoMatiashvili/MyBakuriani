@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 
@@ -18,7 +17,6 @@ interface Props {
 export function TransportContactFooter({ phone, serviceId }: Props) {
   const t = useTranslations("TransportDetail");
   const tCard = useTranslations("ServiceCard");
-  const router = useRouter();
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E2E8F0] bg-white/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-sm">
@@ -37,7 +35,6 @@ export function TransportContactFooter({ phone, serviceId }: Props) {
             phone={phone}
             className="sm:px-6 sm:text-[15px]"
             label={tCard("call")}
-            onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={serviceId}
           />
         </div>

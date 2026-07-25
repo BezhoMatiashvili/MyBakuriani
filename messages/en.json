@@ -458,6 +458,9 @@
     "verifiedOwner": "Verified owner",
     "hostStats": "Host for 3 years • Response: 1hr"
   },
+  "ContactReveal": {
+    "failed": "Couldn’t reveal the number — try again"
+  },
   "Landing": {
     "trustedGuide": "The Most Trusted Guide",
     "inBakuriani": "in Bakuriani",
@@ -1011,7 +1014,8 @@
     "noListingsFound": "No listings found",
     "tryChangeFilters": "Try changing the filters",
     "bannerValidFrom": "Starts",
-    "bannerValidUntil": "Ends"
+    "bannerValidUntil": "Ends",
+    "bannerExpand": "Open video"
   },
   "StatusCards": {
     "weather": "Weather",

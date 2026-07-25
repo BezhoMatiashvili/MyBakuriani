@@ -810,7 +810,6 @@ export default function SaleDetailClient({
                     property.profiles?.phone ??
                     null
                   }
-                  onNoPhoneClick={() => router.push("/auth/login")}
                   className="flex-1 rounded-2xl tracking-[0.375px]"
                   layout="card"
                   size="lg"

@@ -56,7 +56,6 @@ interface BookingSidebarProps {
   propertyId?: string | null;
   selectedRange: DateRange;
   onRangeChange?: (range: DateRange) => void;
-  onBook: () => void;
   rating?: number | null;
   calendarDates?: BlockedDate[];
   maxGuests?: number;
@@ -199,7 +198,6 @@ export function BookingSidebar({
   propertyId,
   selectedRange,
   onRangeChange,
-  onBook,
   rating,
   calendarDates = [],
   maxGuests = 10,
@@ -434,7 +432,6 @@ export function BookingSidebar({
             phone={ownerPhone}
             className="flex-1 shadow-[0px_8px_20px_rgba(34,197,94,0.25)]"
             label={t("callOwner")}
-            onNoPhoneClick={onBook}
             propertyId={propertyId}
             alwaysShowLabel
           />

@@ -116,16 +116,6 @@ export default function RenterSmartMatchPage() {
     if (!user) return;
 
     async function fetchData() {
-      // Opening Smart Match clears the sidebar "new requests" badge: mark this
-      // renter's unread request notifications as read. DashboardShell recomputes
-      // the badge from this via realtime.
-      void supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", user!.id)
-        .eq("type", "smart_match_request")
-        .eq("is_read", false);
-
       setLoadError(false);
       setNoActiveListings(false);
 

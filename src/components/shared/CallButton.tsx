@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, type MouseEventHandler } from "react";
+import { useTranslations } from "next-intl";
 import { Phone } from "lucide-react";
 import { formatPhone, maskPhone } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ interface CallButtonProps {
   phone: string | null | undefined;
   className?: string;
   label: string;
-  onNoPhoneClick?: () => void;
   onClick?: MouseEventHandler<HTMLElement>;
   alwaysShowLabel?: boolean;
   propertyId?: string | null;
@@ -26,7 +26,6 @@ export function CallButton({
   phone,
   className,
   label,
-  onNoPhoneClick,
   onClick,
   alwaysShowLabel = false,
   propertyId,
@@ -34,9 +33,10 @@ export function CallButton({
   layout = "pill",
   size = "default",
 }: CallButtonProps) {
-  const [revealed, setRevealed] = useState(false);
+  const t = useTranslations("ContactReveal");
   const [resolvedPhone, setResolvedPhone] = useState<string | null>(null);
   const [isResolving, setIsResolving] = useState(false);
+  const [revealFailed, setRevealFailed] = useState(false);
   const sizeClass = ({ sm: "h-9 px-3 text-xs", default: "h-12 px-5 text-sm", lg: "h-[55px] px-6 text-[15px]" } as const)[size];
   const layoutClass = layout === "pill" ? "rounded-full" : layout === "card" ? "rounded-xl" : "rounded-lg";
   const classes = cn(
@@ -53,6 +53,7 @@ export function CallButton({
     const id = propertyId ?? serviceId;
     if (!kind || !id || isResolving) return;
     setIsResolving(true);
+    setRevealFailed(false);
     try {
       const storageKey = "mybakuriani-contact-device";
       let deviceId = window.localStorage.getItem(storageKey);
@@ -66,10 +67,19 @@ export function CallButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ device_id: deviceId, turnstile_token: turnstileToken }),
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setRevealFailed(true);
+        return;
+      }
       const result = (await response.json()) as { phone?: string | null };
-      setResolvedPhone(result.phone ?? null);
-      setRevealed(true);
+      const resolved = normalizeE164Phone(result.phone);
+      if (!resolved) {
+        setRevealFailed(true);
+        return;
+      }
+      setResolvedPhone(resolved);
+    } catch {
+      setRevealFailed(true);
     } finally {
       setIsResolving(false);
     }
@@ -77,9 +87,21 @@ export function CallButton({
 
   if (!normalizedPhone) {
     return (
-      <Button variant="contact" size="default" onClick={onNoPhoneClick ?? revealContact} disabled={!onNoPhoneClick && (!propertyId && !serviceId || isResolving)} data-slot="call-button" data-layout={layout} className={cn("gap-2", sizeClass, layoutClass, className)}>
+      <Button
+        variant="contact"
+        size="default"
+        onClick={(event) => {
+          onClick?.(event);
+          if (!event.defaultPrevented) void revealContact();
+        }}
+        disabled={(!propertyId && !serviceId) || isResolving}
+        data-slot="call-button"
+        data-layout={layout}
+        aria-live="polite"
+        className={cn("gap-2", sizeClass, layoutClass, className)}
+      >
         <Phone className="size-4" />
-        {isResolving ? "…" : label}
+        {isResolving ? "…" : revealFailed ? t("failed") : label}
       </Button>
     );
   }
@@ -93,16 +115,17 @@ export function CallButton({
       onClick={(event) => {
         onClick?.(event);
         if (event.defaultPrevented) return;
-        if (!alwaysShowLabel && window.matchMedia("(min-width: 768px)").matches && !revealed) {
-          event.preventDefault();
-          setRevealed(true);
-          return;
-        }
         trackContactClick({ channel: "call", propertyId, serviceId });
       }}
     >
       <Phone className="size-4" />
-      {alwaysShowLabel ? <span>{label}</span> : <><span className="md:hidden">{label}</span><span className="hidden md:inline">{revealed ? formatPhone(normalizedPhone) : maskPhone(normalizedPhone)}</span></>}
+      {resolvedPhone ? (
+        <span>{formatPhone(normalizedPhone)}</span>
+      ) : alwaysShowLabel ? (
+        <span>{label}</span>
+      ) : (
+        <><span className="md:hidden">{label}</span><span className="hidden md:inline">{maskPhone(normalizedPhone)}</span></>
+      )}
     </a>
   );
 }

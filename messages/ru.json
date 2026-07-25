@@ -458,6 +458,9 @@
     "verifiedOwner": "Верифицированный владелец",
     "hostStats": "Хозяин 3 года • Ответ: 1ч"
   },
+  "ContactReveal": {
+    "failed": "Не удалось показать номер — попробуйте снова"
+  },
   "Landing": {
     "trustedGuide": "Самый надёжный гид",
     "inBakuriani": "в Бакуриани",
@@ -1011,7 +1014,8 @@
     "noListingsFound": "Объявления не найдены",
     "tryChangeFilters": "Попробуйте изменить фильтры",
     "bannerValidFrom": "Начало",
-    "bannerValidUntil": "Окончание"
+    "bannerValidUntil": "Окончание",
+    "bannerExpand": "Открыть видео"
   },
   "StatusCards": {
     "weather": "Погода",

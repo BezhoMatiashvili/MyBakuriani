@@ -54,6 +54,7 @@ Define success criteria. Loop until verified.
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
 - **Maps**: Leaflet.js via `react-leaflet` (CartoDB Positron tiles, no API key; OSM+CARTO attribution required)
+- **Weather**: WeatherAPI.com (server-only key; free-tier attribution required — rendered in `Footer`)
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
 - **Deployment**: Vercel + Supabase Cloud
@@ -71,6 +72,26 @@ Premium real estate rental/sales + services marketplace for Bakuriani ski resort
 - Build: `npm run build`
 - Lint: `npm run lint`
 - Generate DB types: `npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/lib/types/database.ts`
+
+### Testing — NEVER use localhost
+
+**All browser/E2E verification runs against the deployed site: https://my-bakuriani.vercel.app/**
+
+- Never test on `localhost` / `127.0.0.1` (`npm run dev` or `npm run start`). This applies to
+  browser automation (Chrome/Playwright MCP), Playwright specs, and manual "does it work?" checks.
+- Why localhost lies here:
+  - `.env.local` lacks `SUPABASE_SERVICE_ROLE_KEY`, so service-role pages hit the error boundary
+    and builds fail — a local failure is not a real failure.
+  - `npm run dev` + the strict CSP breaks hydration, so the page looks broken for reasons that
+    don't exist in prod.
+  - Playwright's `baseURL` silently defaults to prod anyway; a stray local server orphans and
+    corrupts `.next`.
+- Prod = `my-bakuriani.vercel.app`. The `mybakuriani.ge` domain is still parked at the registrar —
+  do not test against it.
+- `npm run build` / `npm run lint` locally is fine and encouraged; it's _serving and browsing_
+  locally that is banned.
+- Deploys are automatic on push to `main`. To verify a change, push (after asking), wait for the
+  Vercel deploy, then test on the URL above.
 
 ### Design Source of Truth
 

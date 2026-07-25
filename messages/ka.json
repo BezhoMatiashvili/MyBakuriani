@@ -458,6 +458,9 @@
     "verifiedOwner": "ვერიფიცირებული მესაკუთრე",
     "hostStats": "მასპინძელია 3 წელი • პასუხობს 1 საათში"
   },
+  "ContactReveal": {
+    "failed": "ნომრის ნახვა ვერ მოხერხდა — სცადეთ თავიდან"
+  },
   "Landing": {
     "trustedGuide": "ყველაზე სანდო გზამკვლევი",
     "inBakuriani": "ბაკურიანში",
@@ -1011,7 +1014,8 @@
     "noListingsFound": "განცხადებები ვერ მოიძებნა",
     "tryChangeFilters": "სცადეთ ფილტრების შეცვლა",
     "bannerValidFrom": "დაწყება",
-    "bannerValidUntil": "დასრულება"
+    "bannerValidUntil": "დასრულება",
+    "bannerExpand": "ვიდეოს გახსნა"
   },
   "StatusCards": {
     "weather": "ამინდი",

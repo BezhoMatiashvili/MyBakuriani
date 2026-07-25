@@ -147,6 +147,17 @@ export function Footer() {
               {t("termsOfService")}
             </Link>
           </div>
+          {/* Required by WeatherAPI's free-tier terms: free API users must
+              credit WeatherAPI.com by name. Do not remove without confirming
+              the account is on a paid plan. */}
+          <a
+            href="https://www.weatherapi.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="normal-case transition-colors hover:text-white"
+          >
+            Powered by WeatherAPI.com
+          </a>
         </div>
       </div>
     </footer>

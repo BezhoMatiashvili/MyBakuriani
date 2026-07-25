@@ -14,7 +14,7 @@ interface SwitcherItem {
   href: string;
 }
 
-const ALL_ITEMS: SwitcherItem[] = [
+export const CABINET_SWITCHER_ITEMS: SwitcherItem[] = [
   { key: "renter", labelKey: "rentalsRent", href: "/dashboard/renter" },
   { key: "seller", labelKey: "rentalsSale", href: "/dashboard/seller" },
   { key: "employment", labelKey: "employment", href: "/dashboard/employment" },
@@ -48,8 +48,8 @@ export function CabinetSwitcher({
 }: CabinetSwitcherProps) {
   const t = useTranslations("DashboardSidebar");
   const items = availableKeys
-    ? ALL_ITEMS.filter((item) => availableKeys.includes(item.key))
-    : ALL_ITEMS;
+    ? CABINET_SWITCHER_ITEMS.filter((item) => availableKeys.includes(item.key))
+    : CABINET_SWITCHER_ITEMS;
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 

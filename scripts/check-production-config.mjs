@@ -32,6 +32,13 @@ function readAllowedOrigins(raw) {
   };
 }
 
+const REQUIRED_PUBLIC_CONTACT_ENV = [
+  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+  "TURNSTILE_SECRET_KEY",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+];
+
 /**
  * Validate variables required for cookie-authenticated mutations on Vercel
  * Production. Kept dependency-free so this can run before `next build`.
@@ -52,6 +59,12 @@ export function validateProductionConfig(env = process.env) {
     errors.push(
       "ALLOWED_ORIGINS must include the exact NEXT_PUBLIC_SITE_URL origin.",
     );
+  }
+
+  for (const name of REQUIRED_PUBLIC_CONTACT_ENV) {
+    if (!env[name]?.trim()) {
+      errors.push(`${name} must be set for public contact reveals.`);
+    }
   }
 
   return errors;

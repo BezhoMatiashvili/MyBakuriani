@@ -3117,6 +3117,7 @@ export type Database = {
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      smart_match_actionable_count: { Args: never; Returns: number };
       sms_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["sms_broadcast_audience"];

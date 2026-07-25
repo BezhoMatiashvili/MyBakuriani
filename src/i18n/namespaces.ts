@@ -21,6 +21,7 @@ export const PUBLIC_NAMESPACES = [
   "BulkActionBar",
   "Calendar",
   "Checkout",
+  "ContactReveal",
   "CreateEmployment",
   "CreateEntertainment",
   "CreateFood",

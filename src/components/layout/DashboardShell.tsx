@@ -212,6 +212,10 @@ export function DashboardShell({
   const [verificationCount, setVerificationCount] = useState(0);
   const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
   const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const smartMatchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Smart Match only exists for someone who owns an active rental listing, so
+  // everyone else skips the RPC and the offers subscription entirely.
+  const hasRenterCabinet = availableCabinets.includes("renter");
 
   async function handleCleanerAvailableChange(v: boolean) {
     setCleanerAvailable(v);
@@ -227,10 +231,7 @@ export function DashboardShell({
   useEffect(() => {
     const supabase = createClient();
 
-    // Authoritative, debounced recount of the user's unread notifications. This
-    // is the source of truth for both the sidebar badge and the Smart Match
-    // badge so neither can drift (e.g. show N after the inbox has been opened
-    // and cleared).
+    // Authoritative, debounced recount of the user's unread notifications.
     const recountUnread = () => {
       if (recountTimer.current) clearTimeout(recountTimer.current);
       recountTimer.current = setTimeout(() => {
@@ -242,14 +243,21 @@ export function DashboardShell({
           .then((res: { count: number | null; error: unknown }) => {
             if (!res.error) setNotificationCount(res.count ?? 0);
           });
+      }, 400);
+    };
+
+    // The Smart Match badge is NOT notification-derived: it re-reads the same
+    // definition the inbox renders (open requests this renter hasn't answered),
+    // which is the only way it can go down when an offer is sent or a request
+    // expires — neither of which can be expressed as a notification read-flag.
+    const recountSmartMatch = () => {
+      if (!hasRenterCabinet) return;
+      if (smartMatchTimer.current) clearTimeout(smartMatchTimer.current);
+      smartMatchTimer.current = setTimeout(() => {
         supabase
-          .from("notifications")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", userId)
-          .eq("type", "smart_match_request")
-          .eq("is_read", false)
-          .then((res: { count: number | null; error: unknown }) => {
-            if (!res.error) setSmartMatchCount(res.count ?? 0);
+          .rpc("smart_match_actionable_count")
+          .then((res: { data: number | null; error: unknown }) => {
+            if (!res.error) setSmartMatchCount(res.data ?? 0);
           });
       }, 400);
     };
@@ -270,7 +278,11 @@ export function DashboardShell({
             (payload.new as { type?: string } | null)?.type ===
             "smart_match_request"
           ) {
-            setSmartMatchCount((p) => p + 1);
+            // The fan-out trigger emits one of these per owner for every new
+            // request, so it doubles as the "a request arrived" signal — but
+            // recount rather than +1: the request may already be stale, or the
+            // renter may have answered it from another tab.
+            recountSmartMatch();
           }
         },
       )
@@ -283,16 +295,31 @@ export function DashboardShell({
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          // Mark-as-read (or any update) → reconcile both badges with DB truth.
+          // Mark-as-read (or any update) → reconcile the bell with DB truth.
           recountUnread();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "smart_match_offers",
+          filter: `renter_id=eq.${userId}`,
+        },
+        () => {
+          // Answering a request notifies the GUEST, not the renter, so the
+          // badge would otherwise never come down. This is that signal.
+          recountSmartMatch();
         },
       )
       .subscribe();
     return () => {
       if (recountTimer.current) clearTimeout(recountTimer.current);
+      if (smartMatchTimer.current) clearTimeout(smartMatchTimer.current);
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, hasRenterCabinet]);
 
   // Real pending-verifications count for the admin sidebar badge; refetched on
   // navigation. The route caches privately for 30s, so the badge may lag an

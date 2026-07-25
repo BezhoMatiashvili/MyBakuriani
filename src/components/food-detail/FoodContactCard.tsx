@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ExternalLink, MapPin } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
@@ -19,7 +18,6 @@ export function FoodContactCard({
   location,
   serviceId,
 }: Props) {
-  const router = useRouter();
   const t = useTranslations("FoodDetail");
 
   // Google Maps search query, not visible UI — Georgian "ბაკურიანი" matches
@@ -68,7 +66,6 @@ export function FoodContactCard({
           className="w-full rounded-2xl"
           layout="card"
           size="lg"
-          onNoPhoneClick={() => router.push("/auth/login")}
           serviceId={serviceId}
         />
       </div>

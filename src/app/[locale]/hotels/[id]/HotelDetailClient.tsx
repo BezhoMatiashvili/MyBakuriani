@@ -169,10 +169,6 @@ export default function HotelDetailClient({
     setSelectedRange(range);
   };
 
-  const handleBook = () => {
-    router.push("/auth/login");
-  };
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(88px+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
@@ -449,7 +445,6 @@ export default function HotelDetailClient({
               propertyId={property.id}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}
-              onBook={handleBook}
               rating={avgRating}
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}

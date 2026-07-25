@@ -232,7 +232,7 @@ export function Navbar() {
               >
                 <Wallet className="size-4" />
                 {t("balance")}{" "}
-                {balance !== null ? `₾ ${balance.toFixed(2)}` : "..."}
+                {balance !== null ? `${balance.toFixed(2)} ₾` : "..."}
                 <ChevronRight className="size-4 text-[#94A3B8]" />
               </Button>
             </Link>
@@ -398,6 +398,15 @@ export function Navbar() {
                 </Link>
               ) : user ? (
                 <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-bold leading-5 text-[#334155]">
+                    <span className="flex items-center gap-2">
+                      <Wallet className="size-4 text-[#64748B]" />
+                      {t("balance")}
+                    </span>
+                    <span className={balance !== null ? "" : "text-[#94A3B8]"}>
+                      {balance !== null ? `${balance.toFixed(2)} ₾` : "..."}
+                    </span>
+                  </div>
                   <Link
                     href={dashboardPath}
                     onClick={() => setMobileOpen(false)}

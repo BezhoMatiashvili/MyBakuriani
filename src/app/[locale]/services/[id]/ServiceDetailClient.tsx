@@ -284,7 +284,6 @@ export default function ServiceDetailClient({
             className="flex-1 px-8 sm:flex-none"
             label={tCard("call")}
             alwaysShowLabel
-            onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={service.id}
           />
         </div>

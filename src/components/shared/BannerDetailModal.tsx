@@ -4,7 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import Modal from "@/components/shared/Modal";
-import { getTonePalette, type BannerCreative } from "@/lib/banner-creative";
+import {
+  getTonePalette,
+  sponsoredLabel,
+  type BannerCreative,
+} from "@/lib/banner-creative";
 
 interface BannerDetailModalProps {
   creative: BannerCreative | null;
@@ -38,6 +42,18 @@ export default function BannerDetailModal({
   return (
     <Modal isOpen onClose={onClose} title={creative.title} size="lg">
       <div className="space-y-4">
+        {/* Reachable for ads since the media creatives grew an expand button —
+            the advertising disclosure is not optional on any ad surface. */}
+        {creative.sponsored ? (
+          <span
+            data-sponsored="true"
+            className="inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] text-white/95"
+            style={{ backgroundColor: tone.badgeBg }}
+          >
+            {sponsoredLabel(locale)}
+          </span>
+        ) : null}
+
         {creative.videoUrl ? (
           <video
             src={creative.videoUrl}
@@ -66,7 +82,9 @@ export default function BannerDetailModal({
           </p>
         ) : null}
 
-        {creative.startAt || creative.endAt ? (
+        {/* Editorial only: on an ad these dates are the campaign flight window,
+            which is advertiser data and not public. */}
+        {!creative.sponsored && (creative.startAt || creative.endAt) ? (
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] font-medium text-[#64748B]">
             {creative.startAt ? (
               <span>

@@ -275,7 +275,6 @@ export default function EntertainmentDetailClient({
             phone={service.phone}
             className="flex-1 px-8 sm:flex-none"
             label={t("callOrBook")}
-            onNoPhoneClick={() => router.push("/auth/login")}
             serviceId={service.id}
           />
         </div>

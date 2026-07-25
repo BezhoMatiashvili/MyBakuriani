@@ -8,6 +8,7 @@ import {
   Bell,
   Building,
   CalendarDays,
+  Check,
   Ellipsis,
   ClipboardList,
   FileText,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
+import { CABINET_SWITCHER_ITEMS } from "@/components/layout/CabinetSwitcher";
 import BottomSheet from "@/components/shared/BottomSheet";
 
 interface MobileBottomNavProps {
@@ -378,6 +380,17 @@ export function MobileBottomNav({
   const tSidebar = useTranslations("DashboardSidebar");
   const hasMoreActive = more.some((item) => isActive(item, currentPath));
   const navVisibility = "lg:hidden";
+  // `userRole` is the URL cabinet segment (or the profile role), so
+  // service/services/handyman all mean the "services" cabinet. Deliberately not
+  // roleToCabinetKey — its `default: return "guest"` would put the check on
+  // სტუმარი for admin and any unknown segment.
+  const activeCabinetKey = toServiceSegment(userRole) ?? userRole;
+  // Only offer the switcher where the current cabinet can be marked, which is
+  // exactly the branches whose desktop sidebar mounts a CabinetSwitcher (admin
+  // and the fallback sidebar do not).
+  const showCabinets = CABINET_SWITCHER_ITEMS.some(
+    (item) => item.key === activeCabinetKey,
+  );
 
   const badgeFor = (item: NavItem) =>
     item.badge === "leads"
@@ -449,6 +462,42 @@ export function MobileBottomNav({
         title={t("more")}
       >
         <div id="dashboard-more-sheet" className="space-y-1">
+          {showCabinets && (
+            <>
+              <p className="px-3 pb-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#94A3B8]">
+                {tSidebar("switcher.switchWorkspace")}
+              </p>
+              {CABINET_SWITCHER_ITEMS.map((item) => {
+                const active = item.key === activeCabinetKey;
+                return (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
+                      active
+                        ? "bg-[#EFF6FF] text-[#2563EB]"
+                        : "text-[#334155] hover:bg-[#F8FAFC]",
+                    )}
+                  >
+                    {/* Aligns labels with the icon-bearing rows below. */}
+                    <span className="size-5 shrink-0" aria-hidden />
+                    <span className="flex-1">
+                      {tSidebar(`switcher.${item.labelKey}`)}
+                    </span>
+                    {active && (
+                      <Check
+                        className="size-4 shrink-0 text-[#10B981]"
+                        aria-hidden
+                      />
+                    )}
+                  </Link>
+                );
+              })}
+              <div className="my-3 border-t border-[#E2E8F0]" />
+            </>
+          )}
           {more.map((item) => {
             const Icon = item.icon;
             const badge = badgeFor(item);

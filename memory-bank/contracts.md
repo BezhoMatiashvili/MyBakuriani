@@ -424,6 +424,7 @@ Participating symbols:
 - `src/lib/banner-creative.ts:renderableImageUrl` — intersection of CSP `img-src` and `remotePatterns` (**C6**). Deliberately **not** `safeStorageImageUrl`, which accepts `/object/sign/` URLs that `next/image` rejects. `renderableVideoUrl` is strictly narrower still (no unsplash in `media-src`)
 - `src/lib/banner-creative.ts:isCreativeMediaUrl` — write-boundary guard; rejects a page URL saved as a creative (the bug that broke 3 live ad rows)
 - `src/components/banners/BannerSlotView.tsx:BannerSlotView` — pure renderer, takes creatives as a prop, NEVER fetches
+- `src/components/banners/BannerSlotView.tsx:MediaCreative` — leaderboard/sidebar/in-grid all crop video with `object-cover`, so a video creative gets an **expand button** (sibling of `CreativeShell`, never a child: for a sponsored creative the shell is an `<a>`, and the title overlay is not `pointer-events-none`) that opens `BannerDetailModal`. That makes the modal reachable for `sponsored: true` creatives **for the first time** — it previously only ever saw editorial ones — which is why `BannerDetailModal` now renders the `sponsoredLabel` disclosure and hides the `startAt`/`endAt` row for ads (on an ad those are the campaign flight window, i.e. advertiser data). Expand deliberately does NOT call `reportClick`: the click counter is advertiser-facing. An expanded ad is a dead end by construction — `adRowToCreative` sets `ctaLabel: null`, so the modal has no click-through
 - `src/components/banners/BannerSlot.tsx:BannerSlot` — client wrapper; resolves creatives from the shared store
 - `src/lib/banner-slots-client.ts:loadBannerCreatives` — module singleton: N slots on a page = ONE request, and a client-side navigation = zero
 - `src/lib/banner-slots-server.ts:fetchSlotCreatives` — server read; explicit column lists (`ads` has `views_count`/`created_by` that must not reach anon), ad-side filter is `status='active'` AND in-window
@@ -609,3 +610,58 @@ column directly (42501, raw Postgres text in the UI unless it maps through
 `contentChangeErrorKey`); or a handler calls `submitContentChange` without a catch and
 without telling the user the change is pending — the write silently appears to do
 nothing, because the row it renders from cannot change until approval.
+---
+
+## C15 — Smart Match "actionable" count (one definition, five surfaces)
+
+**Invariant:** there is exactly ONE definition of "open Smart Match requests this
+renter has not answered", and it lives in SQL. Every surface showing a Smart Match
+number either calls it or reproduces it predicate-for-predicate.
+
+Before `20260725120000_smart_match_actionable_count.sql` there were four
+definitions and none agreed: the sidebar promo card read "2 ახალი მოთხოვნა" off
+unread `notifications` while the inbox correctly read 0 incoming / 2 sent for the
+same account, and the renter overview showed a third number.
+
+**Why it cannot be bookkept.** `notifications` has no FK back to
+`smart_match_requests`, so an inserted offer can never mark "its" notification
+read; and a request going stale is _the clock passing_, not a write, so no trigger
+can fire for it. Any stored flag drifts. The count must be computed at read time.
+
+Participating symbols:
+
+- `supabase/migrations/20260725120000_smart_match_actionable_count.sql:smart_match_actionable_count` — the definition. `LANGUAGE sql STABLE`, **SECURITY INVOKER** so RLS bounds it. Mirrors the inbox one-for-one: `status='active'` → `order by created_at desc limit 30` → `check_out is null or >= today (UTC)` → `not exists` an offer by `auth.uid()`. The renter gate is a leading `case when exists (properties … owner_id = auth.uid() and status='active' and is_for_sale=false)` — **not** a WHERE clause: it short-circuits the table for every non-renter, and without it a guest-only caller counts their OWN requests through the "Users see own requests" policy. The offer check must stay an `exists`, never a row count — the unique key is `(request_id, property_id)`, so one renter can legitimately hold N offers on one request
+- `supabase/migrations/20260725120000_smart_match_actionable_count.sql:dashboard_layout_data` — exposes it as the jsonb key `smart_match_actionable`. The old `smart_match_unread` key (unread notification rows) is **gone**; a missing key reads as 0, which renders the promo card's neutral headline, so a non-atomic migrate/deploy degrades safely in either order — never to a wrong non-zero
+- `supabase/migrations/20260725120000_smart_match_actionable_count.sql:idx_smart_match_requests_active_created` — partial index on `(created_at desc) where status='active'`. Required, not an optimisation: the count moved from "once per Smart Match page visit" to "once per dashboard route render, every role" (the layout is `force-dynamic` and awaits the RPC), and `smart_match_requests` had no index on status/created_at at all. If this RPC ever hits the statement timeout, `dashboard/layout.tsx` falls back to `{}`, `deriveAvailableCabinets` receives empty flags, and the whole sidebar collapses — far worse than a stale number
+- `src/app/[locale]/dashboard/layout.tsx:LayoutData` — server seed; `data.smart_match_actionable ?? 0` → `DashboardShell`
+- `src/components/layout/DashboardShell.tsx:recountSmartMatch` — debounced (400 ms) live recount via the RPC, gated on `availableCabinets.includes("renter")`. Fed by TWO realtime bindings: `notifications` INSERT of `type='smart_match_request'` (a request arrived — recount, never `+1`, because it may already be stale or answered in another tab) and **`smart_match_offers` INSERT filtered `renter_id=eq.<uid>`** (the renter answered). The second is load-bearing: answering notifies the GUEST, not the renter, so without it the badge can only ever go up
+- `src/components/layout/RenterSidebar.tsx:smartMatchCount` — the only renderer; `> 0` shows "N ახალი მოთხოვნა", `0` falls back to `SmartMatchCard.guestRequests`. No new i18n key, so **C1** is untouched
+- `src/app/[locale]/dashboard/renter/smart-match/page.tsx:actionableCount` — the TS twin, computed from rows the page already holds. **This is the parity reference the SQL mirrors** — if the two disagree, the SQL is what's wrong
+- `src/app/[locale]/dashboard/renter/RenterDashboardClient.tsx:refreshMatches` — the overview "Smart Match დამთხვევები" stat, now just an RPC call. It used to apply `isCompatible` and NOT subtract answered requests; both were dropped deliberately (the inbox ranks zone mismatches lower, it never hides them, because property zones are often coord-derived guesses)
+- `src/lib/smart-match/match.ts:isStale` — the TS half of the date predicate (`check_out < todayISO`, UTC from `toISOString()`). The SQL says `check_out is null or check_out >= (now() at time zone 'utc')::date`. Change one, change the other. Explicit UTC on both sides, not `current_date`, so a session TimeZone GUC can't desync them
+
+**Three quirks are deliberate parity, not bugs.** (1) `.limit(30)` is applied
+**before** the stale/answered filters on both sides — mirroring it is what keeps
+the numbers equal past 30 open requests; note both are then equally wrong, since
+requests 31+ are neither shown nor counted (a real, separate product gap: the
+inbox needs pagination, and raising the cap on one side alone re-opens the
+mismatch). (2) A `status='cancelled'` offer still counts as answered, because the
+page builds `submittedRequestIds` from every offer row with no status filter.
+(3) The caller's own requests (`guest_id = auth.uid()`) are **not** excluded,
+because the page doesn't exclude them either.
+
+**Also check:** `src/lib/types/database.ts` carries
+`smart_match_actionable_count: { Args: never; Returns: number }` (hand-added, one
+line — **C3**). PostgREST caches the function catalogue, so the migration ends with
+`notify pgrst, 'reload schema'`. `smart_match_offers` is in the `supabase_realtime`
+publication (**C7**), which is what makes the decrement binding deliver.
+
+**Breaks silently when:** the SQL predicate and the page's TS filter drift apart
+(badge and stat card disagree again — exactly the reported bug); or a new Smart
+Match surface counts requests without the
+`not exists (smart_match_offers … renter_id = auth.uid())` clause; or the
+`case when exists (properties …)` gate is "simplified" into the WHERE clause
+(guest-only callers start counting their own requests); or the
+`smart_match_offers` INSERT binding is dropped from `DashboardShell` (the badge
+rises but never falls); or someone re-derives the badge from `notifications`
+again, which cannot express either "answered" or "expired".

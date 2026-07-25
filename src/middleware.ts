@@ -20,7 +20,7 @@ function applySecurityHeaders(response: Response) {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://*.basemaps.cartocdn.com",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com",
       "media-src 'self' https://*.supabase.co",
       "frame-src https://challenges.cloudflare.com",
       "object-src 'none'",

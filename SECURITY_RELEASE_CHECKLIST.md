@@ -19,9 +19,16 @@ below has an owner and evidence recorded in the release ticket.
 - In Supabase Auth enable CAPTCHA (Turnstile), leaked-password protection,
   12-character passwords, generic auth responses, and mandatory TOTP AAL2 for
   administrators. Enforce AAL2 in every admin Edge function before deploying.
-- Set `ALLOWED_ORIGINS` to exact canonical, preview-test, and localhost origins;
-  set `SMS_AUTOMATION_RUN_SECRET` and rotate no historical test key without a
+- In Vercel Production, set `ALLOWED_ORIGINS` to exact canonical, preview-test,
+  and localhost origins (no wildcards, paths, or trailing slashes), along with
+  `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`,
+  `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN`. Copy the same
+  values to Preview when public-contact reveals are tested there. Set
+  `SMS_AUTOMATION_RUN_SECRET` and rotate no historical test key without a
   separately approved incident decision.
+  For this release, the canonical entry is
+  `https://my-bakuriani.vercel.app`; add a preview only as its full deployment
+  origin and use `http://localhost:3000` locally. Do not use a Vercel wildcard.
 - Configure Vercel WAF, Turnstile server verification, and Upstash-backed
   distributed limits. The repository's in-memory limits are not a production
   control.

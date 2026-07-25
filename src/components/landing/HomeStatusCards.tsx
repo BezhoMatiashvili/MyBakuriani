@@ -93,23 +93,6 @@ export default function HomeStatusCards({ cards }: { cards: StatusCard[] }) {
   return (
     <div data-testid="homepage-status-cards">
       <StatusCards cards={displayedCards} className="mt-8 sm:-mb-[42px]" />
-      <p className="mt-3 text-center text-xs font-medium text-[#CBD5E1] sm:mt-[46px]">
-        <a
-          href="https://www.weatherapi.com/"
-          target="_blank"
-          rel="noreferrer"
-          className="underline underline-offset-2 hover:text-white"
-        >
-          Powered by WeatherAPI.com
-        </a>
-      </p>
-      <p className="mx-auto mt-2 max-w-3xl text-center text-xs leading-5 text-[#CBD5E1]">
-        Weather information is provided for general informational purposes only.
-        Forecasts and conditions may not be accurate for your specific location
-        or time; do not use them as the sole basis for safety-critical decisions.
-        Consult official meteorological services and relevant authorities where
-        accuracy is critical.
-      </p>
     </div>
   );
 }

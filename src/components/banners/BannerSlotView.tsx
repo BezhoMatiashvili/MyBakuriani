@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import BannerDetailModal from "@/components/shared/BannerDetailModal";
 import ScrollReveal from "@/components/shared/ScrollReveal";
@@ -368,12 +368,13 @@ function MediaCreative({
   onExpand: (creative: BannerCreative) => void;
   aspectClass: string;
 }) {
+  const t = useTranslations("Shared");
   const tone = getTonePalette(creative.tone);
   const [failed, setFailed] = useState(false);
 
   if (failed) return null;
 
-  return (
+  const shell = (
     <CreativeShell
       creative={creative}
       interactive={interactive}
@@ -411,6 +412,41 @@ function MediaCreative({
         {creative.title}
       </span>
     </CreativeShell>
+  );
+
+  // No video → nothing to expand; the crop only hides content for moving media.
+  if (!creative.videoUrl) return shell;
+
+  // Sibling of the shell, not a child: for a sponsored creative the shell is an
+  // <a>, and a nested button is both invalid nesting and swallowed by the title
+  // overlay (which is not pointer-events-none). Rendered after it, it paints on
+  // top with no z-index games. Inert in preview rather than hidden, like
+  // CreativeCta, so the admin's 390px frame stays truthful.
+  const expandCls =
+    "absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white backdrop-blur-sm";
+
+  return (
+    <div className="relative h-full w-full">
+      {shell}
+      {interactive ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onExpand(creative);
+          }}
+          aria-label={t("bannerExpand")}
+          className={expandCls}
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      ) : (
+        <span aria-hidden className={expandCls}>
+          <Maximize2 className="h-4 w-4" />
+        </span>
+      )}
+    </div>
   );
 }
 

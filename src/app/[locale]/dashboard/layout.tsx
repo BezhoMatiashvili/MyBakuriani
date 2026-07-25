@@ -13,11 +13,11 @@ export const dynamic = "force-dynamic";
 const SMS_PLAN_TOTAL = 100;
 
 // Shape of the dashboard_layout_data() RPC payload (jsonb).
-// smart_match_unread = unread smart_match_request notifications created by
-// the DB fan-out trigger, NOT a global active-request count.
+// smart_match_actionable = open Smart Match requests this renter has NOT answered
+// (smart_match_actionable_count(), the same definition the inbox renders).
 type LayoutData = {
   unread_count?: number;
-  smart_match_unread?: number;
+  smart_match_actionable?: number;
   balance_amount?: number | null;
   sms_remaining?: number | null;
   is_for_sale_flags?: boolean[];
@@ -64,7 +64,7 @@ export default async function DashboardLayout({
   const notificationCount = data.unread_count ?? 0;
   const balance = Number(data.balance_amount ?? 0);
   const smsRemaining = Number(data.sms_remaining ?? SMS_PLAN_TOTAL);
-  const smartMatchCount = data.smart_match_unread ?? 0;
+  const smartMatchCount = data.smart_match_actionable ?? 0;
 
   const availableCabinets = deriveAvailableCabinets({
     role,
