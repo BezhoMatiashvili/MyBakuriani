@@ -51,29 +51,80 @@ export const corsHeaders: Record<string, string> = {
 
 const edgeBuckets = new Map<string, { count: number; resetAt: number }>();
 
-/** Shared Upstash limiter for Edge functions; production fails closed. */
+/**
+ * Shared limiter for Edge functions. The store is Postgres (consume_rate_limit);
+ * Upstash is used instead when both of its env vars are present.
+ *
+ * This MUST NOT fail closed on an unconfigured store, and the Deno half is the
+ * reason that rule needs writing down twice: it previously returned false
+ * whenever DENO_DEPLOYMENT_ID was set and Upstash was absent — which is every
+ * deployed function — so the public /search page 429'd in production from
+ * 9828eba until 2026-07-25. It went unnoticed because the search page reaches
+ * this function by raw fetch rather than functions.invoke, so a "no invoke
+ * caller" grep wrongly read it as dead. Mirrors src/lib/rateLimit.ts (C16).
+ */
 export async function checkRateLimit(
-  req: Request, scope: string, limit: number, windowMs: number,
+  req: Request,
+  scope: string,
+  limit: number,
+  windowMs: number,
 ): Promise<boolean> {
-  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const forwarded =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const key = `${scope}:${forwarded}`;
   const url = Deno.env.get("UPSTASH_REDIS_REST_URL")?.replace(/\/$/, "");
   const token = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
   if (url && token) {
     try {
       const response = await fetch(`${url}/pipeline`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify([["INCR", key], ["PEXPIRE", key, String(windowMs), "NX"]]),
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify([
+          ["INCR", key],
+          ["PEXPIRE", key, String(windowMs), "NX"],
+        ]),
         signal: AbortSignal.timeout(1500),
       });
-      const result = await response.json() as Array<{ result?: unknown }>;
-      return response.ok && Number(result[0]?.result) <= limit;
-    } catch { return false; }
+      if (response.ok) {
+        const result = (await response.json()) as Array<{ result?: unknown }>;
+        const count = Number(result[0]?.result);
+        if (Number.isFinite(count)) return count <= limit;
+      }
+    } catch {
+      /* fall through to Postgres */
+    }
   }
-  if (Deno.env.get("DENO_DEPLOYMENT_ID") || Deno.env.get("ENVIRONMENT") === "production") return false;
+  try {
+    const { data, error } = await createServiceClient().rpc(
+      "consume_rate_limit",
+      {
+        p_key: key,
+        p_limit: limit,
+        p_window_seconds: Math.max(1, Math.ceil(windowMs / 1000)),
+      },
+    );
+    if (!error && typeof data === "boolean") return data;
+  } catch {
+    /* fall through to the local bucket / fail open */
+  }
+  if (
+    Deno.env.get("DENO_DEPLOYMENT_ID") ||
+    Deno.env.get("ENVIRONMENT") === "production"
+  ) {
+    console.warn(
+      `[guards] no shared rate-limit store reachable; allowing "${key}"`,
+    );
+    return true;
+  }
   const now = Date.now();
   const bucket = edgeBuckets.get(key);
-  if (!bucket || bucket.resetAt < now) { edgeBuckets.set(key, { count: 1, resetAt: now + windowMs }); return true; }
+  if (!bucket || bucket.resetAt < now) {
+    edgeBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
   if (bucket.count >= limit) return false;
   bucket.count += 1;
   return true;

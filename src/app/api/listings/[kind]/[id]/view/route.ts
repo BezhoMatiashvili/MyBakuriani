@@ -16,7 +16,13 @@ export async function POST(
   }
   // Count at most one view per trusted client IP/listing/day.  This is a
   // deliberately conservative analytics signal, not a billing primitive.
-  if (!(await checkRateLimit(`listing-view:${getClientIp(req)}:${kind}:${id}`, 1, 86_400_000))) {
+  if (
+    !(await checkRateLimit(
+      `listing-view:${getClientIp(req)}:${kind}:${id}`,
+      1,
+      86_400_000,
+    ))
+  ) {
     return Response.json({ counted: false });
   }
   const db = createServiceClient();
@@ -28,7 +34,12 @@ export async function POST(
     .eq("status", "active")
     .maybeSingle();
   if (!listing) return Response.json({ error: "not_found" }, { status: 404 });
-  const rpc = kind === "property" ? "increment_views" : "increment_service_menu_views";
+  // Services must use increment_service_views, NOT increment_service_menu_views:
+  // the latter writes menu_views_count, which no owner surface renders and which
+  // /api/menu/track already owns (a food visitor opening the menu would count
+  // twice). See 20260725150000_increment_service_views.sql.
+  const rpc =
+    kind === "property" ? "increment_views" : "increment_service_views";
   const args = kind === "property" ? { prop_id: id } : { p_service_id: id };
   const { error } = await db.rpc(rpc, args as never);
   if (error) return Response.json({ counted: false }, { status: 503 });

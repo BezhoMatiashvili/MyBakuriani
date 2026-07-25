@@ -13,23 +13,17 @@ export const runtime = "nodejs";
  * on an ad that is currently active and in-window.
  */
 export async function POST(req: NextRequest) {
-  // NOTE: checkRateLimit returns false when no shared limiter is configured in
-  // production (fail-closed). That default is right for auth-adjacent routes,
-  // but here it would silently pin every counter at zero — which is precisely
-  // the bug this endpoint exists to fix. So the limit is enforced only when a
-  // limiter actually exists, and its absence degrades to "unmetered counter"
-  // rather than "no counter at all".
-  const limiterConfigured = Boolean(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
+  // This used to be wrapped in an "only if a limiter is configured" guard,
+  // because checkRateLimit denied everything when Upstash was absent and would
+  // have pinned every counter at zero — the exact bug this endpoint exists to
+  // fix. The limiter is now Postgres-backed and fails open rather than closed,
+  // so the guard is gone and the limit applies unconditionally.
+  const ok = await checkRateLimit(
+    `banner-track:${getClientIp(req)}`,
+    120,
+    60_000,
   );
-  if (limiterConfigured) {
-    const ok = await checkRateLimit(
-      `banner-track:${getClientIp(req)}`,
-      120,
-      60_000,
-    );
-    if (!ok) return Response.json({ error: "rate_limited" }, { status: 429 });
-  }
+  if (!ok) return Response.json({ error: "rate_limited" }, { status: 429 });
 
   const body = (await req.json().catch(() => null)) as {
     id?: unknown;

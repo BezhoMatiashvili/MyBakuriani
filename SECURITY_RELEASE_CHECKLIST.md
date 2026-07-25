@@ -20,18 +20,27 @@ below has an owner and evidence recorded in the release ticket.
   12-character passwords, generic auth responses, and mandatory TOTP AAL2 for
   administrators. Enforce AAL2 in every admin Edge function before deploying.
 - In Vercel Production, set `ALLOWED_ORIGINS` to exact canonical, preview-test,
-  and localhost origins (no wildcards, paths, or trailing slashes), along with
-  `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`,
-  `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN`. Copy the same
-  values to Preview when public-contact reveals are tested there. Set
+  and localhost origins (no wildcards, paths, or trailing slashes). Set
   `SMS_AUTOMATION_RUN_SECRET` and rotate no historical test key without a
   separately approved incident decision.
   For this release, the canonical entry is
   `https://my-bakuriani.vercel.app`; add a preview only as its full deployment
   origin and use `http://localhost:3000` locally. Do not use a Vercel wildcard.
-- Configure Vercel WAF, Turnstile server verification, and Upstash-backed
-  distributed limits. The repository's in-memory limits are not a production
-  control.
+- Distributed rate limiting is satisfied by the Postgres-backed limiter
+  (`consume_rate_limit`), which is always available — the repository's in-memory
+  limits remain a development-only fallback and are still not a production
+  control. `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are an optional
+  upgrade that moves the shared store to Redis with no code change.
+  **Do not make these four variables required again**: that failed the
+  production build, and the fail-closed handling behind them had already taken
+  every rate-limited route (phone reveal, geocode, photo-upload intents, job
+  applications, view/analytics beacons) offline in production.
+- Turnstile server verification on anonymous contact reveals is enforced only
+  when `TURNSTILE_SECRET_KEY` is present. Setting it (plus
+  `NEXT_PUBLIC_TURNSTILE_SITE_KEY` for the widget) is an outstanding hardening
+  item: until then reveals are IP-rate-limited but unchallenged, so a
+  distributed scraper is only bounded per source address.
+- Configure Vercel WAF.
 - Create a fresh isolated E2E Supabase project and preview deployment. Provide
   only `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`, and
   `TEST_SUPABASE_SERVICE_ROLE_KEY`; the suite rejects the known production ref

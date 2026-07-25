@@ -2852,6 +2852,10 @@ export type Database = {
           weekly_visitors: number;
         }[];
       };
+      consume_rate_limit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
+      };
       create_booking: {
         Args: {
           p_check_in: string;
@@ -3016,6 +3020,10 @@ export type Database = {
         Returns: undefined;
       };
       increment_service_menu_views: {
+        Args: { p_service_id: string };
+        Returns: undefined;
+      };
+      increment_service_views: {
         Args: { p_service_id: string };
         Returns: undefined;
       };

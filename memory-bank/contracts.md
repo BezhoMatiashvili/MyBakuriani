@@ -431,7 +431,7 @@ Participating symbols:
 - `src/app/api/banner-slots/route.ts:GET` — param-free public endpoint, `s-maxage=60`
 - `src/components/admin/BannerLivePreview.tsx:BannerLivePreview` — renders the REAL `BannerSlotView` with `interactive={false}`; imports `BannerSlotView` (pure) and never `BannerSlot` (fetching), so the preview is structurally incapable of reading live data
 - `supabase/migrations/20260724170000_ad_metrics_rpc.sql:increment_ad_metric` — SECURITY DEFINER counter bump; only for an active, in-window ad
-- `src/app/api/banner-slots/track/route.ts:POST` — the beacon. Enforces the rate limit **only when a limiter is configured**, because `checkRateLimit` fails _closed_ and would otherwise pin every counter at zero — the exact bug the endpoint exists to fix
+- `src/app/api/banner-slots/track/route.ts:POST` — the beacon. Rate-limited unconditionally (120/min per IP). It used to enforce the limit **only when Upstash was configured**, because `checkRateLimit` then failed _closed_ and would otherwise have pinned every counter at zero — the exact bug the endpoint exists to fix. That guard was removed once the limiter became Postgres-backed and fail-open (**C16**); restoring fail-closed anywhere would silently re-break this counter
 
 **Two style invariants inside `BannerSlotView`, both load-bearing:**
 
@@ -665,3 +665,83 @@ Match surface counts requests without the
 `smart_match_offers` INSERT binding is dropped from `DashboardShell` (the badge
 rises but never falls); or someone re-derives the badge from `notifications`
 again, which cannot express either "answered" or "expired".
+
+---
+
+## C16 — Rate-limit backend & fail-open contract
+
+**Invariant:** `src/lib/rateLimit.ts:checkRateLimit` is the single limiter for
+every Next.js route, its shared store is the app's own Postgres, and it **fails
+open** when no store can be reached. "Unconfigured" must never mean "deny".
+
+This contract exists because the opposite shipped. `checkRateLimit` was
+Upstash-only and returned `false` whenever `UPSTASH_REDIS_REST_URL` /
+`UPSTASH_REDIS_REST_TOKEN` were absent in production. They were never set in
+Vercel, so from `9828eba` (2026-07-24) until `20260725140000_postgres_rate_limiter.sql`
+**every** rate-limited route was dead in production — verified live: contact
+reveal `429`, `/api/geocode` `429`, the view beacon returning `{counted:false}`.
+Photo-upload intents, job applications and both analytics beacons were on the
+same path. Only `/api/banner-slots/track` escaped, via an explicit
+"skip the limit when unconfigured" guard.
+
+Participating symbols:
+
+- `supabase/migrations/20260725140000_postgres_rate_limiter.sql:consume_rate_limit` — the store. SECURITY DEFINER, `service_role`-only EXECUTE, atomic `INSERT … ON CONFLICT DO UPDATE` mirroring Upstash's `INCR` + `PEXPIRE … NX`: the window is stamped at bucket creation and **not** extended by later hits, so a caller cannot push its own reset forward by hammering. Verified live: 2 allowed then denied at `p_limit = 2`, `reset_at` unchanged across hits, count resets to 1 after rollover, null/zero args rejected
+- `supabase/migrations/20260725140000_postgres_rate_limiter.sql:rate_limit_counters` — RLS enabled with **no policies**, and SELECT/INSERT/UPDATE/DELETE revoked from `PUBLIC`, `anon` and `authenticated`. That closes the browser; it does **not** close `service_role`, which keeps its default grants and is `BYPASSRLS` — so any server-side code holding the service key can read/write the table directly, and the definer function is the convention rather than a hard boundary. Swept nightly by the `rate-limit-gc` pg_cron job (buckets are never read after expiry, but the key space grows per (ip, endpoint, listing))
+- `src/lib/rateLimit.ts:checkRateLimit` — Upstash when both env vars exist, else Postgres, else in-memory (dev) / **allow** (prod, logged). Because it imports `createServiceClient`, this module is **server-only** — importing it from a client component would pull the service-role client into the browser bundle. All 10 importers today are route handlers (`runtime = "nodejs"`) or the one `"use server"` action `src/app/actions/revalidateListing.ts`
+- `supabase/functions/_shared/guards.ts:checkRateLimit` — the Deno twin of the above, same fallback order, same fail-open rule. Calls the same RPC through `createServiceClient()`
+- `src/lib/rateLimit.ts:getClientIp` — trusts `x-forwarded-for`. Now load-bearing: the contact limit is keyed on the IP **alone**, so a host that does not overwrite that header at the edge lets a caller mint a fresh bucket per request. Vercel overwrites it
+- `src/app/api/listings/[kind]/[id]/contact/route.ts` — **two** buckets per call, both keyed on `subject` = `user:<id>` when signed in, else `ip:<addr>`: `listing-contact:<subject>:<kind>:<id>` at 8/h and `listing-contact-all:<subject>` at 30/h. The per-listing bucket alone bounds nothing — with ~49 active listings a scraper stays inside it while taking the whole catalogue — so the cross-listing bucket is the one doing the work. Keying signed-in users on their own id is what stops anonymous traffic from a carrier NAT starving an authenticated user on the same egress. `device_id` is NOT in either key (client-supplied: rotating it minted a fresh budget per request, so the limit bound only honest clients) but is still written to `contact_reveal_events` for audit. This is friction, not prevention: only Turnstile stops a distributed scrape, and its secret is unset
+- `src/lib/turnstile.ts:isTurnstileConfigured` — call-site gate. `verifyTurnstile` must keep returning `false` without a secret; the _caller_ skips it. Making the helper itself return `true` when unconfigured would silently disarm bot protection for every future caller
+- `src/app/api/banner-slots/track/route.ts` — its `limiterConfigured` workaround is **gone**; the limit now applies unconditionally, which is only correct because the limiter fails open
+- `src/lib/types/database.ts:consume_rate_limit` — hand-added RPC signature (**C3**)
+- `scripts/check-production-config.mjs:validateProductionConfig` — must **not** require the Turnstile/Upstash vars. It briefly did, and the Vercel Production build failed on exactly those four names (deploy of `7c915c9`)
+
+**Why fail-open.** Every route behind the limiter enforces its own
+authorization (RLS, ownership checks, service-role RPC constraints); the limit
+is abuse mitigation, not an access control. Making a store round-trip a hard
+dependency of photo upload and job applications converts a transient statement
+timeout into "sellers cannot list" — the same shape of failure this contract
+documents. The unreachable branch `console.warn`s rather than passing silently.
+The accepted cost: an attacker who can induce store errors can bypass the limit.
+
+**Both stores are bounded at 1.5s** (`STORE_TIMEOUT_MS`, and Upstash's
+`AbortSignal.timeout`). Without a bound of its own the Postgres path would
+inherit the service client's 9.5s fetch timeout and `service_role`'s 8s
+`statement_timeout`, i.e. it would burn most of the serverless budget deciding
+whether to allow a request that fail-open was going to allow anyway. Losing the
+race counts as unreachable; the abandoned request may still increment the
+bucket, so a slow call can over-count — the safe direction.
+
+**Known residual risks, accepted rather than fixed:**
+
+- Part of most keys is caller-supplied. `/api/listings/[kind]/[id]/view` spends
+  its token **before** checking the listing exists, so any well-formed UUID mints
+  a row with a 24h `reset_at`. The hourly `rate-limit-gc` bounds the
+  minute-window routes but not that one. This is a property of the key shape,
+  which predates this store (Upstash had the same unbounded key space).
+- `service_role` can write `rate_limit_counters` directly, bypassing the RPC.
+- The contact limits are friction against catalogue harvesting, not prevention.
+
+**The Deno half is a second, separate implementation** —
+`supabase/functions/_shared/guards.ts:checkRateLimit` — and it must be kept in
+lock-step with the TS one. It had the identical fail-closed bug (`return false`
+when `DENO_DEPLOYMENT_ID` is set and Upstash is absent, i.e. on every deployed
+function), which took the **public `/search` page** down in production. That went
+unnoticed because `src/app/[locale]/search/SearchPageClient.tsx` reaches the
+function by **raw `fetch` to `/functions/v1/search`**, not
+`supabase.functions.invoke` — so the usual "does anything `invoke` it?" grep
+(**C4**) wrongly reads `search` as dead code. The only other raw-fetch caller is
+`src/app/[locale]/dashboard/sms/SmsCenterClient.tsx` → `purchase-vip`. Grep for
+`functions/v1/` as well as `invoke(` before concluding an edge function is
+unused. Because `guards.ts` is bundled per function at deploy time, changing it
+requires redeploying **all 17** functions (**C4**), even though only `search`
+calls this limiter.
+
+**Breaks silently when:** a caller re-adds a per-request-controllable component
+(device id, a header, a body field) to a rate-limit key — the limit then binds
+only honest clients; or `rateLimit.ts` is imported from a client component
+(service-role key in the browser bundle); or the Turnstile call-site gate is
+replaced by making `verifyTurnstile` return `true` when unconfigured; or the
+four optional env vars become required again in `check-production-config.mjs`
+(the production build fails, prod silently keeps serving the previous commit).

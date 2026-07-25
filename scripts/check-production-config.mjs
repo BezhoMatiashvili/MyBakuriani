@@ -32,13 +32,6 @@ function readAllowedOrigins(raw) {
   };
 }
 
-const REQUIRED_PUBLIC_CONTACT_ENV = [
-  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
-  "TURNSTILE_SECRET_KEY",
-  "UPSTASH_REDIS_REST_URL",
-  "UPSTASH_REDIS_REST_TOKEN",
-];
-
 /**
  * Validate variables required for cookie-authenticated mutations on Vercel
  * Production. Kept dependency-free so this can run before `next build`.
@@ -50,7 +43,9 @@ export function validateProductionConfig(env = process.env) {
   const canonicalOrigin = env.NEXT_PUBLIC_SITE_URL?.trim();
 
   if (!canonicalOrigin) {
-    errors.push("NEXT_PUBLIC_SITE_URL must be set to the canonical site origin.");
+    errors.push(
+      "NEXT_PUBLIC_SITE_URL must be set to the canonical site origin.",
+    );
   } else if (!isExactOrigin(canonicalOrigin)) {
     errors.push(
       "NEXT_PUBLIC_SITE_URL must be a valid exact origin (for example, https://my-bakuriani.vercel.app).",
@@ -61,12 +56,12 @@ export function validateProductionConfig(env = process.env) {
     );
   }
 
-  for (const name of REQUIRED_PUBLIC_CONTACT_ENV) {
-    if (!env[name]?.trim()) {
-      errors.push(`${name} must be set for public contact reveals.`);
-    }
-  }
-
+  // Turnstile and Upstash are deliberately NOT required. They were, briefly,
+  // and it failed the production build — but the deeper problem was that the
+  // app treated "unconfigured" as "deny", which had already taken every
+  // rate-limited route offline. The limiter is now Postgres-backed and Turnstile
+  // is gated at its call site, so both are genuine opt-in upgrades and must not
+  // become build blockers again.
   return errors;
 }
 
