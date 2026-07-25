@@ -8,6 +8,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
+import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import ServiceCard from "@/components/cards/ServiceCard";
 import {
   FilterPanel,
@@ -449,8 +450,12 @@ export default function SearchPageClient({
             {/* Property-only path (no keyword) */}
             {!loading && !hasKeyword && properties.length > 0 && (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            <BannerSlot placement="listing_top" bare className="col-span-full" />
-            <BannerSlot placement="listing_grid" bare />
+                <BannerSlot
+                  placement="listing_top"
+                  bare
+                  className="col-span-full"
+                />
+                <BannerSlot placement="listing_grid" bare />
 
                 {properties.map((p, i) => (
                   <ScrollReveal key={p.id} delay={i * 0.05}>
@@ -471,6 +476,7 @@ export default function SearchPageClient({
                       discountPercent={p.discount_percent ?? 0}
                       discountExpiresAt={p.discount_expires_at}
                       isForSale={p.is_for_sale ?? false}
+                      paymentOptions={readPaymentOptions(p.house_rules)}
                     />
                   </ScrollReveal>
                 ))}
@@ -681,6 +687,7 @@ function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
             discountPercent={p.discount_percent ?? 0}
             discountExpiresAt={p.discount_expires_at}
             isForSale={p.is_for_sale ?? false}
+            paymentOptions={readPaymentOptions(p.house_rules)}
           />
         </ScrollReveal>
       ))}
@@ -702,6 +709,7 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
             price={s.price ? Number(s.price) : null}
             priceUnit={s.price_unit}
             discountPercent={s.discount_percent ?? 0}
+            discountExpiresAt={s.discount_expires_at}
             isVip={s.is_vip ?? false}
             schedule={s.schedule}
             operatingHours={s.operating_hours}

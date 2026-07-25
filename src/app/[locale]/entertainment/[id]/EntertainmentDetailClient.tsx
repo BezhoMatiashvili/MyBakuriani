@@ -19,6 +19,7 @@ import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { shareListing } from "@/lib/share";
 import { formatPrice } from "@/lib/utils/format";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
@@ -63,6 +64,20 @@ export default function EntertainmentDetailClient({
     return key ? tOpts(`${group}.${key}`) : value;
   };
   const priceUnitPath = priceUnitPathFor(service.price_unit);
+  const discountActive = isDiscountActive(
+    service.discount_percent,
+    service.discount_expires_at,
+  );
+  const displayPrice =
+    service.price != null
+      ? Math.round(
+          applyDiscount(
+            service.price,
+            service.discount_percent,
+            service.discount_expires_at,
+          ),
+        )
+      : null;
   const photos = service.photos ?? [];
   const mainPhoto = photos[0];
 
@@ -257,8 +272,13 @@ export default function EntertainmentDetailClient({
         <div>
           {service.price != null && (
             <div>
+              {discountActive && (
+                <span className="mr-2 text-sm font-bold text-[#94A3B8] line-through">
+                  {formatPrice(service.price)}
+                </span>
+              )}
               <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">
-                {formatPrice(service.price)}
+                {formatPrice(displayPrice!)}
               </span>
               <span className="ml-1 text-sm text-[#94A3B8]">
                 /{" "}
@@ -282,7 +302,7 @@ export default function EntertainmentDetailClient({
 
       {service.price != null && (
         <MobileStickyCTA
-          primary={`${formatPrice(service.price)} / ${priceUnitPath ? tOpts(priceUnitPath) : (service.price_unit ?? t("oneHour"))}`}
+          primary={`${formatPrice(displayPrice!)} / ${priceUnitPath ? tOpts(priceUnitPath) : (service.price_unit ?? t("oneHour"))}`}
           secondary={service.location ?? undefined}
           ctaLabel={tCard("call")}
           onClick={() =>

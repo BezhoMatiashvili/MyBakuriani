@@ -239,8 +239,12 @@ export default function EntertainmentPageClient({ services }: Props) {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <BannerSlot placement="listing_top" bare className="col-span-full" />
-            <BannerSlot placement="listing_grid" bare />
+              <BannerSlot
+                placement="listing_top"
+                bare
+                className="col-span-full"
+              />
+              <BannerSlot placement="listing_grid" bare />
 
               {paginated.map((s, i) => (
                 <ScrollReveal key={s.id} delay={i * 0.05}>
@@ -253,6 +257,7 @@ export default function EntertainmentPageClient({ services }: Props) {
                     price={s.price}
                     priceUnit={s.price_unit}
                     discountPercent={s.discount_percent ?? 0}
+                    discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
                     phone={s.phone}
                   />

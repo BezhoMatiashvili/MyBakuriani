@@ -5,17 +5,14 @@ import { Heart, MapPin, Tag } from "lucide-react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { formatNumber } from "@/lib/utils/format";
+import { formatPrice } from "@/lib/utils/format";
 import { useFavorite } from "@/lib/hooks/useFavorite";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { FALLBACK_ZONES } from "@/lib/zones/types";
 import {
   optionKeyFor,
   type OptionGroup,
 } from "@/lib/constants/listing-options";
-
-function formatUsd(n: number): string {
-  return `$${formatNumber(n)}`;
-}
 
 // Seeded zone names get translated display labels (Zones.<slug>.name);
 // free-text / non-seeded locations pass through raw. Display only — the
@@ -45,6 +42,10 @@ interface InvestmentCardProps {
   roiPercent: number | null;
   constructionStatus: string | null;
   frameType?: string | null;
+  /** house_rules.payment_options codes; read via readPaymentOptions(). */
+  paymentOptions?: string[];
+  discountPercent: number;
+  discountExpiresAt: string | null;
 }
 
 export default function InvestmentCard({
@@ -58,6 +59,9 @@ export default function InvestmentCard({
   roiPercent,
   constructionStatus,
   frameType,
+  paymentOptions,
+  discountPercent,
+  discountExpiresAt,
 }: InvestmentCardProps) {
   const t = useTranslations("InvestmentCard");
   const tZones = useTranslations("Zones");
@@ -93,9 +97,17 @@ export default function InvestmentCard({
     );
   const subtitle = subtitleParts.join(" • ");
 
+  const discountActive = isDiscountActive(discountPercent, discountExpiresAt);
+  const displayPrice =
+    salePrice != null
+      ? applyDiscount(salePrice, discountPercent, discountExpiresAt)
+      : null;
+
+  // Derived from the DISCOUNTED price so the ₾/m² line cannot contradict the
+  // headline above it — same as SalePropertyCard and the sale detail sidebar.
   const pricePerSqm =
-    !isLand && salePrice != null && areaSqm && areaSqm > 0
-      ? Math.round(salePrice / areaSqm)
+    !isLand && displayPrice != null && areaSqm && areaSqm > 0
+      ? Math.round(displayPrice / areaSqm)
       : null;
 
   return (
@@ -123,6 +135,14 @@ export default function InvestmentCard({
             <Tag className="h-3 w-3" />
             {t("forSale")}
           </span>
+
+          {/* Same pill geometry as the sale badge above (no icon => same 30px
+              height), so top-14 stacks flush under it. */}
+          {discountActive && salePrice != null && (
+            <span className="absolute left-4 top-14 inline-flex items-center rounded-full bg-[#F97316] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
+              -{discountPercent}%
+            </span>
+          )}
 
           <button
             type="button"
@@ -167,16 +187,37 @@ export default function InvestmentCard({
             </p>
           )}
 
+          {/* Own row: the subtitle above is a dot-joined truncated line. */}
+          {paymentOptions && paymentOptions.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {paymentOptions.map((code) => (
+                <span
+                  key={code}
+                  className="inline-flex shrink-0 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold leading-[14px] text-[#475569]"
+                >
+                  {tOpts(`paymentOptions.${code}`)}
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="mt-auto flex items-end justify-between gap-3 pt-5">
             <div className="min-w-0">
               {salePrice != null ? (
-                <span className="block whitespace-nowrap text-[24px] font-black leading-[30px] text-[#0F172A]">
-                  {formatUsd(salePrice)}
-                </span>
+                <>
+                  {discountActive && (
+                    <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
+                      {formatPrice(salePrice)}
+                    </span>
+                  )}
+                  <span className="block whitespace-nowrap text-[24px] font-black leading-[30px] text-[#0F172A]">
+                    {formatPrice(displayPrice!)}
+                  </span>
+                </>
               ) : null}
               {pricePerSqm != null && (
                 <span className="mt-0.5 block text-[12px] font-medium text-[#94A3B8]">
-                  {t("pricePerSqm", { price: formatUsd(pricePerSqm) })}
+                  {t("pricePerSqm", { price: formatPrice(pricePerSqm) })}
                 </span>
               )}
             </div>

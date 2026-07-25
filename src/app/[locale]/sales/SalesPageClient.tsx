@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Home } from "lucide-react";
+import { Flame, Home } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
+import { cn } from "@/lib/utils";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import InvestmentCard from "@/components/cards/InvestmentCard";
+import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SalePagination } from "@/components/search/SalePagination";
 import { SalesTopBar } from "@/components/layout/SalesTopBar";
@@ -19,16 +22,34 @@ interface Props {
 export default function SalesPageClient({ properties }: Props) {
   const t = useTranslations("SalesPage");
   const tShared = useTranslations("Shared");
+  const tLanding = useTranslations("Landing");
   const [currentPage, setCurrentPage] = useState(1);
+  const [discountOnly, setDiscountOnly] = useState(false);
   const listingsRef = useRef<HTMLElement>(null);
 
-  const totalPages = Math.max(1, Math.ceil(properties.length / ITEMS_PER_PAGE));
+  const filteredProperties = useMemo(
+    () =>
+      discountOnly
+        ? properties.filter((p) =>
+            isDiscountActive(p.discount_percent, p.discount_expires_at),
+          )
+        : properties,
+    [properties, discountOnly],
+  );
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProperties.length / ITEMS_PER_PAGE),
+  );
 
   const paginatedProperties = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return properties.slice(start, start + ITEMS_PER_PAGE);
-  }, [properties, currentPage]);
+    return filteredProperties.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProperties, currentPage]);
 
+  // Safety net for `properties` itself shrinking (ISR revalidate). The toggle
+  // resets the page in its own handler instead, because this effect only runs
+  // after a commit — from page 3 it would flash the empty state for a frame.
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
   }, [totalPages]);
@@ -44,12 +65,50 @@ export default function SalesPageClient({ properties }: Props) {
 
       <section className="mx-auto w-full max-w-[1160px] px-4 pb-6 pt-10 sm:px-6 lg:px-8">
         <ScrollReveal>
-          <h1 className="text-[32px] font-black leading-[38px] tracking-[-0.5px] text-[#0F172A] sm:text-[40px] sm:leading-[48px]">
-            {t("title")}
-          </h1>
-          <p className="mt-2 text-[14px] leading-[22px] text-[#64748B]">
-            {t("subtitle")}
-          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-[32px] font-black leading-[38px] tracking-[-0.5px] text-[#0F172A] sm:text-[40px] sm:leading-[48px]">
+                {t("title")}
+              </h1>
+              <p className="mt-2 text-[14px] leading-[22px] text-[#64748B]">
+                {t("subtitle")}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDiscountOnly((value) => !value);
+                  setCurrentPage(1);
+                }}
+                aria-pressed={discountOnly}
+                className={cn(
+                  "inline-flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+                  discountOnly
+                    ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+                    : "border border-[#E2E8F0] bg-white text-[#64748B]",
+                )}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Flame className="h-3.5 w-3.5" />
+                  {tLanding("discountsOnly")}
+                </span>
+                <span
+                  className={cn(
+                    "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+                    discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+                      discountOnly ? "right-0.5" : "left-0.5",
+                    )}
+                  />
+                </span>
+              </button>
+            </div>
+          </div>
         </ScrollReveal>
       </section>
 
@@ -66,7 +125,7 @@ export default function SalesPageClient({ properties }: Props) {
               {tShared("noListingsFound")}
             </h3>
             <p className="mt-1 text-[13px] leading-[20px] text-[#64748B]">
-              {t("tryLater")}
+              {discountOnly ? tShared("tryChangeFilters") : t("tryLater")}
             </p>
           </div>
         ) : (
@@ -98,6 +157,9 @@ export default function SalesPageClient({ properties }: Props) {
                     roiPercent={p.roi_percent ? Number(p.roi_percent) : null}
                     constructionStatus={p.construction_status}
                     frameType={amenities[0] ?? null}
+                    paymentOptions={readPaymentOptions(p.house_rules)}
+                    discountPercent={p.discount_percent ?? 0}
+                    discountExpiresAt={p.discount_expires_at}
                   />
                 </ScrollReveal>
               );

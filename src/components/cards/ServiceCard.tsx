@@ -1,18 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  Car,
-  Check,
-  Clock,
-  MapPin,
-  Star,
-  Users,
-} from "lucide-react";
+import { Car, Check, Clock, MapPin, Star, Users } from "lucide-react";
 import Image from "next/image";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import {
   optionKeyFor,
   priceUnitPathFor,
@@ -33,6 +27,7 @@ interface ServiceCardProps {
   price: number | null;
   priceUnit: string | null;
   discountPercent: number;
+  discountExpiresAt: string | null;
   isVip: boolean;
   variant?: "photo" | "avatar" | "overlay";
   schedule?: string | null;
@@ -73,6 +68,7 @@ export default function ServiceCard({
   price,
   priceUnit,
   discountPercent,
+  discountExpiresAt,
   isVip,
   variant = "photo",
   schedule,
@@ -98,6 +94,10 @@ export default function ServiceCard({
   const basePath = categoryRouteMap[category] ?? `/services/${category}`;
   const href = `${basePath}/${id}`;
   const photoUrl = photos[0] ?? "/placeholder-service.jpg";
+
+  // Expiry-aware: a lapsed discount must stop showing its badge and stop
+  // discounting the price, exactly as the property cards already behave.
+  const discountActive = isDiscountActive(discountPercent, discountExpiresAt);
 
   const goToDetail = () => router.push(href);
   const onCardKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -153,7 +153,13 @@ export default function ServiceCard({
                 >
                   {isBusy ? t("statusBusy") : t("statusActive")}
                 </span>
-                <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("addToFavorites")} size="compact" />
+                <FavoriteButton
+                  pressed={isFavorited}
+                  onPressedChange={toggleFavorite}
+                  disabled={favoriteBusy}
+                  ariaLabel={t("addToFavorites")}
+                  size="compact"
+                />
               </div>
               <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
                 <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
@@ -204,7 +210,14 @@ export default function ServiceCard({
             >
               {t("details")}
             </Link>
-            <WhatsAppButton phone={isBusy ? null : phone} serviceId={id} variant="label" size="default" onClick={stop} className="w-full rounded-[12px] px-2" />
+            <WhatsAppButton
+              phone={isBusy ? null : phone}
+              serviceId={id}
+              variant="label"
+              size="default"
+              onClick={stop}
+              className="w-full rounded-[12px] px-2"
+            />
           </div>
         </div>
       </motion.div>
@@ -239,18 +252,40 @@ export default function ServiceCard({
           <div className="relative z-10 flex h-full flex-1 flex-col p-5">
             <div className="flex items-start justify-between gap-2">
               <div className="flex gap-2">
-                {isVip && <ListingBadge variant="vip" className="rounded-md px-2.5 py-1 text-[11px]">VIP {t("partner")}</ListingBadge>}
-                {discountPercent > 0 && (
-                  <ListingBadge variant="discount" className="rounded-md px-2.5 py-1 text-[11px]">
+                {isVip && (
+                  <ListingBadge
+                    variant="vip"
+                    className="rounded-md px-2.5 py-1 text-[11px]"
+                  >
+                    VIP {t("partner")}
+                  </ListingBadge>
+                )}
+                {discountActive && (
+                  <ListingBadge
+                    variant="discount"
+                    className="rounded-md px-2.5 py-1 text-[11px]"
+                  >
                     -{discountPercent}%
                   </ListingBadge>
                 )}
                 {!isVip && discountPercent === 0 && (
-                  <ListingBadge variant="new" className="rounded-md px-2.5 py-1 text-[11px]">{t("statusNew")}</ListingBadge>
+                  <ListingBadge
+                    variant="new"
+                    className="rounded-md px-2.5 py-1 text-[11px]"
+                  >
+                    {t("statusNew")}
+                  </ListingBadge>
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
-                <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("addToFavorites")} size="compact" className="border-0 bg-white/90 backdrop-blur-sm" />
+                <FavoriteButton
+                  pressed={isFavorited}
+                  onPressedChange={toggleFavorite}
+                  disabled={favoriteBusy}
+                  ariaLabel={t("addToFavorites")}
+                  size="compact"
+                  className="border-0 bg-white/90 backdrop-blur-sm"
+                />
                 <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#0F172A]/70 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
                   <Star className="h-3 w-3 fill-[#F97316] text-[#F97316]" />
                   4.9
@@ -274,7 +309,16 @@ export default function ServiceCard({
                 >
                   {t("details")}
                 </Link>
-                <CallButton phone={phone} serviceId={id} label={t("call")} alwaysShowLabel layout="card" size="default" onClick={stop} className="w-full px-2" />
+                <CallButton
+                  phone={phone}
+                  serviceId={id}
+                  label={t("call")}
+                  alwaysShowLabel
+                  layout="card"
+                  size="default"
+                  onClick={stop}
+                  className="w-full px-2"
+                />
               </div>
             </div>
           </div>
@@ -325,13 +369,19 @@ export default function ServiceCard({
                 {t("statusNew")}
               </span>
             )}
-            {discountPercent > 0 && (
+            {discountActive && (
               <ListingBadge variant="discount">
                 -{discountPercent}%
               </ListingBadge>
             )}
           </div>
-          <FavoriteButton pressed={isFavorited} onPressedChange={toggleFavorite} disabled={favoriteBusy} ariaLabel={t("addToFavorites")} className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm" />
+          <FavoriteButton
+            pressed={isFavorited}
+            onPressedChange={toggleFavorite}
+            disabled={favoriteBusy}
+            ariaLabel={t("addToFavorites")}
+            className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm"
+          />
           {!isFood && !isTransport && (
             <Badge
               variant="secondary"
@@ -414,9 +464,26 @@ export default function ServiceCard({
                       </span>
                     )
                   : price != null && (
-                      <span className="flex items-baseline gap-0.5">
+                      // The original stays on the SAME baseline row rather than
+                      // above it: this card is md:h-[420px] overflow-hidden and
+                      // already near its budget, so an extra line would clip the
+                      // button row on every discounted card.
+                      <span className="flex items-baseline gap-1">
+                        {discountActive && (
+                          <span className="text-[13px] font-bold text-[#94A3B8] line-through">
+                            {formatPrice(price)}
+                          </span>
+                        )}
                         <span className="text-[22px] font-black text-[#1E293B]">
-                          {formatPrice(price)}
+                          {formatPrice(
+                            Math.round(
+                              applyDiscount(
+                                price,
+                                discountPercent,
+                                discountExpiresAt,
+                              ),
+                            ),
+                          )}
                         </span>
                         {priceUnit && (
                           <span className="text-[13px] font-bold text-[#94A3B8]">
@@ -437,9 +504,25 @@ export default function ServiceCard({
               {t("details")}
             </Link>
             {isFood ? (
-              <CallButton phone={phone} serviceId={id} label={t("call")} alwaysShowLabel layout="card" size="default" onClick={stop} className="w-full min-w-0 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]" />
+              <CallButton
+                phone={phone}
+                serviceId={id}
+                label={t("call")}
+                alwaysShowLabel
+                layout="card"
+                size="default"
+                onClick={stop}
+                className="w-full min-w-0 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]"
+              />
             ) : (
-              <WhatsAppButton phone={isTransport && isBusy ? null : phone} serviceId={id} variant="label" size="default" onClick={stop} className="w-full min-w-0 rounded-[12px] px-2 shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]" />
+              <WhatsAppButton
+                phone={isTransport && isBusy ? null : phone}
+                serviceId={id}
+                variant="label"
+                size="default"
+                onClick={stop}
+                className="w-full min-w-0 rounded-[12px] px-2 shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
+              />
             )}
           </div>
         </div>

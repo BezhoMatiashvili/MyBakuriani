@@ -388,9 +388,19 @@ service-side discounts expire the same way property ones do. The discount is no 
 purely cosmetic: `create_booking` (`20260719130000_create_booking_apply_discount.sql`,
 superseding `20260628120000_create_booking_inclusive_days.sql`'s pricing) now reads
 `discount_percent`/`discount_expires_at` server-side to reduce the booking's
-`total_price`, and `PropertyCard`/`SalePropertyCard`/`BookingSidebar`/
-`SaleDetailClient` apply the same percentage to displayed prices client-side via
+`total_price`, and `PropertyCard`/`SalePropertyCard`/`InvestmentCard`/`ServiceCard`/
+`BookingSidebar`/`SaleDetailClient`/`ServiceDetailClient`/`EntertainmentDetailClient`
+apply the same percentage to displayed prices client-side via
 the new `isDiscountActive`/`applyDiscount` helpers in `src/lib/utils/pricing.ts`.
+
+**Every public card that can show a discount must gate on `isDiscountActive`, not
+`discount_percent > 0`.** Two of them did not until 2026-07-26 and both failed the
+same way: `InvestmentCard` (the ONLY card `/sales` renders) had no discount props at
+all, so 4 live discounted sale listings showed full price with no badge; `ServiceCard`
+had `discountPercent` but no `discountExpiresAt`, so a lapsed service discount would
+badge forever while its price stayed undiscounted. A discount surface therefore needs
+**both** halves — the expiry-aware gate AND `applyDiscount` on the rendered price —
+plus the detail page behind the card, or the card and the detail page disagree.
 
 Participating symbols:
 
@@ -401,15 +411,30 @@ Participating symbols:
 - `src/components/balance/PropertyBalanceClient.tsx:handleConfirmPurchase` — forwards `discountPercent` into the `purchase-vip` invoke body
 - `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — per-table sweep over `properties` AND `services`: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
 - `src/components/cards/PropertyCard.tsx:discountPercent` — badge render prop, `> 0` shows the discount badge
+- `src/components/cards/InvestmentCard.tsx:discountActive` — the `/sales` grid card. Renders the badge as an inline pill at `top-14 left-4` (same geometry as its bespoke "იყიდება" pill, deliberately NOT `ListingBadge`, which this file uses none of), the struck original **nested inside** the existing `salePrice != null` guard, and derives `pricePerSqm` from the DISCOUNTED price. Prices render in `₾` via `formatPrice` — the old local `formatUsd` prefixed `$` to a raw GEL `sale_price`, contradicting `/sales/all` and `/sales/[id]`
+- `src/components/cards/ServiceCard.tsx:discountActive` — service card. Gates the badge in the `overlay` and `photo` variants; the `photo` variant also renders the struck original **on the same baseline row** as the discounted price, because that card is `md:h-[420px] overflow-hidden` and a second line clips its button row. The `avatar` variant (used by `/services`) renders no price and no badge by design; `overlay` (used by `/food`) renders no price. The `isTransport` branch renders no price at all, so there is nothing to discount there. The NEW-badge condition is deliberately left on `discountPercent === 0`: flipping it to `!discountActive` would make an expired-discount listing newly claim to be NEW
+- `src/app/[locale]/services/[id]/ServiceDetailClient.tsx:displayPrice` / `src/app/[locale]/entertainment/[id]/EntertainmentDetailClient.tsx:displayPrice` — the detail pages behind the two card surfaces that show a discounted price; both the sidebar and the `MobileStickyCTA` use the discounted value. `transport/[id]` and `food/[id]` still render raw prices — a known gap, harmless only while their cards never show a discounted price
 - `src/app/[locale]/apartments/ApartmentsPageClient.tsx` — "discounted only" filter reads `discount_percent`
+- `src/app/[locale]/sales/SalesPageClient.tsx:discountOnly` — the same "discounted only" toggle on `/sales`. Two traps, both live-reviewed: the `paginatedProperties` memo must depend on `filteredProperties` (keeping `[properties, …]` makes the toggle a silent no-op, since the prop keeps its identity and lint only warns), and the toggle handler must `setCurrentPage(1)` itself — the existing clamp effect converges only AFTER a commit, so from page 3 it paints the empty state for a frame
 - `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`
 - `src/lib/utils/pricing.ts:isDiscountActive` — fail-open expiry check (`discount_expires_at IS NULL` counts as active, matching how `purchase_package` writes the columns; strict `>` mirrors `create_booking`'s own check) shared by every price-display and pricing call site
-- `src/lib/utils/pricing.ts:applyDiscount` — applies the percentage to a price (no-op when `isDiscountActive` is false); used by `PropertyCard`, `SalePropertyCard`, `BookingSidebar`, and `SaleDetailClient` so displayed prices match what `create_booking` actually charges
+- `src/lib/utils/pricing.ts:applyDiscount` — applies the percentage to a price (no-op when `isDiscountActive` is false); used by `PropertyCard`, `SalePropertyCard`, `InvestmentCard`, `ServiceCard`, `BookingSidebar`, `SaleDetailClient`, `ServiceDetailClient` and `EntertainmentDetailClient` so displayed prices match what `create_booking` actually charges
 
 **Also check:** `src/lib/types/database.ts` must carry `discount_expires_at` after
 regen (**C3**); any new discount read/write path on `properties` must go through
 the RPC, not a direct column update, or the trigger rejects it for non-admin
 sessions.
+
+**`discount_percent` is not a general-purpose flag — never overload it.** Two surfaces
+read it to mean something unrelated, and one of them was load-bearing:
+`ServicesPageClient` derived `availabilityStatus` from `discount_percent > 0`, and
+`ServiceCard`'s avatar variant turns `"busy"` into `phone={null}` on its
+`WhatsAppButton` — so buying a discount **removed the only contact affordance** on
+`/services` (and never expired, since that comparison ignored
+`discount_expires_at`). Fixed 2026-07-26 by pinning `availabilityStatus="active"`;
+nothing tracks real service availability yet, so re-deriving it from any listing
+column is the bug, not the fix. The employment page's `deriveBadge` still maps
+`discount_percent > 0` to an `"urgent"` badge — cosmetic, reported, unfixed.
 
 **Breaks silently when:** a caller updates `discount_percent`/`discount_expires_at`
 directly instead of via `purchase_package` (trigger blocks it for non-admin/non-

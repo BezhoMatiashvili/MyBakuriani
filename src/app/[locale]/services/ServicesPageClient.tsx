@@ -172,8 +172,12 @@ export default function ServicesPageClient({ services }: Props) {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <BannerSlot placement="listing_top" bare className="col-span-full" />
-            <BannerSlot placement="listing_grid" bare />
+              <BannerSlot
+                placement="listing_top"
+                bare
+                className="col-span-full"
+              />
+              <BannerSlot placement="listing_grid" bare />
 
               {paginated.map((s, i) => (
                 <ScrollReveal key={s.id} delay={i * 0.05}>
@@ -186,15 +190,20 @@ export default function ServicesPageClient({ services }: Props) {
                     price={s.price}
                     priceUnit={s.price_unit}
                     discountPercent={s.discount_percent ?? 0}
+                    discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
                     variant="avatar"
                     schedule={s.schedule}
                     operatingHours={s.operating_hours}
                     phone={s.phone}
                     providerName={s.position}
-                    availabilityStatus={
-                      (s.discount_percent ?? 0) > 0 ? "busy" : "active"
-                    }
+                    // `availabilityStatus` used to be derived from
+                    // `discount_percent > 0`, which is an unrelated column: the
+                    // avatar variant turns "busy" into `phone={null}` on the
+                    // WhatsApp button, so buying a discount removed the only way
+                    // to contact the provider. Nothing tracks real availability
+                    // for services yet, so leave it unset (= active).
+                    availabilityStatus="active"
                   />
                 </ScrollReveal>
               ))}
