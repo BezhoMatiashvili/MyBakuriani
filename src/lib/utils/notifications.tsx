@@ -49,6 +49,13 @@ export function iconForType(type: string): NotificationIconKey {
     case "payment_failed":
     case "vip_expiring":
       return "warning";
+    // Admin work queues: something is waiting on a moderator.
+    case "admin_listing_pending":
+    case "admin_content_change_pending":
+      return "warning";
+    case "admin_sms_pending":
+    case "admin_company_pending":
+      return "lead";
     case "favorite":
     case "review":
     case "review_request":

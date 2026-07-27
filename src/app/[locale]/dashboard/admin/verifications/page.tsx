@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -31,7 +32,11 @@ type ContentChangeRequest = {
   proposed_values: Record<string, unknown>;
   field_diff: Record<string, { before: unknown; after: unknown }>;
   created_at: string;
-  requester?: { display_name?: string | null; role?: string | null; phone?: string | null } | null;
+  requester?: {
+    display_name?: string | null;
+    role?: string | null;
+    phone?: string | null;
+  } | null;
 };
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -91,7 +96,12 @@ function initialsOf(name: string | null | undefined): string {
 }
 
 export default function VerificationsPage() {
-  const [reviewTab, setReviewTab] = useState<"listings" | "changes">("listings");
+  // Seeded from the URL so the admin_content_change_pending notification, which
+  // links to ?tab=changes, actually lands on the change-request queue.
+  const searchParams = useSearchParams();
+  const [reviewTab, setReviewTab] = useState<"listings" | "changes">(
+    searchParams.get("tab") === "changes" ? "changes" : "listings",
+  );
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingListing[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -525,11 +535,31 @@ export default function VerificationsPage() {
   );
 }
 
-function VerificationTabs({ active, onChange }: { active: "listings" | "changes"; onChange: (tab: "listings" | "changes") => void }) {
-  return <div className="flex gap-2 border-b border-[#E2E8F0]">
-    <button type="button" onClick={() => onChange("listings")} className={`px-4 py-3 text-sm font-bold ${active === "listings" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}>ახალი განცხადებები</button>
-    <button type="button" onClick={() => onChange("changes")} className={`px-4 py-3 text-sm font-bold ${active === "changes" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}>ცვლილების მოთხოვნები</button>
-  </div>;
+function VerificationTabs({
+  active,
+  onChange,
+}: {
+  active: "listings" | "changes";
+  onChange: (tab: "listings" | "changes") => void;
+}) {
+  return (
+    <div className="flex gap-2 border-b border-[#E2E8F0]">
+      <button
+        type="button"
+        onClick={() => onChange("listings")}
+        className={`px-4 py-3 text-sm font-bold ${active === "listings" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
+      >
+        ახალი განცხადებები
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("changes")}
+        className={`px-4 py-3 text-sm font-bold ${active === "changes" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
+      >
+        ცვლილების მოთხოვნები
+      </button>
+    </div>
+  );
 }
 
 function ContentChangeRequestsPanel() {
@@ -540,37 +570,138 @@ function ContentChangeRequestsPanel() {
   const load = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/content-change-requests?status=pending", { cache: "no-store" });
+      const response = await fetch(
+        "/api/admin/content-change-requests?status=pending",
+        { cache: "no-store" },
+      );
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "შეცდომა");
       setItems(payload.items ?? []);
-    } catch (error) { toast.error(error instanceof Error ? error.message : "შეცდომა"); }
-    finally { setLoading(false); }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "შეცდომა");
+    } finally {
+      setLoading(false);
+    }
   };
-  useEffect(() => { void load(); }, []);
-  const moderate = async (item: ContentChangeRequest, action: "approve" | "reject") => {
-    const reason = action === "reject" ? window.prompt("მიუთითეთ უარყოფის მიზეზი:") : undefined;
+  useEffect(() => {
+    void load();
+  }, []);
+  const moderate = async (
+    item: ContentChangeRequest,
+    action: "approve" | "reject",
+  ) => {
+    const reason =
+      action === "reject"
+        ? window.prompt("მიუთითეთ უარყოფის მიზეზი:")
+        : undefined;
     if (action === "reject" && !reason?.trim()) return;
     setBusy(item.id);
     try {
-      const response = await fetch(`/api/admin/content-change-requests/${item.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, reason }) });
+      const response = await fetch(
+        `/api/admin/content-change-requests/${item.id}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action, reason }),
+        },
+      );
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "შეცდომა");
       setItems((current) => current.filter((entry) => entry.id !== item.id));
-      toast.success(action === "approve" ? "ცვლილება დამტკიცდა" : "ცვლილება უარყოფილია");
-    } catch (error) { toast.error(error instanceof Error ? error.message : "შეცდომა"); }
-    finally { setBusy(null); }
+      toast.success(
+        action === "approve" ? "ცვლილება დამტკიცდა" : "ცვლილება უარყოფილია",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "შეცდომა");
+    } finally {
+      setBusy(null);
+    }
   };
-  return <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
-    <div className="border-b border-[#EDF2F7] px-6 py-5"><h1 className="text-xl font-black text-[#0F172A]">საჯარო კონტენტის ცვლილებები</h1><p className="mt-1 text-sm text-[#64748B]">დამტკიცებამდე მოქმედი კონტენტი უცვლელი რჩება.</p></div>
-    {loading ? <div className="space-y-3 p-6"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : items.length === 0 ? <div className="p-10 text-center text-sm font-medium text-[#94A3B8]">მიმდინარე მოთხოვნები არ არის</div> : items.map((item) => <div key={item.id} className="border-b border-[#F1F5F9] last:border-0">
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <button type="button" className="min-w-0 text-left" onClick={() => setExpanded(expanded === item.id ? null : item.id)} aria-expanded={expanded === item.id}>
-          <p className="font-black text-[#0F172A]">{item.requester?.display_name ?? "—"} <span className="ml-2 rounded bg-[#EFF6FF] px-2 py-1 text-xs text-[#1D4ED8]">{item.target_type}</span></p>
-          <p className="mt-1 text-xs text-[#64748B]">{item.requester?.role ?? ""} · {formatDate(item.created_at)} · {Object.keys(item.field_diff).length} ველი</p>
-        </button>
-        <div className="flex gap-2"><button type="button" disabled={busy === item.id} onClick={() => moderate(item, "approve")} className="rounded-xl bg-[#059669] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">დამტკიცება</button><button type="button" disabled={busy === item.id} onClick={() => moderate(item, "reject")} className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-2 text-sm font-bold text-[#DC2626] disabled:opacity-50">უარყოფა</button></div>
+  return (
+    <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
+      <div className="border-b border-[#EDF2F7] px-6 py-5">
+        <h1 className="text-xl font-black text-[#0F172A]">
+          საჯარო კონტენტის ცვლილებები
+        </h1>
+        <p className="mt-1 text-sm text-[#64748B]">
+          დამტკიცებამდე მოქმედი კონტენტი უცვლელი რჩება.
+        </p>
       </div>
-      {expanded === item.id && <div className="grid gap-3 border-t border-[#EDF2F7] bg-[#F8FAFC] p-5">{Object.entries(item.field_diff).map(([field, values]) => <div key={field} className="grid gap-2 rounded-xl border border-[#E2E8F0] bg-white p-3 text-xs sm:grid-cols-[140px_1fr_1fr]"><strong>{field}</strong><span className="break-all text-[#64748B]">{JSON.stringify(values.before)}</span><span className="break-all text-[#166534]">{JSON.stringify(values.after)}</span></div>)}</div>}
-    </div>)}</section>;
+      {loading ? (
+        <div className="space-y-3 p-6">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-10 text-center text-sm font-medium text-[#94A3B8]">
+          მიმდინარე მოთხოვნები არ არის
+        </div>
+      ) : (
+        items.map((item) => (
+          <div
+            key={item.id}
+            className="border-b border-[#F1F5F9] last:border-0"
+          >
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                className="min-w-0 text-left"
+                onClick={() =>
+                  setExpanded(expanded === item.id ? null : item.id)
+                }
+                aria-expanded={expanded === item.id}
+              >
+                <p className="font-black text-[#0F172A]">
+                  {item.requester?.display_name ?? "—"}{" "}
+                  <span className="ml-2 rounded bg-[#EFF6FF] px-2 py-1 text-xs text-[#1D4ED8]">
+                    {item.target_type}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-[#64748B]">
+                  {item.requester?.role ?? ""} · {formatDate(item.created_at)} ·{" "}
+                  {Object.keys(item.field_diff).length} ველი
+                </p>
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busy === item.id}
+                  onClick={() => moderate(item, "approve")}
+                  className="rounded-xl bg-[#059669] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  დამტკიცება
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === item.id}
+                  onClick={() => moderate(item, "reject")}
+                  className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-2 text-sm font-bold text-[#DC2626] disabled:opacity-50"
+                >
+                  უარყოფა
+                </button>
+              </div>
+            </div>
+            {expanded === item.id && (
+              <div className="grid gap-3 border-t border-[#EDF2F7] bg-[#F8FAFC] p-5">
+                {Object.entries(item.field_diff).map(([field, values]) => (
+                  <div
+                    key={field}
+                    className="grid gap-2 rounded-xl border border-[#E2E8F0] bg-white p-3 text-xs sm:grid-cols-[140px_1fr_1fr]"
+                  >
+                    <strong>{field}</strong>
+                    <span className="break-all text-[#64748B]">
+                      {JSON.stringify(values.before)}
+                    </span>
+                    <span className="break-all text-[#166534]">
+                      {JSON.stringify(values.after)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </section>
+  );
 }

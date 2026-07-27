@@ -3242,7 +3242,12 @@ export type Database = {
         Returns: Json;
       };
       topup_balance: {
-        Args: { p_amount: number; p_description?: string; p_user_id: string };
+        Args: {
+          p_amount: number;
+          p_dashboard_scope?: string;
+          p_description?: string;
+          p_user_id: string;
+        };
         Returns: number;
       };
       update_manual_booking: {

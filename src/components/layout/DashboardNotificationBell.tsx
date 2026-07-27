@@ -23,7 +23,7 @@ export function DashboardNotificationBell({
   triggerClassName,
   scope,
 }: DashboardNotificationBellProps) {
-  const { notifications, unreadCount, loading, markAsRead } =
+  const { notifications, unreadCount, loading, markAsRead, markAllRead } =
     useNotifications(scope);
 
   return (
@@ -32,8 +32,8 @@ export function DashboardNotificationBell({
       unreadCount={loading ? initialUnreadCount : unreadCount}
       loading={loading}
       markAsRead={markAsRead}
+      markAllRead={markAllRead}
       triggerClassName={triggerClassName}
-      scope={scope}
     />
   );
 }

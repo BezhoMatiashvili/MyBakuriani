@@ -214,7 +214,12 @@ export function DashboardShell({
   const [leadsCount, setLeadsCount] = useState(0);
   const [verificationCount, setVerificationCount] = useState(0);
   const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
-  const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // One timer PER scope: two notification events for different cabinets inside
+  // the debounce window must not cancel each other, or the first cabinet's badge
+  // never reconciles. (smartMatchTimer is scope-less, so a single ref is right.)
+  const recountTimers = useRef<
+    Partial<Record<DashboardScope, ReturnType<typeof setTimeout>>>
+  >({});
   const smartMatchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Prevent a development-mode effect replay from issuing the same bulk update
   // twice, while clearing this key after leaving the inbox still lets a later
@@ -241,8 +246,9 @@ export function DashboardShell({
     // Reconcile a single cabinet badge. Global (NULL) notices have no cabinet
     // badge by design and are therefore ignored here.
     const recountUnread = (scope: DashboardScope) => {
-      if (recountTimer.current) clearTimeout(recountTimer.current);
-      recountTimer.current = setTimeout(() => {
+      const pending = recountTimers.current[scope];
+      if (pending) clearTimeout(pending);
+      recountTimers.current[scope] = setTimeout(() => {
         supabase
           .from("notifications")
           .select("*", { count: "exact", head: true })
@@ -287,8 +293,9 @@ export function DashboardShell({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          const scope = (payload.new as { dashboard_scope?: DashboardScope | null })
-            ?.dashboard_scope;
+          const scope = (
+            payload.new as { dashboard_scope?: DashboardScope | null }
+          )?.dashboard_scope;
           if (scope) {
             setUnreadCounts((current) => ({
               ...current,
@@ -317,8 +324,9 @@ export function DashboardShell({
         },
         (payload) => {
           // Mark-as-read (or any update) → reconcile the bell with DB truth.
-          const scope = (payload.new as { dashboard_scope?: DashboardScope | null })
-            ?.dashboard_scope;
+          const scope = (
+            payload.new as { dashboard_scope?: DashboardScope | null }
+          )?.dashboard_scope;
           if (scope) recountUnread(scope);
         },
       )
@@ -338,7 +346,12 @@ export function DashboardShell({
       )
       .subscribe();
     return () => {
-      if (recountTimer.current) clearTimeout(recountTimer.current);
+      // The ref object outlives this effect, so every pending handle must be
+      // cleared AND the map emptied before the effect re-runs.
+      Object.values(recountTimers.current).forEach((timer) => {
+        if (timer) clearTimeout(timer);
+      });
+      recountTimers.current = {};
       if (smartMatchTimer.current) clearTimeout(smartMatchTimer.current);
       supabase.removeChannel(channel);
     };

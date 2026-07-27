@@ -73,6 +73,7 @@ export function Navbar() {
     unreadCount,
     loading: notificationsLoading,
     markAsRead,
+    markAllRead,
   } = useNotifications();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -161,11 +162,12 @@ export function Navbar() {
     const previousOverflow = document.body.style.overflow;
     const menuTrigger = mobileMenuTriggerRef.current;
     document.body.style.overflow = "hidden";
-    const focusable = () => Array.from(
-      mobileMenuRef.current?.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])",
-      ) ?? [],
-    );
+    const focusable = () =>
+      Array.from(
+        mobileMenuRef.current?.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        ) ?? [],
+      );
     const timer = window.setTimeout(() => focusable()[0]?.focus(), 0);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -224,7 +226,10 @@ export function Navbar() {
         {/* Right side action buttons — desktop */}
         <div className="hidden items-center gap-3 md:flex">
           <LanguageSelector />
-          <AddListingButton label={t("addListing")} className="h-[39.5px] w-[222px] px-5 leading-5" />
+          <AddListingButton
+            label={t("addListing")}
+            className="h-[39.5px] w-[222px] px-5 leading-5"
+          />
           {user && (
             <Link href={dashboardPath}>
               <Button
@@ -245,6 +250,7 @@ export function Navbar() {
               unreadCount={unreadCount}
               loading={notificationsLoading}
               markAsRead={markAsRead}
+              markAllRead={markAllRead}
               viewAllPath={viewAllNotificationsPath}
             />
           )}
@@ -297,6 +303,7 @@ export function Navbar() {
               unreadCount={unreadCount}
               loading={notificationsLoading}
               markAsRead={markAsRead}
+              markAllRead={markAllRead}
               viewAllPath={viewAllNotificationsPath}
             />
           )}
@@ -374,7 +381,12 @@ export function Navbar() {
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <AddListingButton label={t("addListing")} variant="mobile" className="mb-2 flex" onClick={() => setMobileOpen(false)} />
+              <AddListingButton
+                label={t("addListing")}
+                variant="mobile"
+                className="mb-2 flex"
+                onClick={() => setMobileOpen(false)}
+              />
               {navItemKeys.map((item) => {
                 const Icon = item.icon;
                 return (

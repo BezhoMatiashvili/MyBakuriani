@@ -1037,11 +1037,36 @@ Participating symbols:
   that do **not** match their route (`sms` → `renter`, `service`/`handyman` → `services`)
 - `src/lib/notifications/scopes.ts:serviceCategoryToDashboardScope` — the service-category mapping the DB
   trigger functions duplicate in SQL; both copies must move together
+- `supabase/migrations/20260727160000_explicit_payment_notification_scope.sql:dashboard_scope_for_path`
+  — SQL twin of `dashboardScopeForPath`, turns `payments.return_path` into a scope
+- `supabase/migrations/20260727160000_explicit_payment_notification_scope.sql:dashboard_scope_for_listing`
+  — owner-scoped listing → cabinet; **not STRICT**, and the owner predicate is required, not decorative
+- `supabase/migrations/20260727180000_admin_queue_notifications.sql:_notify_admins`
+  — the ONLY writer of `dashboard_scope='admin'`, and the repo's only admin _enumeration_
 - `supabase/migrations/20260727130000_scoped_dashboard_notifications.sql:assign_notification_dashboard_scope`
-  — BEFORE INSERT safety net for writers that pass nothing
-- `src/lib/hooks/useNotifications.ts:useNotifications` — scoped bell/feed reader
+  — BEFORE INSERT safety net; **since 20260727160000 it covers ONLY the seller branch**
+- `src/lib/hooks/useNotifications.ts:useNotifications` — scoped bell/feed reader; also owns `markAllRead`
 - `src/components/layout/DashboardShell.tsx:recountUnread` — live per-cabinet badge recount
 - `src/app/[locale]/dashboard/layout.tsx:LayoutData` — reads the `unread_counts` jsonb key
+
+**There is no longer ANY fallback for `payment_success`.** `20260727160000` deleted the trigger's
+inference block, because it read "the user's most recent transaction with a non-null `reference_id`",
+which is not a fact about the notification being inserted — and `topup_balance` writes no
+`reference_id`, so a wallet top-up was attributed to the buyer's **previous listing purchase**. All
+three writers (`topup_balance`, `purchase_vip`, `purchase_package`) now pass the scope explicitly.
+The consequence to know: a NEW writer that forgets `_notify`'s sixth argument silently lands NULL
+(global). That is deliberate — an honest gap beats a confident lie — but nothing will catch it for you.
+
+**NULL means two different things, and only one of them is a bug.** NULL is the _correct_ value for a
+genuinely account-level event (an admin wallet bonus, an SMS package, a profile-target content change):
+those have no cabinet, and inventing one produces a notice rendered by no surface while still
+incrementing a badge nothing can clear. NULL is a _defect_ when a cabinet-specific writer simply forgot
+to pass it. Same value, opposite meanings — read the writer before "fixing" a NULL.
+
+**`dashboard_scope_for_path` deliberately does NOT map `admin`, unlike its TS twin.** The TS helper
+reads routes and needs it; the SQL one converts **client-supplied** `payments.return_path` into a
+persisted scope, so mapping `admin` would let any user mint an admin-scoped notification for themselves
+by posting `return_path: "/dashboard/admin"`. Keep the two divergent in that one direction only.
 
 **`_notify` is now SIX arguments with the scope defaulted, and there is exactly ONE overload.** Two hard
 Postgres rules force that shape, both verified empirically against this database:
@@ -1066,9 +1091,20 @@ is applied client-side in the payload handler instead.
 **Also check:** `src/lib/types/database.ts` must carry `dashboard_scope` on `notifications` (**C3**), and
 the migration ends with `notify pgrst, 'reload schema'`.
 
+**`admin` now HAS a writer.** Until `20260727180000` it was a cabinet nothing could write to — in the
+CHECK, in the union, subscribed to by `AdminTopbar`, and produced by nothing, so the bell was
+structurally empty. `_notify_admins` fills it from four queues (listing moderation, content-change
+review, SMS approvals, company verification), each fanned out to every admin **except the actor**.
+Two behaviours are deliberate and will look like bugs if you don't know them: (1) the fan-out is
+**coalesced** on `(recipient, type, still unread)`, so while a notice is unread later arrivals in that
+same queue are silent and the message names the item that armed the signal rather than the backlog —
+the exact count lives in the polled sidebar badge; (2) marking read **re-arms** the queue.
+
 **Breaks silently when:** a value is added to `DASHBOARD_SCOPES` but not the CHECK (23514 at runtime
-only) or vice-versa (a cabinet nothing can ever write to — `admin` is exactly that today: it is in both
-the CHECK and the union, `AdminTopbar` subscribes with `scope="admin"`, and **no writer anywhere sets
-it**, so the admin bell stays empty); or a new notification writer omits the scope and is not covered by
-the trigger's narrow fallback (the notice lands NULL and is invisible in every cabinet, visible only in
-the global `/notifications` inbox); or the realtime filter is "simplified" back onto the scope column.
+only) or vice-versa (a cabinet nothing can ever write to); or a new notification writer omits the scope
+(it lands NULL and is invisible in every cabinet, visible only in the global `/notifications` inbox —
+and since `20260727160000` there is no `payment_success` fallback to catch it); or the realtime filter
+is "simplified" back onto the scope column; or a bulk read-write loses its `user_id` predicate — the
+"Admins full access notifications" policy is `FOR ALL`, so for an admin viewer that marks **every**
+user's rows read. That predicate lives in `useNotifications:markAllRead`; the bell must not re-implement
+the write itself.

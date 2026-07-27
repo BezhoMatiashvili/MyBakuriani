@@ -12,12 +12,10 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import Modal from "@/components/shared/Modal";
-import { createClient } from "@/lib/supabase/client";
 import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import { safeInternalPath } from "@/lib/security";
 import type { Database } from "@/lib/types/database";
-import type { DashboardScope } from "@/lib/notifications/scopes";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
@@ -26,13 +24,13 @@ interface NotificationBellProps {
   unreadCount: number;
   loading: boolean;
   markAsRead: (id: string) => Promise<void>;
+  /** Bulk read. Supplied by useNotifications, which owns the user_id predicate. */
+  markAllRead: () => Promise<void>;
   /** Omit for roles without a dedicated notifications page (hides the footer link). */
   viewAllPath?: string;
   variant?: "desktop" | "mobile";
   /** Overrides the variant trigger styling (e.g. dashboard topbar buttons). */
   triggerClassName?: string;
-  /** When present, bulk-read is constrained to this exact dashboard scope. */
-  scope?: DashboardScope;
 }
 
 export function NotificationBell({
@@ -40,10 +38,10 @@ export function NotificationBell({
   unreadCount,
   loading,
   markAsRead,
+  markAllRead,
   viewAllPath,
   variant = "desktop",
   triggerClassName,
-  scope,
 }: NotificationBellProps) {
   const t = useTranslations("Navbar");
   const tShared = useTranslations("DashboardShared");
@@ -54,25 +52,6 @@ export function NotificationBell({
   const badge = unreadCount > 9 ? "9+" : String(unreadCount);
 
   useEffect(() => setMounted(true), []);
-
-  async function markAllRead() {
-    const unread = notifications.filter((n) => !n.is_read).map((n) => n.id);
-    if (unread.length === 0) return;
-    const supabase = createClient();
-    let query = supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("is_read", false);
-    if (scope) query = query.eq("dashboard_scope", scope);
-    await query;
-    await Promise.all(
-      unread.map((id) =>
-        markAsRead(id).catch(() => {
-          /* state sync handled by realtime */
-        }),
-      ),
-    );
-  }
 
   function handleItemClick(item: Notification) {
     if (!item.is_read) {
@@ -113,12 +92,12 @@ export function NotificationBell({
             <span className="text-[14px] font-extrabold text-[#0F172A]">
               {t("notifications")}
             </span>
-            {/* Hidden while loading: markAllRead derives the unread list from the
-              not-yet-fetched local state, so a click would be a silent no-op. */}
+            {/* Hidden while loading: the hook resolves the session inside the same
+              effect that fetches, so a click before that lands would no-op. */}
             {!loading && unreadCount > 0 && (
               <button
                 type="button"
-                onClick={markAllRead}
+                onClick={() => void markAllRead().catch(() => {})}
                 className="text-[11px] font-bold text-[#2563EB] hover:underline"
               >
                 {t("markAllRead")}
