@@ -10,10 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
-import {
-  contentChangeErrorKey,
-  submitContentChange,
-} from "@/lib/content-change/client";
+import { updateSelfServiceProfile } from "@/lib/self-service/client";
 
 export default function GuestProfilePage() {
   const t = useTranslations("GuestProfile");
@@ -77,7 +74,7 @@ export default function GuestProfilePage() {
     setReviewError("");
     let error: Error | null = null;
     try {
-      await submitContentChange("profile", user.id, {
+      await updateSelfServiceProfile({
         display_name: [firstName, lastName].filter(Boolean).join(" "),
         phone: phone ? "+995" + phone : null,
       });
@@ -89,7 +86,7 @@ export default function GuestProfilePage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } else {
-      setReviewError(tShared(contentChangeErrorKey(error)));
+      setReviewError(t("errors.uploadFailed"));
     }
   }
 
@@ -123,7 +120,7 @@ export default function GuestProfilePage() {
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
       const newUrl = pub.publicUrl;
 
-      await submitContentChange("profile", user.id, { avatar_url: newUrl });
+      await updateSelfServiceProfile({ avatar_url: newUrl });
 
       setAvatarUrl(newUrl);
     } catch {
@@ -293,7 +290,7 @@ export default function GuestProfilePage() {
           </div>
           {saved && (
             <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
-              {tShared("contentChange.pending")}
+              {t("saved")}
             </p>
           )}
           {reviewError && (

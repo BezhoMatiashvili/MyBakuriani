@@ -45,6 +45,7 @@ export const TEST_IDS = {
   apartment: "aae2ff00-1001-4000-a000-000000000001",
   villa: "aae2ff00-1002-4000-a000-000000000002",
   sale: "aae2ff00-1003-4000-a000-000000000003",
+  whatsappApartment: "aae2ff00-1004-4000-a000-000000000004",
 
   // Booking
   booking: "aae2ff00-2001-4000-a000-000000000001",
@@ -59,6 +60,7 @@ export const TEST_IDS = {
   employmentService: "aae2ff00-4004-4000-a000-000000000004",
   cleaningServicePrimary: "aae2ff00-4005-4000-a000-000000000005",
   cleaningServiceSecondary: "aae2ff00-4006-4000-a000-000000000006",
+  whatsappService: "aae2ff00-4007-4000-a000-000000000007",
 
   // Calendar blocks
   calendarBlock1: "aae2ff00-5001-4000-a000-000000000001",
@@ -73,6 +75,7 @@ export const TEST_IDS = {
 
   // Cleaning task
   cleaningTask: "aae2ff00-8001-4000-a000-000000000001",
+  cleanerScheduleTask: "aae2ff00-8002-4000-a000-000000000002",
 
   // Verification
   verification: "aae2ff00-9001-4000-a000-000000000001",
@@ -295,6 +298,27 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     is_for_sale: true,
   });
 
+  // Dedicated public-contact fixture: immutable during parallel test runs.
+  await properties.create({
+    id: TEST_IDS.whatsappApartment,
+    owner_id: TEST_IDS.renter,
+    type: "apartment",
+    title: "E2E WhatsApp ბინა",
+    description: "WhatsApp contact fixture",
+    location: "ბაკურიანი, დიდველი",
+    area_sqm: 45,
+    rooms: 1,
+    bathrooms: 1,
+    capacity: 2,
+    price_per_night: 120,
+    currency: "GEL",
+    amenities: [],
+    photos: [],
+    whatsapp: "+995599000010",
+    status: "active",
+    is_for_sale: false,
+  });
+
   // ---- Seller CRM lead ----
   await leads.create({
     id: TEST_IDS.sellerLead,
@@ -446,6 +470,20 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     status: "active",
   });
 
+  // Dedicated public-contact fixture: immutable during parallel test runs.
+  await services.create({
+    id: TEST_IDS.whatsappService,
+    owner_id: TEST_IDS.cleaner,
+    category: "cleaning",
+    title: "E2E WhatsApp სერვისი",
+    description: "WhatsApp contact fixture",
+    price: 75,
+    price_unit: "საათი",
+    location: "ბაკურიანი",
+    whatsapp: "+995599000011",
+    status: "active",
+  });
+
   // ---- Balances (update, not insert — trigger auto-creates them) ----
   await supabaseAdmin
     .from("balances")
@@ -519,6 +557,20 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     notes: "ტესტ დავალება",
   });
 
+  // An accepted job on the default selected date keeps the cleaner schedule
+  // populated-state controls covered without affecting the pending-task flow.
+  await cleaningTasks.create({
+    id: TEST_IDS.cleanerScheduleTask,
+    property_id: TEST_IDS.villa,
+    owner_id: TEST_IDS.renter,
+    cleaner_id: TEST_IDS.cleaner,
+    cleaning_type: "standard",
+    scheduled_at: futureISO(0),
+    price: 100,
+    status: "accepted",
+    notes: "განრიგის CTA ტესტი",
+  });
+
   // ---- Smart match request ----
   await smartMatchRequests.create({
     id: TEST_IDS.smartMatch,
@@ -573,6 +625,7 @@ export async function cleanupTestData(): Promise<void> {
 
   // Cleaning tasks (depends on properties + profiles)
   await cleaningTasks.delete(TEST_IDS.cleaningTask).catch(ignore);
+  await cleaningTasks.delete(TEST_IDS.cleanerScheduleTask).catch(ignore);
 
   // Verifications (depends on properties + profiles)
   await verifications.delete(TEST_IDS.verification).catch(ignore);
@@ -587,6 +640,7 @@ export async function cleanupTestData(): Promise<void> {
   await services.delete(TEST_IDS.employmentService).catch(ignore);
   await services.delete(TEST_IDS.cleaningServicePrimary).catch(ignore);
   await services.delete(TEST_IDS.cleaningServiceSecondary).catch(ignore);
+  await services.delete(TEST_IDS.whatsappService).catch(ignore);
 
   // SMS messages (cleanup any created during tests)
   await smsMessages.deleteWhere("from_user_id", TEST_IDS.guest).catch(ignore);
@@ -617,6 +671,7 @@ export async function cleanupTestData(): Promise<void> {
   await properties.delete(TEST_IDS.apartment).catch(ignore);
   await properties.delete(TEST_IDS.villa).catch(ignore);
   await properties.delete(TEST_IDS.sale).catch(ignore);
+  await properties.delete(TEST_IDS.whatsappApartment).catch(ignore);
 
   // Profiles + auth users — delete in order
   const userIds = [

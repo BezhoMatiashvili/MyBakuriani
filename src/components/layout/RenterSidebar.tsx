@@ -194,7 +194,7 @@ export function RenterSidebar({
                     {t(`nav.${item.labelKey}`)}
                   </span>
                   {item.badge === "count" && notificationCount > 0 && (
-                    <span className="flex h-[22px] min-w-[26px] items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-bold text-[#64748B] shadow-[0_0_0_1px_rgba(226,232,240,0.9)]">
+                    <span className="flex h-[22px] min-w-[26px] items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[11px] font-bold text-white">
                       {notificationCount > 99 ? "99+" : notificationCount}
                     </span>
                   )}

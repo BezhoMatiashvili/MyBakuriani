@@ -8,10 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
-import {
-  contentChangeErrorKey,
-  submitContentChange,
-} from "@/lib/content-change/client";
+import { updateSelfServiceProfile } from "@/lib/self-service/client";
 
 type ProfileType = "personal" | "company";
 
@@ -53,6 +50,13 @@ export default function RenterSettingsPage() {
         setProfile(data);
         setDisplayName(data.display_name);
         if (data.phone) setPhone(data.phone);
+        setProfileType(data.profile_type === "company" ? "company" : "personal");
+        setPersonalId(data.personal_id ?? "");
+        setWhatsapp(data.whatsapp_enabled ?? true);
+        const prefs = data.notification_prefs as Record<string, unknown> | null;
+        setNotifNewRequest(typeof prefs?.new_request === "boolean" ? prefs.new_request : true);
+        setNotifAddFavorite(typeof prefs?.add_favorite === "boolean" ? prefs.add_favorite : true);
+        setNotifMonthlyReport(typeof prefs?.monthly_report === "boolean" ? prefs.monthly_report : true);
       }
       setLoading(false);
     }
@@ -75,9 +79,12 @@ export default function RenterSettingsPage() {
 
     let error: Error | null = null;
     try {
-      await submitContentChange("profile", user.id, {
+      await updateSelfServiceProfile({
         display_name: displayName,
         phone: normalizedPhone,
+        profile_type: profileType,
+        personal_id: personalId || null,
+        whatsapp_enabled: whatsapp,
       });
     } catch (cause) {
       error = cause instanceof Error ? cause : new Error("submit_failed");
@@ -85,16 +92,30 @@ export default function RenterSettingsPage() {
 
     if (!error) {
       setProfile((prev) => (prev ? { ...prev, phone: normalizedPhone } : prev));
-      // The change is queued for review, not applied — say so rather than claiming
-      // the profile was updated.
-      setSuccessMsg(tCreate("contentChange.pending"));
+      setSuccessMsg(tShared("saved"));
       setTimeout(() => setSuccessMsg(""), 3000);
     } else {
-      setErrorMsg(tCreate(contentChangeErrorKey(error)));
+      setErrorMsg(tCreate("contentChange.failed"));
     }
     setSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, displayName, phone]);
+  }, [user, displayName, phone, profileType, personalId, whatsapp, tShared, tCreate]);
+
+  const savePreference = useCallback(async (key: "new_request" | "add_favorite" | "monthly_report", value: boolean) => {
+    const setters = {
+      new_request: setNotifNewRequest,
+      add_favorite: setNotifAddFavorite,
+      monthly_report: setNotifMonthlyReport,
+    };
+    const previous = key === "new_request" ? notifNewRequest : key === "add_favorite" ? notifAddFavorite : notifMonthlyReport;
+    setters[key](value);
+    try {
+      await updateSelfServiceProfile({ notification_prefs: { [key]: value } });
+    } catch {
+      setters[key](previous);
+      setErrorMsg(tCreate("contentChange.failed"));
+    }
+  }, [notifNewRequest, notifAddFavorite, notifMonthlyReport, tCreate]);
 
   if (loading) {
     return (
@@ -243,19 +264,19 @@ export default function RenterSettingsPage() {
               title={tShared("notifNewRequest")}
               sub={tShared("channelWebSmsPremium")}
               on={notifNewRequest}
-              onToggle={() => setNotifNewRequest((v) => !v)}
+              onToggle={() => void savePreference("new_request", !notifNewRequest)}
             />
             <NotifRow
               title={tShared("notifAddFavorite")}
               sub={tShared("channelWebOnly")}
               on={notifAddFavorite}
-              onToggle={() => setNotifAddFavorite((v) => !v)}
+              onToggle={() => void savePreference("add_favorite", !notifAddFavorite)}
             />
             <NotifRow
               title={tShared("notifMonthlyReport")}
               sub={tShared("channelEmailOnly")}
               on={notifMonthlyReport}
-              onToggle={() => setNotifMonthlyReport((v) => !v)}
+              onToggle={() => void savePreference("monthly_report", !notifMonthlyReport)}
             />
           </div>
         </motion.section>

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
+  ApiError,
   buildCorsHeaders,
   errorResponse,
   jsonResponse,
@@ -17,6 +18,12 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type UserCtx = Awaited<ReturnType<typeof requireUser>>;
+
+function isTierLockedError(error: unknown): boolean {
+  return (
+    error instanceof ApiError && error.code === "SUBSCRIPTION_TIER_LOCKED"
+  );
+}
 
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
@@ -50,12 +57,21 @@ serve(async (req) => {
         p_tier: tier,
       },
     );
-    if (error) throw error;
+    if (error) {
+      if (error.message === "SUBSCRIPTION_TIER_LOCKED") {
+        throw new ApiError(
+          "აქტიური პაკეტის ვადამდე შესაძლებელია მხოლოდ უფრო მაღალ პაკეტზე გადასვლა.",
+          409,
+          "SUBSCRIPTION_TIER_LOCKED",
+        );
+      }
+      throw error;
+    }
 
     return jsonResponse({ data }, 200, cors);
   } catch (err) {
     // Best-effort failure notification (skipped when auth itself failed).
-    if (ctx?.user?.id) {
+    if (ctx?.user?.id && !isTierLockedError(err)) {
       try {
         await ctx.supabase.from("notifications").insert({
           user_id: ctx.user.id,
@@ -64,6 +80,7 @@ serve(async (req) => {
           message: err instanceof Error ? err.message : "სცადეთ თავიდან.",
           action_url: "/dashboard/seller/organizations",
           severity: "warning",
+          dashboard_scope: "seller",
         });
       } catch (_) {
         // ignore

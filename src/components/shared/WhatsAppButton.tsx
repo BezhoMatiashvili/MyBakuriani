@@ -7,7 +7,10 @@ import { normalizeE164Phone } from "@/lib/security";
 import { getTurnstileToken } from "@/lib/turnstile-client";
 
 type WhatsAppButtonProps = {
-  phone: string | null | undefined;
+  /** Public listing views expose availability, never the underlying number. */
+  hasWhatsApp: boolean;
+  /** Only use a listing's dedicated WhatsApp value (e.g. private previews). */
+  whatsapp: string | null | undefined;
   className?: string;
   propertyId?: string | null;
   serviceId?: string | null;
@@ -26,7 +29,8 @@ export function WhatsAppIcon({ className }: { className?: string }) {
 }
 
 export function WhatsAppButton({
-  phone,
+  hasWhatsApp,
+  whatsapp,
   className,
   propertyId,
   serviceId,
@@ -35,7 +39,8 @@ export function WhatsAppButton({
   label = "WhatsApp",
   onClick,
 }: WhatsAppButtonProps) {
-  const [resolvedPhone, setResolvedPhone] = useState<string | null>(null);
+  const [resolvedWhatsapp, setResolvedWhatsapp] = useState<string | null>(null);
+  const [isAvailable, setIsAvailable] = useState(hasWhatsApp);
   const [isResolving, setIsResolving] = useState(false);
   const isLabel = variant === "label";
   const sizeClass = isLabel
@@ -48,7 +53,7 @@ export function WhatsAppButton({
   );
   const content = <><WhatsAppIcon className={isLabel ? "size-4" : undefined} />{isLabel && <span>{label}</span>}</>;
 
-  const normalizedPhone = normalizeE164Phone(resolvedPhone ?? phone);
+  const normalizedWhatsapp = normalizeE164Phone(resolvedWhatsapp ?? whatsapp);
 
   const revealContact = useCallback(async () => {
     const kind = propertyId ? "property" : serviceId ? "service" : null;
@@ -69,14 +74,23 @@ export function WhatsAppButton({
         body: JSON.stringify({ device_id: deviceId, turnstile_token: turnstileToken }),
       });
       if (!response.ok) return;
-      const result = (await response.json()) as { whatsapp?: string | null; phone?: string | null };
-      setResolvedPhone(result.whatsapp ?? result.phone ?? null);
+      const result = (await response.json()) as { whatsapp?: string | null };
+      const resolved = normalizeE164Phone(result.whatsapp);
+      if (!resolved) {
+        // A stale/invalid legacy value must not turn the listing phone into a
+        // WhatsApp target. Hide this optional action while Call stays usable.
+        setIsAvailable(false);
+        return;
+      }
+      setResolvedWhatsapp(resolved);
     } finally {
       setIsResolving(false);
     }
   }, [isResolving, propertyId, serviceId]);
 
-  if (!normalizedPhone) {
+  if (!isAvailable) return null;
+
+  if (!normalizedWhatsapp) {
     return <button type="button" data-slot="whatsapp-button" data-variant={variant} disabled={!propertyId && !serviceId || isResolving} onClick={() => void revealContact()} aria-label={label} className={classes}>{content}</button>;
   }
 
@@ -84,7 +98,7 @@ export function WhatsAppButton({
     <a
       data-slot="whatsapp-button"
       data-variant={variant}
-      href={`https://wa.me/${normalizedPhone.slice(1)}`}
+      href={`https://wa.me/${normalizedWhatsapp.slice(1)}`}
       target="_blank"
       rel="noreferrer"
       aria-label={isLabel ? undefined : label}

@@ -124,6 +124,20 @@ export async function POST(req: NextRequest) {
         : "თქვენი განცხადება უარყოფილია",
     message,
     action_url: body.action === "approve" ? viewUrl : editUrl,
+    dashboard_scope:
+      body.kind === "property"
+        ? existing.is_for_sale
+          ? "seller"
+          : "renter"
+        : existing.category === "food"
+          ? "food"
+          : existing.category === "cleaning"
+            ? "cleaner"
+            : ["employment", "transport", "entertainment"].includes(
+                  existing.category ?? "",
+                )
+              ? existing.category!
+              : "services",
   });
   if (notifyErr) {
     console.error("moderate: notification insert failed", notifyErr);

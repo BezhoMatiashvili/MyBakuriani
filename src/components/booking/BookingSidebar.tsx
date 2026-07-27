@@ -51,6 +51,7 @@ interface BookingSidebarProps {
   ownerAvatar: string | null;
   isOwnerVerified: boolean;
   ownerPhone?: string | null;
+  hasWhatsapp?: boolean;
   ownerWhatsapp?: string | null;
   ownerId?: string | null;
   propertyId?: string | null;
@@ -194,6 +195,7 @@ export function BookingSidebar({
   ownerAvatar,
   isOwnerVerified,
   ownerPhone,
+  hasWhatsapp = false,
   ownerWhatsapp,
   propertyId,
   selectedRange,
@@ -436,7 +438,8 @@ export function BookingSidebar({
             alwaysShowLabel
           />
           <WhatsAppButton
-            phone={ownerWhatsapp ?? ownerPhone}
+            hasWhatsApp={hasWhatsapp}
+            whatsapp={ownerWhatsapp}
             propertyId={propertyId}
           />
         </div>

@@ -53,6 +53,8 @@ type SbClient = ReturnType<typeof createServiceClient>;
 interface WarnRow {
   id: string;
   owner_id: string;
+  is_for_sale?: boolean | null;
+  category?: string | null;
   owner: { phone: string | null } | { phone: string | null }[] | null;
 }
 
@@ -69,7 +71,11 @@ async function warnExpiring(
 ): Promise<{ warned: number; sms: number }> {
   const { data, error } = await db
     .from(table)
-    .select("id, owner_id, owner:owner_id(phone)")
+    .select(
+      table === "properties"
+        ? "id, owner_id, is_for_sale, owner:owner_id(phone)"
+        : "id, owner_id, category, owner:owner_id(phone)",
+    )
     .gte("vip_expires_at", nowISO)
     .lte("vip_expires_at", windowEndISO)
     .is("vip_expiry_notified_at", null)
@@ -88,6 +94,20 @@ async function warnExpiring(
     message: "თქვენი VIP მალე იწურება.",
     action_url: "/dashboard",
     severity: "warning",
+    dashboard_scope:
+      table === "properties"
+        ? r.is_for_sale
+          ? "seller"
+          : "renter"
+        : r.category === "food"
+          ? "food"
+          : r.category === "cleaning"
+            ? "cleaner"
+            : ["employment", "transport", "entertainment"].includes(
+                  r.category ?? "",
+                )
+              ? r.category
+              : "services",
   }));
   const { error: notifyErr } = await db
     .from("notifications")

@@ -71,6 +71,7 @@ export default function CreatePackageModal({
   const [vipTier, setVipTier] = useState<string>("standard");
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
+  const [durationMonths, setDurationMonths] = useState<1 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -102,6 +103,7 @@ export default function CreatePackageModal({
       setValidTo(
         typeof meta.valid_to === "string" ? (meta.valid_to as string) : "",
       );
+      setDurationMonths(meta.duration_months === 3 ? 3 : 1);
     } else {
       setName("");
       setLabel("");
@@ -112,6 +114,7 @@ export default function CreatePackageModal({
       setVipTier("standard");
       setValidFrom("");
       setValidTo("");
+      setDurationMonths(1);
     }
   }, [isOpen, editPackage]);
 
@@ -139,7 +142,10 @@ export default function CreatePackageModal({
       toast.error(t("vipDurationRequired"));
       return;
     }
-    if (effectiveCategory === "subscription") {
+    const isRenterMembership =
+      effectiveCategory === "subscription" &&
+      (editPackage?.meta?.subscription_scope === "renter" || !editPackage);
+    if (effectiveCategory === "subscription" && !isRenterMembership) {
       if (!validFrom || !validTo) {
         toast.error(t("periodRequired"));
         return;
@@ -151,12 +157,18 @@ export default function CreatePackageModal({
       }
     }
 
-    const meta: Record<string, unknown> = {};
+    // Preserve every metadata field we do not explicitly manage in this form.
+    const meta: Record<string, unknown> = { ...(editPackage?.meta ?? {}) };
     if (effectiveCategory === "sms") {
       meta.sms_count = Number(smsCount);
     } else if (effectiveCategory === "vip") {
       meta.duration_hours = Number(durationHours);
       meta.tier = vipTier;
+    } else if (effectiveCategory === "subscription" && isRenterMembership) {
+      meta.subscription_scope = "renter";
+      meta.duration_months = durationMonths;
+      delete meta.valid_from;
+      delete meta.valid_to;
     } else if (effectiveCategory === "subscription") {
       // Validity period the buyer receives (read by purchase_package RPC)
       meta.valid_from = validFrom;
@@ -291,7 +303,22 @@ export default function CreatePackageModal({
           </div>
         ) : null}
 
-        {effectiveCategory === "subscription" ? (
+        {effectiveCategory === "subscription" &&
+        (editPackage?.meta?.subscription_scope === "renter" || !editPackage) ? (
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-bold text-[#0F172A]">
+              {t("membershipDuration")} <span className="text-[#DC2626]">*</span>
+            </label>
+            <select
+              value={durationMonths}
+              onChange={(e) => setDurationMonths(Number(e.target.value) as 1 | 3)}
+              className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
+            >
+              <option value={1}>{t("oneMonth")}</option>
+              <option value={3}>{t("threeMonths")}</option>
+            </select>
+          </div>
+        ) : effectiveCategory === "subscription" ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-[#0F172A]">

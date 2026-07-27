@@ -30,6 +30,7 @@ import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
+  has_whatsapp?: boolean;
 };
 
 interface Props {
@@ -420,7 +421,12 @@ export default function TransportDetailClient({
         )
       )}
 
-      <TransportContactFooter phone={service.phone} serviceId={service.id} />
+      <TransportContactFooter
+        phone={null}
+        hasWhatsapp={service.has_whatsapp ?? false}
+        whatsapp={null}
+        serviceId={service.id}
+      />
     </div>
   );
 }

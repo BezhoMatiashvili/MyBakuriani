@@ -7,6 +7,8 @@ import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
 
+type PublicService = Tables<"services"> & { has_whatsapp?: boolean };
+
 const CATEGORIES = [
   "all",
   "cleaning",
@@ -28,10 +30,10 @@ const KNOWN_POSITIONS = new Set([
 const ITEMS_PER_PAGE = 9;
 
 interface Props {
-  services: Tables<"services">[];
+  services: PublicService[];
 }
 
-function matchesCategory(s: Tables<"services">, value: string): boolean {
+function matchesCategory(s: PublicService, value: string): boolean {
   const pos = (s.position ?? "").toLowerCase();
   const cat = (s.category ?? "").toLowerCase();
   switch (value) {
@@ -195,7 +197,8 @@ export default function ServicesPageClient({ services }: Props) {
                     variant="avatar"
                     schedule={s.schedule}
                     operatingHours={s.operating_hours}
-                    phone={s.phone}
+                    phone={null}
+                    hasWhatsapp={s.has_whatsapp ?? false}
                     providerName={s.position}
                     // `availabilityStatus` used to be derived from
                     // `discount_percent > 0`, which is an unrelated column: the

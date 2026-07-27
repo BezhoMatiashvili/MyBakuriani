@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import {
@@ -18,7 +18,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import StatCard from "@/components/cards/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatNumber, formatPrice } from "@/lib/utils/format";
+import { formatDate, formatNumber, formatPrice } from "@/lib/utils/format";
 import PaymentModal from "@/components/renter/PaymentModal";
 import VipInfoModal, {
   type VipInfoTier,
@@ -75,6 +75,7 @@ export default function RenterDashboardClient({
 }) {
   const t = useTranslations("RenterDashboard");
   const tShared = useTranslations("DashboardShared");
+  const locale = useLocale();
   const supabase = createClient();
 
   // Seeded from the server render — content is present on first paint, so there
@@ -85,13 +86,16 @@ export default function RenterDashboardClient({
   );
   const [properties, setProperties] = useState<Property[]>(initial.properties);
   const [stats, setStats] = useState<OwnerStats | null>(initial.stats);
+  const [walletBalance, setWalletBalance] = useState(initial.walletBalance);
+  const [membershipExpiresAt, setMembershipExpiresAt] = useState(
+    initial.membershipExpiresAt,
+  );
+  const [membershipPlans, setMembershipPlans] = useState(
+    initial.membershipPlans,
+  );
   const [matchesCount, setMatchesCount] = useState(0);
 
-  const [paymentModal, setPaymentModal] = useState<{
-    open: boolean;
-    status: "pending" | "paid";
-    title: string;
-  }>({ open: false, status: "pending", title: "" });
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [vipModal, setVipModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
@@ -117,6 +121,9 @@ export default function RenterDashboardClient({
       setProfile(data.profile);
       setProperties(data.properties);
       setStats(data.stats);
+      setWalletBalance(data.walletBalance);
+      setMembershipExpiresAt(data.membershipExpiresAt);
+      setMembershipPlans(data.membershipPlans);
       void refreshMatches();
     }
 
@@ -178,6 +185,30 @@ export default function RenterDashboardClient({
           })}
         </p>
       </motion.div>
+
+      {/* Membership belongs to the owner account, not an individual listing. */}
+      <section className="flex flex-col gap-3 rounded-[20px] border border-[#DBEAFE] bg-[#F8FBFF] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-base font-extrabold text-[#0F172A]">
+            {membershipExpiresAt ? t("membershipActive") : t("membershipRequired")}
+          </p>
+          <p className="mt-1 text-sm font-medium text-[#64748B]">
+            {membershipExpiresAt
+              ? t("membershipExpires", {
+                  date: formatDate(membershipExpiresAt, locale),
+                })
+              : t("membershipPrompt")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPaymentModalOpen(true)}
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF]"
+        >
+          <CreditCard className="h-4 w-4" />
+          {membershipExpiresAt ? t("extendMembership") : t("activateMembership")}
+        </button>
+      </section>
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -272,20 +303,8 @@ export default function RenterDashboardClient({
                   property={property}
                   statusKey={statusKey}
                   isBlocked={isBlocked}
-                  onPay={() =>
-                    setPaymentModal({
-                      open: true,
-                      status: "pending",
-                      title: property.title,
-                    })
-                  }
-                  onViewPaid={() =>
-                    setPaymentModal({
-                      open: true,
-                      status: "paid",
-                      title: property.title,
-                    })
-                  }
+                  hasMembership={Boolean(membershipExpiresAt)}
+                  onMembership={() => setPaymentModalOpen(true)}
                   onOpenTier={(tier) => setPickerModal({ open: true, tier })}
                 />
               );
@@ -310,16 +329,20 @@ export default function RenterDashboardClient({
       </motion.section>
 
       <PaymentModal
-        isOpen={paymentModal.open}
-        onClose={() => setPaymentModal((p) => ({ ...p, open: false }))}
-        status={paymentModal.status}
-        amount={30}
-        propertyTitle={paymentModal.title}
-        dueDate={
-          paymentModal.status === "pending"
-            ? t("dueDatePending")
-            : t("dueDatePaid")
-        }
+        isOpen={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        membershipExpiresAt={membershipExpiresAt}
+        walletBalance={walletBalance}
+        plans={membershipPlans}
+        onPurchased={async () => {
+          const data = await loadRenterOverview(supabase, userId);
+          setProfile(data.profile);
+          setProperties(data.properties);
+          setStats(data.stats);
+          setWalletBalance(data.walletBalance);
+          setMembershipExpiresAt(data.membershipExpiresAt);
+          setMembershipPlans(data.membershipPlans);
+        }}
       />
 
       <VipInfoModal
@@ -356,20 +379,19 @@ function PropertyRow({
   property,
   statusKey,
   isBlocked,
-  onPay,
-  onViewPaid,
+  hasMembership,
+  onMembership,
   onOpenTier,
 }: {
   property: Property;
   statusKey: string;
   isBlocked: boolean;
-  onPay: () => void;
-  onViewPaid: () => void;
+  hasMembership: boolean;
+  onMembership: () => void;
   onOpenTier: (tier: VipInfoTier) => void;
 }) {
   const t = useTranslations("RenterDashboard");
   const photo = (property.photos ?? [])[0];
-  const isPaid = statusKey === "active";
 
   return (
     <motion.div
@@ -453,11 +475,11 @@ function PropertyRow({
           {!isBlocked && (
             <button
               type="button"
-              onClick={isPaid ? onViewPaid : onPay}
+              onClick={onMembership}
               className="inline-flex items-center gap-1.5 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-3.5 py-2.5 text-[12px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
             >
               <CreditCard className="h-3.5 w-3.5" />
-              {t("pay")}
+              {hasMembership ? t("extendMembership") : t("pay")}
             </button>
           )}
           <a

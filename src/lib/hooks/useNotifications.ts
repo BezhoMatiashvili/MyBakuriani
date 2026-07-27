@@ -3,10 +3,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/types/database";
+import type { DashboardScope } from "@/lib/notifications/scopes";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
-export function useNotifications() {
+/**
+ * Global bell when scope is omitted; an exact cabinet feed/bell otherwise.
+ * Global notifications are intentionally not included in a scoped result.
+ */
+export function useNotifications(scope?: DashboardScope) {
   const supabase = useMemo(() => createClient(), []);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,12 +37,14 @@ export function useNotifications() {
 
         // Fetch existing notifications (cap the initial load — the bell only shows
         // recent items, and realtime keeps newer ones in sync).
-        const { data } = await supabase
+        let query = supabase
           .from("notifications")
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(50);
+        if (scope) query = query.eq("dashboard_scope", scope);
+        const { data } = await query;
 
         setNotifications(data ?? []);
 
@@ -50,10 +57,16 @@ export function useNotifications() {
               event: "INSERT",
               schema: "public",
               table: "notifications",
+              // Always the per-user filter, never the scope: Realtime supports one
+              // filter, and `dashboard_scope=eq.…` would drop the user predicate.
+              // For an admin viewer the "Admins full access" RLS policy then lets
+              // every other user's notification through into this feed. The scope
+              // is applied client-side in the handler instead.
               filter: `user_id=eq.${user.id}`,
             },
             (payload) => {
               const newNotification = payload.new as Notification;
+              if (scope && newNotification.dashboard_scope !== scope) return;
               setNotifications((prev) => {
                 if (prev.some((item) => item.id === newNotification.id)) {
                   return prev;
@@ -68,6 +81,11 @@ export function useNotifications() {
               event: "UPDATE",
               schema: "public",
               table: "notifications",
+              // Always the per-user filter, never the scope: Realtime supports one
+              // filter, and `dashboard_scope=eq.…` would drop the user predicate.
+              // For an admin viewer the "Admins full access" RLS policy then lets
+              // every other user's notification through into this feed. The scope
+              // is applied client-side in the handler instead.
               filter: `user_id=eq.${user.id}`,
             },
             (payload) => {
@@ -83,6 +101,11 @@ export function useNotifications() {
               event: "DELETE",
               schema: "public",
               table: "notifications",
+              // Always the per-user filter, never the scope: Realtime supports one
+              // filter, and `dashboard_scope=eq.…` would drop the user predicate.
+              // For an admin viewer the "Admins full access" RLS policy then lets
+              // every other user's notification through into this feed. The scope
+              // is applied client-side in the handler instead.
               filter: `user_id=eq.${user.id}`,
             },
             (payload) => {
@@ -107,8 +130,7 @@ export function useNotifications() {
         supabase.removeChannel(channel);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [scope, supabase]);
 
   async function markAsRead(id: string) {
     const { error } = await supabase

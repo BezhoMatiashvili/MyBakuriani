@@ -65,12 +65,13 @@ export default function FoodNotificationsPage() {
   } = useRealtimeList<Notification>({
     table: "notifications",
     enabled: !!user,
-    filter: user ? `user_id=eq.${user.id}` : undefined,
+    filter: user ? "dashboard_scope=eq.food" : undefined,
     fetcher: async () => {
       const { data } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user!.id)
+        .eq("dashboard_scope", "food")
         .gte(
           "created_at",
           new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -99,7 +100,8 @@ export default function FoodNotificationsPage() {
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
-      .eq("is_read", false);
+      .eq("is_read", false)
+      .eq("dashboard_scope", "food");
   }
 
   async function markRead(id: string) {

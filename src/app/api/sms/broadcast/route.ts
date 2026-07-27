@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     title: "SMS დაგზავნა მოლოდინში",
     message: `${result.recipient_count} SMS ექვემდებარება ადმინისტრატორის შემოწმებას`,
     action_url: "/dashboard/sms",
+    dashboard_scope: "renter",
   });
 
   return Response.json({ ok: true, ...result });

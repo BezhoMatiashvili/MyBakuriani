@@ -10,10 +10,7 @@ import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Tables } from "@/lib/types/database";
-import {
-  contentChangeErrorKey,
-  submitContentChange,
-} from "@/lib/content-change/client";
+import { updateSelfServiceProfile } from "@/lib/self-service/client";
 
 interface NotifPrefs {
   newInquiry: boolean;
@@ -60,6 +57,13 @@ export default function ServiceParametersPage() {
         setLastName(parts.slice(1).join(" "));
         setPhone(toLocalGePhone(data.phone));
         setEmail(user!.email ?? "");
+        setPersonalId(data.personal_id ?? "");
+        setWhatsapp(data.whatsapp_enabled === false ? "" : toLocalGePhone(data.phone));
+        const savedPrefs = data.notification_prefs as Record<string, unknown> | null;
+        setPrefs({
+          newInquiry: typeof savedPrefs?.new_request === "boolean" ? savedPrefs.new_request : true,
+          dailyReport: typeof savedPrefs?.monthly_report === "boolean" ? savedPrefs.monthly_report : true,
+        });
       }
       setLoading(false);
     }
@@ -77,9 +81,11 @@ export default function ServiceParametersPage() {
     setReviewError("");
     let error: Error | null = null;
     try {
-      await submitContentChange("profile", user.id, {
+      await updateSelfServiceProfile({
         display_name: [firstName, lastName].filter(Boolean).join(" "),
         phone: phone ? "+995" + phone : null,
+        personal_id: personalId || null,
+        whatsapp_enabled: Boolean(whatsapp),
       });
     } catch (cause) {
       error = cause instanceof Error ? cause : new Error("submit_failed");
@@ -89,7 +95,23 @@ export default function ServiceParametersPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } else {
-      setReviewError(tCreate(contentChangeErrorKey(error)));
+      setReviewError(tCreate("contentChange.failed"));
+    }
+  }
+
+  async function savePreference(key: keyof NotifPrefs, value: boolean) {
+    const previous = prefs;
+    const next = { ...previous, [key]: value };
+    setPrefs(next);
+    try {
+      await updateSelfServiceProfile({
+        notification_prefs: key === "newInquiry"
+          ? { new_request: value }
+          : { monthly_report: value },
+      });
+    } catch {
+      setPrefs(previous);
+      setReviewError(tCreate("contentChange.failed"));
     }
   }
 
@@ -286,7 +308,7 @@ export default function ServiceParametersPage() {
           </button>
           {saved && (
             <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
-              {tCreate("contentChange.pending")}
+              {tShared("saved")}
             </p>
           )}
           {reviewError && (
@@ -333,7 +355,7 @@ export default function ServiceParametersPage() {
                 </div>
                 <Toggle
                   checked={prefs[row.key]}
-                  onChange={(v) => setPrefs((p) => ({ ...p, [row.key]: v }))}
+                  onChange={(v) => void savePreference(row.key, v)}
                 />
               </div>
             ))}

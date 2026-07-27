@@ -49,6 +49,7 @@ Full symbol inventory (module → exports + import edges, regenerable):
 | C7  | Realtime subscriptions require the table in `supabase_realtime` publication             | new subscription on a table not in the publication                      |
 | C8  | `/create` + `/dashboard` gated in middleware; admin via auth helpers; RLS via role enum | new protected segment not added to `isProtected`                        |
 | C9  | `favorites` rows reference property_id XOR service_id; both must be handled             | new favorites read/write path only handles `property_id`                |
+| C19 | Notification `dashboard_scope` agrees across CHECK, TS union, writers, readers, badges  | a writer omits the scope → NULL row is invisible in every cabinet feed  |
 
 ## Pre-modification ritual
 

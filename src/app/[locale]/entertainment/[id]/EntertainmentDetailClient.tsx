@@ -32,6 +32,7 @@ import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
+  has_whatsapp?: boolean;
 };
 
 interface Props {
@@ -290,9 +291,13 @@ export default function EntertainmentDetailClient({
           )}
         </div>
         <div className="flex items-center gap-3">
-          <WhatsAppButton phone={service.phone} serviceId={service.id} />
+          <WhatsAppButton
+            hasWhatsApp={service.has_whatsapp ?? false}
+            whatsapp={null}
+            serviceId={service.id}
+          />
           <CallButton
-            phone={service.phone}
+            phone={null}
             className="flex-1 px-8 sm:flex-none"
             label={t("callOrBook")}
             serviceId={service.id}

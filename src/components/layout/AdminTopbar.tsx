@@ -237,6 +237,7 @@ export function AdminTopbar({
           <div className="h-8 w-px bg-[#E2E8F0]" />
           <DashboardNotificationBell
             initialUnreadCount={notificationCount}
+            scope="admin"
             triggerClassName="relative inline-flex h-[44px] w-[44px] items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#475569]"
           />
           <div className="hidden items-center gap-3 sm:flex">

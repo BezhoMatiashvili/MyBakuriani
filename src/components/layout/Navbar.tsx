@@ -28,7 +28,6 @@ import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
-import { resolveNotificationsPath } from "@/lib/utils/notifications";
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -137,7 +136,9 @@ export function Navbar() {
   const dashboardPath = profile
     ? (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest")
     : "/dashboard/guest";
-  const viewAllNotificationsPath = resolveNotificationsPath(dashboardPath);
+  // The public bell is intentionally cross-cabinet, so it always opens the
+  // aggregate inbox rather than whichever cabinet happens to be primary.
+  const viewAllNotificationsPath = "/notifications";
 
   async function handleLogout() {
     try {

@@ -33,6 +33,7 @@ interface ServiceCardProps {
   schedule?: string | null;
   operatingHours?: string | null;
   phone?: string | null;
+  hasWhatsapp?: boolean;
   providerName?: string | null;
   experienceYears?: number | null;
   availabilityStatus?: "active" | "busy" | null;
@@ -74,6 +75,7 @@ export default function ServiceCard({
   schedule,
   operatingHours,
   phone,
+  hasWhatsapp = false,
   providerName,
   experienceYears,
   availabilityStatus,
@@ -210,14 +212,27 @@ export default function ServiceCard({
             >
               {t("details")}
             </Link>
-            <WhatsAppButton
-              phone={isBusy ? null : phone}
-              serviceId={id}
-              variant="label"
-              size="default"
-              onClick={stop}
-              className="w-full rounded-[12px] px-2"
-            />
+            <div className="flex min-w-0 items-center gap-2">
+              <CallButton
+                phone={phone}
+                serviceId={id}
+                label={t("call")}
+                alwaysShowLabel
+                layout="card"
+                size="default"
+                onClick={stop}
+                className="min-w-0 flex-1 rounded-[12px] px-2"
+              />
+              {!isBusy && (
+                <WhatsAppButton
+                  hasWhatsApp={hasWhatsapp}
+                  whatsapp={null}
+                  serviceId={id}
+                  onClick={stop}
+                  className="rounded-[12px]"
+                />
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
@@ -515,14 +530,27 @@ export default function ServiceCard({
                 className="w-full min-w-0 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]"
               />
             ) : (
-              <WhatsAppButton
-                phone={isTransport && isBusy ? null : phone}
-                serviceId={id}
-                variant="label"
-                size="default"
-                onClick={stop}
-                className="w-full min-w-0 rounded-[12px] px-2 shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
-              />
+              <div className="flex min-w-0 items-center gap-2">
+                <CallButton
+                  phone={phone}
+                  serviceId={id}
+                  label={t("call")}
+                  alwaysShowLabel
+                  layout="card"
+                  size="default"
+                  onClick={stop}
+                  className="min-w-0 flex-1 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]"
+                />
+                {!(isTransport && isBusy) && (
+                  <WhatsAppButton
+                    hasWhatsApp={hasWhatsapp}
+                    whatsapp={null}
+                    serviceId={id}
+                    onClick={stop}
+                    className="shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
+                  />
+                )}
+              </div>
             )}
           </div>
         </div>

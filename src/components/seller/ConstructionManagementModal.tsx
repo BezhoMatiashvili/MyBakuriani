@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { CalendarDays, Check, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
-import {
-  contentChangeErrorKey,
-  submitContentChange,
-} from "@/lib/content-change/client";
+import { publishPropertyProgress } from "@/lib/self-service/client";
 import type { Tables } from "@/lib/types/database";
 import {
   CONSTRUCTION_STAGES,
@@ -72,8 +68,6 @@ export default function ConstructionManagementModal({
   const [videoUrl, setVideoUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hydratedStagesRef = useRef<string[]>([]);
-  const feedInsertedRef = useRef(false);
 
   useEffect(() => {
     if (!property) return;
@@ -82,12 +76,6 @@ export default function ConstructionManagementModal({
       stored.length > 0
         ? stored
         : stagesUpToPercent(property.construction_progress_percent ?? 0);
-    // Baseline what the form was HYDRATED with, not the raw column: a listing created
-    // by the sale form stores construction_stages [] alongside a non-zero percent, so
-    // diffing against the column would make merely opening this modal count as a
-    // change and queue a review request for an untouched listing.
-    hydratedStagesRef.current = hydrated;
-    feedInsertedRef.current = false;
     setSelectedStages(hydrated);
     setStatus("");
     setNote("");
@@ -123,85 +111,21 @@ export default function ConstructionManagementModal({
     setSaving(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const nowIso = new Date().toISOString();
       const trimmedNote = note.trim();
-
-      // construction_stages and construction_progress_percent are review-gated
-      // public content (prevent_unreviewed_public_content_update), so they can only
-      // change through the content-change queue. progress_note is not gated, so the
-      // headline note and the update-history entry still publish immediately.
-      // `percent` is derived from selectedStages, so a stage-set comparison covers it.
-      // Compared as a set: toggling stages off and back on reorders the array without
-      // changing what it means.
-      const baseStages = hydratedStagesRef.current;
-      const stagesChanged =
-        baseStages.length !== selectedStages.length ||
-        !baseStages.every((stage) => selectedStages.includes(stage));
-
-      let updated: Tables<"properties"> | null = null;
-      // Only refresh the public headline note when a description was typed, so
-      // photo-only updates don't wipe the previously shown note.
-      if (trimmedNote) {
-        const { data, error: noteError } = await supabase
-          .from("properties")
-          .update({
-            progress_note: trimmedNote,
-            progress_note_updated_at: nowIso,
-          })
-          .eq("id", property.id)
-          .eq("owner_id", property.owner_id)
-          .select("*")
-          .single();
-
-        if (noteError) throw noteError;
-        updated = data as Tables<"properties">;
-      }
-
-      // Write the history entry before submitting the review request: a rejected or
-      // duplicate change request must not swallow the seller's update feed row. Guarded
-      // by a ref so retrying after a failed review submit does not append a second
-      // identical row to the public feed.
-      if (!feedInsertedRef.current) {
-        const { error: feedError } = await supabase
-          .from("project_updates")
-          .insert({
-            property_id: property.id,
-            owner_id: property.owner_id,
-            status: status || null,
-            note: trimmedNote || null,
-            photos: media,
-            video_url: videoUrl.trim() || null,
-            update_date: format(updateDate, "yyyy-MM-dd"),
-          });
-
-        if (feedError) {
-          toast.error(t("savedHistoryFailed"));
-        } else {
-          feedInsertedRef.current = true;
-        }
-      }
-
-      if (stagesChanged) {
-        await submitContentChange("property", property.id, {
-          construction_stages: selectedStages,
-          construction_progress_percent: percent,
-        });
-        toast.success(tCreate("contentChange.pending"));
-      } else {
-        toast.success(t("published"));
-      }
-
-      if (updated) onSaved(updated);
+      const result = await publishPropertyProgress(property.id, {
+        stages: selectedStages,
+        status: status || null,
+        note: trimmedNote || null,
+        photos: media,
+        videoUrl: videoUrl.trim() || null,
+        updateDate: format(updateDate, "yyyy-MM-dd"),
+      });
+      onSaved(result.property as Tables<"properties">);
+      toast.success(t("published"));
       onClose();
     } catch (err) {
-      const key = contentChangeErrorKey(err);
-      if (key === "contentChange.failed") {
-        console.error("[construction publish]", err);
-        setError(tAdmin("saveFailed"));
-      } else {
-        setError(tCreate(key));
-      }
+      console.error("[construction publish]", err);
+      setError(tAdmin("saveFailed"));
     } finally {
       setSaving(false);
     }

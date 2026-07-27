@@ -40,6 +40,7 @@ export function GuestTopbar({
 
         <DashboardNotificationBell
           initialUnreadCount={notificationCount}
+          scope="guest"
           triggerClassName="relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-[#0F8F60] hover:text-[#0F8F60]"
         />
       </div>

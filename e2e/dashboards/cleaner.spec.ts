@@ -31,6 +31,55 @@ test.describe("Cleaner Dashboard", () => {
     await expect(cleanerPage).toHaveURL(/\/dashboard\/cleaner\/schedule/);
   });
 
+  test("empty selected date shows only its add-job CTA", async ({
+    cleanerPage,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner/schedule");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    await cleanerPage.getByRole("button", { name: /^ხვალ/ }).click();
+    await expect(
+      cleanerPage.getByText("ამ დღეს დავალებები არ გაქვთ", { exact: true }),
+    ).toBeVisible();
+
+    const addJobButtons = cleanerPage.getByRole("button", {
+      name: "სამუშაოს დამატება",
+      exact: true,
+    });
+    await expect(addJobButtons).toHaveCount(1);
+    await expect(cleanerPage.getByTestId("schedule-empty-add-job")).toBeVisible();
+    await expect(cleanerPage.getByTestId("schedule-header-add-job")).toHaveCount(0);
+
+    await cleanerPage.getByTestId("schedule-empty-add-job").click();
+    await expect(
+      cleanerPage.getByRole("heading", { name: "ახალი სამუშაო", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("populated selected date shows only the header add-job CTA", async ({
+    cleanerPage,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner/schedule");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    await expect(
+      cleanerPage.getByText("E2E ვილა ბაკურიანში", { exact: true }),
+    ).toBeVisible();
+
+    const addJobButtons = cleanerPage.getByRole("button", {
+      name: "სამუშაოს დამატება",
+      exact: true,
+    });
+    await expect(addJobButtons).toHaveCount(1);
+    await expect(cleanerPage.getByTestId("schedule-header-add-job")).toBeVisible();
+    await expect(cleanerPage.getByTestId("schedule-empty-add-job")).toHaveCount(0);
+
+    await cleanerPage.getByTestId("schedule-header-add-job").click();
+    await expect(
+      cleanerPage.getByRole("heading", { name: "ახალი სამუშაო", exact: true }),
+    ).toBeVisible();
+  });
+
   test("working hours are per cleaning listing", async ({
     cleanerPage,
     testIds,

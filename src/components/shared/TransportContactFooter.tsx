@@ -6,6 +6,8 @@ import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 
 interface Props {
   phone: string | null | undefined;
+  hasWhatsapp: boolean;
+  whatsapp?: string | null;
   serviceId: string;
 }
 
@@ -14,7 +16,7 @@ interface Props {
  * all breakpoints. The green pill (CallButton) shows the masked number and
  * reveals/dials on click; the round icon (WhatsAppButton) opens WhatsApp.
  */
-export function TransportContactFooter({ phone, serviceId }: Props) {
+export function TransportContactFooter({ phone, hasWhatsapp, whatsapp, serviceId }: Props) {
   const t = useTranslations("TransportDetail");
   const tCard = useTranslations("ServiceCard");
 
@@ -30,7 +32,7 @@ export function TransportContactFooter({ phone, serviceId }: Props) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <WhatsAppButton phone={phone} serviceId={serviceId} />
+          <WhatsAppButton hasWhatsApp={hasWhatsapp} whatsapp={whatsapp} serviceId={serviceId} />
           <CallButton
             phone={phone}
             className="sm:px-6 sm:text-[15px]"

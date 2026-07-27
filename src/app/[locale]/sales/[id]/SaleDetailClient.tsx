@@ -49,6 +49,7 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
+  has_whatsapp?: boolean;
   organizations?: Pick<
     Tables<"organizations">,
     | "id"
@@ -825,12 +826,7 @@ export default function SaleDetailClient({
 
               <div className="flex gap-2">
                 <CallButton
-                  phone={
-                    property.phone ??
-                    org?.phone ??
-                    property.profiles?.phone ??
-                    null
-                  }
+                  phone={null}
                   className="flex-1 rounded-2xl tracking-[0.375px]"
                   layout="card"
                   size="lg"
@@ -838,13 +834,8 @@ export default function SaleDetailClient({
                   propertyId={property.id}
                 />
                 <WhatsAppButton
-                  phone={
-                    property.whatsapp ??
-                    property.phone ??
-                    org?.phone ??
-                    property.profiles?.phone ??
-                    null
-                  }
+                  hasWhatsApp={property.has_whatsapp ?? false}
+                  whatsapp={null}
                   propertyId={property.id}
                 />
               </div>

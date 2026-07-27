@@ -10,10 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
-import {
-  contentChangeErrorKey,
-  submitContentChange,
-} from "@/lib/content-change/client";
+import { updateSelfServiceProfile } from "@/lib/self-service/client";
 
 type ProfileType = "ფიზიკური პირი" | "იურიდიული პირი";
 
@@ -50,13 +47,22 @@ export default function SellerSettingsPage() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("display_name, phone")
+      .select("display_name, phone, profile_type, personal_id, whatsapp_enabled, notification_prefs")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setDisplayName(data.display_name ?? "");
           setPhone(toLocalGePhone(data.phone));
+          setProfileType(data.profile_type === "company" ? "იურიდიული პირი" : "ფიზიკური პირი");
+          setPersonalId(data.personal_id ?? "");
+          setWhatsapp(data.whatsapp_enabled ?? true);
+          const savedPrefs = data.notification_prefs as Record<string, unknown> | null;
+          setPrefs({
+            newLead: typeof savedPrefs?.new_request === "boolean" ? savedPrefs.new_request : true,
+            addToFavorites: typeof savedPrefs?.add_favorite === "boolean" ? savedPrefs.add_favorite : true,
+            dailyReport: typeof savedPrefs?.monthly_report === "boolean" ? savedPrefs.monthly_report : true,
+          });
         }
         setLoading(false);
       });
@@ -71,9 +77,12 @@ export default function SellerSettingsPage() {
     setReviewError("");
     let error: Error | null = null;
     try {
-      await submitContentChange("profile", user.id, {
+      await updateSelfServiceProfile({
         display_name: displayName,
         phone: phone ? "+995" + phone : null,
+        profile_type: profileType === "იურიდიული პირი" ? "company" : "personal",
+        personal_id: personalId || null,
+        whatsapp_enabled: whatsapp,
       });
     } catch (cause) {
       error = cause instanceof Error ? cause : new Error("submit_failed");
@@ -83,7 +92,25 @@ export default function SellerSettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } else {
-      setReviewError(tCreate(contentChangeErrorKey(error)));
+      setReviewError(tCreate("contentChange.failed"));
+    }
+  }
+
+  async function savePreference(key: keyof NotifPrefs, value: boolean) {
+    const previous = prefs;
+    const next = { ...previous, [key]: value };
+    setPrefs(next);
+    try {
+      await updateSelfServiceProfile({
+        notification_prefs: {
+          new_request: next.newLead,
+          add_favorite: next.addToFavorites,
+          monthly_report: next.dailyReport,
+        },
+      });
+    } catch {
+      setPrefs(previous);
+      setReviewError(tCreate("contentChange.failed"));
     }
   }
 
@@ -240,7 +267,7 @@ export default function SellerSettingsPage() {
           </div>
           {saved && (
             <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
-              {tCreate("contentChange.pending")}
+              {tShared("saved")}
             </p>
           )}
           {reviewError && (
@@ -292,7 +319,7 @@ export default function SellerSettingsPage() {
                 </div>
                 <Toggle
                   checked={prefs[row.key]}
-                  onChange={(v) => setPrefs((p) => ({ ...p, [row.key]: v }))}
+                  onChange={(v) => void savePreference(row.key, v)}
                 />
               </div>
             ))}

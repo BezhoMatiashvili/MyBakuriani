@@ -4,20 +4,26 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { toast } from "sonner";
 import { Link } from "@/i18n/navigation";
-import { ArrowRight, Heart, MapPin, Trash2 } from "lucide-react";
+import { ArrowRight, Heart, HeartOff, MapPin, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import {
+  setFavorite,
+  type FavoriteTarget,
+} from "@/lib/favorites/store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
-import type { Tables } from "@/lib/types/database";
+import type { Database } from "@/lib/types/database";
 
-type Property = Tables<"properties">;
-type Service = Tables<"services">;
+type Property = Database["public"]["Views"]["public_properties"]["Row"];
+type Service = Database["public"]["Views"]["public_services"]["Row"];
 
 interface FavoriteRow {
   id: string;
+  target: FavoriteTarget;
   property: Property | null;
   service: Service | null;
 }
@@ -29,17 +35,18 @@ export default function GuestFavoritesPage() {
 
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<FavoriteRow[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
     async function fetchFavorites() {
-      const { data: favs } = await supabase
+      const { data: favs, error: favoritesError } = await supabase
         .from("favorites")
         .select("id, property_id, service_id, created_at")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
 
-      if (!favs || favs.length === 0) {
+      if (favoritesError || !favs || favs.length === 0) {
         setLoading(false);
         return;
       }
@@ -53,10 +60,10 @@ export default function GuestFavoritesPage() {
 
       const [propsRes, servicesRes] = await Promise.all([
         propertyIds.length
-          ? supabase.from("properties").select("*").in("id", propertyIds)
+          ? supabase.from("public_properties").select("*").in("id", propertyIds)
           : Promise.resolve({ data: [] as Property[] }),
         serviceIds.length
-          ? supabase.from("services").select("*").in("id", serviceIds)
+          ? supabase.from("public_services").select("*").in("id", serviceIds)
           : Promise.resolve({ data: [] as Service[] }),
       ]);
 
@@ -69,6 +76,9 @@ export default function GuestFavoritesPage() {
 
       const rows: FavoriteRow[] = favs.map((f) => ({
         id: f.id,
+        target: f.property_id
+          ? { kind: "property", id: f.property_id }
+          : { kind: "service", id: f.service_id! },
         property: f.property_id ? (propMap.get(f.property_id) ?? null) : null,
         service: f.service_id ? (svcMap.get(f.service_id) ?? null) : null,
       }));
@@ -80,13 +90,23 @@ export default function GuestFavoritesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  async function removeFavorite(favoriteId: string) {
-    await supabase.from("favorites").delete().eq("id", favoriteId);
-    setFavorites((rows) => rows.filter((r) => r.id !== favoriteId));
+  async function removeFavorite(favorite: FavoriteRow) {
+    if (!user || removingId) return;
+    setRemovingId(favorite.id);
+    try {
+      await setFavorite(user.id, favorite.target, false);
+      setFavorites((rows) => rows.filter((row) => row.id !== favorite.id));
+    } catch {
+      // Preserve the card: the shared mutation only updates its local state
+      // after a confirmed database deletion.
+      toast.error(t("removeError"));
+    } finally {
+      setRemovingId(null);
+    }
   }
 
-  const propertyFavorites = favorites.filter((f) => f.property);
-  const serviceFavorites = favorites.filter((f) => f.service);
+  const propertyFavorites = favorites.filter((f) => f.target.kind === "property");
+  const serviceFavorites = favorites.filter((f) => f.target.kind === "service");
 
   return (
     <div className="space-y-8">
@@ -132,25 +152,25 @@ export default function GuestFavoritesPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="text-[18px] font-black text-[#0F172A]">
-                  {t("sectionProperties")}
-                </h2>
-                <Link
-                  href="/apartments"
-                  className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
-                >
-                  {t("viewAll")}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
+              <h2 className="text-[18px] font-black text-[#0F172A]">
+                {t("sectionProperties")}
+              </h2>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {propertyFavorites.map((f) => (
-                  <FavoritePropertyCard
-                    key={f.id}
-                    property={f.property!}
-                    onRemove={() => removeFavorite(f.id)}
-                  />
+                  f.property ? (
+                    <FavoritePropertyCard
+                      key={f.id}
+                      property={f.property}
+                      onRemove={() => removeFavorite(f)}
+                      removing={removingId === f.id}
+                    />
+                  ) : (
+                    <UnavailableFavoriteCard
+                      key={f.id}
+                      onRemove={() => removeFavorite(f)}
+                      removing={removingId === f.id}
+                    />
+                  )
                 ))}
               </div>
             </motion.section>
@@ -162,25 +182,25 @@ export default function GuestFavoritesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 }}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="text-[18px] font-black text-[#0F172A]">
-                  {t("sectionServices")}
-                </h2>
-                <Link
-                  href="/services"
-                  className="inline-flex items-center gap-1 text-[13px] font-bold text-[#0F8F60] hover:underline"
-                >
-                  {t("viewAll")}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
+              <h2 className="text-[18px] font-black text-[#0F172A]">
+                {t("sectionServices")}
+              </h2>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {serviceFavorites.map((f) => (
-                  <FavoriteServiceCard
-                    key={f.id}
-                    service={f.service!}
-                    onRemove={() => removeFavorite(f.id)}
-                  />
+                  f.service ? (
+                    <FavoriteServiceCard
+                      key={f.id}
+                      service={f.service}
+                      onRemove={() => removeFavorite(f)}
+                      removing={removingId === f.id}
+                    />
+                  ) : (
+                    <UnavailableFavoriteCard
+                      key={f.id}
+                      onRemove={() => removeFavorite(f)}
+                      removing={removingId === f.id}
+                    />
+                  )
                 ))}
               </div>
             </motion.section>
@@ -194,9 +214,11 @@ export default function GuestFavoritesPage() {
 function FavoritePropertyCard({
   property,
   onRemove,
+  removing,
 }: {
   property: Property;
   onRemove: () => void;
+  removing: boolean;
 }) {
   const t = useTranslations("GuestFavorites");
   const photo = (property.photos ?? [])[0] ?? null;
@@ -228,6 +250,7 @@ function FavoritePropertyCard({
       <button
         type="button"
         onClick={onRemove}
+        disabled={removing}
         aria-label={t("removeFromFavorites")}
         className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#EF4444] shadow-sm transition-colors hover:bg-white"
       >
@@ -274,9 +297,11 @@ function FavoritePropertyCard({
 function FavoriteServiceCard({
   service,
   onRemove,
+  removing,
 }: {
   service: Service;
   onRemove: () => void;
+  removing: boolean;
 }) {
   const t = useTranslations("GuestFavorites");
   const tOpts = useTranslations("ListingOptions");
@@ -301,6 +326,7 @@ function FavoriteServiceCard({
       <button
         type="button"
         onClick={onRemove}
+        disabled={removing}
         aria-label={t("removeFromFavorites")}
         className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#EF4444] shadow-sm transition-colors hover:bg-white"
       >
@@ -339,6 +365,37 @@ function FavoriteServiceCard({
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function UnavailableFavoriteCard({
+  onRemove,
+  removing,
+}: {
+  onRemove: () => void;
+  removing: boolean;
+}) {
+  const t = useTranslations("GuestFavorites");
+
+  return (
+    <div className="flex min-h-[250px] flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white p-6 text-center shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F1F5F9]">
+        <HeartOff className="h-5 w-5 text-[#64748B]" />
+      </div>
+      <h3 className="mt-3 text-[14px] font-extrabold text-[#0F172A]">
+        {t("unavailableTitle")}
+      </h3>
+      <p className="mt-1 text-[12px] text-[#64748B]">{t("unavailableDesc")}</p>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={removing}
+        className="mt-5 inline-flex items-center gap-1.5 rounded-xl border border-[#EF4444] px-3 py-2 text-[12px] font-bold text-[#DC2626] hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Trash2 className="h-4 w-4" />
+        {t("removeFromFavorites")}
+      </button>
     </div>
   );
 }

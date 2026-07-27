@@ -106,6 +106,7 @@ serve(async (req) => {
         title: "შეაფასეთ თქვენი დარჩენა",
         message: `გთხოვთ შეაფასოთ "${propertyTitle}"`,
         action_url: actionUrl,
+        dashboard_scope: "guest",
       });
 
       if (!notifyErr) notified += 1;

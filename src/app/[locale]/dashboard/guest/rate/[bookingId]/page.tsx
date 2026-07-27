@@ -144,7 +144,8 @@ export default function GuestRatePage() {
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
-      .eq("action_url", `/dashboard/guest/rate/${state.booking.id}`);
+      .eq("action_url", `/dashboard/guest/rate/${state.booking.id}`)
+      .eq("dashboard_scope", "guest");
 
     router.push("/dashboard/guest/reviews?rated=1");
   }

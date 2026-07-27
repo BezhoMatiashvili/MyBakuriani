@@ -3,16 +3,16 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { isMockPropertyId } from "@/lib/mock/properties";
 import { isMockServiceId } from "@/lib/mock/services";
 import {
   subscribe,
-  getFavoriteIds,
   ensureFavoritesLoaded,
   clearFavorites,
-  setFavoriteLocal,
+  isFavorite,
+  setFavorite,
+  type FavoriteTarget,
 } from "@/lib/favorites/store";
 
 type UseFavoriteArgs =
@@ -34,8 +34,9 @@ export function useFavorite({ propertyId, serviceId }: UseFavoriteArgs) {
   const t = useTranslations("Favorites");
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
-  const id = propertyId ?? serviceId;
-  const column = propertyId ? "property_id" : "service_id";
+  const target: FavoriteTarget = propertyId
+    ? { kind: "property", id: propertyId }
+    : { kind: "service", id: serviceId! };
 
   useEffect(() => {
     if (user) ensureFavoritesLoaded(user.id);
@@ -44,7 +45,7 @@ export function useFavorite({ propertyId, serviceId }: UseFavoriteArgs) {
 
   const isFavorited = useSyncExternalStore(
     subscribe,
-    () => getFavoriteIds().has(id),
+    () => isFavorite(target),
     () => false,
   );
 
@@ -56,30 +57,17 @@ export function useFavorite({ propertyId, serviceId }: UseFavoriteArgs) {
       window.location.href = "/auth/login";
       return;
     }
-    if (propertyId ? isMockPropertyId(propertyId) : isMockServiceId(id)) {
+    if (propertyId ? isMockPropertyId(propertyId) : isMockServiceId(target.id)) {
       toast.info(t("demoNotice"));
       return;
     }
     setBusy(true);
     try {
-      const supabase = createClient();
-      if (getFavoriteIds().has(id)) {
-        const { error } = await supabase
-          .from("favorites")
-          .delete()
-          .eq("user_id", user.id)
-          .eq(column, id);
-        if (error) throw error;
-        setFavoriteLocal(id, false);
-        toast.success(t("removed"));
-      } else {
-        const { error } = await supabase
-          .from("favorites")
-          .insert({ user_id: user.id, [column]: id });
-        if (error) throw error;
-        setFavoriteLocal(id, true);
-        toast.success(t("added"));
-      }
+      // Capture the intention before awaiting hydration. A second card for
+      // this listing can then queue the same desired state safely.
+      const desiredState = !isFavorite(target);
+      await setFavorite(user.id, target, desiredState);
+      toast.success(t(desiredState ? "added" : "removed"));
     } catch {
       toast.error(t("error"));
     } finally {

@@ -65,6 +65,7 @@ export async function loadGuestData(
         .select("*")
         .eq("user_id", userId)
         .eq("type", "review_request")
+        .eq("dashboard_scope", "guest")
         .eq("is_read", false)
         .order("created_at", { ascending: false }),
       supabase

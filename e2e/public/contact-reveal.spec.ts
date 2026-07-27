@@ -24,6 +24,7 @@ test.describe("public contact reveals", () => {
 
     await page.goto(path);
     const callButton = page.locator('[data-slot="call-button"]');
+    await expect(page.locator('[data-slot="whatsapp-button"]')).toHaveCount(0);
     await expect(callButton).toBeVisible();
     await expect(callButton).not.toHaveAttribute("href");
 
@@ -34,6 +35,71 @@ test.describe("public contact reveals", () => {
     expect(revealRequests).toBe(1);
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page).not.toHaveURL(/\/auth\/login/);
+  });
+
+  test("a WhatsApp-enabled property reveals only its dedicated WhatsApp target", async ({
+    page,
+    testIds,
+  }) => {
+    const path = apartmentPath(testIds.whatsappApartment);
+    const endpoint = `/api/listings/property/${testIds.whatsappApartment}/contact`;
+    await page.route(`**${endpoint}`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          phone: PHONES.renter,
+          whatsapp: "+995599000010",
+        }),
+      }),
+    );
+
+    await page.goto(path);
+    const callButton = page.locator('[data-slot="call-button"]');
+    const whatsappButton = page.locator('[data-slot="whatsapp-button"]');
+    await expect(callButton).toBeVisible();
+    await expect(whatsappButton).toBeVisible();
+    await expect(whatsappButton).not.toHaveAttribute("href");
+
+    await whatsappButton.click();
+    await expect(whatsappButton).toHaveAttribute(
+      "href",
+      "https://wa.me/995599000010",
+    );
+    await expect(whatsappButton).not.toHaveAttribute(
+      "href",
+      `https://wa.me/${PHONES.renter.slice(1)}`,
+    );
+  });
+
+  test("a WhatsApp-enabled service exposes both contact actions", async ({
+    page,
+    testIds,
+  }) => {
+    const path = `/en/services/${testIds.whatsappService}`;
+    const endpoint = `/api/listings/service/${testIds.whatsappService}/contact`;
+    await page.route(`**${endpoint}`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          phone: PHONES.cleaner,
+          whatsapp: "+995599000011",
+        }),
+      }),
+    );
+
+    await page.goto(path);
+    const callButton = page.locator('[data-slot="call-button"]');
+    const whatsappButton = page.locator('[data-slot="whatsapp-button"]');
+    await expect(callButton).toBeVisible();
+    await expect(whatsappButton).toBeVisible();
+
+    await whatsappButton.click();
+    await expect(whatsappButton).toHaveAttribute(
+      "href",
+      "https://wa.me/995599000011",
+    );
   });
 
   test("a signed-in guest uses the real contact endpoint and receives a dialable link", async ({

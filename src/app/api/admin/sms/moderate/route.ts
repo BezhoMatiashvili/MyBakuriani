@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
         ? `SMS გაგზავნა უარყოფილია: ${body.admin_notes}`
         : "SMS გაგზავნა უარყოფილია ადმინისტრატორის მიერ.",
       action_url: "/dashboard/sms",
+      dashboard_scope: "renter",
     });
 
     return Response.json({ ok: true, status: "rejected" });
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
     title: "SMS დადასტურდა",
     message: `SMS გაიგზავნება მიმღებთან ${sms.recipient_phone}.`,
     action_url: "/dashboard/sms",
+    dashboard_scope: "renter",
   });
 
   return Response.json({ ok: true, status: "approved" });
@@ -182,6 +184,7 @@ async function moderateBroadcast(
         ? `მიზეზი: ${body.admin_notes}`
         : "ადმინისტრატორმა უარყო თქვენი SMS დაგზავნა.",
       action_url: "/dashboard/sms",
+      dashboard_scope: "renter",
     });
 
     return Response.json({ ok: true, status: "rejected" });
@@ -245,6 +248,7 @@ async function moderateBroadcast(
     title: "SMS დაგზავნა დადასტურდა",
     message: `${ids.length} SMS გადაიგზავნება მიმღებებთან.`,
     action_url: "/dashboard/sms",
+    dashboard_scope: "renter",
   });
 
   return Response.json({

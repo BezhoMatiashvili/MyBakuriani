@@ -46,6 +46,7 @@ import BannerSlot from "@/components/banners/BannerSlot";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
+  has_whatsapp?: boolean;
 };
 
 interface ReviewWithGuest {
@@ -458,10 +459,9 @@ export default function ApartmentDetailClient({
               ownerName={owner?.display_name ?? tDetail("ownerFallback")}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
-              ownerPhone={property.phone ?? owner?.phone ?? null}
-              ownerWhatsapp={
-                property.whatsapp ?? property.phone ?? owner?.phone ?? null
-              }
+              ownerPhone={null}
+              hasWhatsapp={property.has_whatsapp ?? false}
+              ownerWhatsapp={null}
               propertyId={property.id}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}

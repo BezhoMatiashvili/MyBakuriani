@@ -104,6 +104,11 @@ export async function POST(req: NextRequest) {
       : "თქვენი ვერიფიკაცია უარყოფილია",
     message,
     action_url,
+    dashboard_scope: property
+      ? property.is_for_sale
+        ? "seller"
+        : "renter"
+      : null,
   });
 
   return Response.json({ ok: true, status });

@@ -23,6 +23,7 @@ export function CleanerTopbar({
         <LanguageSelector />
         <DashboardNotificationBell
           initialUnreadCount={notificationCount}
+          scope="cleaner"
           triggerClassName="relative flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
         />
 

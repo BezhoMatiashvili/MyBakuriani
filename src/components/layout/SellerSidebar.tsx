@@ -280,7 +280,8 @@ export function SellerSidebar({
                         : 0;
                   const showBadge = Boolean(item.badgeKind) && badgeValue > 0;
                   const badgeStyle =
-                    item.badgeKind === "leads"
+                    item.badgeKind === "leads" ||
+                    item.badgeKind === "notifications"
                       ? "bg-[#EF4444] text-white"
                       : "bg-[#E2E8F0] text-[#64748B]";
                   return (

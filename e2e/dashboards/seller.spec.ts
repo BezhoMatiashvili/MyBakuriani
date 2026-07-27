@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { test, expect } from "../helpers/fixtures";
 import {
   ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
@@ -8,7 +9,9 @@ import {
   leads,
   organizationSubscriptions,
   properties,
+  supabaseAdmin,
 } from "../helpers/supabase";
+import { createTestUser, type TestUser } from "../helpers/auth";
 import { formatDateTime } from "../../src/lib/utils/format";
 
 const SELLER_LEADS_PATH = "/dashboard/seller/leads";
@@ -257,12 +260,47 @@ test.describe("Seller Dashboard", () => {
     );
 
     await expect(sellerPage.getByText("PRO", { exact: true })).toBeVisible();
+    await expect(sellerPage.getByTestId("organization-tier-entry")).toBeDisabled();
+    await expect(sellerPage.getByTestId("organization-tier-pro")).toBeDisabled();
+    await expect(sellerPage.getByTestId("organization-tier-premium")).toBeEnabled();
+    await expect(
+      sellerPage.getByTestId("organization-subscription-activate"),
+    ).toBeDisabled();
+    await expect(sellerPage.getByText("შესაძლებელია მხოლოდ უფრო მაღალ პაკეტზე")).toBeVisible();
     await expect(expiry).toContainText(
       formatDateTime(ORGANIZATION_SUBSCRIPTION_EXPIRES_AT, "ka"),
     );
     await expect(expiry).toContainText(`${expectedDaysLeft} დღე`);
 
     await organizationSubscriptions.update(TEST_IDS.organizationSubscription, {
+      tier: "premium",
+      status: "active",
+      expires_at: ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
+    });
+    await sellerPage.reload();
+    await expect(sellerPage.getByTestId("organization-tier-entry")).toBeDisabled();
+    await expect(sellerPage.getByTestId("organization-tier-pro")).toBeDisabled();
+    await expect(sellerPage.getByTestId("organization-tier-premium")).toBeDisabled();
+    await expect(
+      sellerPage.getByTestId("organization-subscription-activate"),
+    ).toBeDisabled();
+
+    await organizationSubscriptions.update(TEST_IDS.organizationSubscription, {
+      tier: "entry",
+      status: "active",
+      expires_at: ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
+    });
+    await sellerPage.reload();
+    await expect(sellerPage.getByTestId("organization-tier-entry")).toBeDisabled();
+    await expect(sellerPage.getByTestId("organization-tier-pro")).toBeEnabled();
+    await expect(sellerPage.getByTestId("organization-tier-premium")).toBeEnabled();
+    await sellerPage.getByTestId("organization-tier-pro").click();
+    await expect(
+      sellerPage.getByTestId("organization-subscription-activate"),
+    ).toBeEnabled();
+
+    await organizationSubscriptions.update(TEST_IDS.organizationSubscription, {
+      tier: "premium",
       status: "expired",
       expires_at: new Date(Date.now() - 60_000).toISOString(),
     });
@@ -272,6 +310,166 @@ test.describe("Seller Dashboard", () => {
       sellerPage.getByText("არ გაქვთ პაკეტი", { exact: true }),
     ).toBeVisible();
     await expect(expiry).toHaveCount(0);
+    await expect(sellerPage.getByTestId("organization-tier-entry")).toBeEnabled();
+    await expect(sellerPage.getByTestId("organization-tier-pro")).toBeEnabled();
+    await expect(sellerPage.getByTestId("organization-tier-premium")).toBeEnabled();
+  });
+});
+
+test.describe("Company subscription tier lock", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("blocks active downgrades and renewals, but allows upgrades and expired-tier purchases", async () => {
+    const userId = randomUUID();
+    const orgId = randomUUID();
+    const timestamp = String(Date.now());
+    const phone = `+995599${timestamp.slice(-6)}`;
+    let user: TestUser | null = null;
+
+    async function cleanup() {
+      for (const request of [
+        supabaseAdmin.from("notifications").delete().eq("user_id", userId),
+        supabaseAdmin.from("transactions").delete().eq("user_id", userId),
+        supabaseAdmin
+          .from("organization_subscriptions")
+          .delete()
+          .eq("organization_id", orgId),
+        supabaseAdmin.from("organizations").delete().eq("id", orgId),
+        supabaseAdmin.from("balances").delete().eq("user_id", userId),
+        supabaseAdmin.from("profiles").delete().eq("id", userId),
+      ]) {
+        try {
+          await request;
+        } catch {
+          // Cleanup should continue through the remaining FK dependencies.
+        }
+      }
+      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
+    }
+
+    async function setSubscription(tier: "entry" | "pro" | "premium", expiresAt: string) {
+      await supabaseAdmin
+        .from("organization_subscriptions")
+        .delete()
+        .eq("organization_id", orgId);
+      await supabaseAdmin
+        .from("transactions")
+        .delete()
+        .eq("user_id", userId);
+      await supabaseAdmin.from("balances").update({ amount: 1000 }).eq("user_id", userId);
+      const limits = { entry: 10, pro: 50, premium: null };
+      const amounts = { entry: 100, pro: 200, premium: 350 };
+      const { error } = await supabaseAdmin.from("organization_subscriptions").insert({
+        organization_id: orgId,
+        tier,
+        listing_limit: limits[tier],
+        amount_gel: amounts[tier],
+        starts_at: new Date().toISOString(),
+        expires_at: expiresAt,
+        status: "active",
+      });
+      expect(error).toBeNull();
+    }
+
+    async function state() {
+      const [balance, transactions, subscriptions, notifications, listingLinks] = await Promise.all([
+        supabaseAdmin.from("balances").select("amount").eq("user_id", userId).single(),
+        supabaseAdmin.from("transactions").select("id").eq("user_id", userId),
+        supabaseAdmin
+          .from("organization_subscriptions")
+          .select("id, tier, status, expires_at")
+          .eq("organization_id", orgId)
+          .order("created_at"),
+        supabaseAdmin.from("notifications").select("id").eq("user_id", userId),
+        supabaseAdmin.from("properties").select("id").eq("organization_id", orgId),
+      ]);
+      expect(balance.error).toBeNull();
+      expect(transactions.error).toBeNull();
+      expect(subscriptions.error).toBeNull();
+      expect(notifications.error).toBeNull();
+      expect(listingLinks.error).toBeNull();
+      return {
+        balance: balance.data?.amount,
+        transactions: transactions.data,
+        subscriptions: subscriptions.data,
+        notifications: notifications.data,
+        listingLinks: listingLinks.data,
+      };
+    }
+
+    async function purchase(tier: "entry" | "pro" | "premium") {
+      return supabaseAdmin.rpc("purchase_company_subscription", {
+        p_user_id: userId,
+        p_org_id: orgId,
+        p_tier: tier,
+      });
+    }
+
+    async function expectRejected(active: "pro" | "premium", requested: "entry" | "pro") {
+      await setSubscription(active, new Date(Date.now() + 86_400_000).toISOString());
+      const before = await state();
+      const { error } = await purchase(requested);
+      expect(error?.code).toBe("P0001");
+      expect(error?.message).toBe("SUBSCRIPTION_TIER_LOCKED");
+      expect(await state()).toEqual(before);
+    }
+
+    try {
+      user = await createTestUser({
+        id: userId,
+        phone,
+        displayName: "E2E subscription lock",
+        role: "seller",
+      });
+      const { error: orgError } = await supabaseAdmin.from("organizations").insert({
+        id: orgId,
+        owner_id: user.id,
+        org_type: "shps",
+        legal_name: "შპს E2E Subscription Lock",
+        identification_code: timestamp.slice(-9),
+        brand_name: "E2E Subscription Lock",
+        company_type: "developer",
+        status: "active",
+      });
+      expect(orgError).toBeNull();
+      const { error: balanceError } = await supabaseAdmin
+        .from("balances")
+        .upsert({ user_id: user.id, amount: 1000, sms_remaining: 0 });
+      expect(balanceError).toBeNull();
+
+      await expectRejected("premium", "pro");
+      await expectRejected("pro", "entry");
+      await expectRejected("pro", "pro");
+
+      await setSubscription("entry", new Date(Date.now() + 86_400_000).toISOString());
+      const entryToPro = await purchase("pro");
+      expect(entryToPro.error).toBeNull();
+      const upgradedToPro = await state();
+      expect(upgradedToPro.balance).toBe(800);
+      expect(upgradedToPro.transactions).toHaveLength(1);
+      expect(upgradedToPro.subscriptions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ tier: "entry", status: "expired" }),
+          expect.objectContaining({ tier: "pro", status: "active" }),
+        ]),
+      );
+      const proExpiresAt = new Date(
+        upgradedToPro.subscriptions?.find((sub) => sub.tier === "pro")?.expires_at ?? 0,
+      ).getTime();
+      expect(proExpiresAt).toBeGreaterThan(Date.now() + 29 * 86_400_000);
+
+      await setSubscription("entry", new Date(Date.now() + 86_400_000).toISOString());
+      const entryToPremium = await purchase("premium");
+      expect(entryToPremium.error).toBeNull();
+      expect((await state()).balance).toBe(650);
+
+      await setSubscription("pro", new Date(Date.now() - 60_000).toISOString());
+      const expiredProToEntry = await purchase("entry");
+      expect(expiredProToEntry.error).toBeNull();
+      expect((await state()).balance).toBe(900);
+    } finally {
+      await cleanup();
+    }
   });
 });
 

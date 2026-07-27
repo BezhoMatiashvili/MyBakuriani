@@ -68,12 +68,13 @@ export default function SellerNotificationsPage() {
   } = useRealtimeList<Notification>({
     table: "notifications",
     enabled: !!user,
-    filter: user ? `user_id=eq.${user.id}` : undefined,
+    filter: user ? "dashboard_scope=eq.seller" : undefined,
     fetcher: async () => {
       const { data } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user!.id)
+        .eq("dashboard_scope", "seller")
         .gte(
           "created_at",
           new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -97,7 +98,8 @@ export default function SellerNotificationsPage() {
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
-      .eq("is_read", false);
+      .eq("is_read", false)
+      .eq("dashboard_scope", "seller");
   }
 
   async function markRead(id: string) {

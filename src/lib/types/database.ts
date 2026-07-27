@@ -967,6 +967,7 @@ export type Database = {
           action_url: string | null;
           broadcast_id: string | null;
           created_at: string | null;
+          dashboard_scope: string | null;
           id: string;
           is_read: boolean | null;
           message: string | null;
@@ -979,6 +980,7 @@ export type Database = {
           action_url?: string | null;
           broadcast_id?: string | null;
           created_at?: string | null;
+          dashboard_scope?: string | null;
           id?: string;
           is_read?: boolean | null;
           message?: string | null;
@@ -991,6 +993,7 @@ export type Database = {
           action_url?: string | null;
           broadcast_id?: string | null;
           created_at?: string | null;
+          dashboard_scope?: string | null;
           id?: string;
           is_read?: boolean | null;
           message?: string | null;
@@ -2830,15 +2833,20 @@ export type Database = {
     };
     Views: {
       // These are deliberately typed as their legacy listing shapes while the
-      // application finishes its staged migration.  The SQL views themselves
+      // application finishes its staged migration. The SQL views themselves
       // are the security boundary: they expose an allowlist and never contact,
-      // owner, moderation, booking, or AI fields.
+      // owner, moderation, booking, or AI fields. `has_whatsapp` is the only
+      // contact-related signal intentionally exposed by the listing views.
       public_properties: {
-        Row: Database["public"]["Tables"]["properties"]["Row"];
+        Row: Database["public"]["Tables"]["properties"]["Row"] & {
+          has_whatsapp: boolean;
+        };
         Relationships: [];
       };
       public_services: {
-        Row: Database["public"]["Tables"]["services"]["Row"];
+        Row: Database["public"]["Tables"]["services"]["Row"] & {
+          has_whatsapp: boolean;
+        };
         Relationships: [];
       };
       public_listing_profiles: {

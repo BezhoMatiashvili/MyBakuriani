@@ -27,7 +27,7 @@ import BannerSlot from "@/components/banners/BannerSlot";
 
 const ITEMS_PER_PAGE = 12;
 
-type ServiceRow = Tables<"services">;
+type ServiceRow = Tables<"services"> & { has_whatsapp?: boolean };
 type BlogRow = Tables<"blog_posts">;
 type ActiveTab = "all" | "properties" | "services" | "blog";
 
@@ -713,7 +713,8 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
             isVip={s.is_vip ?? false}
             schedule={s.schedule}
             operatingHours={s.operating_hours}
-            phone={s.phone}
+            phone={null}
+            hasWhatsapp={s.has_whatsapp ?? false}
             driverName={s.driver_name}
             vehicleCapacity={s.vehicle_capacity}
             vehicleMake={s.vehicle_make}

@@ -21,6 +21,7 @@ import {
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import { formatDate } from "@/lib/utils/format";
+import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
@@ -182,12 +183,7 @@ export default function ServiceBalancePage() {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-[13px] font-black text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
-        >
-          {tShared("topUpBalance")}
-        </button>
+        <SandboxTopUpLauncher />
       </motion.div>
 
       <motion.section

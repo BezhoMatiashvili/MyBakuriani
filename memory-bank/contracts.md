@@ -1008,3 +1008,56 @@ is set to a different value than its edge secret (the cron job reports SUCCESS w
 401s and `sms_outbound` never gains a row — the hardest failure here to notice); or `sendSms` is
 implemented without a provider idempotency key (the at-least-once retry duplicates a delivered
 message — `sms-f2`).
+
+---
+
+## C19 — Notification `dashboard_scope` (one string, five layers)
+
+**Invariant:** every dashboard notification carries a `dashboard_scope` naming the cabinet it belongs
+to, and that string must agree across **five** layers that nothing type-checks together: the DB CHECK
+constraint, the TS union, the writers (DB triggers + edge functions + admin API routes), the readers
+(scoped bells/feeds), and the per-cabinet badge counts. `NULL` is reserved for global/account-wide
+notices and is **deliberately invisible inside every cabinet feed** — it is not a safe default.
+
+Participating symbols:
+
+- `src/lib/notifications/scopes.ts:DASHBOARD_SCOPES` — the 10-value TS union; must equal the CHECK set
+- `src/lib/notifications/scopes.ts:dashboardScopeFromRoute` — URL segment → scope, including the aliases
+  that do **not** match their route (`sms` → `renter`, `service`/`handyman` → `services`)
+- `src/lib/notifications/scopes.ts:serviceCategoryToDashboardScope` — the service-category mapping the DB
+  trigger functions duplicate in SQL; both copies must move together
+- `supabase/migrations/20260727130000_scoped_dashboard_notifications.sql:assign_notification_dashboard_scope`
+  — BEFORE INSERT safety net for writers that pass nothing
+- `src/lib/hooks/useNotifications.ts:useNotifications` — scoped bell/feed reader
+- `src/components/layout/DashboardShell.tsx:recountUnread` — live per-cabinet badge recount
+- `src/app/[locale]/dashboard/layout.tsx:LayoutData` — reads the `unread_counts` jsonb key
+
+**`_notify` is now SIX arguments with the scope defaulted, and there is exactly ONE overload.** Two hard
+Postgres rules force that shape, both verified empirically against this database:
+
+1. A non-defaulted parameter may not follow a defaulted one — `42P13` at CREATE time.
+2. Given the default, keeping a separate five-argument overload makes every existing five-argument call
+   fail at RUNTIME with `42725 function public._notify(...) is not unique`.
+
+So the five-argument form was **dropped**, not preserved (`pg_depend` showed zero hard dependencies).
+Legacy five-argument callers bind to the six-argument function and default the scope to NULL. **Never
+re-add a five-argument `_notify`** — it reintroduces the ambiguity for every caller at once.
+
+**`dashboard_layout_data` returns `unread_counts` (jsonb object keyed by scope), NOT the old scalar
+`unread_count`.** A missing key reads as `{}` → no badges, which is the safe degradation; nothing else
+in the DB or `src/` reads the old key.
+
+**Realtime must stay filtered on `user_id`, never on `dashboard_scope`.** Realtime supports one filter;
+swapping it for `dashboard_scope=eq.<scope>` drops the per-user predicate, and the "Admins full access
+notifications" RLS policy then delivers *other users'* notifications into an admin's own feed. The scope
+is applied client-side in the payload handler instead.
+
+**Also check:** `src/lib/types/database.ts` must carry `dashboard_scope` on `notifications` (**C3**), and
+the migration ends with `notify pgrst, 'reload schema'`.
+
+**Breaks silently when:** a value is added to `DASHBOARD_SCOPES` but not the CHECK (23514 at runtime
+only) or vice-versa (a cabinet nothing can ever write to — `admin` is exactly that today: it is in both
+the CHECK and the union, `AdminTopbar` subscribes with `scope="admin"`, and **no writer anywhere sets
+it**, so the admin bell stays empty); or a new notification writer omits the scope and is not covered by
+the trigger's narrow fallback (the notice lands NULL and is invisible in every cabinet, visible only in
+the global `/notifications` inbox); or the realtime filter is "simplified" back onto the scope column.

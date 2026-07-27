@@ -2,12 +2,14 @@
 
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import type { DashboardScope } from "@/lib/notifications/scopes";
 
 interface DashboardNotificationBellProps {
   /** Server-seeded unread count shown until the client hook finishes loading. */
   initialUnreadCount?: number;
   /** Trigger styling so each topbar keeps its own button design. */
   triggerClassName?: string;
+  scope: DashboardScope;
 }
 
 /**
@@ -19,9 +21,10 @@ interface DashboardNotificationBellProps {
 export function DashboardNotificationBell({
   initialUnreadCount = 0,
   triggerClassName,
+  scope,
 }: DashboardNotificationBellProps) {
   const { notifications, unreadCount, loading, markAsRead } =
-    useNotifications();
+    useNotifications(scope);
 
   return (
     <NotificationBell
@@ -30,6 +33,7 @@ export function DashboardNotificationBell({
       loading={loading}
       markAsRead={markAsRead}
       triggerClassName={triggerClassName}
+      scope={scope}
     />
   );
 }

@@ -24,6 +24,11 @@ import {
   ActiveOrgScopeProvider,
   useActiveOrgScope,
 } from "@/lib/dashboard/orgScope";
+import {
+  dashboardScopeForPath,
+  type DashboardScope,
+  type DashboardUnreadCounts,
+} from "@/lib/notifications/scopes";
 
 const DashboardSidebar = dynamic(() =>
   import("@/components/layout/DashboardSidebar").then(
@@ -175,7 +180,7 @@ interface DashboardShellProps {
   displayName: string;
   role: string;
   avatarUrl: string | null;
-  initialNotificationCount: number;
+  initialUnreadCounts: DashboardUnreadCounts;
   balance: number;
   smsRemaining: number;
   smartMatchCount: number;
@@ -192,7 +197,7 @@ export function DashboardShell({
   displayName,
   role,
   avatarUrl,
-  initialNotificationCount,
+  initialUnreadCounts,
   balance,
   smsRemaining,
   smartMatchCount: initialSmartMatchCount,
@@ -202,9 +207,7 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   const pathname = usePathname();
-  const [notificationCount, setNotificationCount] = useState(
-    initialNotificationCount,
-  );
+  const [unreadCounts, setUnreadCounts] = useState(initialUnreadCounts);
   const [smartMatchCount, setSmartMatchCount] = useState(
     initialSmartMatchCount,
   );
@@ -213,6 +216,10 @@ export function DashboardShell({
   const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
   const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const smartMatchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Prevent a development-mode effect replay from issuing the same bulk update
+  // twice, while clearing this key after leaving the inbox still lets a later
+  // visit count as a fresh page entry.
+  const handledNotificationEntry = useRef<string | null>(null);
   // Smart Match only exists for someone who owns an active rental listing, so
   // everyone else skips the RPC and the offers subscription entirely.
   const hasRenterCabinet = availableCabinets.includes("renter");
@@ -231,8 +238,9 @@ export function DashboardShell({
   useEffect(() => {
     const supabase = createClient();
 
-    // Authoritative, debounced recount of the user's unread notifications.
-    const recountUnread = () => {
+    // Reconcile a single cabinet badge. Global (NULL) notices have no cabinet
+    // badge by design and are therefore ignored here.
+    const recountUnread = (scope: DashboardScope) => {
       if (recountTimer.current) clearTimeout(recountTimer.current);
       recountTimer.current = setTimeout(() => {
         supabase
@@ -240,8 +248,14 @@ export function DashboardShell({
           .select("*", { count: "exact", head: true })
           .eq("user_id", userId)
           .eq("is_read", false)
+          .eq("dashboard_scope", scope)
           .then((res: { count: number | null; error: unknown }) => {
-            if (!res.error) setNotificationCount(res.count ?? 0);
+            if (!res.error) {
+              setUnreadCounts((current) => ({
+                ...current,
+                [scope]: res.count ?? 0,
+              }));
+            }
           });
       }, 400);
     };
@@ -273,7 +287,14 @@ export function DashboardShell({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          setNotificationCount((p) => p + 1);
+          const scope = (payload.new as { dashboard_scope?: DashboardScope | null })
+            ?.dashboard_scope;
+          if (scope) {
+            setUnreadCounts((current) => ({
+              ...current,
+              [scope]: (current[scope] ?? 0) + 1,
+            }));
+          }
           if (
             (payload.new as { type?: string } | null)?.type ===
             "smart_match_request"
@@ -294,9 +315,11 @@ export function DashboardShell({
           table: "notifications",
           filter: `user_id=eq.${userId}`,
         },
-        () => {
+        (payload) => {
           // Mark-as-read (or any update) → reconcile the bell with DB truth.
-          recountUnread();
+          const scope = (payload.new as { dashboard_scope?: DashboardScope | null })
+            ?.dashboard_scope;
+          if (scope) recountUnread(scope);
         },
       )
       .on(
@@ -320,6 +343,52 @@ export function DashboardShell({
       supabase.removeChannel(channel);
     };
   }, [userId, hasRenterCabinet]);
+
+  useEffect(() => {
+    const segments = pathname?.split("/").filter(Boolean) ?? [];
+    const dashboardIndex = segments.indexOf("dashboard");
+    const isNotificationRoute =
+      dashboardIndex >= 0 &&
+      segments.length === dashboardIndex + 3 &&
+      segments[dashboardIndex + 2] === "notifications";
+    const scope = dashboardScopeForPath(pathname);
+
+    // Only cabinets with sidebar notification inboxes clear their own badge on
+    // entry. Guest, cleaner and admin notifications are topbar-only today.
+    const isSidebarNotificationScope =
+      scope === "renter" ||
+      scope === "seller" ||
+      scope === "food" ||
+      scope === "employment" ||
+      scope === "transport" ||
+      scope === "entertainment" ||
+      scope === "services";
+
+    if (!isNotificationRoute || !scope || !isSidebarNotificationScope) {
+      handledNotificationEntry.current = null;
+      return;
+    }
+
+    const entryKey = `${userId}:${pathname}`;
+    if (handledNotificationEntry.current === entryKey) return;
+    handledNotificationEntry.current = entryKey;
+
+    const supabase = createClient();
+
+    void supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .eq("is_read", false)
+      .eq("dashboard_scope", scope)
+      .then(({ error }) => {
+        if (!error) {
+          // Do not clear other cabinets locally. Realtime updates reconcile
+          // later changes, including notifications that arrive after entry.
+          setUnreadCounts((current) => ({ ...current, [scope]: 0 }));
+        }
+      });
+  }, [pathname, userId]);
 
   // Real pending-verifications count for the admin sidebar badge; refetched on
   // navigation. The route caches privately for 30s, so the badge may lag an
@@ -356,6 +425,8 @@ export function DashboardShell({
     return cabinet === "sms" ? "renter" : cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;
+  const activeScope = dashboardScopeForPath(pathname) ?? "guest";
+  const notificationCount = unreadCounts[activeScope] ?? 0;
 
   const isAdmin = activeRole === "admin";
   const isRenter = activeRole === "renter";

@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
       body.action === "approve" ? "კომპანია დადასტურდა" : "კომპანია უარყოფილია",
     message,
     action_url: `/dashboard/seller/organizations/${body.id}`,
+    dashboard_scope: "seller",
   });
   if (notifyErr) {
     console.error("company moderate: notification insert failed", notifyErr);

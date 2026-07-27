@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
+  ApiError,
   buildCorsHeaders,
   errorResponse,
   jsonResponse,
@@ -21,6 +22,19 @@ const UUID_RE =
 
 type UserCtx = Awaited<ReturnType<typeof requireUser>>;
 
+// These are intentional, user-actionable purchase outcomes. Keep the rest of
+// the database error surface private (errorResponse's default behaviour).
+function userSafePurchaseError(error: { message?: string }) {
+  const message = error.message ?? "";
+  if (
+    message.includes("არასაკმარისი ბალანსი") ||
+    message.includes("პაკეტი არ არის ხელმისაწვდომი")
+  ) {
+    return new ApiError(message, 400, "BAD_REQUEST");
+  }
+  return error;
+}
+
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
 
@@ -30,6 +44,7 @@ serve(async (req) => {
 
   // Hoisted so the catch block can notify the user of a failed payment.
   let ctx: UserCtx | undefined;
+  let dashboardScope: string | null = null;
 
   try {
     ctx = await requireUser(req);
@@ -39,6 +54,32 @@ serve(async (req) => {
     const package_id = body.package_id as string | undefined;
     const property_id = body.property_id as string | null | undefined;
     const service_id = body.service_id as string | null | undefined;
+
+    // A failure still belongs to the cabinet that owns the selected listing.
+    // Resolve only against the authenticated owner's rows, never client labels.
+    if (property_id) {
+      const { data } = await supabase
+        .from("properties")
+        .select("is_for_sale")
+        .eq("id", property_id)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      if (data) dashboardScope = data.is_for_sale ? "seller" : "renter";
+    } else if (service_id) {
+      const { data } = await supabase
+        .from("services")
+        .select("category")
+        .eq("id", service_id)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      switch (data?.category) {
+        case "food": dashboardScope = "food"; break;
+        case "cleaning": dashboardScope = "cleaner"; break;
+        case "employment": case "transport": case "entertainment":
+          dashboardScope = data.category; break;
+        case "handyman": dashboardScope = "services"; break;
+      }
+    }
 
     // New path: caller specifies a pricing_packages.id. The RPC reads price
     // and category-specific behavior from the row, so admin-managed prices
@@ -74,7 +115,7 @@ serve(async (req) => {
         p_quantity: quantity,
         p_discount_percent: discount_percent,
       });
-      if (error) throw error;
+      if (error) throw userSafePurchaseError(error);
       return jsonResponse({ data }, 200, cors);
     }
 
@@ -102,7 +143,7 @@ serve(async (req) => {
       p_service_id: service_id ?? null,
     });
 
-    if (error) throw error;
+    if (error) throw userSafePurchaseError(error);
 
     return jsonResponse({ data }, 200, cors);
   } catch (err) {
@@ -117,6 +158,7 @@ serve(async (req) => {
           message: err instanceof Error ? err.message : "სცადეთ თავიდან.",
           action_url: "/dashboard",
           severity: "warning",
+          dashboard_scope: dashboardScope,
         });
       } catch (_) {
         // ignore

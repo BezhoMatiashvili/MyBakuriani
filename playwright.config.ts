@@ -97,6 +97,15 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
+    // Scoped inbox behavior spans several dashboard families, so it has an
+    // isolated project instead of being coupled to any one role's broad suite.
+    {
+      name: "dashboard-notifications",
+      testMatch: /dashboards\/notifications\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+
     // Admin role tests
     {
       name: "admin",

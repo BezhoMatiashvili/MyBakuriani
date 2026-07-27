@@ -77,6 +77,7 @@ serve(async (req) => {
           ? `თქვენი ჯავშანი ${booking.check_in} - ${booking.check_out} დადასტურდა`
           : `თქვენი ჯავშანი ${booking.check_in} - ${booking.check_out} უარყოფილია`,
       action_url: `/dashboard/bookings/${booking.id}`,
+      dashboard_scope: "guest",
     });
 
     return jsonResponse(

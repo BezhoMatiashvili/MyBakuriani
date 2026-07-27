@@ -19,6 +19,21 @@ const VALID_CATEGORIES = new Set([
   "subscription",
 ]);
 
+function asMeta(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function validateRenterMembershipMeta(meta: Record<string, unknown>): string | null {
+  if (meta.subscription_scope !== "renter") return null;
+  const duration = meta.duration_months;
+  if (duration !== 1 && duration !== 3) {
+    return "renter membership duration_months must be 1 or 3";
+  }
+  return null;
+}
+
 function slugifyCode(input: string): string {
   const base = input
     .toLowerCase()
@@ -161,6 +176,7 @@ export async function PATCH(req: NextRequest) {
     if (!body?.id)
       return Response.json({ error: "id required" }, { status: 400 });
 
+    const db = createServiceClient(guard.admin.userId);
     const patch: PricingPackageUpdate = {
       updated_at: new Date().toISOString(),
     };
@@ -184,7 +200,26 @@ export async function PATCH(req: NextRequest) {
           : null;
     }
     if (body.meta && typeof body.meta === "object") {
-      patch.meta = body.meta as Meta;
+      // Metadata has multiple consumers (company caps, legacy fixed dates,
+      // renter duration). Merge instead of erasing fields unrelated to this edit.
+      const { data: current, error: currentError } = await db
+        .from("pricing_packages")
+        .select("category, meta")
+        .eq("id", body.id)
+        .maybeSingle();
+      if (currentError) {
+        return Response.json({ error: currentError.message }, { status: 500 });
+      }
+      if (!current) return Response.json({ error: "not found" }, { status: 404 });
+      const meta = { ...asMeta(current.meta), ...asMeta(body.meta) };
+      const validationError =
+        current.category === "subscription"
+          ? validateRenterMembershipMeta(meta)
+          : null;
+      if (validationError) {
+        return Response.json({ error: validationError }, { status: 400 });
+      }
+      patch.meta = meta as Meta;
     }
     if (typeof body.sort_order === "number") {
       patch.sort_order = Math.trunc(body.sort_order);
@@ -198,7 +233,6 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const db = createServiceClient(guard.admin.userId);
     const { data: updated, error } = await db
       .from("pricing_packages")
       .update(patch)
@@ -281,6 +315,13 @@ export async function POST(req: NextRequest) {
         ? body.code.trim().toLowerCase()
         : slugifyCode(body.name);
 
+    const meta = asMeta(body.meta);
+    const validationError =
+      body.category === "subscription" ? validateRenterMembershipMeta(meta) : null;
+    if (validationError) {
+      return Response.json({ error: validationError }, { status: 400 });
+    }
+
     const insert: PricingPackageInsert = {
       category: body.category,
       code,
@@ -288,10 +329,7 @@ export async function POST(req: NextRequest) {
       label: body.label?.trim() || null,
       description: body.description?.trim() || null,
       amount_gel: body.amount_gel,
-      meta:
-        body.meta && typeof body.meta === "object"
-          ? (body.meta as Meta)
-          : ({} as Meta),
+      meta: meta as Meta,
       sort_order:
         typeof body.sort_order === "number" ? Math.trunc(body.sort_order) : 100,
       is_enabled: true,

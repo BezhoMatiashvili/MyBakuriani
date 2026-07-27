@@ -203,88 +203,92 @@ export default function CleanerSchedulePage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-              {t("title")}
-            </h1>
-            <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-              {t("subtitle")}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={openCreate}
-            className={ADD_BUTTON_CLASS}
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.4} />
-            {tManual("addButton")}
-          </button>
+        <div>
+          <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
+            {t("title")}
+          </h1>
+          <p className="mt-1 text-[14px] font-medium text-[#64748B]">
+            {t("subtitle")}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-[#EEF1F4] bg-white p-1.5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
-          {dayTabs.map((d, idx) => {
-            const active =
-              !isCustomDate && dayBucket(d) === dayBucket(activeDate);
-            return (
-              <button
-                key={dayBucket(d)}
-                type="button"
-                onClick={() => setActiveDate(d)}
-                className={`rounded-xl px-4 py-2 text-center transition-colors ${
-                  active
-                    ? "bg-[#2563EB] text-white"
-                    : "text-[#0F172A] hover:bg-[#F8FAFC]"
-                }`}
-              >
-                <span
-                  className={`block text-[10px] font-bold ${
-                    active ? "text-white/70" : "text-[#94A3B8]"
+        <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+          {!loading && tasksForDay.length > 0 && (
+            <button
+              type="button"
+              onClick={openCreate}
+              data-testid="schedule-header-add-job"
+              className={ADD_BUTTON_CLASS}
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.4} />
+              {tManual("addButton")}
+            </button>
+          )}
+
+          <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-[#EEF1F4] bg-white p-1.5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
+            {dayTabs.map((d, idx) => {
+              const active =
+                !isCustomDate && dayBucket(d) === dayBucket(activeDate);
+              return (
+                <button
+                  key={dayBucket(d)}
+                  type="button"
+                  onClick={() => setActiveDate(d)}
+                  className={`rounded-xl px-4 py-2 text-center transition-colors ${
+                    active
+                      ? "bg-[#2563EB] text-white"
+                      : "text-[#0F172A] hover:bg-[#F8FAFC]"
                   }`}
                 >
-                  {t(TAB_LABEL_KEYS[idx])}
-                </span>
-                <span className="block text-[15px] font-black leading-tight">
-                  {formatDateShort(d, locale)}
-                </span>
-              </button>
-            );
-          })}
-          <span
-            aria-hidden
-            className="mx-1 hidden h-8 w-px bg-[#EEF1F4] sm:block"
-          />
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-[13px] font-bold transition-colors ${
-                isCustomDate
-                  ? "bg-[#2563EB] text-white"
-                  : "text-[#2563EB] hover:bg-[#EFF6FF]"
-              }`}
-            >
-              <Calendar className="h-4 w-4" />
-              {isCustomDate
-                ? formatDateShort(activeDate, locale)
-                : t("calendar")}
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              sideOffset={8}
-              className="w-auto max-w-none p-2 md:w-auto"
-            >
-              <CalendarPicker
-                mode="single"
-                selected={activeDate}
-                defaultMonth={activeDate}
-                locale={getDateFnsLocale(locale)}
-                onSelect={(d) => {
-                  if (!d) return;
-                  setActiveDate(d);
-                  setCalendarOpen(false);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+                  <span
+                    className={`block text-[10px] font-bold ${
+                      active ? "text-white/70" : "text-[#94A3B8]"
+                    }`}
+                  >
+                    {t(TAB_LABEL_KEYS[idx])}
+                  </span>
+                  <span className="block text-[15px] font-black leading-tight">
+                    {formatDateShort(d, locale)}
+                  </span>
+                </button>
+              );
+            })}
+            <span
+              aria-hidden
+              className="mx-1 hidden h-8 w-px bg-[#EEF1F4] sm:block"
+            />
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-[13px] font-bold transition-colors ${
+                  isCustomDate
+                    ? "bg-[#2563EB] text-white"
+                    : "text-[#2563EB] hover:bg-[#EFF6FF]"
+                }`}
+              >
+                <Calendar className="h-4 w-4" />
+                {isCustomDate
+                  ? formatDateShort(activeDate, locale)
+                  : t("calendar")}
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={8}
+                className="w-auto max-w-none p-2 md:w-auto"
+              >
+                <CalendarPicker
+                  mode="single"
+                  selected={activeDate}
+                  defaultMonth={activeDate}
+                  locale={getDateFnsLocale(locale)}
+                  onSelect={(d) => {
+                    if (!d) return;
+                    setActiveDate(d);
+                    setCalendarOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </motion.div>
 
@@ -311,6 +315,7 @@ export default function CleanerSchedulePage() {
           <button
             type="button"
             onClick={openCreate}
+            data-testid="schedule-empty-add-job"
             className={`mt-5 ${ADD_BUTTON_CLASS}`}
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />

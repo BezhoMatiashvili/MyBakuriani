@@ -28,11 +28,13 @@ const SUB_CATEGORIES = [
 
 const ITEMS_PER_PAGE = 9;
 
+type PublicService = Tables<"services"> & { has_whatsapp?: boolean };
+
 interface Props {
-  services: Tables<"services">[];
+  services: PublicService[];
 }
 
-function matchesType(s: Tables<"services">, value: string): boolean {
+function matchesType(s: PublicService, value: string): boolean {
   const title = s.title.toLowerCase();
   switch (value) {
     case "extreme":
@@ -259,7 +261,8 @@ export default function EntertainmentPageClient({ services }: Props) {
                     discountPercent={s.discount_percent ?? 0}
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
-                    phone={s.phone}
+                    phone={null}
+                    hasWhatsapp={s.has_whatsapp ?? false}
                   />
                 </ScrollReveal>
               ))}

@@ -6,6 +6,16 @@ import { isUuid } from "@/lib/utils/uuid";
 import type { PropertyWithProfile } from "@/lib/data/getPropertyById";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 
+/** Public-view contract: the number stays private; only availability is safe. */
+export type PublicPropertyWithProfile = PropertyWithProfile & {
+  has_whatsapp: boolean;
+};
+
+/** Public-view contract: the number stays private; only availability is safe. */
+export type PublicServiceWithFoodExtras = ServiceWithFoodExtras & {
+  has_whatsapp: boolean;
+};
+
 /**
  * Cached, anonymous-only reads for the public view of a listing detail page.
  *
@@ -33,10 +43,10 @@ export const listingTag = (kind: "property" | "service", id: string): string =>
 
 export function getCachedPublicProperty(
   id: string,
-): Promise<PropertyWithProfile | null> {
+): Promise<PublicPropertyWithProfile | null> {
   if (!isUuid(id)) return Promise.resolve(null);
   return unstable_cache(
-    async (): Promise<PropertyWithProfile | null> => {
+    async (): Promise<PublicPropertyWithProfile | null> => {
       const supabase = createPublicClient();
       const { data, error } = await supabase
         .from("public_properties")
@@ -46,7 +56,7 @@ export function getCachedPublicProperty(
       // Don't cache a transient failure as "not found": throw so unstable_cache
       // skips caching and the caller falls through to the dynamic path.
       if (error) throw error;
-      const row = (data as PropertyWithProfile & {
+      const row = (data as PublicPropertyWithProfile & {
         profile_display_name?: string | null;
         profile_avatar_url?: string | null;
         profile_is_verified?: boolean | null;
@@ -84,10 +94,10 @@ export function getCachedPublicProperty(
 
 export function getCachedPublicService(
   id: string,
-): Promise<ServiceWithFoodExtras | null> {
+): Promise<PublicServiceWithFoodExtras | null> {
   if (!isUuid(id)) return Promise.resolve(null);
   return unstable_cache(
-    async (): Promise<ServiceWithFoodExtras | null> => {
+    async (): Promise<PublicServiceWithFoodExtras | null> => {
       const supabase = createPublicClient();
       const { data, error } = await supabase
         .from("public_services")
@@ -95,7 +105,7 @@ export function getCachedPublicService(
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
-      const row = (data as ServiceWithFoodExtras & {
+      const row = (data as PublicServiceWithFoodExtras & {
         profile_display_name?: string | null;
         profile_avatar_url?: string | null;
         profile_is_verified?: boolean | null;

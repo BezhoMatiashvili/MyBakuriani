@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { deriveAvailableCabinets } from "@/lib/cabinets";
+import type { DashboardUnreadCounts } from "@/lib/notifications/scopes";
 
 // Dashboards render per-user data server-side (auth cookies, balances, roles)
 // and redirect when signed out, so they must never be statically prerendered.
@@ -16,7 +17,7 @@ const SMS_PLAN_TOTAL = 100;
 // smart_match_actionable = open Smart Match requests this renter has NOT answered
 // (smart_match_actionable_count(), the same definition the inbox renders).
 type LayoutData = {
-  unread_count?: number;
+  unread_counts?: DashboardUnreadCounts;
   smart_match_actionable?: number;
   balance_amount?: number | null;
   sms_remaining?: number | null;
@@ -61,7 +62,6 @@ export default async function DashboardLayout({
   const displayName = profile?.display_name ?? t("defaultUser");
   const role = profile?.role ?? "guest";
   const avatarUrl = profile?.avatar_url ?? null;
-  const notificationCount = data.unread_count ?? 0;
   const balance = Number(data.balance_amount ?? 0);
   const smsRemaining = Number(data.sms_remaining ?? SMS_PLAN_TOTAL);
   const smartMatchCount = data.smart_match_actionable ?? 0;
@@ -81,7 +81,7 @@ export default async function DashboardLayout({
         displayName={displayName}
         role={role}
         avatarUrl={avatarUrl}
-        initialNotificationCount={notificationCount}
+        initialUnreadCounts={data.unread_counts ?? {}}
         balance={balance}
         smsRemaining={smsRemaining}
         smartMatchCount={smartMatchCount}

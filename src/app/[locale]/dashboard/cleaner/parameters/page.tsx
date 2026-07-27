@@ -23,10 +23,8 @@ import TimeRangePicker, {
   isValidTimeRange,
 } from "@/components/shared/TimeRangePicker";
 import { Link } from "@/i18n/navigation";
-import {
-  contentChangeErrorKey,
-  submitContentChange,
-} from "@/lib/content-change/client";
+import { updateSelfServiceProfile } from "@/lib/self-service/client";
+import { submitContentChange } from "@/lib/content-change/client";
 
 type FormValues = {
   firstName: string;
@@ -250,7 +248,7 @@ export default function CleanerParametersPage() {
       .filter(Boolean)
       .join(" ");
     try {
-      await submitContentChange("profile", user.id, {
+      await updateSelfServiceProfile({
         ...(displayName ? { display_name: displayName } : {}),
         cleaner_profile: {
           first_name: toNullable(form.firstName),
@@ -271,7 +269,7 @@ export default function CleanerParametersPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } else {
-      setReviewError(tCreate(contentChangeErrorKey(error)));
+      setReviewError(tCreate("contentChange.failed"));
     }
   }
 
@@ -305,7 +303,7 @@ export default function CleanerParametersPage() {
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
       const newUrl = pub.publicUrl;
 
-      await submitContentChange("profile", user.id, { avatar_url: newUrl });
+      await updateSelfServiceProfile({ avatar_url: newUrl });
 
       setAvatarUrl(newUrl);
     } catch {
@@ -530,7 +528,7 @@ export default function CleanerParametersPage() {
           </div>
           {saved && (
             <p className="mt-3 text-[13px] font-medium text-[#0F8F60]">
-              {tCreate("contentChange.pending")}
+              {tShared("saved")}
             </p>
           )}
           {reviewError && (

@@ -32,6 +32,7 @@ const ITEMS_PER_PAGE = 9;
 // relation or owner identifier.
 type TransportService = Tables<"services"> & {
   profile_is_verified?: boolean | null;
+  has_whatsapp?: boolean;
 };
 
 interface Props {
@@ -216,7 +217,8 @@ export default function TransportPageClient({ services }: Props) {
                     isVip={s.is_vip ?? false}
                     isNew={s.is_new ?? false}
                     isVerified={s.profile_is_verified ?? false}
-                    phone={s.phone}
+                    phone={null}
+                    hasWhatsapp={s.has_whatsapp ?? false}
                     transportType={s.transport_type}
                     vehicleCapacity={s.vehicle_capacity}
                     vehicleMake={s.vehicle_make}

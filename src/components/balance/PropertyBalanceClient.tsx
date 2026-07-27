@@ -20,6 +20,7 @@ import {
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import { formatDate } from "@/lib/utils/format";
+import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
@@ -264,9 +265,7 @@ export default function PropertyBalanceClient() {
             </p>
           )}
         </div>
-        <p className="rounded-xl bg-white/10 px-4 py-3 text-[13px] font-bold text-white/80">
-          Payments are temporarily unavailable.
-        </p>
+        <SandboxTopUpLauncher />
       </motion.div>
 
       <motion.section

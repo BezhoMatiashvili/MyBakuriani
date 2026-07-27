@@ -56,6 +56,7 @@ serve(async (req) => {
       title: "ახალი ჯავშანი",
       message: `ახალი ჯავშანი: ${check_in} - ${check_out}, ${booking.total_price} ₾`,
       action_url: `/dashboard/bookings/${booking.id}`,
+      dashboard_scope: "renter",
     });
 
     return jsonResponse({ data: booking }, 201, cors);

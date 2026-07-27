@@ -136,7 +136,8 @@ type ErrorCode =
   | "AUTH_INVALID_TOKEN"
   | "AUTH_UNAUTHORIZED"
   | "ENV_MISSING"
-  | "BAD_REQUEST";
+  | "BAD_REQUEST"
+  | "SUBSCRIPTION_TIER_LOCKED";
 
 export class ApiError extends Error {
   status: number;

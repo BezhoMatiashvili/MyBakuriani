@@ -42,6 +42,8 @@ import HomeStatusCards from "@/components/landing/HomeStatusCards";
 import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
 
+type PublicService = Tables<"services"> & { has_whatsapp?: boolean };
+
 interface LandingPageProps {
   zones: Zone[];
   statusCards: StatusCard[];
@@ -49,7 +51,7 @@ interface LandingPageProps {
   hotels?: Tables<"properties">[];
   saleProperties?: Tables<"properties">[];
   vipProperties?: Tables<"properties">[];
-  services?: Tables<"services">[];
+  services?: PublicService[];
   blogPosts?: Tables<"blog_posts">[];
   bannerCreatives?: BannerCreative[];
   pricePerSqmByZone?: Record<string, number | null>;
@@ -235,7 +237,8 @@ export default function LandingPage({
           isVip: s.is_vip ?? false,
           schedule: s.schedule,
           operatingHours: s.operating_hours,
-          phone: s.phone,
+          phone: null,
+          hasWhatsapp: s.has_whatsapp ?? false,
           providerName: null,
           experienceYears: null,
           availabilityStatus: null,
@@ -653,6 +656,7 @@ function ServiceSection({
     schedule?: string | null;
     operatingHours?: string | null;
     phone?: string | null;
+    hasWhatsapp?: boolean;
     providerName?: string | null;
     experienceYears?: number | null;
     availabilityStatus?: "active" | "busy" | null;

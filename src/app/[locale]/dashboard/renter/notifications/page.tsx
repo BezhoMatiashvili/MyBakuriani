@@ -29,6 +29,7 @@ export default function RenterNotificationsPage() {
         .from("notifications")
         .select("*")
         .eq("user_id", user!.id)
+        .eq("dashboard_scope", "renter")
         .order("created_at", { ascending: false })
         .limit(30);
       if (data && active) {
@@ -49,7 +50,7 @@ export default function RenterNotificationsPage() {
           event: "*",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${user.id}`,
+          filter: "dashboard_scope=eq.renter",
         },
         () => {
           fetchItems();
@@ -71,7 +72,8 @@ export default function RenterNotificationsPage() {
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
-      .eq("is_read", false);
+      .eq("is_read", false)
+      .eq("dashboard_scope", "renter");
   }
 
   async function markRead(id: string) {

@@ -17,6 +17,7 @@ import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import { safeInternalPath } from "@/lib/security";
 import type { Database } from "@/lib/types/database";
+import type { DashboardScope } from "@/lib/notifications/scopes";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
@@ -30,6 +31,8 @@ interface NotificationBellProps {
   variant?: "desktop" | "mobile";
   /** Overrides the variant trigger styling (e.g. dashboard topbar buttons). */
   triggerClassName?: string;
+  /** When present, bulk-read is constrained to this exact dashboard scope. */
+  scope?: DashboardScope;
 }
 
 export function NotificationBell({
@@ -40,6 +43,7 @@ export function NotificationBell({
   viewAllPath,
   variant = "desktop",
   triggerClassName,
+  scope,
 }: NotificationBellProps) {
   const t = useTranslations("Navbar");
   const tShared = useTranslations("DashboardShared");
@@ -55,10 +59,12 @@ export function NotificationBell({
     const unread = notifications.filter((n) => !n.is_read).map((n) => n.id);
     if (unread.length === 0) return;
     const supabase = createClient();
-    await supabase
+    let query = supabase
       .from("notifications")
       .update({ is_read: true })
       .eq("is_read", false);
+    if (scope) query = query.eq("dashboard_scope", scope);
+    await query;
     await Promise.all(
       unread.map((id) =>
         markAsRead(id).catch(() => {

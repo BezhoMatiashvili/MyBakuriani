@@ -17,6 +17,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRealtimeList } from "@/lib/hooks/useRealtime";
 import { NotificationCard } from "@/components/notifications/NotificationCard";
+import { usePathname } from "next/navigation";
+import { dashboardScopeForPath } from "@/lib/notifications/scopes";
 
 interface Notification {
   id: string;
@@ -54,6 +56,7 @@ export default function ServiceNotificationsPage() {
   const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const supabase = createClient();
+  const scope = dashboardScopeForPath(usePathname()) ?? "services";
 
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
@@ -64,12 +67,13 @@ export default function ServiceNotificationsPage() {
   } = useRealtimeList<Notification>({
     table: "notifications",
     enabled: !!user,
-    filter: user ? `user_id=eq.${user.id}` : undefined,
+    filter: user ? `dashboard_scope=eq.${scope}` : undefined,
     fetcher: async () => {
       const { data } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user!.id)
+        .eq("dashboard_scope", scope)
         .gte(
           "created_at",
           new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -98,7 +102,8 @@ export default function ServiceNotificationsPage() {
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
-      .eq("is_read", false);
+      .eq("is_read", false)
+      .eq("dashboard_scope", scope);
   }
 
   async function markRead(id: string) {

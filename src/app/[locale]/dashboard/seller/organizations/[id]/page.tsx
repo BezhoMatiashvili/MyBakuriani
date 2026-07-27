@@ -41,6 +41,12 @@ type Pkg = {
   amount_gel: number;
 };
 
+const TIER_RANK: Record<string, number> = {
+  entry: 1,
+  pro: 2,
+  premium: 3,
+};
+
 type Agent = {
   id: string;
   role: string;
@@ -115,7 +121,8 @@ export default function OrganizationCabinetPage() {
 
     setOrg((orgRes.data as Org) ?? null);
     setSub((subRes.data as Sub) ?? null);
-    setSelectedTier((subRes.data as Sub | null)?.tier ?? null);
+    // An active term can only be upgraded, so never preselect its current tier.
+    setSelectedTier(null);
     setPackages((pkgRes.data as Pkg[]) ?? []);
     setBalance((balRes.data as { amount: number } | null)?.amount ?? null);
     setAgents(
@@ -158,6 +165,8 @@ export default function OrganizationCabinetPage() {
   const selectedPkg = packages.find(
     (p) => p.code.replace("company-", "") === selectedTier,
   );
+  const isEligibleUpgrade = (tier: string) =>
+    !sub || (TIER_RANK[tier] ?? 0) > (TIER_RANK[sub.tier] ?? 0);
   const daysLeft = sub
     ? Math.max(
         0,
@@ -174,7 +183,18 @@ export default function OrganizationCabinetPage() {
     const { error } = await supabase.functions.invoke("company-subscription", {
       body: { org_id: orgId, tier: selectedTier },
     });
-    if (error) throw new Error(error.message || t("loadError"));
+    if (error) {
+      const response = (error as { context?: unknown }).context;
+      if (response instanceof Response) {
+        const payload = (await response.clone().json().catch(() => null)) as {
+          code?: string;
+        } | null;
+        if (payload?.code === "SUBSCRIPTION_TIER_LOCKED") {
+          throw new Error(t("tierLockedError"));
+        }
+      }
+      throw new Error(error.message || t("loadError"));
+    }
     toast.success(t("activatedToast"));
     load();
   }
@@ -324,14 +344,16 @@ export default function OrganizationCabinetPage() {
             const tier = pkg.code.replace("company-", "");
             const selected = selectedTier === tier;
             const isCurrent = sub?.tier === tier;
+            const isDisabled = !isOwner || !isEligibleUpgrade(tier);
             return (
               <button
                 key={pkg.code}
                 type="button"
-                disabled={!isOwner}
+                data-testid={`organization-tier-${tier}`}
+                disabled={isDisabled}
                 onClick={() => setSelectedTier(tier)}
                 className={cn(
-                  "rounded-2xl border-2 p-5 text-left transition-all disabled:cursor-not-allowed",
+                  "rounded-2xl border-2 p-5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-55",
                   selected
                     ? "border-[#2563EB] bg-[#EFF6FF]"
                     : "border-[#E2E8F0] bg-white hover:border-[#CBD5E1]",
@@ -376,11 +398,16 @@ export default function OrganizationCabinetPage() {
         {isOwner && (
           <div className="mt-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <p className="text-[13px] font-medium text-[#64748B]">
-              {t("activateHint")}
+              {sub
+                ? t("upgradesOnlyUntilExpiry", {
+                    date: formatDateTime(sub.expires_at, locale),
+                  })
+                : t("activateHint")}
             </p>
             <button
               type="button"
-              disabled={!selectedTier}
+              data-testid="organization-subscription-activate"
+              disabled={!selectedTier || !isEligibleUpgrade(selectedTier)}
               onClick={() => setConfirmOpen(true)}
               className="inline-flex h-[44px] items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-6 text-[14px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
             >
