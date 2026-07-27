@@ -142,6 +142,17 @@ copy (`search`, `vip-lifecycle`, `booking-create`, `booking-manage`,
 `booking-finalize`, `sms-dispatch`, `sms-automation-run`, and the since-retired
 `road-condition-refresh`) were redeployed and byte-verified on 2026-07-24.
 
+**As of 2026-07-27 the 16 deliberately do NOT all bundle the same `guards.ts`, and
+that split is intentional.** The 8 redeployed that day (`booking-create`,
+`booking-manage`, `booking-finalize`, `company-subscription`, `payment-create`,
+`payment-process`, `purchase-vip`, `vip-lifecycle`) carry guards.ts sha256
+`1fc5804f…`; the other 8 still carry the previous copy. The only difference between
+the two is one added member of the `ErrorCode` **type alias**
+(`"SUBSCRIPTION_TIER_LOCKED"`), which TypeScript erases at runtime — so the two
+bundles are behaviourally identical and the 8 stale ones did not need a redeploy.
+A future byte-comparison WILL flag those 8; that is expected, not drift. Any change
+to guards.ts with actual runtime effect still requires redeploying all 16.
+
 **Redeploy recipe (MCP `deploy_edge_function`):** files
 `[{name:"source/index.ts"},{name:"_shared/guards.ts"}]` with
 `entrypoint_path:"source/index.ts"` — `index.ts` imports `../_shared/guards.ts`, so a
@@ -1049,7 +1060,7 @@ in the DB or `src/` reads the old key.
 
 **Realtime must stay filtered on `user_id`, never on `dashboard_scope`.** Realtime supports one filter;
 swapping it for `dashboard_scope=eq.<scope>` drops the per-user predicate, and the "Admins full access
-notifications" RLS policy then delivers *other users'* notifications into an admin's own feed. The scope
+notifications" RLS policy then delivers _other users'_ notifications into an admin's own feed. The scope
 is applied client-side in the payload handler instead.
 
 **Also check:** `src/lib/types/database.ts` must carry `dashboard_scope` on `notifications` (**C3**), and
