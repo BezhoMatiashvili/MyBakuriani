@@ -153,6 +153,23 @@ bundles are behaviourally identical and the 8 stale ones did not need a redeploy
 A future byte-comparison WILL flag those 8; that is expected, not drift. Any change
 to guards.ts with actual runtime effect still requires redeploying all 16.
 
+**The two legitimate `guards.ts` hashes** (full-sweep verified 2026-07-28 — use these
+to settle a parity check in one step instead of re-diffing 16 bundles):
+
+| state             | sha256                                                             | bytes |
+| ----------------- | ------------------------------------------------------------------ | ----- |
+| current (those 8) | `1fc5804f7ea542ed1a46cff36ac4e85a2f8152e68efbdacea885e88c4348c01f` | 7445  |
+| older, inert (8)  | `0169b82930c44c19134ca26bc264566a821c9ee4ecbe9bf93ac0c20fd025451f` | 7414  |
+
+Anything else is real drift. Note the textual delta is **−2/+1 lines, not one**: dropping
+`| "SUBSCRIPTION_TIER_LOCKED";` moves the terminating semicolon back onto `| "BAD_REQUEST"`.
+
+**Also check the bundle MANIFEST, not just the hashes.** Every function must report
+exactly `["source/index.ts", "_shared/guards.ts"]` (+ `_shared/sanitize.ts` for `search`).
+The `user_fn_<uuid>_<version>/…` nesting failure above is invisible to a content hash —
+the file contents stay correct while the paths gain a level per redeploy. Verified clean
+across all 16 on 2026-07-28.
+
 **Redeploy recipe (MCP `deploy_edge_function`):** files
 `[{name:"source/index.ts"},{name:"_shared/guards.ts"}]` with
 `entrypoint_path:"source/index.ts"` — `index.ts` imports `../_shared/guards.ts`, so a
