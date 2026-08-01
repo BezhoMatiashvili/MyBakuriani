@@ -33,7 +33,7 @@ export function CreateHeader() {
 
   return (
     <header className="w-full border-b border-[#E2E8F0] bg-white">
-      <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-4 px-6 py-4 sm:px-8">
+      <div className="mx-auto flex h-[72px] w-full max-w-[1200px] items-center justify-between gap-2 px-4 sm:px-6 lg:h-[80px] lg:gap-4 lg:px-8">
         <Link
           href="/"
           aria-label="MyBakuriani"
@@ -44,18 +44,18 @@ export function CreateHeader() {
             alt="MyBakuriani"
             width={300}
             height={199}
-            className="h-12 w-auto"
+            className="h-10 w-auto lg:h-12"
           />
         </Link>
 
         <div className="flex items-center gap-3">
           <LanguageSelector />
-          <AddListingButton label={t("addListing")} className="hidden sm:inline-flex" />
+          <AddListingButton label={t("addListing")} className="hidden lg:inline-flex" />
 
           {user ? (
             <Link
               href="/dashboard/renter/balance"
-              className="hidden sm:inline-flex h-[40px] items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] transition-colors hover:border-[#CBD5E1]"
+              className="hidden h-[40px] items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] transition-colors hover:border-[#CBD5E1] lg:inline-flex"
             >
               <span className="text-[#64748B]">{t("balance")}</span>
               <span className="font-bold text-[#0F172A]">
@@ -67,7 +67,7 @@ export function CreateHeader() {
 
           <Link
             href={user ? "/dashboard" : "/auth/login"}
-            className="inline-flex h-[40px] items-center rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#2563EB] transition-colors hover:border-[#CBD5E1] hover:bg-[#F8FAFC]"
+            className="inline-flex h-11 items-center rounded-xl border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#2563EB] transition-colors hover:border-[#CBD5E1] hover:bg-[#F8FAFC] lg:h-[40px] lg:px-4 lg:text-[13px]"
           >
             {user ? t("cabinet") : t("signIn")}
           </Link>

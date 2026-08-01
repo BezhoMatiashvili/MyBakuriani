@@ -388,6 +388,7 @@ function CreateTransportPageInner() {
 
   return (
     <WizardShell
+      mobileDensity="compact"
       title={t("pageTitle")}
       accent="blue"
       progressPercent={progressPercent}

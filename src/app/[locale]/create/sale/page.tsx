@@ -904,6 +904,7 @@ function CreateSalePageInner() {
 
   return (
     <WizardShell
+      mobileDensity="compact"
       title={t("pageTitle")}
       accent="green"
       progressPercent={progressPercent}

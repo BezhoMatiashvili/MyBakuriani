@@ -13,14 +13,16 @@ test.describe("Landing page", () => {
     await expect(hero).toBeVisible();
   });
 
-  test("displays services section with category links", async ({ page }) => {
+  test("renders known seeded property and service cards", async ({ page }) => {
     await page.goto("/");
     const main = page.locator("main");
     await expect(main).toBeVisible();
-    // Expect at least one category card / link
-    const links = main.locator("a");
-    const count = await links.count();
-    expect(count).toBeGreaterThan(0);
+    await expect(
+      main.getByText("E2E ბინა ბაკურიანში", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      main.getByText("E2E რესტორანი", { exact: true }).first(),
+    ).toBeVisible();
   });
 
   test("has a call-to-action button or search box in hero", async ({
@@ -45,6 +47,125 @@ test.describe("Landing page", () => {
 
     await discountsOnly.click();
     await expect(discountsOnly).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+async function listingLayout(page: import("@playwright/test").Page) {
+  return page.evaluate(() => {
+    const hero = document.querySelector<HTMLElement>(
+      '[data-testid="listing-hero"]',
+    );
+    const results = document.querySelector<HTMLElement>(
+      '[data-testid="listing-results"]',
+    );
+    if (!hero || !results) throw new Error("listing layout markers missing");
+    return {
+      heroHeight: hero.getBoundingClientRect().height,
+      heroBottom: hero.getBoundingClientRect().bottom,
+      resultsTop: results.getBoundingClientRect().top,
+    };
+  });
+}
+
+for (const path of ["/en/apartments", "/en/hotels"]) {
+  test.describe(`${path} floating search panels`, () => {
+    test("dates and filters overlap without shifting the hero or results", async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(path);
+      const before = await listingLayout(page);
+
+      await page.getByTestId("search-desktop-dates").click();
+      const calendar = page.getByTestId("search-desktop-calendar-panel");
+      await expect(calendar).toBeVisible();
+      expect(await listingLayout(page)).toEqual(before);
+      const calendarBox = await calendar.boundingBox();
+      expect(calendarBox).not.toBeNull();
+      expect(calendarBox!.y + calendarBox!.height).toBeGreaterThan(
+        before.heroBottom,
+      );
+      await calendar.getByRole("button", { name: "Confirm" }).click();
+      await expect(calendar).toBeHidden();
+
+      await page.getByTestId("search-desktop-filters").click();
+      const filters = page.getByTestId("search-desktop-filter-panel");
+      await expect(filters).toBeVisible();
+      expect(await listingLayout(page)).toEqual(before);
+      const filtersBox = await filters.boundingBox();
+      expect(filtersBox).not.toBeNull();
+      expect(filtersBox!.y + filtersBox!.height).toBeGreaterThan(
+        before.heroBottom,
+      );
+
+      await page.getByRole("heading", { level: 1 }).click();
+      await expect(filters).toBeHidden();
+      expect(await listingLayout(page)).toEqual(before);
+    });
+  });
+}
+
+test.describe("Listing search breakpoint", () => {
+  for (const path of ["/en", "/en/apartments", "/en/hotels"]) {
+    test(`${path} uses a BottomSheet at 1023px and a floating panel at 1024px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1023, height: 900 });
+      await page.goto(path);
+      await expect(page.getByTestId("search-mobile-dates")).toBeVisible();
+      await expect(page.getByTestId("search-desktop-dates")).toBeHidden();
+      await page.getByTestId("search-mobile-dates").click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect(
+        page.getByTestId("search-desktop-calendar-panel"),
+      ).toHaveCount(0);
+      await page.keyboard.press("Escape");
+
+      await page.setViewportSize({ width: 1024, height: 900 });
+      await expect(page.getByTestId("search-mobile-dates")).toBeHidden();
+      await expect(page.getByTestId("search-desktop-dates")).toBeVisible();
+      await page.getByTestId("search-desktop-dates").click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        page.getByTestId("search-desktop-calendar-panel"),
+      ).toBeVisible();
+    });
+  }
+});
+
+test.describe("Listing desktop search controls", () => {
+  test("date clear/confirm and filter clear/apply keep working", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/en/apartments");
+    const datesTrigger = page.getByTestId("search-desktop-dates");
+
+    await datesTrigger.click();
+    const calendar = page.getByTestId("search-desktop-calendar-panel");
+    const days = calendar.locator('button[data-day]:not([disabled])');
+    await days.nth(2).click();
+    await days.nth(3).click();
+    await expect(datesTrigger).not.toHaveText("Select date");
+    await calendar.getByRole("button", { name: "Clear" }).click();
+    await expect(datesTrigger).toHaveText("Select date");
+
+    await days.nth(4).click();
+    await days.nth(5).click();
+    await calendar.getByRole("button", { name: "Confirm" }).click();
+    await expect(calendar).toBeHidden();
+    await expect(datesTrigger).not.toHaveText("Select date");
+
+    await page.getByTestId("search-desktop-filters").click();
+    const filters = page.getByTestId("search-desktop-filter-panel");
+    const twoGuests = filters.getByRole("button", { name: "2 Guests" });
+    await twoGuests.click();
+    await expect(twoGuests).toHaveClass(/bg-\[#2563EB\]/);
+    await filters.getByRole("button", { name: "Clear" }).click();
+    await expect(twoGuests).not.toHaveClass(/bg-\[#2563EB\]/);
+    await twoGuests.click();
+    await filters.getByRole("button", { name: "Show Results" }).click();
+    await expect(page).toHaveURL(/\/search\?.*guests=2/);
   });
 });
 

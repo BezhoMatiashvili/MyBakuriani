@@ -23,8 +23,10 @@ import TimeRangePicker, {
   isValidTimeRange,
 } from "@/components/shared/TimeRangePicker";
 import { Link } from "@/i18n/navigation";
-import { updateSelfServiceProfile } from "@/lib/self-service/client";
-import { submitContentChange } from "@/lib/content-change/client";
+import {
+  updateCleanerWorkingHours,
+  updateSelfServiceProfile,
+} from "@/lib/self-service/client";
 
 type FormValues = {
   firstName: string;
@@ -58,6 +60,18 @@ type ServiceHours = {
   workingHours: string;
   is24_7: boolean;
 };
+
+function hoursFromService(service: CleaningService): ServiceHours {
+  const storedHours =
+    service.schedule?.trim() ||
+    service.operating_hours?.trim() ||
+    DEFAULT_WORKING_HOURS;
+  return {
+    workingHours:
+      storedHours === "24/7" ? DEFAULT_WORKING_HOURS : storedHours,
+    is24_7: storedHours === "24/7",
+  };
+}
 
 function toNullable(value: string): string | null {
   const trimmed = value.trim();
@@ -94,6 +108,27 @@ export default function CleanerParametersPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function replaceCleaningServices(services: CleaningService[]) {
+    setCleaningServices(services);
+    setServiceHours(
+      Object.fromEntries(
+        services.map((service) => [service.id, hoursFromService(service)]),
+      ),
+    );
+  }
+
+  async function refetchCleaningServices() {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("services")
+      .select("id, title, provider_name, schedule, operating_hours")
+      .eq("owner_id", user.id)
+      .eq("category", "cleaning")
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    replaceCleaningServices((data ?? []) as CleaningService[]);
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -144,25 +179,7 @@ export default function CleanerParametersPage() {
       setSavedValues(values);
       setAvatarUrl(profile?.avatar_url ?? null);
       const ownedCleaningServices = (services ?? []) as CleaningService[];
-      setCleaningServices(ownedCleaningServices);
-      setServiceHours(
-        Object.fromEntries(
-          ownedCleaningServices.map((service) => {
-            const storedHours =
-              service.schedule?.trim() ||
-              service.operating_hours?.trim() ||
-              DEFAULT_WORKING_HOURS;
-            return [
-              service.id,
-              {
-                workingHours:
-                  storedHours === "24/7" ? DEFAULT_WORKING_HOURS : storedHours,
-                is24_7: storedHours === "24/7",
-              },
-            ];
-          }),
-        ),
-      );
+      replaceCleaningServices(ownedCleaningServices);
       setLoading(false);
       setServicesLoading(false);
     }
@@ -191,6 +208,27 @@ export default function CleanerParametersPage() {
     setServiceSaveError(null);
   }
 
+  function toggleService247(serviceId: string) {
+    setServiceHours((previous) => {
+      const enabling = !previous[serviceId]?.is24_7;
+      if (!enabling) {
+        return {
+          ...previous,
+          [serviceId]: { ...previous[serviceId], is24_7: false },
+        };
+      }
+
+      return Object.fromEntries(
+        Object.entries(previous).map(([id, values]) => [
+          id,
+          { ...values, is24_7: id === serviceId },
+        ]),
+      );
+    });
+    setSavedServiceId(null);
+    setServiceSaveError(null);
+  }
+
   async function saveServiceHours(service: CleaningService) {
     if (!user) return;
     const values = serviceHours[service.id];
@@ -198,40 +236,50 @@ export default function CleanerParametersPage() {
       return;
     }
 
-    const hours = values.is24_7 ? "24/7" : values.workingHours.trim();
     setSavingServiceId(service.id);
     setSavedServiceId(null);
     setServiceSaveError(null);
 
-    let error: Error | null = null;
     try {
-      await submitContentChange("service", service.id, {
-        schedule: hours,
-        operating_hours: hours,
+      const result = await updateCleanerWorkingHours(service.id, {
+        is24_7: values.is24_7,
+        workingHours: values.workingHours.trim(),
       });
-    } catch (cause) {
-      error = cause instanceof Error ? cause : new Error("submit_failed");
-    }
-
-    setSavingServiceId(null);
-    if (error) {
-      setServiceSaveError(service.id);
-      return;
-    }
-
-    setCleaningServices((previous) =>
-      previous.map((item) =>
-        item.id === service.id
-          ? { ...item, schedule: hours, operating_hours: hours }
-          : item,
-      ),
-    );
-    setSavedServiceId(service.id);
-    setTimeout(() => {
-      setSavedServiceId((previous) =>
-        previous === service.id ? null : previous,
+      const affected = new Map(
+        result.services.map((item) => [item.id, item as CleaningService]),
       );
-    }, 2500);
+      setCleaningServices((previous) =>
+        previous.map((item) => affected.get(item.id) ?? item),
+      );
+      setServiceHours((previous) => ({
+        ...previous,
+        ...Object.fromEntries(
+          result.services.map((item) => [
+            item.id,
+            hoursFromService(item as CleaningService),
+          ]),
+        ),
+      }));
+      setSavedServiceId(service.id);
+      setTimeout(() => {
+        setSavedServiceId((previous) =>
+          previous === service.id ? null : previous,
+        );
+      }, 2500);
+    } catch {
+      // An optimistic radio selection may have cleared a sibling. Re-read every
+      // card so a failed transfer can never be presented as saved state.
+      try {
+        await refetchCleaningServices();
+      } catch {
+        // If the authoritative read also fails, discard the optimistic switch
+        // state and fall back to the last rows the server successfully returned.
+        replaceCleaningServices(cleaningServices);
+      }
+      setServiceSaveError(service.id);
+    } finally {
+      setSavingServiceId(null);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -551,6 +599,9 @@ export default function CleanerParametersPage() {
           <p className="mt-1 text-[13px] font-medium text-[#64748B]">
             {t("workingHoursDescription")}
           </p>
+          <p className="mt-2 text-[12px] font-semibold text-[#475569]">
+            {t("workingHours247Limit")}
+          </p>
         </div>
 
         {servicesLoading ? (
@@ -582,6 +633,7 @@ export default function CleanerParametersPage() {
                 values?.is24_7 ||
                 (values ? isValidTimeRange(values.workingHours) : false);
               const isSavingThisService = savingServiceId === service.id;
+              const isSavingAnyService = savingServiceId !== null;
               const isSavedThisService = savedServiceId === service.id;
               const hasSaveError = serviceSaveError === service.id;
 
@@ -605,12 +657,9 @@ export default function CleanerParametersPage() {
                     <button
                       type="button"
                       data-testid="working-hours-247"
-                      onClick={() =>
-                        updateServiceHours(service.id, {
-                          is24_7: !values?.is24_7,
-                        })
-                      }
-                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                      onClick={() => toggleService247(service.id)}
+                      disabled={isSavingAnyService}
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                         values?.is24_7
                           ? "border-[#16A34A] bg-[#F0FDF4]"
                           : "border-[#E2E8F0] bg-white hover:border-[#CBD5E1]"
@@ -647,7 +696,7 @@ export default function CleanerParametersPage() {
                       onChange={(workingHours) =>
                         updateServiceHours(service.id, { workingHours })
                       }
-                      disabled={values?.is24_7}
+                      disabled={isSavingAnyService || values?.is24_7}
                       error={!values?.is24_7 && !hasValidHours}
                     />
                     {!values?.is24_7 && !hasValidHours && (
@@ -661,7 +710,7 @@ export default function CleanerParametersPage() {
                     <button
                       type="button"
                       data-testid="save-working-hours"
-                      disabled={isSavingThisService || !hasValidHours}
+                      disabled={isSavingAnyService || !hasValidHours}
                       onClick={() => saveServiceHours(service)}
                       className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-0"
                     >

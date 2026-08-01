@@ -8,12 +8,13 @@
 // Usage:
 //   E2E_BASE_URL=https://preview.example TEST_SUPABASE_URL=https://test.supabase.co \
 //   TEST_SUPABASE_ANON_KEY=... TEST_QA_PASSWORD=... \
-//   node scripts/responsive-audit.mjs [--base-url=https://...] [--routes=public|dashboard|all] [--out=DIR] [--filter=substring]
+//   node scripts/responsive-audit.mjs [--base-url=https://...] [--routes=public|create|dashboard|all] [--out=DIR] [--filter=substring]
 
 import { chromium } from "playwright";
 import sharp from "sharp";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { FIXTURE_IDS as QA } from "../e2e/helpers/fixture-manifest.mjs";
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -24,7 +25,7 @@ const args = Object.fromEntries(
 
 const OUT_DIR = args.out || "responsive-audit";
 const ROUTE_FILTER = args.filter || null;
-const ROUTE_SET = args.routes || "all"; // public | dashboard | all
+const ROUTE_SET = args.routes || "all"; // public | create | dashboard | all
 const CONCURRENCY = Number(args.concurrency || 4);
 
 const PRODUCTION_HOSTS = new Set([
@@ -76,24 +77,6 @@ const QA_EMAILS = {
   employment: "qa-employment@qa.mybakuriani.test",
 };
 
-// QA seed IDs (see RESPONSIVE_UI_REVIEW.md methodology section)
-const QA = {
-  apartment: "facade00-1001-4000-a000-000000000001",
-  hotel: "facade00-1002-4000-a000-000000000002",
-  sale: "facade00-1003-4000-a000-000000000003",
-  food: "facade00-2001-4000-a000-000000000001",
-  transport: "facade00-2002-4000-a000-000000000002",
-  entertainment: "facade00-2003-4000-a000-000000000003",
-  employment: "facade00-2004-4000-a000-000000000004",
-  cleaning: "facade00-2005-4000-a000-000000000005",
-  booking: "facade00-3001-4000-a000-000000000001",
-  admin: "facade00-0001-4000-a000-000000000001",
-  guest: "facade00-0002-4000-a000-000000000002",
-  renter: "facade00-0003-4000-a000-000000000003",
-  seller: "facade00-0004-4000-a000-000000000004",
-  cleaner: "facade00-0005-4000-a000-000000000005",
-};
-
 const VIEWPORTS_FULL = [
   { name: "mobile-xs", width: 320, height: 568 },
   { name: "mobile-s", width: 375, height: 812 },
@@ -116,11 +99,17 @@ const VIEWPORTS_CORE = [
   { name: "desktop", width: 1920, height: 1080 },
 ];
 
+const VIEWPORTS_TEXT_STRESS = [
+  { name: "mobile-xs", width: 320, height: 568 },
+  { name: "mobile-m", width: 390, height: 844 },
+];
+
 // ---------------------------------------------------------------------------
 // Route inventory
 // ---------------------------------------------------------------------------
 const PUBLIC_ROUTES = [
-  { path: "/", label: "landing" },
+  { path: "/", label: "landing-rent" },
+  { path: "/", label: "landing-sale", setup: "sale" },
   { path: "/apartments", label: "apartments-list" },
   { path: `/apartments/${QA.apartment}`, label: "apartments-detail" },
   { path: "/appartments", label: "appartments-typo-route" },
@@ -130,19 +119,17 @@ const PUBLIC_ROUTES = [
   { path: "/sales/all", label: "sales-all" },
   { path: `/sales/${QA.sale}`, label: "sales-detail" },
   { path: "/food", label: "food-list" },
-  { path: `/food/${QA.food}`, label: "food-detail" },
+  { path: `/food/${QA.foodService}`, label: "food-detail" },
   { path: "/services", label: "services-list" },
-  { path: `/services/${QA.cleaning}`, label: "services-detail" },
+  { path: `/services/${QA.cleaningServicePrimary}`, label: "services-detail" },
   { path: "/entertainment", label: "entertainment-list" },
-  { path: `/entertainment/${QA.entertainment}`, label: "entertainment-detail" },
+  { path: `/entertainment/${QA.entertainmentService}`, label: "entertainment-detail" },
   { path: "/transport", label: "transport-list" },
-  { path: `/transport/${QA.transport}`, label: "transport-detail" },
+  { path: `/transport/${QA.transportService}`, label: "transport-detail" },
   { path: "/employment", label: "employment-list" },
-  { path: `/employment/${QA.employment}`, label: "employment-detail" },
+  { path: `/employment/${QA.employmentService}`, label: "employment-detail" },
   { path: "/blog", label: "blog-list" },
-  ...(process.env.AUDIT_BLOG_ID
-    ? [{ path: `/blog/${process.env.AUDIT_BLOG_ID}`, label: "blog-detail" }]
-    : []),
+  { path: `/blog/${QA.blogPost}`, label: "blog-detail" },
   { path: "/faq", label: "faq" },
   { path: "/contact", label: "contact" },
   { path: "/terms", label: "terms" },
@@ -157,6 +144,8 @@ const PUBLIC_ROUTES = [
   { path: "/auth/mfa", label: "auth-mfa" },
   { path: "/checkout", label: "checkout-no-params" },
   { path: "/nonexistent-page-xyz", label: "404" },
+  { path: "/en/search?q=family-friendly-accommodation", label: "search-en-stress", viewports: VIEWPORTS_TEXT_STRESS },
+  { path: "/ru/search?q=семейное-размещение-в-бакуриани", label: "search-ru-stress", viewports: VIEWPORTS_TEXT_STRESS },
 ];
 
 const DASHBOARD_ROUTES = [
@@ -438,7 +427,10 @@ const DASHBOARD_ROUTES = [
     role: "admin",
   },
   { path: "/dashboard/admin/zones", label: "admin-zones", role: "admin" },
-  // create forms
+];
+
+const CREATE_ROUTES = [
+  { path: "/create", label: "create-hub", role: "renter" },
   { path: "/create/rental", label: "create-rental", role: "renter" },
   { path: "/create/sale", label: "create-sale", role: "seller" },
   { path: "/create/food", label: "create-food", role: "food" },
@@ -595,6 +587,10 @@ async function shootRoute(browser, route, viewports, authCookie) {
         .waitForLoadState("networkidle", { timeout: 4000 })
         .catch(() => {});
       await page.waitForTimeout(1500); // settle animations/fonts/hydration
+      if (route.setup === "sale") {
+        await page.locator('[data-listing-mode="sale"]').click();
+        await page.waitForTimeout(500);
+      }
     } catch (e) {
       diagnostics[vp.name] = { error: String(e).slice(0, 300) };
       await page.close();
@@ -682,7 +678,15 @@ async function main() {
   let routes = [];
   if (ROUTE_SET === "public" || ROUTE_SET === "all") {
     routes.push(
-      ...PUBLIC_ROUTES.map((r) => ({ ...r, viewports: VIEWPORTS_FULL })),
+      ...PUBLIC_ROUTES.map((r) => ({
+        ...r,
+        viewports: r.viewports ?? VIEWPORTS_FULL,
+      })),
+    );
+  }
+  if (ROUTE_SET === "create" || ROUTE_SET === "all") {
+    routes.push(
+      ...CREATE_ROUTES.map((r) => ({ ...r, viewports: VIEWPORTS_CORE })),
     );
   }
   if (ROUTE_SET === "dashboard" || ROUTE_SET === "all") {

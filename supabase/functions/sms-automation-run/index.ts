@@ -19,7 +19,7 @@
 // plpgsql and returns NULL for an already-queued row.
 //
 // Trigger sources:
-//   * pg_cron via net.http_post (see the 20260726130000 schedule migration)
+//   * pg_cron via net.http_post (see 20260801132000_schedule_sms_pipeline.sql)
 //   * Manual: curl -X POST .../sms-automation-run -H "Authorization: Bearer $SECRET"
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -31,6 +31,17 @@ import {
   getBearerToken,
   jsonResponse,
 } from "../_shared/guards.ts";
+import {
+  type AutomationKind,
+  buildCheckIn,
+  buildReviewRequest,
+  buildWinBack,
+  type Candidate,
+  type PropertyRef,
+  type Rule,
+  tbilisiDate,
+  toCanonicalGePhone,
+} from "./domain.ts";
 
 // Auth: shared secret in SMS_AUTOMATION_RUN_SECRET (Bearer header), matching
 // the vip-lifecycle/sms-dispatch/booking-finalize cron functions — this
@@ -72,60 +83,6 @@ function requireSiteUrl(): string {
   return raw.replace(/\/+$/, "");
 }
 
-type AutomationKind = "check_in" | "review_request" | "win_back";
-
-// Spec-mandated texts. Placeholders are the spec's own bracket names.
-// THIS IS THE ONLY LIVE COPY. src/lib/sms/templates.ts is DEAD CODE (zero importers)
-// with divergent {brace} placeholders - do not edit it, do not sync to it (contract C17).
-const TEMPLATES = {
-  check_in:
-    "გამარჯობა [Guest_Name]. გელოდებით ხვალ [Check_In_Time]-დან. ლოკაცია: [Map_Link]. დეტალებისთვის: [Host_Phone]. კარგ დასვენებას გისურვებთ!",
-  review_request:
-    "[Guest_Name], მადლობა სტუმრობისთვის! მოხარული ვიქნებით თუ შეაფასებთ ჩვენს ბინას აქ: [Property_Review_Link]. თქვენი აზრი ჩვენთვის მნიშვნელოვანია! - MyBakuriani.ge",
-  win_back:
-    "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link]",
-  // Spec section 4 fallback, used when the owner left the two win-back fields empty.
-  win_back_fallback:
-    "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის: [Property_Direct_Link]",
-} as const;
-
-const GUEST_NAME_FALLBACK = "ძვირფასო სტუმარო"; // spec section 4
-const GUEST_NAME_MAX = 40; // T2 has the thinnest headroom under the 320-char CHECK
-
-interface Rule {
-  user_id: string;
-  display_name: string | null;
-  owner_phone: string | null;
-  check_in_reminder_enabled: boolean;
-  check_in_reminder_hours_before: number;
-  review_request_enabled: boolean;
-  review_request_hours_after: number;
-  win_back_enabled: boolean;
-  win_back_days_after: number;
-  win_back_discount_value: string | null;
-  win_back_discount_period: string | null;
-}
-
-interface PropertyRef {
-  id: string;
-  type: string | null;
-  is_for_sale: boolean | null;
-  location_lat: number | null;
-  location_lng: number | null;
-  phone: string | null;
-  check_in_time: string | null;
-}
-
-interface Candidate {
-  source: "platform" | "manual";
-  booking_id: string;
-  owner_id: string;
-  recipient_id: string | null; // NULL for an offline guest (no profiles row)
-  guest_phone: string | null;
-  guest_name: string | null;
-  property: PropertyRef | null;
-}
-
 type SkipReason =
   | "no_phone"
   | "invalid_phone"
@@ -134,116 +91,6 @@ type SkipReason =
   | "already_queued"
   | "no_credit"
   | "sale_only";
-
-// ---------------------------------------------------------------------------
-// Phone handling - the REPO's semantics, not the DB trigger's.
-//
-// Do NOT lift the strict ^(\+995)?5\d{8}$ regex from trg_ge_phone: that trigger is
-// attached to renter_guests, renter_cleaners, manual_bookings.guest_phone, leads and
-// cleaner_profiles - NEVER to profiles. profiles.phone is written verbatim from
-// Supabase auth, so the repo's own readers digit-strip before testing. Ported from
-// src/lib/utils/number.ts (toLocalGePhone / isValidGePhone); src/ cannot be imported
-// into Deno, so this is a deliberate duplication (contract C17).
-// ---------------------------------------------------------------------------
-function toLocalGePhone(value: string | null | undefined): string {
-  if (!value) return "";
-  let d = value.replace(/\D/g, "");
-  if (d.length > 9 && d.startsWith("995")) d = d.slice(3);
-  return d.slice(0, 9);
-}
-
-function isValidGePhone(value: string | null | undefined): boolean {
-  return /^5\d{8}$/.test(toLocalGePhone(value));
-}
-
-// The 3-way public-listing route logic, DUPLICATED from
-// src/lib/utils/listingUrls.ts:propertyViewUrl because src/ cannot be imported here.
-// The sale branch is unreachable while the scans are rental-only, but it is kept so
-// the logic matches its source verbatim (contract C17).
-function propertyViewPath(p: PropertyRef): string {
-  if (p.is_for_sale) return `/sales/${p.id}`;
-  if (p.type === "hotel") return `/hotels/${p.id}`;
-  return `/apartments/${p.id}`;
-}
-
-/** UTC date (YYYY-MM-DD) offset by whole days from today. */
-function utcDate(offsetDays: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
-}
-
-/** UTC date of (now - hours). */
-function utcDateHoursAgo(hours: number): string {
-  return new Date(Date.now() - hours * 3600_000).toISOString().slice(0, 10);
-}
-
-function clampName(name: string | null): string {
-  const trimmed = (name ?? "").trim();
-  if (!trimmed) return GUEST_NAME_FALLBACK;
-  return trimmed.length > GUEST_NAME_MAX
-    ? trimmed.slice(0, GUEST_NAME_MAX)
-    : trimmed;
-}
-
-// ---------------------------------------------------------------------------
-// Message builders. Optional pieces use CLAUSE DROPPING: an unavailable value
-// removes its whole sentence rather than rendering an empty placeholder.
-// ---------------------------------------------------------------------------
-function buildCheckIn(c: Candidate, rule: Rule): string {
-  const p = c.property;
-  // The column is `time` and defaults to '14:00', so it is never null in practice;
-  // slice to HH:MM in case a full HH:MM:SS comes back over the wire.
-  const time = (p?.check_in_time ?? "14:00").slice(0, 5);
-  const mapLink =
-    p && p.location_lat != null && p.location_lng != null
-      ? `https://maps.google.com/?q=${p.location_lat},${p.location_lng}`
-      : null;
-  const hostPhone = p?.phone ?? rule.owner_phone ?? null;
-
-  let msg = TEMPLATES.check_in
-    .replace("[Guest_Name]", clampName(c.guest_name))
-    .replace("[Check_In_Time]", time);
-  msg = mapLink
-    ? msg.replace("[Map_Link]", mapLink)
-    : msg.replace(" ლოკაცია: [Map_Link].", "");
-  msg = hostPhone
-    ? msg.replace("[Host_Phone]", hostPhone)
-    : msg.replace(" დეტალებისთვის: [Host_Phone].", "");
-  return msg;
-}
-
-function buildReviewRequest(c: Candidate, siteUrl: string): string {
-  // D4: the existing auth-gated route. No token-based public review page exists.
-  return TEMPLATES.review_request
-    .replace("[Guest_Name]", clampName(c.guest_name))
-    .replace(
-      "[Property_Review_Link]",
-      `${siteUrl}/dashboard/guest/rate/${c.booking_id}`,
-    );
-}
-
-function buildWinBack(c: Candidate, rule: Rule, siteUrl: string): string {
-  const value = (rule.win_back_discount_value ?? "").trim();
-  const period = (rule.win_back_discount_period ?? "").trim();
-  const link = c.property
-    ? `${siteUrl}${propertyViewPath(c.property)}`
-    : siteUrl;
-
-  // THE FALLBACK RULE, stated so it cannot drift: use the parameterised template
-  // ONLY when BOTH fields are non-empty after trim. If EITHER is missing, use the
-  // fallback. Never render a half-filled "([Discount_Period])".
-  if (!value || !period) {
-    return TEMPLATES.win_back_fallback
-      .replace("[Guest_Name]", clampName(c.guest_name))
-      .replace("[Property_Direct_Link]", link);
-  }
-  return TEMPLATES.win_back
-    .replace("[Guest_Name]", clampName(c.guest_name))
-    .replace("[Discount_Value]", value)
-    .replace("[Discount_Period]", period)
-    .replace("[Property_Direct_Link]", link);
-}
 
 type SbClient = ReturnType<typeof createServiceClient>;
 
@@ -274,9 +121,9 @@ serve(async (req: Request) => {
       .from("sms_automation_rules")
       .select(
         `user_id,
-         check_in_reminder_enabled, check_in_reminder_hours_before,
-         review_request_enabled, review_request_hours_after,
-         win_back_enabled, win_back_days_after,
+         check_in_reminder_enabled,
+         review_request_enabled,
+         win_back_enabled,
          win_back_discount_value, win_back_discount_period,
          profiles!inner(display_name, phone)`,
       )
@@ -296,11 +143,8 @@ serve(async (req: Request) => {
       return {
         user_id: r.user_id,
         check_in_reminder_enabled: r.check_in_reminder_enabled,
-        check_in_reminder_hours_before: r.check_in_reminder_hours_before,
         review_request_enabled: r.review_request_enabled,
-        review_request_hours_after: r.review_request_hours_after,
         win_back_enabled: r.win_back_enabled,
-        win_back_days_after: r.win_back_days_after,
         win_back_discount_value: r.win_back_discount_value,
         win_back_discount_period: r.win_back_discount_period,
         display_name: prof?.display_name ?? null,
@@ -313,8 +157,7 @@ serve(async (req: Request) => {
     //    the profile-less remainder, and phone matching covers both sources uniformly.
     //    A phone with no profile at all cannot opt out and will still receive T3 - a
     //    real gap, owned by follow-up sms-f3 (SMS STOP keyword).
-    //    Normalised with the repo's toLocalGePhone rather than the SQL normalize_ge_phone
-    //    so both sides of the comparison use ONE definition (this file's).
+    //    Canonicalized with the same exact Georgian-mobile contract as the queue RPC.
     const { data: optOutRows, error: optOutErr } = await db
       .from("profiles")
       .select("phone")
@@ -322,8 +165,8 @@ serve(async (req: Request) => {
     if (optOutErr) throw optOutErr;
     const optedOut = new Set(
       ((optOutRows as { phone: string | null }[] | null) ?? [])
-        .map((r) => toLocalGePhone(r.phone))
-        .filter((p) => p.length > 0),
+        .map((r) => toCanonicalGePhone(r.phone))
+        .filter((p): p is string => p !== null),
     );
 
     const summary = {
@@ -336,7 +179,7 @@ serve(async (req: Request) => {
       skipped: {
         no_phone: 0,
         invalid_phone: 0,
-        // no_consent and sale_only are enforced as QUERY FILTERS (so the .limit()
+        // no_consent and sale_only are enforced as QUERY FILTERS (so each page
         // is not consumed by rows we would then discard). They are therefore
         // structurally 0 here; the keys exist so the response shape is stable.
         no_consent: 0,
@@ -352,6 +195,11 @@ serve(async (req: Request) => {
       // A silent `continue` is how this class of bug hides. Log every skip.
       console.log(JSON.stringify({ skip: reason, ...detail }));
     };
+
+    const { error: maintenanceErr } = await db.rpc(
+      "sms_expire_stale_automation",
+    );
+    if (maintenanceErr) throw maintenanceErr;
 
     for (const rule of rules) {
       // 3. Credit preflight, ONCE per owner (spec section 6). A 0-credit owner must
@@ -369,11 +217,30 @@ serve(async (req: Request) => {
         continue;
       }
 
+      const { count: activeQueue, error: queueErr } = await db
+        .from("sms_outbound")
+        .select("id", { count: "exact", head: true })
+        .eq("sender_id", rule.user_id)
+        .eq("status", "approved")
+        .is("charged_at", null)
+        .in("automation_kind", ["check_in", "review_request", "win_back"]);
+      if (queueErr) throw queueErr;
+      let remainingCapacity = Math.max(0, credits - (activeQueue ?? 0));
+      if (remainingCapacity < 1) {
+        skip("no_credit", {
+          owner: rule.user_id,
+          credits,
+          active_queue: activeQueue ?? 0,
+        });
+        continue;
+      }
+
       const enqueue = async (
         kind: AutomationKind,
         c: Candidate,
         message: string,
-      ) => {
+      ): Promise<boolean> => {
+        if (remainingCapacity < 1) return false;
         const { data, error } = await db.rpc("sms_enqueue_automation", {
           p_sender_id: c.owner_id,
           p_recipient_id: c.recipient_id,
@@ -393,10 +260,15 @@ serve(async (req: Request) => {
             booking_id: c.booking_id,
             error,
           });
-          return;
+          return false;
         }
-        if (data) summary.queued[kind] += 1;
-        else skip("already_queued", { kind, booking_id: c.booking_id });
+        if (data) {
+          summary.queued[kind] += 1;
+          remainingCapacity -= 1;
+          return true;
+        }
+        skip("already_queued", { kind, booking_id: c.booking_id });
+        return false;
       };
 
       // Shared per-candidate gate for reachability + opt-out.
@@ -405,12 +277,14 @@ serve(async (req: Request) => {
           skip("no_phone", { booking_id: c.booking_id });
           return false;
         }
-        if (!isValidGePhone(c.guest_phone)) {
+        const canonicalPhone = toCanonicalGePhone(c.guest_phone);
+        if (!canonicalPhone) {
           skip("invalid_phone", { booking_id: c.booking_id });
           return false;
         }
+        c.guest_phone = canonicalPhone;
         // T1 is transactional, so opt-out applies only to the marketing kinds.
-        if (marketing && optedOut.has(toLocalGePhone(c.guest_phone))) {
+        if (marketing && optedOut.has(canonicalPhone)) {
           skip("opted_out", { booking_id: c.booking_id });
           return false;
         }
@@ -420,27 +294,30 @@ serve(async (req: Request) => {
       // ---- T1 CHECK-IN -----------------------------------------------------
       // PINNED TO EXACTLY check_in = tomorrow. The template hardcodes "ხვალ"
       // (tomorrow), so any other window would make the SMS lie.
-      // check_in_reminder_hours_before is therefore VESTIGIAL for the message -
-      // left in the DB, deliberately unused here (follow-up sms-f5: either derive
-      // the day-word or narrow the CHECK to 24). P2(e)'s 36h expiry window depends
-      // on this pinning; change one and the other must change.
+      // The legacy timing column is fixed at 24 by a DB CHECK and is deliberately
+      // absent from the owner UI. P2(e)'s 36h expiry window depends on this pinning;
+      // change one and the other must change.
       // T1 ignores marketing_consent - it is transactional, not marketing (spec §2).
       if (rule.check_in_reminder_enabled) {
-        const tomorrow = utcDate(1);
-        for (const c of await scanPlatform(db, {
-          owner_id: rule.user_id,
-          dateCol: "check_in",
-          date: tomorrow,
-          statuses: ["confirmed", "pending"],
-        })) {
+        const tomorrow = tbilisiDate(1);
+        for (
+          const c of await scanPlatform(db, {
+            owner_id: rule.user_id,
+            dateCol: "check_in",
+            date: tomorrow,
+            statuses: ["confirmed"],
+          })
+        ) {
           if (!reachable(c, false)) continue;
           await enqueue("check_in", c, buildCheckIn(c, rule));
         }
-        for (const c of await scanManual(db, {
-          owner_id: rule.user_id,
-          dateCol: "check_in",
-          date: tomorrow,
-        })) {
+        for (
+          const c of await scanManual(db, {
+            owner_id: rule.user_id,
+            dateCol: "check_in",
+            date: tomorrow,
+          })
+        ) {
           if (!reachable(c, false)) continue;
           await enqueue("check_in", c, buildCheckIn(c, rule));
         }
@@ -453,19 +330,22 @@ serve(async (req: Request) => {
       // Expect queued.review_request = 0 until an online booking flow exists
       // (follow-up sms-f10). THAT IS THE CORRECT RESULT - do not debug it.
       if (rule.review_request_enabled) {
-        const day = utcDateHoursAgo(rule.review_request_hours_after);
-        for (const c of await scanPlatform(db, {
-          owner_id: rule.user_id,
-          dateCol: "check_out",
-          date: day,
-          statuses: ["completed"],
-          requireConsent: true,
-        })) {
+        const day = tbilisiDate(-1);
+        for (
+          const c of await scanPlatform(db, {
+            owner_id: rule.user_id,
+            dateCol: "check_out",
+            date: day,
+            statuses: ["completed"],
+            requireConsent: true,
+          })
+        ) {
           if (!reachable(c, true)) continue;
-          const { count } = await db
+          const { count, error: reviewErr } = await db
             .from("reviews")
             .select("id", { count: "exact", head: true })
             .eq("booking_id", c.booking_id);
+          if (reviewErr) throw reviewErr;
           if ((count ?? 0) > 0) continue; // already reviewed
           await enqueue("review_request", c, buildReviewRequest(c, siteUrl));
         }
@@ -473,14 +353,16 @@ serve(async (req: Request) => {
 
       // ---- T3 WIN-BACK -----------------------------------------------------
       if (rule.win_back_enabled) {
-        const day = utcDate(-rule.win_back_days_after);
-        for (const c of await scanPlatform(db, {
-          owner_id: rule.user_id,
-          dateCol: "check_out",
-          date: day,
-          statuses: ["completed"],
-          requireConsent: true,
-        })) {
+        const day = tbilisiDate(-90);
+        for (
+          const c of await scanPlatform(db, {
+            owner_id: rule.user_id,
+            dateCol: "check_out",
+            date: day,
+            statuses: ["completed"],
+            requireConsent: true,
+          })
+        ) {
           if (!reachable(c, true)) continue;
           // A platform candidate always carries guest_id, so recipient_id is non-null
           // here. Guard rather than coalescing to "": `guest_id=eq.` with an empty
@@ -520,12 +402,13 @@ serve(async (req: Request) => {
           if (laterErr) throw laterErr;
           const rebooked = new Set(
             ((laterRows as { guest_phone: string | null }[] | null) ?? [])
-              .map((r) => toLocalGePhone(r.guest_phone))
-              .filter((p) => p.length > 0),
+              .map((r) => toCanonicalGePhone(r.guest_phone))
+              .filter((p): p is string => p !== null),
           );
           for (const c of manualCandidates) {
             if (!reachable(c, true)) continue;
-            if (rebooked.has(toLocalGePhone(c.guest_phone))) continue;
+            const phone = toCanonicalGePhone(c.guest_phone);
+            if (phone && rebooked.has(phone)) continue;
             await enqueue("win_back", c, buildWinBack(c, rule, siteUrl));
           }
         }
@@ -540,7 +423,7 @@ serve(async (req: Request) => {
 
 // ---------------------------------------------------------------------------
 // Scans. Consent and rental-only are QUERY FILTERS, not post-filters, so the
-// .limit() is never consumed by rows we would immediately discard.
+// paginated scans are never consumed by rows we would immediately discard.
 // ---------------------------------------------------------------------------
 async function scanPlatform(
   db: SbClient,
@@ -552,22 +435,6 @@ async function scanPlatform(
     requireConsent?: boolean;
   },
 ): Promise<Candidate[]> {
-  let q = db
-    .from("bookings")
-    .select(
-      `id, owner_id, guest_id, check_in, check_out, status, marketing_consent,
-       ${PROPERTY_EMBED},
-       guest:guest_id(phone, display_name)`,
-    )
-    .eq("owner_id", opts.owner_id)
-    .eq(opts.dateCol, opts.date)
-    .in("status", opts.statuses)
-    .or(RENTAL_ONLY, { referencedTable: "property" });
-  if (opts.requireConsent) q = q.eq("marketing_consent", true);
-
-  const { data, error } = await q.limit(200);
-  if (error) throw error;
-
   type Row = {
     id: string;
     owner_id: string;
@@ -578,7 +445,33 @@ async function scanPlatform(
       | { phone: string | null; display_name: string | null }[]
       | null;
   };
-  return ((data as Row[] | null) ?? []).map((r) => {
+  const rows: Row[] = [];
+  let cursor: string | null = null;
+  while (true) {
+    let q = db
+      .from("bookings")
+      .select(
+        `id, owner_id, guest_id, check_in, check_out, status, marketing_consent,
+         ${PROPERTY_EMBED},
+         guest:guest_id(phone, display_name)`,
+      )
+      .eq("owner_id", opts.owner_id)
+      .eq(opts.dateCol, opts.date)
+      .in("status", opts.statuses)
+      .or(RENTAL_ONLY, { referencedTable: "property" })
+      .order("id")
+      .limit(200);
+    if (opts.requireConsent) q = q.eq("marketing_consent", true);
+    if (cursor) q = q.gt("id", cursor);
+    const { data, error } = await q;
+    if (error) throw error;
+    const page = (data as Row[] | null) ?? [];
+    rows.push(...page);
+    if (page.length < 200) break;
+    cursor = page[page.length - 1].id;
+  }
+
+  return rows.map((r) => {
     const g = one(r.guest);
     return {
       source: "platform" as const,
@@ -605,22 +498,6 @@ async function scanManual(
   // (create_manual_booking writes CASE WHEN p_status='booked' THEN 'booked' ELSE
   // 'manual' END, and cancelling is a hard DELETE). Filtering on 'completed' here
   // would return zero rows forever. "The stay ended" is derived from the DATE.
-  let q = db
-    .from("manual_bookings")
-    .select(
-      `id, owner_id, check_in, check_out, status, marketing_consent,
-       guest_name, guest_phone,
-       ${PROPERTY_EMBED}`,
-    )
-    .eq("owner_id", opts.owner_id)
-    .eq(opts.dateCol, opts.date)
-    .neq("status", "cancelled")
-    .or(RENTAL_ONLY, { referencedTable: "property" });
-  if (opts.requireConsent) q = q.eq("marketing_consent", true);
-
-  const { data, error } = await q.limit(200);
-  if (error) throw error;
-
   type Row = {
     id: string;
     owner_id: string;
@@ -628,7 +505,33 @@ async function scanManual(
     guest_phone: string | null;
     property: PropertyRef | PropertyRef[] | null;
   };
-  return ((data as Row[] | null) ?? []).map((r) => ({
+  const rows: Row[] = [];
+  let cursor: string | null = null;
+  while (true) {
+    let q = db
+      .from("manual_bookings")
+      .select(
+        `id, owner_id, check_in, check_out, status, marketing_consent,
+         guest_name, guest_phone,
+         ${PROPERTY_EMBED}`,
+      )
+      .eq("owner_id", opts.owner_id)
+      .eq(opts.dateCol, opts.date)
+      .neq("status", "cancelled")
+      .or(RENTAL_ONLY, { referencedTable: "property" })
+      .order("id")
+      .limit(200);
+    if (opts.requireConsent) q = q.eq("marketing_consent", true);
+    if (cursor) q = q.gt("id", cursor);
+    const { data, error } = await q;
+    if (error) throw error;
+    const page = (data as Row[] | null) ?? [];
+    rows.push(...page);
+    if (page.length < 200) break;
+    cursor = page[page.length - 1].id;
+  }
+
+  return rows.map((r) => ({
     source: "manual" as const,
     booking_id: r.id,
     owner_id: r.owner_id,

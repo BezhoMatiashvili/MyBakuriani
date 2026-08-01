@@ -11,8 +11,6 @@ import type { DashboardUnreadCounts } from "@/lib/notifications/scopes";
 // and redirect when signed out, so they must never be statically prerendered.
 export const dynamic = "force-dynamic";
 
-const SMS_PLAN_TOTAL = 100;
-
 // Shape of the dashboard_layout_data() RPC payload (jsonb).
 // smart_match_actionable = open Smart Match requests this renter has NOT answered
 // (smart_match_actionable_count(), the same definition the inbox renders).
@@ -63,7 +61,7 @@ export default async function DashboardLayout({
   const role = profile?.role ?? "guest";
   const avatarUrl = profile?.avatar_url ?? null;
   const balance = Number(data.balance_amount ?? 0);
-  const smsRemaining = Number(data.sms_remaining ?? SMS_PLAN_TOTAL);
+  const smsRemaining = Number(data.sms_remaining ?? 0);
   const smartMatchCount = data.smart_match_actionable ?? 0;
 
   const availableCabinets = deriveAvailableCabinets({
@@ -73,6 +71,9 @@ export default async function DashboardLayout({
     hasCleaningTasks: (data.cleaning_tasks_count ?? 0) > 0,
     organizations: data.organizations ?? [],
   });
+  const canUseSms = (data.is_for_sale_flags ?? []).some(
+    (isForSale) => isForSale !== true,
+  );
 
   return (
     <NextIntlClientProvider messages={messages}>
@@ -84,6 +85,7 @@ export default async function DashboardLayout({
         initialUnreadCounts={data.unread_counts ?? {}}
         balance={balance}
         smsRemaining={smsRemaining}
+        canUseSms={canUseSms}
         smartMatchCount={smartMatchCount}
         availableCabinets={availableCabinets}
         cleanerOnline={data.cleaner_online ?? true}

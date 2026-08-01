@@ -58,6 +58,7 @@ export interface AddBookingPayload {
   note: string;
   status: "booked" | "manual";
   clientList: string;
+  marketingConsent: boolean;
 }
 
 // Read-only payload for platform (guest-made) bookings, which live in the
@@ -115,6 +116,7 @@ export default function AddBookingModal({
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"booked" | "manual">("manual");
   const [clientListKey, setClientListKey] = useState<ClientListKey>("platform");
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -142,6 +144,7 @@ export default function AddBookingModal({
           CLIENT_LIST_KEY_BY_VALUE[existing.client_list]) ||
           "platform",
       );
+      setMarketingConsent(existing.marketing_consent);
     } else if (mode === "create") {
       setCheckIn(initialCheckIn);
       setCheckOut(initialCheckOut);
@@ -153,6 +156,7 @@ export default function AddBookingModal({
       setNote("");
       setStatus("manual");
       setClientListKey("platform");
+      setMarketingConsent(false);
     }
   }, [isOpen, mode, existing, initialCheckIn, initialCheckOut]);
 
@@ -206,6 +210,7 @@ export default function AddBookingModal({
     note,
     status,
     clientList: CLIENT_LIST_DB_VALUES[clientListKey],
+    marketingConsent,
   });
 
   async function handleSubmit() {
@@ -440,6 +445,25 @@ export default function AddBookingModal({
                       />
                     </Field>
                   </div>
+
+                  <label className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-[#DBEAFE] bg-[#EFF6FF] p-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={marketingConsent}
+                      onChange={(event) =>
+                        setMarketingConsent(event.target.checked)
+                      }
+                      className="mt-0.5 size-4 shrink-0 accent-[#2563EB]"
+                    />
+                    <span>
+                      <span className="block text-[12px] font-bold text-[#1E3A8A]">
+                        {t("marketingConsentLabel")}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] leading-[17px] text-[#475569]">
+                        {t("marketingConsentHelp")}
+                      </span>
+                    </span>
+                  </label>
 
                   <button
                     type="submit"

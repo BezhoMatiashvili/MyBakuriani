@@ -539,6 +539,7 @@ function CreateRentalPageInner() {
 
   return (
     <WizardShell
+      mobileDensity="compact"
       title={stepTitle}
       stepTitle={stepTitle}
       accent="blue"

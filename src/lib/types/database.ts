@@ -2546,6 +2546,9 @@ export type Database = {
           charged_at: string | null;
           contact_event_id: string | null;
           created_at: string;
+          dispatch_attempt_count: number;
+          dispatch_claim_token: string | null;
+          dispatch_claimed_at: string | null;
           id: string;
           message: string;
           provider_response: Json | null;
@@ -2566,6 +2569,9 @@ export type Database = {
           charged_at?: string | null;
           contact_event_id?: string | null;
           created_at?: string;
+          dispatch_attempt_count?: number;
+          dispatch_claim_token?: string | null;
+          dispatch_claimed_at?: string | null;
           id?: string;
           message: string;
           provider_response?: Json | null;
@@ -2586,6 +2592,9 @@ export type Database = {
           charged_at?: string | null;
           contact_event_id?: string | null;
           created_at?: string;
+          dispatch_attempt_count?: number;
+          dispatch_claim_token?: string | null;
+          dispatch_claimed_at?: string | null;
           id?: string;
           message?: string;
           provider_response?: Json | null;
@@ -3189,6 +3198,15 @@ export type Database = {
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       smart_match_actionable_count: { Args: never; Returns: number };
+      self_service_set_cleaner_working_hours: {
+        Args: {
+          p_actor_id: string;
+          p_is_24_7: boolean;
+          p_service_id: string;
+          p_working_hours: string;
+        };
+        Returns: Json;
+      };
       sms_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["sms_broadcast_audience"];
@@ -3203,6 +3221,20 @@ export type Database = {
       sms_consume_credits_bulk: {
         Args: { p_sender_id: string; p_sms_ids: string[] };
         Returns: number;
+      };
+      sms_cancel_ineligible_automation: { Args: never; Returns: number };
+      sms_cancel_queued_automation: {
+        Args: { p_kind: string; p_reason?: string; p_sender_id: string };
+        Returns: number;
+      };
+      sms_canonical_ge_phone: { Args: { p: string }; Returns: string | null };
+      sms_claim_dispatch_batch: {
+        Args: { p_claim_token: string; p_limit?: number };
+        Returns: {
+          id: string;
+          message: string;
+          recipient_phone: string;
+        }[];
       };
       sms_dispatch_batch: {
         Args: { p_limit?: number };
@@ -3232,6 +3264,37 @@ export type Database = {
       sms_mark_sent: {
         Args: { p_provider_response?: Json; p_sms_id: string };
         Returns: Json;
+      };
+      sms_mark_claim_failed: {
+        Args: {
+          p_claim_token: string;
+          p_provider_response?: Json;
+          p_sms_id: string;
+        };
+        Returns: undefined;
+      };
+      sms_mark_claim_sent: {
+        Args: {
+          p_claim_token: string;
+          p_provider_response?: Json;
+          p_sms_id: string;
+        };
+        Returns: Json;
+      };
+      sms_release_dispatch_claim: {
+        Args: { p_claim_token: string; p_sms_id: string };
+        Returns: undefined;
+      };
+      sms_set_automation_rules: {
+        Args: {
+          p_check_in_enabled: boolean;
+          p_discount_period: string | null;
+          p_discount_value: string | null;
+          p_review_enabled: boolean;
+          p_sender_id: string;
+          p_win_back_enabled: boolean;
+        };
+        Returns: Database["public"]["Tables"]["sms_automation_rules"]["Row"];
       };
       sms_send_broadcast: {
         Args: {

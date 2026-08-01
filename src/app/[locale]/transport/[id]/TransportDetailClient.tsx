@@ -112,7 +112,7 @@ export default function TransportDetailClient({
   }, [service.id, isMock]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(96px+env(safe-area-inset-bottom))] sm:pt-8">
+    <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:pt-8 lg:pb-[96px]">
       {isPending && <PendingReviewBanner />}
       {/* Hero photo with floating back button + status pill */}
       <motion.div

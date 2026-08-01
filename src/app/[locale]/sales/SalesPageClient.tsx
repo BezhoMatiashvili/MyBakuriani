@@ -129,7 +129,7 @@ export default function SalesPageClient({ properties }: Props) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             <BannerSlot
               placement="listing_top"
               bare

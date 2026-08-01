@@ -342,6 +342,7 @@ function CreateFoodPageInner() {
 
   return (
     <WizardShell
+      mobileDensity="compact"
       title={t("pageTitle")}
       accent="orange"
       progressPercent={progressPercent}

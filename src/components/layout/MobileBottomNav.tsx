@@ -37,6 +37,7 @@ interface MobileBottomNavProps {
   onSignOut?: () => void;
   notificationCount?: number;
   leadsCount?: number;
+  canUseSms?: boolean;
 }
 
 interface NavItem {
@@ -373,9 +374,14 @@ export function MobileBottomNav({
   onSignOut,
   notificationCount = 0,
   leadsCount = 0,
+  canUseSms = false,
 }: MobileBottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const { tabs, more } = getNavigation(userRole);
+  const navigation = getNavigation(userRole);
+  const tabs = navigation.tabs;
+  const more = navigation.more.filter(
+    (item) => item.href !== "/dashboard/sms" || canUseSms,
+  );
   const t = useTranslations("DashboardSidebar.nav");
   const tSidebar = useTranslations("DashboardSidebar");
   const hasMoreActive = more.some((item) => isActive(item, currentPath));

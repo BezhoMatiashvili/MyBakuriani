@@ -335,7 +335,10 @@ export default function SearchPageClient({
           {/* Filter sidebar — only meaningful without a keyword */}
           {!hasKeyword && (
             <aside className="hidden w-[280px] shrink-0 lg:block">
-              <div className="sticky top-24">
+              <div
+                className="sticky top-[190px]"
+                data-testid="search-filter-sidebar"
+              >
                 <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[1px] text-[#94A3B8]">
                   {t("filters")}
                 </h2>
@@ -449,7 +452,7 @@ export default function SearchPageClient({
 
             {/* Property-only path (no keyword) */}
             {!loading && !hasKeyword && properties.length > 0 && (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6 xl:grid-cols-3">
                 <BannerSlot
                   placement="listing_top"
                   bare
@@ -500,7 +503,7 @@ export default function SearchPageClient({
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[14px] font-semibold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
+                  className="flex size-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[14px] font-semibold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40 lg:size-10"
                 >
                   &lsaquo;
                 </button>
@@ -508,7 +511,7 @@ export default function SearchPageClient({
                   <button
                     key={i + 1}
                     onClick={() => setPage(i + 1)}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-semibold transition-colors ${
+                    className={`flex size-11 items-center justify-center rounded-full text-[14px] font-semibold transition-colors lg:size-10 ${
                       page === i + 1
                         ? "border border-[#3B82F6] bg-[#3B82F6] text-white"
                         : "border border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F8FAFC]"
@@ -520,7 +523,7 @@ export default function SearchPageClient({
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[14px] font-semibold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
+                  className="flex size-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[14px] font-semibold text-[#334155] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40 lg:size-10"
                 >
                   &rsaquo;
                 </button>
@@ -669,7 +672,7 @@ function Section({
 
 function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6 xl:grid-cols-3">
       {items.map((p, i) => (
         <ScrollReveal key={p.id} delay={i * 0.05}>
           <PropertyCard
@@ -697,7 +700,7 @@ function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
 
 function ServicesGrid({ items }: { items: ServiceRow[] }) {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6 xl:grid-cols-3">
       {items.map((s, i) => (
         <ScrollReveal key={s.id} delay={i * 0.05}>
           <ServiceCard
@@ -731,7 +734,7 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
 
 function BlogGrid({ items }: { items: BlogRow[] }) {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
       {items.map((post, i) => (
         <ScrollReveal key={post.id} delay={i * 0.05}>
           <Link

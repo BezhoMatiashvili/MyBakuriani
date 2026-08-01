@@ -21,82 +21,12 @@ import {
   organizations,
   organizationSubscriptions,
 } from "./supabase";
+import { FIXTURE_IDS } from "./fixture-manifest.mjs";
 
 // ---------------------------------------------------------------------------
 // Deterministic UUIDs
 // ---------------------------------------------------------------------------
-export const TEST_IDS = {
-  // Users (valid UUID v4: pos 13=4, pos 17=8/9/a/b)
-  admin: "aae2ff00-0001-4000-a000-000000000001",
-  guest: "aae2ff00-0002-4000-a000-000000000002",
-  renter: "aae2ff00-0003-4000-a000-000000000003",
-  seller: "aae2ff00-0004-4000-a000-000000000004",
-  cleaner: "aae2ff00-0005-4000-a000-000000000005",
-  food: "aae2ff00-0006-4000-a000-000000000006",
-  transport: "aae2ff00-0007-4000-a000-000000000007",
-  entertainment: "aae2ff00-0008-4000-a000-000000000008",
-  employment: "aae2ff00-0009-4000-a000-000000000009",
-
-  // Seller organization and its subscription
-  organization: "aae2ff00-d001-4000-a000-000000000001",
-  organizationSubscription: "aae2ff00-d002-4000-a000-000000000001",
-
-  // Properties
-  apartment: "aae2ff00-1001-4000-a000-000000000001",
-  villa: "aae2ff00-1002-4000-a000-000000000002",
-  sale: "aae2ff00-1003-4000-a000-000000000003",
-  whatsappApartment: "aae2ff00-1004-4000-a000-000000000004",
-
-  // Booking
-  booking: "aae2ff00-2001-4000-a000-000000000001",
-
-  // Review
-  review: "aae2ff00-3001-4000-a000-000000000001",
-
-  // Services
-  foodService: "aae2ff00-4001-4000-a000-000000000001",
-  transportService: "aae2ff00-4002-4000-a000-000000000002",
-  entertainmentService: "aae2ff00-4003-4000-a000-000000000003",
-  employmentService: "aae2ff00-4004-4000-a000-000000000004",
-  cleaningServicePrimary: "aae2ff00-4005-4000-a000-000000000005",
-  cleaningServiceSecondary: "aae2ff00-4006-4000-a000-000000000006",
-  whatsappService: "aae2ff00-4007-4000-a000-000000000007",
-
-  // Calendar blocks
-  calendarBlock1: "aae2ff00-5001-4000-a000-000000000001",
-  calendarBlock2: "aae2ff00-5002-4000-a000-000000000002",
-  calendarBlock3: "aae2ff00-5003-4000-a000-000000000003",
-
-  // Smart match
-  smartMatch: "aae2ff00-6001-4000-a000-000000000001",
-
-  // Blog post
-  blogPost: "aae2ff00-7001-4000-a000-000000000001",
-
-  // Cleaning task
-  cleaningTask: "aae2ff00-8001-4000-a000-000000000001",
-  cleanerScheduleTask: "aae2ff00-8002-4000-a000-000000000002",
-
-  // Verification
-  verification: "aae2ff00-9001-4000-a000-000000000001",
-
-  // Notifications (one per user)
-  notifAdmin: "aae2ff00-a001-4000-a000-000000000001",
-  notifGuest: "aae2ff00-a002-4000-a000-000000000002",
-  notifRenter: "aae2ff00-a003-4000-a000-000000000003",
-  notifSeller: "aae2ff00-a004-4000-a000-000000000004",
-  notifCleaner: "aae2ff00-a005-4000-a000-000000000005",
-  notifFood: "aae2ff00-a006-4000-a000-000000000006",
-  notifTransport: "aae2ff00-a007-4000-a000-000000000007",
-  notifEntertainment: "aae2ff00-a008-4000-a000-000000000008",
-  notifEmployment: "aae2ff00-a009-4000-a000-000000000009",
-
-  // Transaction
-  transaction: "aae2ff00-b001-4000-a000-000000000001",
-
-  // Seller CRM lead
-  sellerLead: "aae2ff00-c001-4000-a000-000000000001",
-} as const;
+export const TEST_IDS = FIXTURE_IDS;
 
 // ---------------------------------------------------------------------------
 // Phone numbers
@@ -255,7 +185,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     price_per_night: 150,
     currency: "GEL",
     amenities: ["wifi", "parking", "heating"],
-    photos: [],
+    photos: ["/placeholder-property.jpg", "/placeholder-property.jpg"],
     status: "active",
     is_for_sale: false,
   });
@@ -275,6 +205,26 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     currency: "GEL",
     amenities: ["wifi", "parking", "heating", "fireplace", "bbq"],
     photos: [],
+    status: "active",
+    is_for_sale: false,
+  });
+
+  await properties.create({
+    id: TEST_IDS.hotel,
+    owner_id: TEST_IDS.renter,
+    type: "hotel",
+    title: "E2E სასტუმრო ბაკურიანში",
+    description: "დეტერმინისტული სასტუმრო responsive აუდიტისთვის",
+    location: "ბაკურიანი, კოხტა",
+    area_sqm: 32,
+    rooms: 1,
+    bathrooms: 1,
+    capacity: 2,
+    price_per_night: 220,
+    currency: "GEL",
+    amenities: ["wifi", "parking", "breakfast"],
+    photos: [],
+    hotel_stars: 4,
     status: "active",
     is_for_sale: false,
   });
@@ -672,6 +622,7 @@ export async function cleanupTestData(): Promise<void> {
   await properties.delete(TEST_IDS.villa).catch(ignore);
   await properties.delete(TEST_IDS.sale).catch(ignore);
   await properties.delete(TEST_IDS.whatsappApartment).catch(ignore);
+  await properties.delete(TEST_IDS.hotel).catch(ignore);
 
   // Profiles + auth users — delete in order
   const userIds = [

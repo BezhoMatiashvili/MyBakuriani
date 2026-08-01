@@ -131,6 +131,74 @@ test.describe("Hotels page filters", () => {
 // Search page
 // ---------------------------------------------------------------------------
 test.describe("Search page", () => {
+  const categoryPaths = [
+    "/apartments",
+    "/hotels",
+    "/transport",
+    "/employment",
+    "/services",
+    "/food",
+    "/entertainment",
+  ];
+
+  for (const [mode, query] of [
+    [
+      "rent",
+      "location=%E1%83%91%E1%83%90%E1%83%99%E1%83%A3%E1%83%A0%E1%83%98%E1%83%90%E1%83%9C%E1%83%98&mode=rent&price_min=100&rooms=2",
+    ],
+    [
+      "sale",
+      "location=%E1%83%91%E1%83%90%E1%83%99%E1%83%A3%E1%83%A0%E1%83%98%E1%83%90%E1%83%9C%E1%83%98&mode=sale&price_max=500000&types=apartment",
+    ],
+  ] as const) {
+    test(`shows all category links for filtered ${mode} results without changing the query`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(`/search?${query}`);
+
+      const categoryNav = page.getByTestId("category-nav");
+      await expect(categoryNav).toBeVisible();
+      const categoryLinks = categoryNav.getByRole("link");
+      await expect(categoryLinks).toHaveCount(categoryPaths.length);
+
+      for (const [index, path] of categoryPaths.entries()) {
+        await expect(categoryLinks.nth(index)).toBeVisible();
+        await expect(categoryLinks.nth(index)).toHaveClass(
+          /text-\[#64748B\]/,
+        );
+        const href = await categoryLinks.nth(index).getAttribute("href");
+        const destination = new URL(href!, page.url());
+        expect(destination.pathname).toBe(path);
+        expect(destination.search).toBe("");
+      }
+
+      expect(new URL(page.url()).searchParams.toString()).toBe(query);
+    });
+  }
+
+  test("keeps the desktop filter sidebar below the expanded sticky header", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 600 });
+    await page.goto("/search?mode=rent");
+
+    const categoryNav = page.getByTestId("category-nav");
+    const sidebar = page.getByTestId("search-filter-sidebar");
+    await expect(categoryNav).toBeVisible();
+    await expect(sidebar).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeGreaterThan(0);
+
+    const navBox = await categoryNav.boundingBox();
+    const sidebarBox = await sidebar.boundingBox();
+    expect(navBox).not.toBeNull();
+    expect(sidebarBox).not.toBeNull();
+    expect(sidebarBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
+  });
+
   test("loads with location parameter", async ({ page }) => {
     await page.goto("/search?location=ბაკურიანი");
     await expect(page.locator("main")).toBeVisible();

@@ -122,7 +122,7 @@ export default function InvestmentCard({
         href={`/sales/${id}`}
         className="flex h-full flex-col overflow-hidden rounded-[20px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0px_10px_30px_-4px_rgba(0,0,0,0.08)]"
       >
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative aspect-[8/5] overflow-hidden lg:aspect-[4/3]">
           <Image
             src={photo}
             alt={title}
@@ -160,7 +160,7 @@ export default function InvestmentCard({
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-1 flex-col p-4 lg:p-5">
           <div className="flex items-center justify-between gap-2">
             <p className="flex min-w-0 items-center gap-1 text-[12px] font-medium text-[#94A3B8]">
               <MapPin className="h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
@@ -189,8 +189,8 @@ export default function InvestmentCard({
 
           {/* Own row: the subtitle above is a dot-joined truncated line. */}
           {paymentOptions && paymentOptions.length > 0 && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {paymentOptions.map((code) => (
+            <div className="mt-2.5 flex flex-nowrap gap-1.5 overflow-hidden">
+              {paymentOptions.slice(0, 2).map((code) => (
                 <span
                   key={code}
                   className="inline-flex shrink-0 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold leading-[14px] text-[#475569]"
@@ -198,6 +198,11 @@ export default function InvestmentCard({
                   {tOpts(`paymentOptions.${code}`)}
                 </span>
               ))}
+              {paymentOptions.length > 2 && (
+                <span className="inline-flex shrink-0 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-[10px] font-bold text-[#475569]">
+                  +{paymentOptions.length - 2}
+                </span>
+              )}
             </div>
           )}
 

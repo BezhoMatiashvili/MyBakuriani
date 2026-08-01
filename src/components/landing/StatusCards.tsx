@@ -79,14 +79,15 @@ export default function StatusCards({
   const locale = useLocale();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  // The mobile BottomSheet stays mounted (only CSS-hidden via `md:hidden`) so
+  // The mobile/tablet BottomSheet stays mounted (only CSS-hidden via
+  // `lg:hidden`) so
   // its scroll-lock effect must be told when it isn't actually visible —
   // otherwise expanding a card on desktop locks body scroll and breaks the
   // sticky Navbar above it.
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
+    const mq = window.matchMedia("(max-width: 1023px)");
     const update = () => setIsMobile(mq.matches);
     update();
     mq.addEventListener("change", update);
@@ -122,7 +123,7 @@ export default function StatusCards({
       <div
         ref={gridRef}
         className={cn(
-          "relative grid grid-cols-2 gap-4 sm:grid-cols-4",
+          "scrollbar-hide relative -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0",
           className,
         )}
       >
@@ -157,7 +158,7 @@ export default function StatusCards({
           );
 
           const cardClass =
-            "flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-3 py-5 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] md:px-5";
+            "flex min-h-20 w-[min(260px,calc(100vw-64px))] shrink-0 snap-start items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-4 py-4 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] sm:w-auto lg:px-5 lg:py-5";
 
           if (!canExpand) {
             return (
@@ -186,7 +187,7 @@ export default function StatusCards({
 
         {/* Desktop dropdown panel — absolute, escapes the grid flow */}
         {expandedCard && (
-          <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden md:block">
+          <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden lg:block">
             <div className="rounded-[16px] border border-white/5 bg-[#222A3B] p-4 shadow-[var(--shadow-dark-card)]">
               <p className="mb-3 text-[13px] font-bold text-white">
                 {pickLocalized(expandedCard.label, locale)}
@@ -211,7 +212,7 @@ export default function StatusCards({
       </div>
 
       {/* Mobile bottom-sheet — hidden on desktop via the display:none wrapper */}
-      <div className="md:hidden">
+      <div className="lg:hidden">
         <BottomSheet
           isOpen={isMobile && !!expandedCard}
           onClose={() => setExpandedId(null)}

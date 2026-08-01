@@ -414,6 +414,7 @@ function CreateEntertainmentPageInner() {
 
   return (
     <WizardShell
+      mobileDensity="compact"
       title={t("pageTitle")}
       subtitle={t("subtitle")}
       accent="blue"

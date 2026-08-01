@@ -100,7 +100,7 @@ export default function SalePropertyCard({
         href={href}
         className="flex h-full flex-col overflow-hidden rounded-[20px] border border-[#E7EEE9] bg-white shadow-[0px_4px_16px_-2px_rgba(15,61,46,0.08)] transition-shadow hover:shadow-[0px_12px_28px_-6px_rgba(15,61,46,0.18)]"
       >
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative aspect-[8/5] overflow-hidden lg:aspect-[4/3]">
           <Image
             src={photoUrl}
             alt={title}
@@ -140,7 +140,7 @@ export default function SalePropertyCard({
           />
         </div>
 
-        <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-1 flex-col p-4 lg:p-5">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
               <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
@@ -164,8 +164,8 @@ export default function SalePropertyCard({
           )}
 
           {paymentOptions && paymentOptions.length > 0 && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {paymentOptions.map((code) => (
+            <div className="mt-2.5 flex flex-nowrap gap-1.5 overflow-hidden">
+              {paymentOptions.slice(0, 2).map((code) => (
                 <span
                   key={code}
                   className="inline-flex shrink-0 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold leading-[14px] text-[#475569]"
@@ -173,6 +173,11 @@ export default function SalePropertyCard({
                   {tOpts(`paymentOptions.${code}`)}
                 </span>
               ))}
+              {paymentOptions.length > 2 && (
+                <span className="inline-flex shrink-0 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-[10px] font-bold text-[#475569]">
+                  +{paymentOptions.length - 2}
+                </span>
+              )}
             </div>
           )}
 

@@ -25,15 +25,15 @@ const CATEGORIES = [
 export default function CreatePage() {
   const t = useTranslations("CreateHub");
   return (
-    <div className="mx-auto w-full max-w-[880px] px-4 py-10 sm:py-12">
+    <div className="mx-auto w-full max-w-[880px] px-4 py-6 lg:py-12">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)] sm:p-8"
+        className="bg-transparent p-0 lg:rounded-[24px] lg:border lg:border-[#E2E8F0] lg:bg-white lg:p-8 lg:shadow-[0px_1px_3px_rgba(0,0,0,0.05)]"
       >
         <div>
-          <h1 className="text-[28px] font-black leading-8 tracking-[-0.7px] text-[#0F172A]">
+          <h1 className="text-[24px] font-black leading-8 tracking-[-0.5px] text-[#0F172A] lg:text-[28px] lg:tracking-[-0.7px]">
             {t("title")}
           </h1>
           <p className="mt-1 text-sm font-medium text-[#64748B]">
@@ -41,7 +41,7 @@ export default function CreatePage() {
           </p>
         </div>
 
-        <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:mt-7 lg:grid-cols-3 lg:gap-4">
           {CATEGORIES.map((cat, i) => (
             <motion.div
               key={cat.href}
@@ -51,7 +51,7 @@ export default function CreatePage() {
             >
               <Link
                 href={cat.href}
-                className="group flex h-full flex-col items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-10 text-center transition-all hover:border-[#2563EB] hover:shadow-md"
+                className="group flex min-h-[132px] h-full flex-col items-center justify-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-3 py-5 text-center transition-all hover:border-[#2563EB] hover:shadow-md lg:px-4 lg:py-10"
               >
                 <cat.icon
                   className="size-7 text-[#94A3B8] transition-colors group-hover:text-[#2563EB]"

@@ -173,8 +173,8 @@ function SlotFrame({
       );
 
     case "sticky": {
-      // Detail pages render MobileStickyCTA (fixed bottom-0, md:hidden) — below
-      // md the bar must stack above it instead of covering the primary CTA.
+      // Detail pages render MobileStickyCTA (fixed bottom-0, lg:hidden) — below
+      // lg the bar must stack above it instead of covering the primary CTA.
       // Transport detail uses TransportContactFooter, which is fixed at ALL
       // breakpoints, so that one needs the offset on desktop too.
       // These are true viewport concerns (they depend on the real window, not on
@@ -186,12 +186,13 @@ function SlotFrame({
         ) && !/\/sales\/all$/.test(path);
       const isTransportDetail = /\/transport\/[^/]+$/.test(path);
       const bottom = isTransportDetail
-        ? "bottom-[calc(76px+env(safe-area-inset-bottom))]"
+        ? "bottom-[calc(var(--mobile-fixed-action-height)+env(safe-area-inset-bottom))]"
         : isDetailRoute
-          ? "bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-0"
+          ? "bottom-[calc(var(--mobile-fixed-action-height)+env(safe-area-inset-bottom))] lg:bottom-0"
           : "bottom-0";
       return (
         <div
+          data-testid="sticky-promo-container"
           className={`@container pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4 ${bottom} ${className ?? ""}`}
         >
           {children}
@@ -665,7 +666,7 @@ function StickyCreative({
       creative={creative}
       interactive={interactive}
       onExpand={onExpand}
-      className="pointer-events-auto relative flex w-full max-w-[1160px] cursor-pointer flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] @[640px]:px-5"
+      className="pointer-events-auto relative flex min-h-16 max-h-[72px] w-full max-w-[1160px] cursor-pointer flex-nowrap items-center justify-between gap-2 overflow-hidden rounded-2xl border px-3 py-2 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] @[640px]:gap-3 @[640px]:px-5"
       style={{ backgroundColor: tone.bg, borderColor: tone.border }}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -677,7 +678,7 @@ function StickyCreative({
           !
         </span>
         <p
-          className="min-w-0 text-[13px] font-medium leading-[20px]"
+          className="min-w-0 text-[12px] font-medium leading-[18px] line-clamp-2 @[640px]:text-[13px] @[640px]:leading-[20px]"
           style={{ color: tone.text }}
         >
           <span className="font-bold" style={{ color: tone.title }}>
@@ -703,7 +704,7 @@ function StickyCreative({
               dismiss();
             }}
             aria-label={t("close")}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border bg-white"
+            className="inline-flex size-11 items-center justify-center rounded-full border bg-white"
             style={{ borderColor: tone.ctaBorder, color: tone.text }}
           >
             <X className="h-4 w-4" />
@@ -727,7 +728,7 @@ function CreativeCta({
 }) {
   const cls = large
     ? "shrink-0 rounded-full border-2 bg-white px-6 py-3 text-[13px] font-bold transition-colors"
-    : "shrink-0 rounded-full border bg-white px-4 py-2 text-[12px] font-bold transition-colors";
+    : "inline-flex min-h-11 shrink-0 items-center rounded-full border bg-white px-3 py-2 text-[12px] font-bold transition-colors @[640px]:px-4";
   const style = large
     ? { borderColor: tone.ctaText, color: tone.ctaText }
     : { borderColor: tone.ctaBorder, color: tone.ctaText };

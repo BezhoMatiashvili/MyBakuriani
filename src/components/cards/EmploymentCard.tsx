@@ -38,7 +38,7 @@ export default function EmploymentCard({
   } = useFavorite({ serviceId: id });
   return (
     <div
-      className={`relative flex h-full flex-col overflow-hidden rounded-[24px] border bg-white p-5 transition-shadow hover:shadow-[var(--shadow-card-hover)] ${
+      className={`relative flex h-full flex-col overflow-hidden rounded-[20px] border bg-white p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:rounded-[24px] lg:p-5 ${
         highlighted
           ? "border-[#F97316] shadow-[0px_4px_20px_-2px_rgba(249,115,22,0.15)]"
           : "border-[#E2E8F0] shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)]"
@@ -135,7 +135,7 @@ export default function EmploymentCard({
         )}
         <Link
           href={`/employment/${id}`}
-          className="flex h-10 items-center justify-center rounded-xl bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
+          className="flex h-11 items-center justify-center rounded-xl bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B] lg:h-10"
         >
           {t("details")}
         </Link>

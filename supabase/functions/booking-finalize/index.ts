@@ -41,81 +41,115 @@ serve(async (req) => {
     requireSharedSecret(req);
     const supabase = createServiceClient();
 
-    const today = new Date().toISOString().slice(0, 10);
-
-    const { data: due, error: dueErr } = await supabase
-      .from("bookings")
-      .select("id, guest_id, property_id, check_out")
-      .eq("status", "confirmed")
-      .lt("check_out", today);
-
-    if (dueErr) throw dueErr;
+    const today = new Date(Date.now() + 4 * 3600_000)
+      .toISOString()
+      .slice(0, 10);
 
     let completed = 0;
     let notified = 0;
     let skipped = 0;
+    let processed = 0;
+    let cursor: string | null = null;
 
-    for (const booking of due ?? []) {
-      const { error: updateErr } = await supabase
+    while (true) {
+      let query = supabase
         .from("bookings")
-        .update({
-          status: "completed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", booking.id)
-        .eq("status", "confirmed");
+        .select("id, guest_id, property_id, check_out")
+        .eq("status", "confirmed")
+        .lt("check_out", today)
+        .order("id")
+        .limit(200);
+      if (cursor) query = query.gt("id", cursor);
+      const { data: due, error: dueErr } = await query;
+      if (dueErr) throw dueErr;
+      if (!due?.length) break;
 
-      if (updateErr) continue;
-      completed += 1;
+      for (const booking of due) {
+        processed += 1;
+        const { data: claimedBooking, error: updateErr } = await supabase
+          .from("bookings")
+          .update({
+            status: "completed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", booking.id)
+          .eq("status", "confirmed")
+          .select("id")
+          .maybeSingle();
 
-      const { data: existingReview } = await supabase
-        .from("reviews")
-        .select("id")
-        .eq("booking_id", booking.id)
-        .maybeSingle();
+        if (updateErr) {
+          console.error("booking-finalize: update failed", {
+            booking_id: booking.id,
+            error: updateErr,
+          });
+          skipped += 1;
+          continue;
+        }
+        // Another overlapping finalizer already claimed this booking.
+        if (!claimedBooking) {
+          skipped += 1;
+          continue;
+        }
+        completed += 1;
 
-      if (existingReview) {
-        skipped += 1;
-        continue;
+        const { data: existingReview, error: reviewErr } = await supabase
+          .from("reviews")
+          .select("id")
+          .eq("booking_id", booking.id)
+          .maybeSingle();
+        if (reviewErr) throw reviewErr;
+
+        if (existingReview) {
+          skipped += 1;
+          continue;
+        }
+
+        const actionUrl = `/dashboard/guest/rate/${booking.id}`;
+        const { data: existingNotification, error: notificationErr } =
+          await supabase
+            .from("notifications")
+            .select("id")
+            .eq("user_id", booking.guest_id)
+            .eq("action_url", actionUrl)
+            .maybeSingle();
+        if (notificationErr) throw notificationErr;
+
+        if (existingNotification) {
+          skipped += 1;
+          continue;
+        }
+
+        const { data: property, error: propertyErr } = await supabase
+          .from("properties")
+          .select("title")
+          .eq("id", booking.property_id)
+          .maybeSingle();
+        if (propertyErr) throw propertyErr;
+
+        const propertyTitle = property?.title ?? "თქვენი დარჩენა";
+
+        const { error: notifyErr } = await supabase.from("notifications")
+          .insert({
+            user_id: booking.guest_id,
+            type: "review_request",
+            title: "შეაფასეთ თქვენი დარჩენა",
+            message: `გთხოვთ შეაფასოთ "${propertyTitle}"`,
+            action_url: actionUrl,
+            dashboard_scope: "guest",
+          });
+
+        if (notifyErr) throw notifyErr;
+        notified += 1;
       }
 
-      const actionUrl = `/dashboard/guest/rate/${booking.id}`;
-      const { data: existingNotification } = await supabase
-        .from("notifications")
-        .select("id")
-        .eq("user_id", booking.guest_id)
-        .eq("action_url", actionUrl)
-        .maybeSingle();
-
-      if (existingNotification) {
-        skipped += 1;
-        continue;
-      }
-
-      const { data: property } = await supabase
-        .from("properties")
-        .select("title")
-        .eq("id", booking.property_id)
-        .maybeSingle();
-
-      const propertyTitle = property?.title ?? "თქვენი დარჩენა";
-
-      const { error: notifyErr } = await supabase.from("notifications").insert({
-        user_id: booking.guest_id,
-        type: "review_request",
-        title: "შეაფასეთ თქვენი დარჩენა",
-        message: `გთხოვთ შეაფასოთ "${propertyTitle}"`,
-        action_url: actionUrl,
-        dashboard_scope: "guest",
-      });
-
-      if (!notifyErr) notified += 1;
+      cursor = due[due.length - 1].id;
+      if (due.length < 200) break;
     }
 
     return jsonResponse(
       {
         data: {
-          processed: due?.length ?? 0,
+          processed,
           completed,
           notified,
           skipped,

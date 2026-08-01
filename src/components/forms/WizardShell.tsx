@@ -1,6 +1,11 @@
 "use client";
 
-import { ReactNode, FormEvent } from "react";
+import {
+  createContext,
+  useContext,
+  type ReactNode,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -59,7 +64,10 @@ interface WizardShellProps {
   children: ReactNode;
   footer?: ReactNode;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  mobileDensity?: "default" | "compact";
 }
+
+const WizardDensityContext = createContext<"default" | "compact">("default");
 
 export function WizardShell({
   title,
@@ -73,6 +81,7 @@ export function WizardShell({
   children,
   footer,
   onSubmit,
+  mobileDensity = "default",
 }: WizardShellProps) {
   const t = useTranslations("Wizard");
   const stepLabelText = stepLabel ?? t("step");
@@ -86,10 +95,23 @@ export function WizardShell({
     : typeof progressPercent === "number"
       ? Math.max(0, Math.min(100, Math.round(progressPercent)))
       : 100;
+  const compact = mobileDensity === "compact";
 
   return (
-    <div className="mx-auto w-full max-w-[980px] px-4 py-10 sm:py-12">
-      <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)] sm:p-8">
+    <WizardDensityContext.Provider value={mobileDensity}>
+    <div
+      className={cn(
+        "mx-auto w-full max-w-[980px] px-4 py-10 sm:py-12",
+        compact && "py-4 sm:py-6 lg:py-12",
+      )}
+    >
+      <div
+        className={cn(
+          "rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.05)] sm:p-8",
+          compact &&
+            "rounded-none border-0 bg-transparent p-0 shadow-none sm:p-0 lg:rounded-[24px] lg:border lg:bg-white lg:p-8 lg:shadow-[0px_1px_3px_rgba(0,0,0,0.05)]",
+        )}
+      >
         {hasSteps ? (
           <>
             {/* Stepped header (rental) */}
@@ -152,13 +174,31 @@ export function WizardShell({
 
         <form onSubmit={onSubmit} noValidate>
           {/* Content */}
-          <div className="mt-7 space-y-6">{children}</div>
+          <div
+            className={cn(
+              "mt-7 space-y-6",
+              compact && "mt-5 space-y-4 lg:mt-7 lg:space-y-6",
+            )}
+          >
+            {children}
+          </div>
 
           {/* Footer */}
-          {footer && <div className="mt-8">{footer}</div>}
+          {footer && (
+            <div
+              className={cn(
+                "mt-8",
+                compact &&
+                  "sticky bottom-0 z-20 -mx-4 mt-6 border-t border-[#E2E8F0] bg-white/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-sm lg:static lg:mx-0 lg:mt-8 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none",
+              )}
+            >
+              {footer}
+            </div>
+          )}
         </form>
       </div>
     </div>
+    </WizardDensityContext.Provider>
   );
 }
 
@@ -179,10 +219,13 @@ export function WizardInnerCard({
   className,
 }: WizardInnerCardProps) {
   const a = ACCENT_CLASSES[accent];
+  const density = useContext(WizardDensityContext);
   return (
     <div
       className={cn(
         "rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:p-6",
+        density === "compact" &&
+          "rounded-none border-0 bg-transparent p-0 sm:p-0 lg:rounded-2xl lg:border lg:bg-white lg:p-6",
         className,
       )}
     >
@@ -199,7 +242,14 @@ export function WizardInnerCard({
         )}
         <h2 className="text-[15px] font-bold text-[#334155]">{title}</h2>
       </div>
-      <div className="mt-5 space-y-5">{children}</div>
+      <div
+        className={cn(
+          "mt-5 space-y-5",
+          density === "compact" && "mt-4 space-y-4 lg:mt-5 lg:space-y-5",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -216,14 +266,28 @@ export function WizardSection({
   children,
   className,
 }: WizardSectionProps) {
+  const density = useContext(WizardDensityContext);
   return (
-    <div className={cn("space-y-5", className)}>
+    <div
+      className={cn(
+        "space-y-5",
+        density === "compact" && "space-y-4 lg:space-y-5",
+        className,
+      )}
+    >
       {title && (
         <h2 className="text-[20px] font-black tracking-[-0.3px] text-[#0F172A]">
           {title}
         </h2>
       )}
-      <div className="space-y-5">{children}</div>
+      <div
+        className={cn(
+          "space-y-5",
+          density === "compact" && "space-y-4 lg:space-y-5",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

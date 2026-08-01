@@ -32,6 +32,7 @@ interface RenterSidebarProps {
   currentPath: string;
   onSignOut: () => void;
   availableCabinets: string[];
+  canUseSms: boolean;
 }
 
 interface NavItem {
@@ -106,6 +107,7 @@ export function RenterSidebar({
   currentPath,
   onSignOut,
   availableCabinets,
+  canUseSms,
 }: RenterSidebarProps) {
   const t = useTranslations("DashboardSidebar");
   const tSmart = useTranslations("SmartMatchCard");
@@ -116,12 +118,10 @@ export function RenterSidebar({
     .join("")
     .slice(0, 2);
 
-  // SMS Center belongs to the renter cabinet — hide its link from anyone viewing
-  // this sidebar who isn't a renter-cabinet member (mirrors canUseSmsCenter on the
-  // /dashboard/sms page, so the link never leads to a denied redirect).
+  // A renter cabinet can exist from the profile role alone; SMS additionally
+  // requires an actual rental listing.
   const navItems = NAV_ITEMS.filter(
-    (item) =>
-      item.href !== "/dashboard/sms" || availableCabinets.includes("renter"),
+    (item) => item.href !== "/dashboard/sms" || canUseSms,
   );
 
   return (

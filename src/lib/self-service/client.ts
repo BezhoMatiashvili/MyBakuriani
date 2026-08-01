@@ -12,6 +12,7 @@ export type SelfServiceProfileValues = {
   personal_id?: string | null;
   whatsapp_enabled?: boolean;
   notification_prefs?: NotificationPrefs;
+  marketing_opt_out?: boolean;
   cleaner_profile?: Partial<{
     first_name: string | null;
     last_name: string | null;
@@ -59,4 +60,26 @@ export async function publishPropertyProgress(
     headers: { "content-type": "application/json" },
     body: JSON.stringify(values),
   });
+}
+
+export type CleanerWorkingHoursService = {
+  id: string;
+  title: string;
+  provider_name: string | null;
+  schedule: string | null;
+  operating_hours: string | null;
+};
+
+export async function updateCleanerWorkingHours(
+  serviceId: string,
+  values: { is24_7: boolean; workingHours: string },
+) {
+  return request<{ services: CleanerWorkingHoursService[] }>(
+    `/api/self-service/cleaner/services/${serviceId}/working-hours`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(values),
+    },
+  );
 }

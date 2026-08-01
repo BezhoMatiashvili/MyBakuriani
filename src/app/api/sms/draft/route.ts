@@ -23,13 +23,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "unauthenticated" }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!(await canUseSmsCenter(supabase, user.id, profile?.role))) {
+  if (!(await canUseSmsCenter(supabase, user.id))) {
     return Response.json({ error: "role_not_allowed" }, { status: 403 });
   }
 

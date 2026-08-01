@@ -10,6 +10,7 @@ import type { Tables } from "@/lib/types/database";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 
 // `value` is matched against DB `position` values and must stay Georgian.
 const POSITIONS = [
@@ -112,14 +113,14 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       <section
-        className="relative px-4 pt-16 pb-20 text-center"
+        className="relative px-4 pb-16 pt-12 text-center lg:pb-20 lg:pt-16"
         style={{
           background: "linear-gradient(135deg, #0E2150 0%, #1E3A7B 100%)",
         }}
       >
         <div className="mx-auto max-w-3xl">
           <ScrollReveal>
-            <h1 className="text-[36px] font-black leading-[44px] sm:text-[48px] sm:leading-[56px]">
+            <h1 className="text-[30px] font-black leading-[38px] lg:text-[48px] lg:leading-[56px]">
               <span className="text-[#60A5FA]">{t("heroTitle1")}</span>{" "}
               <span className="text-white">{t("heroTitle2")}</span>
             </h1>
@@ -143,7 +144,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
             </div>
             <button
               type="button"
-              className="h-10 shrink-0 rounded-full bg-[#2563EB] px-6 text-sm font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+              className="h-11 shrink-0 rounded-full bg-[#2563EB] px-6 text-sm font-bold text-white transition-colors hover:bg-[#1D4ED8] lg:h-10"
             >
               {t("search")}
             </button>
@@ -151,13 +152,23 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
         </div>
       </section>
 
-      <section className="px-4">
+      <ResponsiveFilterSheet
+        title={t("positionLabel")}
+        selectedLabels={[
+          activePosition !== "all"
+            ? t(
+                `positions.${POSITIONS.find((item) => item.value === activePosition)?.key ?? "all"}`,
+              )
+            : null,
+          activeSchedule !== "all" ? t(`schedules.${activeSchedule}`) : null,
+        ].filter((label): label is string => label !== null)}
+      >
         <div className="relative z-10 mx-auto -mt-16 max-w-7xl rounded-[28px] bg-white p-6 shadow-[0px_10px_40px_-8px_rgba(15,23,42,0.15)] sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
               {t("positionLabel")}
             </span>
-            <div className="flex flex-1 flex-wrap gap-2">
+            <div className="scrollbar-hide flex flex-1 flex-nowrap gap-2 overflow-x-auto lg:flex-wrap lg:overflow-visible">
               {POSITIONS.map((cat) => (
                 <button
                   key={cat.value}
@@ -165,7 +176,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                     setActivePosition(cat.value);
                     setCurrentPage(1);
                   }}
-                  className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                  className={`min-h-11 shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors lg:min-h-0 ${
                     activePosition === cat.value
                       ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
@@ -181,7 +192,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[1.5px] text-[#94A3B8] sm:w-[140px]">
               {t("scheduleLabel")}
             </span>
-            <div className="flex flex-1 flex-wrap gap-2">
+            <div className="scrollbar-hide flex flex-1 flex-nowrap gap-2 overflow-x-auto lg:flex-wrap lg:overflow-visible">
               {SCHEDULES.map((value) => (
                 <button
                   key={value}
@@ -189,7 +200,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                     setActiveSchedule(value);
                     setCurrentPage(1);
                   }}
-                  className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                  className={`min-h-11 shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-colors lg:min-h-0 ${
                     activeSchedule === value
                       ? "bg-[#2563EB] text-white shadow-[0px_4px_10px_-2px_rgba(37,99,235,0.35)]"
                       : "bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]"
@@ -201,7 +212,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
             </div>
           </div>
         </div>
-      </section>
+      </ResponsiveFilterSheet>
 
       <section className="mx-auto w-full max-w-7xl flex-1 px-4 py-12">
         <h2 className="mb-6 text-[28px] font-black leading-[34px] text-[#1E293B]">
@@ -221,7 +232,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             <BannerSlot placement="listing_top" bare className="col-span-full" />
             <BannerSlot placement="listing_grid" bare />
 
@@ -251,7 +262,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex size-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50 lg:size-10"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -260,7 +271,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                     key={p}
                     type="button"
                     onClick={() => setCurrentPage(p)}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-colors ${
+                    className={`flex size-11 items-center justify-center rounded-full text-sm font-bold transition-colors lg:size-10 ${
                       currentPage === p
                         ? "bg-[#2563EB] text-white"
                         : "border border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]"
@@ -275,7 +286,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                     setCurrentPage((p) => Math.min(totalPages, p + 1))
                   }
                   disabled={currentPage === totalPages}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex size-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50 lg:size-10"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

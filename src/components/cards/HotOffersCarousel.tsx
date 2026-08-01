@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import PropertyCard from "@/components/cards/PropertyCard";
+import { MobileRail } from "@/components/shared/MobileRail";
 
 type PropertyCardData = ComponentProps<typeof PropertyCard>;
 
@@ -145,21 +146,24 @@ export default function HotOffersCarousel({
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const mobilePages = useMemo(() => chunkArray(properties, 1), [properties]);
   const desktopPages = useMemo(() => chunkArray(properties, 2), [properties]);
 
   if (properties.length === 0) return null;
 
   return (
     <>
-      <div className="md:hidden">
-        <CarouselTrack
-          pages={mobilePages}
-          gridClassName="grid-cols-1"
-          reduceMotion={reduceMotion}
-        />
+      <div className="lg:hidden">
+        <MobileRail label="Hot offers">
+          {properties.map((property, index) => (
+            <PropertyCard
+              key={property.id}
+              {...property}
+              priority={index < 2}
+            />
+          ))}
+        </MobileRail>
       </div>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <CarouselTrack
           pages={desktopPages}
           gridClassName="grid-cols-2"

@@ -165,7 +165,8 @@ Anything else is real drift. Note the textual delta is **−2/+1 lines, not one*
 `| "SUBSCRIPTION_TIER_LOCKED";` moves the terminating semicolon back onto `| "BAD_REQUEST"`.
 
 **Also check the bundle MANIFEST, not just the hashes.** Every function must report
-exactly `["source/index.ts", "_shared/guards.ts"]` (+ `_shared/sanitize.ts` for `search`).
+exactly `["source/index.ts", "_shared/guards.ts"]` (plus `_shared/sanitize.ts` for `search`
+and `source/domain.ts` for `sms-automation-run`). `domain_test.ts` is test-only and must not deploy.
 The `user_fn_<uuid>_<version>/…` nesting failure above is invisible to a content hash —
 the file contents stay correct while the paths gain a level per redeploy. Verified clean
 across all 16 on 2026-07-28.
@@ -185,6 +186,9 @@ silently). Keep the two in lock-step: changing a `verify_jwt` in `config.toml` w
 redeploying that function, or redeploying with a different flag than the file declares,
 re-opens the drift. `ai-respond` and `webhook-facebook` are deployed but have **no
 source in this repo**, so they are deliberately absent from `config.toml`.
+
+For `sms-automation-run`, include `{name:"source/domain.ts"}` as a third file in the
+MCP deploy recipe because `source/index.ts` imports it. Omitting it prevents isolate boot.
 
 Not every function is client-invoked: the would-be scheduled jobs
 (`vip-lifecycle`, `sms-dispatch`, `sms-automation-run`, `booking-finalize`) have
@@ -740,11 +744,21 @@ submit path). The `organization` target has no submitting surface yet.
 
 **`check_in_time`, `marketing_consent` and `marketing_opt_out` are deliberately NOT
 reviewable** either (see **C18**). They are operational, not public-content, fields:
-`properties.check_in_time` is edited from `/dashboard/sms` and never appears in a
-listing form, and the two consent fields are written by the owner attesting consent
-on a manual booking and by the guest opting out. Adding any of them to allow-list A
+`properties.check_in_time` remains a property operational setting (the SMS page does
+not expose a timing editor), and the two consent fields are written by the owner
+attesting consent on a manual booking and by the guest opting out. Adding any of them to allow-list A
 would 42501 those writes and route a guest's opt-out through admin approval — which
 is both wrong and, for opt-out, the wrong direction legally.
+
+**Cleaner working hours are the narrow immediate-settings exception.**
+`supabase/migrations/20260801120000_one_cleaner_247_service.sql:self_service_set_cleaner_working_hours`
+is callable only by `service_role` through
+`src/app/api/self-service/cleaner/services/[id]/working-hours/route.ts:PATCH`. It
+may change only `schedule` and `operating_hours` on an owned cleaning service,
+keeps those columns synchronized, and atomically transfers 24/7 availability from
+the cleaner's former service. All other service content remains in the C14 review
+flow. Pending legacy requests containing only those two hour fields are
+superseded by the migration and their requesters are notified to save again.
 
 **Breaks silently when:** a new form field is added to D without A/B/C (that form's every
 save 400s — exactly the `roi_percent_max` bug); or a key is added to A but not C
@@ -945,17 +959,18 @@ and cabinet-derivation queries listed above.
 
 ## C18 — Owner SMS automation: templates, links, and the three billing paths
 
-**Invariant:** the automation pipeline is held together by five couplings no call-graph tool can
+**Invariant:** the automation pipeline is held together by six couplings no call-graph tool can
 see: (1) the message templates and their bracket placeholders exist ONLY in the Deno function's
-inline `TEMPLATES`; (2) the public-listing URL logic and the phone-normalisation logic are
+pure `domain.ts`; (2) the public-listing URL logic and the phone-normalisation logic are
 DUPLICATED into Deno because `src/` cannot be imported there; (3) `sms_outbound` carries THREE
 mutually exclusive billing paths over one table; (4) `automation_kind` is NULL for broadcast and
-contact rows, so every predicate over it must be `IS TRUE` / `IS NOT TRUE`; and (5) the cron GUCs,
-the edge secrets and `config.toml`'s `verify_jwt` must agree in three places at once.
+contact rows, so every predicate over it must be `IS TRUE` / `IS NOT TRUE`; (5) queued automation
+is a credit reservation but is charged only after provider success; and (6) the cron GUCs, edge
+secrets, delivery kill switch, and `config.toml`'s `verify_jwt` must agree.
 
 Participating symbols:
 
-- `supabase/functions/sms-automation-run/index.ts:TEMPLATES` — the ONLY live templates. Four
+- `supabase/functions/sms-automation-run/domain.ts:TEMPLATES` — the ONLY live templates. Four
   entries: the three spec texts plus `win_back_fallback`. Placeholders are the spec's own
   `[Bracket]` names. The fallback is used when EITHER win-back field is empty after trim, so a
   half-filled `([Discount_Period])` can never render
@@ -963,25 +978,25 @@ Participating symbols:
   placeholders diverge from the live set. Do not edit it, do not sync to it, do not treat it as
   the source of truth (follow-up `sms-f7` deletes it)
 - `src/lib/utils/listingUrls.ts:propertyViewUrl` — the source of the 3-way sale/hotel/apartment
-  logic duplicated into `supabase/functions/sms-automation-run/index.ts:propertyViewPath`. The
+  logic duplicated into `supabase/functions/sms-automation-run/domain.ts:propertyViewPath`. The
   sale branch is unreachable while the scans are rental-only but is kept so the two match
-- `src/lib/utils/number.ts:toLocalGePhone` — likewise duplicated into
-  `supabase/functions/sms-automation-run/index.ts:toLocalGePhone`. Do NOT substitute the strict
-  `^(\+995)?5\d{8}$` regex from `trg_ge_phone`: that trigger is never attached to `profiles`, and
-  `profiles.phone` is written verbatim from Supabase auth. The SAME helper normalises both sides
-  of the opt-out comparison AND the manual win-back re-booked-since check — verified live,
-  `manual_bookings.guest_phone` holds at least three shapes, so a raw `.eq()` there silently
-  misses matches
-- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_enqueue_automation` — dedup
+- `supabase/functions/sms-automation-run/domain.ts:toCanonicalGePhone` and
+  `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_canonical_ge_phone` accept only
+  an exact 9-digit Georgian mobile or the same number prefixed by 995 after punctuation removal.
+  Extra legacy digits are rejected, never truncated. The same definition is used for recipients,
+  opt-out matching, and manual re-booking checks
+- `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_enqueue_automation` — dedup
   lives in the DB. Both uniqueness guarantees are PARTIAL indexes, and ON CONFLICT will not infer
   a partial index as arbiter unless the statement repeats the predicate, which PostgREST's
   `on_conflict=` cannot supply (42P10). The body BRANCHES per source so each ON CONFLICT names its
   own partial index; a single OR-ed form cannot name two arbiters
-- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_dispatch_batch` — `IS TRUE` /
-  `IS NOT TRUE`, never a bare `IN`. Per-sender RANKED against `balances.sms_remaining` (LEFT JOIN,
-  so a missing row reads as 0), not a flat `>= 1`
-- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_mark_sent` — charges exactly 1
-  credit, ONLY for automation kinds with `charged_at IS NULL`. **MUST NOT raise on insufficient
+- `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_claim_dispatch_batch` —
+  token/lease-based atomic claiming, `IS TRUE` / `IS NOT TRUE`, and per-sender ranking against
+  balance minus active claims. `sms_enqueue_automation` also serializes per sender and refuses
+  to create more active automation rows than the current balance
+- `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_mark_claim_sent` — finalizes
+  only the matching claim token and charges exactly 1 credit, ONLY for automation kinds with
+  `charged_at IS NULL`. **MUST NOT raise on insufficient
   credit:** the SMS is already delivered by then, and raising would leave the row `approved` for
   the next run to RE-SEND
 - `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_expire_stale_automation` — the
@@ -994,30 +1009,33 @@ Participating symbols:
 - `supabase/migrations/20260611000100_notification_sms_helpers.sql:_enqueue_system_sms` — the
   free path (`vip_activation` / `vip_expiry` / `subscription`); never charged
 - `supabase/functions/sms-dispatch/index.ts:sendSms` — the single provider integration point.
-  Returns `skipped` unconditionally (D3), so **no credit is ever deducted in production today**
-  and no SMS is delivered. `B1` is the only prompt that may touch it
+  Returns `skipped` unconditionally and includes `sms_outbound.id` as the provider idempotency
+  key contract. `SMS_DELIVERY_ENABLED` must equal `true` before any row is even claimed; otherwise
+  dispatch performs maintenance and fails closed with zero sends
 - `supabase/migrations/20260726100000_sms_automation_schema.sql:check_in_time` — `properties`
-  gains a `time NOT NULL DEFAULT '14:00'`, edited from `/dashboard/sms` per D7, deliberately kept
-  out of the listing forms so it never enters C14's four-way allow-list
+  has `time NOT NULL DEFAULT '14:00'`; the SMS controls do not expose timing and the three trigger
+  offsets are fixed by CHECK constraints at 24 hours / 24 hours / 90 days
 - `supabase/migrations/20260726120000_manual_booking_consent.sql:create_guest_manual_booking` —
   its inner call to `create_manual_booking` is NAMED, not positional. A positional 12-arg call
   plus a defaulted 13th parameter silently records `false` for every booking made from the guests
   page
-- `src/app/api/sms/automation/route.ts:RULES_COLUMNS` — the rules column list. THREE call sites
-  need it: GET, the PUT's returning `.select()`, and `dashboard/sms/page.tsx`'s own query plus its
-  duplicated `DEFAULT_RULES`
-- `supabase/migrations/20260726130000_schedule_sms_automation.sql:sms_automation_run_cron` — drops
-  the empty stub that made `sms-automation-hourly` "succeed" for months while doing nothing, and
-  schedules BOTH `sms-automation-daily` and `sms-dispatch-frequent`. Refuses to apply unless all
-  four `app.sms_*` GUCs are set
+- `src/app/api/sms/automation/route.ts:RULES_COLUMNS` exposes only the three toggles and two
+  win-back parameters. PATCH calls `sms_set_automation_rules`, which takes the same advisory lock
+  as dispatch and atomically cancels queued text built from changed configuration
+- `src/lib/sms/sender-access.ts:canUseSmsCenter`, the dashboard nav, the page guard, the API guard,
+  and the rules SELECT policy all require an owned rental listing. Seller/sale-only listings do
+  not receive this module; their separate price-drop SMS belongs to the sales domain
+- `supabase/migrations/20260801132000_schedule_sms_pipeline.sql` replaces the unapplied legacy
+  scheduler and creates booking-finalize at 05:50 UTC, automation at 06:00 UTC (10:00 Tbilisi),
+  and dispatch every 10 minutes. It refuses to apply unless all six URL/secret GUCs exist
 - `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` — `check_in_time`, `marketing_consent` and
   `marketing_opt_out` are deliberately ABSENT, so the owner and the guest can write them directly
   without an admin approving each change (C14 would otherwise 42501 them)
 
-**Also check:** **T1 is pinned to `check_in = today + 1`** because the template hardcodes "ხვალ"
+**Also check:** **T1 is pinned to `check_in = today + 1`** in Tbilisi because the template hardcodes "ხვალ"
 (tomorrow), and `sms_expire_stale_automation`'s 36-hour `check_in` window depends on that pinning
-— change one and the other MUST change. `check_in_reminder_hours_before` is therefore vestigial for
-the message (follow-up `sms-f5`). **Consent lives on two tables**, and `bookings.marketing_consent`
+— change one and the other MUST change. The legacy timing columns remain only for schema compatibility
+and are fixed by constraints. **Consent lives on two tables**, and `bookings.marketing_consent`
 has NO WRITER: there is no online booking flow, so it exists for forward compatibility only — do
 not go looking for the writer. **T2 (review request) queues zero rows by construction** and that is
 correct: its link requires a `bookings` row whose `guest_id` matches the logged-in user, which an
@@ -1030,8 +1048,8 @@ dead and divergent); or a new predicate over `automation_kind` uses a bare `IN` 
 so broadcast and contact rows are filtered OUT **after** their credit was already taken at
 admin-approve — the entire user-initiated pipeline stops delivering with no error); or a second
 charge path is added without checking `charged_at` (double-billing, since three billing paths share
-one table); or `propertyViewUrl` / `toLocalGePhone` changes in `src/` without the Deno copy
-changing (links point at the wrong route, or opt-out and re-booking checks stop matching); or a GUC
+one table); or `propertyViewUrl` / the canonical-phone contract changes without both Deno and SQL
+copies changing (links point at the wrong route, or opt-out and re-booking checks stop matching); or a GUC
 is set to a different value than its edge secret (the cron job reports SUCCESS while the function
 401s and `sms_outbound` never gains a row — the hardest failure here to notice); or `sendSms` is
 implemented without a provider idempotency key (the at-least-once retry duplicates a delivered

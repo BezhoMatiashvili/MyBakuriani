@@ -183,6 +183,7 @@ interface DashboardShellProps {
   initialUnreadCounts: DashboardUnreadCounts;
   balance: number;
   smsRemaining: number;
+  canUseSms: boolean;
   smartMatchCount: number;
   availableCabinets: string[];
   /** Cleaner availability toggle initial state (defaults to the DB default). */
@@ -200,6 +201,7 @@ export function DashboardShell({
   initialUnreadCounts,
   balance,
   smsRemaining,
+  canUseSms,
   smartMatchCount: initialSmartMatchCount,
   availableCabinets,
   cleanerOnline = true,
@@ -492,6 +494,7 @@ export function DashboardShell({
           currentPath={pathname}
           onSignOut={handleSignOut}
           availableCabinets={availableCabinets}
+          canUseSms={canUseSms}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <RenterTopbar balance={balance} smsRemaining={smsRemaining} />
@@ -504,6 +507,7 @@ export function DashboardShell({
           userRole={activeRole}
           onSignOut={handleSignOut}
           notificationCount={notificationCount}
+          canUseSms={canUseSms}
         />
       </div>
     );

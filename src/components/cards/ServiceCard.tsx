@@ -132,7 +132,7 @@ export default function ServiceCard({
           aria-label={title}
           onClick={goToDetail}
           onKeyDown={onCardKey}
-          className="flex h-auto min-h-[280px] md:h-[300px] cursor-pointer flex-col overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2"
+          className="flex h-auto min-h-[260px] cursor-pointer flex-col overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-4 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[300px] lg:min-h-0 lg:p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <span className="relative block size-[64px] shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]">
@@ -200,7 +200,7 @@ export default function ServiceCard({
               </p>
             )}
           </div>
-          <div className="mt-auto flex flex-col gap-2 pt-3 md:grid md:grid-cols-2">
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
             <Link
               href={href}
               onClick={stop}
@@ -254,7 +254,7 @@ export default function ServiceCard({
           aria-label={title}
           onClick={goToDetail}
           onKeyDown={onCardKey}
-          className="relative flex h-auto min-h-[420px] cursor-pointer flex-col overflow-hidden rounded-[24px] shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2"
+          className="relative flex min-h-[360px] cursor-pointer flex-col overflow-hidden rounded-[20px] shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:min-h-[420px] lg:rounded-[24px]"
         >
           <Image
             src={photoUrl}
@@ -264,7 +264,7 @@ export default function ServiceCard({
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/20" />
-          <div className="relative z-10 flex h-full flex-1 flex-col p-5">
+          <div className="relative z-10 flex h-full flex-1 flex-col p-4 lg:p-5">
             <div className="flex items-start justify-between gap-2">
               <div className="flex gap-2">
                 {isVip && (
@@ -361,9 +361,9 @@ export default function ServiceCard({
         aria-label={title}
         onClick={goToDetail}
         onKeyDown={onCardKey}
-        className="flex h-auto min-h-[400px] md:h-[420px] cursor-pointer flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2"
+        className="flex h-auto cursor-pointer flex-col overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[420px] lg:rounded-[24px]"
       >
-        <div className="relative h-[200px] overflow-hidden rounded-t-[24px]">
+        <div className="relative aspect-[8/5] overflow-hidden rounded-t-[20px] lg:h-[200px] lg:aspect-auto lg:rounded-t-[24px]">
           <Image
             src={photoUrl}
             alt={title}
@@ -408,9 +408,9 @@ export default function ServiceCard({
             </Badge>
           )}
         </div>
-        <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-1 flex-col p-4 lg:p-5">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="min-h-[44px] min-w-0 flex-1 text-[18px] font-black leading-[22px] text-[#1E293B] line-clamp-2">
+            <h3 className="min-w-0 flex-1 text-[17px] font-black leading-[21px] text-[#1E293B] line-clamp-2 lg:min-h-[44px] lg:text-[18px] lg:leading-[22px]">
               {title}
             </h3>
             {!isTransport && (
@@ -462,7 +462,7 @@ export default function ServiceCard({
             </div>
           ) : (
             <>
-              <div className="mt-1 min-h-[18px]">
+              <div className="mt-1 lg:min-h-[18px]">
                 {location && (
                   <p className="flex items-center gap-1 text-[12px] font-medium leading-[18px] text-[#64748B]">
                     <MapPin className="h-3 w-3" />
@@ -470,7 +470,7 @@ export default function ServiceCard({
                   </p>
                 )}
               </div>
-              <div className="mt-3 min-h-[33px]">
+              <div className="mt-2 lg:mt-3 lg:min-h-[33px]">
                 {isFood
                   ? (schedule || operatingHours) && (
                       <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#334155]">
@@ -510,7 +510,7 @@ export default function ServiceCard({
               </div>
             </>
           )}
-          <div className="mt-auto flex flex-col gap-2 pt-4 md:grid md:grid-cols-2">
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-3 lg:pt-4">
             <Link
               href={href}
               onClick={stop}

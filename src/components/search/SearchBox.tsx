@@ -355,27 +355,41 @@ export function SearchBox({
       )}
       ref={containerRef}
     >
-      {/* ═══ Mobile: stacked grid layout ═══ */}
-      <div className="grid grid-cols-1 gap-3 lg:hidden">
+      {/* ═══ Mobile/tablet: compact rows, 2×2 from 640px ═══ */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
         {/* Keyword search */}
-        <div className="relative">
+        <div className="relative order-4 sm:col-span-2">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
             {t("keywordSearch")}
           </label>
-          <div className="relative">
+          <div className="flex">
+            <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
             <input
               type="text"
               placeholder={t("keywordPlaceholder")}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] lg:h-10"
+              className="h-11 w-full rounded-l-xl border border-r-0 border-[#E2E8F0] bg-white pl-9 pr-3 text-base text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
             />
+            </div>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="h-11 min-w-11 shrink-0 gap-2 rounded-l-none rounded-r-xl bg-brand-accent px-4 text-white hover:bg-brand-accent-hover disabled:opacity-70"
+            >
+              {isPending ? (
+                <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <Search className="size-4" />
+              )}
+              <span className="hidden min-[360px]:inline">{t("search")}</span>
+            </Button>
           </div>
         </div>
 
         {/* Location */}
-        <div className="relative">
+        <div className="relative order-2">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
             {t("location")}
           </label>
@@ -402,7 +416,7 @@ export function SearchBox({
         </div>
 
         {/* Date Range Picker */}
-        <div className="relative">
+        <div className="relative order-1">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
             {t("date")}
           </label>
@@ -420,7 +434,7 @@ export function SearchBox({
         </div>
 
         {/* Filters */}
-        <div className="relative">
+        <div className="relative order-3">
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
             {t("filters")}
           </label>
@@ -435,20 +449,6 @@ export function SearchBox({
           </button>
         </div>
 
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            disabled={isPending}
-            className="min-h-11 gap-2 bg-brand-accent px-6 text-white hover:bg-brand-accent-hover disabled:opacity-70 lg:h-10"
-          >
-            {isPending ? (
-              <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            ) : (
-              <Search className="size-4" />
-            )}
-            {t("search")}
-          </Button>
-        </div>
       </div>
 
       {/* ═══ Desktop: horizontal pill layout ═══ */}
@@ -468,6 +468,7 @@ export function SearchBox({
           <button
             type="button"
             onClick={() => toggleDropdown("calendar")}
+            data-testid="search-desktop-dates"
             className={cn(
               "text-left text-[15px] font-bold leading-[22px]",
               activeDropdown === "calendar"
@@ -538,6 +539,7 @@ export function SearchBox({
           <button
             type="button"
             onClick={() => toggleDropdown("filters")}
+            data-testid="search-desktop-filters"
             className={cn(
               "flex w-full items-center gap-1 text-left text-[15px] font-bold leading-[22px] outline-none",
               activeDropdown === "filters"
@@ -642,6 +644,7 @@ export function SearchBox({
 
         const calendarPanel = activeDropdown === "calendar" && (
           <div
+            data-testid="search-desktop-calendar-panel"
             className={cn(
               usePortal
                 ? "w-full overflow-x-auto rounded-[32px] border border-[#E2E8F0] bg-white p-8 shadow-[var(--shadow-category-nav)]"
@@ -820,6 +823,13 @@ function FiltersDropdown({
 
   return (
     <div
+      data-testid={
+        sheet
+          ? "search-mobile-filter-panel"
+          : inline
+            ? "search-desktop-filter-panel"
+            : undefined
+      }
       className={cn(
         "bg-white p-4 sm:p-6 md:p-8",
         sheet && "p-0",

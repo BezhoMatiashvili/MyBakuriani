@@ -26,6 +26,7 @@ import type { Tables } from "@/lib/types/database";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
+import { MobileRail } from "@/components/shared/MobileRail";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -191,7 +192,8 @@ export default function SaleLandingBody({
     <div className="flex flex-col">
       {/* ═══ 1. Hero (green) ═══ */}
       <section
-        className="relative flex min-h-[620px] items-start justify-center px-4 pb-16 pt-16"
+        data-testid="homepage-hero"
+        className="relative flex items-start justify-center px-4 pb-14 pt-10 lg:min-h-[620px] lg:pb-16 lg:pt-16"
         style={{
           background:
             "linear-gradient(180deg, #0B3A2C 0%, #0F4C3A 55%, #134E3A 100%)",
@@ -211,7 +213,7 @@ export default function SaleLandingBody({
 
         <div className="relative z-10 mx-auto w-full max-w-[1180px] text-center">
           <ScrollReveal>
-            <h1 className="text-4xl font-black leading-[1.05] tracking-[-1.25px] text-white sm:text-5xl md:text-[64px] md:leading-[68px]">
+            <h1 className="text-[28px] font-black leading-[1.08] tracking-[-0.7px] text-white sm:text-[36px] lg:text-[64px] lg:leading-[68px] lg:tracking-[-1.25px]">
               {t("sale.heroTitleTop")}
               <br />
               <span className="text-[#6EE7B7]">
@@ -237,7 +239,7 @@ export default function SaleLandingBody({
           {/* Stat cards — sit below the search box, overhang the hero bottom (matches rental landing) */}
           <div
             className={cn(
-              "mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4",
+              "scrollbar-hide -mx-4 mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0",
               !showMap && "sm:-mb-[42px]",
             )}
           >
@@ -281,12 +283,12 @@ export default function SaleLandingBody({
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
 
       {/* ═══ Sales grid ═══ */}
-      <section className="bg-[#F8FAFC] px-4 py-16">
+      <section className="bg-[#F8FAFC] px-4 py-12 lg:py-16">
         <div className="mx-auto max-w-[1180px]">
           <ScrollReveal>
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                   {t("sale.forSaleTitle")}
                 </h2>
                 <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
@@ -299,7 +301,7 @@ export default function SaleLandingBody({
                   onClick={() => setDiscountOnly((value) => !value)}
                   aria-pressed={discountOnly}
                   className={cn(
-                    "hidden items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:flex",
+                    "hidden min-h-11 items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:flex lg:min-h-0",
                     discountOnly
                       ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
                       : "border border-[#E2E8F0] bg-white text-[#64748B]",
@@ -325,14 +327,14 @@ export default function SaleLandingBody({
                 </button>
                 <Link
                   href="/create/sale"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#16A34A] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_4px_10px_-2px_rgba(22,163,74,0.35)] transition-colors hover:bg-[#15803D]"
+                  className="hidden items-center gap-1.5 rounded-full bg-[#16A34A] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_4px_10px_-2px_rgba(22,163,74,0.35)] transition-colors hover:bg-[#15803D] lg:inline-flex"
                 >
                   <Plus className="size-4" />
                   {t("sale.add")}
                 </Link>
                 <Link
                   href="/sales"
-                  className="inline-flex items-center gap-1 rounded-full border border-[#16A34A] bg-white px-4 py-2 text-[13px] font-bold text-[#16A34A] hover:bg-[#F0FDF4]"
+                  className="inline-flex min-h-11 items-center gap-1 rounded-full border border-[#16A34A] bg-white px-4 py-2 text-[13px] font-bold text-[#16A34A] hover:bg-[#F0FDF4] lg:min-h-0"
                 >
                   {t("sale.viewAll")} <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -340,13 +342,13 @@ export default function SaleLandingBody({
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <MobileRail desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none" desktopItemClassName="lg:w-auto lg:snap-none">
             {gridCards.map((card) => (
               <ScrollReveal key={card.id}>
                 <SalePropertyCard {...card} />
               </ScrollReveal>
             ))}
-          </div>
+          </MobileRail>
         </div>
       </section>
 
@@ -427,7 +429,7 @@ function StatCard({
   return (
     <div
       className={cn(
-        "flex flex-col justify-between rounded-[16px] px-5 py-4 text-left shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1)]",
+        "flex w-[min(260px,calc(100vw-64px))] shrink-0 snap-start flex-col justify-between rounded-[16px] px-5 py-4 text-left shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1)] sm:w-auto",
         highlight
           ? "border border-white/10 bg-[#0A1F2E] text-white"
           : "border border-[#E7EEE9] bg-white text-[#1E293B]",

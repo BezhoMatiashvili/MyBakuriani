@@ -89,7 +89,12 @@ export function SmsCenterClient({
   const [sending, setSending] = useState(false);
   const [rules, setRules] = useState<AutomationRules>(initialRules);
   const [history, setHistory] = useState<SmsHistoryItem[] | null>(null);
-  const savingRef = useRef<number | null>(null);
+  const rulesRef = useRef(rules);
+  const savedRulesRef = useRef(initialRules);
+
+  useEffect(() => {
+    rulesRef.current = rules;
+  }, [rules]);
 
   useEffect(() => {
     void fetchPricingPackages(["sms"]).then(setSmsPackages);
@@ -133,6 +138,23 @@ export function SmsCenterClient({
     void reloadAudienceCount(audience);
   }, [audience, reloadAudienceCount]);
 
+  // These tables are not in the Realtime publication. Reconcile background
+  // automation when the tab becomes visible and while the user keeps it open.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void Promise.all([reloadBalance(), reloadHistory()]);
+    };
+    const interval = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [reloadBalance, reloadHistory]);
+
   // Live subscription: when admin moderates an SMS row of mine, refresh history.
   useEffect(() => {
     if (!user) return;
@@ -170,29 +192,56 @@ export function SmsCenterClient({
   }, [user, supabase, reloadHistory, reloadBalance]);
 
   const persistRules = useCallback(
-    async (next: AutomationRules) => {
-      if (savingRef.current) window.clearTimeout(savingRef.current);
-      savingRef.current = window.setTimeout(async () => {
-        try {
-          const res = await fetch("/api/sms/automation", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(next),
+    async (patch: Partial<AutomationRules>) => {
+      try {
+        const res = await fetch("/api/sms/automation", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const json = (await res.json()) as { rules?: AutomationRules };
+        if (json.rules) {
+          const saved = { ...savedRulesRef.current };
+          for (const key of Object.keys(patch) as Array<keyof AutomationRules>) {
+            saved[key] = json.rules[key] as never;
+          }
+          savedRulesRef.current = saved;
+          setRules((current) => {
+            const next = { ...current };
+            for (const key of Object.keys(patch) as Array<keyof AutomationRules>) {
+              next[key] = json.rules![key] as never;
+            }
+            return next;
           });
-          if (!res.ok) throw new Error(await res.text());
-        } catch {
-          toast.error(t("automation.saveError"));
         }
-      }, 300);
+      } catch {
+        setRules((current) => {
+          const next = { ...current };
+          for (const key of Object.keys(patch) as Array<keyof AutomationRules>) {
+            if (current[key] === patch[key]) {
+              next[key] = savedRulesRef.current[key] as never;
+            }
+          }
+          return next;
+        });
+        toast.error(t("automation.saveError"));
+      }
     },
     [t],
   );
 
   const toggleRule = useCallback(
-    (key: keyof AutomationRules, value: boolean) => {
+    (
+      key:
+        | "check_in_reminder_enabled"
+        | "review_request_enabled"
+        | "win_back_enabled",
+      value: boolean,
+    ) => {
       setRules((prev) => {
         const next: AutomationRules = { ...prev, [key]: value };
-        void persistRules(next);
+        void persistRules({ [key]: value });
         return next;
       });
     },
@@ -299,7 +348,17 @@ export function SmsCenterClient({
           buyingId={buyingId}
           onBuy={(pkg) => setConfirmPkg(pkg)}
         />
-        <AutomationCard rules={rules} onToggle={toggleRule} />
+        <AutomationCard
+          rules={rules}
+          onToggle={toggleRule}
+          onFieldChange={(key, value) =>
+            setRules((current) => ({ ...current, [key]: value }))
+          }
+          onFieldBlur={(key) => {
+            const current = rulesRef.current;
+            void persistRules({ [key]: current[key] });
+          }}
+        />
       </div>
 
       {/* Row 2: broadcast */}
@@ -442,12 +501,9 @@ function BalanceCard({
           <MessageSquare className="size-3.5" strokeWidth={2.5} />
           {t("label")}
         </div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <p className="text-[48px] font-black leading-none">{remaining}</p>
-          <span className="text-[13px] font-bold text-white/70">
-            {t("unit")}
-          </span>
-        </div>
+        <p className="mt-3 text-[22px] font-black leading-8">
+          {t("remaining", { count: remaining })}
+        </p>
         <p className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-white/70">
           <Clock className="size-3.5" strokeWidth={2.4} />
           {t("lastBroadcast")}
@@ -471,14 +527,15 @@ function BalanceCard({
 // AutomationCard — 3 toggle rows with icon + label + desc + switch
 // ---------------------------------------------------------------------------
 const AUTOMATION_ROWS: Array<{
-  key: keyof AutomationRules;
+  key:
+    | "check_in_reminder_enabled"
+    | "review_request_enabled"
+    | "win_back_enabled";
   icon: LucideIcon;
   iconBg: string;
   iconColor: string;
   titleKey: string;
   descKey: string;
-  paramKey: keyof AutomationRules;
-  paramI18nVar: "hours" | "days";
 }> = [
   {
     key: "check_in_reminder_enabled",
@@ -487,8 +544,6 @@ const AUTOMATION_ROWS: Array<{
     iconColor: "text-[#2563EB]",
     titleKey: "checkInTitle",
     descKey: "checkInDesc",
-    paramKey: "check_in_reminder_hours_before",
-    paramI18nVar: "hours",
   },
   {
     key: "review_request_enabled",
@@ -497,8 +552,6 @@ const AUTOMATION_ROWS: Array<{
     iconColor: "text-[#D97706]",
     titleKey: "reviewTitle",
     descKey: "reviewDesc",
-    paramKey: "review_request_hours_after",
-    paramI18nVar: "hours",
   },
   {
     key: "win_back_enabled",
@@ -507,17 +560,30 @@ const AUTOMATION_ROWS: Array<{
     iconColor: "text-[#DB2777]",
     titleKey: "winBackTitle",
     descKey: "winBackDesc",
-    paramKey: "win_back_days_after",
-    paramI18nVar: "days",
   },
 ];
 
 function AutomationCard({
   rules,
   onToggle,
+  onFieldChange,
+  onFieldBlur,
 }: {
   rules: AutomationRules;
-  onToggle: (key: keyof AutomationRules, value: boolean) => void;
+  onToggle: (
+    key:
+      | "check_in_reminder_enabled"
+      | "review_request_enabled"
+      | "win_back_enabled",
+    value: boolean,
+  ) => void;
+  onFieldChange: (
+    key: "win_back_discount_value" | "win_back_discount_period",
+    value: string,
+  ) => void;
+  onFieldBlur: (
+    key: "win_back_discount_value" | "win_back_discount_period",
+  ) => void;
 }) {
   const t = useTranslations("SMSCenter.automation");
 
@@ -531,32 +597,82 @@ function AutomationCard({
         {AUTOMATION_ROWS.map((row) => {
           const Icon = row.icon;
           const enabled = Boolean(rules[row.key]);
-          const param = Number(rules[row.paramKey] ?? 0);
+          const isWinBack = row.key === "win_back_enabled";
           return (
             <li
               key={row.key}
-              className="flex items-start justify-between gap-3 rounded-2xl border border-[#F1F5F9] bg-white p-3.5 transition-colors hover:border-[#E2E8F0]"
+              className="rounded-2xl border border-[#F1F5F9] bg-white p-3.5 transition-colors hover:border-[#E2E8F0]"
             >
-              <div className="flex min-w-0 items-start gap-3">
-                <span
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${row.iconBg} ${row.iconColor}`}
-                >
-                  <Icon className="size-[18px]" strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[14px] font-bold text-[#0F172A]">
-                    {t(row.titleKey)}
-                  </p>
-                  <p className="mt-0.5 text-[12px] leading-[18px] text-[#64748B]">
-                    {t(row.descKey, { [row.paramI18nVar]: param })}
-                  </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${row.iconBg} ${row.iconColor}`}
+                  >
+                    <Icon className="size-[18px]" strokeWidth={2.2} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-bold text-[#0F172A]">
+                      {t(row.titleKey)}
+                    </p>
+                    <p className="mt-0.5 text-[12px] leading-[18px] text-[#64748B]">
+                      {t(row.descKey)}
+                    </p>
+                  </div>
                 </div>
+                <Switch
+                  checked={enabled}
+                  onCheckedChange={(v) => onToggle(row.key, v)}
+                  aria-label={t(row.titleKey)}
+                />
               </div>
-              <Switch
-                checked={enabled}
-                onCheckedChange={(v) => onToggle(row.key, v)}
-                aria-label={t(row.titleKey)}
-              />
+              {isWinBack && enabled && (
+                <div className="mt-4 grid gap-3 border-t border-[#F1F5F9] pt-4 sm:grid-cols-2">
+                  <label className="text-[12px] font-bold text-[#475569]">
+                    {t("discountValueLabel")} <span aria-hidden>*</span>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      required
+                      aria-required="true"
+                      value={rules.win_back_discount_value ?? ""}
+                      onChange={(event) =>
+                        onFieldChange(
+                          "win_back_discount_value",
+                          event.target.value,
+                        )
+                      }
+                      onBlur={() => onFieldBlur("win_back_discount_value")}
+                      placeholder={t("discountValuePlaceholder")}
+                      className="mt-1.5 h-11 w-full rounded-xl border border-[#E2E8F0] px-3 text-[13px] font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10"
+                    />
+                  </label>
+                  <label className="text-[12px] font-bold text-[#475569]">
+                    {t("discountPeriodLabel")} <span aria-hidden>*</span>
+                    <input
+                      type="text"
+                      maxLength={30}
+                      required
+                      aria-required="true"
+                      value={rules.win_back_discount_period ?? ""}
+                      onChange={(event) =>
+                        onFieldChange(
+                          "win_back_discount_period",
+                          event.target.value,
+                        )
+                      }
+                      onBlur={() => onFieldBlur("win_back_discount_period")}
+                      placeholder={t("discountPeriodPlaceholder")}
+                      className="mt-1.5 h-11 w-full rounded-xl border border-[#E2E8F0] px-3 text-[13px] font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10"
+                    />
+                  </label>
+                  {(!rules.win_back_discount_value?.trim() ||
+                    !rules.win_back_discount_period?.trim()) && (
+                    <p className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-[11px] font-medium leading-[17px] text-[#92400E] sm:col-span-2">
+                      {t("fallbackNotice")}
+                    </p>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}

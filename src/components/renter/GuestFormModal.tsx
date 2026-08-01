@@ -54,6 +54,7 @@ export default function GuestFormModal({
   const [propertyId, setPropertyId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +68,7 @@ export default function GuestFormModal({
       setNote(activeGuest?.note ?? "");
       setPropertyId(properties[0]?.id ?? "");
       setError(null);
+      setMarketingConsent(false);
     }
   }, [isOpen, activeGuest, bookingGuest, properties]);
 
@@ -170,6 +172,7 @@ export default function GuestFormModal({
             p_guest_phone: payload.phone ?? undefined,
             p_note: payload.note ?? undefined,
             p_renter_guest_id: bookingGuest.id,
+            p_marketing_consent: marketingConsent,
           },
         );
         if (bookingError) throw bookingError;
@@ -194,6 +197,7 @@ export default function GuestFormModal({
             p_name: trimmedName,
             p_phone: payload.phone ?? undefined,
             p_note: payload.note ?? undefined,
+            p_marketing_consent: marketingConsent,
           },
         );
         if (bookingError) throw bookingError;
@@ -335,6 +339,24 @@ export default function GuestFormModal({
                         />
                       </Field>
                     </div>
+                    <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-[#DBEAFE] bg-[#EFF6FF] p-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={marketingConsent}
+                        onChange={(event) =>
+                          setMarketingConsent(event.target.checked)
+                        }
+                        className="mt-0.5 size-4 shrink-0 accent-[#2563EB]"
+                      />
+                      <span>
+                        <span className="block text-[12px] font-bold text-[#1E3A8A]">
+                          {tBooking("marketingConsentLabel")}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-[17px] text-[#475569]">
+                          {tBooking("marketingConsentHelp")}
+                        </span>
+                      </span>
+                    </label>
                   </>
                 )}
 

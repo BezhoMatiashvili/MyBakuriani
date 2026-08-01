@@ -11,14 +11,13 @@
 //     (sms_consume_credit / sms_consume_credits_bulk); automation_kind is NULL for them
 //   * system rows (vip_activation / vip_expiry / subscription) -> free
 //
-// sms_dispatch_batch already applies the 0-credit preflight, the per-sender ranking and
-// FIFO ordering. DO NOT re-implement the credit gate or the ranking in TypeScript, and
+// sms_claim_dispatch_batch applies eligibility maintenance, the 0-credit preflight,
+// per-sender ranking, leases, and FIFO ordering. DO NOT re-implement those in TypeScript, and
 // do not add a "broke senders" Set - the RPC already excludes those rows.
 //
 // The provider is not yet decided. `sendSms()` is the SINGLE integration point: until a
-// provider is wired it SKIPS every row, leaving it 'approved' so nothing is lost. That
-// also means NO CREDIT IS EVER DEDUCTED in production today - the charge lives in the
-// success branch. See B1.
+// provider is wired it SKIPS every row and releases its claim, leaving it 'approved'.
+// SMS_DELIVERY_ENABLED is an independent fail-closed switch checked before claiming.
 //
 // Auth: shared secret in SMS_DISPATCH_SECRET (Bearer header). The cron job and
 // any manual invocations must present this token.
@@ -56,7 +55,11 @@ type SendResult = {
 };
 
 // --- Provider adapter — the only place to wire a real SMS gateway. ----------
-async function sendSms(phone: string, message: string): Promise<SendResult> {
+async function sendSms(
+  smsId: string,
+  phone: string,
+  message: string,
+): Promise<SendResult> {
   const key = Deno.env.get("SMS_PROVIDER_API_KEY");
   if (!key) {
     return {
@@ -83,6 +86,7 @@ async function sendSms(phone: string, message: string): Promise<SendResult> {
     status: "skipped",
     providerResponse: {
       skipped: "provider_not_implemented",
+      idempotency_key: smsId,
       to: phone,
       len: message.length,
     },
@@ -102,7 +106,7 @@ serve(async (req) => {
     const db = createServiceClient();
 
     // 1. Retire stale automation rows FIRST. This is that function's only caller.
-    //    Doing it before the batch read is what lets sms_dispatch_batch carry no time
+    //    Doing it before the batch read is what lets the claim RPC carry no time
     //    predicate of its own - one window definition, in one place. A stale T1
     //    ("გელოდებით ხვალ") delivered days late is actively wrong, and a stale T3 embeds
     //    the owner's own time-bounded promo, i.e. a false offer they must honour or refuse.
@@ -111,14 +115,43 @@ serve(async (req) => {
     );
     if (expErr) throw expErr;
     const expired = Number(expiredRaw ?? 0);
-    if (expired > 0)
+    if (expired > 0) {
       console.log(`sms-dispatch: expired ${expired} stale row(s)`);
+    }
 
-    // 2. The batch. The RPC applies status='approved' + charged_at IS NULL, the
-    //    per-sender 0-credit preflight (a sender with no balances row reads as 0),
-    //    per-sender ranking so one credit cannot release five messages, and FIFO order.
-    const { data: batch, error } = await db.rpc("sms_dispatch_batch", {
+    const { data: cancelledRaw, error: cancelErr } = await db.rpc(
+      "sms_cancel_ineligible_automation",
+    );
+    if (cancelErr) throw cancelErr;
+    const cancelled = Number(cancelledRaw ?? 0);
+
+    // Queue generation is live before a provider is selected. Fail closed and
+    // do not claim rows until delivery is deliberately enabled.
+    if (Deno.env.get("SMS_DELIVERY_ENABLED") !== "true") {
+      return jsonResponse(
+        {
+          ok: true,
+          delivery_enabled: false,
+          expired,
+          cancelled,
+          considered: 0,
+          sent: 0,
+          failed: 0,
+          skipped: 0,
+          charged: 0,
+          uncharged: 0,
+        },
+        200,
+        cors,
+      );
+    }
+
+    // 2. Atomically claim a batch. A lease prevents overlapping cron runs from
+    //    handing the same row to the provider.
+    const claimToken = crypto.randomUUID();
+    const { data: batch, error } = await db.rpc("sms_claim_dispatch_batch", {
       p_limit: BATCH_SIZE,
+      p_claim_token: claimToken,
     });
     if (error) throw error;
 
@@ -135,11 +168,16 @@ serve(async (req) => {
     let uncharged = 0;
 
     for (const row of rows) {
-      const result = await sendSms(row.recipient_phone, row.message);
+      const result = await sendSms(row.id, row.recipient_phone, row.message);
 
       if (result.status === "skipped") {
+        const { error: releaseErr } = await db.rpc(
+          "sms_release_dispatch_claim",
+          { p_claim_token: claimToken, p_sms_id: row.id },
+        );
+        if (releaseErr) throw releaseErr;
         skipped++;
-        continue; // leave the row 'approved' for a later run
+        continue;
       }
 
       if (result.status === "sent") {
@@ -149,9 +187,10 @@ serve(async (req) => {
         // leave the row 'approved' for the next run to RE-SEND. One uncharged credit
         // beats a duplicate message to a guest.
         const { data: markRaw, error: markErr } = await db.rpc(
-          "sms_mark_sent",
+          "sms_mark_claim_sent",
           {
             p_sms_id: row.id,
+            p_claim_token: claimToken,
             p_provider_response: result.providerResponse ?? {},
           },
         );
@@ -180,8 +219,9 @@ serve(async (req) => {
         }
       } else {
         // A failed send is never charged (spec section 6).
-        const { error: failErr } = await db.rpc("sms_mark_failed", {
+        const { error: failErr } = await db.rpc("sms_mark_claim_failed", {
           p_sms_id: row.id,
+          p_claim_token: claimToken,
           p_provider_response: result.providerResponse ?? {},
         });
         if (failErr) {
@@ -199,6 +239,7 @@ serve(async (req) => {
       {
         ok: true,
         expired,
+        cancelled,
         considered: rows.length,
         sent,
         failed,

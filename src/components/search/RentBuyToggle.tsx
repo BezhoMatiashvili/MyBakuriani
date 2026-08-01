@@ -26,6 +26,7 @@ export function RentBuyToggle({ value, onChange }: RentBuyToggleProps) {
           <button
             key={option.key}
             type="button"
+            data-listing-mode={option.key}
             onClick={() => onChange(option.key)}
             className={cn(
               // flex-initial (not flex-1): the two labels are very different

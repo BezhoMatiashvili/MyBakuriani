@@ -145,9 +145,10 @@ export default function PropertyCard(props: PropertyCardProps) {
     <div className="group h-full animate-in fade-in slide-in-from-bottom-4 duration-300 transition-transform hover:scale-[1.02]">
       <Link
         href={href}
-        className="flex h-auto min-h-[420px] md:h-[440px] flex-col overflow-hidden rounded-[24px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+        data-listing-card
+        className="flex h-auto flex-col overflow-hidden rounded-[20px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:h-[440px] lg:rounded-[24px]"
       >
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative aspect-[8/5] overflow-hidden lg:aspect-[4/3]">
           <Image
             src={photoUrl}
             alt={title}
@@ -210,9 +211,9 @@ export default function PropertyCard(props: PropertyCardProps) {
           )}
         </div>
 
-        <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-1 flex-col p-4 lg:p-5">
           {isHotel ? (
-            <div className="min-h-[44px]">
+            <div className="lg:min-h-[44px]">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="min-w-0 flex-1 truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
                   {title}
@@ -228,7 +229,7 @@ export default function PropertyCard(props: PropertyCardProps) {
               </p>
             </div>
           ) : (
-            <div className="min-h-[44px]">
+            <div className="lg:min-h-[44px]">
               <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
                 <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
                 {displayLocation}
@@ -241,7 +242,7 @@ export default function PropertyCard(props: PropertyCardProps) {
             </div>
           )}
 
-          <div className="mt-3 min-h-[30px]">
+          <div className="mt-2 lg:mt-3 lg:min-h-[30px]">
             {(shownTags.length > 0 || shownPaymentChips.length > 0) && (
               <div className="flex flex-nowrap gap-1.5 overflow-hidden">
                 {shownPaymentChips.map((code) => (
@@ -270,7 +271,7 @@ export default function PropertyCard(props: PropertyCardProps) {
           </div>
 
           {isHotel && (
-            <p className="mt-3 min-h-[16px] truncate text-[11px] uppercase tracking-wider text-[#94A3B8]">
+            <p className="mt-2 truncate text-[11px] uppercase tracking-wider text-[#94A3B8] lg:mt-3 lg:min-h-[16px]">
               {roomType ?? ""}
             </p>
           )}
@@ -285,14 +286,14 @@ export default function PropertyCard(props: PropertyCardProps) {
             </div>
           )}
 
-          <div className="mt-auto flex items-end justify-between pt-4">
+          <div className="mt-auto flex items-end justify-between gap-2 pt-3 lg:pt-4">
             <div>
               {originalPrice != null ? (
                 <span className="block text-[11px] font-bold leading-[16px] text-[#94A3B8] line-through">
                   {formatPrice(originalPrice)}
                 </span>
               ) : (
-                <span className="block h-[16px]" aria-hidden="true" />
+                <span className="hidden h-[16px] lg:block" aria-hidden="true" />
               )}
               {isForSale && displayPrice != null ? (
                 <span className="whitespace-nowrap text-[24px] font-black leading-[32px] text-[#1E293B]">

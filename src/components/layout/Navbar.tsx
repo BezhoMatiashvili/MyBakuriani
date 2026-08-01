@@ -66,7 +66,9 @@ export function Navbar() {
   ];
   const isCategoryListingPage = categoryNavPaths.some((p) => pathname === p);
   const showCategoryNav =
-    (pathname === "/" && listingMode === "rent") || isCategoryListingPage;
+    (pathname === "/" && listingMode === "rent") ||
+    pathname === "/search" ||
+    isCategoryListingPage;
   const { user, loading: authLoading, signOut } = useAuth();
   const {
     notifications,
@@ -206,7 +208,7 @@ export function Navbar() {
       }`}
     >
       {/* Top Row: Logo + Action Buttons */}
-      <div className="mx-auto flex h-[91px] max-w-[1160px] items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[72px] max-w-[1160px] items-center justify-between px-4 sm:px-6 lg:h-[91px] lg:px-8">
         {/* Logo */}
         <Link
           href="/"
@@ -219,12 +221,12 @@ export function Navbar() {
             width={300}
             height={199}
             priority
-            className="h-12 w-auto"
+            className="h-10 w-auto lg:h-12"
           />
         </Link>
 
         {/* Right side action buttons — desktop */}
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           <LanguageSelector />
           <AddListingButton
             label={t("addListing")}
@@ -274,7 +276,7 @@ export function Navbar() {
             <Link
               href={dashboardPath}
               aria-label={t("profile")}
-              className="flex size-11 md:size-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF]"
+              className="flex size-11 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF] lg:size-10"
             >
               {profile?.avatar_url ? (
                 <span className="relative block size-full overflow-hidden rounded-full">
@@ -294,7 +296,7 @@ export function Navbar() {
         </div>
 
         {/* Mobile actions: language + bell + hamburger */}
-        <div className="flex items-center gap-1 md:hidden">
+        <div className="flex items-center gap-0.5 lg:hidden">
           <LanguageSelector />
           {user && (
             <NotificationBell
@@ -322,9 +324,12 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Category Navigation Bar (desktop only) — home + rent mode */}
+      {/* Category Navigation Bar (desktop only) */}
       {showCategoryNav ? (
-        <nav className="hidden border-b border-[#EEF1F4] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:block">
+        <nav
+          className="hidden border-b border-[#EEF1F4] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:block"
+          data-testid="category-nav"
+        >
           <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-6 px-4 lg:gap-[60px] xl:gap-[104px]">
             {navItemKeys.map((item) => {
               const Icon = item.icon;

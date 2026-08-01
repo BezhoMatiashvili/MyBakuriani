@@ -41,6 +41,7 @@ import type { Zone } from "@/lib/zones/types";
 import HomeStatusCards from "@/components/landing/HomeStatusCards";
 import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
+import { MobileRail } from "@/components/shared/MobileRail";
 
 type PublicService = Tables<"services"> & { has_whatsapp?: boolean };
 
@@ -288,8 +289,9 @@ export default function LandingPage({
     <div className="flex flex-col">
       {/* ═══ 1. Hero Section ═══ */}
       <section
+        data-testid="homepage-hero"
         className={cn(
-          "relative flex min-h-[470px] items-start justify-center px-4 pb-20 pt-16 sm:min-h-0 sm:overflow-visible sm:pb-0",
+          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
           activeDropdown ? "overflow-visible" : "overflow-hidden",
         )}
         style={{
@@ -310,7 +312,7 @@ export default function LandingPage({
         />
         <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
           <ScrollReveal>
-            <h1 className="text-2xl font-black leading-[1] tracking-[-1.25px] text-white sm:text-4xl md:text-[50px] md:leading-[50px]">
+            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
               {t("trustedGuide")}{" "}
               <span className="text-[#38BDF8]">{t("inBakuriani")}</span>
             </h1>
@@ -334,7 +336,7 @@ export default function LandingPage({
             {activeDropdown === "filters" ? (
               <div
                 ref={dropdownBoundaryRef}
-                className="absolute left-0 right-0 top-full z-30 mt-2 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex"
+                className="absolute left-0 right-0 top-full z-30 mt-2 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:flex"
               >
                 <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
                 <BakurianiMap
@@ -347,7 +349,7 @@ export default function LandingPage({
                 />
               </div>
             ) : activeDropdown === "calendar" ? (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-1 gap-4 md:grid lg:grid-cols-[1fr_auto]">
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
                 <div ref={dropdownPortalRef} className="min-w-0" />
                 <div className="flex w-full flex-col gap-3 lg:w-[240px]">
                   {/* Camera card */}
@@ -401,11 +403,11 @@ export default function LandingPage({
 
       {/* ═══ 3. Hot Offers — VIP / Super VIP Carousel ═══ */}
       {vipPropertyCards.length > 0 && (
-        <section className="mx-auto w-full max-w-[1160px] px-4 pb-16 pt-8 sm:pt-10">
+        <section className="mx-auto w-full max-w-[1160px] px-4 pb-12 pt-8 lg:pb-16 lg:pt-10">
           <ScrollReveal>
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+                <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                   {t("hotOffers")}
                 </h2>
                 <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
@@ -534,11 +536,11 @@ export default function LandingPage({
       />
 
       {/* ═══ 12. Blog Section ═══ */}
-      <section className="bg-brand-surface-muted px-4 py-16">
+      <section className="bg-brand-surface-muted px-4 py-12 lg:py-16">
         <div className="mx-auto max-w-[1160px]">
           <ScrollReveal>
             <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {t("blogAndNews")}
               </h2>
               <Link
@@ -549,7 +551,7 @@ export default function LandingPage({
               </Link>
             </div>
           </ScrollReveal>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <MobileRail desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none" desktopItemClassName="lg:w-auto lg:snap-none">
             {blogItems.map((post, i) => {
               const chipPalette = [
                 { bg: "#DBEAFE", fg: "#1D4ED8", label: t("blogChips.news") },
@@ -587,7 +589,7 @@ export default function LandingPage({
                         {chip.label}
                       </span>
                     </div>
-                    <div className="p-6">
+                    <div className="p-4 lg:p-6">
                       <time className="text-[11px] font-medium text-[#94A3B8]">
                         {post.date}
                       </time>
@@ -602,7 +604,7 @@ export default function LandingPage({
                 </ScrollReveal>
               );
             })}
-          </div>
+          </MobileRail>
         </div>
       </section>
 
@@ -678,12 +680,12 @@ function ServiceSection({
     [cards, discountOnly],
   );
   return (
-    <section className={`px-4 py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
+    <section className={`px-4 py-12 lg:py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
       <div className="mx-auto max-w-[1160px]">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {title}
               </h2>
               {subtitle && (
@@ -692,7 +694,10 @@ function ServiceSection({
                 </p>
               )}
             </div>
-            <div className="hidden items-center gap-4 sm:flex">
+            <Link href={href} className="flex min-h-11 shrink-0 items-center gap-1 text-[13px] font-bold text-[#0F172A] lg:hidden">
+              {t("viewAll")} <ArrowRight className="size-4" />
+            </Link>
+            <div className="hidden items-center gap-4 lg:flex">
               {showDiscountToggle && (
                 <button
                   type="button"
@@ -739,17 +744,13 @@ function ServiceSection({
             </div>
           </div>
         </ScrollReveal>
-        <div className="scrollbar-hide -mx-4 flex gap-6 overflow-x-auto px-4 scroll-smooth snap-x">
+        <MobileRail desktopClassName="lg:gap-6 lg:pb-0" desktopItemClassName={cardVariant === "avatar" ? "lg:w-[280px]" : "lg:w-[340px]"}>
           {filteredCards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
-              <div
-                className={`h-full shrink-0 snap-start ${cardVariant === "avatar" ? "w-[280px]" : "w-[300px] sm:w-[340px]"}`}
-              >
-                <ServiceCard {...card} variant={cardVariant} />
-              </div>
+              <ServiceCard {...card} variant={cardVariant} />
             </ScrollReveal>
           ))}
-        </div>
+        </MobileRail>
       </div>
     </section>
   );
@@ -785,19 +786,22 @@ function EmploymentSection({
   ];
 
   return (
-    <section className="bg-brand-surface-muted px-4 py-16">
+    <section className="bg-brand-surface-muted px-4 py-12 lg:py-16">
       <div className="mx-auto max-w-[1160px]">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {t("employmentInBakuriani")}
               </h2>
               <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
                 {t("employmentSubtitle")}
               </p>
             </div>
-            <div className="hidden items-center gap-4 sm:flex">
+            <Link href={href} className="flex min-h-11 shrink-0 items-center gap-1 text-[13px] font-bold text-[#0F172A] lg:hidden">
+              {t("viewAll")} <ArrowRight className="size-4" />
+            </Link>
+            <div className="hidden items-center gap-4 lg:flex">
               <AddListingButton
                 label={t("add")}
                 className="rounded-full px-4 py-2"
@@ -811,11 +815,10 @@ function EmploymentSection({
             </div>
           </div>
         </ScrollReveal>
-        <div className="scrollbar-hide -mx-4 flex snap-x gap-6 overflow-x-auto scroll-smooth px-4">
+        <MobileRail desktopClassName="lg:gap-6 lg:pb-0" desktopItemClassName="lg:w-[300px]">
           {cards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
-              <div className="h-full w-[300px] shrink-0 snap-start">
-                <EmploymentCard
+              <EmploymentCard
                   id={card.id}
                   title={card.title}
                   employer={card.location}
@@ -829,11 +832,10 @@ function EmploymentSection({
                   badge={i === 0 ? "vip" : i <= 2 ? "new" : null}
                   postedLabel={postedLabels[i % postedLabels.length]}
                   highlighted={i === 0}
-                />
-              </div>
+              />
             </ScrollReveal>
           ))}
-        </div>
+        </MobileRail>
       </div>
     </section>
   );
@@ -890,12 +892,12 @@ function PropertySection({
     [properties, discountOnly],
   );
   return (
-    <section className={`px-4 py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
+    <section className={`px-4 py-12 lg:py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
       <div className="mx-auto max-w-[1160px]">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
+              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {title}
               </h2>
               {subtitle && (
@@ -904,7 +906,10 @@ function PropertySection({
                 </p>
               )}
             </div>
-            <div className="hidden items-center gap-4 sm:flex">
+            <Link href={href} className="flex min-h-11 shrink-0 items-center gap-1 text-[13px] font-bold text-[#0F172A] lg:hidden">
+              {t("viewAll")} <ArrowRight className="size-4" />
+            </Link>
+            <div className="hidden items-center gap-4 lg:flex">
               {showDiscountToggle && (
                 <button
                   type="button"
@@ -951,15 +956,13 @@ function PropertySection({
             </div>
           </div>
         </ScrollReveal>
-        <div className="scrollbar-hide -mx-4 flex gap-6 overflow-x-auto px-4 scroll-smooth snap-x">
+        <MobileRail desktopClassName="lg:gap-6 lg:pb-0" desktopItemClassName="lg:w-[340px]">
           {filteredProperties.map((prop, i) => (
             <ScrollReveal key={prop.id} delay={i * 0.08} className="h-full">
-              <div className="h-full w-[300px] shrink-0 snap-start sm:w-[340px]">
-                <PropertyCard {...prop} />
-              </div>
+              <PropertyCard {...prop} />
             </ScrollReveal>
           ))}
-        </div>
+        </MobileRail>
       </div>
     </section>
   );

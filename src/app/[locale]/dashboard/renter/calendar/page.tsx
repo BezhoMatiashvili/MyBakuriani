@@ -864,6 +864,7 @@ export default function RenterCalendarPage() {
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
+      p_marketing_consent: payload.marketingConsent,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
     await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
@@ -892,6 +893,7 @@ export default function RenterCalendarPage() {
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
+      p_marketing_consent: payload.marketingConsent,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
     await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);

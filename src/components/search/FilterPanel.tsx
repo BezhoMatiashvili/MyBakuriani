@@ -192,7 +192,7 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
                   updateFilters({ rooms: isActive ? null : numVal })
                 }
                 className={cn(
-                  "flex h-10 min-w-[42px] items-center justify-center rounded-lg border text-sm font-medium transition-colors",
+                  "flex h-11 min-w-11 items-center justify-center rounded-lg border text-sm font-medium transition-colors lg:h-10 lg:min-w-[42px]",
                   isActive
                     ? "border-brand-accent bg-brand-accent text-white"
                     : "border-[#E2E8F0] bg-white text-[#1E293B] hover:bg-[#F8FAFC]",

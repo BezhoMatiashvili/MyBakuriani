@@ -43,6 +43,50 @@ test.describe("Landing page mobile", () => {
       await expectNoHorizontalOverflow(page);
     });
   }
+
+  test("hero and seeded cards stay within the mobile height budget", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const hero = page.getByTestId("homepage-hero");
+    await expect(hero).toBeVisible();
+    expect((await hero.boundingBox())?.height).toBeLessThanOrEqual(700);
+
+    const card = page.locator("[data-listing-card]").first();
+    await expect(card).toBeVisible();
+    expect((await card.boundingBox())?.height).toBeLessThanOrEqual(390);
+  });
+
+  test("mobile rails snap and preview the next card without document overflow", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const rail = page.locator("[data-mobile-rail]").first();
+    const items = rail.locator("[data-mobile-rail-item]");
+    await expect(items.first()).toBeVisible();
+    expect(await items.count()).toBeGreaterThan(1);
+
+    const geometry = await rail.evaluate((element) => {
+      const first = element.querySelector<HTMLElement>(
+        "[data-mobile-rail-item]",
+      );
+      const second = first?.nextElementSibling as HTMLElement | null;
+      return {
+        railScrolls: element.scrollWidth > element.clientWidth,
+        snapType: getComputedStyle(element).scrollSnapType,
+        itemWidth: first?.getBoundingClientRect().width ?? 0,
+        nextStartsInsideViewport:
+          (second?.getBoundingClientRect().left ?? Infinity) < innerWidth,
+      };
+    });
+    expect(geometry.railScrolls).toBe(true);
+    expect(geometry.snapType).toContain("x");
+    expect(geometry.itemWidth).toBeLessThanOrEqual(300);
+    expect(geometry.nextStartsInsideViewport).toBe(true);
+    await expectNoHorizontalOverflow(page);
+  });
 });
 
 test.describe("Navbar mobile", () => {
@@ -81,6 +125,19 @@ test.describe("Navbar mobile", () => {
       const count = await navLinks.count();
       expect(count).toBeGreaterThan(0);
     }
+  });
+
+  test("uses the strict 1024px desktop handoff", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto("/");
+    await expect(page.getByTestId("menu-toggle")).toBeVisible();
+    await expect(page.getByTestId("category-nav")).toBeHidden();
+    expect((await page.locator("header > div").first().boundingBox())?.height).toBe(72);
+
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(page.getByTestId("menu-toggle")).toBeHidden();
+    await expect(page.getByTestId("category-nav")).toBeVisible();
+    expect((await page.locator("header > div").first().boundingBox())?.height).toBe(91);
   });
 });
 
@@ -161,6 +218,16 @@ test.describe("Mobile filters and locales", () => {
       await expectNoHorizontalOverflow(page);
     });
   }
+
+  test("form fields remain 16px through tablet widths", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto("/auth/register");
+    const input = page.locator("input").first();
+    await expect(input).toBeVisible();
+    expect(await input.evaluate((el) => getComputedStyle(el).fontSize)).toBe(
+      "16px",
+    );
+  });
 });
 
 test.describe("Property listing mobile", () => {
@@ -172,6 +239,16 @@ test.describe("Property listing mobile", () => {
   test("hotels page no overflow", async ({ page }) => {
     await page.goto("/hotels");
     await expectNoHorizontalOverflow(page);
+  });
+
+  test("detail gallery is swipeable below lg", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto("/apartments/aae2ff00-1001-4000-a000-000000000001");
+    const gallery = page.locator("[data-mobile-gallery]");
+    await expect(gallery).toBeVisible();
+    expect(
+      await gallery.evaluate((el) => getComputedStyle(el).scrollSnapType),
+    ).toContain("x");
   });
 });
 
@@ -212,6 +289,15 @@ test.describe("Footer mobile", () => {
     await page.goto("/");
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await expectNoHorizontalOverflow(page);
+  });
+
+  test("phone link groups use native accordions", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const details = page.locator("footer details");
+    await expect(details).toHaveCount(3);
+    await details.first().locator("summary").click();
+    await expect(details.first()).toHaveAttribute("open", "");
   });
 });
 

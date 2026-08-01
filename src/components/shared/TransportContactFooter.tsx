@@ -21,7 +21,7 @@ export function TransportContactFooter({ phone, hasWhatsapp, whatsapp, serviceId
   const tCard = useTranslations("ServiceCard");
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E2E8F0] bg-white/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-sm">
+    <div className="fixed inset-x-0 bottom-0 z-30 min-h-[var(--mobile-fixed-action-height)] border-t border-[#E2E8F0] bg-white/95 px-4 py-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] backdrop-blur-sm lg:py-3 lg:pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[14px] font-black leading-tight text-[#1E293B] sm:text-[18px]">

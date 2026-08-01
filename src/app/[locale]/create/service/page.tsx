@@ -18,6 +18,7 @@ import TimeRangePicker, {
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { Link } from "@/i18n/navigation";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient, createUploadClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
@@ -71,7 +72,7 @@ function CreateServicePageInner() {
   const editId = searchParams.get("edit");
   const isEditMode = !!editId;
   const { user } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { zones } = useActiveZones();
 
   const sphereOptions = useMemo(
@@ -89,6 +90,10 @@ function CreateServicePageInner() {
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
   const [loadedCategory, setLoadedCategory] = useState<string | null>(null);
+  const [existing247Service, setExisting247Service] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   const [name, setName] = useState("");
   const [serviceTitle, setServiceTitle] = useState("");
@@ -103,6 +108,31 @@ function CreateServicePageInner() {
   const [price, setPrice] = useState("");
   const [phone, setPhone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("services")
+        .select("id, title, schedule, operating_hours")
+        .eq("owner_id", user.id)
+        .eq("category", "cleaning");
+      if (cancelled) return;
+      const existing = (data ?? []).find(
+        (service) =>
+          service.id !== editId &&
+          (service.schedule?.trim() || service.operating_hours?.trim()) ===
+            "24/7",
+      );
+      setExisting247Service(
+        existing ? { id: existing.id, title: existing.title } : null,
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, user, supabase]);
 
   useEffect(() => {
     if (!editId || !user) return;
@@ -188,6 +218,9 @@ function CreateServicePageInner() {
     isValidGePhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 10) * 100));
+  const isCleaningListing = isEditMode
+    ? loadedCategory === "cleaning"
+    : sphere === "cleaning";
 
   function toggleZone(zone: string) {
     setCoverageZones((prev) =>
@@ -256,6 +289,28 @@ function CreateServicePageInner() {
         sphere === "cleaning" ? "cleaning" : "handyman";
       const resolvedCategory =
         editId && loadedCategory ? loadedCategory : categoryValue;
+
+      if (is24_7 && resolvedCategory === "cleaning") {
+        const { data: ownedCleaning, error: hoursConflictError } = await supabase
+          .from("services")
+          .select("id, title, schedule, operating_hours")
+          .eq("owner_id", user.id)
+          .eq("category", "cleaning");
+        if (hoursConflictError) throw hoursConflictError;
+        const conflict = (ownedCleaning ?? []).find(
+          (service) =>
+            service.id !== editId &&
+            (service.schedule?.trim() || service.operating_hours?.trim()) ===
+              "24/7",
+        );
+        if (conflict) {
+          setExisting247Service({ id: conflict.id, title: conflict.title });
+          setError(t("existing247Conflict"));
+          setLoading(false);
+          submittingRef.current = false;
+          return;
+        }
+      }
       const sphereLabel =
         SERVICE_SPHERES.find((s) => s.value === sphere)?.dbLabel ?? null;
 
@@ -299,7 +354,12 @@ function CreateServicePageInner() {
       }
     } catch (err) {
       setError(
-        isContentChangeError(err)
+        typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          err.code === "23505"
+          ? t("existing247Conflict")
+          : isContentChangeError(err)
           ? tShared(contentChangeErrorKey(err))
           : formatSupabaseError(err, tShared("genericError")),
       );
@@ -310,6 +370,7 @@ function CreateServicePageInner() {
 
   return (
     <WizardShell
+      mobileDensity="compact"
       title={t("pageTitle")}
       accent="blue"
       progressPercent={progressPercent}
@@ -481,7 +542,18 @@ function CreateServicePageInner() {
               <div className="flex items-end">
                 <button
                   type="button"
-                  onClick={() => setIs24_7((v) => !v)}
+                  onClick={() => {
+                    if (
+                      !is24_7 &&
+                      isCleaningListing &&
+                      existing247Service
+                    ) {
+                      setError(t("existing247Conflict"));
+                      return;
+                    }
+                    setIs24_7((value) => !value);
+                    setError(null);
+                  }}
                   className={cn(
                     "flex h-[64px] w-full items-center justify-between gap-3 rounded-xl border bg-white px-4 transition-colors",
                     is24_7
@@ -517,6 +589,21 @@ function CreateServicePageInner() {
                 </button>
               </div>
             </div>
+
+            {isCleaningListing && existing247Service && !is24_7 && (
+              <div
+                data-testid="existing-247-conflict"
+                className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-medium text-[#92400E]"
+              >
+                <p>{t("existing247Conflict")}</p>
+                <Link
+                  href="/dashboard/cleaner/parameters"
+                  className="mt-2 inline-flex font-bold text-[#1D4ED8] underline underline-offset-2"
+                >
+                  {t("manageWorkingHours")}
+                </Link>
+              </div>
+            )}
 
             <Field
               label={t("startingPrice")}

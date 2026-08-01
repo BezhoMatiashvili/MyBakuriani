@@ -91,7 +91,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
               error: tShare("error"),
             })
           }
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] md:h-10 md:w-10"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] lg:h-10 lg:w-10"
           aria-label={t("share")}
         >
           <Share2 className="h-[18px] w-[18px]" />
@@ -102,7 +102,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
           disabled={favoriteBusy}
           aria-pressed={isFavorited}
           aria-label={t("addToFavorites")}
-          className={`flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white transition-colors hover:bg-[#F8FAFC] disabled:opacity-60 md:h-10 md:w-10 ${
+          className={`flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white transition-colors hover:bg-[#F8FAFC] disabled:opacity-60 lg:h-10 lg:w-10 ${
             isFavorited ? "text-red-500" : "text-[#64748B] hover:text-red-500"
           }`}
         >
@@ -112,11 +112,37 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
         </button>
       </div>
 
+      <div
+        data-mobile-gallery
+        className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 lg:hidden"
+      >
+        {photos.map((photo, index) => (
+          <button
+            key={`${photo}-${index}`}
+            type="button"
+            onClick={() => openLightbox(index)}
+            className="relative aspect-[8/5] w-[calc(100vw-32px)] shrink-0 snap-center overflow-hidden rounded-[20px]"
+          >
+            <Image
+              src={photo}
+              alt={`${title} - ${index + 1}`}
+              fill
+              sizes="100vw"
+              className="object-cover"
+              priority={index === 0}
+            />
+            <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
+              {index + 1} / {photos.length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Gallery Grid — desktop: 3-col (1.5fr 1fr 1fr), 2 rows */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.5fr_1fr_1fr] md:grid-rows-2">
+      <div className="hidden grid-cols-[1.5fr_1fr_1fr] grid-rows-2 gap-2 lg:grid">
         {/* Main photo — spans both rows */}
         <div
-          className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-[24px] md:row-span-2 md:rounded-none md:rounded-l-[24px]"
+          className="relative row-span-2 aspect-[4/3] cursor-pointer overflow-hidden rounded-l-[24px]"
           onClick={() => openLightbox(0)}
         >
           <Image
@@ -130,7 +156,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
         </div>
 
         <div
-          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden md:block"
+          className="relative aspect-[4/3] cursor-pointer overflow-hidden"
           onClick={() => openLightbox(1)}
         >
           <Image
@@ -143,7 +169,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
         </div>
 
         <div
-          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden rounded-tr-[24px] md:block"
+          className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-tr-[24px]"
           onClick={() => openLightbox(2)}
         >
           <Image
@@ -156,7 +182,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
         </div>
 
         <div
-          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden md:block"
+          className="relative aspect-[4/3] cursor-pointer overflow-hidden"
           onClick={() => openLightbox(3)}
         >
           <Image
@@ -169,7 +195,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
         </div>
 
         <div
-          className="relative hidden aspect-[4/3] cursor-pointer overflow-hidden rounded-br-[24px] md:block"
+          className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-br-[24px]"
           onClick={() => openLightbox(4)}
         >
           <Image
@@ -188,14 +214,6 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
           )}
         </div>
 
-        {photos.length > 1 && (
-          <button
-            onClick={() => openLightbox(0)}
-            className="mt-2 text-sm font-medium text-brand-accent underline md:hidden"
-          >
-            {t("viewAllPhotos", { count: photos.length })}
-          </button>
-        )}
       </div>
 
       {/* Lightbox */}
@@ -234,7 +252,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
                   goPrev();
                 }}
                 aria-label="Previous photo"
-                className="absolute left-4 hidden size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:flex"
+                className="absolute left-4 hidden size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 lg:flex"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
@@ -275,7 +293,7 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
                   goNext();
                 }}
                 aria-label="Next photo"
-                className="absolute right-4 hidden size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 md:flex"
+                className="absolute right-4 hidden size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 lg:flex"
               >
                 <ChevronRight className="h-6 w-6" />
               </button>

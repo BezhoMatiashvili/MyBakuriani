@@ -176,8 +176,9 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       <section
+        data-testid="listing-hero"
         className={cn(
-          "relative flex min-h-[470px] items-start justify-center px-4 pb-20 pt-16 sm:min-h-0 sm:overflow-visible sm:pb-0",
+          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
           activeDropdown ? "overflow-visible" : "overflow-hidden",
         )}
         style={{
@@ -197,7 +198,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
         />
         <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
           <ScrollReveal>
-            <h1 className="text-2xl font-black leading-[1] tracking-[-1.25px] text-white sm:text-4xl md:text-[50px] md:leading-[50px]">
+            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
               {tLanding("trustedGuide")}{" "}
               <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
             </h1>
@@ -207,7 +208,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
             <RentBuyToggle value={mode} onChange={setMode} />
           </div>
 
-          <div className="mt-6">
+          <div className="relative mt-6" data-testid="search-overlay-container">
             <SearchBox
               onSearch={handleSearch}
               isPending={isPending}
@@ -217,73 +218,69 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
               onActiveDropdownChange={setActiveDropdown}
               zones={zones}
             />
-          </div>
 
-          {activeDropdown === "filters" ? (
-            <div
-              ref={dropdownBoundaryRef}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="mt-8 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] md:flex"
-            >
-              <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
-              <BakurianiMap
-                className="hidden min-h-[400px] w-[280px] shrink-0 self-stretch lg:block"
-                embedded
-                expandable
-                properties={mapProperties}
-                onPropertyClick={(id) => router.push(`/hotels/${id}`)}
-              />
-            </div>
-          ) : activeDropdown === "calendar" ? (
-            <div className="mt-8 hidden grid-cols-1 gap-4 md:grid lg:grid-cols-[1fr_auto]">
-              <div ref={dropdownPortalRef} className="min-w-0" />
-              <div className="flex w-full flex-col gap-3 lg:w-[240px]">
-                <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
-                  <div className="flex flex-col gap-1">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                      <span className="size-2 rounded-full bg-[#EF4444]" />
-                      {tStatus("cameras")}
-                    </span>
-                    <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                      {tStatus("camerasValue")}
-                      <Video className="size-[18px] text-[#CBD5E1]" />
-                    </span>
+            {activeDropdown === "filters" ? (
+              <div
+                ref={dropdownBoundaryRef}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="absolute left-0 right-0 top-full z-30 mt-2 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:flex"
+              >
+                <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
+                <BakurianiMap
+                  className="min-h-[400px] w-[280px] shrink-0 self-stretch"
+                  embedded
+                  expandable
+                  properties={mapProperties}
+                  onPropertyClick={(id) => router.push(`/hotels/${id}`)}
+                />
+              </div>
+            ) : activeDropdown === "calendar" ? (
+              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
+                <div ref={dropdownPortalRef} className="min-w-0" />
+                <div className="flex w-[240px] flex-col gap-3">
+                  <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
+                    <div className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                        <span className="size-2 rounded-full bg-[#EF4444]" />
+                        {tStatus("cameras")}
+                      </span>
+                      <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
+                        {tStatus("camerasValue")}
+                        <Video className="size-[18px] text-[#CBD5E1]" />
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
-                >
-                  {tLanding("getCoupon")}
-                </button>
-                <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
-                  <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                    <Flame className="h-3.5 w-3.5" />
-                    {tLanding("discountsOnly")}
-                  </span>
-                  <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                    <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
+                  <button
+                    type="button"
+                    className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
+                  >
+                    {tLanding("getCoupon")}
+                  </button>
+                  <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
+                    <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
+                      <Flame className="h-3.5 w-3.5" />
+                      {tLanding("discountsOnly")}
+                    </span>
+                    <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
+                      <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
           <StatusCards
             cards={statusCards}
-            className={cn(
-              "mt-8 sm:-mb-[42px]",
-              activeDropdown && activeDropdown !== "location"
-                ? "md:hidden"
-                : "",
-            )}
+            className="mt-8 sm:-mb-[42px]"
           />
         </div>
       </section>
 
       <section
+        data-testid="listing-results"
         ref={listingsRef}
-        className="mx-auto w-full max-w-[1160px] px-4 py-16"
+        className="mx-auto w-full max-w-[1160px] px-4 py-12 lg:py-16"
       >
         <ScrollReveal>
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -355,7 +352,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             <BannerSlot placement="listing_top" bare className="col-span-full" />
             <BannerSlot placement="listing_grid" bare />
 
