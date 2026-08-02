@@ -84,6 +84,16 @@ Deno.test("review and win-back links use the canonical routes", () => {
   assertStringIncludes(message, "https://example.com/apartments/property-id");
 });
 
+Deno.test("manual review requests use the single-use public token route", () => {
+  const message = buildReviewRequest(
+    { ...candidate, source: "manual", recipient_id: null },
+    "https://example.com",
+    "a".repeat(64),
+  );
+  assertStringIncludes(message, `https://example.com/review/${"a".repeat(64)}`);
+  assertFalse(message.includes("dashboard/guest/rate"));
+});
+
 Deno.test("win-back falls back when either owner field is empty", () => {
   const message = buildWinBack(
     candidate,

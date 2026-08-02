@@ -1,7 +1,6 @@
 export type AutomationKind = "check_in" | "review_request" | "win_back";
 
-// Spec-mandated texts. This module is the only live template copy; the older
-// src/lib/sms/templates.ts file has no importers and uses a different contract.
+// Spec-mandated texts. This module is the single template source of truth.
 export const TEMPLATES = {
   check_in:
     "გამარჯობა [Guest_Name]. გელოდებით ხვალ [Check_In_Time]-დან. ლოკაცია: [Map_Link]. დეტალებისთვის: [Host_Phone]. კარგ დასვენებას გისურვებთ!",
@@ -102,12 +101,18 @@ export function buildCheckIn(c: Candidate, rule: Rule): string {
   return message;
 }
 
-export function buildReviewRequest(c: Candidate, siteUrl: string): string {
+export function buildReviewRequest(
+  c: Candidate,
+  siteUrl: string,
+  manualToken?: string,
+): string {
   return TEMPLATES.review_request
     .replace("[Guest_Name]", clampName(c.guest_name))
     .replace(
       "[Property_Review_Link]",
-      `${siteUrl}/dashboard/guest/rate/${c.booking_id}`,
+      manualToken
+        ? `${siteUrl}/review/${manualToken}`
+        : `${siteUrl}/dashboard/guest/rate/${c.booking_id}`,
     );
 }
 

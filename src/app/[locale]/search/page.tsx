@@ -3,6 +3,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
+import { getStatusCards } from "@/lib/status-cards/server";
 import SearchPageClient from "./SearchPageClient";
 
 export async function generateMetadata({
@@ -79,15 +80,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     );
   }
 
-  const { data: properties } = await query
-    .order("is_super_vip", { ascending: false })
-    .order("is_vip", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const [statusCards, { data: properties }] = await Promise.all([
+    getStatusCards(),
+    query
+      .order("is_super_vip", { ascending: false })
+      .order("is_vip", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
 
   return (
     <SearchPageClient
       initialProperties={properties ?? []}
+      statusCards={statusCards}
       initialLocation={params.location ?? ""}
       initialCheckIn={params.check_in ?? ""}
       initialCheckOut={params.check_out ?? ""}

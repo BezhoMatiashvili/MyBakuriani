@@ -112,6 +112,13 @@ serve(async (req: Request) => {
 
   try {
     requireSharedSecret(req);
+    const featureMode = (Deno.env.get("SMS_RENTAL_MODE") ?? "off").toLowerCase();
+    if (featureMode === "off") {
+      return jsonResponse({ ok: true, feature_enabled: false, processed_users: 0 }, 200, cors);
+    }
+    if (featureMode !== "on" && featureMode !== "qa") {
+      throw new ApiError("Invalid SMS_RENTAL_MODE", 500, "ENV_INVALID");
+    }
     const siteUrl = requireSiteUrl();
     const db = createServiceClient();
 
@@ -138,7 +145,7 @@ serve(async (req: Request) => {
         | { display_name: string | null; phone: string | null }[]
         | null;
     };
-    const rules: Rule[] = ((rulesData as RuleJoin[] | null) ?? []).map((r) => {
+    let rules: Rule[] = ((rulesData as RuleJoin[] | null) ?? []).map((r) => {
       const prof = one(r.profiles);
       return {
         user_id: r.user_id,
@@ -151,6 +158,12 @@ serve(async (req: Request) => {
         owner_phone: prof?.phone ?? null,
       };
     });
+    if (featureMode === "qa") {
+      const allowed = new Set(
+        (Deno.env.get("SMS_QA_USER_IDS") ?? "").split(",").map((id) => id.trim()).filter(Boolean),
+      );
+      rules = rules.filter((rule) => allowed.has(rule.user_id));
+    }
 
     // 2. Opt-out set (D5). Resolved by NORMALIZED PHONE, not by guest_id /
     //    renter_guests.profile_id: profile_id is auto-resolved from phone but NULL for
@@ -221,7 +234,7 @@ serve(async (req: Request) => {
         .from("sms_outbound")
         .select("id", { count: "exact", head: true })
         .eq("sender_id", rule.user_id)
-        .eq("status", "approved")
+        .in("status", ["approved", "submitted"])
         .is("charged_at", null)
         .in("automation_kind", ["check_in", "review_request", "win_back"]);
       if (queueErr) throw queueErr;
@@ -324,11 +337,6 @@ serve(async (req: Request) => {
       }
 
       // ---- T2 REVIEW REQUEST ----------------------------------------------
-      // PLATFORM-ONLY BY CONSTRUCTION (D4/D5). The review link requires a bookings
-      // row whose guest_id matches the logged-in user, and reviews.booking_id FKs
-      // bookings. An offline guest has neither a bookings row nor a profile.
-      // Expect queued.review_request = 0 until an online booking flow exists
-      // (follow-up sms-f10). THAT IS THE CORRECT RESULT - do not debug it.
       if (rule.review_request_enabled) {
         const day = tbilisiDate(-1);
         for (
@@ -348,6 +356,32 @@ serve(async (req: Request) => {
           if (reviewErr) throw reviewErr;
           if ((count ?? 0) > 0) continue; // already reviewed
           await enqueue("review_request", c, buildReviewRequest(c, siteUrl));
+        }
+        for (
+          const c of await scanManual(db, {
+            owner_id: rule.user_id,
+            dateCol: "check_out",
+            date: day,
+            requireConsent: true,
+          })
+        ) {
+          if (!reachable(c, true)) continue;
+          const { count, error: reviewErr } = await db
+            .from("reviews")
+            .select("id", { count: "exact", head: true })
+            .eq("manual_booking_id", c.booking_id);
+          if (reviewErr) throw reviewErr;
+          if ((count ?? 0) > 0) continue;
+          const { data: token, error: tokenErr } = await db.rpc(
+            "sms_create_manual_review_token",
+            { p_owner_id: rule.user_id, p_manual_booking_id: c.booking_id },
+          );
+          if (tokenErr) throw tokenErr;
+          await enqueue(
+            "review_request",
+            c,
+            buildReviewRequest(c, siteUrl, String(token)),
+          );
         }
       }
 

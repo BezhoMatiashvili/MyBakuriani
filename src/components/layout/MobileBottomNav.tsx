@@ -135,11 +135,6 @@ function getNavigation(role: string): RoleNavigation {
             icon: ClipboardList,
           },
           {
-            labelKey: "smsApproval",
-            href: "/dashboard/admin/sms-approvals",
-            icon: Bell,
-          },
-          {
             labelKey: "broadcast",
             href: "/dashboard/admin/broadcast",
             icon: Users,
@@ -244,6 +239,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "balanceAndVip",
             href: "/dashboard/seller/balance",
             icon: Wallet,
+          },
+          {
+            labelKey: "priceDropSms",
+            href: "/dashboard/seller/sms",
+            icon: Bell,
           },
           {
             labelKey: "notificationsItem",
@@ -380,7 +380,10 @@ export function MobileBottomNav({
   const navigation = getNavigation(userRole);
   const tabs = navigation.tabs;
   const more = navigation.more.filter(
-    (item) => item.href !== "/dashboard/sms" || canUseSms,
+    (item) =>
+      (item.href !== "/dashboard/sms" &&
+        item.href !== "/dashboard/seller/sms") ||
+      canUseSms,
   );
   const t = useTranslations("DashboardSidebar.nav");
   const tSidebar = useTranslations("DashboardSidebar");

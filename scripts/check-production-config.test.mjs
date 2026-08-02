@@ -75,3 +75,28 @@ test("treats Turnstile and Upstash as optional, not build blockers", () => {
     }),
   );
 });
+
+test("rejects invalid SMS feature modes and QA without an allowlist", () => {
+  const base = {
+    VERCEL_ENV: "production",
+    ALLOWED_ORIGINS: canonicalOrigin,
+    NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+  };
+  assert.match(
+    validateProductionConfig({ ...base, SMS_RENTAL_MODE: "maybe" }).join(" "),
+    /SMS_RENTAL_MODE must be one of/,
+  );
+  assert.match(
+    validateProductionConfig({ ...base, SMS_PRICE_DROP_MODE: "qa" }).join(" "),
+    /requires SMS_QA_USER_IDS/,
+  );
+  assert.deepEqual(
+    validateProductionConfig({
+      ...base,
+      SMS_RENTAL_MODE: "qa",
+      SMS_PRICE_DROP_MODE: "off",
+      SMS_QA_USER_IDS: "00000000-0000-0000-0000-000000000001",
+    }),
+    [],
+  );
+});

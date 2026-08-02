@@ -19,8 +19,14 @@ serve(async (req) => {
     const { supabase, user } = await requireUser(req);
 
     const body = await req.json().catch(() => ({}));
-    const { property_id, check_in, check_out, guests_count, guest_message } =
-      body;
+    const {
+      property_id,
+      check_in,
+      check_out,
+      guests_count,
+      guest_message,
+      marketing_consent,
+    } = body;
 
     if (!property_id || typeof property_id !== "string") {
       throw new Error("ობიექტი ვერ მოიძებნა");
@@ -43,6 +49,7 @@ serve(async (req) => {
           : 1,
         p_guest_message:
           typeof guest_message === "string" ? guest_message : null,
+        p_marketing_consent: marketing_consent === true,
       })
       .single();
 

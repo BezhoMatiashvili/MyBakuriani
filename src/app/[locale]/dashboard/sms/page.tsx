@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SmsCenterClient } from "./SmsCenterClient";
 import { canUseSmsCenter } from "@/lib/sms/sender-access";
+import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 
 const DEFAULT_RULES = {
   check_in_reminder_enabled: false,
@@ -21,13 +22,10 @@ export default async function SmsCenterPage() {
     redirect("/auth/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!(await canUseSmsCenter(supabase, user.id))) {
+  if (
+    !isSmsFeatureEnabled("SMS_RENTAL_MODE", user.id) ||
+    !(await canUseSmsCenter(supabase, user.id))
+  ) {
     redirect("/dashboard/renter");
   }
 
@@ -48,8 +46,6 @@ export default async function SmsCenterPage() {
 
   return (
     <SmsCenterClient
-      role="renter"
-      senderName={profile?.display_name ?? null}
       initialSmsRemaining={Number(balanceRes.data?.sms_remaining ?? 0)}
       initialRules={rulesRes.data ?? DEFAULT_RULES}
     />

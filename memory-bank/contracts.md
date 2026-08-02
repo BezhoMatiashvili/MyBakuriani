@@ -974,9 +974,6 @@ Participating symbols:
   entries: the three spec texts plus `win_back_fallback`. Placeholders are the spec's own
   `[Bracket]` names. The fallback is used when EITHER win-back field is empty after trim, so a
   half-filled `([Discount_Period])` can never render
-- `src/lib/sms/templates.ts:renderTemplate` — **DEAD**: zero importers, and its `{brace}`
-  placeholders diverge from the live set. Do not edit it, do not sync to it, do not treat it as
-  the source of truth (follow-up `sms-f7` deletes it)
 - `src/lib/utils/listingUrls.ts:propertyViewUrl` — the source of the 3-way sale/hotel/apartment
   logic duplicated into `supabase/functions/sms-automation-run/domain.ts:propertyViewPath`. The
   sale branch is unreachable while the scans are rental-only but is kept so the two match
@@ -1003,9 +1000,9 @@ Participating symbols:
   per-kind expiry sweep (36h / 7d / 30d from `created_at`). Its ONLY caller is
   `supabase/functions/sms-dispatch/index.ts`, which calls it FIRST so `sms_dispatch_batch` needs
   no time predicate of its own
-- `src/app/api/admin/sms/moderate/route.ts:sms_consume_credit` — the approve-time deduction for
-  broadcast and 1:1 contact rows. Those rows keep `charged_at IS NULL`, which is why the
-  `automation_kind` filter in `sms_mark_sent` is an INDEPENDENT second guard, not a duplicate
+- `supabase/migrations/20260802120000_controlled_sms_and_price_drop.sql:sms_outbound_controlled_origin_check`
+  — retires owner-authored broadcast/contact SMS, marks legacy free-text rows explicitly, revokes
+  the old broadcast/audience/credit RPCs, and prevents any new NULL-`automation_kind` origin
 - `supabase/migrations/20260611000100_notification_sms_helpers.sql:_enqueue_system_sms` — the
   free path (`vip_activation` / `vip_expiry` / `subscription`); never charged
 - `supabase/functions/sms-dispatch/index.ts:sendSms` — the single provider integration point.
@@ -1027,7 +1024,9 @@ Participating symbols:
   not receive this module; their separate price-drop SMS belongs to the sales domain
 - `supabase/migrations/20260801132000_schedule_sms_pipeline.sql` replaces the unapplied legacy
   scheduler and creates booking-finalize at 05:50 UTC, automation at 06:00 UTC (10:00 Tbilisi),
-  and dispatch every 10 minutes. It refuses to apply unless all six URL/secret GUCs exist
+  and dispatch every 10 minutes. It refuses to apply unless all six URL/secret values exist in
+  Supabase Vault. Hosted Supabase does not permit the project `postgres` role to persist custom
+  `ALTER DATABASE ... SET app.*` GUCs, so the cron commands read `vault.decrypted_secrets` at runtime
 - `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` — `check_in_time`, `marketing_consent` and
   `marketing_opt_out` are deliberately ABSENT, so the owner and the guest can write them directly
   without an admin approving each change (C14 would otherwise 42501 them)
@@ -1043,13 +1042,12 @@ offline guest can never have (follow-up `sms-f10`). Both SMS functions are `veri
 `supabase/config.toml` and in the deployment; the pg_cron caller sends a shared Bearer secret, not a
 JWT, so flipping either side to `true` silently 401s the job.
 
-**Breaks silently when:** someone edits `src/lib/sms/templates.ts` believing it is live (it is
-dead and divergent); or a new predicate over `automation_kind` uses a bare `IN` (NULL is not FALSE,
-so broadcast and contact rows are filtered OUT **after** their credit was already taken at
-admin-approve — the entire user-initiated pipeline stops delivering with no error); or a second
+**Breaks silently when:** someone reintroduces owner-authored templates or moderation routes around
+the controlled-origin constraint; or a new predicate over `automation_kind` uses a bare `IN`
+(NULL is not FALSE, so explicit legacy rows disappear from maintenance queries); or a second
 charge path is added without checking `charged_at` (double-billing, since three billing paths share
 one table); or `propertyViewUrl` / the canonical-phone contract changes without both Deno and SQL
-copies changing (links point at the wrong route, or opt-out and re-booking checks stop matching); or a GUC
+copies changing (links point at the wrong route, or opt-out and re-booking checks stop matching); or a Vault value
 is set to a different value than its edge secret (the cron job reports SUCCESS while the function
 401s and `sms_outbound` never gains a row — the hardest failure here to notice); or `sendSms` is
 implemented without a provider idempotency key (the at-least-once retry duplicates a delivered

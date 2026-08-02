@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
-import { createPublicClient } from "@/lib/supabase/server";
+import { createClient, createPublicClient } from "@/lib/supabase/server";
+import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 import {
   getPropertyById,
   getPropertyMetadataById,
@@ -70,6 +71,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SaleDetailPage({ params }: Props) {
   const { id } = await params;
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  const canShowPriceAlert = (ownerId: string, organizationId: string | null) =>
+    Boolean(
+      (!user || user.id !== ownerId) &&
+        organizationId === null &&
+        isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user?.id),
+    );
 
   // Fast path: cached public (active) listing — zero DB round-trip on a cache
   // hit, served to everyone. A transient miss-time error throws (not cached) so
@@ -85,7 +94,7 @@ export default async function SaleDetailPage({ params }: Props) {
   if (cached) {
     const reviews = await getCachedPublicReviews(id);
     return (
-      <SaleDetailClient property={cached} reviews={reviews} isPending={false} />
+      <SaleDetailClient property={cached} reviews={reviews} isPending={false} showPriceAlert={canShowPriceAlert(cached.owner_id, cached.organization_id)} />
     );
   }
 
@@ -98,7 +107,7 @@ export default async function SaleDetailPage({ params }: Props) {
   }
 
   if (isMock) {
-    return <SaleDetailClient property={property} reviews={[]} />;
+    return <SaleDetailClient property={property} reviews={[]} showPriceAlert={canShowPriceAlert(property.owner_id, property.organization_id)} />;
   }
 
   const supabase = createPublicClient();
@@ -121,6 +130,7 @@ export default async function SaleDetailPage({ params }: Props) {
       property={property}
       reviews={reviews}
       isPending={isPending}
+      showPriceAlert={canShowPriceAlert(property.owner_id, property.organization_id)}
     />
   );
 }

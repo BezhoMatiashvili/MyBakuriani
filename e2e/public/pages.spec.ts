@@ -67,7 +67,11 @@ async function listingLayout(page: import("@playwright/test").Page) {
   });
 }
 
-for (const path of ["/en/apartments", "/en/hotels"]) {
+for (const path of [
+  "/en/apartments",
+  "/en/hotels",
+  "/en/search?mode=rent",
+]) {
   test.describe(`${path} floating search panels`, () => {
     test("dates and filters overlap without shifting the hero or results", async ({
       page,
@@ -98,15 +102,107 @@ for (const path of ["/en/apartments", "/en/hotels"]) {
         before.heroBottom,
       );
 
-      await page.getByRole("heading", { level: 1 }).click();
+      await page
+        .getByTestId("listing-hero")
+        .getByRole("heading", { level: 1 })
+        .click();
       await expect(filters).toBeHidden();
       expect(await listingLayout(page)).toEqual(before);
     });
   });
 }
 
+test.describe("Search results hero", () => {
+  test("renders the listing hero with prefilled search state and status cards", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(
+      "/en/search?check_in=2099-08-08&check_out=2099-08-22&mode=rent",
+    );
+
+    const hero = page.getByTestId("listing-hero");
+    await expect(hero).toBeVisible();
+    await expect(
+      hero.getByRole("heading", {
+        level: 1,
+        name: "The Most Trusted Guide in Bakuriani",
+      }),
+    ).toBeVisible();
+    await expect(hero.getByRole("button", { name: "Rent" })).toBeVisible();
+    await expect(hero.getByTestId("search-desktop-dates")).not.toHaveText(
+      "Select date",
+    );
+
+    const statusCards = hero.getByTestId("search-status-cards");
+    await expect(statusCards).toBeVisible();
+    expect((await statusCards.boundingBox())?.height).toBeGreaterThan(0);
+
+    const url = new URL(page.url());
+    expect(url.searchParams.get("check_in")).toBe("2099-08-08");
+    expect(url.searchParams.get("check_out")).toBe("2099-08-22");
+    expect(url.searchParams.get("mode")).toBe("rent");
+  });
+
+  test("desktop dropdowns paint above the filter sidebar", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/en/search?mode=rent");
+
+    const assertPaintsAboveSidebar = async (
+      panel: ReturnType<typeof page.getByTestId>,
+    ) => {
+      await expect(panel).toBeVisible();
+      await expect
+        .poll(() => panel.evaluate((element) => element.parentElement?.tagName))
+        .toBe("DIV");
+
+      const paintsAbove = await panel.evaluate((panelElement) => {
+        const sidebar = document.querySelector<HTMLElement>(
+          '[data-testid="search-filter-sidebar"]',
+        );
+        if (!sidebar) throw new Error("search filter sidebar missing");
+
+        const panelBox = panelElement.getBoundingClientRect();
+        const sidebarBox = sidebar.getBoundingClientRect();
+        const left = Math.max(panelBox.left, sidebarBox.left);
+        const right = Math.min(panelBox.right, sidebarBox.right);
+        const top = Math.max(panelBox.top, sidebarBox.top);
+        const bottom = Math.min(panelBox.bottom, sidebarBox.bottom);
+        if (left >= right || top >= bottom) {
+          throw new Error("dropdown does not overlap the filter sidebar");
+        }
+
+        const topElement = document.elementFromPoint(
+          left + (right - left) / 2,
+          top + (bottom - top) / 2,
+        );
+        return !!topElement && panelElement.contains(topElement);
+      });
+
+      expect(paintsAbove).toBe(true);
+    };
+
+    await page.getByTestId("search-desktop-dates").click();
+    const calendar = page.getByTestId("search-desktop-calendar-panel");
+    await assertPaintsAboveSidebar(calendar);
+    await calendar.getByRole("button", { name: "Confirm" }).click();
+    await expect(calendar).toBeHidden();
+
+    await page.getByTestId("search-desktop-filters").click();
+    const filters = page.getByTestId("search-desktop-filter-panel");
+    await assertPaintsAboveSidebar(filters);
+    await filters.getByRole("button", { name: "Show Results" }).click();
+    await expect(filters).toBeHidden();
+  });
+});
+
 test.describe("Listing search breakpoint", () => {
-  for (const path of ["/en", "/en/apartments", "/en/hotels"]) {
+  for (const path of [
+    "/en",
+    "/en/apartments",
+    "/en/hotels",
+    "/en/search?mode=rent",
+  ]) {
     test(`${path} uses a BottomSheet at 1023px and a floating panel at 1024px`, async ({
       page,
     }) => {

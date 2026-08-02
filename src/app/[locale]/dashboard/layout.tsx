@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
+import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -74,6 +75,16 @@ export default async function DashboardLayout({
   const canUseSms = (data.is_for_sale_flags ?? []).some(
     (isForSale) => isForSale !== true,
   );
+  const sellerSmsFlag = isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id);
+  const sellerSmsCount = sellerSmsFlag
+    ? await supabase
+        .from("properties")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", user.id)
+        .eq("is_for_sale", true)
+        .is("organization_id", null)
+    : { count: 0 };
+  const canUseSellerSms = sellerSmsFlag && (sellerSmsCount.count ?? 0) > 0;
 
   return (
     <NextIntlClientProvider messages={messages}>
@@ -86,6 +97,7 @@ export default async function DashboardLayout({
         balance={balance}
         smsRemaining={smsRemaining}
         canUseSms={canUseSms}
+        canUseSellerSms={canUseSellerSms}
         smartMatchCount={smartMatchCount}
         availableCabinets={availableCabinets}
         cleanerOnline={data.cleaner_online ?? true}

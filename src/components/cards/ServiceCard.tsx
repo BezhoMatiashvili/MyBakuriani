@@ -127,12 +127,13 @@ export default function ServiceCard({
         className="group h-full"
       >
         <div
+          data-service-card
           role="link"
           tabIndex={0}
           aria-label={title}
           onClick={goToDetail}
           onKeyDown={onCardKey}
-          className="flex h-auto min-h-[260px] cursor-pointer flex-col overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-4 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[300px] lg:min-h-0 lg:p-5"
+          className="flex h-full min-h-[260px] cursor-pointer flex-col overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-4 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[300px] lg:min-h-0 lg:p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <span className="relative block size-[64px] shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]">
@@ -356,12 +357,13 @@ export default function ServiceCard({
       className="group h-full"
     >
       <div
+        data-service-card
         role="link"
         tabIndex={0}
         aria-label={title}
         onClick={goToDetail}
         onKeyDown={onCardKey}
-        className="flex h-auto cursor-pointer flex-col overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[420px] lg:rounded-[24px]"
+        className="flex h-full cursor-pointer flex-col overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[420px] lg:rounded-[24px]"
       >
         <div className="relative aspect-[8/5] overflow-hidden rounded-t-[20px] lg:h-[200px] lg:aspect-auto lg:rounded-t-[24px]">
           <Image

@@ -56,6 +56,16 @@ export function validateProductionConfig(env = process.env) {
     );
   }
 
+  for (const name of ["SMS_RENTAL_MODE", "SMS_PRICE_DROP_MODE"]) {
+    const mode = env[name]?.trim().toLowerCase() || "off";
+    if (!["off", "qa", "on"].includes(mode)) {
+      errors.push(`${name} must be one of: off, qa, on.`);
+    }
+    if (mode === "qa" && !env.SMS_QA_USER_IDS?.trim()) {
+      errors.push(`${name}=qa requires SMS_QA_USER_IDS.`);
+    }
+  }
+
   // Turnstile and Upstash are deliberately NOT required. They were, briefly,
   // and it failed the production build — but the deeper problem was that the
   // app treated "unconfigured" as "deny", which had already taken every

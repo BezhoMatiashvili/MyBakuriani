@@ -24,6 +24,7 @@ jobs:
       - run: npm ci --omit=optional
       - run: node scripts/check-secret-permissions.mjs
       - run: npx tsc --noEmit
+      - run: npm run test:sms-domain
       # `npm run build` deliberately does NOT run here. It needs
       # SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_* to prerender
       # /[locale]/employment, no Actions secrets are configured, and this step

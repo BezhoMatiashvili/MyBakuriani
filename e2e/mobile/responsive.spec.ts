@@ -5,6 +5,7 @@ const phoneViewports = [
   { width: 375, height: 812 },
   { width: 390, height: 844 },
   { width: 428, height: 926 },
+  { width: 767, height: 900 },
 ];
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {
@@ -55,36 +56,164 @@ test.describe("Landing page mobile", () => {
 
     const card = page.locator("[data-listing-card]").first();
     await expect(card).toBeVisible();
-    expect((await card.boundingBox())?.height).toBeLessThanOrEqual(390);
+    expect((await card.boundingBox())?.height).toBeLessThanOrEqual(420);
   });
 
-  test("mobile rails snap and preview the next card without document overflow", async ({
+  test("homepage rails show one centered, equal-size card per mobile snap page", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    const rail = page.locator("[data-mobile-rail]").first();
+    const rail = page
+      .locator('[data-mobile-rail][data-mobile-layout="single-page"]')
+      .first();
     const items = rail.locator("[data-mobile-rail-item]");
     await expect(items.first()).toBeVisible();
     expect(await items.count()).toBeGreaterThan(1);
 
     const geometry = await rail.evaluate((element) => {
-      const first = element.querySelector<HTMLElement>(
-        "[data-mobile-rail-item]",
+      const itemElements = Array.from(
+        element.querySelectorAll<HTMLElement>("[data-mobile-rail-item]"),
       );
-      const second = first?.nextElementSibling as HTMLElement | null;
+      const first = itemElements[0];
+      const second = itemElements[1];
+      const content = first?.querySelector<HTMLElement>(
+        "[data-mobile-rail-content]",
+      );
       return {
         railScrolls: element.scrollWidth > element.clientWidth,
         snapType: getComputedStyle(element).scrollSnapType,
         itemWidth: first?.getBoundingClientRect().width ?? 0,
-        nextStartsInsideViewport:
-          (second?.getBoundingClientRect().left ?? Infinity) < innerWidth,
+        firstLeft: first?.getBoundingClientRect().left ?? 0,
+        contentWidth: content?.getBoundingClientRect().width ?? 0,
+        contentCenter:
+          ((content?.getBoundingClientRect().left ?? 0) +
+            (content?.getBoundingClientRect().right ?? 0)) /
+          2,
+        nextLeft: second?.getBoundingClientRect().left ?? 0,
       };
     });
     expect(geometry.railScrolls).toBe(true);
     expect(geometry.snapType).toContain("x");
-    expect(geometry.itemWidth).toBeLessThanOrEqual(300);
-    expect(geometry.nextStartsInsideViewport).toBe(true);
+    expect(geometry.itemWidth).toBeCloseTo(390 - 32, 0);
+    expect(geometry.firstLeft).toBeCloseTo(16, 0);
+    expect(geometry.contentWidth).toBeCloseTo(390 - 32, 0);
+    expect(geometry.contentCenter).toBeCloseTo(390 / 2, 0);
+    expect(geometry.nextLeft).toBeGreaterThanOrEqual(390 - 1);
+
+    const equalHeightGroups = await page
+      .locator('[data-mobile-rail][data-mobile-layout="single-page"]')
+      .evaluateAll((rails) => {
+        const shellSelector =
+          "[data-listing-card], [data-service-card], [data-employment-card], [data-home-blog-card]";
+        return rails
+          .map((rail) =>
+            Array.from(
+              rail.querySelectorAll<HTMLElement>("[data-mobile-rail-item]"),
+            )
+              .map(
+                (item) =>
+                  item
+                    .querySelector<HTMLElement>(shellSelector)
+                    ?.getBoundingClientRect().height ?? 0,
+              )
+              .filter((height) => height > 0),
+          )
+          .filter((heights) => heights.length > 1);
+      });
+    expect(equalHeightGroups.length).toBeGreaterThan(0);
+    for (const heights of equalHeightGroups) {
+      expect(Math.max(...heights)).toBeCloseTo(Math.min(...heights), 0);
+    }
+
+    await rail.evaluate((element) => {
+      const railItems = element.querySelectorAll<HTMLElement>(
+        "[data-mobile-rail-item]",
+      );
+      const first = railItems[0];
+      const second = railItems[1];
+      if (!first || !second) return;
+      element.scrollTo({ left: second.offsetLeft - first.offsetLeft });
+    });
+    await expect
+      .poll(async () => (await items.nth(1).boundingBox())?.x ?? Infinity)
+      .toBeCloseTo(16, 0);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 428, height: 926 },
+    { width: 767, height: 900 },
+  ]) {
+    test(`status and listing cards are centered at ${viewport.width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+
+      const hero = page.getByTestId("homepage-hero");
+      const statusCard = page
+        .getByTestId("homepage-status-cards")
+        .locator("[data-status-card]")
+        .first();
+      const railContent = page
+        .locator(
+          '[data-mobile-rail][data-mobile-layout="single-page"] [data-mobile-rail-content]',
+        )
+        .first();
+      await expect(statusCard).toBeVisible();
+      await expect(railContent).toBeVisible();
+
+      const [heroBox, statusBox, railContentBox] = await Promise.all([
+        hero.boundingBox(),
+        statusCard.boundingBox(),
+        railContent.boundingBox(),
+      ]);
+      expect(heroBox).not.toBeNull();
+      expect(statusBox).not.toBeNull();
+      expect(railContentBox).not.toBeNull();
+
+      const heroBottom = heroBox!.y + heroBox!.height;
+      expect(heroBottom).toBeGreaterThan(statusBox!.y);
+      expect(heroBottom).toBeLessThan(statusBox!.y + statusBox!.height);
+      expect(heroBottom - statusBox!.y).toBeGreaterThanOrEqual(
+        statusBox!.height * 0.35,
+      );
+      expect(heroBottom - statusBox!.y).toBeLessThanOrEqual(
+        statusBox!.height * 0.65,
+      );
+      expect(statusBox!.x + statusBox!.width / 2).toBeCloseTo(
+        viewport.width / 2,
+        0,
+      );
+      expect(railContentBox!.x + railContentBox!.width / 2).toBeCloseTo(
+        viewport.width / 2,
+        0,
+      );
+      expect(statusBox!.width).toBeLessThanOrEqual(420);
+      expect(railContentBox!.width).toBeLessThanOrEqual(420);
+      await expectNoHorizontalOverflow(page);
+    });
+  }
+
+  test("single-page layout hands back to the existing tablet layout at 768px", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto("/");
+
+    const railItem = page
+      .locator(
+        '[data-mobile-rail][data-mobile-layout="single-page"] [data-mobile-rail-item]',
+      )
+      .first();
+    const statusGrid = page
+      .getByTestId("homepage-status-cards")
+      .locator('[data-status-layout="single-page"]');
+    await expect(railItem).toBeVisible();
+    expect((await railItem.boundingBox())?.width).toBeLessThanOrEqual(300);
+    await expect(statusGrid).toHaveCSS("display", "grid");
     await expectNoHorizontalOverflow(page);
   });
 });

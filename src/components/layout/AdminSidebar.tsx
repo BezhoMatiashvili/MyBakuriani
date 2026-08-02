@@ -76,10 +76,6 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         labelKey: "ads",
         href: "/dashboard/admin/moderation",
       },
-      {
-        labelKey: "smsApproval",
-        href: "/dashboard/admin/sms-approvals",
-      },
     ],
   },
   {

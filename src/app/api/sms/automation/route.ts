@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { canUseSmsCenter } from "@/lib/sms/sender-access";
+import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 
 export const runtime = "nodejs";
 
@@ -25,12 +26,14 @@ const DEFAULTS: AutomationRules = {
   win_back_discount_period: null,
 };
 
-// Trim, empty -> null, hard-slice to the column's CHECK length so a client cannot
-// 500 the request on a constraint violation.
 function normalizeDiscountText(value: unknown, max: number): string | null {
-  if (typeof value !== "string") return null;
+  if (value !== null && typeof value !== "string") {
+    throw new TypeError("invalid_rule_value");
+  }
+  if (value === null) return null;
   const trimmed = value.trim();
-  return trimmed ? Array.from(trimmed).slice(0, max).join("") : null;
+  if (Array.from(trimmed).length > max) throw new RangeError("rule_too_long");
+  return trimmed || null;
 }
 
 async function requireSender() {
@@ -41,7 +44,10 @@ async function requireSender() {
   if (!user) {
     return { ok: false as const, status: 401, error: "unauthenticated" };
   }
-  if (!(await canUseSmsCenter(supabase, user.id))) {
+  if (
+    !isSmsFeatureEnabled("SMS_RENTAL_MODE", user.id) ||
+    !(await canUseSmsCenter(supabase, user.id))
+  ) {
     return { ok: false as const, status: 403, error: "role_not_allowed" };
   }
   return { ok: true as const, userId: user.id };
@@ -80,6 +86,17 @@ async function updateRules(req: NextRequest) {
     return Response.json({ error: "bad_body" }, { status: 400 });
   }
 
+  const allowedKeys = new Set<keyof AutomationRules>([
+    "check_in_reminder_enabled",
+    "review_request_enabled",
+    "win_back_enabled",
+    "win_back_discount_value",
+    "win_back_discount_period",
+  ]);
+  if (Object.keys(body).some((key) => !allowedKeys.has(key as keyof AutomationRules))) {
+    return Response.json({ error: "unknown_rule_key" }, { status: 400 });
+  }
+
   const payload: Partial<AutomationRules> = {};
   const booleanKeys = [
     "check_in_reminder_enabled",
@@ -94,17 +111,16 @@ async function updateRules(req: NextRequest) {
       payload[key] = body[key];
     }
   }
-  if ("win_back_discount_value" in body) {
-    payload.win_back_discount_value = normalizeDiscountText(
-      body.win_back_discount_value,
-      10,
-    );
-  }
-  if ("win_back_discount_period" in body) {
-    payload.win_back_discount_period = normalizeDiscountText(
-      body.win_back_discount_period,
-      30,
-    );
+  try {
+    if ("win_back_discount_value" in body) {
+      payload.win_back_discount_value = normalizeDiscountText(body.win_back_discount_value, 10);
+    }
+    if ("win_back_discount_period" in body) {
+      payload.win_back_discount_period = normalizeDiscountText(body.win_back_discount_period, 30);
+    }
+  } catch (error) {
+    const code = error instanceof RangeError ? "rule_too_long" : "invalid_rule_value";
+    return Response.json({ error: code }, { status: 400 });
   }
 
   if (Object.keys(payload).length === 0) {
@@ -112,27 +128,9 @@ async function updateRules(req: NextRequest) {
   }
 
   const db = createServiceClient();
-  const { data: current, error: currentError } = await db
-    .from("sms_automation_rules")
-    .select(RULES_COLUMNS)
-    .eq("user_id", guard.userId)
-    .maybeSingle();
-
-  if (currentError) {
-    return Response.json({ error: currentError.message }, { status: 500 });
-  }
-
-  const next = { ...DEFAULTS, ...current, ...payload };
-  // One database transaction changes the controls and retires already-queued
-  // messages whose template/configuration is now stale. It shares the dispatch
-  // advisory lock, so an old message cannot be claimed midway through the change.
-  const { data, error } = await db.rpc("sms_set_automation_rules", {
+  const { data, error } = await db.rpc("sms_patch_automation_rules", {
     p_sender_id: guard.userId,
-    p_check_in_enabled: next.check_in_reminder_enabled,
-    p_review_enabled: next.review_request_enabled,
-    p_win_back_enabled: next.win_back_enabled,
-    p_discount_value: next.win_back_discount_value,
-    p_discount_period: next.win_back_discount_period,
+    p_patch: payload,
   });
 
   if (error) {
@@ -146,7 +144,6 @@ export async function PATCH(req: NextRequest) {
   return updateRules(req);
 }
 
-// Compatibility for already-open tabs running the former whole-object client.
-export async function PUT(req: NextRequest) {
-  return updateRules(req);
+export async function PUT() {
+  return Response.json({ error: "use_partial_patch" }, { status: 410 });
 }

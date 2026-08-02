@@ -92,7 +92,11 @@ export default function HomeStatusCards({ cards }: { cards: StatusCard[] }) {
 
   return (
     <div data-testid="homepage-status-cards">
-      <StatusCards cards={displayedCards} className="mt-8 sm:-mb-[42px]" />
+      <StatusCards
+        cards={displayedCards}
+        className="mt-8 -mb-[42px]"
+        mobileLayout="single-page"
+      />
     </div>
   );
 }

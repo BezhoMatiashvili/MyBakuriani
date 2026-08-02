@@ -7,7 +7,7 @@
 --   BOOKING_FINALIZE_SECRET, SMS_AUTOMATION_RUN_SECRET, SMS_DISPATCH_SECRET,
 --   SITE_URL=https://my-bakuriani.vercel.app, SMS_DELIVERY_ENABLED=false
 --
--- Database settings required (ALTER DATABASE postgres SET ..., then reconnect):
+-- Vault secrets required (same values as the matching Edge Function secrets):
 --   app.booking_finalize_url / app.booking_finalize_secret
 --   app.sms_automation_run_url / app.sms_automation_run_secret
 --   app.sms_dispatch_url / app.sms_dispatch_secret
@@ -28,7 +28,12 @@ begin
     'app.sms_dispatch_url',
     'app.sms_dispatch_secret'
   ] loop
-    if coalesce(current_setting(v_key, true), '') = '' then
+    if coalesce((
+      select decrypted_secret
+      from vault.decrypted_secrets
+      where name = v_key
+      limit 1
+    ), '') = '' then
       raise exception 'Refusing to schedule SMS pipeline: % is unset', v_key
         using errcode = '22023';
     end if;
@@ -56,9 +61,9 @@ begin
     '50 5 * * *',
     $cron$
     select net.http_post(
-      url := current_setting('app.booking_finalize_url', true),
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'app.booking_finalize_url' limit 1),
       headers := jsonb_build_object(
-        'Authorization', 'Bearer ' || current_setting('app.booking_finalize_secret', true),
+        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'app.booking_finalize_secret' limit 1),
         'Content-Type', 'application/json'
       ),
       body := '{}'::jsonb
@@ -72,9 +77,9 @@ begin
     '0 6 * * *',
     $cron$
     select net.http_post(
-      url := current_setting('app.sms_automation_run_url', true),
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'app.sms_automation_run_url' limit 1),
       headers := jsonb_build_object(
-        'Authorization', 'Bearer ' || current_setting('app.sms_automation_run_secret', true),
+        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'app.sms_automation_run_secret' limit 1),
         'Content-Type', 'application/json'
       ),
       body := '{}'::jsonb
@@ -87,9 +92,9 @@ begin
     '*/10 * * * *',
     $cron$
     select net.http_post(
-      url := current_setting('app.sms_dispatch_url', true),
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'app.sms_dispatch_url' limit 1),
       headers := jsonb_build_object(
-        'Authorization', 'Bearer ' || current_setting('app.sms_dispatch_secret', true),
+        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'app.sms_dispatch_secret' limit 1),
         'Content-Type', 'application/json'
       ),
       body := '{}'::jsonb

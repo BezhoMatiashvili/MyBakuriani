@@ -5,10 +5,9 @@
 //
 // THE CREDIT RULE LIVES IN SQL, NOT HERE. Three mutually exclusive billing paths run
 // over this one table and this file must not re-implement any of them:
-//   * automation rows (check_in / review_request / win_back) -> charged 1 credit by
-//     sms_mark_sent, on gateway success only (D1/D6), guarded by charged_at
-//   * broadcast + 1:1 contact rows -> already charged at admin-approve time
-//     (sms_consume_credit / sms_consume_credits_bulk); automation_kind is NULL for them
+//   * controlled rental / price-drop rows are charged only by the future authenticated
+//     delivery callback through sms_mark_provider_delivered
+//   * legacy broadcast + 1:1 paths are retired and never enter this queue
 //   * system rows (vip_activation / vip_expiry / subscription) -> free
 //
 // sms_claim_dispatch_batch applies eligibility maintenance, the 0-credit preflight,
@@ -50,7 +49,8 @@ function requireSharedSecret(req: Request) {
 }
 
 type SendResult = {
-  status: "skipped" | "sent" | "failed";
+  status: "skipped" | "submitted" | "failed";
+  providerMessageId?: string;
   providerResponse: unknown;
 };
 
@@ -70,7 +70,8 @@ async function sendSms(
 
   // TODO(B1 - provider): implement this and NOTHING ELSE in this file.
   //   Contract:
-  //     - return { status: 'sent',   providerResponse } on a 2xx/accepted gateway reply
+  //     - return { status: 'submitted', providerMessageId, providerResponse }
+  //       on a 2xx/accepted gateway reply
   //     - return { status: 'failed', providerResponse } on any provider or network error
   //     - return { status: 'skipped', providerResponse } ONLY while unimplemented
   //   providerResponse MUST carry the gateway's message id (for reconciliation) and must
@@ -105,6 +106,30 @@ serve(async (req) => {
     requireSharedSecret(req);
     const db = createServiceClient();
 
+    let priceDropMaterialization: unknown = null;
+    const priceDropMode = (Deno.env.get("SMS_PRICE_DROP_MODE") ?? "off").toLowerCase();
+    if (priceDropMode !== "off") {
+      if (priceDropMode !== "on" && priceDropMode !== "qa") {
+        throw new ApiError("Invalid SMS_PRICE_DROP_MODE", 500, "ENV_INVALID");
+      }
+      const siteUrl = Deno.env.get("SITE_URL");
+      if (!siteUrl || !/^https?:\/\//.test(siteUrl)) {
+        throw new ApiError("SITE_URL is required for price-drop links", 500, "ENV_MISSING");
+      }
+      const { data, error: materializeError } = await db.rpc(
+        "sms_materialize_due_price_drop_events",
+        {
+          p_site_url: siteUrl.replace(/\/+$/, ""),
+          p_limit: 20,
+          p_allowed_payers: priceDropMode === "qa"
+            ? (Deno.env.get("SMS_QA_USER_IDS") ?? "").split(",").map((id) => id.trim()).filter(Boolean)
+            : null,
+        },
+      );
+      if (materializeError) throw materializeError;
+      priceDropMaterialization = data;
+    }
+
     // 1. Retire stale automation rows FIRST. This is that function's only caller.
     //    Doing it before the batch read is what lets the claim RPC carry no time
     //    predicate of its own - one window definition, in one place. A stale T1
@@ -124,6 +149,11 @@ serve(async (req) => {
     );
     if (cancelErr) throw cancelErr;
     const cancelled = Number(cancelledRaw ?? 0);
+    const { data: cancelledPriceRaw, error: cancelledPriceError } = await db.rpc(
+      "sms_cancel_ineligible_price_drop",
+    );
+    if (cancelledPriceError) throw cancelledPriceError;
+    const cancelledPriceDrop = Number(cancelledPriceRaw ?? 0);
 
     // Queue generation is live before a provider is selected. Fail closed and
     // do not claim rows until delivery is deliberately enabled.
@@ -132,8 +162,10 @@ serve(async (req) => {
         {
           ok: true,
           delivery_enabled: false,
+          price_drop: priceDropMaterialization,
           expired,
           cancelled,
+          cancelled_price_drop: cancelledPriceDrop,
           considered: 0,
           sent: 0,
           failed: 0,
@@ -180,17 +212,16 @@ serve(async (req) => {
         continue;
       }
 
-      if (result.status === "sent") {
-        // Status flip AND the conditional charge happen inside ONE transaction so they
-        // cannot diverge. sms_mark_sent deliberately does NOT raise on insufficient
-        // credit: by this point the SMS has already been delivered, and raising would
-        // leave the row 'approved' for the next run to RE-SEND. One uncharged credit
-        // beats a duplicate message to a guest.
-        const { data: markRaw, error: markErr } = await db.rpc(
-          "sms_mark_claim_sent",
+      if (result.status === "submitted") {
+        if (!result.providerMessageId) {
+          throw new Error(`Provider accepted ${row.id} without a message id`);
+        }
+        const { error: markErr } = await db.rpc(
+          "sms_mark_claim_submitted",
           {
             p_sms_id: row.id,
             p_claim_token: claimToken,
+            p_provider_message_id: result.providerMessageId,
             p_provider_response: result.providerResponse ?? {},
           },
         );
@@ -201,22 +232,8 @@ serve(async (req) => {
           });
           continue;
         }
-        const mark = (markRaw ?? {}) as {
-          charged?: boolean;
-          uncharged_reason?: string | null;
-        };
         sent++;
-        if (mark.charged) charged++;
-        else {
-          uncharged++;
-          // Expected and correct for broadcast/contact rows (charged at approve time)
-          // and for system kinds (free). Only worth attention when the reason is set.
-          if (mark.uncharged_reason) {
-            console.log(
-              `sms-dispatch: row ${row.id} sent but not charged (${mark.uncharged_reason})`,
-            );
-          }
-        }
+        uncharged++;
       } else {
         // A failed send is never charged (spec section 6).
         const { error: failErr } = await db.rpc("sms_mark_claim_failed", {
@@ -238,8 +255,10 @@ serve(async (req) => {
     return jsonResponse(
       {
         ok: true,
+        price_drop: priceDropMaterialization,
         expired,
         cancelled,
+        cancelled_price_drop: cancelledPriceDrop,
         considered: rows.length,
         sent,
         failed,

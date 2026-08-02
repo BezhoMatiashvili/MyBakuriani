@@ -37,6 +37,7 @@ import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { PriceDropAlertButton } from "@/components/sms/PriceDropAlertButton";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -74,6 +75,7 @@ interface Props {
   property: PropertyWithOwner;
   isPending?: boolean;
   reviews: ReviewWithGuest[];
+  showPriceAlert?: boolean;
 }
 
 const fadeIn = {
@@ -166,6 +168,7 @@ export default function SaleDetailClient({
   property,
   reviews,
   isPending = false,
+  showPriceAlert = false,
 }: Props) {
   const t = useTranslations("SaleDetail");
   const tDetail = useTranslations("PropertyDetail");
@@ -393,6 +396,9 @@ export default function SaleDetailClient({
         </button>
 
         <div className="flex items-center gap-1">
+          {showPriceAlert && !isPending && (
+            <PriceDropAlertButton propertyId={property.id} />
+          )}
           <button
             type="button"
             onClick={handleShare}

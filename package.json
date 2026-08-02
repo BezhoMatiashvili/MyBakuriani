@@ -17,6 +17,7 @@
     "test:e2e:setup": "npx playwright test --project=setup",
     "typecheck": "tsc --noEmit",
     "test:production-config": "node --test scripts/check-production-config.test.mjs",
+    "test:sms-domain": "npx --yes deno test supabase/functions/sms-automation-run/domain_test.ts",
     "security:secrets": "node scripts/check-secret-permissions.mjs",
     "security:audit": "npm audit --audit-level=high && npm audit --omit=dev --audit-level=high"
   },

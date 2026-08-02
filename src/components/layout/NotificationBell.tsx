@@ -50,6 +50,7 @@ export function NotificationBell({
   const [mounted, setMounted] = useState(false);
   const items = notifications.slice(0, 8);
   const badge = unreadCount > 9 ? "9+" : String(unreadCount);
+  const isMobile = variant === "mobile";
 
   useEffect(() => setMounted(true), []);
 
@@ -85,11 +86,19 @@ export function NotificationBell({
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          sideOffset={8}
-          className="w-[calc(100vw-2rem)] max-w-[380px] gap-0 p-0"
+          sideOffset={isMobile ? 10 : 8}
+          className={
+            isMobile
+              ? "w-[calc(100vw-1.5rem)] max-w-none gap-0 overflow-hidden rounded-2xl p-0 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.28)] ring-black/10 sm:max-w-[380px]"
+              : "w-[calc(100vw-2rem)] max-w-[380px] gap-0 p-0"
+          }
         >
-          <div className="flex items-center justify-between border-b border-[#EEF1F4] px-4 py-3">
-            <span className="text-[14px] font-extrabold text-[#0F172A]">
+          <div
+            className={`flex items-center justify-between border-b border-[#EEF1F4] px-4 ${isMobile ? "min-h-12 py-3.5" : "py-3"}`}
+          >
+            <span
+              className={`${isMobile ? "text-[15px]" : "text-[14px]"} font-extrabold text-[#0F172A]`}
+            >
               {t("notifications")}
             </span>
             {/* Hidden while loading: the hook resolves the session inside the same
@@ -98,7 +107,7 @@ export function NotificationBell({
               <button
                 type="button"
                 onClick={() => void markAllRead().catch(() => {})}
-                className="text-[11px] font-bold text-[#2563EB] hover:underline"
+                className={`${isMobile ? "min-h-8 rounded-lg px-2 text-[11px] active:bg-[#EFF6FF]" : "text-[11px] hover:underline"} font-bold text-[#2563EB]`}
               >
                 {t("markAllRead")}
               </button>
@@ -119,27 +128,39 @@ export function NotificationBell({
               </p>
             </div>
           ) : (
-            <ul className="max-h-[420px] overflow-y-auto">
+            <ul
+              className={
+                isMobile
+                  ? "max-h-[min(58dvh,430px)] overflow-y-auto overscroll-contain"
+                  : "max-h-[420px] overflow-y-auto"
+              }
+            >
               {items.map((item, i) => {
                 const style = ICON_STYLES[iconForType(item.type)];
                 const IconCmp = style.Icon;
                 const isLast = i === items.length - 1;
-                const baseRow = `flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F1F5F9] ${
+                const baseRow = `flex w-full items-start gap-3 px-4 text-left transition-colors hover:bg-[#F1F5F9] ${
+                  isMobile ? "py-3.5 active:bg-[#EAF2FF]" : "py-3"
+                } ${
                   item.is_read ? "" : "bg-[#F8FAFC]"
                 } ${isLast ? "" : "border-b border-[#EEF1F4]"}`;
                 const content = (
                   <>
                     <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${style.bg}`}
+                      className={`flex shrink-0 items-center justify-center rounded-full ${
+                        isMobile ? "h-10 w-10" : "h-9 w-9"
+                      } ${style.bg}`}
                     >
                       <IconCmp
-                        className={`h-4 w-4 ${style.color}`}
+                        className={`${isMobile ? "h-[18px] w-[18px]" : "h-4 w-4"} ${style.color}`}
                         strokeWidth={2.2}
                         aria-hidden
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-bold text-[#0F172A]">
+                      <p
+                        className={`${isMobile ? "line-clamp-2 pr-1 text-[13px] leading-[19px]" : "truncate text-[13px]"} font-bold text-[#0F172A]`}
+                      >
                         {item.title}
                       </p>
                       {item.message && (
@@ -147,10 +168,17 @@ export function NotificationBell({
                           {item.message}
                         </p>
                       )}
+                      {isMobile && (
+                        <span className="mt-1 block text-[10px] font-medium leading-4 text-[#94A3B8]">
+                          {formatRelativeTime(tShared, item.created_at)}
+                        </span>
+                      )}
                     </div>
-                    <span className="shrink-0 text-[10px] font-medium text-[#94A3B8]">
-                      {formatRelativeTime(tShared, item.created_at)}
-                    </span>
+                    {!isMobile && (
+                      <span className="shrink-0 text-[10px] font-medium text-[#94A3B8]">
+                        {formatRelativeTime(tShared, item.created_at)}
+                      </span>
+                    )}
                   </>
                 );
                 return (
@@ -169,11 +197,13 @@ export function NotificationBell({
           )}
 
           {viewAllPath && (
-            <div className="border-t border-[#EEF1F4] px-4 py-2.5">
+            <div
+              className={`border-t border-[#EEF1F4] px-4 ${isMobile ? "py-2" : "py-2.5"}`}
+            >
               <Link
                 href={viewAllPath as never}
                 onClick={() => setOpen(false)}
-                className="block text-center text-[12px] font-bold text-[#2563EB] hover:underline"
+                className={`${isMobile ? "flex min-h-9 items-center justify-center rounded-lg active:bg-[#EFF6FF]" : "block hover:underline"} text-center text-[12px] font-bold text-[#2563EB]`}
               >
                 {t("viewAll")}
               </Link>

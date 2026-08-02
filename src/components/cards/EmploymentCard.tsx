@@ -38,6 +38,7 @@ export default function EmploymentCard({
   } = useFavorite({ serviceId: id });
   return (
     <div
+      data-employment-card
       className={`relative flex h-full flex-col overflow-hidden rounded-[20px] border bg-white p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:rounded-[24px] lg:p-5 ${
         highlighted
           ? "border-[#F97316] shadow-[0px_4px_20px_-2px_rgba(249,115,22,0.15)]"

@@ -72,9 +72,11 @@ function ItemRow({
 export default function StatusCards({
   cards,
   className,
+  mobileLayout = "preview",
 }: {
   cards: StatusCard[];
   className?: string;
+  mobileLayout?: "preview" | "single-page";
 }) {
   const locale = useLocale();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -117,13 +119,17 @@ export default function StatusCards({
   if (cards.length === 0) return null;
 
   const expandedCard = cards.find((c) => c.id === expandedId) ?? null;
+  const isSinglePage = mobileLayout === "single-page";
 
   return (
     <>
       <div
         ref={gridRef}
+        data-status-layout={mobileLayout}
         className={cn(
-          "scrollbar-hide relative -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0",
+          isSinglePage
+            ? "scrollbar-hide relative -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0"
+            : "scrollbar-hide relative -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0",
           className,
         )}
       >
@@ -157,20 +163,21 @@ export default function StatusCards({
             </div>
           );
 
-          const cardClass =
-            "flex min-h-20 w-[min(260px,calc(100vw-64px))] shrink-0 snap-start items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-4 py-4 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] sm:w-auto lg:px-5 lg:py-5";
+          const cardClass = cn(
+            "flex min-h-20 items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-4 py-4 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] lg:px-5 lg:py-5",
+            isSinglePage
+              ? "w-full max-w-[420px] md:max-w-none"
+              : "w-[min(260px,calc(100vw-64px))] shrink-0 snap-start sm:w-auto",
+          );
 
-          if (!canExpand) {
-            return (
-              <div key={card.id} className={cardClass}>
-                {inner}
-              </div>
-            );
-          }
-
-          return (
+          const cardElement = !canExpand ? (
+            <div key={card.id} data-status-card className={cardClass}>
+              {inner}
+            </div>
+          ) : (
             <button
               key={card.id}
+              data-status-card
               type="button"
               aria-expanded={isOpen}
               onClick={() => setExpandedId(isOpen ? null : card.id)}
@@ -182,6 +189,18 @@ export default function StatusCards({
             >
               {inner}
             </button>
+          );
+
+          return isSinglePage ? (
+            <div
+              key={card.id}
+              data-status-card-page
+              className="flex w-[calc(100vw-32px)] shrink-0 snap-start justify-center md:w-auto md:snap-none"
+            >
+              {cardElement}
+            </div>
+          ) : (
+            cardElement
           );
         })}
 

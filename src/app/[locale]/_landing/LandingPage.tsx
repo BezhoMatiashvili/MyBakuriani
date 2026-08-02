@@ -291,8 +291,10 @@ export default function LandingPage({
       <section
         data-testid="homepage-hero"
         className={cn(
-          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
-          activeDropdown ? "overflow-visible" : "overflow-hidden",
+          "relative flex items-start justify-center px-4 pb-0 pt-10 md:pb-14 lg:pb-0 lg:pt-16",
+          activeDropdown
+            ? "overflow-visible"
+            : "overflow-visible md:overflow-hidden lg:overflow-visible",
         )}
         style={{
           background:
@@ -551,7 +553,11 @@ export default function LandingPage({
               </Link>
             </div>
           </ScrollReveal>
-          <MobileRail desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none" desktopItemClassName="lg:w-auto lg:snap-none">
+          <MobileRail
+            mobileLayout="single-page"
+            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
+            desktopItemClassName="lg:w-auto lg:snap-none"
+          >
             {blogItems.map((post, i) => {
               const chipPalette = [
                 { bg: "#DBEAFE", fg: "#1D4ED8", label: t("blogChips.news") },
@@ -569,10 +575,15 @@ export default function LandingPage({
                   ? post.image
                   : fallbackPhotos[i % fallbackPhotos.length];
               return (
-                <ScrollReveal key={post.id} delay={i * 0.1}>
+                <ScrollReveal
+                  key={post.id}
+                  delay={i * 0.1}
+                  className="h-full md:h-auto"
+                >
                   <Link
                     href={`/blog/${post.id}`}
-                    className="group block overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+                    data-home-blog-card
+                    className="group block h-full overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)] md:h-auto"
                   >
                     <div className="relative aspect-[8/5] overflow-hidden">
                       <Image
@@ -744,7 +755,13 @@ function ServiceSection({
             </div>
           </div>
         </ScrollReveal>
-        <MobileRail desktopClassName="lg:gap-6 lg:pb-0" desktopItemClassName={cardVariant === "avatar" ? "lg:w-[280px]" : "lg:w-[340px]"}>
+        <MobileRail
+          mobileLayout="single-page"
+          desktopClassName="lg:gap-6 lg:pb-0"
+          desktopItemClassName={
+            cardVariant === "avatar" ? "lg:w-[280px]" : "lg:w-[340px]"
+          }
+        >
           {filteredCards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
               <ServiceCard {...card} variant={cardVariant} />
@@ -815,7 +832,11 @@ function EmploymentSection({
             </div>
           </div>
         </ScrollReveal>
-        <MobileRail desktopClassName="lg:gap-6 lg:pb-0" desktopItemClassName="lg:w-[300px]">
+        <MobileRail
+          mobileLayout="single-page"
+          desktopClassName="lg:gap-6 lg:pb-0"
+          desktopItemClassName="lg:w-[300px]"
+        >
           {cards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
               <EmploymentCard
@@ -956,7 +977,11 @@ function PropertySection({
             </div>
           </div>
         </ScrollReveal>
-        <MobileRail desktopClassName="lg:gap-6 lg:pb-0" desktopItemClassName="lg:w-[340px]">
+        <MobileRail
+          mobileLayout="single-page"
+          desktopClassName="lg:gap-6 lg:pb-0"
+          desktopItemClassName="lg:w-[340px]"
+        >
           {filteredProperties.map((prop, i) => (
             <ScrollReveal key={prop.id} delay={i * 0.08} className="h-full">
               <PropertyCard {...prop} />

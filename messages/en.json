@@ -193,6 +193,7 @@
       "guests": "Guests",
       "cleaners": "Cleaners",
       "balanceAndVip": "Balance & VIP",
+      "priceDropSms": "Price-drop SMS",
       "smsCenter": "SMS Center",
       "notificationsItem": "Notifications",
       "homePage": "Home",
@@ -919,14 +920,55 @@
     "learnMore": "Learn more",
     "more": "more pending"
   },
+  "PriceDropSms": {
+    "title": "Price-drop SMS alerts",
+    "subtitle": "Notify interested buyers automatically after an approved price decrease.",
+    "balanceLabel": "SMS balance",
+    "balance": "{count} credits",
+    "chargeNotice": "One credit is charged only after the provider confirms delivery.",
+    "fixedTemplateTitle": "Fixed message template",
+    "fixedTemplate": "Price dropped! [Property]: from [Old price] to [New price]. View: [Link] — MyBakuriani.ge",
+    "windowNotice": "Multiple decreases are combined during a fixed 24-hour window.",
+    "listingsTitle": "Personal sale listings",
+    "subscribers": "{count} subscribers",
+    "eventStatus": "Latest event: {status}",
+    "toggleAria": "Toggle price alerts for {title}",
+    "empty": "No personal sale listings found.",
+    "enabled": "Price alerts enabled",
+    "disabled": "Price alerts disabled",
+    "loadError": "Could not load price alerts.",
+    "saveError": "Could not save this setting.",
+    "statuses": { "open": "collecting changes", "awaiting_credit": "waiting for credits", "queued": "queued", "cancelled": "cancelled", "expired": "expired" },
+    "public": {
+      "action": "Notify me if price drops",
+      "active": "Price alert is on",
+      "enabled": "Price alert enabled",
+      "disabled": "Price alert disabled",
+      "phoneRequired": "A verified Georgian phone number is required.",
+      "optedOut": "Marketing messages are disabled in your profile.",
+      "error": "Could not update the price alert."
+    }
+  },
+  "ManualReview": {
+    "loading": "Loading review form…",
+    "invalid": "This review link is invalid, expired, or already used.",
+    "thanks": "Thank you for your review!",
+    "title": "Rate your stay",
+    "subtitle": "Share your experience at {property}.",
+    "ratingLabel": "Rating",
+    "commentLabel": "Comment (optional)",
+    "submit": "Submit review",
+    "submitting": "Submitting…"
+  },
   "SMSCenter": {
     "pageTitle": "SMS Center",
-    "pageSubtitle": "Automated and broadcast SMS",
+    "pageSubtitle": "Controlled automatic messages for rental guests",
     "balance": {
       "label": "SMS balance",
       "unit": "messages",
       "remaining": "You have {count} SMS credits remaining.",
       "lastBroadcast": "Last broadcast",
+      "automationOnly": "Only enabled automatic templates are sent",
       "buyPackage": "Buy package",
       "buyingPackage": "Loading..."
     },
@@ -1007,6 +1049,7 @@
       "status": {
         "pending": "Pending",
         "approved": "Approved",
+        "submitted": "Submitted",
         "rejected": "Rejected",
         "sent": "Delivered",
         "failed": "Failed",

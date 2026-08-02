@@ -184,6 +184,7 @@ interface DashboardShellProps {
   balance: number;
   smsRemaining: number;
   canUseSms: boolean;
+  canUseSellerSms: boolean;
   smartMatchCount: number;
   availableCabinets: string[];
   /** Cleaner availability toggle initial state (defaults to the DB default). */
@@ -202,6 +203,7 @@ export function DashboardShell({
   balance,
   smsRemaining,
   canUseSms,
+  canUseSellerSms,
   smartMatchCount: initialSmartMatchCount,
   availableCabinets,
   cleanerOnline = true,
@@ -528,6 +530,7 @@ export function DashboardShell({
             onSignOut={handleSignOut}
             availableCabinets={availableCabinets}
             companies={companies}
+            canUseSellerSms={canUseSellerSms}
           />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <SellerTopbar balance={balance} smsRemaining={smsRemaining} />
@@ -543,6 +546,7 @@ export function DashboardShell({
             onSignOut={handleSignOut}
             notificationCount={notificationCount}
             leadsCount={leadsCount}
+            canUseSms={canUseSellerSms}
           />
         </div>
       </ActiveOrgScopeProvider>

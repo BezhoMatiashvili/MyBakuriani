@@ -205,7 +205,8 @@ export type Database = {
           check_out: string;
           created_at: string | null;
           currency: string | null;
-          guest_id: string;
+          guest_id: string | null;
+          guest_name_snapshot: string | null;
           guest_message: string | null;
           guests_count: number;
           id: string;
@@ -1927,6 +1928,7 @@ export type Database = {
           moderated_at: string | null;
           moderated_by: string | null;
           moderation_notes: string | null;
+          manual_booking_id: string | null;
           property_id: string;
           rating: number;
           status: string;
@@ -1938,11 +1940,13 @@ export type Database = {
           booking_id?: string | null;
           comment?: string | null;
           created_at?: string | null;
-          guest_id: string;
+          guest_id?: string | null;
+          guest_name_snapshot?: string | null;
           id?: string;
           moderated_at?: string | null;
           moderated_by?: string | null;
           moderation_notes?: string | null;
+          manual_booking_id?: string | null;
           property_id: string;
           rating: number;
           status?: string;
@@ -1954,16 +1958,25 @@ export type Database = {
           booking_id?: string | null;
           comment?: string | null;
           created_at?: string | null;
-          guest_id?: string;
+          guest_id?: string | null;
+          guest_name_snapshot?: string | null;
           id?: string;
           moderated_at?: string | null;
           moderated_by?: string | null;
           moderation_notes?: string | null;
+          manual_booking_id?: string | null;
           property_id?: string;
           rating?: number;
           status?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "reviews_manual_booking_id_fkey";
+            columns: ["manual_booking_id"];
+            isOneToOne: false;
+            referencedRelation: "manual_bookings";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "reviews_booking_id_fkey";
             columns: ["booking_id"];
@@ -2429,6 +2442,126 @@ export type Database = {
           },
         ];
       };
+      sale_price_alert_rules: {
+        Row: {
+          property_id: string;
+          owner_id: string;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          property_id: string;
+          owner_id: string;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          property_id?: string;
+          owner_id?: string;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "sale_price_alert_rules_property_id_fkey"; columns: ["property_id"]; isOneToOne: true; referencedRelation: "properties"; referencedColumns: ["id"] },
+          { foreignKeyName: "sale_price_alert_rules_owner_id_fkey"; columns: ["owner_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      sale_price_alert_subscriptions: {
+        Row: {
+          property_id: string;
+          subscriber_id: string;
+          active: boolean;
+          consent_version: string;
+          subscribed_at: string;
+          unsubscribed_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          property_id: string;
+          subscriber_id: string;
+          active?: boolean;
+          consent_version?: string;
+          subscribed_at?: string;
+          unsubscribed_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          property_id?: string;
+          subscriber_id?: string;
+          active?: boolean;
+          consent_version?: string;
+          subscribed_at?: string;
+          unsubscribed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "sale_price_alert_subscriptions_property_id_fkey"; columns: ["property_id"]; isOneToOne: false; referencedRelation: "properties"; referencedColumns: ["id"] },
+          { foreignKeyName: "sale_price_alert_subscriptions_subscriber_id_fkey"; columns: ["subscriber_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      sale_price_drop_events: {
+        Row: {
+          id: string;
+          property_id: string;
+          payer_id: string;
+          baseline_price: number;
+          latest_price: number;
+          lowest_price: number;
+          property_title: string;
+          currency: string | null;
+          window_started_at: string;
+          last_decrease_at: string;
+          send_after: string;
+          status: string;
+          outcome_reason: string | null;
+          materialized_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          property_id: string;
+          payer_id: string;
+          baseline_price: number;
+          latest_price: number;
+          lowest_price: number;
+          property_title: string;
+          currency?: string | null;
+          window_started_at?: string;
+          last_decrease_at?: string;
+          send_after: string;
+          status?: string;
+          outcome_reason?: string | null;
+          materialized_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          property_id?: string;
+          payer_id?: string;
+          baseline_price?: number;
+          latest_price?: number;
+          lowest_price?: number;
+          property_title?: string;
+          currency?: string | null;
+          window_started_at?: string;
+          last_decrease_at?: string;
+          send_after?: string;
+          status?: string;
+          outcome_reason?: string | null;
+          materialized_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "sale_price_drop_events_property_id_fkey"; columns: ["property_id"]; isOneToOne: false; referencedRelation: "properties"; referencedColumns: ["id"] },
+          { foreignKeyName: "sale_price_drop_events_payer_id_fkey"; columns: ["payer_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
       sms_broadcasts: {
         Row: {
           admin_notes: string | null;
@@ -2542,6 +2675,7 @@ export type Database = {
         Row: {
           admin_notes: string | null;
           automation_kind: string | null;
+          available_at: string;
           broadcast_id: string | null;
           charged_at: string | null;
           contact_event_id: string | null;
@@ -2550,8 +2684,13 @@ export type Database = {
           dispatch_claim_token: string | null;
           dispatch_claimed_at: string | null;
           id: string;
+          delivered_at: string | null;
+          expires_at: string | null;
+          legacy_origin: boolean;
           message: string;
           provider_response: Json | null;
+          provider_message_id: string | null;
+          price_drop_event_id: string | null;
           recipient_id: string | null;
           recipient_phone: string;
           reviewed_at: string | null;
@@ -2560,11 +2699,13 @@ export type Database = {
           sent_at: string | null;
           source_booking_id: string | null;
           source_manual_booking_id: string | null;
+          submitted_at: string | null;
           status: Database["public"]["Enums"]["sms_outbound_status"];
         };
         Insert: {
           admin_notes?: string | null;
           automation_kind?: string | null;
+          available_at?: string;
           broadcast_id?: string | null;
           charged_at?: string | null;
           contact_event_id?: string | null;
@@ -2573,8 +2714,13 @@ export type Database = {
           dispatch_claim_token?: string | null;
           dispatch_claimed_at?: string | null;
           id?: string;
+          delivered_at?: string | null;
+          expires_at?: string | null;
+          legacy_origin?: boolean;
           message: string;
           provider_response?: Json | null;
+          provider_message_id?: string | null;
+          price_drop_event_id?: string | null;
           recipient_id: string | null;
           recipient_phone: string;
           reviewed_at?: string | null;
@@ -2583,11 +2729,13 @@ export type Database = {
           sent_at?: string | null;
           source_booking_id?: string | null;
           source_manual_booking_id?: string | null;
+          submitted_at?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
         };
         Update: {
           admin_notes?: string | null;
           automation_kind?: string | null;
+          available_at?: string;
           broadcast_id?: string | null;
           charged_at?: string | null;
           contact_event_id?: string | null;
@@ -2596,8 +2744,13 @@ export type Database = {
           dispatch_claim_token?: string | null;
           dispatch_claimed_at?: string | null;
           id?: string;
+          delivered_at?: string | null;
+          expires_at?: string | null;
+          legacy_origin?: boolean;
           message?: string;
           provider_response?: Json | null;
+          provider_message_id?: string | null;
+          price_drop_event_id?: string | null;
           recipient_id?: string | null;
           recipient_phone?: string;
           reviewed_at?: string | null;
@@ -2606,9 +2759,17 @@ export type Database = {
           sent_at?: string | null;
           source_booking_id?: string | null;
           source_manual_booking_id?: string | null;
+          submitted_at?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
         };
         Relationships: [
+          {
+            foreignKeyName: "sms_outbound_price_drop_event_id_fkey";
+            columns: ["price_drop_event_id"];
+            isOneToOne: false;
+            referencedRelation: "sale_price_drop_events";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "sms_outbound_broadcast_id_fkey";
             columns: ["broadcast_id"];
@@ -3223,6 +3384,15 @@ export type Database = {
         Returns: number;
       };
       sms_cancel_ineligible_automation: { Args: never; Returns: number };
+      sms_cancel_ineligible_price_drop: { Args: never; Returns: number };
+      manual_review_token_details: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      submit_manual_booking_review: {
+        Args: { p_token: string; p_rating: number; p_comment?: string | null };
+        Returns: string;
+      };
       sms_cancel_queued_automation: {
         Args: { p_kind: string; p_reason?: string; p_sender_id: string };
         Returns: number;
@@ -3257,6 +3427,30 @@ export type Database = {
         Returns: string | null;
       };
       sms_expire_stale_automation: { Args: never; Returns: number };
+      sms_patch_automation_rules: {
+        Args: { p_sender_id: string; p_patch: Json };
+        Returns: Database["public"]["Tables"]["sms_automation_rules"]["Row"];
+      };
+      sms_set_price_drop_rule: {
+        Args: { p_owner_id: string; p_property_id: string; p_enabled: boolean };
+        Returns: Database["public"]["Tables"]["sale_price_alert_rules"]["Row"];
+      };
+      sms_materialize_due_price_drop_events: {
+        Args: { p_site_url: string; p_limit?: number; p_allowed_payers?: string[] | null };
+        Returns: Json;
+      };
+      sms_create_manual_review_token: {
+        Args: { p_owner_id: string; p_manual_booking_id: string };
+        Returns: string;
+      };
+      sms_mark_claim_submitted: {
+        Args: { p_sms_id: string; p_claim_token: string; p_provider_message_id: string; p_provider_response?: Json };
+        Returns: undefined;
+      };
+      sms_mark_provider_delivered: {
+        Args: { p_provider_message_id: string; p_provider_response?: Json };
+        Returns: Json;
+      };
       sms_mark_failed: {
         Args: { p_provider_response?: Json; p_sms_id: string };
         Returns: undefined;
@@ -3393,7 +3587,7 @@ export type Database = {
         | "sent"
         | "failed";
       sms_outbound_status:
-        "pending" | "approved" | "rejected" | "sent" | "failed";
+        "pending" | "approved" | "submitted" | "rejected" | "sent" | "failed";
       transaction_type:
         | "topup"
         | "vip_boost"
@@ -3595,6 +3789,7 @@ export const Constants = {
       sms_outbound_status: [
         "pending",
         "approved",
+        "submitted",
         "rejected",
         "sent",
         "failed",

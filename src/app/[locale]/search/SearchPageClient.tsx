@@ -15,9 +15,15 @@ import {
   DEFAULT_FILTERS,
   type Filters,
 } from "@/components/search/FilterPanel";
-import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
+import {
+  SearchBox,
+  type ActiveDropdown,
+  type SearchFilters,
+} from "@/components/search/SearchBox";
 import { useActiveZones } from "@/lib/zones/client";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
+import StatusCards from "@/components/landing/StatusCards";
+import type { StatusCard } from "@/lib/status-cards/types";
 import BottomSheet from "@/components/shared/BottomSheet";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
@@ -33,6 +39,7 @@ type ActiveTab = "all" | "properties" | "services" | "blog";
 
 interface Props {
   initialProperties: Tables<"properties">[];
+  statusCards: StatusCard[];
   initialLocation?: string;
   initialCheckIn?: string;
   initialCheckOut?: string;
@@ -52,6 +59,7 @@ interface SearchState {
 
 export default function SearchPageClient({
   initialProperties,
+  statusCards,
   initialLocation = "",
   initialCheckIn = "",
   initialCheckOut = "",
@@ -61,6 +69,7 @@ export default function SearchPageClient({
   initialFilters = DEFAULT_FILTERS,
 }: Props) {
   const t = useTranslations("SearchPage");
+  const tLanding = useTranslations("Landing");
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [searchState, setSearchState] = useState<SearchState>({
     location: initialLocation,
@@ -72,6 +81,8 @@ export default function SearchPageClient({
   const [mode, setMode] = useState<"rent" | "sale">(initialMode);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ActiveTab>("all");
+  const [activeDropdown, setActiveDropdown] =
+    useState<ActiveDropdown>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Property-only path state (used when no keyword)
@@ -87,6 +98,8 @@ export default function SearchPageClient({
   const [loading, setLoading] = useState(false);
   const isInitialMount = useRef(true);
   const isFirstUrlSync = useRef(true);
+  const dropdownPortalRef = useRef<HTMLDivElement>(null);
+  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { zones } = useActiveZones();
 
@@ -311,26 +324,92 @@ export default function SearchPageClient({
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <ScrollReveal>
+    <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
+      <section
+        data-testid="listing-hero"
+        className={cn(
+          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
+          activeDropdown ? "overflow-visible" : "overflow-hidden",
+        )}
+        style={{
+          background:
+            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+        }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
+            backgroundSize: "cover",
+            backgroundPosition: "center bottom",
+            mixBlendMode: "overlay",
+          }}
+        />
+
+        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
+          <ScrollReveal>
+            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
+              {tLanding("trustedGuide")}{" "}
+              <span className="text-[#38BDF8]">
+                {tLanding("inBakuriani")}
+              </span>
+            </h1>
+          </ScrollReveal>
+
           {!hasKeyword && (
-            <div className="mb-4 flex justify-center">
+            <div className="mt-6 flex justify-center">
               <RentBuyToggle value={mode} onChange={handleModeChange} />
             </div>
           )}
-          <SearchBox
-            onSearch={handleSearch}
-            className="mb-8"
-            defaultLocation={initialLocation}
-            defaultGuests={initialGuests}
-            defaultKeyword={initialKeyword}
-            defaultCheckIn={initialCheckIn}
-            defaultCheckOut={initialCheckOut}
-            zones={zones}
-          />
-        </ScrollReveal>
 
+          <div className="relative mt-6" data-testid="search-overlay-container">
+            <SearchBox
+              onSearch={handleSearch}
+              className="shadow-[var(--shadow-search)]"
+              defaultLocation={initialLocation}
+              defaultGuests={initialGuests}
+              defaultKeyword={initialKeyword}
+              defaultCheckIn={initialCheckIn}
+              defaultCheckOut={initialCheckOut}
+              dropdownPortalRef={dropdownPortalRef}
+              dropdownBoundaryRef={dropdownBoundaryRef}
+              onActiveDropdownChange={setActiveDropdown}
+              zones={zones}
+            />
+
+            {activeDropdown === "filters" ? (
+              <div
+                ref={dropdownBoundaryRef}
+                onMouseDown={(event) => event.stopPropagation()}
+                className="absolute left-0 top-full z-30 mt-2 hidden w-[700px] max-w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:block"
+              >
+                <div ref={dropdownPortalRef} className="min-w-0" />
+              </div>
+            ) : activeDropdown === "calendar" ? (
+              <div
+                ref={dropdownBoundaryRef}
+                onMouseDown={(event) => event.stopPropagation()}
+                className="absolute left-0 top-full z-30 mt-2 hidden w-[760px] max-w-full lg:block"
+              >
+                <div ref={dropdownPortalRef} className="min-w-0" />
+              </div>
+            ) : null}
+          </div>
+
+          <div data-testid="search-status-cards">
+            <StatusCards
+              cards={statusCards}
+              className="mt-8 sm:-mb-[42px]"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section
+        data-testid="listing-results"
+        className="mx-auto w-full max-w-7xl px-4 py-12 lg:py-16"
+      >
         <div className="flex gap-8">
           {/* Filter sidebar — only meaningful without a keyword */}
           {!hasKeyword && (
@@ -558,7 +637,7 @@ export default function SearchPageClient({
             </div>
           </div>
         </BottomSheet>
-      </div>
+      </section>
     </div>
   );
 }
