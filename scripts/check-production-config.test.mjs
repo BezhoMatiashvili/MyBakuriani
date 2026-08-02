@@ -83,8 +83,8 @@ test("rejects invalid SMS feature modes and QA without an allowlist", () => {
     NEXT_PUBLIC_SITE_URL: canonicalOrigin,
   };
   assert.match(
-    validateProductionConfig({ ...base, SMS_RENTAL_MODE: "maybe" }).join(" "),
-    /SMS_RENTAL_MODE must be one of/,
+    validateProductionConfig({ ...base, SMS_PRICE_DROP_MODE: "maybe" }).join(" "),
+    /SMS_PRICE_DROP_MODE must be one of/,
   );
   assert.match(
     validateProductionConfig({ ...base, SMS_PRICE_DROP_MODE: "qa" }).join(" "),
@@ -93,8 +93,7 @@ test("rejects invalid SMS feature modes and QA without an allowlist", () => {
   assert.deepEqual(
     validateProductionConfig({
       ...base,
-      SMS_RENTAL_MODE: "qa",
-      SMS_PRICE_DROP_MODE: "off",
+      SMS_PRICE_DROP_MODE: "qa",
       SMS_QA_USER_IDS: "00000000-0000-0000-0000-000000000001",
     }),
     [],

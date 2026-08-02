@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { canUseSmsCenter } from "@/lib/sms/sender-access";
-import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 
 export const runtime = "nodejs";
 
@@ -44,10 +43,7 @@ async function requireSender() {
   if (!user) {
     return { ok: false as const, status: 401, error: "unauthenticated" };
   }
-  if (
-    !isSmsFeatureEnabled("SMS_RENTAL_MODE", user.id) ||
-    !(await canUseSmsCenter(supabase, user.id))
-  ) {
+  if (!(await canUseSmsCenter(supabase, user.id))) {
     return { ok: false as const, status: 403, error: "role_not_allowed" };
   }
   return { ok: true as const, userId: user.id };

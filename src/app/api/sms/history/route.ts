@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { canUseSmsCenter } from "@/lib/sms/sender-access";
-import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 
 export const runtime = "nodejs";
 
@@ -23,10 +22,7 @@ export async function GET() {
     return Response.json({ error: "unauthenticated" }, { status: 401 });
   }
 
-  if (
-    !isSmsFeatureEnabled("SMS_RENTAL_MODE", user.id) ||
-    !(await canUseSmsCenter(supabase, user.id))
-  ) {
+  if (!(await canUseSmsCenter(supabase, user.id))) {
     return Response.json({ error: "role_not_allowed" }, { status: 403 });
   }
 

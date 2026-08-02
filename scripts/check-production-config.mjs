@@ -56,7 +56,7 @@ export function validateProductionConfig(env = process.env) {
     );
   }
 
-  for (const name of ["SMS_RENTAL_MODE", "SMS_PRICE_DROP_MODE"]) {
+  for (const name of ["SMS_PRICE_DROP_MODE"]) {
     const mode = env[name]?.trim().toLowerCase() || "off";
     if (!["off", "qa", "on"].includes(mode)) {
       errors.push(`${name} must be one of: off, qa, on.`);

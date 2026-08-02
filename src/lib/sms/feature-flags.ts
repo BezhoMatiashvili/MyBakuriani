@@ -1,6 +1,7 @@
 export type SmsFeatureMode = "off" | "qa" | "on";
+type WebSmsFeature = "SMS_PRICE_DROP_MODE";
 
-function readMode(name: "SMS_RENTAL_MODE" | "SMS_PRICE_DROP_MODE"): SmsFeatureMode {
+function readMode(name: WebSmsFeature): SmsFeatureMode {
   const raw = process.env[name]?.trim().toLowerCase();
   if (raw === "off" || raw === "qa" || raw === "on") return raw;
   return process.env.NODE_ENV === "production" ? "off" : "on";
@@ -16,7 +17,7 @@ function qaUsers(): Set<string> {
 }
 
 export function isSmsFeatureEnabled(
-  name: "SMS_RENTAL_MODE" | "SMS_PRICE_DROP_MODE",
+  name: WebSmsFeature,
   userId: string | null | undefined,
 ): boolean {
   const mode = readMode(name);
@@ -25,8 +26,6 @@ export function isSmsFeatureEnabled(
   return qaUsers().has(userId);
 }
 
-export function smsFeatureMode(
-  name: "SMS_RENTAL_MODE" | "SMS_PRICE_DROP_MODE",
-): SmsFeatureMode {
+export function smsFeatureMode(name: WebSmsFeature): SmsFeatureMode {
   return readMode(name);
 }
