@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -30,6 +30,14 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import BannerSlot from "@/components/banners/BannerSlot";
+import {
+  RENT_PRICE_MAX,
+  RENT_PRICE_MIN,
+  buildRentSearchParams,
+  normalizeRentFilters,
+  parseRentSearchParams,
+  type RentAdvancedFilters,
+} from "@/lib/search/rentSearchQuery";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -55,6 +63,108 @@ interface SearchState {
   checkOut: string;
   guests: number | "";
   keyword: string;
+}
+
+function filterPropertiesLocally(
+  items: Tables<"properties">[],
+  search: SearchState,
+  currentFilters: Filters,
+  currentMode: "rent" | "sale",
+) {
+  const locationQuery = search.location.trim().toLowerCase();
+  const keywordQuery = search.keyword.trim().toLowerCase();
+
+  return items.filter((property) => {
+    const title = property.title.toLowerCase();
+    const description = (property.description ?? "").toLowerCase();
+    const location = (property.location ?? "").toLowerCase();
+    const cadastralCode = (property.cadastral_code ?? "").toLowerCase();
+    if (locationQuery && !title.includes(locationQuery) && !location.includes(locationQuery)) {
+      return false;
+    }
+    if (
+      keywordQuery &&
+      !title.includes(keywordQuery) &&
+      !description.includes(keywordQuery) &&
+      !location.includes(keywordQuery) &&
+      !cadastralCode.includes(keywordQuery)
+    ) {
+      return false;
+    }
+    if (currentMode === "sale" ? !property.is_for_sale : property.is_for_sale) {
+      return false;
+    }
+
+    const price = Number(
+      currentMode === "sale" ? property.sale_price : property.price_per_night,
+    );
+    if (
+      currentFilters.priceMin !== "" &&
+      (!Number.isFinite(price) || price < currentFilters.priceMin)
+    ) {
+      return false;
+    }
+    if (
+      currentFilters.priceMax !== "" &&
+      (!Number.isFinite(price) || price > currentFilters.priceMax)
+    ) {
+      return false;
+    }
+    if (
+      currentFilters.rooms !== null &&
+      (property.rooms ?? 0) < currentFilters.rooms
+    ) {
+      return false;
+    }
+    if (
+      currentFilters.bathrooms !== null &&
+      (property.bathrooms ?? 0) < currentFilters.bathrooms
+    ) {
+      return false;
+    }
+    if (search.guests !== "" && (property.capacity ?? 0) < search.guests) {
+      return false;
+    }
+    if (
+      currentFilters.areaMin !== "" &&
+      (property.area_sqm ?? 0) < currentFilters.areaMin
+    ) {
+      return false;
+    }
+    if (
+      currentFilters.areaMax !== "" &&
+      (property.area_sqm ?? Number.POSITIVE_INFINITY) > currentFilters.areaMax
+    ) {
+      return false;
+    }
+    if (
+      currentFilters.types.length > 0 &&
+      !currentFilters.types.includes(property.type)
+    ) {
+      return false;
+    }
+
+    const amenities = Array.isArray(property.amenities)
+      ? property.amenities.filter(
+          (amenity): amenity is string => typeof amenity === "string",
+        )
+      : [];
+    if (
+      currentFilters.amenities.some(
+        (amenity) => !amenities.includes(amenity),
+      )
+    ) {
+      return false;
+    }
+    if (
+      currentFilters.verifiedOnly &&
+      (property as Tables<"properties"> & { profile_is_verified?: boolean })
+        .profile_is_verified !== true
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export default function SearchPageClient({
@@ -84,6 +194,9 @@ export default function SearchPageClient({
   const [activeDropdown, setActiveDropdown] =
     useState<ActiveDropdown>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [mobileFilterDraft, setMobileFilterDraft] = useState<Filters | null>(
+    null,
+  );
 
   // Property-only path state (used when no keyword)
   const [properties, setProperties] =
@@ -98,12 +211,34 @@ export default function SearchPageClient({
   const [loading, setLoading] = useState(false);
   const isInitialMount = useRef(true);
   const isFirstUrlSync = useRef(true);
+  const hasObservedUrl = useRef(false);
+  const skipNextUrlWrite = useRef(false);
+  const lastWrittenQuery = useRef<string | null>(null);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
   const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const urlSearchParams = useSearchParams();
+  const urlQuery = urlSearchParams.toString();
   const { zones } = useActiveZones();
 
   const hasKeyword = searchState.keyword.trim().length > 0;
+
+  const searchBoxAdvancedFilters = useMemo<RentAdvancedFilters>(
+    () =>
+      normalizeRentFilters({
+        priceMin:
+          filters.priceMin === "" ? RENT_PRICE_MIN : filters.priceMin,
+        priceMax:
+          filters.priceMax === "" ? RENT_PRICE_MAX : filters.priceMax,
+        bedrooms: filters.rooms,
+        bathrooms: filters.bathrooms,
+        capacity:
+          searchState.guests === "" ? null : Number(searchState.guests),
+        amenities: filters.amenities,
+        verifiedOnly: filters.verifiedOnly,
+      }),
+    [filters, searchState.guests],
+  );
 
   const runSearch = useCallback(
     async (
@@ -140,6 +275,8 @@ export default function SearchPageClient({
           body.bathrooms = currentFilters.bathrooms;
         if (currentFilters.types.length === 1)
           body.property_type = currentFilters.types[0];
+        if (currentFilters.types.length > 1)
+          body.property_types = currentFilters.types;
         if (currentFilters.areaMin !== "")
           body.area_min = currentFilters.areaMin;
         if (currentFilters.areaMax !== "")
@@ -187,33 +324,19 @@ export default function SearchPageClient({
       } catch {
         // Fallback: client-side filter the initial property data so the page
         // never appears empty if the edge function is unreachable.
+        const filtered = filterPropertiesLocally(
+          initialProperties,
+          search,
+          currentFilters,
+          currentMode,
+        );
         if (search.keyword.trim()) {
-          const q = search.keyword.trim().toLowerCase();
-          const filtered = initialProperties.filter(
-            (p) =>
-              p.title.toLowerCase().includes(q) ||
-              (p.description ?? "").toLowerCase().includes(q) ||
-              (p.location ?? "").toLowerCase().includes(q) ||
-              (p.cadastral_code ?? "").toLowerCase().includes(q),
-          );
           setKwProperties(filtered);
           setKwServices([]);
           setKwBlog([]);
           setProperties([]);
           setTotalCount(0);
         } else {
-          let filtered = initialProperties;
-          if (search.location) {
-            const q = search.location.toLowerCase();
-            filtered = filtered.filter(
-              (p) =>
-                p.title.toLowerCase().includes(q) ||
-                p.location?.toLowerCase().includes(q),
-            );
-          }
-          filtered = filtered.filter((p) =>
-            currentMode === "sale" ? p.is_for_sale : !p.is_for_sale,
-          );
           setProperties(filtered);
           setTotalCount(filtered.length);
         }
@@ -251,50 +374,84 @@ export default function SearchPageClient({
       isFirstUrlSync.current = false;
       return;
     }
-    const params = new URLSearchParams();
-    if (searchState.location) params.set("location", searchState.location);
-    if (searchState.checkIn) params.set("check_in", searchState.checkIn);
-    if (searchState.checkOut) params.set("check_out", searchState.checkOut);
-    if (searchState.guests) params.set("guests", String(searchState.guests));
-    if (searchState.keyword) params.set("q", searchState.keyword);
-    params.set("mode", mode);
-    if (filters.priceMin !== "")
-      params.set("price_min", String(filters.priceMin));
-    if (filters.priceMax !== "")
-      params.set("price_max", String(filters.priceMax));
-    if (filters.rooms !== null) params.set("rooms", String(filters.rooms));
-    if (filters.bathrooms !== null)
-      params.set("bathrooms", String(filters.bathrooms));
+    if (skipNextUrlWrite.current) {
+      skipNextUrlWrite.current = false;
+      return;
+    }
+    const params = buildRentSearchParams(
+      {
+        ...searchState,
+        advancedFilters: searchBoxAdvancedFilters,
+      },
+      mode,
+    );
     if (filters.areaMin !== "") params.set("area_min", String(filters.areaMin));
     if (filters.areaMax !== "") params.set("area_max", String(filters.areaMax));
     if (filters.types.length > 0) params.set("types", filters.types.join(","));
-    if (filters.amenities.length > 0)
-      params.set("amenities", filters.amenities.join(","));
-    if (filters.verifiedOnly) params.set("verified_only", "true");
+    lastWrittenQuery.current = params.toString();
     router.replace(`/search?${params.toString()}`, { scroll: false });
-  }, [searchState, mode, filters, router]);
+  }, [searchState, mode, filters, router, searchBoxAdvancedFilters]);
+
+  useEffect(() => {
+    if (!hasObservedUrl.current) {
+      hasObservedUrl.current = true;
+      return;
+    }
+    if (lastWrittenQuery.current === urlQuery) {
+      lastWrittenQuery.current = null;
+      return;
+    }
+
+    const observedParams = new URLSearchParams(urlQuery);
+    const parsed = parseRentSearchParams(observedParams);
+    const advanced = parsed.values.advancedFilters;
+    const parseOptionalNumber = (key: string): number | "" => {
+      const raw = observedParams.get(key);
+      if (!raw) return "";
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : "";
+    };
+
+    skipNextUrlWrite.current = true;
+    setMode(parsed.mode);
+    setSearchState({
+      location: parsed.values.location,
+      checkIn: parsed.values.checkIn,
+      checkOut: parsed.values.checkOut,
+      guests: parsed.values.guests,
+      keyword: parsed.values.keyword,
+    });
+    setFilters({
+      priceMin:
+        advanced.priceMin === RENT_PRICE_MIN ? "" : advanced.priceMin,
+      priceMax:
+        advanced.priceMax === RENT_PRICE_MAX ? "" : advanced.priceMax,
+      rooms: advanced.bedrooms,
+      bathrooms: advanced.bathrooms,
+      areaMin: parseOptionalNumber("area_min"),
+      areaMax: parseOptionalNumber("area_max"),
+      types: (observedParams.get("types") ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+      amenities: advanced.amenities,
+      verifiedOnly: advanced.verifiedOnly,
+    });
+    setPage(1);
+    setActiveTab("all");
+  }, [urlQuery]);
 
   const handleSearch = useCallback((sf: SearchFilters) => {
     const adv = sf.advancedFilters;
-    if (adv) {
-      const normalizedRooms =
-        adv.bedrooms === "4+" ? 4 : adv.bedrooms ? Number(adv.bedrooms) : null;
-      const normalizedBathrooms =
-        adv.bathrooms === "3+"
-          ? 3
-          : adv.bathrooms
-            ? Number(adv.bathrooms)
-            : null;
-      setFilters((prev) => ({
-        ...prev,
-        priceMin: adv.priceMin,
-        priceMax: adv.priceMax,
-        rooms: normalizedRooms,
-        bathrooms: normalizedBathrooms,
-        amenities: adv.amenities,
-        verifiedOnly: adv.verifiedOnly,
-      }));
-    }
+    setFilters((prev) => ({
+      ...prev,
+      priceMin: adv.priceMin === RENT_PRICE_MIN ? "" : adv.priceMin,
+      priceMax: adv.priceMax === RENT_PRICE_MAX ? "" : adv.priceMax,
+      rooms: adv.bedrooms,
+      bathrooms: adv.bathrooms,
+      amenities: adv.amenities,
+      verifiedOnly: adv.verifiedOnly,
+    }));
     setSearchState({
       location: sf.location,
       checkIn: sf.checkIn,
@@ -367,15 +524,16 @@ export default function SearchPageClient({
             <SearchBox
               onSearch={handleSearch}
               className="shadow-[var(--shadow-search)]"
-              defaultLocation={initialLocation}
-              defaultGuests={initialGuests}
-              defaultKeyword={initialKeyword}
-              defaultCheckIn={initialCheckIn}
-              defaultCheckOut={initialCheckOut}
+              defaultLocation={searchState.location}
+              defaultGuests={searchState.guests}
+              defaultKeyword={searchState.keyword}
+              defaultCheckIn={searchState.checkIn}
+              defaultCheckOut={searchState.checkOut}
               dropdownPortalRef={dropdownPortalRef}
               dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
               zones={zones}
+              advancedFilters={searchBoxAdvancedFilters}
             />
 
             {activeDropdown === "filters" ? (
@@ -435,9 +593,16 @@ export default function SearchPageClient({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setMobileFiltersOpen(true)}
+                  onClick={() => {
+                    setMobileFilterDraft({
+                      ...filters,
+                      types: [...filters.types],
+                      amenities: [...filters.amenities],
+                    });
+                    setMobileFiltersOpen(true);
+                  }}
                   className="min-h-11 gap-2 lg:min-h-0"
-                  data-testid="search-mobile-filters"
+                  data-testid="search-results-mobile-filters"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                   {t("filters")}
@@ -613,29 +778,51 @@ export default function SearchPageClient({
 
         <BottomSheet
           isOpen={mobileFiltersOpen}
-          onClose={() => setMobileFiltersOpen(false)}
+          onClose={() => {
+            setMobileFiltersOpen(false);
+            setMobileFilterDraft(null);
+          }}
           title={t("filters")}
+          contentClassName="p-4 sm:p-5"
+          footer={
+            mobileFilterDraft ? (
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="min-h-11 flex-1"
+                  onClick={() =>
+                    setMobileFilterDraft({
+                      ...DEFAULT_FILTERS,
+                      types: [],
+                      amenities: [],
+                    })
+                  }
+                  data-testid="results-mobile-filter-reset"
+                >
+                  {t("resetFilters")}
+                </Button>
+                <Button
+                  className="min-h-11 flex-[1.4] bg-brand-accent text-white hover:bg-brand-accent-hover"
+                  onClick={() => {
+                    setFilters(mobileFilterDraft);
+                    setMobileFiltersOpen(false);
+                    setMobileFilterDraft(null);
+                  }}
+                  data-testid="results-mobile-filter-apply"
+                >
+                  {t("viewResults")}
+                </Button>
+              </div>
+            ) : undefined
+          }
         >
-          <FilterPanel filters={filters} onFilterChange={setFilters} />
-          <div className="sticky bottom-[-1.25rem] -mx-5 mt-5 border-t border-[#E2E8F0] bg-white/95 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="min-h-11 flex-1"
-                onClick={() => setFilters(DEFAULT_FILTERS)}
-                data-testid="mobile-filter-reset"
-              >
-                {t("resetFilters")}
-              </Button>
-              <Button
-                className="min-h-11 flex-[1.4] bg-brand-accent text-white hover:bg-brand-accent-hover"
-                onClick={() => setMobileFiltersOpen(false)}
-                data-testid="mobile-filter-apply"
-              >
-                {t("viewResults")}
-              </Button>
-            </div>
-          </div>
+          {mobileFilterDraft && (
+            <FilterPanel
+              filters={mobileFilterDraft}
+              onFilterChange={setMobileFilterDraft}
+              variant="sheet"
+            />
+          )}
         </BottomSheet>
       </section>
     </div>

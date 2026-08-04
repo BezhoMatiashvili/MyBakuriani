@@ -141,6 +141,69 @@ test.describe("Renter Dashboard", () => {
     expect(calendarMutations).toBe(0);
   });
 
+  test("win-back automation shows the live production SMS template", async ({
+    renterPage,
+  }) => {
+    await renterPage.setViewportSize({ width: 390, height: 844 });
+
+    const mockRules = {
+      check_in_reminder_enabled: false,
+      review_request_enabled: false,
+      win_back_enabled: true,
+      win_back_discount_value: null as string | null,
+      win_back_discount_period: null as string | null,
+    };
+    await renterPage.route("**/api/sms/automation", async (route) => {
+      if (route.request().method() !== "PATCH") {
+        await route.fallback();
+        return;
+      }
+      Object.assign(mockRules, route.request().postDataJSON());
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ rules: mockRules }),
+      });
+    });
+
+    await renterPage.goto("/dashboard/sms");
+    if (!(await assertDashboard(renterPage, "/dashboard/sms"))) return;
+
+    const winBackSwitch = renterPage.getByRole("switch", {
+      name: "დაბრუნებების გამოწვევა",
+    });
+    if ((await winBackSwitch.getAttribute("aria-checked")) !== "true") {
+      await winBackSwitch.click();
+    }
+
+    const preview = renterPage.getByTestId("win-back-sms-preview");
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText("SMS-ის წინასწარი ხედი");
+
+    const discountValue = renterPage.getByLabel("ფასდაკლების ოდენობა");
+    const discountPeriod = renterPage.getByLabel("აქციის პერიოდი ან პირობა");
+    await discountValue.fill("");
+    await discountPeriod.fill("");
+    await discountValue.fill("15%");
+
+    await expect(preview).toContainText(
+      "მიიღეთ სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის",
+    );
+    await expect(preview).not.toContainText("15%");
+
+    await discountPeriod.fill("ნოემბრის ბოლომდე");
+    await expect(preview).toContainText(
+      "მიიღეთ 15% ფასდაკლება (ნოემბრის ბოლომდე)",
+    );
+    await expect(preview).toContainText("[სტუმრის სახელი]");
+    await expect(preview).toContainText("[ბინის ბმული]");
+
+    const overflows = await renterPage.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(overflows).toBe(false);
+  });
+
   test("balance page loads", async ({ renterPage }) => {
     await renterPage.goto("/dashboard/renter/balance");
     if (!(await assertDashboard(renterPage, "/dashboard/renter/balance")))

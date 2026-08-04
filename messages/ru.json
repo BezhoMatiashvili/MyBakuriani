@@ -306,6 +306,11 @@
     "clear": "Очистить",
     "confirm": "Подтвердить",
     "showResults": "Показать результаты",
+    "min": "Мин.",
+    "max": "Макс.",
+    "minimumPrice": "Минимальная цена",
+    "maximumPrice": "Максимальная цена",
+    "locationOptions": "Варианты локации",
     "zones": {
       "didveli": "Дидвели / Кристал",
       "didveliDesc": "Рядом с трассами, с видом на подъёмник",
@@ -331,11 +336,11 @@
       "wifi": "Wi-Fi",
       "centralHeating": "Центральное отопление",
       "skiStorage": "Хранение лыж",
-      "hotWater": "Горячая вода",
+      "tv": "Телевизор",
       "fireplace": "Камин",
       "parking": "Парковка",
       "washingMachine": "Стиральная машина",
-      "kitchenware": "Посуда"
+      "fullKitchen": "Полностью оборудованная кухня"
     }
   },
   "FilterPanel": {
@@ -1096,7 +1101,11 @@
     },
     "preview": {
       "deviceLabel": "MyBakuriani",
-      "emptyText": "Ваше сообщение появится здесь..."
+      "emptyText": "Ваше сообщение появится здесь...",
+      "title": "Предпросмотр SMS",
+      "automaticFieldsHint": "Имя гостя и ссылка на объект подставляются автоматически.",
+      "guestNamePlaceholder": "[Имя гостя]",
+      "propertyLinkPlaceholder": "[Ссылка на объект]"
     },
     "audiences": {
       "renter_past_guests": "Прошлые гости",

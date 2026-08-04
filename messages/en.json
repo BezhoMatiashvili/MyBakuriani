@@ -306,6 +306,11 @@
     "clear": "Clear",
     "confirm": "Confirm",
     "showResults": "Show Results",
+    "min": "Min",
+    "max": "Max",
+    "minimumPrice": "Minimum price",
+    "maximumPrice": "Maximum price",
+    "locationOptions": "Location options",
     "zones": {
       "didveli": "Didveli / Crystal",
       "didveliDesc": "Close to slopes, with cable car view",
@@ -331,11 +336,11 @@
       "wifi": "Wi-Fi",
       "centralHeating": "Central Heating",
       "skiStorage": "Ski Storage",
-      "hotWater": "Hot Water",
+      "tv": "TV",
       "fireplace": "Fireplace",
       "parking": "Parking",
       "washingMachine": "Washing Machine",
-      "kitchenware": "Kitchenware"
+      "fullKitchen": "Fully Equipped Kitchen"
     }
   },
   "FilterPanel": {
@@ -1096,7 +1101,11 @@
     },
     "preview": {
       "deviceLabel": "MyBakuriani",
-      "emptyText": "Your message will appear here..."
+      "emptyText": "Your message will appear here...",
+      "title": "SMS preview",
+      "automaticFieldsHint": "The guest name and property link are inserted automatically.",
+      "guestNamePlaceholder": "[Guest name]",
+      "propertyLinkPlaceholder": "[Property link]"
     },
     "audiences": {
       "renter_past_guests": "Past guests",

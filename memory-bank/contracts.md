@@ -973,14 +973,16 @@ and cabinet-derivation queries listed above.
 
 ## C18 — Owner SMS automation: templates, links, and the three billing paths
 
-**Invariant:** the automation pipeline is held together by six couplings no call-graph tool can
+**Invariant:** the automation pipeline is held together by seven couplings no call-graph tool can
 see: (1) the message templates and their bracket placeholders exist ONLY in the Deno function's
 pure `domain.ts`; (2) the public-listing URL logic and the phone-normalisation logic are
 DUPLICATED into Deno because `src/` cannot be imported there; (3) `sms_outbound` carries THREE
 mutually exclusive billing paths over one table; (4) `automation_kind` is NULL for broadcast and
 contact rows, so every predicate over it must be `IS TRUE` / `IS NOT TRUE`; (5) queued automation
 is a credit reservation but is charged only after provider success; and (6) the cron GUCs, edge
-secrets, delivery kill switch, and `config.toml`'s `verify_jwt` must agree.
+secrets, delivery kill switch, and `config.toml`'s `verify_jwt` must agree; and (7) the renter's
+win-back preview calls the same pure message builder as the scheduled function, so that module must
+remain browser-safe as well as Deno-safe.
 
 Participating symbols:
 
@@ -988,6 +990,11 @@ Participating symbols:
   entries: the three spec texts plus `win_back_fallback`. Placeholders are the spec's own
   `[Bracket]` names. The fallback is used when EITHER win-back field is empty after trim, so a
   half-filled `([Discount_Period])` can never render
+- `src/app/[locale]/dashboard/sms/SmsCenterClient.tsx:buildWinBackPreview` — the renter's read-only
+  win-back bubble delegates to the pure domain module's `buildWinBack` with display-only guest/link
+  placeholders and the in-flight discount fields. The surrounding message stays Georgian in every
+  dashboard locale because that is the actual outbound language; only the placeholders and
+  explanatory UI are localized
 - `src/lib/utils/listingUrls.ts:propertyViewUrl` — the source of the 3-way sale/hotel/apartment
   logic duplicated into `supabase/functions/sms-automation-run/domain.ts:propertyViewPath`. The
   sale branch is unreachable while the scans are rental-only but is kept so the two match

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
-import type { Locale } from "date-fns";
 import {
   CalendarDays,
   Check,
@@ -15,11 +14,19 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatDateShort } from "@/lib/utils/format";
+import { formatDateShort, getDateFnsLocale } from "@/lib/utils/format";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import BottomSheet from "@/components/shared/BottomSheet";
+import NumberField from "@/components/shared/NumberField";
+import {
+  DEFAULT_RENT_FILTERS,
+  RENT_PRICE_MAX,
+  RENT_PRICE_MIN,
+  normalizeRentFilters,
+  type RentAdvancedFilters,
+} from "@/lib/search/rentSearchQuery";
 
 export interface SearchFilters {
   location: string;
@@ -27,7 +34,7 @@ export interface SearchFilters {
   checkOut: string;
   guests: number | "";
   keyword: string;
-  advancedFilters?: FilterState;
+  advancedFilters: RentAdvancedFilters;
 }
 
 export type ActiveDropdown = "calendar" | "location" | "filters" | null;
@@ -66,48 +73,32 @@ interface SearchBoxProps {
   isPending?: boolean;
   phoneLayout?: "default" | "landing-compact";
   zones: Zone[];
+  advancedFilters?: RentAdvancedFilters;
 }
 
 // ─── Filter constants ────────────────────────────────────────────────
 // Values are canonical; labels resolve from the SearchBox messages namespace.
 const CAPACITY_OPTIONS = [
-  { value: "2", labelKey: "guest2" },
-  { value: "4", labelKey: "guest4" },
-  { value: "6", labelKey: "guest6" },
-  { value: "8+", labelKey: "guest8plus" },
+  { value: 2, labelKey: "guest2" },
+  { value: 4, labelKey: "guest4" },
+  { value: 6, labelKey: "guest6" },
+  { value: 8, labelKey: "guest8plus" },
 ] as const;
-const BEDROOM_OPTIONS = ["1", "2", "3", "4+"];
-const BATHROOM_OPTIONS = ["1", "2", "3+"];
+const BEDROOM_OPTIONS = [1, 2, 3, 4] as const;
+const BATHROOM_OPTIONS = [1, 2, 3] as const;
 const AMENITIES = [
   { key: "wifi", labelKey: "wifi" },
   { key: "central_heating", labelKey: "centralHeating" },
   { key: "ski_storage", labelKey: "skiStorage" },
-  { key: "hot_water", labelKey: "hotWater" },
+  { key: "tv", labelKey: "tv" },
   { key: "fireplace", labelKey: "fireplace" },
   { key: "parking", labelKey: "parking" },
   { key: "washing_machine", labelKey: "washingMachine" },
-  { key: "kitchenware", labelKey: "kitchenware" },
+  { key: "full_kitchen", labelKey: "fullKitchen" },
 ] as const;
 
-interface FilterState {
-  priceMin: number;
-  priceMax: number;
-  bedrooms: string | null;
-  bathrooms: string | null;
-  capacity: string | null;
-  amenities: string[];
-  verifiedOnly: boolean;
-}
-
-const DEFAULT_FILTERS: FilterState = {
-  priceMin: 80,
-  priceMax: 450,
-  bedrooms: null,
-  bathrooms: null,
-  capacity: null,
-  amenities: [],
-  verifiedOnly: false,
-};
+type FilterState = RentAdvancedFilters;
+const DEFAULT_FILTERS = DEFAULT_RENT_FILTERS;
 
 function toIsoDate(value: Date) {
   const year = value.getFullYear();
@@ -116,8 +107,20 @@ function toIsoDate(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function formatDisplayDate(value: Date) {
-  return formatDateShort(value);
+function resolveRangeSelection(
+  range: DateRange | undefined,
+  current: DateRange | undefined,
+): DateRange | undefined {
+  if (range?.from && !range.to && current?.from && current?.to) {
+    const clicked = range.from;
+    if (clicked > current.to) return { from: current.to, to: clicked };
+    if (clicked < current.from) return { from: clicked, to: undefined };
+  }
+  return range;
+}
+
+function formatDisplayDate(value: Date, locale: string) {
+  return formatDateShort(value, locale);
 }
 
 // ─── Chip button ─────────────────────────────────────────────────────
@@ -134,8 +137,9 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={selected}
       className={cn(
-        "flex h-10 items-center justify-center rounded-lg border px-4 text-[13px] font-semibold transition-colors",
+        "flex min-h-11 items-center justify-center rounded-lg border px-4 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2",
         selected
           ? "border-[#2563EB] bg-[#2563EB] text-white"
           : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F8FAFC]",
@@ -160,8 +164,11 @@ export function SearchBox({
   isPending = false,
   phoneLayout = "default",
   zones,
+  advancedFilters,
 }: SearchBoxProps) {
   const t = useTranslations("SearchBox");
+  const locale = useLocale();
+  const dateFnsLocale = getDateFnsLocale(locale);
   const isLandingCompact = phoneLayout === "landing-compact";
   const [location, setLocation] = useState(defaultLocation);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -177,35 +184,40 @@ export function SearchBox({
   const [guests, setGuests] = useState<number | "">(defaultGuests);
   const [keyword, setKeyword] = useState(defaultKeyword);
 
-  // Custom range handler: when a complete range exists and user clicks a new date,
-  // use the OLD end as new start and clicked date as new end
-  const handleRangeSelect = useCallback(
-    (range: DateRange | undefined) => {
-      if (range?.from && !range.to && dateRange?.from && dateRange?.to) {
-        // A complete range existed, user clicked a new date (range.from = clicked date, no to yet)
-        const clicked = range.from;
-        if (clicked > dateRange.to) {
-          // Clicked after old end → old end becomes start, clicked becomes end
-          setDateRange({ from: dateRange.to, to: clicked });
-          return;
-        }
-        if (clicked < dateRange.from) {
-          // Clicked before old start → just start fresh
-          setDateRange({ from: clicked, to: undefined });
-          return;
-        }
-      }
-      setDateRange(range);
-    },
-    [dateRange],
-  );
-
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [calendarLocale, setCalendarLocale] = useState<Locale | undefined>(
-    undefined,
+  const [filters, setFilters] = useState<FilterState>(() =>
+    normalizeRentFilters(advancedFilters),
   );
+  const [filterDraft, setFilterDraft] = useState<FilterState | null>(null);
+  const [dateDraft, setDateDraft] = useState<DateRange | undefined>();
+  const [locationDraft, setLocationDraft] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocation(defaultLocation);
+    setGuests(defaultGuests);
+    setKeyword(defaultKeyword);
+    if (!defaultCheckIn) {
+      setDateRange(undefined);
+      return;
+    }
+    setDateRange({
+      from: new Date(`${defaultCheckIn}T00:00:00`),
+      to: defaultCheckOut
+        ? new Date(`${defaultCheckOut}T00:00:00`)
+        : undefined,
+    });
+  }, [
+    defaultCheckIn,
+    defaultCheckOut,
+    defaultGuests,
+    defaultKeyword,
+    defaultLocation,
+  ]);
+
+  useEffect(() => {
+    if (advancedFilters) setFilters(normalizeRentFilters(advancedFilters));
+  }, [advancedFilters]);
 
   const containerRef = useRef<HTMLFormElement>(null);
 
@@ -222,21 +234,6 @@ export function SearchBox({
   useEffect(() => {
     onActiveDropdownChange?.(activeDropdown);
   }, [activeDropdown, onActiveDropdownChange]);
-
-  useEffect(() => {
-    if (activeDropdown !== "calendar" || calendarLocale) return;
-    let cancelled = false;
-
-    import("date-fns/locale").then((mod) => {
-      if (!cancelled) {
-        setCalendarLocale(mod.ka);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeDropdown, calendarLocale]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -314,9 +311,45 @@ export function SearchBox({
   }, [dropdownPortalRef, activeDropdown]);
   const usePortal = portalReady;
 
-  const toggleDropdown = useCallback((name: ActiveDropdown) => {
-    setActiveDropdown((prev) => (prev === name ? null : name));
+  const toggleDropdown = useCallback(
+    (name: ActiveDropdown) => {
+      setActiveDropdown((prev) => {
+        if (prev === name) return null;
+        if (isMobile && name === "filters") {
+          setFilterDraft(normalizeRentFilters(filters));
+        }
+        if (isMobile && name === "calendar") {
+          setDateDraft(dateRange);
+        }
+        if (isMobile && name === "location") {
+          setLocationDraft(location);
+        }
+        return name;
+      });
+    },
+    [dateRange, filters, isMobile, location],
+  );
+
+  const closeMobileSheet = useCallback(() => {
+    setActiveDropdown(null);
+    setFilterDraft(null);
+    setDateDraft(undefined);
+    setLocationDraft(null);
   }, []);
+
+  const handleRangeSelect = useCallback(
+    (range: DateRange | undefined) => {
+      setDateRange(resolveRangeSelection(range, dateRange));
+    },
+    [dateRange],
+  );
+
+  const handleDraftRangeSelect = useCallback(
+    (range: DateRange | undefined) => {
+      setDateDraft(resolveRangeSelection(range, dateDraft));
+    },
+    [dateDraft],
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -332,27 +365,31 @@ export function SearchBox({
 
   const dateLabel = dateRange?.from
     ? dateRange.to
-      ? `${formatDisplayDate(dateRange.from)} - ${formatDisplayDate(dateRange.to)}`
-      : formatDisplayDate(dateRange.from)
+      ? `${formatDisplayDate(dateRange.from, locale)} - ${formatDisplayDate(dateRange.to, locale)}`
+      : formatDisplayDate(dateRange.from, locale)
     : "";
 
-  const handleApplyFilters = () => {
-    const capacityGuests =
-      filters.capacity === "8+"
-        ? 8
-        : filters.capacity
-          ? Number.parseInt(filters.capacity, 10)
-          : "";
-    setGuests(capacityGuests || "");
+  const applyFilters = (nextFilters: FilterState) => {
+    const committed = normalizeRentFilters(nextFilters);
+    const capacityGuests = committed.capacity ?? "";
+    setFilters(committed);
+    setGuests(capacityGuests);
     setActiveDropdown(null);
     onSearch({
       location,
       checkIn: dateRange?.from ? toIsoDate(dateRange.from) : "",
       checkOut: dateRange?.to ? toIsoDate(dateRange.to) : "",
-      guests: capacityGuests || guests,
+      guests: capacityGuests,
       keyword,
-      advancedFilters: filters,
+      advancedFilters: committed,
     });
+  };
+
+  const handleApplyFilters = () => applyFilters(filters);
+  const handleApplyFilterDraft = () => {
+    if (!filterDraft) return;
+    applyFilters(filterDraft);
+    setFilterDraft(null);
   };
 
   return (
@@ -463,6 +500,9 @@ export function SearchBox({
           <button
             type="button"
             onClick={() => toggleDropdown("location")}
+            aria-haspopup={isMobile ? "dialog" : "listbox"}
+            aria-expanded={activeDropdown === "location"}
+            data-testid="search-mobile-location"
             className={cn(
               "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
               isLandingCompact &&
@@ -484,16 +524,6 @@ export function SearchBox({
             </span>
             <ChevronDown className="size-4 text-[#94A3B8]" />
           </button>
-          {activeDropdown === "location" && isMobile && (
-            <LocationDropdown
-              location={location}
-              onSelect={(val) => {
-                setLocation(val);
-                setActiveDropdown(null);
-              }}
-              zones={zones}
-            />
-          )}
         </div>
 
         {/* Date Range Picker */}
@@ -516,6 +546,8 @@ export function SearchBox({
             type="button"
             onClick={() => toggleDropdown("calendar")}
             data-testid="search-mobile-dates"
+            aria-haspopup={isMobile ? "dialog" : undefined}
+            aria-expanded={activeDropdown === "calendar"}
             className={cn(
               "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
               isLandingCompact &&
@@ -555,6 +587,8 @@ export function SearchBox({
             type="button"
             onClick={() => toggleDropdown("filters")}
             data-testid="search-mobile-filters"
+            aria-haspopup={isMobile ? "dialog" : undefined}
+            aria-expanded={activeDropdown === "filters"}
             className={cn(
               "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#94A3B8] outline-none lg:h-10",
               isLandingCompact &&
@@ -711,55 +745,129 @@ export function SearchBox({
       {/* ═══ DROPDOWNS ═══ */}
       {(() => {
         if (isMobile) {
+          const mobileFooter =
+            activeDropdown === "filters" ? (
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setFilterDraft(normalizeRentFilters(DEFAULT_FILTERS))
+                  }
+                  data-testid="mobile-filter-reset"
+                  className="min-h-11 flex-1 rounded-xl"
+                >
+                  {t("clear")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleApplyFilterDraft}
+                  data-testid="mobile-filter-apply"
+                  className="min-h-11 flex-[1.4] rounded-xl bg-[#2563EB] text-white shadow-[0px_4px_12px_rgba(37,99,235,0.2)] hover:bg-[#1D4ED8]"
+                >
+                  {t("showResults")}
+                </Button>
+              </div>
+            ) : activeDropdown === "calendar" ? (
+              <div className="flex items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDateDraft(undefined)}
+                  data-testid="mobile-calendar-clear"
+                  className="min-h-11 px-3 text-[#64748B]"
+                >
+                  {t("clear")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setDateRange(dateDraft);
+                    closeMobileSheet();
+                  }}
+                  data-testid="mobile-calendar-confirm"
+                  className="min-h-11 rounded-xl bg-[#E8612D] px-6 text-white hover:bg-[#D4551F]"
+                >
+                  {t("confirm")}
+                </Button>
+              </div>
+            ) : activeDropdown === "location" ? (
+              <div className="flex items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setLocationDraft("")}
+                  data-testid="mobile-location-clear"
+                  className="min-h-11 px-3 text-[#64748B]"
+                >
+                  {t("clear")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setLocation(locationDraft ?? "");
+                    closeMobileSheet();
+                  }}
+                  data-testid="mobile-location-confirm"
+                  className="min-h-11 rounded-xl bg-[#2563EB] px-6 text-white hover:bg-[#1D4ED8]"
+                >
+                  {t("confirm")}
+                </Button>
+              </div>
+            ) : undefined;
+
           return (
-            <>
-              <BottomSheet
-                isOpen={activeDropdown === "filters"}
-                onClose={() => setActiveDropdown(null)}
-                title={t("filters")}
-              >
+            <BottomSheet
+              isOpen={activeDropdown !== null}
+              onClose={closeMobileSheet}
+              title={
+                activeDropdown === "filters"
+                  ? t("filters")
+                  : activeDropdown === "location"
+                    ? t("location")
+                    : t("date")
+              }
+              footer={mobileFooter}
+              contentClassName={cn(
+                activeDropdown === "calendar" && "px-0 py-3",
+                activeDropdown === "location" && "p-2",
+                activeDropdown === "filters" && "p-4 sm:p-5",
+              )}
+            >
+              {activeDropdown === "filters" && filterDraft && (
                 <FiltersDropdown
-                  filters={filters}
-                  onChange={setFilters}
-                  onApply={handleApplyFilters}
-                  onClear={() => setFilters(DEFAULT_FILTERS)}
+                  filters={filterDraft}
+                  onChange={setFilterDraft}
+                  onApply={handleApplyFilterDraft}
+                  onClear={() =>
+                    setFilterDraft(normalizeRentFilters(DEFAULT_FILTERS))
+                  }
                   mobile
                   sheet
                 />
-              </BottomSheet>
-              <BottomSheet
-                isOpen={activeDropdown === "calendar"}
-                onClose={() => setActiveDropdown(null)}
-                title={t("date")}
-              >
+              )}
+              {activeDropdown === "calendar" && (
                 <Calendar
                   mode="range"
-                  selected={dateRange}
-                  onSelect={handleRangeSelect}
+                  selected={dateDraft}
+                  onSelect={handleDraftRangeSelect}
                   numberOfMonths={1}
                   min={1}
-                  locale={calendarLocale}
+                  locale={dateFnsLocale}
                   disabled={{ before: new Date() }}
-                  className="w-full rounded-md bg-white [--cell-size:36px] min-[360px]:[--cell-size:40px]"
+                  showOutsideDays={false}
+                  className="mx-auto w-full max-w-[324px] rounded-md bg-white [--cell-size:44px]"
                 />
-                <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setDateRange(undefined)}
-                    className="min-h-11 px-2 text-[14px] font-medium text-[#64748B] hover:text-[#1E293B]"
-                  >
-                    {t("clear")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveDropdown(null)}
-                    className="min-h-11 rounded-xl bg-[#E8612D] px-5 text-[12px] font-bold text-white hover:bg-[#D4551F]"
-                  >
-                    {t("confirm")}
-                  </button>
-                </div>
-              </BottomSheet>
-            </>
+              )}
+              {activeDropdown === "location" && (
+                <LocationDropdown
+                  location={locationDraft ?? location}
+                  onSelect={setLocationDraft}
+                  zones={zones}
+                  sheet
+                />
+              )}
+            </BottomSheet>
           );
         }
 
@@ -779,7 +887,7 @@ export function SearchBox({
               numberOfMonths={2}
               showOutsideDays={false}
               min={1}
-              locale={calendarLocale}
+              locale={dateFnsLocale}
               disabled={{ before: new Date() }}
               className="w-full rounded-md bg-white [--cell-size:40px]"
             />
@@ -858,18 +966,25 @@ function LocationDropdown({
   onSelect,
   inline,
   zones,
+  sheet,
 }: {
   location: string;
   onSelect: (val: string) => void;
   inline?: boolean;
   zones: Zone[];
+  sheet?: boolean;
 }) {
+  const t = useTranslations("SearchBox");
   const tZones = useTranslations("Zones");
   return (
     <div
+      role="listbox"
+      aria-label={t("locationOptions")}
       className={cn(
         "rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-        inline
+        sheet
+          ? "w-full rounded-none border-0 p-0 shadow-none"
+          : inline
           ? "w-full"
           : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[480px]",
       )}
@@ -880,22 +995,24 @@ function LocationDropdown({
           <button
             key={zone.id}
             type="button"
+            role="option"
+            aria-selected={isSelected}
             onClick={() => onSelect(zone.name_ka)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors",
+              "flex min-h-16 w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] sm:px-4",
               isSelected ? "bg-[#F1F5F9]" : "hover:bg-[#F8FAFC]",
             )}
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9]">
               <ZoneIcon icon={zone.icon} className="size-5 text-[#64748B]" />
             </div>
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <div className="text-[14px] font-bold leading-5 text-[#1E293B]">
                 {TRANSLATED_ZONE_SLUGS.has(zone.slug)
                   ? tZones(`${zone.slug}.name`)
                   : zone.name_ka}
               </div>
-              <div className="text-[12px] leading-4 text-[#64748B]">
+              <div className="mt-0.5 line-clamp-2 break-words text-[12px] leading-4 text-[#64748B]">
                 {TRANSLATED_ZONE_SLUGS.has(zone.slug)
                   ? tZones(`${zone.slug}.description`)
                   : zone.description_ka}
@@ -928,6 +1045,18 @@ function FiltersDropdown({
   sheet?: boolean;
 }) {
   const t = useTranslations("SearchBox");
+  const minPriceId = useId();
+  const maxPriceId = useId();
+  const [priceMinInput, setPriceMinInput] = useState(
+    String(filters.priceMin),
+  );
+  const [priceMaxInput, setPriceMaxInput] = useState(
+    String(filters.priceMax),
+  );
+
+  useEffect(() => setPriceMinInput(String(filters.priceMin)), [filters.priceMin]);
+  useEffect(() => setPriceMaxInput(String(filters.priceMax)), [filters.priceMax]);
+
   const updateFilter = <K extends keyof FilterState>(
     key: K,
     value: FilterState[K],
@@ -940,6 +1069,43 @@ function FiltersDropdown({
       ? filters.amenities.filter((a) => a !== amenity)
       : [...filters.amenities, amenity];
     updateFilter("amenities", next);
+  };
+
+  const updatePriceInput = (
+    key: "priceMin" | "priceMax",
+    raw: string,
+  ) => {
+    if (key === "priceMin") setPriceMinInput(raw);
+    else setPriceMaxInput(raw);
+    if (!raw) return;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return;
+    const value =
+      key === "priceMin"
+        ? Math.max(RENT_PRICE_MIN, Math.min(parsed, filters.priceMax - 1))
+        : Math.min(RENT_PRICE_MAX, Math.max(parsed, filters.priceMin + 1));
+    updateFilter(key, value);
+  };
+
+  const normalizePriceInput = (
+    key: "priceMin" | "priceMax",
+    raw: string,
+  ) => {
+    const fallback = key === "priceMin" ? RENT_PRICE_MIN : RENT_PRICE_MAX;
+    const parsed = raw ? Number(raw) : fallback;
+    const value =
+      key === "priceMin"
+        ? Math.max(
+            RENT_PRICE_MIN,
+            Math.min(Number.isFinite(parsed) ? parsed : fallback, filters.priceMax - 1),
+          )
+        : Math.min(
+            RENT_PRICE_MAX,
+            Math.max(Number.isFinite(parsed) ? parsed : fallback, filters.priceMin + 1),
+          );
+    if (key === "priceMin") setPriceMinInput(String(value));
+    else setPriceMaxInput(String(value));
+    updateFilter(key, value);
   };
 
   return (
@@ -964,17 +1130,21 @@ function FiltersDropdown({
       )}
     >
       <div
-        className={cn("gap-8", mobile ? "flex flex-col" : "grid grid-cols-2")}
+        className={cn(
+          mobile
+            ? "grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6"
+            : "grid grid-cols-2 gap-8",
+        )}
       >
         {/* ── Left column ── */}
-        <div className="flex flex-col gap-6">
+        <div className={cn("flex flex-col", mobile ? "gap-5" : "gap-6")}>
           {/* Price range */}
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
               {t("pricePerNight")}
             </span>
             <div className="mt-4">
-              <div className="relative h-5">
+              <div className="relative h-11">
                 <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#F1F5F9]" />
                 <div
                   className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#2563EB]"
@@ -988,47 +1158,59 @@ function FiltersDropdown({
                   min={0}
                   max={1000}
                   value={filters.priceMin}
+                  aria-label={t("minimumPrice")}
                   onChange={(e) => {
                     const val = Number(e.target.value);
                     if (val < filters.priceMax) updateFilter("priceMin", val);
                   }}
-                  className="pointer-events-none absolute left-0 top-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-[#2563EB] [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)] [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-[#2563EB] [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)]"
+                  className="pointer-events-none absolute left-0 top-0 h-full w-full appearance-none bg-transparent focus-visible:outline-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-[#2563EB] [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)] [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-[#2563EB] [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)]"
                 />
                 <input
                   type="range"
                   min={0}
                   max={1000}
                   value={filters.priceMax}
+                  aria-label={t("maximumPrice")}
                   onChange={(e) => {
                     const val = Number(e.target.value);
                     if (val > filters.priceMin) updateFilter("priceMax", val);
                   }}
-                  className="pointer-events-none absolute left-0 top-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-[#2563EB] [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)] [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-[#2563EB] [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)]"
+                  className="pointer-events-none absolute left-0 top-0 h-full w-full appearance-none bg-transparent focus-visible:outline-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-[#2563EB] [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)] [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-[#2563EB] [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0px_2px_4px_rgba(0,0,0,0.1)]"
                 />
               </div>
-              <div className="mt-5 flex gap-4">
-                <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-                  <span className="text-[11px] font-bold text-[#94A3B8]">
-                    MIN
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label htmlFor={minPriceId} className="min-w-0">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase text-[#94A3B8]">
+                    {t("min")}
                   </span>
-                  <span className="text-[14px] font-extrabold text-[#0F172A]">
-                    {filters.priceMin}
+                  <NumberField
+                    id={minPriceId}
+                    value={priceMinInput}
+                    onChange={(value) => updatePriceInput("priceMin", value)}
+                    onBlur={(value) => normalizePriceInput("priceMin", value)}
+                    integer
+                    min={RENT_PRICE_MIN}
+                    max={filters.priceMax - 1}
+                    suffix="₾"
+                    className="h-11 rounded-lg bg-[#F8FAFC] px-3 font-extrabold"
+                  />
+                </label>
+                <label htmlFor={maxPriceId} className="min-w-0">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase text-[#94A3B8]">
+                    {t("max")}
                   </span>
-                  <span className="text-[12px] font-bold text-[#94A3B8]">
-                    ₾
-                  </span>
-                </div>
-                <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-                  <span className="text-[11px] font-bold text-[#94A3B8]">
-                    MAX
-                  </span>
-                  <span className="text-[14px] font-extrabold text-[#0F172A]">
-                    {filters.priceMax}
-                  </span>
-                  <span className="text-[12px] font-bold text-[#94A3B8]">
-                    ₾
-                  </span>
-                </div>
+                  <NumberField
+                    id={maxPriceId}
+                    value={priceMaxInput}
+                    onChange={(value) => updatePriceInput("priceMax", value)}
+                    onBlur={(value) => normalizePriceInput("priceMax", value)}
+                    integer
+                    min={filters.priceMin + 1}
+                    max={RENT_PRICE_MAX}
+                    suffix="₾"
+                    className="h-11 rounded-lg bg-[#F8FAFC] px-3 font-extrabold"
+                  />
+                </label>
               </div>
             </div>
           </div>
@@ -1042,12 +1224,22 @@ function FiltersDropdown({
               {BEDROOM_OPTIONS.map((opt) => (
                 <Chip
                   key={opt}
-                  label={opt}
-                  selected={filters.bedrooms === opt}
+                  label={opt === 4 ? "4+" : String(opt)}
+                  selected={
+                    filters.bedrooms !== null &&
+                    (opt === 4
+                      ? filters.bedrooms >= 4
+                      : filters.bedrooms === opt)
+                  }
                   onClick={() =>
                     updateFilter(
                       "bedrooms",
-                      filters.bedrooms === opt ? null : opt,
+                      filters.bedrooms !== null &&
+                        (opt === 4
+                          ? filters.bedrooms >= 4
+                          : filters.bedrooms === opt)
+                        ? null
+                        : opt,
                     )
                   }
                 />
@@ -1064,12 +1256,22 @@ function FiltersDropdown({
               {BATHROOM_OPTIONS.map((opt) => (
                 <Chip
                   key={opt}
-                  label={opt}
-                  selected={filters.bathrooms === opt}
+                  label={opt === 3 ? "3+" : String(opt)}
+                  selected={
+                    filters.bathrooms !== null &&
+                    (opt === 3
+                      ? filters.bathrooms >= 3
+                      : filters.bathrooms === opt)
+                  }
                   onClick={() =>
                     updateFilter(
                       "bathrooms",
-                      filters.bathrooms === opt ? null : opt,
+                      filters.bathrooms !== null &&
+                        (opt === 3
+                          ? filters.bathrooms >= 3
+                          : filters.bathrooms === opt)
+                        ? null
+                        : opt,
                     )
                   }
                 />
@@ -1079,7 +1281,7 @@ function FiltersDropdown({
         </div>
 
         {/* ── Right column ── */}
-        <div className="flex flex-col gap-6">
+        <div className={cn("flex flex-col", mobile ? "gap-5" : "gap-6")}>
           {/* Capacity */}
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
@@ -1090,11 +1292,21 @@ function FiltersDropdown({
                 <Chip
                   key={opt.value}
                   label={t(opt.labelKey)}
-                  selected={filters.capacity === opt.value}
+                  selected={
+                    filters.capacity !== null &&
+                    (opt.value === 8
+                      ? filters.capacity >= 8
+                      : filters.capacity === opt.value)
+                  }
                   onClick={() =>
                     updateFilter(
                       "capacity",
-                      filters.capacity === opt.value ? null : opt.value,
+                      filters.capacity !== null &&
+                        (opt.value === 8
+                          ? filters.capacity >= 8
+                          : filters.capacity === opt.value)
+                        ? null
+                        : opt.value,
                     )
                   }
                 />
@@ -1114,20 +1326,27 @@ function FiltersDropdown({
             </div>
             <button
               type="button"
+              role="switch"
+              aria-checked={filters.verifiedOnly}
+              aria-label={t("verifiedOnly")}
               onClick={() =>
                 updateFilter("verifiedOnly", !filters.verifiedOnly)
               }
-              className={cn(
-                "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-                filters.verifiedOnly ? "bg-[#10B981]" : "bg-[#CBD5E1]",
-              )}
+              className="relative h-11 w-12 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2"
             >
               <span
                 className={cn(
-                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-[0px_1px_3px_rgba(0,0,0,0.05)] transition-transform",
-                  filters.verifiedOnly ? "left-[22px]" : "left-0.5",
+                  "absolute inset-x-0 top-2.5 h-6 rounded-full transition-colors",
+                  filters.verifiedOnly ? "bg-[#10B981]" : "bg-[#CBD5E1]",
                 )}
-              />
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 size-5 rounded-full bg-white shadow-[0px_1px_3px_rgba(0,0,0,0.12)] transition-transform",
+                    filters.verifiedOnly ? "left-[26px]" : "left-0.5",
+                  )}
+                />
+              </span>
             </button>
           </div>
 
@@ -1151,7 +1370,7 @@ function FiltersDropdown({
       </div>
 
       {/* Bottom bar */}
-      <div className="mt-8 flex items-center justify-between border-t border-[#EEF1F4] pt-6">
+      {!sheet && <div className="mt-8 flex items-center justify-between border-t border-[#EEF1F4] pt-6">
         <button
           type="button"
           onClick={onClear}
@@ -1171,7 +1390,7 @@ function FiltersDropdown({
         >
           {t("showResults")}
         </Button>
-      </div>
+      </div>}
     </div>
   );
 }

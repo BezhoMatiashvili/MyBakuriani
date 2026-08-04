@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { SearchBox, type SearchFilters } from "@/components/search/SearchBox";
+import { buildRentSearchParams } from "@/lib/search/rentSearchQuery";
 import { useActiveZones } from "@/lib/zones/client";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 
@@ -14,12 +15,7 @@ export function HeroSection() {
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
-      const params = new URLSearchParams();
-      if (sf.location) params.set("location", sf.location);
-      if (sf.checkIn) params.set("check_in", sf.checkIn);
-      if (sf.checkOut) params.set("check_out", sf.checkOut);
-      if (sf.guests) params.set("guests", String(sf.guests));
-      if (sf.keyword) params.set("q", sf.keyword);
+      const params = buildRentSearchParams(sf);
       router.push(`/search?${params.toString()}`);
     },
     [router],

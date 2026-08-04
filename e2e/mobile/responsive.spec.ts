@@ -333,9 +333,37 @@ test.describe("Mobile filters and locales", () => {
     const sheet = page.getByRole("dialog");
     await expect(sheet).toBeVisible();
     await expect(sheet.locator('[data-slot="calendar"]')).toBeVisible();
+    await expect(page.getByTestId("mobile-calendar-clear")).toBeVisible();
+    await expect(page.getByTestId("mobile-calendar-confirm")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(sheet).toBeHidden();
     await expect(trigger).toBeFocused();
+  });
+
+  test("location options stay inside the viewport and close after selection", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto("/search");
+    await page.getByTestId("search-mobile-location").click();
+
+    const sheet = page.getByRole("dialog");
+    const listbox = sheet.getByRole("listbox");
+    await expect(listbox).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    const sheetBox = await sheet.boundingBox();
+    expect(sheetBox?.x).toBeGreaterThanOrEqual(0);
+    expect((sheetBox?.x ?? 0) + (sheetBox?.width ?? 0)).toBeLessThanOrEqual(320);
+
+    const trigger = page.getByTestId("search-mobile-location");
+    const triggerTextBefore = await trigger.textContent();
+    await listbox.getByRole("option").first().click();
+    await expect(sheet).toBeVisible();
+    await page.getByTestId("mobile-location-confirm").click();
+    await expect(sheet).toBeHidden();
+    await expect.poll(() => trigger.textContent()).not.toBe(triggerTextBefore);
   });
 
   test("filters use an accessible sheet with 44px reset and apply controls", async ({
@@ -357,9 +385,25 @@ test.describe("Mobile filters and locales", () => {
       expect(box?.height).toBeGreaterThanOrEqual(44);
     }
 
+    const firstBedroom = sheet
+      .getByRole("button", { name: "1", exact: true })
+      .first();
+    await firstBedroom.click();
+    await expect(firstBedroom).toHaveAttribute("aria-pressed", "true");
+
     await page.keyboard.press("Escape");
     await expect(sheet).toBeHidden();
     await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    const reopenedBedroom = page
+      .getByRole("dialog")
+      .getByRole("button", { name: "1", exact: true })
+      .first();
+    await expect(reopenedBedroom).toHaveAttribute("aria-pressed", "false");
+    await reopenedBedroom.click();
+    await page.getByTestId("mobile-filter-apply").click();
+    await expect(page).toHaveURL(/rooms=1/);
   });
 
   test("sale detailed filters use a draft sheet with 44px actions", async ({
@@ -384,6 +428,24 @@ test.describe("Mobile filters and locales", () => {
     await page.keyboard.press("Escape");
     await expect(sheet).toBeHidden();
     await expect(trigger).toBeFocused();
+  });
+
+  test("results filters use a scrollable draft sheet with pinned actions", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto("/search");
+    await page.getByTestId("search-results-mobile-filters").click();
+
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    await expect(page.getByTestId("results-mobile-filter-reset")).toBeVisible();
+    await expect(page.getByTestId("results-mobile-filter-apply")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    await expect(page.getByTestId("search-results-mobile-filters")).toBeFocused();
   });
 
   for (const [locale, query] of [

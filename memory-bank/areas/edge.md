@@ -36,6 +36,9 @@ run outside Next.js.
   together (**C4**).
 - Functions call DB RPCs and read tables — subject to schema truth (**C3**).
 - `upload-photos` writes the `property-photos` bucket (**C5**).
+- `sms-automation-run/domain.ts` is also imported by the renter SMS Center so its win-back preview
+  uses the production builder. Keep that module free of Deno-only globals and side effects; changes
+  must pass both the Deno domain tests and the Next production build (**C18**).
 - Deployed separately from Vercel (`npx supabase functions deploy <name>`); a code
   change here does **not** ship with a `git push` to main.
 

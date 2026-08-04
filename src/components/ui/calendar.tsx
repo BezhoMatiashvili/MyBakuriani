@@ -36,7 +36,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "group/calendar w-full max-w-full bg-background p-1 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(6)] min-[360px]:[--cell-size:--spacing(7)] md:[--cell-size:--spacing(7)] lg:[--cell-size:--spacing(9)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
+        "group/calendar w-fit max-w-full bg-background p-1 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(6)] min-[360px]:[--cell-size:--spacing(7)] md:[--cell-size:--spacing(7)] lg:[--cell-size:--spacing(9)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className,
@@ -49,7 +49,7 @@ function Calendar({
         ...formatters,
       }}
       classNames={{
-        root: cn("w-full", defaultClassNames.root),
+        root: cn("w-fit max-w-full", defaultClassNames.root),
         months: cn(
           "relative flex flex-col gap-4 md:flex-row",
           defaultClassNames.months,

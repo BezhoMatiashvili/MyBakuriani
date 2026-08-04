@@ -306,6 +306,11 @@
     "clear": "გასუფთავება",
     "confirm": "დადასტურება",
     "showResults": "შედეგების ჩვენება",
+    "min": "მინ.",
+    "max": "მაქს.",
+    "minimumPrice": "მინიმალური ფასი",
+    "maximumPrice": "მაქსიმალური ფასი",
+    "locationOptions": "ლოკაციის ვარიანტები",
     "zones": {
       "didveli": "დიდველი / კრისტალი",
       "didveliDesc": "ტრასასთან ახლოს, საბაგირეს ხედვით",
@@ -331,11 +336,11 @@
       "wifi": "Wi-Fi",
       "centralHeating": "ცენტრალური გათბობა",
       "skiStorage": "თხილამურების სათავსო",
-      "hotWater": "ცხელი წყალი",
+      "tv": "ტელევიზორი",
       "fireplace": "ბუხარი",
       "parking": "პარკინგი",
       "washingMachine": "სარეცხი მანქანა",
-      "kitchenware": "ჭურჭელი"
+      "fullKitchen": "სრულად აღჭურვილი სამზარეულო"
     }
   },
   "FilterPanel": {
@@ -1096,7 +1101,11 @@
     },
     "preview": {
       "deviceLabel": "MyBakuriani",
-      "emptyText": "თქვენი მესიჯი აქ გამოჩნდება..."
+      "emptyText": "თქვენი მესიჯი აქ გამოჩნდება...",
+      "title": "SMS-ის წინასწარი ხედი",
+      "automaticFieldsHint": "სტუმრის სახელი და ბინის ბმული ავტომატურად ჩაისმება.",
+      "guestNamePlaceholder": "[სტუმრის სახელი]",
+      "propertyLinkPlaceholder": "[ბინის ბმული]"
     },
     "audiences": {
       "renter_past_guests": "წინა სტუმრები",

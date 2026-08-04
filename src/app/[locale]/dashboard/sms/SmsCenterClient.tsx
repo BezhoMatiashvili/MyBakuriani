@@ -27,6 +27,7 @@ import {
 } from "@/lib/pricing-packages";
 import type { SmsHistoryItem } from "@/app/api/sms/history/route";
 import type { AutomationRules } from "@/app/api/sms/automation/route";
+import { buildWinBack } from "../../../../../supabase/functions/sms-automation-run/domain";
 
 interface Props {
   initialSmsRemaining: number;
@@ -268,6 +269,31 @@ const AUTOMATION_ROWS: Array<{
   { key: "win_back_enabled", icon: Heart, iconBg: "bg-[#FCE7F3]", iconColor: "text-[#DB2777]", titleKey: "winBackTitle", descKey: "winBackDesc" },
 ];
 
+function buildWinBackPreview(
+  rules: AutomationRules,
+  guestNamePlaceholder: string,
+  propertyLinkPlaceholder: string,
+): string {
+  return buildWinBack(
+    {
+      source: "manual",
+      booking_id: "sms-preview",
+      owner_id: "sms-preview",
+      recipient_id: null,
+      guest_phone: null,
+      guest_name: guestNamePlaceholder,
+      property: null,
+    },
+    {
+      user_id: "sms-preview",
+      display_name: null,
+      owner_phone: null,
+      ...rules,
+    },
+    propertyLinkPlaceholder,
+  );
+}
+
 function AutomationCard({
   rules,
   onToggle,
@@ -280,6 +306,7 @@ function AutomationCard({
   onFieldBlur: (key: "win_back_discount_value" | "win_back_discount_period") => void;
 }) {
   const t = useTranslations("SMSCenter.automation");
+  const previewT = useTranslations("SMSCenter.preview");
   return (
     <div className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:p-6">
       <div className="mb-4 flex items-center gap-2">
@@ -291,6 +318,13 @@ function AutomationCard({
           const Icon = row.icon;
           const enabled = rules[row.key];
           const isWinBack = row.key === "win_back_enabled";
+          const winBackPreview = isWinBack
+            ? buildWinBackPreview(
+                rules,
+                previewT("guestNamePlaceholder"),
+                previewT("propertyLinkPlaceholder"),
+              )
+            : null;
           return (
             <li key={row.key} className="rounded-2xl border border-[#F1F5F9] bg-white p-3.5">
               <div className="flex items-start justify-between gap-3">
@@ -318,6 +352,30 @@ function AutomationCard({
                   {(!rules.win_back_discount_value?.trim() || !rules.win_back_discount_period?.trim()) && (
                     <p className="rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-[11px] font-medium leading-[17px] text-[#92400E] sm:col-span-2">{t("fallbackNotice")}</p>
                   )}
+                  <figure
+                    data-testid="win-back-sms-preview"
+                    className="min-w-0 rounded-2xl border border-[#DBEAFE] bg-[#F8FAFC] p-3.5 sm:col-span-2"
+                  >
+                    <figcaption className="flex items-center gap-2 text-[12px] font-black text-[#1E3A8A]">
+                      <MessageSquare
+                        aria-hidden="true"
+                        className="size-4 shrink-0 text-[#2563EB]"
+                        strokeWidth={2.4}
+                      />
+                      {previewT("title")}
+                    </figcaption>
+                    <div className="mt-3 min-w-0 rounded-xl bg-white p-3 shadow-sm">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]">
+                        {previewT("deviceLabel")}
+                      </p>
+                      <p className="mt-2 max-w-full whitespace-pre-wrap break-words rounded-2xl rounded-bl-md bg-[#EFF6FF] px-3 py-2.5 text-[12px] leading-[19px] text-[#0F172A] [overflow-wrap:anywhere]">
+                        {winBackPreview}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-[17px] text-[#64748B]">
+                      {previewT("automaticFieldsHint")}
+                    </p>
+                  </figure>
                 </div>
               )}
             </li>

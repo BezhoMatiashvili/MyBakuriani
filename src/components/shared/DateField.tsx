@@ -168,6 +168,7 @@ export default function DateField({
             isOpen={open}
             onClose={() => setOpen(false)}
             title={placeholder ?? t("selectDate")}
+            contentClassName="px-0 py-3"
           >
             <Calendar
               mode="single"
@@ -185,7 +186,8 @@ export default function DateField({
               }
               disabled={disabledMatchers}
               modifiers={modifiers}
-              className="w-full [--cell-size:36px] min-[360px]:[--cell-size:40px]"
+              showOutsideDays={false}
+              className="mx-auto w-full max-w-[324px] [--cell-size:44px]"
               classNames={{
                 day_button: "active:scale-90 transition-transform duration-100",
               }}

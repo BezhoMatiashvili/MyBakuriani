@@ -22,6 +22,7 @@ import {
   type SearchFilters,
   type ActiveDropdown,
 } from "@/components/search/SearchBox";
+import { buildRentSearchParams } from "@/lib/search/rentSearchQuery";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import { cn } from "@/lib/utils";
 import { useActiveZones } from "@/lib/zones/client";
@@ -100,13 +101,7 @@ export default function ApartmentsPageClient({
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
-      const params = new URLSearchParams();
-      if (sf.location) params.set("location", sf.location);
-      if (sf.checkIn) params.set("check_in", sf.checkIn);
-      if (sf.checkOut) params.set("check_out", sf.checkOut);
-      if (sf.guests) params.set("guests", String(sf.guests));
-      if (sf.keyword) params.set("q", sf.keyword);
-      params.set("mode", mode);
+      const params = buildRentSearchParams(sf, mode);
       startTransition(() => {
         router.push(`/search?${params.toString()}`);
       });

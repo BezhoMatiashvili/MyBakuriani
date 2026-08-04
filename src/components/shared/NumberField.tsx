@@ -45,6 +45,7 @@ interface NumberFieldProps {
   inputMode?: "numeric" | "decimal";
   id?: string;
   className?: string;
+  onBlur?: (value: string) => void;
 }
 
 export default function NumberField({
@@ -66,6 +67,7 @@ export default function NumberField({
   inputMode,
   id,
   className,
+  onBlur,
 }: NumberFieldProps) {
   const clampOpts = { min, max, integer, decimals };
   const allowDecimal = !integer;
@@ -77,6 +79,7 @@ export default function NumberField({
   const handleBlur = () => {
     const clamped = clampNumericString(value, clampOpts);
     if (clamped !== value) onChange(clamped);
+    onBlur?.(clamped);
   };
 
   const nudge = (delta: number) => {

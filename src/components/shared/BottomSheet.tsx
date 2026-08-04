@@ -1,14 +1,20 @@
 "use client";
 import { ReactNode, useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 
 interface BottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string | null;
   children: ReactNode;
+  footer?: ReactNode;
+  contentClassName?: string;
+  panelClassName?: string;
+  footerClassName?: string;
 }
 
 export default function BottomSheet({
@@ -16,6 +22,10 @@ export default function BottomSheet({
   onClose,
   title = null,
   children,
+  footer,
+  contentClassName,
+  panelClassName,
+  footerClassName,
 }: BottomSheetProps) {
   const t = useTranslations("Shared");
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -69,7 +79,7 @@ export default function BottomSheet({
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 100) onClose();
   };
-  return (
+  const sheet = (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end" role="presentation">
@@ -77,7 +87,7 @@ export default function BottomSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-[#020617]/55 backdrop-blur-[2px]"
             onClick={onClose}
           />
           <motion.div
@@ -89,7 +99,10 @@ export default function BottomSheet({
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}
-            className="relative z-10 flex max-h-[calc(100dvh-env(safe-area-inset-top))] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl"
+            className={cn(
+              "relative z-10 mx-auto flex max-h-[calc(100dvh-env(safe-area-inset-top)-0.75rem)] w-full flex-col overflow-hidden rounded-t-[24px] bg-white text-left shadow-[0_-16px_48px_-16px_rgba(15,23,42,0.35)] sm:max-w-[720px]",
+              panelClassName,
+            )}
           >
             <div className="flex justify-center pb-2 pt-3">
               <motion.div
@@ -118,12 +131,32 @@ export default function BottomSheet({
                 <X className="size-4" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+            <div
+              className={cn(
+                "min-h-0 flex-1 overscroll-contain overflow-y-auto p-5",
+                !footer &&
+                  "pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
+                contentClassName,
+              )}
+            >
               {children}
             </div>
+            {footer && (
+              <div
+                className={cn(
+                  "shrink-0 border-t border-[#E2E8F0] bg-white/95 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-sm",
+                  footerClassName,
+                )}
+              >
+                {footer}
+              </div>
+            )}
           </motion.div>
         </div>
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(sheet, document.body);
 }

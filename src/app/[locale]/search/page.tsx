@@ -39,6 +39,16 @@ interface SearchPageProps {
   }>;
 }
 
+const PROPERTY_TYPES = [
+  "apartment",
+  "cottage",
+  "hotel",
+  "studio",
+  "villa",
+  "land",
+] as const;
+type PropertyType = (typeof PROPERTY_TYPES)[number];
+
 function parseNumeric(value?: string): number | "" {
   if (!value) return "";
   const parsed = Number(value);
@@ -51,6 +61,12 @@ function parseStringList(value?: string): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parsePropertyTypes(value?: string): PropertyType[] {
+  return parseStringList(value).filter((item): item is PropertyType =>
+    (PROPERTY_TYPES as readonly string[]).includes(item),
+  );
 }
 
 function parseBoolean(value?: string): boolean {
@@ -80,6 +96,33 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     );
   }
 
+  const priceMin = parseNumeric(params.price_min);
+  const priceMax = parseNumeric(params.price_max);
+  const rooms = parseNumeric(params.rooms);
+  const bathrooms = parseNumeric(params.bathrooms);
+  const guests = parseNumeric(params.guests);
+  const areaMin = parseNumeric(params.area_min);
+  const areaMax = parseNumeric(params.area_max);
+  const types = parsePropertyTypes(params.types);
+  const amenities = parseStringList(params.amenities);
+  const priceColumn = params.mode === "sale" ? "sale_price" : "price_per_night";
+
+  if (priceMin !== "") query = query.gte(priceColumn, priceMin);
+  if (priceMax !== "") query = query.lte(priceColumn, priceMax);
+  if (rooms !== "") query = query.gte("rooms", rooms);
+  if (bathrooms !== "") query = query.gte("bathrooms", bathrooms);
+  if (guests !== "") query = query.gte("capacity", guests);
+  if (areaMin !== "") query = query.gte("area_sqm", areaMin);
+  if (areaMax !== "") query = query.lte("area_sqm", areaMax);
+  if (types.length === 1) query = query.eq("type", types[0]);
+  if (types.length > 1) query = query.in("type", types);
+  for (const amenity of amenities) {
+    query = query.contains("amenities", [amenity]);
+  }
+  if (parseBoolean(params.verified_only)) {
+    query = query.eq("profile_is_verified", true);
+  }
+
   const [statusCards, { data: properties }] = await Promise.all([
     getStatusCards(),
     query
@@ -100,17 +143,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       initialKeyword={params.q ?? ""}
       initialMode={(params.mode as "rent" | "sale") ?? "rent"}
       initialFilters={{
-        priceMin: parseNumeric(params.price_min),
-        priceMax: parseNumeric(params.price_max),
-        rooms: parseNumeric(params.rooms) === "" ? null : Number(params.rooms),
-        bathrooms:
-          parseNumeric(params.bathrooms) === ""
-            ? null
-            : Number(params.bathrooms),
-        areaMin: parseNumeric(params.area_min),
-        areaMax: parseNumeric(params.area_max),
-        types: parseStringList(params.types),
-        amenities: parseStringList(params.amenities),
+        priceMin,
+        priceMax,
+        rooms: rooms === "" ? null : rooms,
+        bathrooms: bathrooms === "" ? null : bathrooms,
+        areaMin,
+        areaMax,
+        types,
+        amenities,
         verifiedOnly: parseBoolean(params.verified_only),
       }}
     />

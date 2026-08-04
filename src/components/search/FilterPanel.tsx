@@ -42,6 +42,7 @@ export interface Filters {
 interface FilterPanelProps {
   onFilterChange: (filters: Filters) => void;
   filters: Filters;
+  variant?: "card" | "sheet";
 }
 
 function FilterSection({
@@ -99,7 +100,11 @@ export const DEFAULT_FILTERS: Filters = {
   verifiedOnly: false,
 };
 
-export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
+export function FilterPanel({
+  onFilterChange,
+  filters,
+  variant = "card",
+}: FilterPanelProps) {
   const t = useTranslations("FilterPanel");
   const tOpts = useTranslations("ListingOptions");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -138,12 +143,19 @@ export function FilterPanel({ onFilterChange, filters }: FilterPanelProps) {
     filters.verifiedOnly;
 
   return (
-    <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
+    <div
+      className={cn(
+        "bg-white",
+        variant === "card"
+          ? "rounded-[24px] border border-[#E2E8F0] p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]"
+          : "p-0",
+      )}
+    >
       {hasActiveFilters && (
         <button
           type="button"
           onClick={() => onFilterChange(DEFAULT_FILTERS)}
-          className="mb-3 text-xs font-medium text-brand-accent hover:underline"
+          className="mb-3 min-h-11 rounded-lg px-2 text-xs font-medium text-brand-accent hover:bg-[#EFF6FF] hover:underline"
         >
           {t("clearFilters")}
         </button>

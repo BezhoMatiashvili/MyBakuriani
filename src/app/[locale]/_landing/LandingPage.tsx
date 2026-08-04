@@ -13,6 +13,7 @@ import {
   type SearchFilters,
   type ActiveDropdown,
 } from "@/components/search/SearchBox";
+import { buildRentSearchParams } from "@/lib/search/rentSearchQuery";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
@@ -126,13 +127,7 @@ export default function LandingPage({
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
-      const params = new URLSearchParams();
-      if (sf.location) params.set("location", sf.location);
-      if (sf.checkIn) params.set("check_in", sf.checkIn);
-      if (sf.checkOut) params.set("check_out", sf.checkOut);
-      if (sf.guests) params.set("guests", String(sf.guests));
-      if (sf.keyword) params.set("q", sf.keyword);
-      params.set("mode", mode);
+      const params = buildRentSearchParams(sf, mode);
       router.push(`/search?${params.toString()}`);
     },
     [mode, router],
