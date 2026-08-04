@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   List,
   Ban,
@@ -95,10 +96,11 @@ export default function RenterGuestsPage() {
   const [properties, setProperties] = useState<Tables<"properties">[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState<{ open: boolean; guest: Guest | null }>({
-    open: false,
-    guest: null,
-  });
+  const [modal, setModal] = useState<{
+    open: boolean;
+    guest: Guest | null;
+    createMode: "booking" | "blacklist";
+  }>({ open: false, guest: null, createMode: "booking" });
   const [bookingGuest, setBookingGuest] = useState<Guest | null>(null);
 
   const fetchGuests = useCallback(async () => {
@@ -134,6 +136,7 @@ export default function RenterGuestsPage() {
           "id, renter_guest_id, check_in, check_out, amount, status, property:properties!manual_bookings_property_id_fkey(title)",
         )
         .eq("owner_id", user.id)
+        .neq("status", "cancelled")
         .order("check_in", { ascending: false })
         .limit(500),
       supabase
@@ -218,12 +221,19 @@ export default function RenterGuestsPage() {
   };
 
   const handleBlacklist = async (guest: Guest, blacklisted: boolean) => {
-    await supabase
+    const { error } = await supabase
       .from("renter_guests")
       .update({ blacklisted })
       .eq("id", guest.id);
+    if (error) {
+      toast.error(tShared("genericRetry"));
+      return;
+    }
     await fetchGuests();
   };
+
+  const openBlacklistModal = () =>
+    setModal({ open: true, guest: null, createMode: "blacklist" });
 
   const visibleGuests = guests.filter((g) =>
     tab === "all" ? true : g.blacklisted,
@@ -246,11 +256,27 @@ export default function RenterGuestsPage() {
         </div>
         <button
           type="button"
-          onClick={() => setModal({ open: true, guest: null })}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-black text-white transition-colors hover:bg-[#1E40AF]"
+          onClick={() =>
+            tab === "blacklist"
+              ? openBlacklistModal()
+              : setModal({
+                  open: true,
+                  guest: null,
+                  createMode: "booking",
+                })
+          }
+          className={`inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[13px] font-black text-white transition-colors ${
+            tab === "blacklist"
+              ? "bg-[#DC2626] hover:bg-[#B91C1C]"
+              : "bg-[#2563EB] hover:bg-[#1E40AF]"
+          }`}
         >
-          <UserPlus className="h-4 w-4" strokeWidth={2.3} />
-          {tShared("add")}
+          {tab === "blacklist" ? (
+            <Ban className="h-4 w-4" strokeWidth={2.3} />
+          ) : (
+            <UserPlus className="h-4 w-4" strokeWidth={2.3} />
+          )}
+          {tab === "blacklist" ? t("addToBlacklist") : tShared("add")}
         </button>
       </motion.div>
 
@@ -310,15 +336,36 @@ export default function RenterGuestsPage() {
                   isOpen={expanded.has(g.id)}
                   isLast={i === visibleGuests.length - 1}
                   onToggle={() => toggle(g.id)}
-                  onEdit={() => setModal({ open: true, guest: g })}
+                  onEdit={() =>
+                    setModal({
+                      open: true,
+                      guest: g,
+                      createMode: "booking",
+                    })
+                  }
                   onAddBooking={() => setBookingGuest(g)}
                   onBlacklist={() => handleBlacklist(g, true)}
                   onRestore={() => handleBlacklist(g, false)}
                 />
               ))}
               {visibleGuests.length === 0 && (
-                <div className="px-6 py-10 text-center text-sm text-[#94A3B8]">
-                  {t("notFound")}
+                <div className="px-6 py-10 text-center">
+                  <p className="text-sm text-[#94A3B8]">{t("notFound")}</p>
+                  {tab === "blacklist" && (
+                    <>
+                      <p className="mx-auto mt-1 max-w-md text-[12px] text-[#64748B]">
+                        {t("blacklistEmptyHint")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openBlacklistModal}
+                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#FEE2E2] px-4 py-2.5 text-[12px] font-black text-[#DC2626] transition-colors hover:bg-[#FECACA]"
+                      >
+                        <Ban className="h-4 w-4" />
+                        {t("addToBlacklist")}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </>
@@ -328,9 +375,12 @@ export default function RenterGuestsPage() {
 
       <GuestFormModal
         isOpen={modal.open}
+        createMode={modal.createMode}
         guest={modal.guest}
         properties={properties}
-        onClose={() => setModal({ open: false, guest: null })}
+        onClose={() =>
+          setModal({ open: false, guest: null, createMode: "booking" })
+        }
         onSaved={() => {
           fetchGuests();
           fetchStays();
@@ -412,7 +462,10 @@ function GuestRow({
   const panelId = `guest-history-${guest.id}`;
 
   return (
-    <div className={isLast ? "" : "border-b border-[#EEF1F4]"}>
+    <div
+      data-guest-id={guest.id}
+      className={isLast ? "" : "border-b border-[#EEF1F4]"}
+    >
       <div
         role="button"
         tabIndex={0}
@@ -450,7 +503,7 @@ function GuestRow({
                 : "bg-[#DCFCE7] text-[#16A34A]"
             }`}
           >
-            {guest.blacklisted ? "BLACKLIST" : t("badgeGuest")}
+            {guest.blacklisted ? t("badgeBlacklist") : t("badgeGuest")}
           </span>
         </div>
         <p
@@ -500,16 +553,29 @@ function GuestRow({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRestore();
-              }}
-              className="text-[12px] font-bold text-[#64748B] hover:text-[#2563EB] hover:underline"
-            >
-              {t("restore")}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] lg:h-8 lg:w-8"
+                aria-label={tShared("edit")}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRestore();
+                }}
+                className="text-[12px] font-bold text-[#64748B] hover:text-[#2563EB] hover:underline"
+              >
+                {t("restore")}
+              </button>
+            </>
           )}
           <ChevronDown
             aria-hidden

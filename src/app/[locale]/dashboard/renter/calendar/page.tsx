@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip } from "@base-ui/react/tooltip";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,24 +12,21 @@ import {
   Plus,
   Check,
   CalendarRange,
-  X,
-  RotateCcw,
-  Lock,
-  Unlock,
+  History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import NumberField from "@/components/shared/NumberField";
 import { cn } from "@/lib/utils";
 import AddBookingModal, {
   type AddBookingPayload,
   type ViewBooking,
 } from "@/components/renter/AddBookingModal";
 import PriceRangeModal from "@/components/renter/PriceRangeModal";
-import BulkActionBar, {
-  BulkApplyChanges,
-} from "@/components/calendar/BulkActionBar";
+import BookingHistoryDrawer from "@/components/renter/BookingHistoryDrawer";
+import AvailabilityRangeModal, {
+  type AvailabilityAction,
+} from "@/components/calendar/AvailabilityRangeModal";
 import {
   datesInRange,
   mapBookingError,
@@ -40,6 +38,10 @@ import { revalidatePublicProperty } from "@/app/actions/revalidateListing";
 import type { Tables } from "@/lib/types/database";
 
 type CalendarBlock = Tables<"calendar_blocks">;
+type CalendarBlockView = Pick<
+  CalendarBlock,
+  "date" | "status" | "booking_id"
+>;
 type Property = Tables<"properties">;
 type PriceOverrideRow = Tables<"price_overrides">;
 type ManualBooking = Tables<"manual_bookings">;
@@ -47,22 +49,33 @@ type ManualBooking = Tables<"manual_bookings">;
 // Result of a manual-booking RPC call, surfaced to the modal so it can show an
 // inline error (and stay open) instead of failing silently. The message→code
 // mapping is shared with the guests page via `mapBookingError`.
-type BookingResult = { ok: boolean; errorCode?: BookingErrorCode };
+type BookingResult = {
+  ok: boolean;
+  errorCode?: BookingErrorCode;
+  bookingId?: string;
+};
 
 // A platform (guest-made) booking joined with the guest's contact profile.
 interface PlatformBookingRow {
   id: string;
+  guest_id: string | null;
   check_in: string;
   check_out: string;
   status: string;
-  guest: { display_name: string | null; phone: string | null } | null;
+  total_price: number | null;
+  guest: { name: string | null; phone: string | null } | null;
 }
 
 // Per-night resolution of who occupies a booked day, so a tapped cell knows
 // whether it's an editable manual booking or a read-only platform booking.
 type BookingEntry =
   | { type: "manual"; label: string; manual: ManualBooking }
-  | { type: "platform"; label: string; view: ViewBooking };
+  | {
+      type: "platform";
+      label: string;
+      view: ViewBooking;
+      platform: PlatformBookingRow;
+    };
 
 const MONTH_KEYS = [
   "january",
@@ -92,6 +105,7 @@ interface DayMeta {
   price?: number;
   hasOverride: boolean;
   guestLabel?: string;
+  booking?: BookingEntry;
 }
 
 function pad(n: number) {
@@ -124,11 +138,12 @@ export default function RenterCalendarPage() {
     null,
   );
   const [propertyOpen, setPropertyOpen] = useState(false);
-  const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
+  const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlockView[]>([]);
   // Wide-window occupancy for the modal date pickers (see `fetchOccupancy`).
   const [occupancyRows, setOccupancyRows] = useState<
-    Pick<CalendarBlock, "date" | "status" | "booking_id">[]
+    CalendarBlockView[]
   >([]);
+  const [, setOccupancyReady] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<PriceOverrideRow[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [addBookingOpen, setAddBookingOpen] = useState(false);
@@ -137,26 +152,9 @@ export default function RenterCalendarPage() {
     checkOut: string;
   }>({ checkIn: "", checkOut: "" });
   const [rangeModalOpen, setRangeModalOpen] = useState(false);
-
-  // Multi-day selection — non-contiguous committed set + transient drag preview
-  const [selectedSet, setSelectedSet] = useState<Set<string>>(new Set());
-  const [dragAnchor, setDragAnchor] = useState<string | null>(null);
-  const [dragHover, setDragHover] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragMoved, setDragMoved] = useState(false);
-  const suppressClickRef = useRef(false);
-  // Touch drag-select: armed by a long-press on a day cell (grid onPointerDown
-  // below), active while the finger keeps dragging across cells.
-  const [touchDragActive, setTouchDragActive] = useState(false);
-  const touchPressRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    timer: ReturnType<typeof setTimeout>;
-  } | null>(null);
-  const [priceInput, setPriceInput] = useState("");
-  const [savingPrice, setSavingPrice] = useState(false);
-  const [savingBlocks, setSavingBlocks] = useState(false);
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
 
   // Bookings occupying the visible month — who is coming on which day.
   const [manualBookings, setManualBookings] = useState<ManualBooking[]>([]);
@@ -173,9 +171,21 @@ export default function RenterCalendarPage() {
   const [viewBooking, setViewBooking] = useState<ViewBooking | null>(null);
 
   const propertyDropdownRef = useRef<HTMLDivElement>(null);
+  const selectedPropertyRef = useRef<string | null>(null);
+  const calendarRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const priceRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const calendarRefreshBookingsRef = useRef(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  useEffect(() => {
+    selectedPropertyRef.current = selectedPropertyId;
+  }, [selectedPropertyId]);
 
   useEffect(() => {
     if (!user) return;
@@ -190,6 +200,7 @@ export default function RenterCalendarPage() {
 
       if (data && data.length > 0) {
         setProperties(data);
+        selectedPropertyRef.current = data[0].id;
         setSelectedPropertyId(data[0].id);
       }
       setLoading(false);
@@ -201,15 +212,18 @@ export default function RenterCalendarPage() {
 
   const fetchBlocks = useCallback(async () => {
     if (!selectedPropertyId) return;
+    const propertyId = selectedPropertyId;
     const startDate = `${year}-${pad(month + 1)}-01`;
     const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("calendar_blocks")
-      .select("*")
-      .eq("property_id", selectedPropertyId)
+      .select("date, status, booking_id")
+      .eq("property_id", propertyId)
       .gte("date", startDate)
       .lte("date", endDate);
-    if (data) setCalendarBlocks(data);
+    if (!error && data && selectedPropertyRef.current === propertyId) {
+      setCalendarBlocks(data);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
@@ -219,92 +233,68 @@ export default function RenterCalendarPage() {
   // Deliberately month-independent: it refetches on property change and on
   // writes, never on paging the grid.
   const fetchOccupancy = useCallback(async () => {
-    if (!selectedPropertyId) return;
+    if (!selectedPropertyId) return false;
+    const propertyId = selectedPropertyId;
     const [from, to] = occupancyWindow();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("calendar_blocks")
       .select("date, status, booking_id")
-      .eq("property_id", selectedPropertyId)
+      .eq("property_id", propertyId)
       .in("status", ["booked", "blocked"])
       .gte("date", from)
       .lte("date", to);
-    if (data) setOccupancyRows(data);
+    if (!error && data && selectedPropertyRef.current === propertyId) {
+      setOccupancyRows(data);
+    }
+    return !error;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId]);
 
   useEffect(() => {
-    fetchOccupancy();
-  }, [fetchOccupancy]);
-
-  useEffect(() => {
-    if (!selectedPropertyId) return;
-
-    fetchBlocks();
-
-    const channel = supabase
-      .channel(`calendar-blocks-${selectedPropertyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "calendar_blocks",
-          filter: `property_id=eq.${selectedPropertyId}`,
-        },
-        () => {
-          fetchBlocks();
-          fetchBookings();
-          fetchOccupancy();
-        },
-      )
-      .subscribe();
-
+    if (!selectedPropertyId) {
+      setOccupancyRows([]);
+      setOccupancyReady(false);
+      return;
+    }
+    let active = true;
+    setOccupancyReady(false);
+    setOccupancyRows([]);
+    void fetchOccupancy().then((ok) => {
+      if (active && selectedPropertyRef.current === selectedPropertyId) {
+        setOccupancyReady(ok);
+      }
+    });
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, year, month]);
+  }, [fetchOccupancy, selectedPropertyId]);
 
   const fetchOverrides = useCallback(async () => {
     if (!selectedPropertyId) return;
+    const propertyId = selectedPropertyId;
     const startDate = `${year}-${pad(month + 1)}-01`;
     const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("price_overrides")
       .select("*")
-      .eq("property_id", selectedPropertyId)
+      .eq("property_id", propertyId)
       .gte("date", startDate)
       .lte("date", endDate);
-    if (data) setPriceOverrides(data);
+    if (!error && data && selectedPropertyRef.current === propertyId) {
+      setPriceOverrides(data);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
   useEffect(() => {
     fetchOverrides();
-    if (!selectedPropertyId) return;
-    const channel = supabase
-      .channel(`price-overrides-${selectedPropertyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "price_overrides",
-          filter: `property_id=eq.${selectedPropertyId}`,
-        },
-        () => fetchOverrides(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, year, month]);
+  }, [fetchOverrides]);
 
   // Fetch the manual + platform bookings that occupy the visible month. New and
   // edited stays include their check-out date as an occupied calendar day.
   const fetchBookings = useCallback(async () => {
     if (!selectedPropertyId || !user) return;
+    const propertyId = selectedPropertyId;
     const startDate = `${year}-${pad(month + 1)}-01`;
     const endDate = `${year}-${pad(month + 1)}-${pad(getDaysInMonth(year, month))}`;
     const [manualRes, platformRes] = await Promise.all([
@@ -312,26 +302,62 @@ export default function RenterCalendarPage() {
         .from("manual_bookings")
         .select("*")
         .eq("owner_id", user.id)
-        .eq("property_id", selectedPropertyId)
+        .eq("property_id", propertyId)
+        .neq("status", "cancelled")
         .lte("check_in", endDate)
         .gte("check_out", startDate),
       supabase
         .from("bookings")
         .select(
-          "id, check_in, check_out, status, guest:profiles!bookings_guest_id_fkey(display_name, phone)",
+          "id, guest_id, check_in, check_out, status, total_price",
         )
         .eq("owner_id", user.id)
-        .eq("property_id", selectedPropertyId)
+        .eq("property_id", propertyId)
         .neq("status", "cancelled")
         .lte("check_in", endDate)
         .gte("check_out", startDate),
     ]);
-    if (manualRes.data) setManualBookings(manualRes.data);
-    if (platformRes.data) {
-      setPlatformBookings(platformRes.data as unknown as PlatformBookingRow[]);
+    const platformRows = (platformRes.data ?? []) as Omit<
+      PlatformBookingRow,
+      "guest"
+    >[];
+    const profileIds = [
+      ...new Set(platformRows.map((row) => row.guest_id).filter(Boolean)),
+    ] as string[];
+    const contacts = new Map<
+      string,
+      { name: string | null; phone: string | null }
+    >();
+    if (profileIds.length > 0) {
+      const contactRes = await supabase
+        .from("renter_guests")
+        .select("profile_id, name, phone")
+        .eq("owner_id", user.id)
+        .in("profile_id", profileIds);
+      for (const contact of contactRes.data ?? []) {
+        if (contact.profile_id) {
+          contacts.set(contact.profile_id, {
+            name: contact.name,
+            phone: contact.phone,
+          });
+        }
+      }
     }
+    if (selectedPropertyRef.current !== propertyId) return;
+    setManualBookings(manualRes.data ?? []);
+    setPlatformBookings(
+      platformRows.map((row) => ({
+        ...row,
+        guest: row.guest_id ? (contacts.get(row.guest_id) ?? null) : null,
+      })),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, user, year, month]);
+
+  useEffect(() => {
+    setManualBookings([]);
+    setPlatformBookings([]);
+  }, [selectedPropertyId, year, month]);
 
   useEffect(() => {
     fetchBookings();
@@ -355,6 +381,97 @@ export default function RenterCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
+  const scheduleCalendarRefresh = useCallback(
+    (includeBookings = false) => {
+      calendarRefreshBookingsRef.current ||= includeBookings;
+      if (calendarRefreshTimerRef.current) {
+        clearTimeout(calendarRefreshTimerRef.current);
+      }
+      calendarRefreshTimerRef.current = setTimeout(() => {
+        calendarRefreshTimerRef.current = null;
+        const shouldFetchBookings = calendarRefreshBookingsRef.current;
+        calendarRefreshBookingsRef.current = false;
+        const jobs: Promise<unknown>[] = [fetchBlocks(), fetchOccupancy()];
+        if (shouldFetchBookings) jobs.push(fetchBookings());
+        void Promise.all(jobs);
+      }, 200);
+    },
+    [fetchBlocks, fetchBookings, fetchOccupancy],
+  );
+
+  const schedulePriceRefresh = useCallback(() => {
+    if (priceRefreshTimerRef.current) {
+      clearTimeout(priceRefreshTimerRef.current);
+    }
+    priceRefreshTimerRef.current = setTimeout(() => {
+      priceRefreshTimerRef.current = null;
+      void fetchOverrides();
+    }, 200);
+  }, [fetchOverrides]);
+
+  useEffect(() => {
+    void fetchBlocks();
+  }, [fetchBlocks]);
+
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+    const channel = supabase
+      .channel(`calendar-blocks-${selectedPropertyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "calendar_blocks",
+          filter: `property_id=eq.${selectedPropertyId}`,
+        },
+        (payload) => {
+          const next = payload.new as {
+            status?: string;
+            booking_id?: string | null;
+          };
+          scheduleCalendarRefresh(
+            next?.status === "booked" || Boolean(next?.booking_id),
+          );
+        },
+      )
+      .subscribe();
+    return () => {
+      if (calendarRefreshTimerRef.current) {
+        clearTimeout(calendarRefreshTimerRef.current);
+        calendarRefreshTimerRef.current = null;
+      }
+      calendarRefreshBookingsRef.current = false;
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, scheduleCalendarRefresh]);
+
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+    const channel = supabase
+      .channel(`price-overrides-${selectedPropertyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "price_overrides",
+          filter: `property_id=eq.${selectedPropertyId}`,
+        },
+        schedulePriceRefresh,
+      )
+      .subscribe();
+    return () => {
+      if (priceRefreshTimerRef.current) {
+        clearTimeout(priceRefreshTimerRef.current);
+        priceRefreshTimerRef.current = null;
+      }
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, schedulePriceRefresh]);
+
   // Close property dropdown on outside click
   useEffect(() => {
     if (!propertyOpen) return;
@@ -371,7 +488,7 @@ export default function RenterCalendarPage() {
   }, [propertyOpen]);
 
   const blocksByDate = useMemo(() => {
-    const map = new Map<string, CalendarBlock>();
+    const map = new Map<string, CalendarBlockView>();
     calendarBlocks.forEach((b) => map.set(b.date, b));
     return map;
   }, [calendarBlocks]);
@@ -387,16 +504,16 @@ export default function RenterCalendarPage() {
   const bookingByDate = useMemo(() => {
     const map = new Map<string, BookingEntry>();
     for (const b of platformBookings) {
-      const label = b.guest?.display_name || tShared("guest");
+      const label = b.guest?.name || tShared("guest");
       const view: ViewBooking = {
-        guestName: b.guest?.display_name ?? "",
+        guestName: b.guest?.name ?? "",
         guestPhone: b.guest?.phone ?? null,
         checkIn: b.check_in,
         checkOut: b.check_out,
         status: b.status,
       };
       for (const d of datesInRange(b.check_in, b.check_out)) {
-        map.set(d, { type: "platform", label, view });
+        map.set(d, { type: "platform", label, view, platform: b });
       }
     }
     for (const b of manualBookings) {
@@ -407,62 +524,6 @@ export default function RenterCalendarPage() {
     }
     return map;
   }, [platformBookings, manualBookings, tShared]);
-
-  // Commit drag on mouseup/touchend anywhere. A drag (cursor moved between cells)
-  // adds the whole range to `selectedSet` and suppresses the trailing click; a
-  // pure click without movement falls through to `handleCellClick` for toggling.
-  useEffect(() => {
-    if (!isDragging) return;
-    const handler = () => {
-      if (dragAnchor && dragMoved) {
-        const range = datesInRange(dragAnchor, dragHover ?? dragAnchor);
-        setSelectedSet((prev) => {
-          const next = new Set(prev);
-          for (const d of range) {
-            const b = blocksByDate.get(d);
-            if (b?.status === "booked") continue;
-            next.add(d);
-          }
-          return next;
-        });
-        suppressClickRef.current = true;
-      }
-      setIsDragging(false);
-      setDragAnchor(null);
-      setDragHover(null);
-      setDragMoved(false);
-    };
-    document.addEventListener("mouseup", handler);
-    document.addEventListener("touchend", handler);
-    return () => {
-      document.removeEventListener("mouseup", handler);
-      document.removeEventListener("touchend", handler);
-    };
-  }, [isDragging, dragAnchor, dragHover, dragMoved, blocksByDate]);
-
-  // While a touch drag is active, stop the page from scrolling under the
-  // finger (touch-action can't change mid-gesture, so preventDefault the
-  // touchmoves) and let Escape abort the drag without committing it.
-  useEffect(() => {
-    if (!touchDragActive) return;
-    const prevent = (e: Event) => e.preventDefault();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setTouchDragActive(false);
-      setIsDragging(false);
-      setDragAnchor(null);
-      setDragHover(null);
-      setDragMoved(false);
-    };
-    document.addEventListener("touchmove", prevent, { passive: false });
-    document.addEventListener("contextmenu", prevent);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("touchmove", prevent);
-      document.removeEventListener("contextmenu", prevent);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [touchDragActive]);
 
   const selectedProperty = properties.find((p) => p.id === selectedPropertyId);
   const basePrice = selectedProperty?.price_per_night ?? 0;
@@ -505,6 +566,8 @@ export default function RenterCalendarPage() {
           hasOverride: override != null,
           guestLabel:
             status === "booked" ? bookingByDate.get(dateStr)?.label : undefined,
+          booking:
+            status === "booked" ? bookingByDate.get(dateStr) : undefined,
         });
       } else {
         const d = i - offset - daysInMonth + 1;
@@ -522,258 +585,60 @@ export default function RenterCalendarPage() {
     return list;
   }, [year, month, blocksByDate, overridesByDate, basePrice, bookingByDate]);
 
-  // Selection must not survive month navigation: the grid only highlights days
-  // in the visible month, so a carried-over selection is invisible yet still
-  // writable by the action bar.
   const handlePrevMonth = () => {
-    clearSelection();
     setCurrentDate(new Date(year, month - 1, 1));
   };
   const handleNextMonth = () => {
-    clearSelection();
     setCurrentDate(new Date(year, month + 1, 1));
   };
 
-  // ── Selection helpers ────────────────────────────────────────────────
-
-  // Live preview of the in-flight drag range (inclusive, no booked/blocked filter yet).
-  const dragRange = useMemo<string[]>(() => {
-    if (!isDragging || !dragAnchor) return [];
-    return datesInRange(dragAnchor, dragHover ?? dragAnchor);
-  }, [isDragging, dragAnchor, dragHover]);
-
-  // What the calendar should render as "selected": committed set ∪ drag preview.
-  const displaySet = useMemo(() => {
-    if (dragRange.length === 0) return selectedSet;
-    const merged = new Set(selectedSet);
-    for (const d of dragRange) merged.add(d);
-    return merged;
-  }, [selectedSet, dragRange]);
-
-  // Free days in the selection — price actions operate on these.
-  const freeSelected = useMemo(
-    () =>
-      Array.from(displaySet).filter((dateStr) => {
-        const b = blocksByDate.get(dateStr);
-        return b?.status !== "booked" && b?.status !== "blocked";
-      }),
-    [displaySet, blocksByDate],
-  );
-
-  // Already-blocked days in the selection — "turn on" operates on these.
-  const blockedSelected = useMemo(
-    () =>
-      Array.from(displaySet).filter(
-        (dateStr) => blocksByDate.get(dateStr)?.status === "blocked",
-      ),
-    [displaySet, blocksByDate],
-  );
-
-  const hasActionable = freeSelected.length + blockedSelected.length > 0;
-
-  const avgCurrentPrice = useMemo(() => {
-    if (freeSelected.length === 0) return basePrice;
-    const sum = freeSelected.reduce(
-      (acc, d) => acc + (overridesByDate.get(d) ?? basePrice),
-      0,
+  const applyAvailability = async (
+    action: AvailabilityAction,
+    dates: string[],
+  ): Promise<boolean> => {
+    if (!selectedPropertyId || dates.length === 0) return false;
+    const propertyId = selectedPropertyId;
+    const { data, error } = await supabase.rpc(
+      "apply_calendar_availability",
+      {
+        p_action: action,
+        p_dates: dates,
+        p_property_id: propertyId,
+      },
     );
-    return Math.round(sum / freeSelected.length);
-  }, [freeSelected, overridesByDate, basePrice]);
-
-  const clearSelection = () => {
-    setSelectedSet(new Set());
-    setDragAnchor(null);
-    setDragHover(null);
-    setIsDragging(false);
-    setDragMoved(false);
-    suppressClickRef.current = false;
-    setPriceInput("");
-  };
-
-  const handleCellMouseDown = (dateStr: string, status: DayMeta["status"]) => {
-    if (status === "booked") return;
-    // Reset any stale suppress flag from a drag that ended outside the grid.
-    suppressClickRef.current = false;
-    setIsDragging(true);
-    setDragAnchor(dateStr);
-    setDragHover(dateStr);
-    setDragMoved(false);
-  };
-
-  const handleCellMouseEnter = (dateStr: string) => {
-    if (!isDragging || !dragAnchor) return;
-    if (dateStr !== dragAnchor) setDragMoved(true);
-    setDragHover(dateStr);
-  };
-
-  const handleCellClick = (dateStr: string, status: DayMeta["status"]) => {
-    // A real drag already committed via mouseup; swallow the trailing click.
-    if (suppressClickRef.current) {
-      suppressClickRef.current = false;
-      return;
+    if (error) {
+      toast.error(t("saveError"));
+      return false;
     }
-    if (status === "booked") return;
-    setSelectedSet((prev) => {
-      const next = new Set(prev);
-      if (next.has(dateStr)) next.delete(dateStr);
-      else next.add(dateStr);
-      return next;
-    });
-  };
 
-  // ── Touch drag-select ────────────────────────────────────────────────
-  // The mouse path above uses per-cell onMouseDown/onMouseEnter. Touch
-  // pointers implicitly capture to the touchstart target, so per-cell enters
-  // never fire on touch; instead a long-press (~350ms hold without moving) on
-  // a day cell arms the drag, then the grid's pointermove hit-tests
-  // document.elementFromPoint against [data-day] cells. Page scroll survives:
-  // before activation a moved finger cancels the hold (and a browser-initiated
-  // scroll fires pointercancel), and scrolling is suppressed only once active.
-
-  const cancelTouchPress = () => {
-    if (touchPressRef.current) {
-      clearTimeout(touchPressRef.current.timer);
-      touchPressRef.current = null;
-    }
-  };
-
-  const handleGridPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== "touch" || touchDragActive) return;
-    const dateStr = (e.target as HTMLElement)
-      .closest("[data-day]")
-      ?.getAttribute("data-day");
-    if (!dateStr) return;
-    cancelTouchPress();
-    touchPressRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      timer: setTimeout(() => {
-        touchPressRef.current = null;
-        // data-day exists only on selectable (in-month, non-booked) cells,
-        // so handleCellMouseDown's booked guard is already satisfied.
-        handleCellMouseDown(dateStr, "free");
-        setTouchDragActive(true);
-      }, 350),
-    };
-  };
-
-  const handleGridPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== "touch") return;
-    const pending = touchPressRef.current;
-    if (pending && pending.pointerId === e.pointerId) {
-      // Finger moved during the hold — that's a scroll, not a long-press.
-      if (
-        Math.abs(e.clientX - pending.startX) > 10 ||
-        Math.abs(e.clientY - pending.startY) > 10
-      ) {
-        cancelTouchPress();
+    const result = data?.[0];
+    const changedDates = result?.changed_dates ?? [];
+    const skippedBookedDates = result?.skipped_booked_dates ?? [];
+    const changed = new Set(changedDates);
+    const patchRows = (rows: CalendarBlockView[]): CalendarBlockView[] => {
+      const next = rows.filter((row) => !changed.has(row.date));
+      if (action === "blocked") {
+        for (const date of changedDates) {
+          next.push({ date, status: "blocked", booking_id: null });
+        }
       }
-      return;
+      return next;
+    };
+    setCalendarBlocks(patchRows);
+    setOccupancyRows(patchRows);
+    scheduleCalendarRefresh(false);
+    if (changedDates.length > 0) {
+      toast.success(t("bulkApplied", { count: changedDates.length }));
+      void revalidatePublicProperty(propertyId).catch(() => undefined);
+    } else {
+      toast.info(t("bulkNoChange"));
     }
-    if (!touchDragActive) return;
-    const dateStr = document
-      .elementFromPoint(e.clientX, e.clientY)
-      ?.closest("[data-day]")
-      ?.getAttribute("data-day");
-    if (dateStr) handleCellMouseEnter(dateStr);
-  };
-
-  const handleGridPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== "touch") return;
-    cancelTouchPress();
-    if (!touchDragActive) return;
-    setTouchDragActive(false);
-    if (e.type === "pointercancel") {
-      // The browser took over the gesture — abort without committing.
-      setIsDragging(false);
-      setDragAnchor(null);
-      setDragHover(null);
-      setDragMoved(false);
+    if (skippedBookedDates.length > 0) {
+      toast.info(
+        t("bulkBookedSkipped", { count: skippedBookedDates.length }),
+      );
     }
-    // On pointerup the shared mouseup/touchend handler commits the range.
-  };
-
-  const applyPrice = async () => {
-    if (!selectedPropertyId || freeSelected.length === 0) return;
-    const value = Number(priceInput);
-    if (!Number.isFinite(value) || value < 0) return;
-    setSavingPrice(true);
-    const rows = freeSelected.map((d) => ({
-      property_id: selectedPropertyId,
-      date: d,
-      price: value,
-    }));
-    const { error } = await supabase
-      .from("price_overrides")
-      .upsert(rows, { onConflict: "property_id,date" });
-    setSavingPrice(false);
-    if (!error) {
-      await fetchOverrides();
-      await revalidatePublicProperty(selectedPropertyId);
-      clearSelection();
-    }
-  };
-
-  const resetToDefault = async () => {
-    if (!selectedPropertyId || freeSelected.length === 0) return;
-    setSavingPrice(true);
-    const { error } = await supabase
-      .from("price_overrides")
-      .delete()
-      .eq("property_id", selectedPropertyId)
-      .in("date", freeSelected);
-    setSavingPrice(false);
-    if (!error) {
-      await fetchOverrides();
-      await revalidatePublicProperty(selectedPropertyId);
-      clearSelection();
-    }
-  };
-
-  // Mark the selected free days as blocked so guests can't book them.
-  // Booked days are filtered out by `freeSelected` so they can never be touched.
-  const turnOffDays = async () => {
-    if (!selectedPropertyId || freeSelected.length === 0) return;
-    setSavingBlocks(true);
-    const rows = freeSelected.map((d) => ({
-      property_id: selectedPropertyId,
-      date: d,
-      status: "blocked" as const,
-      booking_id: null,
-    }));
-    const { error } = await supabase
-      .from("calendar_blocks")
-      .upsert(rows, { onConflict: "property_id,date" });
-    setSavingBlocks(false);
-    if (error) {
-      toast.error(t("saveError"));
-      return;
-    }
-    await Promise.all([fetchBlocks(), fetchOccupancy()]);
-    await revalidatePublicProperty(selectedPropertyId);
-    clearSelection();
-  };
-
-  // Clear an owner-set block. The extra status='blocked' guard prevents
-  // ever deleting a booking-derived row if state shifts mid-flight.
-  const turnOnDays = async () => {
-    if (!selectedPropertyId || blockedSelected.length === 0) return;
-    setSavingBlocks(true);
-    const { error } = await supabase
-      .from("calendar_blocks")
-      .delete()
-      .eq("property_id", selectedPropertyId)
-      .eq("status", "blocked")
-      .in("date", blockedSelected);
-    setSavingBlocks(false);
-    if (error) {
-      toast.error(t("saveError"));
-      return;
-    }
-    await Promise.all([fetchBlocks(), fetchOccupancy()]);
-    await revalidatePublicProperty(selectedPropertyId);
-    clearSelection();
+    return true;
   };
 
   // Today's date in YYYY-MM-DD (browser-local), shared by the bulk bar and the
@@ -783,31 +648,6 @@ export default function RenterCalendarPage() {
     return fmtDate(t.getFullYear(), t.getMonth(), t.getDate());
   }, []);
 
-  // Dates of the currently visible month, restricted to today or later — past
-  // days can never be re-blocked, and the bulk bar shouldn't act on them.
-  const visibleMonthDates = useMemo(() => {
-    const days = getDaysInMonth(year, month);
-    const out: string[] = [];
-    for (let d = 1; d <= days; d++) {
-      const iso = fmtDate(year, month, d);
-      if (iso >= todayIso) out.push(iso);
-    }
-    return out;
-  }, [year, month, todayIso]);
-
-  // Booked nights the bulk bar must never overwrite. Read from the WIDE
-  // occupancy window rather than the visible month: "block next 7 days" writes
-  // real dates regardless of which month is on screen, and a month-scoped guard
-  // would let that upsert clobber a live reservation
-  // (status='booked', booking_id=<uuid>) into status='blocked', booking_id=null,
-  // orphaning its manual_bookings row.
-  const bookedDateSet = useMemo(() => {
-    const s = new Set<string>();
-    for (const b of occupancyRows) {
-      if (b.status === "booked") s.add(b.date);
-    }
-    return s;
-  }, [occupancyRows]);
 
   // Every unbookable night for this property. Fed to the CREATE modal, where
   // nothing may be excluded.
@@ -852,7 +692,7 @@ export default function RenterCalendarPage() {
       return { ok: false, errorCode: "generic" };
     if (!payload.checkIn || !payload.checkOut || !payload.guestName.trim())
       return { ok: false, errorCode: "generic" };
-    const { error } = await supabase.rpc("create_manual_booking", {
+    const { data, error } = await supabase.rpc("create_manual_booking", {
       p_property_id: selectedPropertyId,
       p_check_in: payload.checkIn,
       p_check_out: payload.checkOut,
@@ -860,16 +700,17 @@ export default function RenterCalendarPage() {
       p_guest_name: payload.guestName || undefined,
       p_guest_phone: payload.guestPhone || undefined,
       p_guests_count: parseCount(payload.guestsCount) ?? undefined,
-      p_amount: parseAmount(payload.amount) ?? undefined,
+      p_amount: parseAmount(payload.amount),
+      p_deposit_amount: parseAmount(payload.depositAmount),
+      p_deposit_paid_on: payload.depositPaidOn || null,
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
-      p_marketing_consent: payload.marketingConsent,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
     await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
     await revalidatePublicProperty(selectedPropertyId);
-    return { ok: true };
+    return { ok: true, bookingId: data.id };
   };
 
   // Save edits to an existing manual booking via the overlap-safe RPC. It frees
@@ -889,11 +730,12 @@ export default function RenterCalendarPage() {
       p_guest_name: payload.guestName || undefined,
       p_guest_phone: payload.guestPhone || undefined,
       p_guests_count: parseCount(payload.guestsCount) ?? undefined,
-      p_amount: parseAmount(payload.amount) ?? undefined,
+      p_amount: parseAmount(payload.amount),
+      p_deposit_amount: parseAmount(payload.depositAmount),
+      p_deposit_paid_on: payload.depositPaidOn || null,
       p_note: payload.note || undefined,
       p_status: payload.status === "booked" ? "booked" : "manual",
       p_client_list: payload.clientList,
-      p_marketing_consent: payload.marketingConsent,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
     await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
@@ -901,20 +743,56 @@ export default function RenterCalendarPage() {
     return { ok: true };
   };
 
-  // A DB trigger releases this booking's calendar blocks in the same transaction.
-  const handleCancelBooking = async () => {
-    if (!editingBooking || !selectedPropertyId || !user) return;
+  // Soft cancellation preserves the row and audit trail while atomically
+  // releasing its calendar blocks.
+  const handleCancelBooking = async (): Promise<BookingResult> => {
+    if (!editingBooking || !selectedPropertyId || !user)
+      return { ok: false, errorCode: "generic" };
+    const { error } = await supabase.rpc("cancel_manual_booking", {
+      p_id: editingBooking.id,
+    });
+    if (error) return { ok: false, errorCode: "generic" };
+    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    setHistoryRefreshToken((value) => value + 1);
     try {
-      await supabase
-        .from("manual_bookings")
-        .delete()
-        .eq("id", editingBooking.id)
-        .eq("owner_id", user.id);
-      await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
       await revalidatePublicProperty(selectedPropertyId);
-    } catch (err) {
-      console.error("Failed to cancel booking", err);
+    } catch (revalidateError) {
+      console.error("Failed to revalidate cancelled booking", revalidateError);
     }
+    toast.success(t("history.cancelledSuccess"));
+    return { ok: true };
+  };
+
+  const handleRestoreBooking = async (
+    booking: ManualBooking,
+  ): Promise<"restored" | "conflict" | "error"> => {
+    const { error } = await supabase.rpc("restore_manual_booking", {
+      p_id: booking.id,
+    });
+    if (error) {
+      if (mapBookingError(error.message) === "datesUnavailable") {
+        setHistoryOpen(false);
+        setEditingBooking(booking);
+        setViewBooking(null);
+        setDetailsMode("edit");
+        setDetailsOpen(true);
+        toast.error(t("history.restoreConflict"));
+        return "conflict";
+      }
+      toast.error(t("history.restoreError"));
+      return "error";
+    }
+    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    setHistoryRefreshToken((value) => value + 1);
+    if (selectedPropertyId) {
+      try {
+        await revalidatePublicProperty(selectedPropertyId);
+      } catch (revalidateError) {
+        console.error("Failed to revalidate restored booking", revalidateError);
+      }
+    }
+    toast.success(t("history.restoredSuccess"));
+    return "restored";
   };
 
   // Tapping a booked day opens its details: manual → editable, platform → read-only.
@@ -933,79 +811,8 @@ export default function RenterCalendarPage() {
     setDetailsOpen(true);
   };
 
-  const handleBulkApply = async ({ available, blocked }: BulkApplyChanges) => {
-    if (!selectedPropertyId) return;
-    if (available.length === 0 && blocked.length === 0) {
-      toast.info(t("bulkNoChange"));
-      return;
-    }
-    setSavingBlocks(true);
-    try {
-      // Count rows the DB actually touched, never the input length. "Whole month
-      // available" hands us every future day, but the DELETE only removes
-      // status='blocked' rows — on a month with nothing blocked that is 0 rows,
-      // and reporting "31 days updated" would restate the very bug this fixes.
-      let affected = 0;
-      if (available.length > 0) {
-        const { data, error } = await supabase
-          .from("calendar_blocks")
-          .delete()
-          .eq("property_id", selectedPropertyId)
-          .eq("status", "blocked")
-          .in("date", available)
-          .select("date");
-        if (error) throw error;
-        affected += data?.length ?? 0;
-      }
-      if (blocked.length > 0) {
-        const rows = blocked.map((d) => ({
-          property_id: selectedPropertyId,
-          date: d,
-          status: "blocked" as const,
-          booking_id: null,
-        }));
-        const { data, error } = await supabase
-          .from("calendar_blocks")
-          .upsert(rows, { onConflict: "property_id,date" })
-          .select("date");
-        if (error) throw error;
-        affected += data?.length ?? 0;
-      }
-      if (affected === 0) {
-        toast.info(t("bulkNoChange"));
-        clearSelection();
-        return;
-      }
-      // "Block next 7 days" can write outside the visible month. `fetchBlocks`
-      // only reads the visible month, so navigate there instead of refetching
-      // the wrong window — the month effect then refetches on its own.
-      const earliest = [...available, ...blocked].sort()[0];
-      if (earliest.slice(0, 7) === `${year}-${pad(month + 1)}`) {
-        await fetchBlocks();
-      } else {
-        const [y, m] = earliest.split("-").map(Number);
-        setCurrentDate(new Date(y, m - 1, 1));
-      }
-      // Unconditional: the wide occupancy window is month-independent, so it
-      // must refresh on either branch or the pickers keep the pre-write state.
-      await fetchOccupancy();
-      await revalidatePublicProperty(selectedPropertyId);
-      clearSelection();
-      toast.success(t("bulkApplied", { count: affected }));
-    } catch {
-      toast.error(t("saveError"));
-    } finally {
-      setSavingBlocks(false);
-    }
-  };
-
   return (
-    <div
-      className={cn(
-        "space-y-5",
-        hasActionable ? "pb-72 lg:pb-28" : "pb-32 lg:pb-5",
-      )}
-    >
+    <div className="space-y-5 pb-32 lg:pb-5">
       {/* Header row */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div ref={propertyDropdownRef} className="relative min-w-0">
@@ -1042,9 +849,15 @@ export default function RenterCalendarPage() {
                         key={p.id}
                         type="button"
                         onClick={() => {
+                          selectedPropertyRef.current = p.id;
+                          setCalendarBlocks([]);
+                          setOccupancyRows([]);
+                          setPriceOverrides([]);
+                          setManualBookings([]);
+                          setPlatformBookings([]);
+                          setOccupancyReady(false);
                           setSelectedPropertyId(p.id);
                           setPropertyOpen(false);
-                          clearSelection();
                         }}
                         className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-semibold text-[#0F172A] hover:bg-[#F8FAFC]"
                       >
@@ -1094,6 +907,16 @@ export default function RenterCalendarPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
+          <button
+            type="button"
+            disabled={!selectedPropertyId}
+            onClick={() => setHistoryOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:opacity-50"
+          >
+            <History className="h-4 w-4" />
+            {t("history.button")}
+          </button>
+
           <div className="inline-flex items-center rounded-xl border border-[#E2E8F0] bg-white px-2 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)]">
             <button
               type="button"
@@ -1119,11 +942,21 @@ export default function RenterCalendarPage() {
           <button
             type="button"
             disabled={!selectedPropertyId}
+            onClick={() => setAvailabilityModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#D97706] bg-white px-4 py-2.5 text-[13px] font-black text-[#B45309] transition-colors hover:bg-[#FFFBEB] disabled:opacity-50"
+          >
+            <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
+            {t("availability.button")}
+          </button>
+
+          <button
+            type="button"
+            disabled={!selectedPropertyId}
             onClick={() => setRangeModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl border border-[#F97316] bg-white px-4 py-2.5 text-[13px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50"
           >
             <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-            {t("range")}
+            {t("priceRange")}
           </button>
 
           <button
@@ -1140,16 +973,6 @@ export default function RenterCalendarPage() {
           </button>
         </div>
       </div>
-
-      {/* Bulk-action bar — wired to the currently visible month (today-onwards only) */}
-      {selectedPropertyId && visibleMonthDates.length > 0 && (
-        <BulkActionBar
-          windowDates={visibleMonthDates}
-          skipDates={bookedDateSet}
-          onApply={handleBulkApply}
-          pending={savingBlocks}
-        />
-      )}
 
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 border-b border-[#EEF1F4]">
@@ -1170,14 +993,7 @@ export default function RenterCalendarPage() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-[#EEF1F4] select-none"
-        onPointerDown={handleGridPointerDown}
-        onPointerMove={handleGridPointerMove}
-        onPointerUp={handleGridPointerEnd}
-        onPointerCancel={handleGridPointerEnd}
-        onMouseLeave={() => {
-          // Keep selection but stop drag tracking when user leaves the grid
-        }}
+        className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-[#EEF1F4]"
       >
         {days.map((d, i) => (
           <DayCell
@@ -1185,21 +1001,16 @@ export default function RenterCalendarPage() {
             meta={d}
             isBottomRow={i >= 35}
             isRightCol={d.weekendIndex === 6}
-            isSelected={displaySet.has(d.date) && d.inMonth}
             isToday={d.inMonth && d.date === todayIso}
-            onMouseDown={() => handleCellMouseDown(d.date, d.status)}
-            onMouseEnter={() => handleCellMouseEnter(d.date)}
+            booking={d.booking}
             onClick={() => {
               if (!d.inMonth) return;
               if (d.status === "booked") {
                 handleBookedClick(d.date);
-                return;
               }
-              handleCellClick(d.date, d.status);
             }}
             onDoubleClick={() => {
               if (!d.inMonth || d.status === "booked") return;
-              clearSelection();
               setAddBookingInitial({ checkIn: d.date, checkOut: "" });
               setAddBookingOpen(true);
             }}
@@ -1208,114 +1019,6 @@ export default function RenterCalendarPage() {
       </motion.div>
 
       <p className="text-[11px] text-[#94A3B8] md:text-[12px]">{t("hint")}</p>
-
-      {/* Selection action bar */}
-      <AnimatePresence>
-        {hasActionable && (
-          <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-40 border-t border-[#E2E8F0] bg-white px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)] lg:bottom-0 lg:left-[272px] lg:px-5 lg:py-4"
-          >
-            <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9]"
-                  aria-label={tShared("cancel")}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <div className="text-[13px]">
-                  <div className="font-black text-[#0F172A]">
-                    {freeSelected.length > 0 && blockedSelected.length > 0
-                      ? t("selectionMixed", {
-                          free: freeSelected.length,
-                          blocked: blockedSelected.length,
-                        })
-                      : freeSelected.length > 0
-                        ? t("selectionFree", { count: freeSelected.length })
-                        : t("selectionBlocked", {
-                            count: blockedSelected.length,
-                          })}
-                  </div>
-                  {freeSelected.length > 0 && (
-                    <div className="text-[11px] font-semibold text-[#64748B]">
-                      {t("avgPrice", { price: avgCurrentPrice })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">
-                {blockedSelected.length > 0 && (
-                  <button
-                    type="button"
-                    disabled={savingBlocks}
-                    onClick={turnOnDays}
-                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#16A34A] bg-white px-4 text-[13px] font-black text-[#16A34A] transition-colors hover:bg-[#F0FDF4] disabled:opacity-50"
-                  >
-                    <Unlock className="h-4 w-4" strokeWidth={2.4} />
-                    {t("turnOn", { count: blockedSelected.length })}
-                  </button>
-                )}
-                {freeSelected.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      disabled={savingBlocks}
-                      onClick={turnOffDays}
-                      className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#D97706] px-4 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(217,119,6,0.3)] transition-colors hover:bg-[#B45309] disabled:opacity-50"
-                    >
-                      <Lock className="h-4 w-4" strokeWidth={2.4} />
-                      {t("turnOff", { count: freeSelected.length })}
-                    </button>
-                    <div className="flex-1 md:max-w-[180px]">
-                      <NumberField
-                        value={priceInput}
-                        onChange={setPriceInput}
-                        min={0}
-                        max={99999}
-                        decimals={2}
-                        suffix="₾"
-                        accent="orange"
-                        placeholder={t("newPricePlaceholder")}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      disabled={
-                        savingPrice ||
-                        !priceInput ||
-                        Number(priceInput) < 0 ||
-                        !Number.isFinite(Number(priceInput))
-                      }
-                      onClick={applyPrice}
-                      className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#F97316] px-4 text-[13px] font-black text-white transition-colors hover:bg-[#EA580C] disabled:opacity-50"
-                    >
-                      <Check className="h-4 w-4" strokeWidth={2.6} />
-                      {t("applyPrice")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={savingPrice}
-                      onClick={resetToDefault}
-                      className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#F1F5F9] disabled:opacity-50"
-                      title={t("resetDefaultTitle")}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      {t("resetDefault")}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AddBookingModal
         isOpen={addBookingOpen}
@@ -1347,14 +1050,30 @@ export default function RenterCalendarPage() {
       />
 
       {selectedPropertyId && (
-        <PriceRangeModal
-          isOpen={rangeModalOpen}
-          onClose={() => setRangeModalOpen(false)}
-          propertyId={selectedPropertyId}
-          basePrice={basePrice}
-          onSaved={fetchOverrides}
-        />
+        <>
+          <AvailabilityRangeModal
+            isOpen={availabilityModalOpen}
+            onClose={() => setAvailabilityModalOpen(false)}
+            onApply={applyAvailability}
+          />
+          <PriceRangeModal
+            isOpen={rangeModalOpen}
+            onClose={() => setRangeModalOpen(false)}
+            propertyId={selectedPropertyId}
+            basePrice={basePrice}
+            onSaved={fetchOverrides}
+          />
+        </>
       )}
+
+      <BookingHistoryDrawer
+        isOpen={historyOpen}
+        propertyId={selectedPropertyId}
+        currentUserId={user?.id ?? null}
+        refreshToken={historyRefreshToken}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={handleRestoreBooking}
+      />
     </div>
   );
 }
@@ -1378,26 +1097,21 @@ function DayCell({
   meta,
   isBottomRow,
   isRightCol,
-  isSelected,
   isToday,
-  onMouseDown,
-  onMouseEnter,
+  booking,
   onClick,
   onDoubleClick,
 }: {
   meta: DayMeta;
   isBottomRow: boolean;
   isRightCol: boolean;
-  isSelected: boolean;
   isToday: boolean;
-  onMouseDown: () => void;
-  onMouseEnter: () => void;
+  booking?: BookingEntry;
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
   const tCalendar = useTranslations("Calendar");
   const isWeekend = WEEKEND_INDICES.includes(meta.weekendIndex);
-  const isSelectable = meta.inMonth && meta.status !== "booked";
 
   let bg = "bg-white";
   let numberColor = isWeekend ? "text-[#EF4444]" : "text-[#0F172A]";
@@ -1418,16 +1132,10 @@ function DayCell({
     bg = "bg-[#FEF2F2]";
   }
 
-  if (isSelected) {
-    bg = "bg-[#FFF7ED]";
-  }
-
-  return (
+  const button = (
     <button
       type="button"
-      data-day={isSelectable ? meta.date : undefined}
-      onMouseDown={isSelectable ? onMouseDown : undefined}
-      onMouseEnter={isSelectable ? onMouseEnter : undefined}
+      data-booking-type={booking?.type}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       disabled={!meta.inMonth}
@@ -1437,7 +1145,6 @@ function DayCell({
         isBottomRow && "border-b-0",
         isRightCol && "border-r-0",
         meta.inMonth ? "cursor-pointer" : "cursor-default",
-        isSelected && "ring-2 ring-inset ring-[#F97316]",
         accentBorder &&
           `before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full ${accentBorder}`,
       )}
@@ -1480,5 +1187,65 @@ function DayCell({
         )}
       </div>
     </button>
+  );
+
+  if (meta.status !== "booked" || !booking) return button;
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger render={button} delay={250} closeDelay={80} />
+      <Tooltip.Portal>
+        <Tooltip.Positioner side="top" sideOffset={8} className="z-[70]">
+          <Tooltip.Popup className="w-[min(320px,calc(100vw-24px))] rounded-xl border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_18px_45px_-18px_rgba(15,23,42,0.45)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0">
+            <BookingTooltip booking={booking} />
+          </Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  );
+}
+
+function BookingTooltip({ booking }: { booking: BookingEntry }) {
+  const t = useTranslations("RenterCalendar.bookingTooltip");
+  const unknown = t("unknown");
+  const manual = booking.type === "manual" ? booking.manual : null;
+  const platform = booking.type === "platform" ? booking.platform : null;
+  const total = manual?.amount ?? platform?.total_price ?? null;
+  const deposit = manual?.deposit_amount ?? null;
+  const remaining =
+    manual && manual.amount != null && manual.deposit_amount != null
+      ? Number(manual.amount) - Number(manual.deposit_amount)
+      : null;
+  const money = (value: number | null) =>
+    value == null ? unknown : `${Number(value).toFixed(2)} ₾`;
+  const rows: Array<[string, string]> = [
+    [t("phone"), manual?.guest_phone ?? platform?.guest?.phone ?? unknown],
+    [
+      t("dates"),
+      `${manual?.check_in ?? platform?.check_in} – ${manual?.check_out ?? platform?.check_out}`,
+    ],
+    [
+      t("source"),
+      manual?.client_list ?? manual?.source ?? (platform ? t("platform") : unknown),
+    ],
+    [t("total"), money(total)],
+    [t("deposit"), manual ? money(deposit) : unknown],
+    [t("depositDate"), manual?.deposit_paid_on ?? unknown],
+    [t("remaining"), money(remaining)],
+  ];
+
+  return (
+    <div>
+      <p className="text-[13px] font-black text-[#0F172A]">
+        {manual?.guest_name ?? platform?.guest?.name ?? t("guest")}
+      </p>
+      <dl className="mt-2.5 space-y-1.5">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-start justify-between gap-4 text-[11px] leading-4">
+            <dt className="shrink-0 font-semibold text-[#94A3B8]">{label}</dt>
+            <dd className="text-right font-bold text-[#334155]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }

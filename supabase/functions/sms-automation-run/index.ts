@@ -409,6 +409,7 @@ serve(async (req: Request) => {
             .select("id", { count: "exact", head: true })
             .eq("owner_id", c.owner_id)
             .eq("guest_id", c.recipient_id)
+            .neq("status", "cancelled")
             .gt("check_in", day);
           if (rbErr) throw rbErr;
           if ((count ?? 0) > 0) continue; // guest already re-booked with this owner
@@ -432,6 +433,7 @@ serve(async (req: Request) => {
             .from("manual_bookings")
             .select("guest_phone")
             .eq("owner_id", rule.user_id)
+            .neq("status", "cancelled")
             .gt("check_in", day);
           if (laterErr) throw laterErr;
           const rebooked = new Set(
@@ -528,9 +530,9 @@ async function scanManual(
     requireConsent?: boolean;
   },
 ): Promise<Candidate[]> {
-  // manual_bookings.status is only ever 'booked' or 'manual' - NEVER 'completed'
+  // Active manual_bookings.status is 'booked' or 'manual' - NEVER 'completed'
   // (create_manual_booking writes CASE WHEN p_status='booked' THEN 'booked' ELSE
-  // 'manual' END, and cancelling is a hard DELETE). Filtering on 'completed' here
+  // 'manual' END; cancelled rows are retained for history). Filtering on 'completed' here
   // would return zero rows forever. "The stay ended" is derived from the DATE.
   type Row = {
     id: string;

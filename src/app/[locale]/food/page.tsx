@@ -26,6 +26,7 @@ export default async function FoodPage() {
     .from("public_services")
     .select("*")
     .eq("category", "food")
+    .order("has_active_discount", { ascending: false })
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(100);

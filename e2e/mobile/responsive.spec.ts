@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 
 const phoneViewports = [
   { width: 320, height: 568 },
+  { width: 369, height: 800 },
   { width: 375, height: 812 },
   { width: 390, height: 844 },
   { width: 428, height: 926 },
@@ -59,13 +60,13 @@ test.describe("Landing page mobile", () => {
     expect((await card.boundingBox())?.height).toBeLessThanOrEqual(420);
   });
 
-  test("homepage rails show one centered, equal-size card per mobile snap page", async ({
+  test("homepage rails preview the next equal-height card and snap cleanly", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
     const rail = page
-      .locator('[data-mobile-rail][data-mobile-layout="single-page"]')
+      .locator('[data-mobile-rail][data-mobile-layout="preview"]')
       .first();
     const items = rail.locator("[data-mobile-rail-item]");
     await expect(items.first()).toBeVisible();
@@ -77,32 +78,23 @@ test.describe("Landing page mobile", () => {
       );
       const first = itemElements[0];
       const second = itemElements[1];
-      const content = first?.querySelector<HTMLElement>(
-        "[data-mobile-rail-content]",
-      );
       return {
         railScrolls: element.scrollWidth > element.clientWidth,
         snapType: getComputedStyle(element).scrollSnapType,
         itemWidth: first?.getBoundingClientRect().width ?? 0,
         firstLeft: first?.getBoundingClientRect().left ?? 0,
-        contentWidth: content?.getBoundingClientRect().width ?? 0,
-        contentCenter:
-          ((content?.getBoundingClientRect().left ?? 0) +
-            (content?.getBoundingClientRect().right ?? 0)) /
-          2,
         nextLeft: second?.getBoundingClientRect().left ?? 0,
       };
     });
     expect(geometry.railScrolls).toBe(true);
     expect(geometry.snapType).toContain("x");
-    expect(geometry.itemWidth).toBeCloseTo(390 - 32, 0);
+    expect(geometry.itemWidth).toBeCloseTo(300, 0);
     expect(geometry.firstLeft).toBeCloseTo(16, 0);
-    expect(geometry.contentWidth).toBeCloseTo(390 - 32, 0);
-    expect(geometry.contentCenter).toBeCloseTo(390 / 2, 0);
-    expect(geometry.nextLeft).toBeGreaterThanOrEqual(390 - 1);
+    expect(geometry.nextLeft).toBeCloseTo(332, 0);
+    expect(geometry.nextLeft).toBeLessThan(390);
 
     const equalHeightGroups = await page
-      .locator('[data-mobile-rail][data-mobile-layout="single-page"]')
+      .locator('[data-mobile-rail][data-mobile-layout="preview"]')
       .evaluateAll((rails) => {
         const shellSelector =
           "[data-listing-card], [data-service-card], [data-employment-card], [data-home-blog-card]";
@@ -143,61 +135,77 @@ test.describe("Landing page mobile", () => {
 
   for (const viewport of [
     { width: 320, height: 568 },
+    { width: 369, height: 800 },
     { width: 428, height: 926 },
-    { width: 767, height: 900 },
   ]) {
-    test(`status and listing cards are centered at ${viewport.width}px`, async ({
+    test(`compact hero and rails match the phone geometry at ${viewport.width}px`, async ({
       page,
     }) => {
       await page.setViewportSize(viewport);
       await page.goto("/");
 
       const hero = page.getByTestId("homepage-hero");
-      const statusCard = page
+      const searchForm = hero.locator('form[data-phone-layout="landing-compact"]');
+      const statusCards = page
         .getByTestId("homepage-status-cards")
-        .locator("[data-status-card]")
-        .first();
-      const railContent = page
+        .locator("[data-status-card]");
+      const firstStatus = statusCards.first();
+      const secondStatus = statusCards.nth(1);
+      const railItem = page
         .locator(
-          '[data-mobile-rail][data-mobile-layout="single-page"] [data-mobile-rail-content]',
+          '[data-mobile-rail][data-mobile-layout="preview"] [data-mobile-rail-item]',
         )
         .first();
-      await expect(statusCard).toBeVisible();
-      await expect(railContent).toBeVisible();
 
-      const [heroBox, statusBox, railContentBox] = await Promise.all([
-        hero.boundingBox(),
-        statusCard.boundingBox(),
-        railContent.boundingBox(),
-      ]);
+      await expect(searchForm).toBeVisible();
+      await expect(firstStatus).toBeVisible();
+      await expect(secondStatus).toBeVisible();
+      await expect(railItem).toBeVisible();
+
+      const [heroBox, searchBox, firstStatusBox, secondStatusBox, railItemBox] =
+        await Promise.all([
+          hero.boundingBox(),
+          searchForm.boundingBox(),
+          firstStatus.boundingBox(),
+          secondStatus.boundingBox(),
+          railItem.boundingBox(),
+        ]);
       expect(heroBox).not.toBeNull();
-      expect(statusBox).not.toBeNull();
-      expect(railContentBox).not.toBeNull();
+      expect(searchBox).not.toBeNull();
+      expect(firstStatusBox).not.toBeNull();
+      expect(secondStatusBox).not.toBeNull();
+      expect(railItemBox).not.toBeNull();
 
       const heroBottom = heroBox!.y + heroBox!.height;
-      expect(heroBottom).toBeGreaterThan(statusBox!.y);
-      expect(heroBottom).toBeLessThan(statusBox!.y + statusBox!.height);
-      expect(heroBottom - statusBox!.y).toBeGreaterThanOrEqual(
-        statusBox!.height * 0.35,
-      );
-      expect(heroBottom - statusBox!.y).toBeLessThanOrEqual(
-        statusBox!.height * 0.65,
-      );
-      expect(statusBox!.x + statusBox!.width / 2).toBeCloseTo(
-        viewport.width / 2,
-        0,
-      );
-      expect(railContentBox!.x + railContentBox!.width / 2).toBeCloseTo(
-        viewport.width / 2,
-        0,
-      );
-      expect(statusBox!.width).toBeLessThanOrEqual(420);
-      expect(railContentBox!.width).toBeLessThanOrEqual(420);
+      const searchBottom = searchBox!.y + searchBox!.height;
+      expect(searchBox!.x).toBeCloseTo(16, 0);
+      expect(searchBox!.width).toBeCloseTo(viewport.width - 32, 0);
+      expect(searchBox!.height).toBeCloseTo(307, 1);
+      expect(firstStatusBox!.y - searchBottom).toBeCloseTo(20, 1);
+      expect(heroBottom - firstStatusBox!.y).toBeCloseTo(16, 1);
+      expect(firstStatusBox!.x).toBeCloseTo(16, 0);
+      expect(firstStatusBox!.height).toBeCloseTo(88, 0);
+      expect(firstStatusBox!.width).toBeGreaterThanOrEqual(140);
+      expect(firstStatusBox!.width).toBeLessThanOrEqual(260);
+      expect(
+        secondStatusBox!.x - (firstStatusBox!.x + firstStatusBox!.width),
+      ).toBeCloseTo(12, 0);
+      expect(secondStatusBox!.x).toBeLessThan(viewport.width);
+
+      const expectedRailWidth = Math.min(300, viewport.width - 64);
+      expect(railItemBox!.x).toBeCloseTo(16, 0);
+      expect(railItemBox!.width).toBeCloseTo(expectedRailWidth, 0);
+
+      const submit = searchForm.locator('button[type="submit"]');
+      await expect(submit).toHaveAccessibleName(/.+/);
+      const submitBox = await submit.boundingBox();
+      expect(submitBox?.width).toBeGreaterThanOrEqual(44);
+      expect(submitBox?.height).toBeGreaterThanOrEqual(44);
       await expectNoHorizontalOverflow(page);
     });
   }
 
-  test("single-page layout hands back to the existing tablet layout at 768px", async ({
+  test("compact phone layout hands back to the existing tablet layout at 768px", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
@@ -205,15 +213,57 @@ test.describe("Landing page mobile", () => {
 
     const railItem = page
       .locator(
-        '[data-mobile-rail][data-mobile-layout="single-page"] [data-mobile-rail-item]',
+        '[data-mobile-rail][data-mobile-layout="preview"] [data-mobile-rail-item]',
       )
       .first();
     const statusGrid = page
       .getByTestId("homepage-status-cards")
-      .locator('[data-status-layout="single-page"]');
+      .locator('[data-status-layout="home-compact"]');
     await expect(railItem).toBeVisible();
     expect((await railItem.boundingBox())?.width).toBeLessThanOrEqual(300);
     await expect(statusGrid).toHaveCSS("display", "grid");
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test("status cards clear the hot-offers heading", async ({ page }) => {
+    await page.setViewportSize({ width: 428, height: 926 });
+    await page.goto("/");
+    const statusCard = page
+      .getByTestId("homepage-status-cards")
+      .locator("[data-status-card]")
+      .first();
+    const heading = page.getByTestId("homepage-hot-offers-heading");
+    await expect(statusCard).toBeVisible();
+    await expect(heading).toBeVisible();
+    const [statusBox, headingBox] = await Promise.all([
+      statusCard.boundingBox(),
+      heading.boundingBox(),
+    ]);
+    expect(
+      headingBox!.y - (statusBox!.y + statusBox!.height),
+    ).toBeGreaterThanOrEqual(48);
+  });
+
+  test("configured recommended-service promos use compact mobile rows", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const section = page.getByTestId("homepage-recommended-services");
+    if ((await section.count()) === 0) {
+      test.info().annotations.push({
+        type: "note",
+        description: "No active home_promo creative is configured",
+      });
+      return;
+    }
+
+    await expect(section).toBeVisible();
+    const media = section.locator("img, video").first();
+    await expect(media).toBeVisible();
+    const mediaBox = await media.boundingBox();
+    expect(mediaBox?.width).toBeCloseTo(104, 0);
+    expect(mediaBox?.height).toBeGreaterThanOrEqual(104);
     await expectNoHorizontalOverflow(page);
   });
 });

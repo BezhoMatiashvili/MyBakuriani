@@ -94,8 +94,8 @@ export default function HomeStatusCards({ cards }: { cards: StatusCard[] }) {
     <div data-testid="homepage-status-cards">
       <StatusCards
         cards={displayedCards}
-        className="mt-8 -mb-[42px]"
-        mobileLayout="single-page"
+        className="mt-5 -mb-[72px] sm:mt-8 sm:-mb-[42px]"
+        mobileLayout="home-compact"
       />
     </div>
   );

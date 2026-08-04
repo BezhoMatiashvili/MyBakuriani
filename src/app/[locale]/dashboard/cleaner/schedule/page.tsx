@@ -14,38 +14,29 @@ import {
   User,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import {
   formatDateShort,
   formatNumber,
   formatTime,
-  getDateFnsLocale,
 } from "@/lib/utils/format";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import ManualTaskModal from "@/components/cleaner/ManualTaskModal";
+import CleanerMonthCalendar from "@/components/cleaner/CleanerMonthCalendar";
 import {
   mergeCleanerTasks,
+  toLocalDateKey,
+  transitionPlatformCleanerTask,
   type CleanerTaskItem,
   type ManualTaskRow,
   type PlatformTaskRow,
 } from "@/lib/cleaner/tasks";
 
-const TAB_LABEL_KEYS = ["today", "tomorrow", "dayAfterTomorrow"] as const;
-
 const ADD_BUTTON_CLASS =
   "inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]";
-
-function dayBucket(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
 
 function dayPartKey(d: Date): "morning" | "afternoon" | "evening" {
   const h = d.getHours();
@@ -66,9 +57,15 @@ export default function CleanerSchedulePage() {
   const [tasks, setTasks] = useState<CleanerTaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDate, setActiveDate] = useState<Date>(() => new Date());
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ManualTaskRow | null>(null);
+  const [listFilter, setListFilter] = useState<
+    "all" | "upcoming" | "completed"
+  >("all");
 
   const userId = user?.id;
 
@@ -90,6 +87,12 @@ export default function CleanerSchedulePage() {
         .eq("cleaner_id", userId)
         .order("scheduled_at", { ascending: true }),
     ]);
+
+    if (platform.error || manual.error) {
+      toast.error(tShared("genericRetry"));
+      setLoading(false);
+      return;
+    }
 
     setTasks(
       mergeCleanerTasks(
@@ -117,6 +120,16 @@ export default function CleanerSchedulePage() {
         },
         () => fetchData(),
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cleaner_manual_tasks",
+          filter: `cleaner_id=eq.${userId}`,
+        },
+        () => fetchData(),
+      )
       .subscribe();
 
     return () => {
@@ -125,30 +138,32 @@ export default function CleanerSchedulePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, fetchData]);
 
-  const dayTabs = useMemo(() => {
-    const days: Date[] = [];
-    const base = new Date();
-    base.setHours(0, 0, 0, 0);
-    for (let i = 0; i < 3; i += 1) {
-      const d = new Date(base);
-      d.setDate(base.getDate() + i);
-      days.push(d);
-    }
-    return days;
-  }, []);
-
-  const isCustomDate = !dayTabs.some(
-    (d) => dayBucket(d) === dayBucket(activeDate),
-  );
-
   const tasksForDay = useMemo(
     () =>
       tasks.filter(
         (task) =>
-          dayBucket(new Date(task.scheduledAt)) === dayBucket(activeDate),
+          toLocalDateKey(task.scheduledAt) === toLocalDateKey(activeDate),
       ),
     [tasks, activeDate],
   );
+
+  const listedTasks = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (listFilter === "completed") {
+      return [...tasks]
+        .filter((task) => task.status === "completed")
+        .reverse();
+    }
+    if (listFilter === "upcoming") {
+      return tasks.filter(
+        (task) =>
+          task.status !== "completed" &&
+          new Date(task.scheduledAt).getTime() >= today.getTime(),
+      );
+    }
+    return tasks;
+  }, [listFilter, tasks]);
 
   function openCreate() {
     setEditing(null);
@@ -160,40 +175,65 @@ export default function CleanerSchedulePage() {
     setModalOpen(true);
   }
 
+  function handleManualSaved(scheduledAt: string) {
+    const savedDate = new Date(scheduledAt);
+    setActiveDate(savedDate);
+    setVisibleMonth(
+      new Date(savedDate.getFullYear(), savedDate.getMonth(), 1),
+    );
+    void fetchData();
+  }
+
   async function advance(
     task: CleanerTaskItem,
     next: "in_progress" | "completed",
   ) {
+    if (!userId) return;
     const stamp = new Date().toISOString();
 
-    if (task.source === "manual") {
-      await supabase
-        .from("cleaner_manual_tasks")
-        .update({
-          status: next,
-          ...(next === "in_progress"
-            ? { started_at: stamp }
-            : { completed_at: stamp }),
-        })
-        .eq("id", task.id);
-    } else {
-      await (supabase as any).rpc("transition_cleaning_task", {
-        p_task_id: task.id,
-        p_status: next,
-      });
+    const result =
+      task.source === "manual"
+        ? await supabase
+            .from("cleaner_manual_tasks")
+            .update({
+              status: next,
+              ...(next === "in_progress"
+                ? { started_at: stamp }
+                : { completed_at: stamp }),
+            })
+            .eq("id", task.id)
+            .eq("cleaner_id", userId)
+        : await transitionPlatformCleanerTask(supabase, task.id, next);
+
+    if (result.error) {
+      toast.error(tShared("genericRetry"));
+      return;
     }
 
     setTasks((prev) =>
       prev.map((item) =>
-        item.id === task.id ? { ...item, status: next } : item,
+        item.id === task.id && item.source === task.source
+          ? { ...item, status: next }
+          : item,
       ),
     );
   }
 
   async function deleteManual(id: string) {
+    if (!userId) return;
     if (!window.confirm(tManual("deleteConfirm"))) return;
-    await supabase.from("cleaner_manual_tasks").delete().eq("id", id);
-    setTasks((prev) => prev.filter((item) => item.id !== id));
+    const { error } = await supabase
+      .from("cleaner_manual_tasks")
+      .delete()
+      .eq("id", id)
+      .eq("cleaner_id", userId);
+    if (error) {
+      toast.error(tShared("genericRetry"));
+      return;
+    }
+    setTasks((prev) =>
+      prev.filter((item) => item.id !== id || item.source !== "manual"),
+    );
   }
 
   return (
@@ -224,73 +264,29 @@ export default function CleanerSchedulePage() {
               {tManual("addButton")}
             </button>
           )}
-
-          <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-[#EEF1F4] bg-white p-1.5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
-            {dayTabs.map((d, idx) => {
-              const active =
-                !isCustomDate && dayBucket(d) === dayBucket(activeDate);
-              return (
-                <button
-                  key={dayBucket(d)}
-                  type="button"
-                  onClick={() => setActiveDate(d)}
-                  className={`rounded-xl px-4 py-2 text-center transition-colors ${
-                    active
-                      ? "bg-[#2563EB] text-white"
-                      : "text-[#0F172A] hover:bg-[#F8FAFC]"
-                  }`}
-                >
-                  <span
-                    className={`block text-[10px] font-bold ${
-                      active ? "text-white/70" : "text-[#94A3B8]"
-                    }`}
-                  >
-                    {t(TAB_LABEL_KEYS[idx])}
-                  </span>
-                  <span className="block text-[15px] font-black leading-tight">
-                    {formatDateShort(d, locale)}
-                  </span>
-                </button>
-              );
-            })}
-            <span
-              aria-hidden
-              className="mx-1 hidden h-8 w-px bg-[#EEF1F4] sm:block"
-            />
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger
-                className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-[13px] font-bold transition-colors ${
-                  isCustomDate
-                    ? "bg-[#2563EB] text-white"
-                    : "text-[#2563EB] hover:bg-[#EFF6FF]"
-                }`}
-              >
-                <Calendar className="h-4 w-4" />
-                {isCustomDate
-                  ? formatDateShort(activeDate, locale)
-                  : t("calendar")}
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                sideOffset={8}
-                className="w-auto max-w-none p-2 md:w-auto"
-              >
-                <CalendarPicker
-                  mode="single"
-                  selected={activeDate}
-                  defaultMonth={activeDate}
-                  locale={getDateFnsLocale(locale)}
-                  onSelect={(d) => {
-                    if (!d) return;
-                    setActiveDate(d);
-                    setCalendarOpen(false);
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
         </div>
       </motion.div>
+
+      <CleanerMonthCalendar
+        tasks={tasks}
+        selectedDate={activeDate}
+        visibleMonth={visibleMonth}
+        onSelectDate={setActiveDate}
+        onVisibleMonthChange={setVisibleMonth}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[16px] font-black text-[#0F172A]">
+          {t("selectedDayTitle", {
+            date: formatDateShort(activeDate, locale),
+          })}
+        </h2>
+        {!loading && tasksForDay.length > 0 && (
+          <span className="rounded-full bg-[#EFF6FF] px-3 py-1.5 text-[11px] font-bold text-[#2563EB]">
+            {t("taskCount", { count: tasksForDay.length })}
+          </span>
+        )}
+      </div>
 
       {loading ? (
         <div className="space-y-4">
@@ -323,7 +319,7 @@ export default function CleanerSchedulePage() {
           </button>
         </motion.div>
       ) : (
-        <div>
+        <div data-testid="cleaner-selected-day-schedule">
           {tasksForDay.map((task, idx) => {
             const d = new Date(task.scheduledAt);
             const isDone = task.status === "completed";
@@ -343,7 +339,7 @@ export default function CleanerSchedulePage() {
 
             return (
               <motion.div
-                key={task.id}
+                key={`${task.source}:${task.id}`}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
@@ -513,11 +509,111 @@ export default function CleanerSchedulePage() {
         </div>
       )}
 
+      <section
+        data-testid="cleaner-all-task-list"
+        className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[16px] font-black text-[#0F172A]">
+              {t("allTasksTitle")}
+            </h2>
+            <p className="mt-1 text-[12px] font-medium text-[#64748B]">
+              {t("allTasksHelp")}
+            </p>
+          </div>
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label={t("listFilterLabel")}
+          >
+            {(["upcoming", "all", "completed"] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                aria-pressed={listFilter === filter}
+                onClick={() => setListFilter(filter)}
+                className={`min-h-11 rounded-full px-4 text-[12px] font-bold transition-colors ${
+                  listFilter === filter
+                    ? "bg-[#0F172A] text-white"
+                    : "border border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]"
+                }`}
+              >
+                {t(`listFilters.${filter}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {listedTasks.length === 0 ? (
+          <p className="mt-5 rounded-xl bg-[#F8FAFC] px-4 py-6 text-center text-[12px] font-medium text-[#94A3B8]">
+            {t("listEmpty")}
+          </p>
+        ) : (
+          <ul className="mt-4 divide-y divide-[#EEF1F4]">
+            {listedTasks.map((task) => {
+              const scheduled = new Date(task.scheduledAt);
+              return (
+                <li key={`list:${task.source}:${task.id}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveDate(scheduled);
+                      setVisibleMonth(
+                        new Date(
+                          scheduled.getFullYear(),
+                          scheduled.getMonth(),
+                          1,
+                        ),
+                      );
+                    }}
+                    className="grid min-h-[72px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 text-left transition-colors hover:bg-[#F8FAFC]"
+                  >
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-[13px] font-black text-[#0F172A]">
+                          {task.title ?? t("listingFallback")}
+                        </span>
+                        {task.source === "manual" && (
+                          <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[9px] font-bold text-[#64748B]">
+                            {tManual("manualBadge")}
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-1 block truncate text-[11px] font-medium text-[#64748B]">
+                        {formatDateShort(scheduled, locale)} ·{" "}
+                        {formatTime(scheduled)} · {task.address ?? "—"}
+                      </span>
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                        task.status === "completed"
+                          ? "bg-[#DCFCE7] text-[#15803D]"
+                          : task.status === "in_progress"
+                            ? "bg-[#DBEAFE] text-[#1D4ED8]"
+                            : "bg-[#FEF3C7] text-[#B45309]"
+                      }`}
+                    >
+                      {task.status === "completed"
+                        ? t("completedBadge")
+                        : task.status === "in_progress"
+                          ? t("inProgressBadge")
+                          : t("scheduledBadge")}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <ManualTaskModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         task={editing}
-        onSaved={fetchData}
+        initialDate={activeDate}
+        onSaved={handleManualSaved}
       />
     </div>
   );

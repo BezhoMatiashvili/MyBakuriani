@@ -111,6 +111,7 @@ export const notifications = tableHelper("notifications");
 export const verifications = tableHelper("verifications");
 export const blogPosts = tableHelper("blog_posts");
 export const cleaningTasks = tableHelper("cleaning_tasks");
+export const cleanerManualTasks = tableHelper("cleaner_manual_tasks");
 export const leads = tableHelper("leads");
 export const organizations = tableHelper("organizations");
 export const organizationSubscriptions = tableHelper("organization_subscriptions");

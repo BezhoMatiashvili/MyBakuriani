@@ -4,11 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, Check, MapPin } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDateShort } from "@/lib/utils/format";
 import { optionKeyFor } from "@/lib/constants/listing-options";
-import { loadCleanerTasks, type TaskRow } from "./loadData";
+import {
+  transitionPlatformCleanerTask,
+  type CleanerTaskItem,
+  type CleanerTaskTransitionStatus,
+} from "@/lib/cleaner/tasks";
+import { loadCleanerTasks } from "./loadData";
 
 function dayLabel(
   iso: string,
@@ -60,17 +66,23 @@ export default function CleanerDashboardClient({
   initialTasks,
 }: {
   userId: string;
-  initialTasks: TaskRow[];
+  initialTasks: CleanerTaskItem[];
 }) {
   const t = useTranslations("CleanerDashboard");
+  const tShared = useTranslations("DashboardShared");
   const supabase = createClient();
 
   // Seeded from the server render — content is present on first paint.
-  const [tasks, setTasks] = useState<TaskRow[]>(initialTasks);
+  const [tasks, setTasks] = useState<CleanerTaskItem[]>(initialTasks);
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
 
   const fetchTasks = useCallback(async () => {
-    setTasks(await loadCleanerTasks(supabase, userId));
-  }, [supabase, userId]);
+    try {
+      setTasks(await loadCleanerTasks(supabase, userId));
+    } catch {
+      toast.error(tShared("genericRetry"));
+    }
+  }, [supabase, tShared, userId]);
 
   useEffect(() => {
     const channel = supabase
@@ -85,40 +97,76 @@ export default function CleanerDashboardClient({
         },
         () => fetchTasks(),
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cleaner_manual_tasks",
+          filter: `cleaner_id=eq.${userId}`,
+        },
+        () => fetchTasks(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [supabase, userId, fetchTasks]);
 
-  async function updateTask(id: string, status: string) {
-    await (supabase as any).rpc("transition_cleaning_task", {
-      p_task_id: id,
-      p_status: status,
-    });
-    fetchTasks();
+  async function transitionTask(
+    task: CleanerTaskItem,
+    next: CleanerTaskTransitionStatus,
+  ) {
+    const stateKey = `${task.source}:${task.id}`;
+    if (updatingIds.has(stateKey)) return;
+    setUpdatingIds((prev) => new Set(prev).add(stateKey));
+
+    try {
+      const stamp = new Date().toISOString();
+      const result =
+        task.source === "manual"
+          ? await supabase
+              .from("cleaner_manual_tasks")
+              .update({
+                status: next,
+                ...(next === "in_progress" ? { started_at: stamp } : {}),
+                ...(next === "completed" ? { completed_at: stamp } : {}),
+              })
+              .eq("id", task.id)
+              .eq("cleaner_id", userId)
+          : await transitionPlatformCleanerTask(supabase, task.id, next);
+
+      if (result.error) {
+        toast.error(tShared("genericRetry"));
+        return;
+      }
+
+      setTasks((prev) =>
+        next === "declined" || next === "completed"
+          ? prev.filter(
+              (item) =>
+                item.id !== task.id || item.source !== task.source,
+            )
+          : prev.map((item) =>
+              item.id === task.id && item.source === task.source
+                ? { ...item, status: next }
+                : item,
+            ),
+      );
+    } catch {
+      toast.error(tShared("genericRetry"));
+    } finally {
+      setUpdatingIds((prev) => {
+        const nextIds = new Set(prev);
+        nextIds.delete(stateKey);
+        return nextIds;
+      });
+    }
   }
 
-  function declineTask(id: string) {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
-    void updateTask(id, "declined");
-  }
-
-  function acceptTask(id: string) {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id ? { ...task, status: "accepted" } : task,
-      ),
-    );
-    void updateTask(id, "accepted");
-  }
-
-  function completeTask(id: string) {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
-    void updateTask(id, "completed");
-  }
-
-  const pendingTasks = tasks.filter((task) => task.status === "pending");
+  const pendingTasks = tasks.filter(
+    (task) => task.source === "platform" && task.status === "pending",
+  );
   const scheduledTasks = tasks.filter(
     (task) => task.status === "accepted" || task.status === "in_progress",
   );
@@ -158,10 +206,11 @@ export default function CleanerDashboardClient({
             ) : (
               pendingTasks.map((task) => (
                 <PendingTaskCard
-                  key={task.id}
+                  key={`${task.source}:${task.id}`}
                   task={task}
-                  onDecline={() => declineTask(task.id)}
-                  onAccept={() => acceptTask(task.id)}
+                  disabled={updatingIds.has(`${task.source}:${task.id}`)}
+                  onDecline={() => void transitionTask(task, "declined")}
+                  onAccept={() => void transitionTask(task, "accepted")}
                 />
               ))
             )}
@@ -192,9 +241,17 @@ export default function CleanerDashboardClient({
             ) : (
               scheduledTasks.map((task) => (
                 <ScheduledTaskCard
-                  key={task.id}
+                  key={`${task.source}:${task.id}`}
                   task={task}
-                  onComplete={() => completeTask(task.id)}
+                  disabled={updatingIds.has(`${task.source}:${task.id}`)}
+                  onAdvance={() =>
+                    void transitionTask(
+                      task,
+                      task.status === "in_progress"
+                        ? "completed"
+                        : "in_progress",
+                    )
+                  }
                 />
               ))
             )}
@@ -207,21 +264,24 @@ export default function CleanerDashboardClient({
 
 function PendingTaskCard({
   task,
+  disabled,
   onDecline,
   onAccept,
 }: {
-  task: TaskRow;
+  task: CleanerTaskItem;
+  disabled: boolean;
   onDecline: () => void;
   onAccept: () => void;
 }) {
   const t = useTranslations("CleanerDashboard");
   const tOpts = useTranslations("ListingOptions");
   const locale = useLocale();
-  const ownerName = task.profiles?.display_name ?? "—";
-  const typeKey = optionKeyFor("cleaningTypes", task.cleaning_type);
+  const ownerName = task.contactName ?? "—";
+  const typeKey = optionKeyFor("cleaningTypes", task.cleaningType);
 
   return (
     <motion.article
+      data-testid={`cleaner-pending-task-${task.source}-${task.id}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
@@ -232,8 +292,8 @@ function PendingTaskCard({
 
       <div className="mt-4 flex items-center gap-3 rounded-2xl bg-[#F8FAFC] p-3">
         <Avatar className="h-11 w-11 shrink-0">
-          {task.profiles?.avatar_url && (
-            <AvatarImage src={task.profiles.avatar_url} alt={ownerName} />
+          {task.contactAvatar && (
+            <AvatarImage src={task.contactAvatar} alt={ownerName} />
           )}
           <AvatarFallback className="bg-[#E2E8F0] text-[12px] font-extrabold text-[#475569]">
             {deriveInitials(ownerName)}
@@ -250,11 +310,11 @@ function PendingTaskCard({
       </div>
 
       <h3 className="mt-4 text-[18px] font-black leading-[24px] text-[#0F172A]">
-        {task.properties?.title ?? "—"}
+        {task.title ?? "—"}
       </h3>
       <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
         <MapPin className="h-4 w-4 shrink-0" strokeWidth={2.2} />
-        {task.address ?? task.properties?.location ?? "—"}
+        {task.address ?? "—"}
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-[#F8FAFC] p-4">
@@ -267,8 +327,8 @@ function PendingTaskCard({
               className="h-4 w-4 shrink-0 text-[#64748B]"
               strokeWidth={2.2}
             />
-            {dayLabel(task.scheduled_at, t, locale)} •{" "}
-            {t("timeWithHour", { time: timeLabel(task.scheduled_at) })}
+            {dayLabel(task.scheduledAt, t, locale)} •{" "}
+            {t("timeWithHour", { time: timeLabel(task.scheduledAt) })}
           </p>
         </div>
         <div>
@@ -276,7 +336,7 @@ function PendingTaskCard({
             {t("type")}
           </p>
           <p className="mt-1.5 text-[13px] font-extrabold text-[#0F172A]">
-            {typeKey ? tOpts(`cleaningTypes.${typeKey}`) : task.cleaning_type}
+            {typeKey ? tOpts(`cleaningTypes.${typeKey}`) : task.cleaningType}
           </p>
         </div>
       </div>
@@ -294,14 +354,16 @@ function PendingTaskCard({
         <button
           type="button"
           onClick={onDecline}
-          className="rounded-xl bg-[#FEF2F2] px-4 py-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEE2E2]"
+          disabled={disabled}
+          className="rounded-xl bg-[#FEF2F2] px-4 py-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t("decline")}
         </button>
         <button
           type="button"
           onClick={onAccept}
-          className="flex items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+          disabled={disabled}
+          className="flex items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Check className="h-4 w-4 shrink-0" strokeWidth={3} />
           {t("confirm")}
@@ -313,50 +375,67 @@ function PendingTaskCard({
 
 function ScheduledTaskCard({
   task,
-  onComplete,
+  disabled,
+  onAdvance,
 }: {
-  task: TaskRow;
-  onComplete: () => void;
+  task: CleanerTaskItem;
+  disabled: boolean;
+  onAdvance: () => void;
 }) {
   const t = useTranslations("CleanerDashboard");
+  const tManual = useTranslations("CleanerSchedule.manualTask");
   const locale = useLocale();
   const inProgress = task.status === "in_progress";
 
   return (
     <motion.article
+      data-testid={`cleaner-scheduled-task-${task.source}-${task.id}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
     >
       <div className="flex items-start justify-between gap-3">
-        <span
-          className={`inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-bold ${
-            inProgress
-              ? "bg-[#EFF6FF] text-[#2563EB]"
-              : "bg-[#DCFCE7] text-[#16A34A]"
-          }`}
-        >
-          {inProgress ? t("inProgressBadge") : t("confirmedBadge")}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-bold ${
+              inProgress
+                ? "bg-[#EFF6FF] text-[#2563EB]"
+                : "bg-[#DCFCE7] text-[#16A34A]"
+            }`}
+          >
+            {inProgress ? t("inProgressBadge") : t("confirmedBadge")}
+          </span>
+          {task.source === "manual" && (
+            <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold text-[#64748B]">
+              {tManual("manualBadge")}
+            </span>
+          )}
+        </div>
         <p className="text-[20px] font-black text-[#0F172A]">
           {priceLabel(task.price)}
         </p>
       </div>
 
       <h3 className="mt-4 text-[17px] font-black leading-[22px] text-[#0F172A]">
-        {task.properties?.title ?? "—"}
+        {task.title ?? "—"}
       </h3>
       <p className="mt-1 text-[13px] font-medium text-[#64748B]">
-        {dayLabel(task.scheduled_at, t, locale)} •{" "}
-        {task.address ?? task.properties?.location ?? "—"}
+        {dayLabel(task.scheduledAt, t, locale)} •{" "}
+        {t("timeWithHour", { time: timeLabel(task.scheduledAt) })} •{" "}
+        {task.address ?? "—"}
       </p>
 
       <button
         type="button"
-        onClick={onComplete}
-        className="mt-5 w-full rounded-xl bg-[#F1F5F9] px-4 py-3 text-[13px] font-bold text-[#0F172A] transition-colors hover:bg-[#E2E8F0]"
+        onClick={onAdvance}
+        disabled={disabled}
+        className={`mt-5 w-full rounded-xl px-4 py-3 text-[13px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          inProgress
+            ? "bg-[#16A34A] text-white hover:bg-[#15803D]"
+            : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+        }`}
       >
-        {t("markCompleted")}
+        {inProgress ? t("markCompleted") : t("start")}
       </button>
     </motion.article>
   );

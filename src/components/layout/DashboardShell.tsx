@@ -8,7 +8,9 @@ import {
   type SetStateAction,
 } from "react";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
+import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   leadsClient,
@@ -29,6 +31,8 @@ import {
   type DashboardScope,
   type DashboardUnreadCounts,
 } from "@/lib/notifications/scopes";
+import BottomSheet from "@/components/shared/BottomSheet";
+import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 
 const DashboardSidebar = dynamic(() =>
   import("@/components/layout/DashboardSidebar").then(
@@ -211,6 +215,8 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   const pathname = usePathname();
+  const tRenter = useTranslations("RenterDashboard");
+  const tSidebar = useTranslations("DashboardSidebar");
   const [unreadCounts, setUnreadCounts] = useState(initialUnreadCounts);
   const [smartMatchCount, setSmartMatchCount] = useState(
     initialSmartMatchCount,
@@ -218,6 +224,7 @@ export function DashboardShell({
   const [leadsCount, setLeadsCount] = useState(0);
   const [verificationCount, setVerificationCount] = useState(0);
   const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
+  const [serviceSwitcherOpen, setServiceSwitcherOpen] = useState(false);
   // One timer PER scope: two notification events for different cabinets inside
   // the debounce window must not cancel each other, or the first cabinet's badge
   // never reconciles. (smartMatchTimer is scope-less, so a single ref is right.)
@@ -442,6 +449,8 @@ export function DashboardShell({
     return cabinet === "sms" ? "renter" : cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;
+  const normalizedPath =
+    pathname.replace(/^\/(ka|en|ru)(?=\/|$)/, "") || "/";
   const activeScope = dashboardScopeForPath(pathname) ?? "guest";
   const notificationCount = unreadCounts[activeScope] ?? 0;
 
@@ -477,6 +486,7 @@ export function DashboardShell({
           userRole="admin"
           onSignOut={handleSignOut}
           notificationCount={notificationCount}
+          availableCabinets={availableCabinets}
         />
       </div>
     );
@@ -501,7 +511,39 @@ export function DashboardShell({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <RenterTopbar balance={balance} smsRemaining={smsRemaining} />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
+            {normalizedPath === "/dashboard/renter" && (
+              <div className="border-b border-[#E2E8F0] bg-white px-4 lg:hidden">
+                <button
+                  type="button"
+                  data-testid="renter-active-service"
+                  aria-expanded={serviceSwitcherOpen}
+                  onClick={() => setServiceSwitcherOpen(true)}
+                  className="flex min-h-14 w-full items-center justify-between gap-3 text-left"
+                >
+                  <span className="text-[12px] font-semibold text-[#64748B]">
+                    {tRenter("activeService")}
+                  </span>
+                  <span className="flex min-w-0 items-center gap-2 text-[12px] font-extrabold text-[#1E293B]">
+                    <span className="truncate">
+                      {tSidebar("switcher.rentalsRent")}
+                    </span>
+                    <ChevronDown
+                      className="size-4 shrink-0 text-[#64748B]"
+                      aria-hidden
+                    />
+                  </span>
+                </button>
+              </div>
+            )}
+            <div
+              className={
+                normalizedPath === "/dashboard/renter"
+                  ? "w-full px-4 py-5 sm:px-10 sm:py-10"
+                  : "w-full px-5 py-8 sm:px-10 sm:py-10"
+              }
+            >
+              {children}
+            </div>
           </main>
         </div>
         <MobileBottomNav
@@ -510,7 +552,19 @@ export function DashboardShell({
           onSignOut={handleSignOut}
           notificationCount={notificationCount}
           canUseSms={canUseSms}
+          availableCabinets={availableCabinets}
         />
+        <BottomSheet
+          isOpen={serviceSwitcherOpen}
+          onClose={() => setServiceSwitcherOpen(false)}
+          title={tSidebar("serviceSwitcher")}
+        >
+          <MobileServiceSwitcherGrid
+            activeCabinetKey="renter"
+            availableCabinets={availableCabinets}
+            onSelect={() => setServiceSwitcherOpen(false)}
+          />
+        </BottomSheet>
       </div>
     );
   }
@@ -535,7 +589,13 @@ export function DashboardShell({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <SellerTopbar balance={balance} smsRemaining={smsRemaining} />
             <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+              <div
+                className={
+                  normalizedPath === "/dashboard/seller"
+                    ? "w-full px-4 py-6 sm:px-10 sm:py-10"
+                    : "w-full px-5 py-8 sm:px-10 sm:py-10"
+                }
+              >
                 {children}
               </div>
             </main>
@@ -547,6 +607,9 @@ export function DashboardShell({
             notificationCount={notificationCount}
             leadsCount={leadsCount}
             canUseSms={canUseSellerSms}
+            availableCabinets={availableCabinets}
+            balance={balance}
+            companies={companies}
           />
         </div>
       </ActiveOrgScopeProvider>
@@ -575,6 +638,7 @@ export function DashboardShell({
           userRole={activeRole}
           onSignOut={handleSignOut}
           notificationCount={notificationCount}
+          availableCabinets={availableCabinets}
         />
       </div>
     );
@@ -606,6 +670,7 @@ export function DashboardShell({
           userRole={activeRole}
           onSignOut={handleSignOut}
           notificationCount={notificationCount}
+          availableCabinets={availableCabinets}
         />
       </div>
     );
@@ -618,8 +683,8 @@ export function DashboardShell({
           restaurantName={displayName}
           currentPath={pathname}
           notificationCount={notificationCount}
-          onSignOut={handleSignOut}
           availableCabinets={availableCabinets}
+          onSignOut={handleSignOut}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <FoodTopbar balance={balance} smsRemaining={smsRemaining} />
@@ -632,6 +697,7 @@ export function DashboardShell({
           userRole={activeRole}
           onSignOut={handleSignOut}
           notificationCount={notificationCount}
+          availableCabinets={availableCabinets}
         />
       </div>
     );
@@ -647,8 +713,8 @@ export function DashboardShell({
           isVerified
           currentPath={pathname}
           notificationCount={notificationCount}
-          onSignOut={handleSignOut}
           availableCabinets={availableCabinets}
+          onSignOut={handleSignOut}
           basePath={serviceBasePath}
           cabinetKey={serviceSegment}
           roleKey={SEGMENT_TO_ROLE_KEY[serviceSegment]}
@@ -692,6 +758,7 @@ export function DashboardShell({
         userRole={activeRole}
         onSignOut={handleSignOut}
         notificationCount={notificationCount}
+        availableCabinets={availableCabinets}
       />
     </div>
   );

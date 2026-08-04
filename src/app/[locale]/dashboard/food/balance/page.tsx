@@ -19,6 +19,7 @@ import VipInfoModal, {
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import FoodDiscountRequestModal from "@/components/dashboard/FoodDiscountRequestModal";
 import { formatDate } from "@/lib/utils/format";
 import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
@@ -286,7 +287,7 @@ export default function FoodBalancePage() {
       />
 
       <PackagePromotionPicker
-        isOpen={!!pickerPkg}
+        isOpen={!!pickerPkg && inferVipInfoTier(pickerPkg) !== "discount"}
         onClose={() => setPickerPkg(null)}
         tier={pickerPkg ? inferVipInfoTier(pickerPkg) : "vip"}
         packageId={pickerPkg?.id}
@@ -309,6 +310,13 @@ export default function FoodBalancePage() {
             .maybeSingle();
           if (data) setRestaurant(data);
         }}
+      />
+
+      <FoodDiscountRequestModal
+        isOpen={!!pickerPkg && inferVipInfoTier(pickerPkg) === "discount"}
+        onClose={() => setPickerPkg(null)}
+        restaurant={restaurant}
+        packageId={pickerPkg?.id}
       />
 
       <ConfirmPaymentModal

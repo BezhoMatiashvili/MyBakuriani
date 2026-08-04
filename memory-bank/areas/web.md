@@ -20,6 +20,14 @@ App Router routes and all React UI.
 - Route trees carry `layout.tsx` / `loading.tsx` / `error.tsx` and `metadata`
   exports (Georgian SEO — required on public pages).
 - Every page must work at 375px+, 44px min touch targets.
+- `/[locale]/sms-consent/[token]` is a public, noindex guest decision page; the
+  renter calendar and guest forms only issue/share links and never attest consent (**C18**).
+- The renter calendar changes availability only through
+  `AvailabilityRangeModal`; grid quick presets/drag writes are intentionally absent.
+  Price ranges remain a separate modal, while reservations mark occupancy automatically.
+- Restaurant discounts use `FoodDiscountRequestModal`: the owner chooses the paid
+  package and percent, then submits an admin-reviewed request. The dashboard shows
+  pending/payment-required state; only approved, unexpired discounts affect public ordering.
 
 ## Blast radius
 
@@ -36,7 +44,8 @@ App Router routes and all React UI.
 ## Contracts touching this area
 
 C1 (namespaces), C4 (invoke callers), C5 (uploads), C6 (image hosts), C7 (realtime
-subscribers), C8 (protected routes).
+subscribers), C8 (protected routes), C20 (renter calendar cancellation history),
+C21 (restaurant discount submission and approved-discount ordering).
 
 ## Note
 

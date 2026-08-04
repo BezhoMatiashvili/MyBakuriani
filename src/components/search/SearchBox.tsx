@@ -5,7 +5,14 @@ import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import type { Locale } from "date-fns";
-import { Search, ChevronDown, Check } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDateShort } from "@/lib/utils/format";
@@ -57,6 +64,7 @@ interface SearchBoxProps {
   dropdownBoundaryRef?: React.RefObject<HTMLElement | null>;
   onActiveDropdownChange?: (active: ActiveDropdown) => void;
   isPending?: boolean;
+  phoneLayout?: "default" | "landing-compact";
   zones: Zone[];
 }
 
@@ -150,9 +158,11 @@ export function SearchBox({
   dropdownBoundaryRef,
   onActiveDropdownChange,
   isPending = false,
+  phoneLayout = "default",
   zones,
 }: SearchBoxProps) {
   const t = useTranslations("SearchBox");
+  const isLandingCompact = phoneLayout === "landing-compact";
   const [location, setLocation] = useState(defaultLocation);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     if (defaultCheckIn) {
@@ -348,6 +358,7 @@ export function SearchBox({
   return (
     <form
       onSubmit={handleSubmit}
+      data-phone-layout={phoneLayout}
       className={cn(
         "relative rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_20px_40px_-10px_rgba(0,0,0,0.15)]",
         "lg:flex lg:h-[80px] lg:items-center lg:overflow-visible lg:rounded-full lg:border-0 lg:p-2",
@@ -356,50 +367,120 @@ export function SearchBox({
       ref={containerRef}
     >
       {/* ═══ Mobile/tablet: compact rows, 2×2 from 640px ═══ */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
+      <div
+        data-testid="search-mobile-layout"
+        className={cn(
+          "grid grid-cols-1 lg:hidden",
+          isLandingCompact
+            ? "gap-0 sm:grid-cols-2 sm:gap-3"
+            : "gap-3 sm:grid-cols-2",
+        )}
+      >
         {/* Keyword search */}
-        <div className="relative order-4 sm:col-span-2">
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+        <div
+          className={cn(
+            "relative order-4 sm:col-span-2",
+            isLandingCompact && "mt-[18px] sm:mt-0",
+          )}
+        >
+          <label
+            className={cn(
+              "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
+              isLandingCompact && "sr-only sm:not-sr-only",
+            )}
+          >
             {t("keywordSearch")}
           </label>
-          <div className="flex">
+          <div
+            className={cn(
+              "flex",
+              isLandingCompact &&
+                "h-12 overflow-hidden rounded-xl bg-[#F8FAFC] sm:h-auto sm:overflow-visible sm:rounded-none sm:bg-transparent",
+            )}
+          >
             <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
-            <input
-              type="text"
-              placeholder={t("keywordPlaceholder")}
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              className="h-11 w-full rounded-l-xl border border-r-0 border-[#E2E8F0] bg-white pl-9 pr-3 text-base text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
-            />
+              <Search
+                className={cn(
+                  "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]",
+                  isLandingCompact && "left-3.5 size-5 sm:left-3 sm:size-4",
+                )}
+              />
+              <input
+                type="text"
+                placeholder={t("keywordPlaceholder")}
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                className={cn(
+                  "h-11 w-full rounded-l-xl border border-r-0 border-[#E2E8F0] bg-white pl-9 pr-3 text-base text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]",
+                  isLandingCompact &&
+                    "h-12 rounded-none border-0 bg-transparent pl-10 focus:bg-transparent sm:h-11 sm:rounded-l-xl sm:border sm:border-r-0 sm:border-[#E2E8F0] sm:bg-white sm:pl-9",
+                )}
+              />
             </div>
             <Button
               type="submit"
               disabled={isPending}
-              className="h-11 min-w-11 shrink-0 gap-2 rounded-l-none rounded-r-xl bg-brand-accent px-4 text-white hover:bg-brand-accent-hover disabled:opacity-70"
+              aria-label={t("search")}
+              className={cn(
+                "h-11 min-w-11 shrink-0 gap-2 rounded-l-none rounded-r-xl bg-brand-accent px-4 text-white hover:bg-brand-accent-hover disabled:opacity-70",
+                isLandingCompact &&
+                  "my-0.5 mr-0.5 size-11 gap-0 rounded-[10px] px-0 sm:m-0 sm:h-11 sm:w-auto sm:rounded-l-none sm:rounded-r-xl sm:px-4",
+              )}
             >
               {isPending ? (
                 <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
               ) : (
                 <Search className="size-4" />
               )}
-              <span className="hidden min-[360px]:inline">{t("search")}</span>
+              <span
+                className={cn(
+                  "hidden",
+                  isLandingCompact ? "sm:inline" : "min-[360px]:inline",
+                )}
+              >
+                {t("search")}
+              </span>
             </Button>
           </div>
         </div>
 
         {/* Location */}
-        <div className="relative order-2">
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+        <div
+          className={cn(
+            "relative order-2",
+            isLandingCompact &&
+              "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+          )}
+        >
+          <label
+            className={cn(
+              "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
+              isLandingCompact && "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+            )}
+          >
             {t("location")}
           </label>
           <button
             type="button"
             onClick={() => toggleDropdown("location")}
-            className="flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10"
+            className={cn(
+              "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
+              isLandingCompact &&
+                "rounded-none border-0 bg-transparent px-0 sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3",
+            )}
           >
-            <span className={location ? "text-[#1E293B]" : "text-[#94A3B8]"}>
-              {location || t("locationPlaceholder")}
+            <span className="flex min-w-0 items-center gap-3">
+              {isLandingCompact && (
+                <MapPin className="size-5 shrink-0 text-[#5B4A42] sm:hidden" />
+              )}
+              <span
+                className={cn(
+                  "truncate",
+                  location ? "text-[#1E293B]" : "text-[#94A3B8]",
+                )}
+              >
+                {location || t("locationPlaceholder")}
+              </span>
             </span>
             <ChevronDown className="size-4 text-[#94A3B8]" />
           </button>
@@ -416,8 +497,19 @@ export function SearchBox({
         </div>
 
         {/* Date Range Picker */}
-        <div className="relative order-1">
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+        <div
+          className={cn(
+            "relative order-1",
+            isLandingCompact &&
+              "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+          )}
+        >
+          <label
+            className={cn(
+              "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
+              isLandingCompact && "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+            )}
+          >
             {t("date")}
           </label>
           <button
@@ -425,30 +517,59 @@ export function SearchBox({
             onClick={() => toggleDropdown("calendar")}
             data-testid="search-mobile-dates"
             className={cn(
-              "h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
+              "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
+              isLandingCompact &&
+                "rounded-none border-0 bg-transparent px-0 sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3",
               !dateLabel && "text-[#94A3B8]",
             )}
           >
-            {dateLabel || t("selectDate")}
+            <span className="flex min-w-0 items-center gap-3">
+              {isLandingCompact && (
+                <CalendarDays className="size-5 shrink-0 text-[#5B4A42] sm:hidden" />
+              )}
+              <span className="truncate">{dateLabel || t("selectDate")}</span>
+            </span>
+            {isLandingCompact && (
+              <ChevronDown className="size-4 shrink-0 text-[#5B4A42] sm:hidden" />
+            )}
           </button>
         </div>
 
         {/* Filters */}
-        <div className="relative order-3">
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+        <div
+          className={cn(
+            "relative order-3",
+            isLandingCompact &&
+              "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+          )}
+        >
+          <label
+            className={cn(
+              "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
+              isLandingCompact && "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+            )}
+          >
             {t("filters")}
           </label>
           <button
             type="button"
             onClick={() => toggleDropdown("filters")}
             data-testid="search-mobile-filters"
-            className="flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#94A3B8] outline-none lg:h-10"
+            className={cn(
+              "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#94A3B8] outline-none lg:h-10",
+              isLandingCompact &&
+                "rounded-none border-0 bg-transparent px-0 text-[#5B4A42] sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3 sm:text-[#94A3B8]",
+            )}
           >
-            {t("priceCapacity")}
+            <span className="flex min-w-0 items-center gap-3">
+              {isLandingCompact && (
+                <SlidersHorizontal className="size-5 shrink-0 text-[#5B4A42] sm:hidden" />
+              )}
+              <span className="truncate">{t("priceCapacity")}</span>
+            </span>
             <ChevronDown className="size-4" />
           </button>
         </div>
-
       </div>
 
       {/* ═══ Desktop: horizontal pill layout ═══ */}

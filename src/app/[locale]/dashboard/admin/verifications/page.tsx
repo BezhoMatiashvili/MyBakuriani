@@ -32,6 +32,11 @@ type ContentChangeRequest = {
   proposed_values: Record<string, unknown>;
   field_diff: Record<string, { before: unknown; after: unknown }>;
   created_at: string;
+  request_kind: "content" | "food_discount";
+  quoted_amount_gel?: number | null;
+  quoted_duration_hours?: number | null;
+  payment_error?: string | null;
+  request_metadata?: Record<string, unknown> | null;
   requester?: {
     display_name?: string | null;
     role?: string | null;
@@ -607,6 +612,16 @@ function ContentChangeRequestsPanel() {
       );
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "შეცდომა");
+      const resultStatus = payload.result?.status as string | undefined;
+      const expectedStatus = action === "approve" ? "approved" : "rejected";
+      if (resultStatus !== expectedStatus) {
+        await load();
+        throw new Error(
+          resultStatus === "superseded"
+            ? "მოთხოვნა უფრო ახალმა ცვლილებამ ჩაანაცვლა"
+            : "მოთხოვნა აღარ არის განხილვის მდგომარეობაში",
+        );
+      }
       setItems((current) => current.filter((entry) => entry.id !== item.id));
       toast.success(
         action === "approve" ? "ცვლილება დამტკიცდა" : "ცვლილება უარყოფილია",
@@ -654,13 +669,22 @@ function ContentChangeRequestsPanel() {
                 <p className="font-black text-[#0F172A]">
                   {item.requester?.display_name ?? "—"}{" "}
                   <span className="ml-2 rounded bg-[#EFF6FF] px-2 py-1 text-xs text-[#1D4ED8]">
-                    {item.target_type}
+                    {item.request_kind === "food_discount"
+                      ? "რესტორნის ფასდაკლება"
+                      : item.target_type}
                   </span>
                 </p>
                 <p className="mt-1 text-xs text-[#64748B]">
                   {item.requester?.role ?? ""} · {formatDate(item.created_at)} ·{" "}
-                  {Object.keys(item.field_diff).length} ველი
+                  {item.request_kind === "food_discount"
+                    ? `−${String(item.proposed_values.discount_percent ?? "?")}% · ${Number(item.quoted_amount_gel ?? 0).toFixed(2)} ₾ · ${item.quoted_duration_hours ?? 0} სთ`
+                    : `${Object.keys(item.field_diff).length} ველი`}
                 </p>
+                {item.payment_error === "insufficient_balance" && (
+                  <p className="mt-1 text-xs font-bold text-[#B45309]">
+                    ბალანსი არასაკმარისია — მოთხოვნა pending რჩება
+                  </p>
+                )}
               </button>
               <div className="flex gap-2">
                 <button

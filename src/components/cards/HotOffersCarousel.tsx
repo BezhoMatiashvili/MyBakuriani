@@ -153,7 +153,7 @@ export default function HotOffersCarousel({
   return (
     <>
       <div className="lg:hidden">
-        <MobileRail label="Hot offers" mobileLayout="single-page">
+        <MobileRail label="Hot offers">
           {properties.map((property, index) => (
             <PropertyCard
               key={property.id}

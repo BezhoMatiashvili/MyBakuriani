@@ -14,6 +14,7 @@ import {
   transactions,
   blogPosts,
   cleaningTasks,
+  cleanerManualTasks,
   smartMatchRequests,
   verifications,
   smsMessages,
@@ -59,6 +60,17 @@ export function futureDate(days: number): Date {
 
 export function futureISO(days: number): string {
   return futureDate(days).toISOString().split("T")[0];
+}
+
+/** Timestamp anchored to a local wall-clock time, for calendar-day assertions. */
+export function futureLocalTimestamp(
+  days: number,
+  hours: number,
+  minutes = 0,
+): string {
+  const date = futureDate(days);
+  date.setHours(hours, minutes, 0, 0);
+  return date.toISOString();
 }
 
 // ---------------------------------------------------------------------------
@@ -400,9 +412,12 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     description: "ტესტ დასუფთავების სერვისი",
     price: 80,
     price_unit: "საათი",
-    location: "ბაკურიანი",
+    location: "ბაკურიანი, დიდველი",
     schedule: "08:00 - 16:00",
     operating_hours: "08:00 - 16:00",
+    experience_required: "5 წელი",
+    languages: ["ქართული", "რუსული"],
+    service_field: "დასუფთავება/დამლაგებელი",
     status: "active",
   });
 
@@ -412,11 +427,14 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     category: "cleaning",
     title: "E2E საღამოს დასუფთავება",
     provider_name: "E2E დამლაგებელი",
-    description: "ტესტ დასუფთავების სერვისი",
+    description: "საღამოს დასუფთავება აპარტამენტებისა და კოტეჯებისთვის",
     price: 90,
     price_unit: "საათი",
     location: "ბაკურიანი",
     operating_hours: "10:00 - 18:00",
+    experience_required: "5 წელი",
+    languages: ["ქართული", "რუსული"],
+    service_field: "დასუფთავება/დამლაგებელი",
     status: "active",
   });
 
@@ -521,6 +539,46 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     notes: "განრიგის CTA ტესტი",
   });
 
+  // Manual work exercises the cleaner's second task source without occupying
+  // tomorrow, which the empty-day schedule test deliberately selects.
+  await cleanerManualTasks.create({
+    id: TEST_IDS.cleanerManualTask,
+    cleaner_id: TEST_IDS.cleaner,
+    client_name: "E2E პირადი კლიენტი",
+    client_phone: "+995599123456",
+    address: "ბაკურიანი, აღმაშენებლის ქუჩა 10",
+    cleaning_type: "general",
+    scheduled_at: futureLocalTimestamp(0, 14, 30),
+    price: 120,
+    status: "accepted",
+    notes: "მთავარი გვერდის გაერთიანების ტესტი",
+  });
+  await cleanerManualTasks.create({
+    id: TEST_IDS.cleanerManualFutureTask,
+    cleaner_id: TEST_IDS.cleaner,
+    client_name: "E2E მომავალი კლიენტი",
+    client_phone: "+995599123457",
+    address: "ბაკურიანი, დიდველი 5",
+    cleaning_type: "standard",
+    // 00:30 Tbilisi serializes to the previous UTC date; the UI must still
+    // mark/select the intended local calendar day.
+    scheduled_at: futureLocalTimestamp(2, 0, 30),
+    price: 95,
+    status: "accepted",
+  });
+  await cleanerManualTasks.create({
+    id: TEST_IDS.cleanerManualCompletedTask,
+    cleaner_id: TEST_IDS.cleaner,
+    client_name: "E2E დასრულებული კლიენტი",
+    client_phone: "+995599123458",
+    address: "ბაკურიანი, წაქაძის ქუჩა 3",
+    cleaning_type: "standard",
+    scheduled_at: futureLocalTimestamp(-2, 9),
+    price: 80,
+    status: "completed",
+    completed_at: futureLocalTimestamp(-2, 11),
+  });
+
   // ---- Smart match request ----
   await smartMatchRequests.create({
     id: TEST_IDS.smartMatch,
@@ -576,6 +634,13 @@ export async function cleanupTestData(): Promise<void> {
   // Cleaning tasks (depends on properties + profiles)
   await cleaningTasks.delete(TEST_IDS.cleaningTask).catch(ignore);
   await cleaningTasks.delete(TEST_IDS.cleanerScheduleTask).catch(ignore);
+  await cleanerManualTasks.delete(TEST_IDS.cleanerManualTask).catch(ignore);
+  await cleanerManualTasks
+    .delete(TEST_IDS.cleanerManualFutureTask)
+    .catch(ignore);
+  await cleanerManualTasks
+    .delete(TEST_IDS.cleanerManualCompletedTask)
+    .catch(ignore);
 
   // Verifications (depends on properties + profiles)
   await verifications.delete(TEST_IDS.verification).catch(ignore);

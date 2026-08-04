@@ -95,6 +95,9 @@ export default function LandingPage({
   const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
+  const hasHomePromo = bannerCreatives.some(
+    (creative) => creative.placement === "home_promo",
+  );
 
   useEffect(() => {
     setListingMode(mode);
@@ -224,6 +227,24 @@ export default function LandingPage({
       const isTransport = category === "transport";
       return serverServices
         .filter((s) => s.category === category)
+        .sort((a, b) => {
+          const aDiscount = isDiscountActive(
+            a.discount_percent,
+            a.discount_expires_at,
+          );
+          const bDiscount = isDiscountActive(
+            b.discount_percent,
+            b.discount_expires_at,
+          );
+          if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
+          if (Boolean(a.is_vip) !== Boolean(b.is_vip)) {
+            return a.is_vip ? -1 : 1;
+          }
+          return (
+            new Date(b.created_at ?? 0).getTime() -
+            new Date(a.created_at ?? 0).getTime()
+          );
+        })
         .slice(0, 4)
         .map((s) => ({
           id: s.id,
@@ -320,8 +341,12 @@ export default function LandingPage({
             </h1>
           </ScrollReveal>
 
-          <div className="mt-6 flex justify-center">
-            <RentBuyToggle value={mode} onChange={setMode} />
+          <div className="mt-[34px] flex justify-center sm:mt-6">
+            <RentBuyToggle
+              value={mode}
+              onChange={setMode}
+              phoneLayout="landing-compact"
+            />
           </div>
 
           <div className="relative mt-6">
@@ -331,6 +356,7 @@ export default function LandingPage({
               dropdownPortalRef={dropdownPortalRef}
               dropdownBoundaryRef={dropdownBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
+              phoneLayout="landing-compact"
               zones={zones}
             />
 
@@ -394,6 +420,9 @@ export default function LandingPage({
         </div>
       </section>
 
+      {/* Reserve the phone-only status-card overhang in document flow. */}
+      <div aria-hidden="true" className="h-[72px] sm:hidden" />
+
       {/* ═══ 2.5 Verified-listings info banner (admin-managed) ═══ */}
       <BannerSlotView
         placement="home_top_strip"
@@ -405,11 +434,14 @@ export default function LandingPage({
 
       {/* ═══ 3. Hot Offers — VIP / Super VIP Carousel ═══ */}
       {vipPropertyCards.length > 0 && (
-        <section className="mx-auto w-full max-w-[1160px] px-4 pb-12 pt-8 lg:pb-16 lg:pt-10">
+        <section className="mx-auto w-full max-w-[1160px] px-4 pb-12 pt-[52px] sm:pt-8 lg:pb-16 lg:pt-10">
           <ScrollReveal>
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
+                <h2
+                  data-testid="homepage-hot-offers-heading"
+                  className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"
+                >
                   {t("hotOffers")}
                 </h2>
                 <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
@@ -489,8 +521,23 @@ export default function LandingPage({
         showAddButton
       />
 
-      {/* ═══ 5.5 Promo banners (admin-managed) ═══ */}
-      <BannerSlotView placement="home_promo" creatives={bannerCreatives} />
+      {/* ═══ 5.5 Recommended services (admin-managed) ═══ */}
+      {hasHomePromo && (
+        <section
+          data-testid="homepage-recommended-services"
+          className="mx-auto w-full max-w-[1160px] px-4 pb-12 lg:pb-16"
+        >
+          <h2 className="mb-4 text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
+            {t("recommendedServices")}
+          </h2>
+          <BannerSlotView
+            placement="home_promo"
+            creatives={bannerCreatives}
+            bare
+            className="space-y-3"
+          />
+        </section>
+      )}
 
       {/* ═══ 6. Transport Section ═══ */}
       <ServiceSection
@@ -554,7 +601,6 @@ export default function LandingPage({
             </div>
           </ScrollReveal>
           <MobileRail
-            mobileLayout="single-page"
             desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
             desktopItemClassName="lg:w-auto lg:snap-none"
           >
@@ -756,7 +802,6 @@ function ServiceSection({
           </div>
         </ScrollReveal>
         <MobileRail
-          mobileLayout="single-page"
           desktopClassName="lg:gap-6 lg:pb-0"
           desktopItemClassName={
             cardVariant === "avatar" ? "lg:w-[280px]" : "lg:w-[340px]"
@@ -833,7 +878,6 @@ function EmploymentSection({
           </div>
         </ScrollReveal>
         <MobileRail
-          mobileLayout="single-page"
           desktopClassName="lg:gap-6 lg:pb-0"
           desktopItemClassName="lg:w-[300px]"
         >
@@ -978,7 +1022,6 @@ function PropertySection({
           </div>
         </ScrollReveal>
         <MobileRail
-          mobileLayout="single-page"
           desktopClassName="lg:gap-6 lg:pb-0"
           desktopItemClassName="lg:w-[340px]"
         >

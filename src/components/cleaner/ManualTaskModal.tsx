@@ -12,7 +12,7 @@ import DateField from "@/components/shared/DateField";
 import TimeField from "@/components/shared/TimeField";
 import NumberField from "@/components/shared/NumberField";
 import PhoneInput from "@/components/forms/PhoneInput";
-import type { ManualTaskRow } from "@/lib/cleaner/tasks";
+import { toLocalDateKey, type ManualTaskRow } from "@/lib/cleaner/tasks";
 
 const inputClass =
   "w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10";
@@ -22,7 +22,8 @@ interface ManualTaskModalProps {
   onClose: () => void;
   /** Non-null puts the modal in edit mode, seeded from this row. */
   task: ManualTaskRow | null;
-  onSaved: () => void;
+  initialDate: Date;
+  onSaved: (scheduledAt: string) => void;
 }
 
 /** Split a stored timestamptz into the local "YYYY-MM-DD" / "HH:MM" the fields want. */
@@ -39,6 +40,7 @@ export default function ManualTaskModal({
   isOpen,
   onClose,
   task,
+  initialDate,
   onSaved,
 }: ManualTaskModalProps) {
   const t = useTranslations("CleanerSchedule.manualTask");
@@ -63,7 +65,9 @@ export default function ManualTaskModal({
   // Reset (create) or seed (edit) on every open.
   useEffect(() => {
     if (!isOpen) return;
-    const when = task ? splitLocal(task.scheduled_at) : { date: "", time: "" };
+    const when = task
+      ? splitLocal(task.scheduled_at)
+      : { date: toLocalDateKey(initialDate), time: "" };
     setClientName(task?.client_name ?? "");
     setPhone(toLocalGePhone(task?.client_phone));
     setCleaningType(
@@ -77,7 +81,7 @@ export default function ManualTaskModal({
     setAddress(task?.address ?? "");
     setNotes(task?.notes ?? "");
     setError(null);
-  }, [isOpen, task]);
+  }, [initialDate, isOpen, task]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -127,6 +131,7 @@ export default function ManualTaskModal({
           .from("cleaner_manual_tasks")
           .update(payload)
           .eq("id", task.id)
+          .eq("cleaner_id", user.id)
       : await supabase
           .from("cleaner_manual_tasks")
           .insert({ ...payload, cleaner_id: user.id });
@@ -136,7 +141,7 @@ export default function ManualTaskModal({
       setError(t("saveError"));
       return;
     }
-    onSaved();
+    onSaved(payload.scheduled_at);
     onClose();
   };
 

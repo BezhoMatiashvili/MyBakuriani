@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import FoodDiscountRequestModal from "@/components/dashboard/FoodDiscountRequestModal";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
@@ -301,7 +302,7 @@ export default function FoodDashboardClient({
       </motion.div>
 
       <PackagePromotionPicker
-        isOpen={pickerModal.open}
+        isOpen={pickerModal.open && pickerModal.tier !== "discount"}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
         flat
@@ -321,6 +322,11 @@ export default function FoodDashboardClient({
         }
         target="service"
         onPurchased={() => loadFoodData(supabase, userId).then(apply)}
+      />
+      <FoodDiscountRequestModal
+        isOpen={pickerModal.open && pickerModal.tier === "discount"}
+        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
+        restaurant={restaurant}
       />
     </div>
   );

@@ -136,6 +136,65 @@ test.describe("Seller Dashboard", () => {
     await expect(sellerPage).toHaveURL(/\/dashboard\/seller/);
   });
 
+  test("overview and More sheet match the compact mobile layout", async ({
+    sellerPage,
+  }) => {
+    await sellerPage.setViewportSize({ width: 390, height: 844 });
+    await sellerPage.goto("/dashboard/seller");
+    if (!(await assertDashboard(sellerPage, "/dashboard/seller"))) return;
+
+    const filters = sellerPage.getByTestId("seller-kpi-filters");
+    const filterButtons = filters.locator("button");
+    await expect(filterButtons).toHaveCount(2);
+    const [listingFilter, dateFilter] = await Promise.all([
+      filterButtons.nth(0).boundingBox(),
+      filterButtons.nth(1).boundingBox(),
+    ]);
+    expect(listingFilter?.y).toBeCloseTo(dateFilter?.y ?? 0, 0);
+    expect(listingFilter?.height).toBeGreaterThanOrEqual(44);
+    expect(dateFilter?.height).toBeGreaterThanOrEqual(44);
+
+    const listing = sellerPage.getByTestId("seller-overview-listing").first();
+    await expect(listing).toBeVisible();
+    const thumbnail = await listing
+      .getByTestId("seller-listing-thumbnail")
+      .boundingBox();
+    expect(thumbnail?.width).toBeCloseTo(88, 0);
+    expect(thumbnail?.height).toBeCloseTo(88, 0);
+
+    const promotions = listing.getByTestId("seller-mobile-promotions");
+    const actions = listing.getByTestId("seller-mobile-actions");
+    await expect(promotions.locator("button")).toHaveCount(3);
+    await expect(actions.locator("a")).toHaveCount(2);
+    const [promotionBox, actionsBox] = await Promise.all([
+      promotions.boundingBox(),
+      actions.boundingBox(),
+    ]);
+    expect(promotionBox!.y).toBeLessThan(actionsBox!.y);
+
+    await sellerPage
+      .locator('button[aria-controls="dashboard-more-sheet"]')
+      .click();
+    const switcher = sellerPage.getByTestId("mobile-service-switcher");
+    const menu = sellerPage.getByTestId("seller-mobile-menu-list");
+    await expect(switcher).toBeVisible();
+    await expect(menu).toBeVisible();
+    await expect(switcher.getByText("სტუმარი", { exact: true })).toHaveCount(0);
+    await expect(menu.getByText("მთავარი პანელი", { exact: true })).toBeVisible();
+    await expect(menu.getByText("ობიექტები და პროექტები", { exact: true })).toBeVisible();
+    await expect(menu.getByText(/\d+\.\d{2} ₾/)).toBeVisible();
+    expect(await sellerPage.evaluate(() => document.body.style.overflow)).toBe(
+      "hidden",
+    );
+    await sellerPage.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+
+    const overflows = await sellerPage.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(overflows).toBe(false);
+  });
+
   test("listings page loads", async ({ sellerPage }) => {
     await sellerPage.goto("/dashboard/seller/listings");
     if (!(await assertDashboard(sellerPage, "/dashboard/seller/listings")))

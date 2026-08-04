@@ -12,6 +12,13 @@ from Deno edge functions; see `edge.md`).
   verifications, zones). Public/
   utility: `banners`, `contact/track`, `geocode`, `menu/track`, `pricing-packages`,
   `sms/*`, `zones`.
+- `src/app/api/renter/calendar/history/route.ts` is the owner-gated, sanitized
+  projection of admin-only `audit_logs` used by the calendar history drawer (**C20**).
+- `src/app/api/renter/manual-bookings/[id]/sms-consent-link/route.ts` authenticates
+  the owner and issues hash-only guest consent links; `src/app/api/sms-consent/[token]/route.ts`
+  is public, no-store, and accepts only accept/decline/revoke (**C18**).
+- `src/app/api/food/discount-requests/route.ts` owns restaurant discount submission/status;
+  admin approval dispatches food requests to the specialized single-charge RPC (**C21**).
 - `src/app/actions/` — server actions (`revalidateListing.ts`).
 
 ## Responsibilities
@@ -32,4 +39,5 @@ from Deno edge functions; see `edge.md`).
 
 ## Contracts touching this area
 
-C3 (types), C6 (external calls), C8 (admin gating).
+C3 (types), C6 (external calls), C8 (admin gating), C20 (manual-booking history),
+C21 (restaurant discount submission and approval).

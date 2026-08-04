@@ -8,7 +8,7 @@ import {
   Bell,
   Building,
   CalendarDays,
-  Check,
+  ChevronRight,
   Ellipsis,
   ClipboardList,
   FileText,
@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
 import { CABINET_SWITCHER_ITEMS } from "@/components/layout/CabinetSwitcher";
+import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 import BottomSheet from "@/components/shared/BottomSheet";
 
 interface MobileBottomNavProps {
@@ -38,6 +39,9 @@ interface MobileBottomNavProps {
   notificationCount?: number;
   leadsCount?: number;
   canUseSms?: boolean;
+  availableCabinets?: string[];
+  balance?: number;
+  companies?: { id: string; name: string; role: string; status: string }[];
 }
 
 interface NavItem {
@@ -375,6 +379,9 @@ export function MobileBottomNav({
   notificationCount = 0,
   leadsCount = 0,
   canUseSms = false,
+  availableCabinets = [],
+  balance = 0,
+  companies = [],
 }: MobileBottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const navigation = getNavigation(userRole);
@@ -400,6 +407,48 @@ export function MobileBottomNav({
   const showCabinets = CABINET_SWITCHER_ITEMS.some(
     (item) => item.key === activeCabinetKey,
   );
+  const isSeller = userRole === "seller";
+  const memberCompanies = companies.filter(
+    (company) => company.role === "owner" || company.role === "agent",
+  );
+  const companyHref =
+    memberCompanies.length === 1
+      ? `/dashboard/seller/organizations/${memberCompanies[0].id}`
+      : "/dashboard/seller/organizations";
+  const sellerSheetItems: Array<{
+    labelKey: string;
+    href: string;
+    detail?: "balance" | "notifications";
+  }> = [
+    { labelKey: "mainPanel", href: "/dashboard/seller" },
+    { labelKey: "clientsDatabase", href: "/dashboard/seller/leads" },
+    {
+      labelKey: "propertiesAndProjects",
+      href: "/dashboard/seller/listings",
+    },
+    {
+      labelKey: "myOrganizations",
+      href: "/dashboard/seller/organizations",
+    },
+    ...(memberCompanies.length > 0
+      ? [{ labelKey: "myCompany", href: companyHref }]
+      : []),
+    {
+      labelKey: "analyticsAndFeedback",
+      href: "/dashboard/seller/analytics",
+    },
+    {
+      labelKey: "balanceAndVip",
+      href: "/dashboard/seller/balance",
+      detail: "balance" as const,
+    },
+    {
+      labelKey: "notificationsItem",
+      href: "/dashboard/seller/notifications",
+      detail: "notifications" as const,
+    },
+    { labelKey: "settings", href: "/dashboard/seller/settings" },
+  ];
 
   const badgeFor = (item: NavItem) =>
     item.badge === "leads"
@@ -468,46 +517,64 @@ export function MobileBottomNav({
       <BottomSheet
         isOpen={moreOpen}
         onClose={() => setMoreOpen(false)}
-        title={t("more")}
+        title={isSeller ? tSidebar("menu") : t("more")}
       >
-        <div id="dashboard-more-sheet" className="space-y-1">
+        <div
+          id="dashboard-more-sheet"
+          className={isSeller ? "space-y-4" : "space-y-1"}
+        >
           {showCabinets && (
-            <>
-              <p className="px-3 pb-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#94A3B8]">
-                {tSidebar("switcher.switchWorkspace")}
-              </p>
-              {CABINET_SWITCHER_ITEMS.map((item) => {
-                const active = item.key === activeCabinetKey;
-                return (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    onClick={() => setMoreOpen(false)}
-                    className={cn(
-                      "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
-                      active
-                        ? "bg-[#EFF6FF] text-[#2563EB]"
-                        : "text-[#334155] hover:bg-[#F8FAFC]",
-                    )}
-                  >
-                    {/* Aligns labels with the icon-bearing rows below. */}
-                    <span className="size-5 shrink-0" aria-hidden />
-                    <span className="flex-1">
-                      {tSidebar(`switcher.${item.labelKey}`)}
-                    </span>
-                    {active && (
-                      <Check
-                        className="size-4 shrink-0 text-[#10B981]"
-                        aria-hidden
-                      />
-                    )}
-                  </Link>
-                );
-              })}
-              <div className="my-3 border-t border-[#E2E8F0]" />
-            </>
+            <MobileServiceSwitcherGrid
+              activeCabinetKey={activeCabinetKey}
+              availableCabinets={availableCabinets}
+              onSelect={() => setMoreOpen(false)}
+            />
           )}
-          {more.map((item) => {
+          {isSeller ? (
+            <div
+              data-testid="seller-mobile-menu-list"
+              className="overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white"
+            >
+              {sellerSheetItems.map((item) => (
+                <Link
+                  key={`${item.labelKey}-${item.href}`}
+                  href={item.href}
+                  onClick={() => setMoreOpen(false)}
+                  className="flex min-h-12 items-center gap-3 border-b border-[#EEF1F4] px-4 text-[13px] font-bold text-[#1E293B] transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
+                >
+                  <span className="min-w-0 flex-1">{t(item.labelKey)}</span>
+                  {item.detail === "balance" && (
+                    <span className="shrink-0 text-[12px] font-semibold text-[#64748B]">
+                      {balance.toFixed(2)} ₾
+                    </span>
+                  )}
+                  {item.detail === "notifications" && notificationCount > 0 && (
+                    <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-1 text-[10px] font-extrabold text-[#EA580C]">
+                      {tSidebar("newCount", {
+                        count: notificationCount > 99 ? "99+" : notificationCount,
+                      })}
+                    </span>
+                  )}
+                  <ChevronRight
+                    className="size-4 shrink-0 text-[#94A3B8]"
+                    aria-hidden
+                  />
+                </Link>
+              ))}
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onSignOut();
+                  }}
+                  className="flex min-h-12 w-full items-center px-4 text-left text-[13px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEF2F2]"
+                >
+                  {tSidebar("logout")}
+                </button>
+              )}
+            </div>
+          ) : more.map((item) => {
             const Icon = item.icon;
             const badge = badgeFor(item);
             return (
@@ -532,27 +599,31 @@ export function MobileBottomNav({
               </Link>
             );
           })}
-          <div className="my-3 border-t border-[#E2E8F0]" />
-          <Link
-            href="/"
-            onClick={() => setMoreOpen(false)}
-            className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F8FAFC]"
-          >
-            <Home className="size-5" aria-hidden />
-            {tSidebar("backToHome")}
-          </Link>
-          {onSignOut && (
-            <button
-              type="button"
-              onClick={() => {
-                setMoreOpen(false);
-                onSignOut();
-              }}
-              className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
-            >
-              <LogOut className="size-5" aria-hidden />
-              {tSidebar("logout")}
-            </button>
+          {!isSeller && (
+            <>
+              <div className="my-3 border-t border-[#E2E8F0]" />
+              <Link
+                href="/"
+                onClick={() => setMoreOpen(false)}
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#334155] hover:bg-[#F8FAFC]"
+              >
+                <Home className="size-5" aria-hidden />
+                {tSidebar("backToHome")}
+              </Link>
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onSignOut();
+                  }}
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
+                >
+                  <LogOut className="size-5" aria-hidden />
+                  {tSidebar("logout")}
+                </button>
+              )}
+            </>
           )}
         </div>
       </BottomSheet>

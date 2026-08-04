@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Home, CreditCard } from "lucide-react";
+import { X, Home, CreditCard, ClipboardCheck } from "lucide-react";
 import type { VipInfoTier } from "./VipInfoModal";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import NumberField from "@/components/shared/NumberField";
@@ -55,6 +55,8 @@ interface VipPropertyPickerModalProps {
   loading?: boolean;
   /** Render a single flat list (no rental/sale grouping) — used for services. */
   flat?: boolean;
+  /** Submit an admin-review request instead of opening the payment dialog. */
+  reviewMode?: boolean;
 }
 
 const BADGE_COLOR: Record<string, string> = {
@@ -72,6 +74,7 @@ export default function VipPropertyPickerModal({
   onConfirm,
   loading,
   flat,
+  reviewMode = false,
 }: VipPropertyPickerModalProps) {
   const t = useTranslations("RenterDashboard.modals.vipPicker");
   const tInfo = useTranslations("RenterDashboard.modals.vipInfo.tiers");
@@ -83,6 +86,8 @@ export default function VipPropertyPickerModal({
   const [quantity, setQuantity] = useState(1);
   const [discountPercent, setDiscountPercent] = useState("10");
   const [targetPrice, setTargetPrice] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState(false);
 
   const listingPrice = (p: PickerProperty | undefined) =>
     typeof p?.price === "number" && p.price > 0 ? p.price : null;
@@ -162,6 +167,7 @@ export default function VipPropertyPickerModal({
     if (isOpen) {
       setQuantity(1);
       setDiscountPercent("10");
+      setReviewError(false);
       const base =
         tier === "discount"
           ? listingPrice(
@@ -211,6 +217,24 @@ export default function VipPropertyPickerModal({
     () => (pkg ? (pkg.amountGel * quantity).toFixed(2) : null),
     [pkg, quantity],
   );
+
+  const submitForReview = async () => {
+    if (!selectedId || reviewSubmitting) return;
+    setReviewSubmitting(true);
+    setReviewError(false);
+    try {
+      await onConfirm?.(
+        selectedId,
+        quantity,
+        tier === "discount" ? Number(discountPercent) : undefined,
+      );
+      onClose();
+    } catch {
+      setReviewError(true);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -429,6 +453,17 @@ export default function VipPropertyPickerModal({
                   </div>
                 )}
 
+                {reviewMode && (
+                  <p className="mt-4 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5 text-[11px] font-semibold leading-4 text-[#1E40AF]">
+                    {t("reviewNotice")}
+                  </p>
+                )}
+                {reviewError && (
+                  <p role="alert" className="mt-3 text-[11px] font-bold text-[#B91C1C]">
+                    {t("reviewError")}
+                  </p>
+                )}
+
                 <div
                   className={`flex items-center justify-between gap-4 ${pkg ? "mt-4" : ""}`}
                 >
@@ -456,12 +491,20 @@ export default function VipPropertyPickerModal({
                   </div>
                   <button
                     type="button"
-                    disabled={!selectedId || loading}
-                    onClick={() => selectedId && setConfirmOpen(true)}
+                    disabled={!selectedId || loading || reviewSubmitting}
+                    onClick={() =>
+                      reviewMode
+                        ? void submitForReview()
+                        : selectedId && setConfirmOpen(true)
+                    }
                     className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
                   >
-                    <CreditCard className="h-4 w-4" />
-                    {tShared("pay")}
+                    {reviewMode ? (
+                      <ClipboardCheck className="h-4 w-4" />
+                    ) : (
+                      <CreditCard className="h-4 w-4" />
+                    )}
+                    {reviewMode ? t("submitForReview") : tShared("pay")}
                   </button>
                 </div>
               </div>
@@ -469,7 +512,7 @@ export default function VipPropertyPickerModal({
           </div>
         )}
       </AnimatePresence>
-      <ConfirmPaymentModal
+      {!reviewMode && <ConfirmPaymentModal
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
@@ -488,7 +531,7 @@ export default function VipPropertyPickerModal({
         }
         description={properties.find((p) => p.id === selectedId)?.title}
         lockScroll={false}
-      />
+      />}
     </>
   );
 }

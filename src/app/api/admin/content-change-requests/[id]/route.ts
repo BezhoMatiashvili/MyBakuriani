@@ -32,8 +32,23 @@ export async function POST(
   const db = createServiceClient(guard.admin.userId);
   if (body.action === "approve") {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pending, error: lookupError } = await (db as any)
+      .from("content_change_requests")
+      .select("request_kind")
+      .eq("id", id)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (lookupError)
+      return Response.json({ error: lookupError.message }, { status: 500 });
+    if (!pending)
+      return Response.json({ error: "request_not_pending" }, { status: 409 });
+    const rpcName =
+      pending.request_kind === "food_discount"
+        ? "approve_food_discount_request"
+        : "approve_content_change_request";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (db as any).rpc(
-      "approve_content_change_request",
+      rpcName,
       { p_request_id: id, p_admin_id: guard.admin.userId },
     );
     if (error)
@@ -45,7 +60,19 @@ export async function POST(
       status?: string;
       target_type?: string;
       target_id?: string;
+      reason?: string;
+      required?: number;
+      available?: number;
     };
+    if (result.status === "payment_required") {
+      return Response.json(
+        {
+          error: `არასაკმარისი ბალანსი: საჭიროა ${result.required ?? 0} ₾, ხელმისაწვდომია ${result.available ?? 0} ₾`,
+          result,
+        },
+        { status: 409 },
+      );
+    }
     if (
       result.status === "approved" &&
       result.target_id &&
@@ -59,7 +86,7 @@ export async function POST(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: pending, error: lookupError } = await (db as any)
     .from("content_change_requests")
-    .select("requester_id, target_type, target_id")
+    .select("requester_id, target_type, target_id, request_kind")
     .eq("id", id)
     .eq("status", "pending")
     .maybeSingle();
@@ -106,7 +133,10 @@ export async function POST(
   await (db as any).from("notifications").insert({
     user_id: pending.requester_id,
     type: "content_change_rejected",
-    title: "ცვლილება უარყოფილია",
+    title:
+      pending.request_kind === "food_discount"
+        ? "ფასდაკლება უარყოფილია"
+        : "ცვლილება უარყოფილია",
     message: rejectionReason,
     action_url: "/dashboard",
     dashboard_scope: dashboardScope,

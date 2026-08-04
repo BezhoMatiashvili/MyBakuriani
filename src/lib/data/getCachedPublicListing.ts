@@ -105,7 +105,7 @@ export function getCachedPublicService(
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
-      const row = (data as PublicServiceWithFoodExtras & {
+      const row = (data as unknown as PublicServiceWithFoodExtras & {
         profile_display_name?: string | null;
         profile_avatar_url?: string | null;
         profile_is_verified?: boolean | null;

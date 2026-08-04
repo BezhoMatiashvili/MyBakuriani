@@ -12,6 +12,7 @@ import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
+import { isDiscountActive } from "@/lib/utils/pricing";
 
 const OBJECT_TYPES = [
   "all",
@@ -74,24 +75,41 @@ export default function FoodPageClient({ services }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const filtered = useMemo(() => {
-    return services.filter((s) => {
-      if (activeType !== "all" && !matchesObjectType(s, activeType))
-        return false;
-      if (activeLocation !== "all") {
-        const loc = s.location ?? "";
-        if (activeLocation === "other") {
-          if (KNOWN_LOCATIONS.has(loc)) return false;
-        } else if (loc !== activeLocation) {
+    return services
+      .filter((s) => {
+        if (activeType !== "all" && !matchesObjectType(s, activeType))
           return false;
+        if (activeLocation !== "all") {
+          const loc = s.location ?? "";
+          if (activeLocation === "other") {
+            if (KNOWN_LOCATIONS.has(loc)) return false;
+          } else if (loc !== activeLocation) {
+            return false;
+          }
         }
-      }
-      if (
-        searchQuery &&
-        !s.title.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-        return false;
-      return true;
-    });
+        if (
+          searchQuery &&
+          !s.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+          return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const aDiscount = isDiscountActive(
+          a.discount_percent,
+          a.discount_expires_at,
+        );
+        const bDiscount = isDiscountActive(
+          b.discount_percent,
+          b.discount_expires_at,
+        );
+        if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
+        if (Boolean(a.is_vip) !== Boolean(b.is_vip)) return a.is_vip ? -1 : 1;
+        return (
+          new Date(b.created_at ?? 0).getTime() -
+          new Date(a.created_at ?? 0).getTime()
+        );
+      });
   }, [services, activeType, activeLocation, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));

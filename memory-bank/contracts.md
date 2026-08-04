@@ -86,7 +86,12 @@ landing_banners for **C12**, the whole `cleaner_manual_tasks` table block for
 `sms_automation_rules.win_back_discount_{value,period}`,
 `sms_outbound.{source_manual_booking_id,charged_at}` + `recipient_id` relaxed to
 nullable, the five `sms_*` RPC signatures, and `p_marketing_consent` added to the
-three manual-booking RPCs). The same pass **removed** the `road_conditions` block,
+three manual-booking RPCs). The 2026-08-04 verified-consent pass additionally
+mirrors `manual_bookings.deposit_{amount,paid_on}`, the complete
+`manual_booking_sms_consents` table, `issue_manual_booking_sms_consent` /
+`respond_manual_booking_sms_consent`, and the two trailing deposit arguments on
+all three manual-booking RPCs (`create_guest_manual_booking` also gains `p_amount`).
+The same pass **removed** the `road_conditions` block,
 which had been a type lie since `20260725160000` dropped the table. Hand-editing
 is the deliberate exception, not the rule — keep the edit to the affected lines so
 a future regen is a clean diff.
@@ -918,7 +923,12 @@ Participating symbols:
 
 - `supabase/migrations/20260725170000_cleaner_manual_tasks.sql:cleaner_manual_tasks` — the table. RLS is ONE policy, `FOR ALL USING (cleaner_id = (select auth.uid()))`, and that is legitimate **only because a manual job has no counterparty**: the cleaner is its sole author, sole reader and sole subject, so there is no authority to derive server-side. The same policy on `cleaning_tasks` would be a security regression — `20260723000000:317-322` dropped its INSERT/UPDATE policies precisely because a platform job's cleaner and price must NOT come from a browser
 - `src/lib/cleaner/tasks.ts:mergeCleanerTasks` — the only correct way to combine them; `fromPlatformTask` / `fromManualTask` normalize into `CleanerTaskItem`
-- `src/app/[locale]/dashboard/cleaner/schedule/page.tsx` — reads both, merges, renders one timeline
+- `src/app/[locale]/dashboard/cleaner/loadData.ts:loadCleanerTasks` + `CleanerDashboardClient.tsx` — the overview reads both sources; only platform `pending` rows are calls, while accepted/in-progress rows from both sources are scheduled work
+- `src/app/[locale]/dashboard/cleaner/schedule/page.tsx` — reads both, merges, and renders the selected day's timeline
+- `src/components/cleaner/CleanerMonthCalendar.tsx` — month-wide projection of that merged list; accepted/in-progress work marks an active day and completed work has a distinct marker
+- `supabase/migrations/20260804190000_cleaner_manual_tasks_realtime.sql` — adds the
+  manual table to Realtime with full replica identity; overview and schedule both
+  subscribe using `cleaner_id`, including cross-device deletes
 - `src/app/[locale]/dashboard/cleaner/earnings/page.tsx` — reads both, filtered to `status='completed'`
 - `src/components/cleaner/ManualTaskModal.tsx` — the only writer; create + edit, direct table writes (no RPC)
 
@@ -928,20 +938,24 @@ the schedule page filters on — a `'pending'` row would be invisible on the ver
 that created it. The CHECK deliberately omits `'pending'`, `'declined'` and
 `'cancelled'` so that trap cannot be reintroduced.
 
-**Three deliberate omissions — do not "fix" without re-reading the migration comment:**
+Platform status changes still use `transition_cleaning_task` and must follow
+`accepted → in_progress → completed`; manual rows are cleaner-owned direct updates.
+Do not optimistically remove either source when its transition returns an error.
+
+**Two deliberate omissions — do not "fix" without re-reading the migration comment:**
 
 1. **No audit trigger.** `audit_row_change()` snapshots the whole row into
    `audit_logs.new_values`, which the admin log UI renders. These rows hold an
    off-platform third party's name and phone; that PII should not become
    admin-readable because a cleaner kept their own diary.
-2. **Not in the `supabase_realtime` publication (C7).** The row owner is the only
-   writer AND the only reader, so there is no second party to notify. The page
-   refetches after its own writes — which is the rule C7 already states.
-3. **Nothing about `cleaning_tasks` changed.** Its columns, RLS, triggers and RPCs
+2. **Nothing about `cleaning_tasks` changed.** Its columns, RLS, triggers and RPCs
    are untouched, so `dashboard_layout_data.cleaning_tasks_count` (cabinet
    derivation), `get_cleaner_renter_counts` (public "renters served" stat) and the
    renter "my calls" list are all unaffected. Putting manual jobs in
    `cleaning_tasks` instead would have corrupted **all three**.
+
+The original migration omitted Realtime; `20260804190000` deliberately reverses
+only that choice because overview/schedule cross-device consistency is now required.
 
 **Also check:** `src/lib/types/database.ts` carries the `cleaner_manual_tasks` block
 (hand-added — **C3**), and the migration ends with `notify pgrst, 'reload schema'`
@@ -1016,6 +1030,16 @@ Participating symbols:
   its inner call to `create_manual_booking` is NAMED, not positional. A positional 12-arg call
   plus a defaulted 13th parameter silently records `false` for every booking made from the guests
   page
+- `supabase/migrations/20260804140000_manual_booking_finance_verified_sms_consent.sql` — replaces
+  owner-attested consent with one guest-token authority. The three legacy RPCs retain and ignore
+  `p_marketing_consent`; only `respond_manual_booking_sms_consent` can opt a booking in. The audit
+  table stores a SHA-256 token hash, never plaintext; issuing a new link revokes older links and
+  clears any earlier positive consent while the replacement is pending, while
+  a phone change or cancellation revokes the link and clears consent. Legacy checked rows become
+  `legacy_unverified`, and only queued `review_request` / `win_back` rows are retired — `check_in`
+  remains transactional. `src/app/api/renter/manual-bookings/[id]/sms-consent-link/route.ts` is the
+  owner-authenticated issuer/status projection; `src/app/api/sms-consent/[token]/route.ts` hashes
+  the URL token before every service-role read/write and accepts only accept/decline/revoke
 - `src/app/api/sms/automation/route.ts:RULES_COLUMNS` exposes only the three toggles and two
   win-back parameters. PATCH calls `sms_set_automation_rules`, which takes the same advisory lock
   as dispatch and atomically cancels queued text built from changed configuration
@@ -1028,15 +1052,17 @@ Participating symbols:
   Supabase Vault. Hosted Supabase does not permit the project `postgres` role to persist custom
   `ALTER DATABASE ... SET app.*` GUCs, so the cron commands read `vault.decrypted_secrets` at runtime
 - `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` — `check_in_time`, `marketing_consent` and
-  `marketing_opt_out` are deliberately ABSENT, so the owner and the guest can write them directly
-  without an admin approving each change (C14 would otherwise 42501 them)
+  `marketing_opt_out` are deliberately ABSENT. Manual-booking consent is nevertheless guarded:
+  owner RPC arguments are ignored and the guest token response is its only opt-in writer
 
 **Also check:** **T1 is pinned to `check_in = today + 1`** in Tbilisi because the template hardcodes "ხვალ"
 (tomorrow), and `sms_expire_stale_automation`'s 36-hour `check_in` window depends on that pinning
 — change one and the other MUST change. The legacy timing columns remain only for schema compatibility
-and are fixed by constraints. **Consent lives on two tables**, and `bookings.marketing_consent`
-has NO WRITER: there is no online booking flow, so it exists for forward compatibility only — do
-not go looking for the writer. **T2 (review request) queues zero rows by construction** and that is
+and are fixed by constraints. **Effective consent lives on the two booking tables; manual-booking
+proof and lifecycle live in `manual_booking_sms_consents`**. Online bookings are different: the guest
+submits their own checkbox to `booking-create`, whose seven-argument `create_booking` RPC writes
+`bookings.marketing_consent`; an owner-created manual booking can never use that authority.
+**T2 (review request) queues zero rows by construction** and that is
 correct: its link requires a `bookings` row whose `guest_id` matches the logged-in user, which an
 offline guest can never have (follow-up `sms-f10`). Both SMS functions are `verify_jwt = false` in
 `supabase/config.toml` and in the deployment; the pg_cron caller sends a shared Bearer secret, not a
@@ -1141,3 +1167,74 @@ is "simplified" back onto the scope column; or a bulk read-write loses its `user
 "Admins full access notifications" policy is `FOR ALL`, so for an admin viewer that marks **every**
 user's rows read. That predicate lives in `useNotifications:markAllRead`; the bell must not re-implement
 the write itself.
+
+---
+
+## C20 — Manual booking cancellation is reversible state, not deletion
+
+**Invariant:** a renter-calendar cancellation updates `manual_bookings.status` to `cancelled`; browser
+clients never delete the row. `cancel_manual_booking` and `restore_manual_booking` serialize first with
+the SMS dispatch advisory lock and then the property advisory lock, so queue eligibility and inclusive
+`calendar_blocks` cannot drift from the booking. Both RPCs are owner-scoped and idempotent.
+
+Participating symbols:
+
+- `supabase/migrations/20260804130000_manual_booking_cancellation_history.sql` — cancellation columns,
+  state CHECK, both RPCs, restore-with-edits in `update_manual_booking`, history index, review-token and
+  SMS revalidation guards
+- `supabase/migrations/20260804131000_manual_booking_write_hardening.sql` — removes authenticated direct
+  INSERT/UPDATE/DELETE after the web RPC rollout; SELECT remains owner-RLS protected
+- `public.audit_logs` / `public.audit_manual_booking_change` — canonical immutable activity source;
+  it stores complete before/after booking snapshots and actor attribution. Renter access stays behind
+  the sanitized server endpoint, never a broad audit RLS policy
+- `src/app/api/renter/calendar/history/route.ts` — verifies property ownership with the service client,
+  keyset-paginates audit rows, and whitelists booking/actor fields rather than returning raw snapshots
+- `src/app/[locale]/dashboard/renter/calendar/page.tsx` and
+  `src/components/renter/BookingHistoryDrawer.tsx` — active calendar excludes cancelled rows; history can
+  restore them, and an occupied original range opens the existing edit form for restore-with-new-dates
+
+Cancelled manual stays must also be absent from renter guest visit projections, SMS candidate and
+re-booking queries, and review-token use. Safe unclaimed queued SMS are failed and detached from the
+source uniqueness key on cancellation; claimed/submitted/sent rows are not rewritten. A later restore
+may therefore enqueue fresh future automation without resending a retired message.
+
+Legacy `DELETE` audit events remain visible as `legacy_deleted` but are never restorable because the
+source row and its foreign-key state no longer exist. There is no cancellation reason, restore expiry,
+or team permission expansion in this contract.
+
+---
+
+## C21 — Restaurant discounts are review-gated and charged on approval
+
+**Invariant:** submitting a restaurant discount creates or refreshes one pending
+`content_change_requests.request_kind='food_discount'` row. Submission quotes price and duration from
+the selected enabled pricing package but does not change the service or balance. Only
+`approve_food_discount_request` may approve it; that RPC locks the request, restaurant, and balance,
+then charges once and activates the discount in one transaction.
+
+Participating symbols:
+
+- `supabase/migrations/20260804180000_food_discount_admin_review.sql` — request metadata, specialized
+  submit/approve RPCs, transition guard, legacy proposal conversion, and `public_services.has_active_discount`
+- `src/app/api/food/discount-requests/route.ts` — owner-authenticated submit/status endpoint
+- `src/app/api/admin/content-change-requests/[id]/route.ts` — dispatches food approvals to the specialized
+  RPC; the general content RPC cannot approve this request kind
+- `src/components/dashboard/FoodDiscountRequestModal.tsx` and the food dashboard/order/balance surfaces —
+  collect percent/quantity and show pending or payment-required state
+- `src/app/[locale]/page.tsx`, `src/app/[locale]/food/page.tsx`, and
+  `src/lib/data/getCachedPublicListing.ts` — order currently active discounts before VIP and recency
+
+The quote is fixed when submitted. If the balance becomes insufficient before review, approval returns
+`payment_required`, keeps the request pending, records `payment_error`, and creates at most one payment
+notification until the request is refreshed. A later retry can approve it. Approved requests are
+terminal; `transactions.reference_id=request.id` provides the exactly-once billing identity.
+
+Legacy pending `menu.promotions` proposals are converted only when a valid percent can be parsed; other
+legacy proposals are superseded and their original payload remains in request metadata. A discount is
+publicly active only when percent is positive and expiry is in the future.
+
+**Breaks silently when:** a UI calls `purchase_package` directly for a restaurant discount (bypasses
+review); general content approval is allowed to transition `food_discount` rows (can activate without a
+charge); a public query orders raw `discount_percent` instead of `has_active_discount` (expired offers
+stay promoted); or submit-time and approval-time prices are recomputed independently (reviewed amount and
+charged amount diverge).

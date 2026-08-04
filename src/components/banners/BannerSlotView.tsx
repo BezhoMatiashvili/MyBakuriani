@@ -82,6 +82,7 @@ export default function BannerSlotView({
           key={creative.id}
           creative={creative}
           style={spec.renderStyle}
+          compactHomePromo={spec.id === "home_promo"}
           interactive={interactive}
           onExpand={setExpanded}
         />
@@ -213,11 +214,13 @@ function SlotFrame({
 function Creative({
   creative,
   style,
+  compactHomePromo,
   interactive,
   onExpand,
 }: {
   creative: BannerCreative;
   style: BannerRenderStyle;
+  compactHomePromo: boolean;
   interactive: boolean;
   onExpand: (creative: BannerCreative) => void;
 }) {
@@ -234,6 +237,7 @@ function Creative({
       return (
         <PromoCardCreative
           creative={creative}
+          compactHomePromo={compactHomePromo}
           interactive={interactive}
           onExpand={onExpand}
         />
@@ -516,10 +520,12 @@ function StripCreative({
 /** Media + copy + CTA card — ports the pre-placement PromoBanners look. */
 function PromoCardCreative({
   creative,
+  compactHomePromo,
   interactive,
   onExpand,
 }: {
   creative: BannerCreative;
+  compactHomePromo: boolean;
   interactive: boolean;
   onExpand: (creative: BannerCreative) => void;
 }) {
@@ -530,11 +536,21 @@ function PromoCardCreative({
       creative={creative}
       interactive={interactive}
       onExpand={onExpand}
-      className="relative flex cursor-pointer flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] @[768px]:flex-row @[1024px]:h-[180px]"
+      className={
+        compactHomePromo
+          ? "relative flex min-h-[112px] cursor-pointer flex-row overflow-hidden rounded-[18px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] @[768px]:rounded-[24px] @[1024px]:h-[180px]"
+          : "relative flex cursor-pointer flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] @[768px]:flex-row @[1024px]:h-[180px]"
+      }
       style={{ backgroundColor: tone.bg, borderColor: tone.border }}
     >
       {creative.videoUrl ? (
-        <div className="relative h-[180px] w-full shrink-0 @[768px]:h-auto @[768px]:w-[320px]">
+        <div
+          className={
+            compactHomePromo
+              ? "relative w-[104px] shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
+              : "relative h-[180px] w-full shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
+          }
+        >
           <video
             src={creative.videoUrl}
             poster={creative.videoPosterUrl ?? creative.imageUrl ?? undefined}
@@ -544,31 +560,63 @@ function PromoCardCreative({
             playsInline
             className="h-full w-full object-cover"
           />
-          <PromoTag tone={tone} sponsored={creative.sponsored} />
+          <PromoTag
+            tone={tone}
+            sponsored={creative.sponsored}
+            compact={compactHomePromo}
+          />
         </div>
       ) : creative.imageUrl ? (
-        <div className="relative h-[180px] w-full shrink-0 @[768px]:h-auto @[768px]:w-[320px]">
+        <div
+          className={
+            compactHomePromo
+              ? "relative w-[104px] shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
+              : "relative h-[180px] w-full shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
+          }
+        >
           <Image
             src={creative.imageUrl}
             alt=""
             fill
-            sizes="(max-width: 768px) 100vw, 320px"
+            sizes={
+              compactHomePromo
+                ? "(max-width: 767px) 104px, 320px"
+                : "(max-width: 768px) 100vw, 320px"
+            }
             className="object-cover"
           />
-          <PromoTag tone={tone} sponsored={creative.sponsored} />
+          <PromoTag
+            tone={tone}
+            sponsored={creative.sponsored}
+            compact={compactHomePromo}
+          />
         </div>
       ) : null}
-      <div className="flex flex-1 flex-col items-start justify-center gap-3 px-6 py-6 @[768px]:flex-row @[768px]:items-center @[768px]:justify-between @[768px]:px-10">
+      <div
+        className={
+          compactHomePromo
+            ? "flex min-w-0 flex-1 flex-col items-start justify-center gap-2 px-3 py-3 @[768px]:flex-row @[768px]:items-center @[768px]:justify-between @[768px]:gap-3 @[768px]:px-10 @[768px]:py-6"
+            : "flex flex-1 flex-col items-start justify-center gap-3 px-6 py-6 @[768px]:flex-row @[768px]:items-center @[768px]:justify-between @[768px]:px-10"
+        }
+      >
         <div className="max-w-[520px]">
           <h3
-            className="text-[22px] font-black leading-[28px]"
+            className={
+              compactHomePromo
+                ? "line-clamp-2 text-[15px] font-black leading-[19px] @[768px]:text-[22px] @[768px]:leading-[28px]"
+                : "text-[22px] font-black leading-[28px]"
+            }
             style={{ color: tone.title }}
           >
             {creative.title}
           </h3>
           {creative.body ? (
             <p
-              className="mt-2 text-[13px] font-medium leading-[20px]"
+              className={
+                compactHomePromo
+                  ? "mt-1 line-clamp-2 text-[11px] font-medium leading-[15px] @[768px]:mt-2 @[768px]:text-[13px] @[768px]:leading-[20px]"
+                  : "mt-2 text-[13px] font-medium leading-[20px]"
+              }
               style={{ color: tone.text }}
             >
               {creative.body}
@@ -580,7 +628,8 @@ function PromoCardCreative({
             creative={creative}
             tone={tone}
             interactive={interactive}
-            large
+            large={!compactHomePromo}
+            compact={compactHomePromo}
           />
         ) : null}
       </div>
@@ -593,15 +642,21 @@ function PromoCardCreative({
 function PromoTag({
   tone,
   sponsored,
+  compact,
 }: {
   tone: ReturnType<typeof getTonePalette>;
   sponsored: boolean;
+  compact?: boolean;
 }) {
   const locale = useLocale();
   return (
     <span
       data-sponsored={sponsored ? "true" : undefined}
-      className="absolute left-4 top-4 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
+      className={
+        compact
+          ? "absolute left-2 top-2 rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white @[768px]:left-4 @[768px]:top-4 @[768px]:px-3 @[768px]:py-1 @[768px]:text-[11px]"
+          : "absolute left-4 top-4 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
+      }
       style={{ backgroundColor: tone.badgeBg }}
     >
       {sponsored ? sponsoredLabel(locale) : "PROMO"}
@@ -720,16 +775,20 @@ function CreativeCta({
   tone,
   interactive,
   large,
+  compact,
 }: {
   creative: BannerCreative;
   tone: ReturnType<typeof getTonePalette>;
   interactive: boolean;
   large?: boolean;
+  compact?: boolean;
 }) {
-  const cls = large
-    ? "shrink-0 rounded-full border-2 bg-white px-6 py-3 text-[13px] font-bold transition-colors"
-    : "inline-flex min-h-11 shrink-0 items-center rounded-full border bg-white px-3 py-2 text-[12px] font-bold transition-colors @[640px]:px-4";
-  const style = large
+  const cls = compact
+    ? "inline-flex min-h-11 max-w-full shrink-0 items-center rounded-xl border bg-white px-3 py-2 text-[11px] font-bold transition-colors @[768px]:rounded-full @[768px]:border-2 @[768px]:px-6 @[768px]:py-3 @[768px]:text-[13px]"
+    : large
+      ? "shrink-0 rounded-full border-2 bg-white px-6 py-3 text-[13px] font-bold transition-colors"
+      : "inline-flex min-h-11 shrink-0 items-center rounded-full border bg-white px-3 py-2 text-[12px] font-bold transition-colors @[640px]:px-4";
+  const style = large || compact
     ? { borderColor: tone.ctaText, color: tone.ctaText }
     : { borderColor: tone.ctaBorder, color: tone.ctaText };
 

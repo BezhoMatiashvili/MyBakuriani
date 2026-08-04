@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Briefcase, ChevronDown, Trash2, Check } from "lucide-react";
+import { X, Briefcase, ChevronDown, Trash2, Check, LoaderCircle } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import PhoneInput from "@/components/forms/PhoneInput";
+import { SmsConsentLinkPanel } from "@/components/renter/SmsConsentLinkPanel";
 import {
   datesInRange,
   nextOccupiedAfter,
@@ -45,6 +46,7 @@ export type BookingMode = "create" | "edit" | "view";
 export type BookingSubmitResult = {
   ok: boolean;
   errorCode?: "datesUnavailable" | "generic";
+  bookingId?: string;
 };
 
 export interface AddBookingPayload {
@@ -55,10 +57,11 @@ export interface AddBookingPayload {
   guestPhone: string;
   guestsCount: string; // raw NumberField string — parent parses to int|null
   amount: string; // raw NumberField string — parent parses to numeric|null
+  depositAmount: string;
+  depositPaidOn: string;
   note: string;
   status: "booked" | "manual";
   clientList: string;
-  marketingConsent: boolean;
 }
 
 // Read-only payload for platform (guest-made) bookings, which live in the
@@ -79,7 +82,7 @@ interface AddBookingModalProps {
     payload: AddBookingPayload,
   ) => Promise<BookingSubmitResult | void>; // create
   onSave?: (payload: AddBookingPayload) => Promise<BookingSubmitResult | void>; // edit
-  onDelete?: () => void; // edit → cancel booking
+  onDelete?: () => Promise<BookingSubmitResult | void>; // edit → cancel booking
   initialCheckIn?: string;
   initialCheckOut?: string;
   existing?: Tables<"manual_bookings"> | null; // edit prefill
@@ -113,10 +116,12 @@ export default function AddBookingModal({
   const [guestPhone, setGuestPhone] = useState("");
   const [guestsCount, setGuestsCount] = useState("");
   const [amount, setAmount] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositPaidOn, setDepositPaidOn] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"booked" | "manual">("manual");
   const [clientListKey, setClientListKey] = useState<ClientListKey>("platform");
-  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -127,6 +132,7 @@ export default function AddBookingModal({
     setConfirmingDelete(false);
     setSubmitError(null);
     setSubmitting(false);
+    setCreatedBookingId(null);
     if (mode === "edit" && existing) {
       setCheckIn(existing.check_in);
       setCheckOut(existing.check_out);
@@ -137,14 +143,22 @@ export default function AddBookingModal({
         existing.guests_count != null ? String(existing.guests_count) : "",
       );
       setAmount(existing.amount != null ? String(existing.amount) : "");
+      setDepositAmount(
+        existing.deposit_amount != null ? String(existing.deposit_amount) : "",
+      );
+      setDepositPaidOn(existing.deposit_paid_on ?? "");
       setNote(existing.note ?? "");
-      setStatus(existing.status === "booked" ? "booked" : "manual");
+      setStatus(
+        existing.status === "booked" ||
+          (existing.status === "cancelled" && existing.status_before_cancel === "booked")
+          ? "booked"
+          : "manual",
+      );
       setClientListKey(
         (existing.client_list &&
           CLIENT_LIST_KEY_BY_VALUE[existing.client_list]) ||
           "platform",
       );
-      setMarketingConsent(existing.marketing_consent);
     } else if (mode === "create") {
       setCheckIn(initialCheckIn);
       setCheckOut(initialCheckOut);
@@ -153,10 +167,11 @@ export default function AddBookingModal({
       setGuestPhone("");
       setGuestsCount("");
       setAmount("");
+      setDepositAmount("");
+      setDepositPaidOn("");
       setNote("");
       setStatus("manual");
       setClientListKey("platform");
-      setMarketingConsent(false);
     }
   }, [isOpen, mode, existing, initialCheckIn, initialCheckOut]);
 
@@ -198,6 +213,20 @@ export default function AddBookingModal({
   }, [mode, checkIn, occupied]);
 
   const phoneInvalid = Boolean(guestPhone) && !isValidGePhone(guestPhone);
+  const totalNumber = amount.trim() === "" ? null : Number(amount);
+  const depositNumber =
+    depositAmount.trim() === "" ? null : Number(depositAmount);
+  const financeError = useMemo<string | null>(() => {
+    if (depositNumber == null) return null;
+    if (totalNumber == null) return t("totalRequiredForDeposit");
+    if (depositNumber > totalNumber) return t("depositExceedsTotal");
+    if (depositNumber > 0 && !depositPaidOn) return t("depositDateRequired");
+    return null;
+  }, [depositNumber, totalNumber, depositPaidOn, t]);
+  const remainingAmount =
+    totalNumber != null && depositNumber != null
+      ? Math.max(0, totalNumber - depositNumber)
+      : null;
 
   const buildPayload = (): AddBookingPayload => ({
     checkIn,
@@ -207,30 +236,40 @@ export default function AddBookingModal({
     guestPhone: guestPhone ? "+995" + guestPhone : "",
     guestsCount,
     amount,
+    depositAmount,
+    depositPaidOn,
     note,
     status,
     clientList: CLIENT_LIST_DB_VALUES[clientListKey],
-    marketingConsent,
   });
 
   async function handleSubmit() {
     setSubmitError(null);
     if (rangeError) return;
-    if (phoneInvalid) return;
+    if (phoneInvalid || financeError) return;
     const fn = mode === "edit" ? onSave : onSubmit;
     setSubmitting(true);
-    const res = await fn?.(buildPayload());
-    setSubmitting(false);
-    // Keep the modal open and show the reason on a date conflict.
-    if (res && res.ok === false) {
-      setSubmitError(
-        res.errorCode === "datesUnavailable"
-          ? t("datesUnavailable")
-          : t("genericError"),
-      );
-      return;
+    try {
+      const res = await fn?.(buildPayload());
+      // Keep the modal open and show the reason on a date conflict.
+      if (res && res.ok === false) {
+        setSubmitError(
+          res.errorCode === "datesUnavailable"
+            ? t("datesUnavailable")
+            : t("genericError"),
+        );
+        return;
+      }
+      if (mode === "create" && res?.bookingId) {
+        setCreatedBookingId(res.bookingId);
+        return;
+      }
+      onClose();
+    } catch {
+      setSubmitError(t("genericError"));
+    } finally {
+      setSubmitting(false);
     }
-    onClose();
   }
 
   const headerTitle =
@@ -290,6 +329,17 @@ export default function AddBookingModal({
 
             {mode === "view" && viewBooking ? (
               <ViewBody booking={viewBooking} t={t} tShared={tShared} />
+            ) : createdBookingId ? (
+              <div className="mt-5">
+                <SmsConsentLinkPanel bookingId={createdBookingId} />
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#0F172A] px-4 text-[13px] font-black text-white"
+                >
+                  {tShared("closeAria")}
+                </button>
+              </div>
             ) : (
               <>
                 <form
@@ -365,13 +415,58 @@ export default function AddBookingModal({
                     <Field label={t("amountLabel")}>
                       <NumberField
                         value={amount}
-                        onChange={setAmount}
+                        onChange={(value) => {
+                          setAmount(value);
+                          if (
+                            mode === "create" &&
+                            value.trim() &&
+                            depositAmount === ""
+                          ) {
+                            setDepositAmount("0");
+                          }
+                        }}
                         min={0}
                         max={999999}
                         decimals={2}
                         suffix="₾"
                         placeholder={t("amountPlaceholder")}
                       />
+                    </Field>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Field label={t("depositLabel")}>
+                      <NumberField
+                        value={depositAmount}
+                        onChange={(value) => {
+                          setDepositAmount(value);
+                          if (!value || Number(value) <= 0) setDepositPaidOn("");
+                        }}
+                        min={0}
+                        max={999999}
+                        decimals={2}
+                        suffix="₾"
+                        placeholder={t("depositPlaceholder")}
+                      />
+                    </Field>
+                    <Field label={t("depositPaidOnLabel")}>
+                      <DateField
+                        value={depositPaidOn}
+                        onChange={setDepositPaidOn}
+                        disabled={depositNumber == null || depositNumber <= 0}
+                        placeholder={t("datePlaceholder")}
+                        className="h-[42px]"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-3">
+                    <Field label={t("remainingLabel")}>
+                      <div className="flex h-[42px] items-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-black text-[#334155]">
+                        {remainingAmount == null
+                          ? t("notSpecified")
+                          : `${remainingAmount.toFixed(2)} ₾`}
+                      </div>
                     </Field>
                   </div>
 
@@ -446,30 +541,12 @@ export default function AddBookingModal({
                     </Field>
                   </div>
 
-                  <label className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-[#DBEAFE] bg-[#EFF6FF] p-3 text-left">
-                    <input
-                      type="checkbox"
-                      checked={marketingConsent}
-                      onChange={(event) =>
-                        setMarketingConsent(event.target.checked)
-                      }
-                      className="mt-0.5 size-4 shrink-0 accent-[#2563EB]"
-                    />
-                    <span>
-                      <span className="block text-[12px] font-bold text-[#1E3A8A]">
-                        {t("marketingConsentLabel")}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] leading-[17px] text-[#475569]">
-                        {t("marketingConsentHelp")}
-                      </span>
-                    </span>
-                  </label>
-
                   <button
                     type="submit"
                     disabled={
                       submitting ||
                       Boolean(rangeError) ||
+                      Boolean(financeError) ||
                       phoneInvalid ||
                       !guestName.trim()
                     }
@@ -478,14 +555,18 @@ export default function AddBookingModal({
                     {mode === "edit" ? tShared("save") : tShared("add")}
                   </button>
 
-                  {(rangeError || submitError) && (
+                  {(rangeError || financeError || submitError) && (
                     <div className="mt-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3">
                       <p className="text-[12px] font-semibold text-[#B91C1C]">
-                        {rangeError ?? submitError}
+                        {rangeError ?? financeError ?? submitError}
                       </p>
                     </div>
                   )}
                 </form>
+
+                {mode === "edit" && existing && existing.status !== "cancelled" && (
+                  <SmsConsentLinkPanel bookingId={existing.id} />
+                )}
 
                 {mode === "edit" &&
                   (confirmingDelete ? (
@@ -496,13 +577,25 @@ export default function AddBookingModal({
                       <div className="mt-2.5 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            onDelete?.();
+                          disabled={submitting}
+                          onClick={async () => {
+                            setSubmitError(null);
+                            setSubmitting(true);
+                            const result = await onDelete?.();
+                            setSubmitting(false);
+                            if (result && result.ok === false) {
+                              setSubmitError(t("cancelError"));
+                              return;
+                            }
                             onClose();
                           }}
-                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#EF4444] py-2.5 text-[12px] font-black text-white transition-colors hover:bg-[#DC2626]"
+                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#EF4444] py-2.5 text-[12px] font-black text-white transition-colors hover:bg-[#DC2626] disabled:opacity-60"
                         >
-                          <Check className="h-3.5 w-3.5" strokeWidth={2.6} />
+                          {submitting ? (
+                            <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" strokeWidth={2.6} />
+                          )}
                           {t("confirmCancelYes")}
                         </button>
                         <button

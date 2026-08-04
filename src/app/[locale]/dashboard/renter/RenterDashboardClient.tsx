@@ -11,14 +11,19 @@ import {
   AlertTriangle,
   Plus,
   Rocket,
-  Ticket,
+  Zap,
   Percent,
 } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import StatCard from "@/components/cards/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate, formatNumber, formatPrice } from "@/lib/utils/format";
+import {
+  formatDate,
+  formatDateShort,
+  formatNumber,
+  formatPrice,
+} from "@/lib/utils/format";
 import PaymentModal from "@/components/renter/PaymentModal";
 import VipInfoModal, {
   type VipInfoTier,
@@ -162,32 +167,51 @@ export default function RenterDashboardClient({
   }, [userId]);
 
   const firstName = profile?.display_name?.split(" ")[0] ?? t("defaultName");
+  const activeCount = properties.filter(
+    (property) => property.status === "active",
+  ).length;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 sm:space-y-8">
       {/* Welcome */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-2"
+        data-testid="renter-welcome-card"
+        className="rounded-[18px] border border-[#E2E8F0] bg-white p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.03)] sm:space-y-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
       >
-        <h1 className="flex items-center gap-2 text-[36px] font-black leading-[44px] text-[#0F172A]">
-          {t("welcome", { name: firstName })}
-        </h1>
-        <p className="text-[14px] font-medium text-[#64748B]">
-          {t.rich("seasonActive", {
-            date: t("seasonEndDate"),
-            b: (chunks) => (
-              <strong className="font-extrabold text-[#0F172A]">
-                {chunks}
-              </strong>
-            ),
-          })}
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="min-w-0 text-[28px] font-black leading-[34px] text-[#0F172A] sm:text-[36px] sm:leading-[44px]">
+            {t("welcome", { name: firstName })}
+          </h1>
+          <span
+            className={`mt-1 shrink-0 rounded-full px-3 py-1 text-[11px] font-extrabold ${
+              membershipExpiresAt
+                ? "bg-[#DCFCE7] text-[#15803D]"
+                : "bg-[#F1F5F9] text-[#64748B]"
+            }`}
+          >
+            {membershipExpiresAt
+              ? t("statuses.active")
+              : t("membershipInactive")}
+          </span>
+        </div>
+        <p className="mt-2 text-[13px] font-medium leading-5 text-[#64748B] sm:text-[14px]">
+          {membershipExpiresAt
+            ? t.rich("seasonActive", {
+                date: formatDate(membershipExpiresAt, locale),
+                b: (chunks) => (
+                  <strong className="font-extrabold text-[#0F172A]">
+                    {chunks}
+                  </strong>
+                ),
+              })
+            : t("membershipPrompt")}
         </p>
       </motion.div>
 
       {/* Membership belongs to the owner account, not an individual listing. */}
-      <section className="flex flex-col gap-3 rounded-[20px] border border-[#DBEAFE] bg-[#F8FBFF] p-5 sm:flex-row sm:items-center sm:justify-between">
+      <section className="flex flex-col gap-3 rounded-[18px] border border-[#DBEAFE] bg-[#F8FBFF] p-4 sm:flex-row sm:items-center sm:justify-between sm:rounded-[20px] sm:p-5">
         <div>
           <p className="text-base font-extrabold text-[#0F172A]">
             {membershipExpiresAt ? t("membershipActive") : t("membershipRequired")}
@@ -203,7 +227,7 @@ export default function RenterDashboardClient({
         <button
           type="button"
           onClick={() => setPaymentModalOpen(true)}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF]"
+          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF] sm:w-auto"
         >
           <CreditCard className="h-4 w-4" />
           {membershipExpiresAt ? t("extendMembership") : t("activateMembership")}
@@ -211,50 +235,64 @@ export default function RenterDashboardClient({
       </section>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
-          label={tShared("stats.views")}
-          value={formatNumber(stats?.views_total ?? 0)}
-          change={null}
-          loading={loading}
-          valueColor="accent"
-        />
-        <StatCard
-          label={tShared("stats.calls")}
-          value={formatNumber(stats?.calls ?? 0)}
-          change={null}
-          loading={loading}
-          valueColor="default"
-        />
-        <StatCard
-          label={tShared("stats.smartMatch")}
-          value={formatNumber(matchesCount)}
-          change={null}
-          loading={loading}
-          valueColor="accent"
-        />
-        <StatCard
-          label={tShared("stats.spent")}
-          value={formatPrice(Number(stats?.spent ?? 0))}
-          change={null}
-          loading={loading}
-          valueColor="warning"
-        />
-        <StatCard
-          label={tShared("stats.favorites")}
-          value={formatNumber(stats?.favorites_total ?? 0)}
-          change={null}
-          loading={loading}
-          valueColor="success"
-        />
-        <StatCard
-          label={tShared("stats.revenue")}
-          value={formatPrice(Number(stats?.revenue ?? 0))}
-          change={null}
-          loading={loading}
-          valueColor="default"
-        />
-      </div>
+      <section>
+        <h2 className="mb-3 text-[18px] font-extrabold text-[#64748B]">
+          {t("mainIndicators")}
+        </h2>
+        <div
+          data-testid="renter-stats-grid"
+          className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3"
+        >
+          <StatCard
+            label={tShared("stats.views")}
+            value={formatNumber(stats?.views_total ?? 0)}
+            change={null}
+            loading={loading}
+            valueColor="accent"
+            compactOnMobile
+          />
+          <StatCard
+            label={tShared("stats.calls")}
+            value={formatNumber(stats?.calls ?? 0)}
+            change={null}
+            loading={loading}
+            valueColor="default"
+            compactOnMobile
+          />
+          <StatCard
+            label={t("smartMatchShort")}
+            value={formatNumber(matchesCount)}
+            change={null}
+            loading={loading}
+            valueColor="accent"
+            compactOnMobile
+          />
+          <StatCard
+            label={tShared("stats.spent")}
+            value={formatPrice(Number(stats?.spent ?? 0))}
+            change={null}
+            loading={loading}
+            valueColor="warning"
+            compactOnMobile
+          />
+          <StatCard
+            label={tShared("stats.favorites")}
+            value={formatNumber(stats?.favorites_total ?? 0)}
+            change={null}
+            loading={loading}
+            valueColor="success"
+            compactOnMobile
+          />
+          <StatCard
+            label={tShared("stats.revenue")}
+            value={formatPrice(Number(stats?.revenue ?? 0))}
+            change={null}
+            loading={loading}
+            valueColor="default"
+            compactOnMobile
+          />
+        </div>
+      </section>
 
       {/* My properties section */}
       <motion.section
@@ -262,13 +300,18 @@ export default function RenterDashboardClient({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-[22px] font-black text-[#0F172A]">
-            {t("myProperties")}
-          </h2>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[22px] font-black text-[#0F172A]">
+              {t("myProperties")}
+            </h2>
+            <p className="mt-1 text-[12px] font-semibold text-[#64748B]">
+              {t("activeCount", { count: activeCount })}
+            </p>
+          </div>
           <Link
             href="/create/rental"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-[#2563EB] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#1D4ED8] sm:gap-1.5 sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-4 sm:text-[13px] sm:text-[#0F172A] sm:hover:border-[#2563EB] sm:hover:bg-white sm:hover:text-[#2563EB]"
           >
             <Plus className="h-4 w-4" strokeWidth={2.4} />
             {t("newProperty")}
@@ -391,17 +434,19 @@ function PropertyRow({
   onOpenTier: (tier: VipInfoTier) => void;
 }) {
   const t = useTranslations("RenterDashboard");
+  const locale = useLocale();
   const photo = (property.photos ?? [])[0];
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-[20px] border bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)] ${
+      data-testid="renter-property-card"
+      className={`rounded-[20px] border bg-white p-3 shadow-[0px_1px_3px_rgba(0,0,0,0.04)] sm:p-5 ${
         isBlocked ? "border-dashed border-[#FCA5A5]" : "border-[#EEF1F4]"
       }`}
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+      <div className="flex items-start gap-3 sm:items-center sm:gap-4">
         {/* Thumbnail */}
         <div
           className={`relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl ${
@@ -467,11 +512,16 @@ function PropertyRow({
                 {t("viewsLabel")} {formatViews(property.views_count ?? 0)}
               </span>
             )}
+            {property.created_at && (
+              <span>
+                {t("dateLabel")} {formatDateShort(property.created_at, locale)}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 flex-wrap gap-2">
+        {/* Desktop actions */}
+        <div className="hidden shrink-0 flex-wrap gap-2 sm:flex">
           {!isBlocked && (
             <button
               type="button"
@@ -501,36 +551,76 @@ function PropertyRow({
         </div>
       </div>
 
+      {/* Compact phone actions */}
+      <div
+        data-testid="renter-mobile-actions"
+        className={`mt-3 grid gap-2 border-t border-[#F1F5F9] pt-3 sm:hidden ${
+          isBlocked ? "grid-cols-2" : "grid-cols-3"
+        }`}
+      >
+        {!isBlocked && (
+          <button
+            type="button"
+            onClick={onMembership}
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-1.5 text-[11px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+          >
+            <CreditCard className="size-3.5 shrink-0" />
+            <span className="truncate">{t("pay")}</span>
+          </button>
+        )}
+        <a
+          href={propertyViewUrl(property)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-[#E2E8F0] bg-white px-1.5 text-[11px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+        >
+          <Eye className="size-3.5 shrink-0" />
+          <span className="truncate">{t("view")}</span>
+        </a>
+        <Link
+          href={`/create/rental?edit=${property.id}`}
+          className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-[#E2E8F0] bg-white px-1.5 text-[11px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+        >
+          <Pencil className="size-3.5 shrink-0" />
+          <span className="truncate">{t("edit")}</span>
+        </Link>
+      </div>
+
       {/* Promo tier row */}
       {!isBlocked && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#F1F5F9] pt-4">
-          <span className="mr-auto text-[12px] font-semibold text-[#64748B]">
+        <div className="mt-3 border-t border-[#F1F5F9] pt-3 sm:mt-4 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:pt-4">
+          <span className="mb-2 block text-[12px] font-semibold text-[#64748B] sm:mb-0 sm:mr-auto">
             {t("adPromotion")}
           </span>
-          <button
-            type="button"
-            onClick={() => onOpenTier("super-vip")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#EA580C] transition-colors hover:bg-[#FFEDD5]"
+          <div
+            data-testid="renter-mobile-promotions"
+            className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap"
           >
-            <Rocket className="h-3 w-3" />
-            SUPER VIP
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenTier("vip")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#BE185D] transition-colors hover:bg-[#FBCFE8]"
-          >
-            <Ticket className="h-3 w-3" />
-            VIP
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenTier("discount")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-black tracking-wide text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
-          >
-            <Percent className="h-3 w-3" />
-            {t("discount")}
-          </button>
+            <button
+              type="button"
+              onClick={() => onOpenTier("super-vip")}
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#EA580C] transition-colors hover:bg-[#FFEDD5] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
+            >
+              <Rocket className="size-3 shrink-0" />
+              <span className="truncate">SUPER VIP</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenTier("vip")}
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
+            >
+              <Zap className="size-3 shrink-0" />
+              VIP
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenTier("discount")}
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-1.5 text-[10px] font-black text-[#15803D] transition-colors hover:bg-[#BBF7D0] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px]"
+            >
+              <Percent className="size-3 shrink-0" />
+              <span className="truncate">{t("discount")}</span>
+            </button>
+          </div>
         </div>
       )}
     </motion.div>

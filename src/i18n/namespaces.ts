@@ -78,6 +78,7 @@ export const PUBLIC_NAMESPACES = [
   "ServicesPage",
   "ShareListing",
   "Shared",
+  "SmsConsent",
   "StatusCards",
   "TransportDetail",
   "TransportPage",

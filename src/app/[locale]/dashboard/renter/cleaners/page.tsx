@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import {
-  Phone,
   Calendar,
   RotateCcw,
   UserPlus,
@@ -13,11 +12,21 @@ import {
   Trash2,
   X,
   Users,
+  Eye,
+  MapPin,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import CleanerCallModal from "@/components/renter/CleanerCallModal";
 import AddCleanerModal from "@/components/renter/AddCleanerModal";
+import CleanerDetailModal, {
+  type CleanerProfileView,
+  type CleanerServiceProfile,
+  type ManualCleanerProfile,
+  type PlatformCleanerProfile,
+} from "@/components/renter/CleanerDetailModal";
 import CleanerFormModal from "@/components/renter/CleanerFormModal";
 import { CallButton } from "@/components/shared/CallButton";
 import { formatDateTime, formatPrice } from "@/lib/utils/format";
@@ -32,9 +41,26 @@ type PlatformCleaner =
 
 type ManualCleaner = Tables<"renter_cleaners">;
 
+interface PublicServiceDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | null;
+  price_unit: string | null;
+  photos: string[] | null;
+  location: string | null;
+  schedule: string | null;
+  operating_hours: string | null;
+  experience_required: string | null;
+  languages: string[] | null;
+  service_field: string | null;
+  profile_avatar_url: string | null;
+  profile_is_verified: boolean | null;
+}
+
 // The grid mixes saved platform cleaners and the renter's own manual entries.
 type GridCleaner =
-  | { kind: "platform"; data: PlatformCleaner }
+  | { kind: "platform"; data: PlatformCleanerProfile }
   | { kind: "manual"; data: ManualCleaner };
 
 type MyTask = Tables<"cleaning_tasks"> & {
@@ -70,15 +96,37 @@ function deriveInitials(name: string): string {
     .join(".");
 }
 
+function toManualProfile(cleaner: ManualCleaner): ManualCleanerProfile {
+  return {
+    kind: "manual",
+    id: cleaner.id,
+    name: cleaner.name,
+    phone: cleaner.phone,
+    available: cleaner.available,
+    location: cleaner.location,
+    description: cleaner.description,
+    experienceYears: cleaner.experience_years,
+    languages: cleaner.languages,
+    schedule: cleaner.schedule,
+    priceStandard: cleaner.price_standard,
+    priceGeneral: cleaner.price_general,
+  };
+}
+
 export default function RenterCleanersPage() {
   const t = useTranslations("RenterCleaners");
   const tShared = useTranslations("DashboardShared");
   const tOpts = useTranslations("ListingOptions");
   const { user } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [cleaners, setCleaners] = useState<PlatformCleaner[]>([]);
+  const [serviceDetails, setServiceDetails] = useState<PublicServiceDetail[]>(
+    [],
+  );
   const [cleanersLoaded, setCleanersLoaded] = useState(false);
+  const [detailsLoaded, setDetailsLoaded] = useState(false);
+  const [detailsError, setDetailsError] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [savedLoaded, setSavedLoaded] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -91,11 +139,60 @@ export default function RenterCleanersPage() {
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
   const [callModal, setCallModal] = useState<CallTarget | null>(null);
+  const [detailModal, setDetailModal] = useState<{
+    profile: CleanerProfileView;
+    mode: "add" | "saved";
+    returnToAdd: boolean;
+  } | null>(null);
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [detailSaveError, setDetailSaveError] = useState(false);
 
   const fetchCleaners = useCallback(async () => {
-    const { data } = await supabase.rpc("get_platform_cleaners");
-    if (data) setCleaners(data);
+    setCleanersLoaded(false);
+    setDetailsLoaded(false);
+    setDetailsError(false);
+    const { data, error } = await supabase.rpc("get_platform_cleaners");
+    if (error || !data) {
+      setCleaners([]);
+      setServiceDetails([]);
+      setDetailsError(true);
+      setCleanersLoaded(true);
+      setDetailsLoaded(true);
+      return;
+    }
+
+    const directory = data as PlatformCleaner[];
+    setCleaners(directory);
     setCleanersLoaded(true);
+    const serviceIds = Array.from(
+      new Set(directory.map((cleaner) => cleaner.service_id)),
+    );
+    if (serviceIds.length === 0) {
+      setServiceDetails([]);
+      setDetailsLoaded(true);
+      return;
+    }
+
+    // public_services is the explicit safe read model: it contains profile and
+    // capability data, but never raw phone/WhatsApp or private cleaner fields.
+    // The generated view type intentionally mirrors the legacy base-table shape,
+    // so the appended profile_* columns need this narrow runtime cast.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const detailsResult = await (supabase as any)
+      .from("public_services")
+      .select(
+        "id, title, description, price, price_unit, photos, location, schedule, operating_hours, experience_required, languages, service_field, profile_avatar_url, profile_is_verified",
+      )
+      .in("id", serviceIds);
+    if (detailsResult.error) {
+      setServiceDetails([]);
+      setDetailsError(true);
+    } else {
+      setServiceDetails(
+        (detailsResult.data ?? []) as PublicServiceDetail[],
+      );
+    }
+    setDetailsLoaded(true);
   }, [supabase]);
 
   // cleaner_id -> distinct renters this cleaner has served. Cross-renter
@@ -245,11 +342,14 @@ export default function RenterCleanersPage() {
     };
   }, [supabase, user, fetchTasks, fetchRenterCounts]);
 
-  function openCall(cleaner: PlatformCleaner) {
+  function openCall(
+    cleaner: PlatformCleanerProfile,
+    service: CleanerServiceProfile,
+  ) {
     setCallModal({
       cleaner: {
-        cleanerId: cleaner.cleaner_id,
-        serviceId: cleaner.service_id,
+        cleanerId: cleaner.id,
+        serviceId: service.id,
         name: cleaner.name,
       },
     });
@@ -257,15 +357,14 @@ export default function RenterCleanersPage() {
 
   function redial(task: MyTask) {
     if (!task.cleaner_id) return;
-    const name =
-      cleaners.find((c) => c.cleaner_id === task.cleaner_id)?.name ??
-      t("defaultCleaner");
+    const profile = platformProfiles.find(
+      (cleaner) => cleaner.id === task.cleaner_id,
+    );
+    const name = profile?.name ?? t("defaultCleaner");
     setCallModal({
       cleaner: {
         cleanerId: task.cleaner_id,
-        serviceId:
-          cleaners.find((c) => c.cleaner_id === task.cleaner_id)?.service_id ??
-          "",
+        serviceId: profile?.services[0]?.id ?? "",
         name,
       },
       prefill: {
@@ -286,19 +385,118 @@ export default function RenterCleanersPage() {
 
   const visibleTasks = tasks.filter((task) => task.status !== "cancelled");
 
-  // One entry per person for the GRID only (a cleaner may list several
-  // cleaning services); the add dialog gets the raw per-service list.
-  const uniqueCleaners = cleaners.filter(
-    (c, i) => cleaners.findIndex((o) => o.cleaner_id === c.cleaner_id) === i,
+  const platformProfiles = useMemo<PlatformCleanerProfile[]>(() => {
+    const detailsById = new Map(
+      serviceDetails.map((service) => [service.id, service]),
+    );
+    const profiles = new Map<string, PlatformCleanerProfile>();
+
+    for (const cleaner of cleaners) {
+      const detail = detailsById.get(cleaner.service_id);
+      const service: CleanerServiceProfile = {
+        id: cleaner.service_id,
+        title: detail?.title ?? t("serviceFallback"),
+        description: detail?.description ?? null,
+        location: detail?.location ?? cleaner.location ?? null,
+        languages: detail?.languages ?? null,
+        schedule: detail?.schedule ?? detail?.operating_hours ?? null,
+        experience: detail?.experience_required ?? null,
+        serviceField: detail?.service_field ?? null,
+        price: detail?.price ?? cleaner.price ?? null,
+        priceUnit: detail?.price_unit ?? cleaner.price_unit ?? null,
+        photoUrl: detail?.photos?.[0] ?? cleaner.photo ?? null,
+      };
+      const current = profiles.get(cleaner.cleaner_id);
+      if (current) {
+        if (!current.services.some((item) => item.id === service.id)) {
+          current.services.push(service);
+        }
+        current.isOnline ||= cleaner.is_online;
+        current.isVerified ||= Boolean(detail?.profile_is_verified);
+        current.avatarUrl ??=
+          cleaner.avatar_url ?? detail?.profile_avatar_url ?? null;
+      } else {
+        profiles.set(cleaner.cleaner_id, {
+          kind: "platform",
+          id: cleaner.cleaner_id,
+          name: cleaner.name,
+          avatarUrl:
+            cleaner.avatar_url ?? detail?.profile_avatar_url ?? null,
+          isOnline: cleaner.is_online,
+          isVerified: Boolean(detail?.profile_is_verified),
+          rentersServed: renterCounts.get(cleaner.cleaner_id) ?? 0,
+          services: [service],
+        });
+      }
+    }
+
+    return Array.from(profiles.values())
+      .map((profile) => ({
+        ...profile,
+        services: [...profile.services].sort(
+          (a, b) =>
+            a.title.localeCompare(b.title, "ka") || a.id.localeCompare(b.id),
+        ),
+      }))
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(b.name, "ka") || a.id.localeCompare(b.id),
+      );
+  }, [cleaners, renterCounts, serviceDetails, t]);
+
+  const myCleaners = platformProfiles.filter((cleaner) =>
+    savedIds.has(cleaner.id),
   );
-  // Only platform cleaners the renter added themselves.
-  const myCleaners = uniqueCleaners.filter((c) => savedIds.has(c.cleaner_id));
   // Unified grid: saved platform cleaners + the renter's own manual entries.
   const gridCleaners: GridCleaner[] = [
     ...myCleaners.map((c) => ({ kind: "platform" as const, data: c })),
     ...manualCleaners.map((c) => ({ kind: "manual" as const, data: c })),
   ];
-  const listReady = cleanersLoaded && savedLoaded && manualLoaded;
+  const listReady =
+    cleanersLoaded && detailsLoaded && savedLoaded && manualLoaded;
+
+  function openDetails(
+    profile: CleanerProfileView,
+    mode: "add" | "saved",
+    returnToAdd = false,
+  ) {
+    if (returnToAdd) setAddModalOpen(false);
+    setDetailSaveError(false);
+    setDetailModal({ profile, mode, returnToAdd });
+  }
+
+  function closeDetails() {
+    if (detailModal?.returnToAdd) setAddModalOpen(true);
+    setDetailModal(null);
+  }
+
+  async function toggleFromDetails(profile: PlatformCleanerProfile) {
+    setDetailSaving(true);
+    setDetailSaveError(false);
+    try {
+      const saved = await toggleSaved(
+        profile.id,
+        !savedIds.has(profile.id),
+      );
+      setDetailSaveError(!saved);
+    } finally {
+      setDetailSaving(false);
+    }
+  }
+
+  function editManualFromDetails(profile: ManualCleanerProfile) {
+    const cleaner = manualCleaners.find((item) => item.id === profile.id) ?? null;
+    setDetailModal(null);
+    setFormModal({ open: true, cleaner });
+  }
+
+  function callOutFromDetails(
+    profile: PlatformCleanerProfile,
+    service: CleanerServiceProfile,
+  ) {
+    setDetailModal(null);
+    openCall(profile, service);
+  }
 
   return (
     <div className="space-y-6">
@@ -325,6 +523,26 @@ export default function RenterCleanersPage() {
         </button>
       </motion.div>
 
+      {detailsError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#FECACA] bg-[#FEF2F2] p-4"
+        >
+          <AlertCircle className="size-4 shrink-0 text-[#DC2626]" />
+          <p className="min-w-0 flex-1 text-[12px] font-bold text-[#991B1B]">
+            {t("detailsLoadError")}
+          </p>
+          <button
+            type="button"
+            onClick={() => void fetchCleaners()}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-4 text-[12px] font-bold text-[#0F172A]"
+          >
+            <RefreshCw className="size-3.5" />
+            {t("retry")}
+          </button>
+        </div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -334,6 +552,7 @@ export default function RenterCleanersPage() {
         {gridCleaners.map((item) => {
           if (item.kind === "manual") {
             const c = item.data;
+            const profile = toManualProfile(c);
             const hasPrice =
               c.price_standard != null || c.price_general != null;
             return (
@@ -349,20 +568,24 @@ export default function RenterCleanersPage() {
                     <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
                       {c.name}
                     </p>
-                    {c.phone && (
-                      <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
-                        <Phone
-                          className="h-3 w-3 text-[#EF4444]"
-                          strokeWidth={2.4}
-                        />
-                        {c.phone}
-                      </p>
-                    )}
+                    <p className="mt-0.5 text-[11px] font-bold text-[#4F46E5]">
+                      {t("sourceManual")}
+                    </p>
                   </div>
                   <span className="inline-flex items-center rounded-lg bg-[#EEF2FF] px-3 py-1.5 text-[11px] font-bold text-[#4F46E5]">
-                    {t("personalBadge")}
+                    {c.available ? t("available") : t("unavailable")}
                   </span>
                 </div>
+
+                {c.location && (
+                  <p className="mt-3 flex items-start gap-1.5 text-[12px] font-semibold leading-5 text-[#64748B]">
+                    <MapPin className="mt-0.5 size-3.5 shrink-0" />
+                    {c.location}
+                  </p>
+                )}
+                <p className="mt-2 line-clamp-2 min-h-10 text-[12px] font-medium leading-5 text-[#475569]">
+                  {c.description ?? t("manualIncomplete")}
+                </p>
 
                 {hasPrice && (
                   <p className="mt-3 text-[14px] font-black text-[#0F172A]">
@@ -390,7 +613,15 @@ export default function RenterCleanersPage() {
                   </p>
                 )}
 
-                <div className="mt-5 flex items-center gap-2">
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openDetails(profile, "saved")}
+                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                  >
+                    <Eye className="size-4" />
+                    {t("details")}
+                  </button>
                   <CallButton
                     phone={c.phone}
                     label={tShared("call")}
@@ -420,17 +651,32 @@ export default function RenterCleanersPage() {
           }
 
           const cleaner = item.data;
-          const servedCount = renterCounts.get(cleaner.cleaner_id) ?? 0;
+          const primaryService = cleaner.services[0];
+          const photo = cleaner.avatarUrl ?? primaryService?.photoUrl;
+          const locations = Array.from(
+            new Set(
+              cleaner.services.flatMap((service) =>
+                (service.location ?? "")
+                  .split(",")
+                  .map((zone) => zone.trim())
+                  .filter(Boolean),
+              ),
+            ),
+          );
+          const prices = cleaner.services
+            .map((service) => service.price)
+            .filter((price): price is number => price != null);
+          const minPrice = prices.length ? Math.min(...prices) : null;
           return (
             <article
-              key={`platform-${cleaner.cleaner_id}`}
+              key={`platform-${cleaner.id}`}
               className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
             >
               <div className="flex items-center gap-3">
-                {cleaner.avatar_url ? (
+                {photo ? (
                   <span className="relative block h-12 w-12 shrink-0 overflow-hidden rounded-full">
                     <Image
-                      src={cleaner.avatar_url}
+                      src={photo}
                       alt=""
                       fill
                       sizes="48px"
@@ -446,24 +692,18 @@ export default function RenterCleanersPage() {
                   <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
                     {cleaner.name}
                   </p>
-                  {cleaner.phone && (
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
-                      <Phone
-                        className="h-3 w-3 text-[#EF4444]"
-                        strokeWidth={2.4}
-                      />
-                      {cleaner.phone}
-                    </p>
-                  )}
+                  <p className="mt-0.5 text-[11px] font-bold text-[#2563EB]">
+                    {t("sourcePlatform")}
+                  </p>
                 </div>
-                {cleaner.is_online && (
+                {cleaner.isOnline && (
                   <span className="inline-flex items-center rounded-lg bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-bold text-[#16A34A]">
                     {t("available")}
                   </span>
                 )}
                 <button
                   type="button"
-                  onClick={() => toggleSaved(cleaner.cleaner_id, false)}
+                  onClick={() => toggleSaved(cleaner.id, false)}
                   aria-label={t("addModal.remove")}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] lg:h-9 lg:w-9"
                 >
@@ -471,13 +711,29 @@ export default function RenterCleanersPage() {
                 </button>
               </div>
 
-              {cleaner.price != null && (
+              {locations.length > 0 && (
+                <p className="mt-3 flex items-start gap-1.5 text-[12px] font-semibold leading-5 text-[#64748B]">
+                  <MapPin className="mt-0.5 size-3.5 shrink-0" />
+                  <span className="line-clamp-1">{locations.join(", ")}</span>
+                </p>
+              )}
+
+              <p className="mt-2 line-clamp-2 min-h-10 text-[12px] font-semibold leading-5 text-[#334155]">
+                {cleaner.services
+                  .slice(0, 2)
+                  .map((service) => service.title)
+                  .join(" · ")}
+                {cleaner.services.length > 2 &&
+                  ` · ${t("moreServices", { count: cleaner.services.length - 2 })}`}
+              </p>
+
+              {minPrice != null && (
                 <p className="mt-3 text-[14px] font-black text-[#0F172A]">
-                  {formatPrice(Number(cleaner.price))}
-                  {cleaner.price_unit && (
+                  {t("priceFrom", { price: formatPrice(minPrice) })}
+                  {primaryService?.priceUnit && (
                     <span className="text-[12px] font-semibold text-[#64748B]">
                       {" "}
-                      / {priceUnitLabel(cleaner.price_unit)}
+                      / {priceUnitLabel(primaryService.priceUnit)}
                     </span>
                   )}
                 </p>
@@ -489,12 +745,12 @@ export default function RenterCleanersPage() {
                   strokeWidth={2.4}
                 />
                 <span className="text-[12px] font-semibold text-[#64748B]">
-                  {servedCount > 0 ? (
+                  {cleaner.rentersServed > 0 ? (
                     <>
                       <span className="font-black text-[#0F172A]">
-                        {servedCount}
+                        {cleaner.rentersServed}
                       </span>{" "}
-                      {t("rentersServed", { count: servedCount })}
+                      {t("rentersServed", { count: cleaner.rentersServed })}
                     </>
                   ) : (
                     t("rentersServedNone")
@@ -503,19 +759,26 @@ export default function RenterCleanersPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <CallButton
-                  phone={cleaner.phone}
-                  label={tShared("call")}
-                  alwaysShowLabel
-                  layout="card"
-                  className="w-full"
-                />
                 <button
                   type="button"
-                  onClick={() => openCall(cleaner)}
-                  className="rounded-xl bg-[#2563EB] py-2.5 text-[13px] font-bold text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF]"
+                  onClick={() => openDetails(cleaner, "saved")}
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
                 >
-                  {t("callOut")}
+                  <Eye className="size-4" />
+                  {t("details")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    cleaner.services.length === 1
+                      ? openCall(cleaner, cleaner.services[0])
+                      : openDetails(cleaner, "saved")
+                  }
+                  className="min-h-11 rounded-xl bg-[#2563EB] px-3 text-[13px] font-bold text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF]"
+                >
+                  {cleaner.services.length === 1
+                    ? t("callOut")
+                    : t("chooseService")}
                 </button>
               </div>
             </article>
@@ -614,14 +877,36 @@ export default function RenterCleanersPage() {
       <AddCleanerModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        cleaners={cleaners}
-        loading={!listReady}
+        cleaners={platformProfiles}
+        loading={!cleanersLoaded || !detailsLoaded || !savedLoaded}
+        detailsError={detailsError}
         savedIds={savedIds}
         onToggle={toggleSaved}
+        onRetry={fetchCleaners}
+        onViewDetails={(profile) =>
+          openDetails(profile, "add", true)
+        }
         onCreateOwn={() => {
           setAddModalOpen(false);
           setFormModal({ open: true, cleaner: null });
         }}
+      />
+
+      <CleanerDetailModal
+        isOpen={detailModal !== null}
+        profile={detailModal?.profile ?? null}
+        mode={detailModal?.mode}
+        saved={
+          detailModal?.profile.kind === "platform"
+            ? savedIds.has(detailModal.profile.id)
+            : true
+        }
+        saving={detailSaving}
+        saveError={detailSaveError}
+        onClose={closeDetails}
+        onToggleSaved={toggleFromDetails}
+        onCallOut={callOutFromDetails}
+        onEditManual={editManualFromDetails}
       />
 
       <CleanerFormModal

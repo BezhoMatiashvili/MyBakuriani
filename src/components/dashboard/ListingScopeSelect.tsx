@@ -62,7 +62,7 @@ export function ListingScopeSelect({
         )}
       >
         <Building2 className="size-4 shrink-0" aria-hidden />
-        {label}
+        <span className="min-w-0 truncate">{label}</span>
         <ChevronDown className="size-4 shrink-0" aria-hidden />
       </PopoverTrigger>
       <PopoverContent

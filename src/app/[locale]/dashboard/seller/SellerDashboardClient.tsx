@@ -182,20 +182,25 @@ export default function SellerDashboardClient({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <h1 className="text-[28px] font-black leading-[34px] text-[#0F172A]">
             {t("kpiTitle")}
           </h1>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <DateRangeFilter
-              range={range}
-              preset={preset}
-              onChange={setRange}
-            />
+          <div
+            data-testid="seller-kpi-filters"
+            className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end"
+          >
             <ListingScopeSelect
               listings={listingOptions}
               selectedIds={listingIds}
               onChange={setListingIds}
+              className="min-h-11 w-full min-w-0 justify-between overflow-hidden rounded-xl px-3 sm:w-auto sm:rounded-full sm:px-4"
+            />
+            <DateRangeFilter
+              range={range}
+              preset={preset}
+              onChange={setRange}
+              className="min-h-11 w-full min-w-0 justify-between overflow-hidden rounded-xl px-3 sm:w-auto sm:rounded-full sm:px-4"
             />
           </div>
         </div>
@@ -232,9 +237,9 @@ export default function SellerDashboardClient({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-[28px] font-black leading-[38px] text-[#0F172A]">
+        <div className="flex items-start justify-between gap-3 sm:items-end">
+          <div className="min-w-0">
+            <h2 className="text-[24px] font-black leading-[32px] text-[#0F172A] sm:text-[28px] sm:leading-[38px]">
               {t("listingsTitle")}
             </h2>
             <p className="mt-1 text-sm font-medium text-[#64748B]">
@@ -243,7 +248,7 @@ export default function SellerDashboardClient({
           </div>
           <Link
             href="/create/sale"
-            className="flex items-center gap-2 self-start rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(37,99,235,0.35)] hover:bg-[#1D4ED8]"
+            className="flex min-h-11 shrink-0 items-center gap-1.5 self-start rounded-xl bg-[#2563EB] px-3 text-[12px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(37,99,235,0.35)] hover:bg-[#1D4ED8] sm:gap-2 sm:px-5 sm:text-[13px]"
           >
             <Plus className="h-4 w-4" />
             {t("add")}
@@ -288,10 +293,14 @@ export default function SellerDashboardClient({
             properties.map((property) => (
               <div
                 key={property.id}
-                className="block rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_8px_24px_rgba(15,23,42,0.06)]"
+                data-testid="seller-overview-listing"
+                className="block rounded-[20px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_8px_24px_rgba(15,23,42,0.06)] sm:p-4"
               >
-                <div className="flex flex-col gap-4 sm:flex-row">
-                  <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-lg bg-[#F8FAFC] sm:w-24">
+                <div className="flex gap-3 sm:gap-4">
+                  <div
+                    data-testid="seller-listing-thumbnail"
+                    className="relative size-[88px] shrink-0 overflow-hidden rounded-xl bg-[#F8FAFC] sm:size-24 sm:rounded-lg"
+                  >
                     {(property.photos ?? [])[0] && (
                       <Image
                         src={(property.photos ?? [])[0]}
@@ -315,14 +324,16 @@ export default function SellerDashboardClient({
                         )}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-xs text-[#94A3B8]">
-                      {property.location}
-                    </p>
+                    {property.location && (
+                      <p className="mt-0.5 truncate text-xs text-[#94A3B8]">
+                        {property.location}
+                      </p>
+                    )}
                     <span className="mt-1.5 inline-block rounded-md bg-[#FFEDD5] px-2 py-0.5 text-[11px] font-bold text-[#EA580C]">
                       {t("forSale")}
                     </span>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                      <span className="text-[17px] font-black text-[#2563EB]">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="text-[16px] font-black text-[#2563EB] sm:text-[17px]">
                         {formatPrice(Number(property.sale_price ?? 0))}
                       </span>
                       <span className="flex items-center gap-1 text-xs text-[#94A3B8]">
@@ -357,7 +368,8 @@ export default function SellerDashboardClient({
                   viewUrl={propertyViewUrl(property)}
                   editUrl={propertyEditUrl(property)}
                   onPromote={(tier) => setPickerModal({ open: true, tier })}
-                  className="mt-4 border-t border-[#F1F5F9] pt-4"
+                  mobilePresentation="seller-overview"
+                  className="mt-3 sm:mt-4 sm:border-t sm:border-[#F1F5F9] sm:pt-4"
                 />
               </div>
             ))

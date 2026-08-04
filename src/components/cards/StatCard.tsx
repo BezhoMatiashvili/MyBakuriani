@@ -12,6 +12,7 @@ interface StatCardProps {
   change: number | null;
   loading: boolean;
   valueColor?: ValueColor;
+  compactOnMobile?: boolean;
 }
 
 const valueColorClass: Record<ValueColor, string> = {
@@ -34,26 +35,38 @@ export default function StatCard({
   change,
   loading,
   valueColor = "default",
+  compactOnMobile = false,
 }: StatCardProps) {
   if (loading)
     return (
-      <div className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
-        <Skeleton className="h-3 w-20 mb-3" />
-        <Skeleton className="h-8 w-16" />
+      <div
+        className={
+          compactOnMobile
+            ? "min-h-[76px] rounded-[16px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:rounded-[20px] sm:p-6"
+            : "rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+        }
+      >
+        <Skeleton className={compactOnMobile ? "mb-2 h-3 w-16 sm:mb-3 sm:w-20" : "mb-3 h-3 w-20"} />
+        <Skeleton className={compactOnMobile ? "h-7 w-14 sm:h-8 sm:w-16" : "h-8 w-16"} />
       </div>
     );
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+      data-compact-mobile={compactOnMobile ? "true" : undefined}
+      className={
+        compactOnMobile
+          ? "min-h-[76px] min-w-0 rounded-[16px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] sm:rounded-[20px] sm:p-6"
+          : "rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+      }
     >
       <p className="truncate text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
         {label}
       </p>
-      <div className="mt-3 flex items-baseline gap-2">
+      <div className={compactOnMobile ? "mt-1.5 flex min-w-0 items-baseline gap-2 sm:mt-3" : "mt-3 flex items-baseline gap-2"}>
         <span
-          className={`text-[30px] font-black leading-[38px] ${valueColorClass[valueColor]}`}
+          className={`${compactOnMobile ? "min-w-0 truncate text-[22px] leading-[28px] sm:text-[30px] sm:leading-[38px]" : "text-[30px] leading-[38px]"} font-black ${valueColorClass[valueColor]}`}
         >
           {value}
         </span>

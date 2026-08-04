@@ -31,6 +31,17 @@ Database schema, policies, and the generated type mirror.
   — preserve existing names, don't renumber.
 - Applied against remote (Hobby auto-deploy is Vercel-only; migrations run via the
   Supabase CLI / MCP).
+- Manual-booking deposits and verified SMS consent are append-only in
+  `20260804140000_manual_booking_finance_verified_sms_consent.sql`; its RPC signatures
+  intentionally preserve the ignored legacy consent argument (**C3**, **C18**).
+- `20260804160000_restore_own_platform_cleaner_directory.sql` restores same-owner
+  active cleaner discovery/task creation after a later security migration regressed it.
+- `20260804170000_booking_create_marketing_consent_contract.sql` is the current
+  seven-argument online-booking RPC contract; `20260804180000_food_discount_admin_review.sql`
+  converts restaurant discounts into quoted, admin-reviewed requests whose charge and
+  activation happen atomically only on approval.
+- `20260804190000_cleaner_manual_tasks_realtime.sql` publishes personal cleaner
+  tasks with full replica identity for the overview/schedule subscriptions.
 - **Adding an enum value is a two-transaction operation.** `ALTER TYPE … ADD
 VALUE` may run inside a transaction, but the new label cannot be _evaluated_
   until that transaction commits (`check_safe_enum_use` → `55P04`). Put the
@@ -52,4 +63,6 @@ VALUE` may run inside a transaction, but the new label cannot be _evaluated_
 C3 (schema ↔ types), C5 (buckets/RLS), C7 (realtime publication), C8 (role enum +
 RLS), C10 (discount badge duration/expiry — RPC + trigger; column on both
 properties and services, only written on properties), C13 (`property_type` enum
-fan-out — two-transaction add, 2 compile tripwires + 7 silent participants).
+fan-out — two-transaction add, 2 compile tripwires + 7 silent participants),
+C20 (manual-booking soft cancellation, restore, audit, and SMS eligibility),
+C21 (restaurant discount review, charging, and public ordering).

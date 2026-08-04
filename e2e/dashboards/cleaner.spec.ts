@@ -14,6 +14,36 @@ async function assertDashboard(page: Page) {
   return true;
 }
 
+function shiftedLocalDate(days: number): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function localDateKey(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+async function selectCalendarDate(page: Page, date: Date) {
+  const today = new Date();
+  let monthDelta =
+    date.getFullYear() * 12 +
+    date.getMonth() -
+    (today.getFullYear() * 12 + today.getMonth());
+
+  while (monthDelta > 0) {
+    await page.getByTestId("cleaner-calendar-next-month").click();
+    monthDelta -= 1;
+  }
+  while (monthDelta < 0) {
+    await page.getByTestId("cleaner-calendar-prev-month").click();
+    monthDelta += 1;
+  }
+
+  await page.getByTestId(`cleaner-calendar-day-${localDateKey(date)}`).click();
+}
+
 test.describe("Cleaner Dashboard", () => {
   test("overview loads", async ({ cleanerPage }) => {
     await cleanerPage.goto("/dashboard/cleaner");
@@ -31,13 +61,88 @@ test.describe("Cleaner Dashboard", () => {
     await expect(cleanerPage).toHaveURL(/\/dashboard\/cleaner\/schedule/);
   });
 
+  test("overview merges personal work into scheduled tasks", async ({
+    cleanerPage,
+    testIds,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    const personalTask = cleanerPage.getByTestId(
+      `cleaner-scheduled-task-manual-${testIds.cleanerManualTask}`,
+    );
+    await expect(personalTask).toBeVisible();
+    await expect(personalTask).toContainText("E2E პირადი კლიენტი");
+    await expect(personalTask).toContainText("პირადი");
+    await expect(
+      cleanerPage.getByTestId(
+        `cleaner-pending-task-manual-${testIds.cleanerManualTask}`,
+      ),
+    ).toHaveCount(0);
+  });
+
+  test("month calendar marks all task dates and selects a day's list", async ({
+    cleanerPage,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner/schedule");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    const calendar = cleanerPage.getByTestId("cleaner-month-calendar");
+    await expect(calendar).toBeVisible();
+
+    const todayCell = cleanerPage.getByTestId(
+      `cleaner-calendar-day-${localDateKey(shiftedLocalDate(0))}`,
+    );
+    await expect(todayCell).toHaveAttribute("data-active-count", "2");
+
+    const futureDate = shiftedLocalDate(2);
+    await selectCalendarDate(cleanerPage, futureDate);
+    const futureCell = cleanerPage.getByTestId(
+      `cleaner-calendar-day-${localDateKey(futureDate)}`,
+    );
+    await expect(futureCell).toHaveAttribute("data-active-count", "1");
+    await expect(futureCell).toHaveAttribute("data-selected", "true");
+    const selectedDay = cleanerPage.getByTestId(
+      "cleaner-selected-day-schedule",
+    );
+    await expect(
+      selectedDay.getByText("E2E მომავალი კლიენტი", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      selectedDay.getByText("E2E პირადი კლიენტი", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      cleanerPage
+        .getByTestId("cleaner-all-task-list")
+        .getByText("E2E პირადი კლიენტი", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("completed work has a distinct calendar marker", async ({
+    cleanerPage,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner/schedule");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    const completedDate = shiftedLocalDate(-2);
+    await selectCalendarDate(cleanerPage, completedDate);
+    const completedCell = cleanerPage.getByTestId(
+      `cleaner-calendar-day-${localDateKey(completedDate)}`,
+    );
+    await expect(completedCell).toHaveAttribute("data-active-count", "0");
+    await expect(completedCell).toHaveAttribute("data-completed-count", "1");
+    await expect(
+      cleanerPage.getByText("E2E დასრულებული კლიენტი", { exact: true }),
+    ).toBeVisible();
+  });
+
   test("empty selected date shows only its add-job CTA", async ({
     cleanerPage,
   }) => {
     await cleanerPage.goto("/dashboard/cleaner/schedule");
     if (!(await assertDashboard(cleanerPage))) return;
 
-    await cleanerPage.getByRole("button", { name: /^ხვალ/ }).click();
+    await selectCalendarDate(cleanerPage, shiftedLocalDate(1));
     await expect(
       cleanerPage.getByText("ამ დღეს დავალებები არ გაქვთ", { exact: true }),
     ).toBeVisible();
@@ -63,7 +168,9 @@ test.describe("Cleaner Dashboard", () => {
     if (!(await assertDashboard(cleanerPage))) return;
 
     await expect(
-      cleanerPage.getByText("E2E ვილა ბაკურიანში", { exact: true }),
+      cleanerPage
+        .getByTestId("cleaner-selected-day-schedule")
+        .getByText("E2E ვილა ბაკურიანში", { exact: true }),
     ).toBeVisible();
 
     const addJobButtons = cleanerPage.getByRole("button", {
@@ -78,6 +185,45 @@ test.describe("Cleaner Dashboard", () => {
     await expect(
       cleanerPage.getByRole("heading", { name: "ახალი სამუშაო", exact: true }),
     ).toBeVisible();
+  });
+
+  test("failed platform transition keeps the dashboard card", async ({
+    cleanerPage,
+    testIds,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    const task = cleanerPage.getByTestId(
+      `cleaner-scheduled-task-platform-${testIds.cleanerScheduleTask}`,
+    );
+    await expect(task).toBeVisible();
+
+    await cleanerPage.route(
+      "**/rest/v1/rpc/transition_cleaning_task",
+      (route) =>
+        route.fulfill({
+          status: 403,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "forced_test_failure" }),
+        }),
+    );
+    await task.getByRole("button", { name: "დაწყება", exact: true }).click();
+    await expect(cleanerPage.getByText("შეცდომა. სცადეთ თავიდან.")).toBeVisible();
+    await expect(task).toBeVisible();
+  });
+
+  test("calendar stays within a mobile viewport", async ({ cleanerPage }) => {
+    await cleanerPage.setViewportSize({ width: 390, height: 844 });
+    await cleanerPage.goto("/dashboard/cleaner/schedule");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    await expect(cleanerPage.getByTestId("cleaner-month-calendar")).toBeVisible();
+    const widths = await cleanerPage.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }));
+    expect(widths.content).toBeLessThanOrEqual(widths.viewport);
   });
 
   test("24/7 working hours transfer atomically between cleaning listings", async ({

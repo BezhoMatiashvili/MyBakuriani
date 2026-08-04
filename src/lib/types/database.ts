@@ -881,13 +881,74 @@ export type Database = {
           },
         ];
       };
+      manual_booking_sms_consents: {
+        Row: {
+          accepted_at: string | null;
+          consent_version: string;
+          created_at: string;
+          declined_at: string | null;
+          id: string;
+          manual_booking_id: string;
+          owner_id: string;
+          phone_snapshot: string | null;
+          revoked_at: string | null;
+          status: string;
+          token_hash: string | null;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          consent_version: string;
+          created_at?: string;
+          declined_at?: string | null;
+          id?: string;
+          manual_booking_id: string;
+          owner_id: string;
+          phone_snapshot?: string | null;
+          revoked_at?: string | null;
+          status: string;
+          token_hash?: string | null;
+        };
+        Update: {
+          accepted_at?: string | null;
+          consent_version?: string;
+          created_at?: string;
+          declined_at?: string | null;
+          id?: string;
+          manual_booking_id?: string;
+          owner_id?: string;
+          phone_snapshot?: string | null;
+          revoked_at?: string | null;
+          status?: string;
+          token_hash?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "manual_booking_sms_consents_manual_booking_id_fkey";
+            columns: ["manual_booking_id"];
+            isOneToOne: false;
+            referencedRelation: "manual_bookings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "manual_booking_sms_consents_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       manual_bookings: {
         Row: {
           amount: number | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           check_in: string;
           check_out: string;
           client_list: string | null;
           created_at: string | null;
+          deposit_amount: number | null;
+          deposit_paid_on: string | null;
           guest_name: string | null;
           guest_phone: string | null;
           guests_count: number | null;
@@ -900,13 +961,18 @@ export type Database = {
           renter_guest_id: string | null;
           source: string | null;
           status: string;
+          status_before_cancel: string | null;
         };
         Insert: {
           amount?: number | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           check_in: string;
           check_out: string;
           client_list?: string | null;
           created_at?: string | null;
+          deposit_amount?: number | null;
+          deposit_paid_on?: string | null;
           guest_name?: string | null;
           guest_phone?: string | null;
           guests_count?: number | null;
@@ -919,13 +985,18 @@ export type Database = {
           renter_guest_id?: string | null;
           source?: string | null;
           status?: string;
+          status_before_cancel?: string | null;
         };
         Update: {
           amount?: number | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           check_in?: string;
           check_out?: string;
           client_list?: string | null;
           created_at?: string | null;
+          deposit_amount?: number | null;
+          deposit_paid_on?: string | null;
           guest_name?: string | null;
           guest_phone?: string | null;
           guests_count?: number | null;
@@ -938,6 +1009,7 @@ export type Database = {
           renter_guest_id?: string | null;
           source?: string | null;
           status?: string;
+          status_before_cancel?: string | null;
         };
         Relationships: [
           {
@@ -1788,34 +1860,49 @@ export type Database = {
         Row: {
           available: boolean;
           created_at: string | null;
+          description: string | null;
+          experience_years: number | null;
           id: string;
+          languages: string[] | null;
+          location: string | null;
           name: string;
           owner_id: string;
           phone: string | null;
           price_general: number | null;
           price_standard: number | null;
+          schedule: string | null;
           updated_at: string | null;
         };
         Insert: {
           available?: boolean;
           created_at?: string | null;
+          description?: string | null;
+          experience_years?: number | null;
           id?: string;
+          languages?: string[] | null;
+          location?: string | null;
           name: string;
           owner_id: string;
           phone?: string | null;
           price_general?: number | null;
           price_standard?: number | null;
+          schedule?: string | null;
           updated_at?: string | null;
         };
         Update: {
           available?: boolean;
           created_at?: string | null;
+          description?: string | null;
+          experience_years?: number | null;
           id?: string;
+          languages?: string[] | null;
+          location?: string | null;
           name?: string;
           owner_id?: string;
           phone?: string | null;
           price_general?: number | null;
           price_standard?: number | null;
+          schedule?: string | null;
           updated_at?: string | null;
         };
         Relationships: [
@@ -3016,6 +3103,7 @@ export type Database = {
       public_services: {
         Row: Database["public"]["Tables"]["services"]["Row"] & {
           has_whatsapp: boolean;
+          has_active_discount: boolean;
         };
         Relationships: [];
       };
@@ -3077,6 +3165,46 @@ export type Database = {
           weekly_visitors: number;
         }[];
       };
+      add_renter_guest_to_blacklist: {
+        Args: {
+          p_name: string;
+          p_note?: string;
+          p_phone?: string;
+        };
+        Returns: {
+          blacklisted: boolean;
+          created_at: string | null;
+          id: string;
+          name: string;
+          note: string | null;
+          owner_id: string;
+          phone: string | null;
+          profile_id: string | null;
+          updated_at: string | null;
+          visit_dates: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "renter_guests";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      apply_calendar_availability: {
+        Args: {
+          p_action: string;
+          p_dates: string[];
+          p_property_id: string;
+        };
+        Returns: {
+          changed_dates: string[];
+          skipped_booked_dates: string[];
+        }[];
+      };
+      cancel_manual_booking: {
+        Args: { p_id: string };
+        Returns: Database["public"]["Tables"]["manual_bookings"]["Row"];
+      };
       consume_rate_limit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
@@ -3088,6 +3216,7 @@ export type Database = {
           p_guest_id: string;
           p_guest_message?: string;
           p_guests_count?: number;
+          p_marketing_consent?: boolean;
           p_property_id: string;
         };
         Returns: {
@@ -3117,10 +3246,12 @@ export type Database = {
       };
       create_manual_booking: {
         Args: {
-          p_amount?: number;
+          p_amount?: number | null;
           p_check_in: string;
           p_check_out: string;
           p_client_list?: string;
+          p_deposit_amount?: number | null;
+          p_deposit_paid_on?: string | null;
           p_guest_name?: string;
           p_guest_phone?: string;
           p_guests_count?: number;
@@ -3137,6 +3268,8 @@ export type Database = {
           check_out: string;
           client_list: string | null;
           created_at: string | null;
+          deposit_amount: number | null;
+          deposit_paid_on: string | null;
           guest_name: string | null;
           guest_phone: string | null;
           guests_count: number | null;
@@ -3159,8 +3292,11 @@ export type Database = {
       };
       create_guest_manual_booking: {
         Args: {
+          p_amount?: number | null;
           p_check_in: string;
           p_check_out: string;
+          p_deposit_amount?: number | null;
+          p_deposit_paid_on?: string | null;
           p_marketing_consent?: boolean;
           p_name: string;
           p_note?: string;
@@ -3173,6 +3309,8 @@ export type Database = {
           check_out: string;
           client_list: string | null;
           created_at: string | null;
+          deposit_amount: number | null;
+          deposit_paid_on: string | null;
           guest_name: string | null;
           guest_phone: string | null;
           guests_count: number | null;
@@ -3227,12 +3365,10 @@ export type Database = {
           is_online: boolean;
           location: string;
           name: string;
-          phone: string;
           photo: string;
           price: number;
           price_unit: string;
           service_id: string;
-          whatsapp: string;
         }[];
       };
       global_search: {
@@ -3285,6 +3421,22 @@ export type Database = {
         Args: { p_org_id: string; p_tier: string; p_user_id: string };
         Returns: Json;
       };
+      issue_manual_booking_sms_consent: {
+        Args: {
+          p_consent_version: string;
+          p_manual_booking_id: string;
+          p_owner_id: string;
+          p_phone_snapshot: string;
+          p_token_hash: string;
+        };
+        Returns: Database["public"]["Tables"]["manual_booking_sms_consents"]["Row"];
+        SetofOptions: {
+          from: "*";
+          to: "manual_booking_sms_consents";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       purchase_package: {
         Args: {
           p_discount_percent?: number;
@@ -3304,6 +3456,14 @@ export type Database = {
           p_service_id?: string;
           p_user_id: string;
         };
+        Returns: Json;
+      };
+      restore_manual_booking: {
+        Args: { p_id: string };
+        Returns: Database["public"]["Tables"]["manual_bookings"]["Row"];
+      };
+      respond_manual_booking_sms_consent: {
+        Args: { p_action: string; p_token_hash: string };
         Returns: Json;
       };
       record_contact_event: {
@@ -3509,10 +3669,12 @@ export type Database = {
       };
       update_manual_booking: {
         Args: {
-          p_amount?: number;
+          p_amount?: number | null;
           p_check_in: string;
           p_check_out: string;
           p_client_list?: string;
+          p_deposit_amount?: number | null;
+          p_deposit_paid_on?: string | null;
           p_guest_name?: string;
           p_guest_phone?: string;
           p_guests_count?: number;
@@ -3529,6 +3691,8 @@ export type Database = {
           check_out: string;
           client_list: string | null;
           created_at: string | null;
+          deposit_amount: number | null;
+          deposit_paid_on: string | null;
           guest_name: string | null;
           guest_phone: string | null;
           guests_count: number | null;

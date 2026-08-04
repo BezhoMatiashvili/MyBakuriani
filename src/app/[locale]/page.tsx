@@ -34,6 +34,38 @@ export async function generateMetadata() {
 
 export const revalidate = 120;
 
+const LANDING_SERVICE_CATEGORIES = [
+  "transport",
+  "handyman",
+  "entertainment",
+  "food",
+  "employment",
+] as const;
+
+async function fetchLandingServices(
+  supabase: ReturnType<typeof createPublicClient>,
+) {
+  const results = await Promise.all(
+    LANDING_SERVICE_CATEGORIES.map((category) =>
+      supabase
+        .from("public_services")
+        .select("*")
+        .eq("category", category)
+        .order("has_active_discount", { ascending: false })
+        .order("is_vip", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(4),
+    ),
+  );
+  const failed = results.find((result) => result.error);
+  return {
+    data: failed
+      ? null
+      : results.flatMap((result) => result.data ?? []),
+    error: failed?.error ?? null,
+  };
+}
+
 // Takes a promise so the landing queries fire in parallel with the zones
 // fetch — zones are only needed for post-query aggregation below.
 async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
@@ -77,11 +109,7 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
         .or("is_vip.eq.true,is_super_vip.eq.true")
         .order("price_per_night", { ascending: true, nullsFirst: false })
         .limit(12),
-      supabase
-        .from("public_services")
-        .select("*")
-        .order("is_vip", { ascending: false })
-        .limit(20),
+      fetchLandingServices(supabase),
     ]),
     "critical_listings",
   );

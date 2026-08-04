@@ -137,11 +137,14 @@ export function DateRangeFilter({
           className,
         )}
       >
-        <CalendarDays className="size-4 text-[#94A3B8]" aria-hidden />
-        <span>{rangeLabel}</span>
+        <CalendarDays
+          className="size-4 shrink-0 text-[#94A3B8]"
+          aria-hidden
+        />
+        <span className="min-w-0 truncate">{rangeLabel}</span>
         <ChevronDown
           className={cn(
-            "size-3.5 text-[#94A3B8] transition-transform",
+            "size-3.5 shrink-0 text-[#94A3B8] transition-transform",
             open && "rotate-180",
           )}
           aria-hidden

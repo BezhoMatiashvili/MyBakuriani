@@ -10,11 +10,32 @@
  * normalize into `CleanerTaskItem` here rather than branching in the JSX.
  */
 
-import type { Tables } from "@/lib/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Tables } from "@/lib/types/database";
+
+export type CleanerTaskTransitionStatus =
+  | "accepted"
+  | "declined"
+  | "in_progress"
+  | "completed";
+
+interface CleanerTaskRpcClient {
+  rpc(
+    name: "transition_cleaning_task",
+    args: {
+      p_task_id: string;
+      p_status: CleanerTaskTransitionStatus;
+    },
+  ): PromiseLike<{ error: unknown | null }>;
+}
 
 export type PlatformTaskRow = Tables<"cleaning_tasks"> & {
   properties: Pick<Tables<"properties">, "title" | "location"> | null;
-  profiles: Pick<Tables<"profiles">, "display_name" | "phone"> | null;
+  profiles:
+    | (Pick<Tables<"profiles">, "display_name" | "phone"> & {
+        avatar_url?: string | null;
+      })
+    | null;
 };
 
 export type ManualTaskRow = Tables<"cleaner_manual_tasks">;
@@ -28,6 +49,7 @@ export interface CleanerTaskItem {
   /** Who to call. Platform: the owner. Manual: the off-platform client. */
   contactName: string | null;
   contactPhone: string | null;
+  contactAvatar: string | null;
   cleaningType: string;
   scheduledAt: string;
   price: number | null;
@@ -35,6 +57,28 @@ export interface CleanerTaskItem {
   notes: string | null;
   /** The original manual row, so the edit modal can seed itself. */
   manual: ManualTaskRow | null;
+}
+
+/** Calendar key in the browser's local timezone; never derive it with ISO split. */
+export function toLocalDateKey(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Typed boundary for an RPC that predates the generated database definitions. */
+export async function transitionPlatformCleanerTask(
+  supabase: SupabaseClient<Database>,
+  taskId: string,
+  status: CleanerTaskTransitionStatus,
+): Promise<{ error: unknown | null }> {
+  return await (supabase as unknown as CleanerTaskRpcClient).rpc(
+    "transition_cleaning_task",
+    {
+      p_task_id: taskId,
+      p_status: status,
+    },
+  );
 }
 
 export function fromPlatformTask(row: PlatformTaskRow): CleanerTaskItem {
@@ -47,6 +91,7 @@ export function fromPlatformTask(row: PlatformTaskRow): CleanerTaskItem {
     address: row.address ?? row.properties?.location ?? null,
     contactName: row.profiles?.display_name ?? null,
     contactPhone: row.profiles?.phone ?? null,
+    contactAvatar: row.profiles?.avatar_url ?? null,
     cleaningType: row.cleaning_type,
     scheduledAt: row.scheduled_at,
     price: row.price == null ? null : Number(row.price),
@@ -64,6 +109,7 @@ export function fromManualTask(row: ManualTaskRow): CleanerTaskItem {
     address: row.address,
     contactName: row.client_name,
     contactPhone: row.client_phone,
+    contactAvatar: null,
     cleaningType: row.cleaning_type,
     scheduledAt: row.scheduled_at,
     price: row.price == null ? null : Number(row.price),

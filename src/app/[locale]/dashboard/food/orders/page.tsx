@@ -8,8 +8,7 @@ import {
   Link as LinkIcon,
   QrCode,
   Plus,
-  Megaphone,
-  Trash2,
+  Percent,
   ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -19,22 +18,28 @@ import {
 } from "@/lib/content-change/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import NewPromotionModal from "@/components/shared/NewPromotionModal";
+import FoodDiscountRequestModal, {
+  type FoodDiscountRequestResult,
+} from "@/components/dashboard/FoodDiscountRequestModal";
+import { ListingBadge } from "@/components/shared/ListingBadge";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
-
-interface Promotion {
+type DiscountRequest = {
   id: string;
-  title: string;
-  description: string;
-  is_vip?: boolean;
-  created_at?: string;
-}
+  status: "pending" | "approved" | "rejected" | "superseded";
+  proposed_values: { discount_percent?: number } | null;
+  quoted_amount_gel: number | null;
+  quoted_duration_hours: number | null;
+  payment_error: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+};
 
 interface MenuData {
   url?: string;
-  promotions?: Promotion[];
 }
 
 // The "open menu" anchor below renders the LIVE input value, not the saved one,
@@ -45,11 +50,13 @@ const isHttpUrl = (value: string) => /^https?:\/\/.+\..+/i.test(value);
 
 export default function FoodOrdersPage() {
   const tCreate = useTranslations("CreateShared");
+  const t = useTranslations("FoodOrders");
+  const tShared = useTranslations("DashboardShared");
   const supabase = createClient();
   const { user } = useAuth();
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [promotionOpen, setPromotionOpen] = useState(false);
   const [menuUrl, setMenuUrl] = useState("");
   const [menuUrlError, setMenuUrlError] = useState(false);
   // Derived once rather than guarding at the call site: the value that reaches
@@ -57,34 +64,37 @@ export default function FoodOrdersPage() {
   // rendered under a separate condition.
   const trimmedMenuUrl = menuUrl.trim();
   const safeMenuUrl = isHttpUrl(trimmedMenuUrl) ? trimmedMenuUrl : null;
-  const [balance, setBalance] = useState(0);
   const [reviewNotice, setReviewNotice] = useState("");
   const [reviewError, setReviewError] = useState("");
+  const [discountRequest, setDiscountRequest] =
+    useState<DiscountRequest | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [svcRes, balRes] = await Promise.all([
-      supabase
-        .from("services")
-        .select("*")
-        .eq("owner_id", user.id)
-        .eq("category", "food")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("balances")
-        .select("amount")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-    ]);
+    const svcRes = await supabase
+      .from("services")
+      .select("*")
+      .eq("owner_id", user.id)
+      .eq("category", "food")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (svcRes.data) {
       setService(svcRes.data);
       const menuData = (svcRes.data.menu as unknown as MenuData | null) ?? {};
       setMenuUrl(menuData.url ?? "");
+      const requestRes = await fetch(
+        `/api/food/discount-requests?serviceId=${encodeURIComponent(svcRes.data.id)}`,
+        { cache: "no-store" },
+      );
+      if (requestRes.ok) {
+        const payload = (await requestRes.json()) as {
+          request: DiscountRequest | null;
+        };
+        setDiscountRequest(payload.request);
+      }
     }
-    if (balRes.data) setBalance(Number(balRes.data.amount ?? 0));
     setLoading(false);
   }, [user, supabase]);
 
@@ -94,7 +104,6 @@ export default function FoodOrdersPage() {
 
   const menuData: MenuData =
     (service?.menu as unknown as MenuData | null) ?? {};
-  const promotions = menuData.promotions ?? [];
 
   // The whole `menu` column is review-gated, so these three actions queue a change
   // request instead of writing the row. Nothing on screen can update until an admin
@@ -126,27 +135,6 @@ export default function FoodOrdersPage() {
     await submitMenuChange({ ...menuData, url: trimmedMenuUrl });
   }
 
-  async function addPromotion(data: { title: string; description: string }) {
-    if (!service) return;
-    const nextPromos: Promotion[] = [
-      ...promotions,
-      {
-        id: crypto.randomUUID(),
-        title: data.title,
-        description: data.description,
-        is_vip: true,
-        created_at: new Date().toISOString(),
-      },
-    ];
-    await submitMenuChange({ ...menuData, promotions: nextPromos });
-  }
-
-  async function deletePromotion(id: string) {
-    if (!service) return;
-    const nextPromos = promotions.filter((p) => p.id !== id);
-    await submitMenuChange({ ...menuData, promotions: nextPromos });
-  }
-
   return (
     <div className="space-y-6">
       <motion.div
@@ -154,10 +142,10 @@ export default function FoodOrdersPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
-          {service?.title ?? "რესტორანი"}
+          {service?.title ?? tShared("defaultRestaurant")}
         </h1>
         <p className="mt-1 text-[14px] font-medium text-[#64748B]">
-          მართე მენიუ, სტუმრების ციფრული ხედი და აქციები.
+          {t("subtitle")}
         </p>
         {reviewNotice && (
           <p className="mt-3 rounded-xl bg-[#ECFDF5] px-4 py-3 text-[13px] font-medium text-[#0F8F60]">
@@ -176,7 +164,7 @@ export default function FoodOrdersPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <h2 className="text-[16px] font-black text-[#0F172A]">
-          მენიუ და შეთავაზებები
+          {t("menuSection")}
         </h2>
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -187,19 +175,19 @@ export default function FoodOrdersPage() {
               </div>
               <div>
                 <p className="text-[13px] font-black text-[#0F172A]">
-                  PDF მენიუ
+                  {t("pdfMenu")}
                 </p>
                 <p className="text-[11px] text-[#94A3B8]">
-                  ატვირთე მენიუ PDF ფორმატში
+                  {t("pdfMenuHint")}
                 </p>
               </div>
             </div>
             <p className="mt-4 rounded-xl bg-[#F8FAFC] px-3 py-2.5 text-[11px] font-medium text-[#64748B]">
-              მაქს. ზომა: 10 მბ
+              {t("maxSize")}
             </p>
             <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0F172A] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E293B]">
               <Plus className="h-4 w-4" />
-              მენიუს ატვირთვა
+              {t("uploadMenu")}
               <input type="file" accept="application/pdf" className="hidden" />
             </label>
           </div>
@@ -211,10 +199,10 @@ export default function FoodOrdersPage() {
               </div>
               <div>
                 <p className="text-[13px] font-black text-[#0F172A]">
-                  ციფრული მენიუ (URL)
+                  {t("digitalMenu")}
                 </p>
                 <p className="text-[11px] text-[#94A3B8]">
-                  ბმული ონლაინ მენიუზე
+                  {t("digitalMenuHint")}
                 </p>
               </div>
             </div>
@@ -235,7 +223,7 @@ export default function FoodOrdersPage() {
             />
             {menuUrlError && (
               <p className="mt-1.5 text-[11px] font-medium text-[#EF4444]">
-                შეიყვანეთ სწორი ბმული (https://...)
+                {t("invalidUrl")}
               </p>
             )}
             <div className="mt-3 flex gap-2">
@@ -245,7 +233,7 @@ export default function FoodOrdersPage() {
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E40AF]"
               >
                 <QrCode className="h-4 w-4" />
-                შენახვა და QR კოდის გენერაცია
+                {t("saveAndQr")}
               </button>
               {safeMenuUrl && (
                 <a
@@ -270,82 +258,109 @@ export default function FoodOrdersPage() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-[16px] font-black text-[#0F172A]">
-              ჩემი შეთავაზებები
+              {t("discountTitle")}
             </h2>
             <p className="mt-0.5 text-[12px] text-[#94A3B8]">
-              აქცია გამოჩნდება მთავარ გვერდზე VIP სექციაში.
+              {t("discountHint")}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#F97316] px-4 py-2.5 text-[12px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(249,115,22,0.45)] hover:bg-[#EA580C]"
+            disabled={!service || service.status !== "active"}
+            onClick={() => setPromotionOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#16A34A] px-4 py-2.5 text-[12px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(22,163,74,0.35)] transition-colors hover:bg-[#15803D] disabled:opacity-50"
           >
-            <Plus className="h-4 w-4" />
-            ახალი შეთავაზება
+            <Percent className="h-4 w-4" />
+            {t("activateDiscount")}
           </button>
         </div>
 
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 rounded-xl" />
-            ))}
-          </div>
-        ) : promotions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[#CBD5E1] bg-white py-12 text-center">
-            <Megaphone className="h-10 w-10 text-[#CBD5E1]" />
-            <p className="mt-3 text-[13px] font-bold text-[#0F172A]">
-              ჯერ აქციები არ გაქვს
-            </p>
-            <p className="mt-1 text-[11px] text-[#94A3B8]">
-              დაამატე VIP შეთავაზება და მიიღე მეტი ნახვა.
-            </p>
-          </div>
+          <Skeleton className="h-24 rounded-[20px]" />
         ) : (
-          <ul className="space-y-3">
-            {promotions.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFEDD5] text-[#F97316]">
-                  <Megaphone className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-[13px] font-black text-[#0F172A]">
-                      {p.title}
-                    </p>
-                    {p.is_vip && (
-                      <span className="rounded-md bg-[#F97316] px-1.5 py-0.5 text-[9px] font-black uppercase text-white">
-                        VIP
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 line-clamp-1 text-[11px] text-[#64748B]">
-                    {p.description}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => deletePromotion(p.id)}
-                  className="shrink-0 rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-[#FEE2E2] hover:text-[#DC2626]"
-                  aria-label="delete"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3">
+          {discountRequest?.status === "pending" && (
+            <div className="rounded-[20px] border border-[#BFDBFE] bg-[#EFF6FF] p-5">
+              <p className="text-[14px] font-black text-[#1E3A8A]">
+                {t("requestPending")}
+              </p>
+              <p className="mt-1 text-[11px] font-semibold text-[#1D4ED8]">
+                {t("requestPendingDetails", {
+                  percent: discountRequest.proposed_values?.discount_percent ?? 0,
+                  amount: Number(discountRequest.quoted_amount_gel ?? 0).toFixed(2),
+                  hours: discountRequest.quoted_duration_hours ?? 0,
+                })}
+              </p>
+              {discountRequest.payment_error === "insufficient_balance" && (
+                <p className="mt-2 text-[11px] font-bold text-[#B45309]">
+                  {t("requestNeedsBalance")}
+                </p>
+              )}
+            </div>
+          )}
+          {isDiscountActive(
+            service?.discount_percent,
+            service?.discount_expires_at,
+          ) ? (
+          <div className="flex items-center gap-4 rounded-[20px] border border-[#BBF7D0] bg-[#F0FDF4] p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#16A34A] shadow-sm">
+              <Percent className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[14px] font-black text-[#14532D]">
+                  {t("activeDiscount")}
+                </p>
+                <ListingBadge variant="discount" className="normal-case">
+                  −{service?.discount_percent}%
+                </ListingBadge>
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-[#166534]">
+                {service?.discount_expires_at
+                  ? t("discountExpires", {
+                      date: new Intl.DateTimeFormat(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(service.discount_expires_at)),
+                    })
+                  : t("discountActive")}
+              </p>
+            </div>
+          </div>
+          ) : (
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[#CBD5E1] bg-white py-10 text-center">
+            <Percent className="h-9 w-9 text-[#CBD5E1]" />
+            <p className="mt-3 text-[13px] font-bold text-[#0F172A]">
+              {t("noActiveDiscount")}
+            </p>
+            <p className="mt-1 max-w-md text-[11px] leading-4 text-[#94A3B8]">
+              {t("paidDiscountHelp")}
+            </p>
+          </div>
+          )}
+          </div>
         )}
       </motion.section>
 
-      <NewPromotionModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        balance={balance}
-        onSubmit={addPromotion}
+      <FoodDiscountRequestModal
+        isOpen={promotionOpen}
+        onClose={() => setPromotionOpen(false)}
+        restaurant={service}
+        onSubmitted={(request: FoodDiscountRequestResult) => {
+          setDiscountRequest({
+            id: request.id,
+            status: request.status,
+            proposed_values: {
+              discount_percent: request.discount_percent,
+            },
+            quoted_amount_gel: request.quoted_amount_gel,
+            quoted_duration_hours: request.quoted_duration_hours,
+            payment_error: null,
+            rejection_reason: null,
+            created_at: request.created_at,
+            reviewed_at: null,
+          });
+        }}
       />
     </div>
   );

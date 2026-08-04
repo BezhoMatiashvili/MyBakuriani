@@ -1,30 +1,46 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Tables } from "@/lib/types/database";
-
-export type TaskRow = Tables<"cleaning_tasks"> & {
-  properties: Pick<Tables<"properties">, "title" | "location"> | null;
-  profiles: Pick<
-    Tables<"profiles">,
-    "display_name" | "phone" | "avatar_url"
-  > | null;
-};
+import type { Database } from "@/lib/types/database";
+import {
+  mergeCleanerTasks,
+  type CleanerTaskItem,
+  type ManualTaskRow,
+  type PlatformTaskRow,
+} from "@/lib/cleaner/tasks";
 
 /**
- * Loads the cleaner's open tasks. Shared by the server page (initial render,
- * server client) and the client realtime refetch (browser client) so the
- * query lives in one place and the first paint already has real data.
+ * Loads the cleaner's open platform and manual work. Shared by the server page
+ * (initial render) and client realtime refetch so every overview render obeys
+ * the two-source cleaner-work contract.
  */
 export async function loadCleanerTasks(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<TaskRow[]> {
-  const { data } = await supabase
-    .from("cleaning_tasks")
-    .select(
-      "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone, avatar_url)",
-    )
-    .eq("cleaner_id", userId)
-    .in("status", ["pending", "accepted", "in_progress"])
-    .order("scheduled_at");
-  return (data ?? []) as TaskRow[];
+): Promise<CleanerTaskItem[]> {
+  const [platform, manual] = await Promise.all([
+    supabase
+      .from("cleaning_tasks")
+      .select(
+        "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone, avatar_url)",
+      )
+      .eq("cleaner_id", userId)
+      .in("status", ["pending", "accepted", "in_progress"])
+      .order("scheduled_at"),
+    supabase
+      .from("cleaner_manual_tasks")
+      .select("*")
+      .eq("cleaner_id", userId)
+      .in("status", ["accepted", "in_progress"])
+      .order("scheduled_at"),
+  ]);
+
+  if (platform.error || manual.error) {
+    throw new Error(
+      platform.error?.message ?? manual.error?.message ?? "cleaner_tasks_failed",
+    );
+  }
+
+  return mergeCleanerTasks(
+    (platform.data ?? []) as PlatformTaskRow[],
+    (manual.data ?? []) as ManualTaskRow[],
+  );
 }
