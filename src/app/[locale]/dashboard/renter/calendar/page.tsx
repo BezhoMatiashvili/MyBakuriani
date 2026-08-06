@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { toLocalGePhone } from "@/lib/utils/number";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import AddBookingModal, {
@@ -38,10 +39,7 @@ import { revalidatePublicProperty } from "@/app/actions/revalidateListing";
 import type { Tables } from "@/lib/types/database";
 
 type CalendarBlock = Tables<"calendar_blocks">;
-type CalendarBlockView = Pick<
-  CalendarBlock,
-  "date" | "status" | "booking_id"
->;
+type CalendarBlockView = Pick<CalendarBlock, "date" | "status" | "booking_id">;
 type Property = Tables<"properties">;
 type PriceOverrideRow = Tables<"price_overrides">;
 type ManualBooking = Tables<"manual_bookings">;
@@ -140,9 +138,7 @@ export default function RenterCalendarPage() {
   const [propertyOpen, setPropertyOpen] = useState(false);
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlockView[]>([]);
   // Wide-window occupancy for the modal date pickers (see `fetchOccupancy`).
-  const [occupancyRows, setOccupancyRows] = useState<
-    CalendarBlockView[]
-  >([]);
+  const [occupancyRows, setOccupancyRows] = useState<CalendarBlockView[]>([]);
   const [, setOccupancyReady] = useState(false);
   const [priceOverrides, setPriceOverrides] = useState<PriceOverrideRow[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -179,6 +175,9 @@ export default function RenterCalendarPage() {
     null,
   );
   const calendarRefreshBookingsRef = useRef(false);
+  const [blacklistedPhoneKeys, setBlacklistedPhoneKeys] = useState<Set<string>>(
+    new Set(),
+  );
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -186,6 +185,28 @@ export default function RenterCalendarPage() {
   useEffect(() => {
     selectedPropertyRef.current = selectedPropertyId;
   }, [selectedPropertyId]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("renter_guests")
+        .select("phone")
+        .eq("owner_id", user.id)
+        .eq("blacklisted", true);
+      if (!cancelled && data) {
+        setBlacklistedPhoneKeys(
+          new Set(
+            data.filter((g) => g.phone).map((g) => toLocalGePhone(g.phone)),
+          ),
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -308,9 +329,7 @@ export default function RenterCalendarPage() {
         .gte("check_out", startDate),
       supabase
         .from("bookings")
-        .select(
-          "id, guest_id, check_in, check_out, status, total_price",
-        )
+        .select("id, guest_id, check_in, check_out, status, total_price")
         .eq("owner_id", user.id)
         .eq("property_id", propertyId)
         .neq("status", "cancelled")
@@ -566,8 +585,7 @@ export default function RenterCalendarPage() {
           hasOverride: override != null,
           guestLabel:
             status === "booked" ? bookingByDate.get(dateStr)?.label : undefined,
-          booking:
-            status === "booked" ? bookingByDate.get(dateStr) : undefined,
+          booking: status === "booked" ? bookingByDate.get(dateStr) : undefined,
         });
       } else {
         const d = i - offset - daysInMonth + 1;
@@ -598,14 +616,11 @@ export default function RenterCalendarPage() {
   ): Promise<boolean> => {
     if (!selectedPropertyId || dates.length === 0) return false;
     const propertyId = selectedPropertyId;
-    const { data, error } = await supabase.rpc(
-      "apply_calendar_availability",
-      {
-        p_action: action,
-        p_dates: dates,
-        p_property_id: propertyId,
-      },
-    );
+    const { data, error } = await supabase.rpc("apply_calendar_availability", {
+      p_action: action,
+      p_dates: dates,
+      p_property_id: propertyId,
+    });
     if (error) {
       toast.error(t("saveError"));
       return false;
@@ -634,9 +649,7 @@ export default function RenterCalendarPage() {
       toast.info(t("bulkNoChange"));
     }
     if (skippedBookedDates.length > 0) {
-      toast.info(
-        t("bulkBookedSkipped", { count: skippedBookedDates.length }),
-      );
+      toast.info(t("bulkBookedSkipped", { count: skippedBookedDates.length }));
     }
     return true;
   };
@@ -647,7 +660,6 @@ export default function RenterCalendarPage() {
     const t = new Date();
     return fmtDate(t.getFullYear(), t.getMonth(), t.getDate());
   }, []);
-
 
   // Every unbookable night for this property. Fed to the CREATE modal, where
   // nothing may be excluded.
@@ -906,58 +918,62 @@ export default function RenterCalendarPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <button
-            type="button"
-            disabled={!selectedPropertyId}
-            onClick={() => setHistoryOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:opacity-50"
-          >
-            <History className="h-4 w-4" />
-            {t("history.button")}
-          </button>
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
+          <div className="flex items-center gap-2 md:contents">
+            <button
+              type="button"
+              disabled={!selectedPropertyId}
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:opacity-50"
+            >
+              <History className="h-4 w-4" />
+              {t("history.button")}
+            </button>
 
-          <div className="inline-flex items-center rounded-xl border border-[#E2E8F0] bg-white px-2 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)]">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              aria-label={t("prevMonth")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="px-3 text-[13px] font-black text-[#0F172A]">
-              {tMonths(MONTH_KEYS[month])} {year}
-            </span>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              aria-label={t("nextMonth")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            <div className="inline-flex items-center rounded-xl border border-[#E2E8F0] bg-white px-2 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)]">
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                aria-label={t("prevMonth")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="px-3 text-[13px] font-black text-[#0F172A]">
+                {tMonths(MONTH_KEYS[month])} {year}
+              </span>
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                aria-label={t("nextMonth")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
-          <button
-            type="button"
-            disabled={!selectedPropertyId}
-            onClick={() => setAvailabilityModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#D97706] bg-white px-4 py-2.5 text-[13px] font-black text-[#B45309] transition-colors hover:bg-[#FFFBEB] disabled:opacity-50"
-          >
-            <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-            {t("availability.button")}
-          </button>
+          <div className="flex items-center gap-2 md:contents">
+            <button
+              type="button"
+              disabled={!selectedPropertyId}
+              onClick={() => setAvailabilityModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#D97706] bg-white px-4 py-2.5 text-[13px] font-black text-[#B45309] transition-colors hover:bg-[#FFFBEB] disabled:opacity-50"
+            >
+              <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
+              {t("availability.button")}
+            </button>
 
-          <button
-            type="button"
-            disabled={!selectedPropertyId}
-            onClick={() => setRangeModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#F97316] bg-white px-4 py-2.5 text-[13px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50"
-          >
-            <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-            {t("priceRange")}
-          </button>
+            <button
+              type="button"
+              disabled={!selectedPropertyId}
+              onClick={() => setRangeModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#F97316] bg-white px-4 py-2.5 text-[13px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50"
+            >
+              <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
+              {t("priceRange")}
+            </button>
+          </div>
 
           <button
             type="button"
@@ -966,7 +982,7 @@ export default function RenterCalendarPage() {
               setAddBookingInitial({ checkIn: "", checkOut: "" });
               setAddBookingOpen(true);
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50 md:w-auto"
           >
             <Plus className="h-4 w-4" strokeWidth={2.6} />
             {tShared("add")}
@@ -1027,6 +1043,7 @@ export default function RenterCalendarPage() {
         initialCheckIn={addBookingInitial.checkIn}
         initialCheckOut={addBookingInitial.checkOut}
         occupied={occupiedAll}
+        blacklistedPhoneKeys={blacklistedPhoneKeys}
       />
 
       {/* Details for a tapped booked day — manual editable, platform read-only */}
@@ -1047,6 +1064,7 @@ export default function RenterCalendarPage() {
         onSave={handleEditBooking}
         onDelete={handleCancelBooking}
         occupied={occupiedForEdit}
+        blacklistedPhoneKeys={blacklistedPhoneKeys}
       />
 
       {selectedPropertyId && (
@@ -1225,7 +1243,9 @@ function BookingTooltip({ booking }: { booking: BookingEntry }) {
     ],
     [
       t("source"),
-      manual?.client_list ?? manual?.source ?? (platform ? t("platform") : unknown),
+      manual?.client_list ??
+        manual?.source ??
+        (platform ? t("platform") : unknown),
     ],
     [t("total"), money(total)],
     [t("deposit"), manual ? money(deposit) : unknown],
@@ -1240,7 +1260,10 @@ function BookingTooltip({ booking }: { booking: BookingEntry }) {
       </p>
       <dl className="mt-2.5 space-y-1.5">
         {rows.map(([label, value]) => (
-          <div key={label} className="flex items-start justify-between gap-4 text-[11px] leading-4">
+          <div
+            key={label}
+            className="flex items-start justify-between gap-4 text-[11px] leading-4"
+          >
             <dt className="shrink-0 font-semibold text-[#94A3B8]">{label}</dt>
             <dd className="text-right font-bold text-[#334155]">{value}</dd>
           </div>

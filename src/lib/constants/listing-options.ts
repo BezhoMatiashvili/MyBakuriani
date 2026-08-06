@@ -488,8 +488,6 @@ export function priceUnitPathFor(
 export type RoutePricing = {
   /** DB route value — same Georgian-label vocabulary as `services.routes`. */
   route: string;
-  /** Optional free-text subtitle, e.g. "საწყისი ფასი". */
-  subtitle?: string;
   price: number;
   /** price-unit code, e.g. "one_way" | "on_demand" | "round_trip". */
   unit: string;
@@ -499,7 +497,7 @@ export type RoutePricing = {
  * Defensively parse the `services.route_pricing` jsonb value into typed rows.
  * Returns [] for null/invalid input so callers fall back to the legacy single
  * price. Each row needs a non-empty string `route`, finite numeric `price`, and
- * a non-empty string `unit`; an empty/whitespace `subtitle` is dropped.
+ * a non-empty string `unit`. Historical extra fields are ignored.
  */
 export function parseRoutePricing(value: Json | null): RoutePricing[] {
   if (!Array.isArray(value)) return [];
@@ -507,14 +505,11 @@ export function parseRoutePricing(value: Json | null): RoutePricing[] {
   for (const entry of value) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     const obj = entry as Record<string, unknown>;
-    const { route, price, unit, subtitle } = obj;
+    const { route, price, unit } = obj;
     if (typeof route !== "string" || !route) continue;
     if (typeof price !== "number" || !Number.isFinite(price)) continue;
     if (typeof unit !== "string" || !unit) continue;
-    const row: RoutePricing = { route, price, unit };
-    if (typeof subtitle === "string" && subtitle.trim())
-      row.subtitle = subtitle;
-    rows.push(row);
+    rows.push({ route, price, unit });
   }
   return rows;
 }

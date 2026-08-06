@@ -2552,8 +2552,20 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
-          { foreignKeyName: "sale_price_alert_rules_property_id_fkey"; columns: ["property_id"]; isOneToOne: true; referencedRelation: "properties"; referencedColumns: ["id"] },
-          { foreignKeyName: "sale_price_alert_rules_owner_id_fkey"; columns: ["owner_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          {
+            foreignKeyName: "sale_price_alert_rules_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: true;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sale_price_alert_rules_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
         ];
       };
       sale_price_alert_subscriptions: {
@@ -2585,8 +2597,20 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
-          { foreignKeyName: "sale_price_alert_subscriptions_property_id_fkey"; columns: ["property_id"]; isOneToOne: false; referencedRelation: "properties"; referencedColumns: ["id"] },
-          { foreignKeyName: "sale_price_alert_subscriptions_subscriber_id_fkey"; columns: ["subscriber_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          {
+            foreignKeyName: "sale_price_alert_subscriptions_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sale_price_alert_subscriptions_subscriber_id_fkey";
+            columns: ["subscriber_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
         ];
       };
       sale_price_drop_events: {
@@ -2645,8 +2669,20 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
-          { foreignKeyName: "sale_price_drop_events_property_id_fkey"; columns: ["property_id"]; isOneToOne: false; referencedRelation: "properties"; referencedColumns: ["id"] },
-          { foreignKeyName: "sale_price_drop_events_payer_id_fkey"; columns: ["payer_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          {
+            foreignKeyName: "sale_price_drop_events_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sale_price_drop_events_payer_id_fkey";
+            columns: ["payer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
         ];
       };
       sms_broadcasts: {
@@ -3172,22 +3208,19 @@ export type Database = {
           p_phone?: string;
         };
         Returns: {
-          blacklisted: boolean;
-          created_at: string | null;
-          id: string;
-          name: string;
-          note: string | null;
-          owner_id: string;
-          phone: string | null;
-          profile_id: string | null;
-          updated_at: string | null;
-          visit_dates: string | null;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "renter_guests";
-          isOneToOne: true;
-          isSetofReturn: false;
+          guest: {
+            blacklisted: boolean;
+            created_at: string | null;
+            id: string;
+            name: string;
+            note: string | null;
+            owner_id: string;
+            phone: string | null;
+            profile_id: string | null;
+            updated_at: string | null;
+            visit_dates: string | null;
+          };
+          was_already_blacklisted: boolean;
         };
       };
       apply_calendar_availability: {
@@ -3596,7 +3629,11 @@ export type Database = {
         Returns: Database["public"]["Tables"]["sale_price_alert_rules"]["Row"];
       };
       sms_materialize_due_price_drop_events: {
-        Args: { p_site_url: string; p_limit?: number; p_allowed_payers?: string[] | null };
+        Args: {
+          p_site_url: string;
+          p_limit?: number;
+          p_allowed_payers?: string[] | null;
+        };
         Returns: Json;
       };
       sms_create_manual_review_token: {
@@ -3604,7 +3641,12 @@ export type Database = {
         Returns: string;
       };
       sms_mark_claim_submitted: {
-        Args: { p_sms_id: string; p_claim_token: string; p_provider_message_id: string; p_provider_response?: Json };
+        Args: {
+          p_sms_id: string;
+          p_claim_token: string;
+          p_provider_message_id: string;
+          p_provider_response?: Json;
+        };
         Returns: undefined;
       };
       sms_mark_provider_delivered: {

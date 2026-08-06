@@ -148,4 +148,34 @@ test.describe("public contact reveals", () => {
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page).not.toHaveURL(/\/auth\/login/);
   });
+
+  test("a long reveal state wraps inside the mobile contact column", async ({
+    page,
+    testIds,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    const path = apartmentPath(testIds.apartment);
+    await page.route(
+      `**/api/listings/property/${testIds.apartment}/contact`,
+      (route) =>
+        route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "lookup_failed" }),
+        }),
+    );
+
+    await page.goto(path);
+    const callButton = page.locator('[data-slot="call-button"]');
+    await callButton.click();
+    await expect(callButton).toHaveText(/Couldn’t reveal the number — try again/);
+    const box = await callButton.boundingBox();
+    expect(box?.x).toBeGreaterThanOrEqual(0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(320);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+  });
 });

@@ -786,7 +786,9 @@
         "visitDatesPlaceholder": "Feb 10–12",
         "checkIn": "Check-in",
         "checkOut": "Check-out",
-        "notePlaceholder": "Quiet, tidy guest."
+        "notePlaceholder": "Quiet, tidy guest.",
+        "blacklistAdded": "Added to the blacklist",
+        "alreadyBlacklisted": "This number is already blacklisted"
       },
       "priceRange": {
         "title": "Price for date range",
@@ -1005,7 +1007,13 @@
     "disabled": "Price alerts disabled",
     "loadError": "Could not load price alerts.",
     "saveError": "Could not save this setting.",
-    "statuses": { "open": "collecting changes", "awaiting_credit": "waiting for credits", "queued": "queued", "cancelled": "cancelled", "expired": "expired" },
+    "statuses": {
+      "open": "collecting changes",
+      "awaiting_credit": "waiting for credits",
+      "queued": "queued",
+      "cancelled": "cancelled",
+      "expired": "expired"
+    },
     "public": {
       "action": "Notify me if price drops",
       "active": "Price alert is on",
@@ -1450,9 +1458,6 @@
     "statusNew": "New",
     "statusInProgress": "In progress",
     "statusReady": "Ready",
-    "paymentCash": "Cash",
-    "paymentInstallment": "Installments",
-    "paymentMortgage": "Mortgage",
     "amenityBalcony": "Balcony",
     "amenityShed": "Shed",
     "amenityWater": "Water",
@@ -2468,8 +2473,6 @@
     "chooseRoute": "Select at least one route",
     "enterPrice": "Enter starting price",
     "routePrice": "Price",
-    "routeSubtitle": "Subtitle (optional)",
-    "routeSubtitlePlaceholder": "e.g. starting price",
     "addRoute": "Add route",
     "removeRoute": "Remove"
   },
@@ -3006,6 +3009,8 @@
     "notSpecified": "Not specified",
     "views": "{count} views",
     "totalCount": "{count} total",
+    "daysRemaining": "{count, plural, =1 {# day left} other {# days left}}",
+    "phoneBlacklistedWarning": "This number is on the blacklist — double-check before proceeding",
     "periodWeek": "Week",
     "periodMonth": "Month",
     "periodAll": "All",

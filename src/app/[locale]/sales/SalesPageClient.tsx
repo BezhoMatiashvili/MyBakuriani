@@ -129,7 +129,7 @@ export default function SalesPageClient({ properties }: Props) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">
             <BannerSlot
               placement="listing_top"
               bare
@@ -147,6 +147,7 @@ export default function SalesPageClient({ properties }: Props) {
               return (
                 <ScrollReveal key={p.id} delay={i * 0.05}>
                   <InvestmentCard
+                    mobilePresentation="compact-grid"
                     id={p.id}
                     title={p.title}
                     location={p.location}

@@ -143,12 +143,8 @@ export default function SalesGridClient({
     }
     if (initialPayment && initialPayment.length > 0) {
       list = list.filter((p) => {
-        const amenities = Array.isArray(p.amenities)
-          ? (p.amenities as string[])
-          : [];
-        return initialPayment.some((pay) =>
-          amenities.includes(`payment:${pay}`),
-        );
+        const paymentOptions: string[] = readPaymentOptions(p.house_rules);
+        return initialPayment.some((pay) => paymentOptions.includes(pay));
       });
     }
     if (initialDevelopers && initialDevelopers.length > 0) {

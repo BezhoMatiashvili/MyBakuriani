@@ -1004,7 +1004,11 @@ function LocationDropdown({
             )}
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9]">
-              <ZoneIcon icon={zone.icon} className="size-5 text-[#64748B]" />
+              <ZoneIcon
+                icon={zone.icon}
+                zoneSlug={zone.slug}
+                className="size-5 text-[#64748B]"
+              />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[14px] font-bold leading-5 text-[#1E293B]">

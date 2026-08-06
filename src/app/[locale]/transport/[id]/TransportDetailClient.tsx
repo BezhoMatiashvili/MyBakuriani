@@ -108,7 +108,6 @@ export default function TransportDetailClient({
   useEffect(() => {
     if (isMock) return;
     void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service.id, isMock]);
 
   return (
@@ -346,11 +345,6 @@ export default function TransportDetailClient({
                   <p className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]">
                     {optionLabel("transportRoutes", row.route)}
                   </p>
-                  {row.subtitle && (
-                    <p className="mt-1 text-[12px] font-medium text-[#94A3B8]">
-                      {row.subtitle}
-                    </p>
-                  )}
                 </div>
                 <div className="shrink-0 text-right">
                   {discountActive && (

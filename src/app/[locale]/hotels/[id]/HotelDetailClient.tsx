@@ -39,10 +39,9 @@ import type { Tables } from "@/lib/types/database";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { formatPricePerNight } from "@/lib/utils/format";
 import { applyDiscount } from "@/lib/utils/pricing";
-import { cleanAmenityLabel } from "@/lib/constants/amenity-icons";
-import { optionKeyFor } from "@/lib/constants/listing-options";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
+import PropertyAmenities from "@/components/detail/PropertyAmenities";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -90,7 +89,6 @@ export default function HotelDetailClient({
 }: Props) {
   const t = useTranslations("HotelDetail");
   const tDetail = useTranslations("PropertyDetail");
-  const tOpts = useTranslations("ListingOptions");
   const tRules = useTranslations("HouseRules");
   const tShared = useTranslations("Shared");
   const locale = useLocale();
@@ -289,26 +287,7 @@ export default function HotelDetailClient({
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {tDetail("amenitiesTitle")}
               </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {amenities.map((key) => {
-                  const optKey = optionKeyFor("amenities", key);
-                  const label =
-                    optKey === "no_balcony"
-                      ? tDetail("balconyNone")
-                      : optKey
-                        ? tOpts(`amenities.${optKey}`)
-                        : cleanAmenityLabel(key);
-                  if (!label) return null;
-                  return (
-                    <div
-                      key={key}
-                      className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
-                    >
-                      <span className="break-words">{label}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <PropertyAmenities amenities={amenities} />
             </motion.div>
           )}
 

@@ -40,8 +40,10 @@ export function CallButton({
   const sizeClass = ({ sm: "h-9 px-3 text-xs", default: "h-12 px-5 text-sm", lg: "h-[55px] px-6 text-[15px]" } as const)[size];
   const layoutClass = layout === "pill" ? "rounded-full" : layout === "card" ? "rounded-xl" : "rounded-lg";
   const classes = cn(
-    "inline-flex shrink-0 items-center justify-center gap-2 bg-contact font-bold text-white transition-colors hover:bg-contact-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-contact/35 focus-visible:ring-offset-2",
+    "inline-flex min-w-0 max-w-full shrink items-center justify-center gap-2 bg-contact font-bold text-white transition-colors hover:bg-contact-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-contact/35 focus-visible:ring-offset-2",
     sizeClass,
+    alwaysShowLabel &&
+      "h-auto min-h-12 whitespace-normal px-3 py-2 text-center leading-5",
     layoutClass,
     className,
   );
@@ -98,10 +100,16 @@ export function CallButton({
         data-slot="call-button"
         data-layout={layout}
         aria-live="polite"
-        className={cn("gap-2", sizeClass, layoutClass, className)}
+        className={cn(
+          "h-auto min-h-12 min-w-0 max-w-full shrink gap-2 whitespace-normal px-3 py-2 text-center leading-5",
+          layoutClass,
+          className,
+        )}
       >
-        <Phone className="size-4" />
-        {isResolving ? "…" : revealFailed ? t("failed") : label}
+        <Phone className="size-4 shrink-0" />
+        <span className="min-w-0 break-words">
+          {isResolving ? "…" : revealFailed ? t("failed") : label}
+        </span>
       </Button>
     );
   }
@@ -118,13 +126,16 @@ export function CallButton({
         trackContactClick({ channel: "call", propertyId, serviceId });
       }}
     >
-      <Phone className="size-4" />
+      <Phone className="size-4 shrink-0" />
       {resolvedPhone ? (
-        <span>{formatPhone(normalizedPhone)}</span>
+        <span className="min-w-0 break-words">{formatPhone(normalizedPhone)}</span>
       ) : alwaysShowLabel ? (
-        <span>{label}</span>
+        <span className="min-w-0 break-words">{label}</span>
       ) : (
-        <><span className="md:hidden">{label}</span><span className="hidden md:inline">{maskPhone(normalizedPhone)}</span></>
+        <>
+          <span className="min-w-0 break-words md:hidden">{label}</span>
+          <span className="hidden md:inline">{maskPhone(normalizedPhone)}</span>
+        </>
       )}
     </a>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
 import { Ban, X, UserPlus } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
@@ -29,6 +30,7 @@ interface GuestFormModalProps {
   guest?: Tables<"renter_guests"> | null;
   bookingGuest?: Tables<"renter_guests"> | null;
   properties: Tables<"properties">[];
+  blacklistedPhoneKeys?: Set<string>;
 }
 
 export default function GuestFormModal({
@@ -39,6 +41,7 @@ export default function GuestFormModal({
   guest,
   bookingGuest,
   properties,
+  blacklistedPhoneKeys,
 }: GuestFormModalProps) {
   const t = useTranslations("RenterDashboard.modals.guestForm");
   const tShared = useTranslations("DashboardShared");
@@ -149,6 +152,11 @@ export default function GuestFormModal({
       ? Math.max(0, totalNumber - depositNumber)
       : null;
 
+  const isPhoneBlacklisted =
+    requiresBooking &&
+    isValidGePhone(phone) &&
+    Boolean(blacklistedPhoneKeys?.has(toLocalGePhone(phone)));
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -191,15 +199,18 @@ export default function GuestFormModal({
           .eq("id", guest.id);
         if (updateError) throw updateError;
       } else if (isBlacklistCreate) {
-        const { error: blacklistError } = await supabase.rpc(
-          "add_renter_guest_to_blacklist",
-          {
+        const { data: blacklistResult, error: blacklistError } =
+          await supabase.rpc("add_renter_guest_to_blacklist", {
             p_name: trimmedName,
             p_phone: payload.phone ?? undefined,
             p_note: payload.note ?? undefined,
-          },
-        );
+          });
         if (blacklistError) throw blacklistError;
+        toast(
+          blacklistResult?.was_already_blacklisted
+            ? t("alreadyBlacklisted")
+            : t("blacklistAdded"),
+        );
       } else if (bookingGuest) {
         if (!propertyId) return;
         const { data: booking, error: bookingError } = await supabase.rpc(
@@ -347,167 +358,175 @@ export default function GuestFormModal({
                 </button>
               </div>
             ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmit();
-              }}
-              noValidate
-            >
-              <div className="mt-5 space-y-3">
-                <Field label={tShared("name")}>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={Boolean(bookingGuest)}
-                    placeholder={t("namePlaceholder")}
-                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                  />
-                </Field>
-
-                <Field label={tShared("phone")}>
-                  <PhoneInput
-                    value={phone}
-                    onChange={setPhone}
-                    error={
-                      phone && !isValidGePhone(phone)
-                        ? tShared("invalidPhone")
-                        : null
-                    }
-                  />
-                </Field>
-
-                {requiresBooking && (
-                  <>
-                    <Field label={tShared("defaultProperty")}>
-                      <select
-                        value={propertyId}
-                        onChange={(e) => setPropertyId(e.target.value)}
-                        className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                      >
-                        <option value="" disabled>
-                          {tShared("selectProperty")}
-                        </option>
-                        {properties.map((property) => (
-                          <option key={property.id} value={property.id}>
-                            {property.title}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label={t("checkIn")}>
-                        <DateField
-                          value={checkIn}
-                          onChange={(v) => {
-                            setCheckIn(v);
-                            if (checkOut && checkOut < v) setCheckOut("");
-                          }}
-                          occupied={occupied}
-                        />
-                      </Field>
-                      <Field label={t("checkOut")}>
-                        <DateField
-                          value={checkOut}
-                          onChange={setCheckOut}
-                          min={checkIn || undefined}
-                          max={checkOutMax}
-                          occupied={occupied}
-                        />
-                      </Field>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label={tBooking("amountLabel")}>
-                        <NumberField
-                          value={amount}
-                          onChange={(value) => {
-                            setAmount(value);
-                            if (value.trim() && depositAmount === "") {
-                              setDepositAmount("0");
-                            }
-                          }}
-                          min={0}
-                          max={999999}
-                          decimals={2}
-                          suffix="₾"
-                          placeholder={tBooking("amountPlaceholder")}
-                        />
-                      </Field>
-                      <Field label={tBooking("depositLabel")}>
-                        <NumberField
-                          value={depositAmount}
-                          onChange={(value) => {
-                            setDepositAmount(value);
-                            if (!value || Number(value) <= 0) setDepositPaidOn("");
-                          }}
-                          min={0}
-                          max={999999}
-                          decimals={2}
-                          suffix="₾"
-                          placeholder={tBooking("depositPlaceholder")}
-                        />
-                      </Field>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label={tBooking("depositPaidOnLabel")}>
-                        <DateField
-                          value={depositPaidOn}
-                          onChange={setDepositPaidOn}
-                          disabled={depositNumber == null || depositNumber <= 0}
-                        />
-                      </Field>
-                      <Field label={tBooking("remainingLabel")}>
-                        <div className="flex h-[42px] items-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-black text-[#334155]">
-                          {remainingAmount == null
-                            ? tBooking("notSpecified")
-                            : `${remainingAmount.toFixed(2)} ₾`}
-                        </div>
-                      </Field>
-                    </div>
-                  </>
-                )}
-
-                <Field label={tShared("note")}>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    rows={3}
-                    placeholder={t("notePlaceholder")}
-                    className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                  />
-                </Field>
-              </div>
-
-              <button
-                type="submit"
-                disabled={
-                  !name.trim() ||
-                  (requiresBooking && (!datesValid || !propertyId)) ||
-                  Boolean(financeError) ||
-                  saving ||
-                  (phone && !isValidGePhone(phone))
-                    ? true
-                    : false
-                }
-                className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-black text-white transition-colors disabled:opacity-50 ${
-                  isBlacklistCreate
-                    ? "bg-[#DC2626] hover:bg-[#B91C1C]"
-                    : "bg-[#2563EB] hover:bg-[#1E40AF]"
-                }`}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSubmit();
+                }}
+                noValidate
               >
-                {saving
-                  ? tShared("saving")
-                  : isBlacklistCreate
-                    ? t("blacklistSave")
-                    : tShared("save")}
-              </button>
-              {(financeError || error) && (
-                <p className="mt-3 text-center text-[12px] font-semibold text-[#B91C1C]">
-                  {financeError ?? error}
-                </p>
-              )}
-            </form>
+                <div className="mt-5 space-y-3">
+                  <Field label={tShared("name")}>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={Boolean(bookingGuest)}
+                      placeholder={t("namePlaceholder")}
+                      className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                    />
+                  </Field>
+
+                  <Field label={tShared("phone")}>
+                    <PhoneInput
+                      value={phone}
+                      onChange={setPhone}
+                      error={
+                        phone && !isValidGePhone(phone)
+                          ? tShared("invalidPhone")
+                          : null
+                      }
+                    />
+                    {isPhoneBlacklisted && (
+                      <p className="mt-1.5 text-[11px] font-semibold text-[#B45309]">
+                        {tShared("phoneBlacklistedWarning")}
+                      </p>
+                    )}
+                  </Field>
+
+                  {requiresBooking && (
+                    <>
+                      <Field label={tShared("defaultProperty")}>
+                        <select
+                          value={propertyId}
+                          onChange={(e) => setPropertyId(e.target.value)}
+                          className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                        >
+                          <option value="" disabled>
+                            {tShared("selectProperty")}
+                          </option>
+                          {properties.map((property) => (
+                            <option key={property.id} value={property.id}>
+                              {property.title}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Field label={t("checkIn")}>
+                          <DateField
+                            value={checkIn}
+                            onChange={(v) => {
+                              setCheckIn(v);
+                              if (checkOut && checkOut < v) setCheckOut("");
+                            }}
+                            occupied={occupied}
+                          />
+                        </Field>
+                        <Field label={t("checkOut")}>
+                          <DateField
+                            value={checkOut}
+                            onChange={setCheckOut}
+                            min={checkIn || undefined}
+                            max={checkOutMax}
+                            occupied={occupied}
+                          />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Field label={tBooking("amountLabel")}>
+                          <NumberField
+                            value={amount}
+                            onChange={(value) => {
+                              setAmount(value);
+                              if (value.trim() && depositAmount === "") {
+                                setDepositAmount("0");
+                              }
+                            }}
+                            min={0}
+                            max={999999}
+                            decimals={2}
+                            suffix="₾"
+                            placeholder={tBooking("amountPlaceholder")}
+                          />
+                        </Field>
+                        <Field label={tBooking("depositLabel")}>
+                          <NumberField
+                            value={depositAmount}
+                            onChange={(value) => {
+                              setDepositAmount(value);
+                              if (!value || Number(value) <= 0)
+                                setDepositPaidOn("");
+                            }}
+                            min={0}
+                            max={999999}
+                            decimals={2}
+                            suffix="₾"
+                            placeholder={tBooking("depositPlaceholder")}
+                          />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Field label={tBooking("depositPaidOnLabel")}>
+                          <DateField
+                            value={depositPaidOn}
+                            onChange={setDepositPaidOn}
+                            disabled={
+                              depositNumber == null || depositNumber <= 0
+                            }
+                          />
+                        </Field>
+                        <Field label={tBooking("remainingLabel")}>
+                          <div className="flex h-[42px] items-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-black text-[#334155]">
+                            {remainingAmount == null
+                              ? tBooking("notSpecified")
+                              : `${remainingAmount.toFixed(2)} ₾`}
+                          </div>
+                        </Field>
+                      </div>
+                    </>
+                  )}
+
+                  <Field label={tShared("note")}>
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      rows={3}
+                      placeholder={t("notePlaceholder")}
+                      className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                    />
+                  </Field>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={
+                    !name.trim() ||
+                    (requiresBooking && (!datesValid || !propertyId)) ||
+                    Boolean(financeError) ||
+                    saving ||
+                    (phone && !isValidGePhone(phone))
+                      ? true
+                      : false
+                  }
+                  className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-black text-white transition-colors disabled:opacity-50 ${
+                    isBlacklistCreate
+                      ? "bg-[#DC2626] hover:bg-[#B91C1C]"
+                      : "bg-[#2563EB] hover:bg-[#1E40AF]"
+                  }`}
+                >
+                  {saving
+                    ? tShared("saving")
+                    : isBlacklistCreate
+                      ? t("blacklistSave")
+                      : tShared("save")}
+                </button>
+                {(financeError || error) && (
+                  <p className="mt-3 text-center text-[12px] font-semibold text-[#B91C1C]">
+                    {financeError ?? error}
+                  </p>
+                )}
+              </form>
             )}
           </motion.div>
         </div>

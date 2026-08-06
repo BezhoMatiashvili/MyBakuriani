@@ -64,19 +64,45 @@ export async function POST(
     return Response.json({ error: "verification_required" }, { status: 403 });
   }
   const db = createServiceClient();
-  const table = kind === "property" ? "properties" : "services";
-  const { data } = await db
-    .from(table)
-    .select("phone, whatsapp, profiles!inner(phone)")
-    .eq("id", id)
-    .eq("status", "active")
-    .maybeSingle();
-  if (!data) return Response.json({ error: "not_found" }, { status: 404 });
-  const row = data as {
+  type ContactRow = {
     phone: string | null;
     whatsapp: string | null;
     profiles: { phone: string | null } | null;
   };
+  let row: ContactRow | null = null;
+  let lookupError: { code?: string; message?: string } | null = null;
+
+  if (kind === "property") {
+    const { data, error } = await db
+      .from("properties")
+      .select(
+        "phone, whatsapp, profiles!properties_owner_id_fkey(phone)",
+      )
+      .eq("id", id)
+      .eq("status", "active")
+      .maybeSingle();
+    row = data as ContactRow | null;
+    lookupError = error;
+  } else {
+    const { data, error } = await db
+      .from("services")
+      .select("phone, whatsapp, profiles!services_owner_id_fkey(phone)")
+      .eq("id", id)
+      .eq("status", "active")
+      .maybeSingle();
+    row = data as ContactRow | null;
+    lookupError = error;
+  }
+
+  if (lookupError) {
+    console.error("Listing contact lookup failed", {
+      kind,
+      id,
+      code: lookupError.code,
+    });
+    return Response.json({ error: "lookup_failed" }, { status: 500 });
+  }
+  if (!row) return Response.json({ error: "not_found" }, { status: 404 });
   // This table is intentionally service-write-only.  It records the reveal,
   // not the revealed value, and makes rate-limit/audit investigations possible.
   await (
@@ -93,7 +119,9 @@ export async function POST(
   // This is the only public contact representation: a deliberate detail
   // lookup, individually rate-limited and never part of list/search payloads.
   return Response.json({
-    phone: normalizeE164Phone(row.phone ?? row.profiles?.phone),
+    phone:
+      normalizeE164Phone(row.phone) ??
+      normalizeE164Phone(row.profiles?.phone),
     whatsapp: normalizeE164Phone(row.whatsapp),
   });
 }

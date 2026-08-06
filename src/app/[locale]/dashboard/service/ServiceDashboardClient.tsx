@@ -24,7 +24,7 @@ import ListingActions from "@/components/dashboard/ListingActions";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive } from "@/lib/utils/pricing";
+import { isDiscountActive, daysRemaining } from "@/lib/utils/pricing";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 import { CATEGORY_TO_CREATE_HREF } from "@/lib/dashboard/serviceSegments";
@@ -246,8 +246,25 @@ export default function ServiceDashboardClient({
                       <h3 className="truncate text-[14px] font-black text-[#0F172A]">
                         {s.title}
                       </h3>
-                      {isDiscountActive(s.discount_percent, s.discount_expires_at) && (
-                        <ListingBadge variant="discount" className="normal-case">−{s.discount_percent}%</ListingBadge>
+                      {s.is_vip && (
+                        <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#A16207]">
+                          VIP
+                          {daysRemaining(s.vip_expires_at) != null &&
+                            ` · ${tShared("daysRemaining", { count: daysRemaining(s.vip_expires_at)! })}`}
+                        </span>
+                      )}
+                      {isDiscountActive(
+                        s.discount_percent,
+                        s.discount_expires_at,
+                      ) && (
+                        <ListingBadge
+                          variant="discount"
+                          className="normal-case"
+                        >
+                          −{s.discount_percent}%
+                          {daysRemaining(s.discount_expires_at) != null &&
+                            ` · ${tShared("daysRemaining", { count: daysRemaining(s.discount_expires_at)! })}`}
+                        </ListingBadge>
                       )}
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -330,7 +347,9 @@ export default function ServiceDashboardClient({
           badgeColor: "blue",
         }))}
         target="service"
-        onPurchased={() => loadServiceData(supabase, userId, category).then(applyData)}
+        onPurchased={() =>
+          loadServiceData(supabase, userId, category).then(applyData)
+        }
       />
     </div>
   );

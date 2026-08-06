@@ -12,6 +12,7 @@ import { optionKeyFor } from "@/lib/constants/listing-options";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
+import { cn } from "@/lib/utils";
 
 function formatNum(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -47,6 +48,7 @@ interface PropertyCardProps {
   // Set on the first 1–2 cards of the first visible section so Next/Image
   // preloads them — improves landing LCP. Default false (lazy).
   priority?: boolean;
+  mobilePresentation?: "default" | "compact-grid";
 }
 
 function extractZone(location: string): string {
@@ -84,7 +86,9 @@ export default function PropertyCard(props: PropertyCardProps) {
     constructionProgressPercent,
     paymentOptions,
     priority,
+    mobilePresentation = "default",
   } = props;
+  const compactGrid = mobilePresentation === "compact-grid";
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -146,20 +150,42 @@ export default function PropertyCard(props: PropertyCardProps) {
       <Link
         href={href}
         data-listing-card
-        className="flex h-full flex-col overflow-hidden rounded-[20px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] md:h-auto lg:h-[440px] lg:rounded-[24px]"
+        data-mobile-presentation={mobilePresentation}
+        className={cn(
+          "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] md:h-auto lg:h-[440px] lg:rounded-[24px]",
+          compactGrid
+            ? "rounded-[16px] sm:rounded-[20px]"
+            : "rounded-[20px]",
+        )}
       >
-        <div className="relative aspect-[8/5] overflow-hidden lg:aspect-[4/3]">
+        <div
+          className={cn(
+            "relative overflow-hidden lg:aspect-[4/3]",
+            compactGrid
+              ? "aspect-[4/3] sm:aspect-[8/5]"
+              : "aspect-[8/5]",
+          )}
+        >
           <Image
             src={photoUrl}
             alt={title}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes={
+              compactGrid
+                ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 33vw"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            }
             className="object-cover transition-transform duration-300 group-hover:scale-110"
             priority={priority}
           />
 
           {showHotelStars && (
-            <span className="absolute top-4 left-4 flex items-center gap-0.5 text-[#F59E0B] drop-shadow-sm">
+            <span
+              className={cn(
+                "absolute flex items-center gap-0.5 text-[#F59E0B] drop-shadow-sm",
+                compactGrid ? "left-2 top-2 sm:left-4 sm:top-4" : "left-4 top-4",
+              )}
+            >
               {Array.from({ length: hotelStars! }, (_, i) => (
                 <Star key={i} className="h-3.5 w-3.5 fill-current" />
               ))}
@@ -169,7 +195,12 @@ export default function PropertyCard(props: PropertyCardProps) {
           {showHotelDiscount && (
             <ListingBadge
               variant="discount"
-              className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case"
+              className={cn(
+                "absolute rounded-full normal-case",
+                compactGrid
+                  ? "left-2 top-2 px-2 py-1 text-[9px] sm:left-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-[11px]"
+                  : "left-4 top-4 px-3 py-1.5 text-[11px]",
+              )}
             >
               <Clock className="h-3 w-3" />-{discountPercent}%
             </ListingBadge>
@@ -178,14 +209,27 @@ export default function PropertyCard(props: PropertyCardProps) {
           {!isHotel && active && (
             <ListingBadge
               variant="discount"
-              className="absolute top-4 left-4 rounded-full px-3 py-1.5 text-[11px] normal-case"
+              className={cn(
+                "absolute rounded-full normal-case",
+                compactGrid
+                  ? "left-2 top-2 px-2 py-1 text-[9px] sm:left-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-[11px]"
+                  : "left-4 top-4 px-3 py-1.5 text-[11px]",
+              )}
             >
               <Clock className="h-3 w-3" />-{discountPercent}%
             </ListingBadge>
           )}
 
           {!isHotel && !active && (isSuperVip || isVip) && (
-            <ListingBadge variant="vip" className="absolute top-4 left-4">
+            <ListingBadge
+              variant="vip"
+              className={cn(
+                "absolute",
+                compactGrid
+                  ? "left-2 top-2 max-w-[calc(100%-3.5rem)] truncate px-2 text-[9px] sm:left-4 sm:top-4 sm:max-w-none sm:px-2.5 sm:text-[10px]"
+                  : "left-4 top-4",
+              )}
+            >
               {isSuperVip ? "SUPER VIP" : "VIP"}
             </ListingBadge>
           )}
@@ -195,47 +239,55 @@ export default function PropertyCard(props: PropertyCardProps) {
             onPressedChange={toggleFavorite}
             disabled={favoriteBusy}
             ariaLabel={isFavorited ? t("favoriteRemove") : t("favoriteAdd")}
-            className="absolute top-4 right-4"
+            className={cn(
+              "absolute",
+              compactGrid ? "right-1 top-1 sm:right-4 sm:top-4" : "right-4 top-4",
+            )}
           />
 
           {isHotel && isB2BPartner && (
-            <span className="absolute bottom-4 right-4 rounded-lg bg-[#F97316] px-3 py-1 text-[10px] font-bold uppercase text-white">
+            <span className={cn("absolute rounded-lg bg-[#F97316] font-bold uppercase text-white", compactGrid ? "bottom-2 right-2 px-2 py-1 text-[8px] sm:bottom-4 sm:right-4 sm:px-3 sm:text-[10px]" : "bottom-4 right-4 px-3 py-1 text-[10px]") }>
               {t("b2bPartner")}
             </span>
           )}
 
           {!isHotel && isSuperVip && (
-            <span className="absolute bottom-4 left-4 rounded-full bg-[#22C55E] px-2.5 py-1 text-[9px] font-bold text-white">
+            <span className={cn("absolute rounded-full bg-[#22C55E] font-bold text-white", compactGrid ? "bottom-2 left-2 px-2 py-1 text-[8px] sm:bottom-4 sm:left-4 sm:px-2.5 sm:text-[9px]" : "bottom-4 left-4 px-2.5 py-1 text-[9px]") }>
               {t("newlyBooked")}
             </span>
           )}
         </div>
 
-        <div className="flex flex-1 flex-col p-4 lg:p-5">
+        <div
+          className={cn(
+            "flex flex-1 flex-col lg:p-5",
+            compactGrid ? "p-2.5 sm:p-4" : "p-4",
+          )}
+        >
           {isHotel ? (
             <div className="lg:min-h-[44px]">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="min-w-0 flex-1 truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
+                <h3 className={cn("min-w-0 flex-1 truncate font-black text-[#1E293B]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]" : "text-[17px] leading-[21px]")}>
                   {title}
                 </h3>
                 {numericRating != null && (
-                  <span className="shrink-0 rounded-[6px] bg-[#DCFCE7] px-2 py-0.5 text-[12px] font-black text-[#15803D]">
+                  <span className={cn("shrink-0 rounded-[6px] bg-[#DCFCE7] font-black text-[#15803D]", compactGrid ? "px-1.5 py-0.5 text-[10px] sm:px-2 sm:text-[12px]" : "px-2 py-0.5 text-[12px]")}>
                     {numericRating.toFixed(1)}
                   </span>
                 )}
               </div>
-              <p className="mt-1 truncate text-[11px] font-bold leading-[16px] text-[#94A3B8]">
+              <p className={cn("mt-1 truncate font-bold text-[#94A3B8]", compactGrid ? "text-[9px] leading-[13px] sm:text-[11px] sm:leading-[16px]" : "text-[11px] leading-[16px]")}>
                 {amenities || location}
               </p>
             </div>
           ) : (
             <div className="lg:min-h-[44px]">
-              <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
+              <p className={cn("flex min-w-0 items-center gap-1 font-bold text-[#94A3B8]", compactGrid ? "text-[9px] leading-[13px] sm:text-[11px] sm:leading-[16px]" : "text-[11px] leading-[16px]")}>
                 <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
-                {displayLocation}
+                <span className="truncate">{displayLocation}</span>
               </p>
               <div className="mt-1 flex items-center gap-2">
-                <h3 className="truncate text-[17px] font-black leading-[21px] text-[#1E293B]">
+                <h3 className={cn("truncate font-black text-[#1E293B]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]" : "text-[17px] leading-[21px]")}>
                   {title}
                 </h3>
               </div>
@@ -286,8 +338,8 @@ export default function PropertyCard(props: PropertyCardProps) {
             </div>
           )}
 
-          <div className="mt-auto flex items-end justify-between gap-2 pt-3 lg:pt-4">
-            <div>
+          <div className={cn("mt-auto gap-2 pt-3 lg:pt-4", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:items-end sm:justify-between" : "flex items-end justify-between")}>
+            <div className="min-w-0">
               {originalPrice != null ? (
                 <span className="block text-[11px] font-bold leading-[16px] text-[#94A3B8] line-through">
                   {formatPrice(originalPrice)}
@@ -296,26 +348,29 @@ export default function PropertyCard(props: PropertyCardProps) {
                 <span className="hidden h-[16px] lg:block" aria-hidden="true" />
               )}
               {isForSale && displayPrice != null ? (
-                <span className="whitespace-nowrap text-[24px] font-black leading-[32px] text-[#1E293B]">
+                <span className={cn("whitespace-nowrap font-black text-[#1E293B]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[32px]" : "text-[24px] leading-[32px]")}>
                   {formatPrice(Math.round(displayPrice))}
                 </span>
               ) : displayPrice != null ? (
                 <span className="flex items-baseline gap-1">
-                  <span className="text-[24px] font-black leading-[32px] text-[#1E293B]">
+                  <span className={cn("font-black text-[#1E293B]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[32px]" : "text-[24px] leading-[32px]")}>
                     {formatNum(Math.round(displayPrice))}
                   </span>
-                  <span className="text-[14px] font-black leading-[20px] text-[#64748B]">
+                  <span className={cn("font-black text-[#64748B]", compactGrid ? "text-[10px] leading-[14px] sm:text-[14px] sm:leading-[20px]" : "text-[14px] leading-[20px]")}>
                     {t("perNight")}
                   </span>
                 </span>
               ) : null}
             </div>
             <ListingCardAction
-              className={
+              className={cn(
+                compactGrid && "min-h-11 w-full px-2 py-2 text-[11px] sm:min-h-0 sm:w-auto sm:px-5 sm:text-[13px]",
                 isForSale
-                  ? "px-5 py-2 text-[13px]"
-                  : "bg-[#1E293B] px-5 py-2 text-[13px] group-hover:bg-[#334155]"
-              }
+                  ? !compactGrid && "px-5 py-2 text-[13px]"
+                  : compactGrid
+                    ? "bg-[#1E293B] group-hover:bg-[#334155]"
+                    : "bg-[#1E293B] px-5 py-2 text-[13px] group-hover:bg-[#334155]",
+              )}
             >
               {isForSale ? t("details") : t("view")}
             </ListingCardAction>

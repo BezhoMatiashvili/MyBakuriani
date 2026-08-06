@@ -429,10 +429,10 @@ export function BookingSidebar({
         <p className="mt-3 text-center text-[11px] font-medium text-[#94A3B8]">
           {t("minBookingNotice", { count: minBookingDays })}
         </p>
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex min-w-0 gap-2">
           <CallButton
             phone={ownerPhone}
-            className="flex-1 shadow-[0px_8px_20px_rgba(34,197,94,0.25)]"
+            className="min-w-0 flex-1 shadow-[0px_8px_20px_rgba(34,197,94,0.25)]"
             label={t("callOwner")}
             propertyId={propertyId}
             alwaysShowLabel

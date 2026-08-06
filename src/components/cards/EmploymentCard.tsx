@@ -2,6 +2,7 @@ import { BadgeCheck, Banknote, Heart, MapPin, Star, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
+import { cn } from "@/lib/utils";
 
 export interface EmploymentCardProps {
   id: string;
@@ -15,6 +16,7 @@ export interface EmploymentCardProps {
   badge?: "urgent" | "vip" | "new" | null;
   postedLabel?: string;
   highlighted?: boolean;
+  mobilePresentation?: "default" | "compact-grid";
 }
 
 export default function EmploymentCard({
@@ -29,7 +31,9 @@ export default function EmploymentCard({
   badge,
   postedLabel,
   highlighted,
+  mobilePresentation = "default",
 }: EmploymentCardProps) {
+  const compactGrid = mobilePresentation === "compact-grid";
   const t = useTranslations("EmploymentCard");
   const {
     isFavorited,
@@ -39,7 +43,8 @@ export default function EmploymentCard({
   return (
     <div
       data-employment-card
-      className={`relative flex h-full flex-col overflow-hidden rounded-[20px] border bg-white p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:rounded-[24px] lg:p-5 ${
+      data-mobile-presentation={mobilePresentation}
+      className={`relative flex h-full flex-col overflow-hidden border bg-white transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:rounded-[24px] lg:p-5 ${compactGrid ? "rounded-[16px] p-2.5 sm:rounded-[20px] sm:p-4" : "rounded-[20px] p-4"} ${
         highlighted
           ? "border-[#F97316] shadow-[0px_4px_20px_-2px_rgba(249,115,22,0.15)]"
           : "border-[#E2E8F0] shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)]"
@@ -51,7 +56,7 @@ export default function EmploymentCard({
         disabled={favoriteBusy}
         aria-pressed={isFavorited}
         aria-label={t("favoriteAria")}
-        className={`absolute top-5 right-5 flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors disabled:opacity-60 ${
+        className={`absolute flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors disabled:opacity-60 ${compactGrid ? "right-1 top-1 sm:right-5 sm:top-5" : "right-5 top-5"} ${
           isFavorited
             ? "bg-[#F97316] text-white"
             : "border border-[#E2E8F0] bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
@@ -60,7 +65,7 @@ export default function EmploymentCard({
         <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
       </button>
 
-      <div className="flex items-start justify-between gap-2 pr-14">
+      <div className={cn("flex items-start justify-between gap-2", compactGrid ? "pr-10 sm:pr-14" : "pr-14")}>
         <div className="flex flex-wrap gap-1.5">
           {badge === "urgent" && (
             <span className="inline-flex items-center gap-1 rounded-md bg-[#DCFCE7] px-2 py-1 text-[11px] font-bold text-[#166534]">
@@ -87,7 +92,7 @@ export default function EmploymentCard({
         )}
       </div>
 
-      <h3 className="mt-4 text-[18px] font-black leading-[22px] text-[#1E293B] line-clamp-2">
+      <h3 className={cn("font-black text-[#1E293B] line-clamp-2", compactGrid ? "mt-3 text-[14px] leading-[18px] sm:mt-4 sm:text-[18px] sm:leading-[22px]" : "mt-4 text-[18px] leading-[22px]")}>
         {title}
       </h3>
       {employer && (
@@ -125,7 +130,7 @@ export default function EmploymentCard({
         </p>
       )}
 
-      <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+      <div className={cn("mt-auto gap-3 pt-5", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:items-center sm:justify-between" : "flex items-center justify-between")}>
         {applicationsCount != null ? (
           <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
             <Users className="h-3.5 w-3.5 text-[#22C55E]" />
@@ -136,7 +141,7 @@ export default function EmploymentCard({
         )}
         <Link
           href={`/employment/${id}`}
-          className="flex h-11 items-center justify-center rounded-xl bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B] lg:h-10"
+          className={cn("flex h-11 items-center justify-center rounded-xl bg-[#0F172A] font-bold text-white transition-colors hover:bg-[#1E293B] lg:h-10", compactGrid ? "w-full px-2 text-[11px] sm:w-auto sm:px-5 sm:text-[13px]" : "px-5 text-[13px]")}
         >
           {t("details")}
         </Link>

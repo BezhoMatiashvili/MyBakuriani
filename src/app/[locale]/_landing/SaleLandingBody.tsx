@@ -52,10 +52,11 @@ const TRANSLATED_ZONE_SLUGS = new Set<string>(
   FALLBACK_ZONES.map((z) => z.slug),
 );
 
-function renderZoneIcon(icon: string, isLast: boolean) {
+function renderZoneIcon(icon: string, zoneSlug: string, isLast: boolean) {
   return (
     <ZoneIcon
       icon={icon}
+      zoneSlug={zoneSlug}
       className={`size-[18px] ${isLast ? "text-[#94A3B8]" : "text-[#16A34A]"}`}
     />
   );
@@ -253,7 +254,11 @@ export default function SaleLandingBody({
                 }
                 // pricePerSqmByZone is keyed by the DB name_ka — keep as-is.
                 value={formatPricePerSqm(pricePerSqmByZone?.[zone.name_ka])}
-                icon={renderZoneIcon(zone.icon, i === zones.length - 1)}
+                icon={renderZoneIcon(
+                  zone.icon,
+                  zone.slug,
+                  i === zones.length - 1,
+                )}
                 highlight={i === zones.length - 1}
               />
             ))}
@@ -288,20 +293,20 @@ export default function SaleLandingBody({
           <ScrollReveal>
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
+                <h2 className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                   {t("sale.forSaleTitle")}
                 </h2>
-                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
                   {t("sale.forSaleSubtitle")}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setDiscountOnly((value) => !value)}
                   aria-pressed={discountOnly}
                   className={cn(
-                    "hidden min-h-11 items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:flex lg:min-h-0",
+                    "flex min-h-11 items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors lg:min-h-0",
                     discountOnly
                       ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
                       : "border border-[#E2E8F0] bg-white text-[#64748B]",
@@ -342,7 +347,10 @@ export default function SaleLandingBody({
             </div>
           </ScrollReveal>
 
-          <MobileRail desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none" desktopItemClassName="lg:w-auto lg:snap-none">
+          <MobileRail
+            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
+            desktopItemClassName="lg:w-auto lg:snap-none"
+          >
             {gridCards.map((card) => (
               <ScrollReveal key={card.id}>
                 <SalePropertyCard {...card} />

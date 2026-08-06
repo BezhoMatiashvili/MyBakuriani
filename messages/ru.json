@@ -786,7 +786,9 @@
         "visitDatesPlaceholder": "10–12 фев.",
         "checkIn": "Заезд",
         "checkOut": "Выезд",
-        "notePlaceholder": "Спокойный, аккуратный гость."
+        "notePlaceholder": "Спокойный, аккуратный гость.",
+        "blacklistAdded": "Добавлено в чёрный список",
+        "alreadyBlacklisted": "Этот номер уже в чёрном списке"
       },
       "priceRange": {
         "title": "Цена для диапазона",
@@ -1005,7 +1007,13 @@
     "disabled": "Уведомления выключены",
     "loadError": "Не удалось загрузить уведомления.",
     "saveError": "Не удалось сохранить настройку.",
-    "statuses": { "open": "сбор изменений", "awaiting_credit": "ожидание кредитов", "queued": "в очереди", "cancelled": "отменено", "expired": "истекло" },
+    "statuses": {
+      "open": "сбор изменений",
+      "awaiting_credit": "ожидание кредитов",
+      "queued": "в очереди",
+      "cancelled": "отменено",
+      "expired": "истекло"
+    },
     "public": {
       "action": "Сообщить о снижении цены",
       "active": "Уведомление включено",
@@ -1450,9 +1458,6 @@
     "statusNew": "Новый",
     "statusInProgress": "Строится",
     "statusReady": "Готов",
-    "paymentCash": "Наличные",
-    "paymentInstallment": "Рассрочка",
-    "paymentMortgage": "Ипотека",
     "amenityBalcony": "Балкон",
     "amenityShed": "Навес",
     "amenityWater": "Вода",
@@ -2468,8 +2473,6 @@
     "chooseRoute": "Выберите хотя бы один маршрут",
     "enterPrice": "Укажите начальную цену",
     "routePrice": "Цена",
-    "routeSubtitle": "Подзаголовок (необязательно)",
-    "routeSubtitlePlaceholder": "напр. начальная цена",
     "addRoute": "Добавить маршрут",
     "removeRoute": "Удалить"
   },
@@ -3006,6 +3009,8 @@
     "notSpecified": "Не указано",
     "views": "{count} просмотров",
     "totalCount": "Всего: {count}",
+    "daysRemaining": "{count, plural, one {# день остался} few {# дня осталось} many {# дней осталось} other {# дня осталось}}",
+    "phoneBlacklistedWarning": "Этот номер в чёрном списке — проверьте перед тем как продолжить",
     "periodWeek": "Неделя",
     "periodMonth": "Месяц",
     "periodAll": "Всё",

@@ -13,6 +13,7 @@ import {
   optionKeyFor,
   type OptionGroup,
 } from "@/lib/constants/listing-options";
+import { cn } from "@/lib/utils";
 
 // Seeded zone names get translated display labels (Zones.<slug>.name);
 // free-text / non-seeded locations pass through raw. Display only — the
@@ -46,6 +47,7 @@ interface InvestmentCardProps {
   paymentOptions?: string[];
   discountPercent: number;
   discountExpiresAt: string | null;
+  mobilePresentation?: "default" | "compact-grid";
 }
 
 export default function InvestmentCard({
@@ -62,7 +64,9 @@ export default function InvestmentCard({
   paymentOptions,
   discountPercent,
   discountExpiresAt,
+  mobilePresentation = "default",
 }: InvestmentCardProps) {
+  const compactGrid = mobilePresentation === "compact-grid";
   const t = useTranslations("InvestmentCard");
   const tZones = useTranslations("Zones");
   const tOpts = useTranslations("ListingOptions");
@@ -120,18 +124,19 @@ export default function InvestmentCard({
     >
       <Link
         href={`/sales/${id}`}
-        className="flex h-full flex-col overflow-hidden rounded-[20px] border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0px_10px_30px_-4px_rgba(0,0,0,0.08)]"
+        data-mobile-presentation={mobilePresentation}
+        className={cn("flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0px_10px_30px_-4px_rgba(0,0,0,0.08)]", compactGrid ? "rounded-[16px] sm:rounded-[20px]" : "rounded-[20px]")}
       >
-        <div className="relative aspect-[8/5] overflow-hidden lg:aspect-[4/3]">
+        <div className={cn("relative overflow-hidden lg:aspect-[4/3]", compactGrid ? "aspect-[4/3] sm:aspect-[8/5]" : "aspect-[8/5]")}>
           <Image
             src={photo}
             alt={title}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes={compactGrid ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 33vw" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
 
-          <span className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-[#16A34A] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
+          <span className={cn("absolute flex items-center rounded-full bg-[#16A34A] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]", compactGrid ? "left-2 top-2 gap-1 px-2 py-1 text-[9px] sm:left-4 sm:top-4 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px]" : "left-4 top-4 gap-1.5 px-3 py-1.5 text-[12px]")}>
             <Tag className="h-3 w-3" />
             {t("forSale")}
           </span>
@@ -150,7 +155,7 @@ export default function InvestmentCard({
             disabled={favoriteBusy}
             aria-label={t("favoriteAria")}
             aria-pressed={isFavorited}
-            className={`absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors ${
+            className={`absolute flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.1)] transition-colors ${compactGrid ? "right-1 top-1 sm:right-4 sm:top-4" : "right-4 top-4"} ${
               isFavorited
                 ? "bg-[#F97316] text-white"
                 : "bg-white text-[#94A3B8] hover:text-[#F97316]"
@@ -160,7 +165,7 @@ export default function InvestmentCard({
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col p-4 lg:p-5">
+        <div className={cn("flex flex-1 flex-col lg:p-5", compactGrid ? "p-2.5 sm:p-4" : "p-4")}>
           <div className="flex items-center justify-between gap-2">
             <p className="flex min-w-0 items-center gap-1 text-[12px] font-medium text-[#94A3B8]">
               <MapPin className="h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
@@ -177,7 +182,7 @@ export default function InvestmentCard({
             ) : null}
           </div>
 
-          <h3 className="mt-2 truncate text-[17px] font-black leading-[22px] text-[#1E293B]">
+          <h3 className={cn("mt-2 truncate font-black text-[#1E293B]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[22px]" : "text-[17px] leading-[22px]")}>
             {title}
           </h3>
 
@@ -206,7 +211,7 @@ export default function InvestmentCard({
             </div>
           )}
 
-          <div className="mt-auto flex items-end justify-between gap-3 pt-5">
+          <div className={cn("mt-auto gap-3 pt-5", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:items-end sm:justify-between" : "flex items-end justify-between")}>
             <div className="min-w-0">
               {salePrice != null ? (
                 <>
@@ -215,7 +220,7 @@ export default function InvestmentCard({
                       {formatPrice(salePrice)}
                     </span>
                   )}
-                  <span className="block whitespace-nowrap text-[24px] font-black leading-[30px] text-[#0F172A]">
+                  <span className={cn("block whitespace-nowrap font-black text-[#0F172A]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[30px]" : "text-[24px] leading-[30px]")}>
                     {formatPrice(displayPrice!)}
                   </span>
                 </>
@@ -226,7 +231,7 @@ export default function InvestmentCard({
                 </span>
               )}
             </div>
-            <span className="shrink-0 rounded-[12px] bg-[#16A34A] px-5 py-2 text-[13px] font-bold text-white transition-colors group-hover:bg-[#15803D]">
+            <span className={cn("shrink-0 rounded-[12px] bg-[#16A34A] font-bold text-white transition-colors group-hover:bg-[#15803D]", compactGrid ? "flex min-h-11 w-full items-center justify-center px-2 py-2 text-[11px] sm:min-h-0 sm:w-auto sm:px-5 sm:text-[13px]" : "px-5 py-2 text-[13px]")}>
               {t("details")}
             </span>
           </div>

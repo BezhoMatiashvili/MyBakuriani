@@ -539,22 +539,29 @@ export default function SaleDetailClient({
         <div className="space-y-10 lg:col-span-2">
           {/* Investment metrics box */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.18 }}>
-            <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
+            <h2 className="mb-3 hidden text-[20px] font-black leading-[30px] text-[#0F172A] sm:block">
               {t("investmentMetrics")}
             </h2>
-            <div className="rounded-[20px] border border-[#E2E8F0] bg-[#F7F8FC] px-5 py-1 sm:px-7">
-              <div className="grid grid-cols-1 sm:grid-cols-2">
+            <div
+              data-testid="sale-investment-card"
+              className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white sm:bg-[#F7F8FC]"
+            >
+              <h2 className="border-b border-[#E9EBF3] px-5 py-4 text-[18px] font-black leading-[24px] text-[#0F172A] sm:hidden">
+                {t("investmentMetrics")}
+              </h2>
+              <div className="grid grid-cols-2 px-5 py-1 sm:px-7">
                 {metricCells.map((cell, i) => (
                   <div
                     key={cell.label}
-                    className={`border-t border-[#E9EBF3] py-4 first:border-t-0 ${
-                      i === 1 ? "sm:border-t-0" : ""
-                    } ${i % 2 === 0 ? "sm:pr-8" : "sm:pl-8"}`}
+                    data-testid="sale-investment-metric"
+                    className={`min-w-0 border-t border-[#E9EBF3] py-4 ${
+                      i < 2 ? "border-t-0" : ""
+                    } ${i % 2 === 0 ? "pr-3 sm:pr-8" : "pl-3 sm:pl-8"}`}
                   >
                     <p className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
                       {cell.label}
                     </p>
-                    <div className="mt-1.5 text-[15px] font-black text-[#1E293B]">
+                    <div className="mt-1.5 min-w-0 break-words text-[15px] font-black text-[#1E293B]">
                       {cell.value}
                     </div>
                     {cell.sub && (
@@ -570,11 +577,15 @@ export default function SaleDetailClient({
 
           {/* Description */}
           {property.description && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
-              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
+            <motion.div
+              {...fadeIn}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent"
+            >
+              <h2 className="border-b border-[#E9EBF3] px-5 py-4 text-[18px] font-black leading-[24px] text-[#0F172A] sm:mb-3 sm:border-0 sm:px-0 sm:py-0 sm:text-[20px] sm:leading-[30px]">
                 {t("aboutApartment")}
               </h2>
-              <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
+              <p className="whitespace-pre-line px-5 py-4 text-[15px] font-medium leading-[27px] text-[#475569] sm:p-0">
                 {property.description}
               </p>
             </motion.div>

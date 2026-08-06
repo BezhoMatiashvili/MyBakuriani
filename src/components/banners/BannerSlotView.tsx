@@ -538,7 +538,7 @@ function PromoCardCreative({
       onExpand={onExpand}
       className={
         compactHomePromo
-          ? "relative flex min-h-[112px] cursor-pointer flex-row overflow-hidden rounded-[18px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] @[768px]:rounded-[24px] @[1024px]:h-[180px]"
+          ? "relative flex min-h-[128px] cursor-pointer flex-row overflow-hidden rounded-[18px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] @[768px]:rounded-[24px] @[1024px]:h-[180px]"
           : "relative flex cursor-pointer flex-col overflow-hidden rounded-[24px] border shadow-[0px_1px_3px_rgba(0,0,0,0.04)] @[768px]:flex-row @[1024px]:h-[180px]"
       }
       style={{ backgroundColor: tone.bg, borderColor: tone.border }}
@@ -547,7 +547,7 @@ function PromoCardCreative({
         <div
           className={
             compactHomePromo
-              ? "relative w-[104px] shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
+              ? "relative w-[128px] shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
               : "relative h-[180px] w-full shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
           }
         >
@@ -570,7 +570,7 @@ function PromoCardCreative({
         <div
           className={
             compactHomePromo
-              ? "relative w-[104px] shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
+              ? "relative w-[128px] shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
               : "relative h-[180px] w-full shrink-0 @[768px]:h-auto @[768px]:w-[320px]"
           }
         >
@@ -580,7 +580,7 @@ function PromoCardCreative({
             fill
             sizes={
               compactHomePromo
-                ? "(max-width: 767px) 104px, 320px"
+                ? "(max-width: 767px) 128px, 320px"
                 : "(max-width: 768px) 100vw, 320px"
             }
             className="object-cover"
@@ -595,7 +595,7 @@ function PromoCardCreative({
       <div
         className={
           compactHomePromo
-            ? "flex min-w-0 flex-1 flex-col items-start justify-center gap-2 px-3 py-3 @[768px]:flex-row @[768px]:items-center @[768px]:justify-between @[768px]:gap-3 @[768px]:px-10 @[768px]:py-6"
+            ? "flex min-w-0 flex-1 flex-col items-start justify-center gap-1.5 px-3 py-3 @[768px]:flex-row @[768px]:items-center @[768px]:justify-between @[768px]:gap-3 @[768px]:px-10 @[768px]:py-6"
             : "flex flex-1 flex-col items-start justify-center gap-3 px-6 py-6 @[768px]:flex-row @[768px]:items-center @[768px]:justify-between @[768px]:px-10"
         }
       >
@@ -603,7 +603,7 @@ function PromoCardCreative({
           <h3
             className={
               compactHomePromo
-                ? "line-clamp-2 text-[15px] font-black leading-[19px] @[768px]:text-[22px] @[768px]:leading-[28px]"
+                ? "line-clamp-1 text-[15px] font-black leading-[19px] @[768px]:text-[22px] @[768px]:leading-[28px]"
                 : "text-[22px] font-black leading-[28px]"
             }
             style={{ color: tone.title }}
@@ -788,9 +788,10 @@ function CreativeCta({
     : large
       ? "shrink-0 rounded-full border-2 bg-white px-6 py-3 text-[13px] font-bold transition-colors"
       : "inline-flex min-h-11 shrink-0 items-center rounded-full border bg-white px-3 py-2 text-[12px] font-bold transition-colors @[640px]:px-4";
-  const style = large || compact
-    ? { borderColor: tone.ctaText, color: tone.ctaText }
-    : { borderColor: tone.ctaBorder, color: tone.ctaText };
+  const style =
+    large || compact
+      ? { borderColor: tone.ctaText, color: tone.ctaText }
+      : { borderColor: tone.ctaBorder, color: tone.ctaText };
 
   if (!interactive || !creative.href) {
     return (

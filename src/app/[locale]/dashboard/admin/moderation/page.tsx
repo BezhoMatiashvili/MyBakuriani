@@ -32,6 +32,7 @@ import { formatNumber } from "@/lib/utils/format";
 import { adRowToCreative, looksLikeVideoUrl } from "@/lib/banner-creative";
 import {
   BANNER_PLACEMENTS,
+  getPlacementSpec,
   type BannerPlacement,
   type BannerSurface,
 } from "@/lib/banner-placements";
@@ -612,6 +613,11 @@ export default function ModerationPage() {
                       </optgroup>
                     ))}
                   </select>
+                  {getPlacementSpec(formState.placement)?.description && (
+                    <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
+                      {getPlacementSpec(formState.placement)!.description}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

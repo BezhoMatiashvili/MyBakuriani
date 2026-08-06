@@ -180,7 +180,7 @@ export default function FoodBalancePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="grid grid-cols-1 gap-4 md:grid-cols-2"
+        className="grid grid-cols-2 gap-3 sm:gap-4"
       >
         {packages.length === 0 ? (
           <p className="col-span-full text-center text-sm text-[#94A3B8]">

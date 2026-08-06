@@ -161,9 +161,26 @@ export function Navbar() {
 
   useEffect(() => {
     if (!mobileOpen) return;
-    const previousOverflow = document.body.style.overflow;
+    const scrollY = window.scrollY;
+    const root = document.documentElement;
+    const body = document.body;
+    const previousStyles = {
+      rootOverflow: root.style.overflow,
+      rootOverscroll: root.style.overscrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyWidth: body.style.width,
+    };
     const menuTrigger = mobileMenuTriggerRef.current;
-    document.body.style.overflow = "hidden";
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
     const focusable = () =>
       Array.from(
         mobileMenuRef.current?.querySelectorAll<HTMLElement>(
@@ -194,7 +211,14 @@ export function Navbar() {
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      root.style.overflow = previousStyles.rootOverflow;
+      root.style.overscrollBehavior = previousStyles.rootOverscroll;
+      body.style.overflow = previousStyles.bodyOverflow;
+      body.style.overscrollBehavior = previousStyles.bodyOverscroll;
+      body.style.position = previousStyles.bodyPosition;
+      body.style.top = previousStyles.bodyTop;
+      body.style.width = previousStyles.bodyWidth;
+      window.scrollTo(0, scrollY);
       menuTrigger?.focus();
     };
   }, [mobileOpen]);
@@ -385,7 +409,7 @@ export function Navbar() {
                 <X className="size-5" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overscroll-contain overflow-y-auto p-4">
               <AddListingButton
                 label={t("addListing")}
                 variant="mobile"
@@ -429,7 +453,7 @@ export function Navbar() {
                     href={dashboardPath}
                     onClick={() => setMobileOpen(false)}
                   >
-                    <Button variant="outline" className="w-full rounded-xl">
+                    <Button className="min-h-11 w-full rounded-xl bg-[#2563EB] text-white hover:bg-[#1D4ED8]">
                       <User className="mr-2 size-4" />
                       {t("dashboard")}
                     </Button>

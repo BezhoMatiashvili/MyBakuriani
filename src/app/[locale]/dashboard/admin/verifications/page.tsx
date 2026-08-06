@@ -114,6 +114,22 @@ export default function VerificationsPage() {
   const [page, setPage] = useState(1);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [changesCount, setChangesCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/listings/pending/count", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: { changes?: number } | null) => {
+        if (active && payload && typeof payload.changes === "number") {
+          setChangesCount(payload.changes);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -263,7 +279,12 @@ export default function VerificationsPage() {
   if (reviewTab === "changes") {
     return (
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-7 pb-10">
-        <VerificationTabs active="changes" onChange={setReviewTab} />
+        <VerificationTabs
+          active="changes"
+          onChange={setReviewTab}
+          listingsCount={items.length}
+          changesCount={changesCount}
+        />
         <ContentChangeRequestsPanel />
       </div>
     );
@@ -280,7 +301,12 @@ export default function VerificationsPage() {
         </p>
       </div>
 
-      <VerificationTabs active="listings" onChange={setReviewTab} />
+      <VerificationTabs
+        active="listings"
+        onChange={setReviewTab}
+        listingsCount={items.length}
+        changesCount={changesCount}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {FILTERS.map(({ key, label }) => {
@@ -543,25 +569,39 @@ export default function VerificationsPage() {
 function VerificationTabs({
   active,
   onChange,
+  listingsCount = 0,
+  changesCount = 0,
 }: {
   active: "listings" | "changes";
   onChange: (tab: "listings" | "changes") => void;
+  listingsCount?: number;
+  changesCount?: number;
 }) {
   return (
     <div className="flex gap-2 border-b border-[#E2E8F0]">
       <button
         type="button"
         onClick={() => onChange("listings")}
-        className={`px-4 py-3 text-sm font-bold ${active === "listings" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
+        className={`inline-flex items-center gap-1.5 px-4 py-3 text-sm font-bold ${active === "listings" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
       >
         ახალი განცხადებები
+        {listingsCount > 0 && (
+          <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-extrabold text-white">
+            {listingsCount}
+          </span>
+        )}
       </button>
       <button
         type="button"
         onClick={() => onChange("changes")}
-        className={`px-4 py-3 text-sm font-bold ${active === "changes" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
+        className={`inline-flex items-center gap-1.5 px-4 py-3 text-sm font-bold ${active === "changes" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
       >
         ცვლილების მოთხოვნები
+        {changesCount > 0 && (
+          <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-extrabold text-white">
+            {changesCount}
+          </span>
+        )}
       </button>
     </div>
   );

@@ -13,8 +13,6 @@ import {
   Bath,
   Maximize,
   Eye,
-  ChevronDown,
-  ChevronUp,
   CigaretteOff,
   PawPrint,
 } from "lucide-react";
@@ -39,10 +37,9 @@ const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ),
 });
 import type { Tables } from "@/lib/types/database";
-import { cleanAmenityLabel } from "@/lib/constants/amenity-icons";
-import { optionKeyFor } from "@/lib/constants/listing-options";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
+import PropertyAmenities from "@/components/detail/PropertyAmenities";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -90,7 +87,6 @@ export default function ApartmentDetailClient({
 }: Props) {
   const t = useTranslations("ApartmentDetail");
   const tDetail = useTranslations("PropertyDetail");
-  const tOpts = useTranslations("ListingOptions");
   const tRules = useTranslations("HouseRules");
   const tShared = useTranslations("Shared");
   const locale = useLocale();
@@ -99,7 +95,6 @@ export default function ApartmentDetailClient({
     start: Date | null;
     end: Date | null;
   }>({ start: null, end: null });
-  const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
 
   useEffect(() => {
     void fetch(`/api/listings/property/${property.id}/view`, { method: "POST" });
@@ -231,9 +226,21 @@ export default function ApartmentDetailClient({
         className="mt-6 flex flex-wrap gap-2"
       >
         {property.rooms != null && (
-          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
+          <span
+            data-testid="property-quick-spec-rooms"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+          >
             <BedDouble className="h-4 w-4 text-brand-accent" />
             {tDetail("rooms", { count: property.rooms })}
+          </span>
+        )}
+        {property.bathrooms != null && (
+          <span
+            data-testid="property-quick-spec-bathrooms"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+          >
+            <Bath className="h-4 w-4 text-brand-accent" />
+            {tDetail("bathrooms", { count: property.bathrooms })}
           </span>
         )}
         {property.capacity != null && (
@@ -265,57 +272,17 @@ export default function ApartmentDetailClient({
           )}
 
           {/* Amenities */}
-          {(amenities.length > 0 || property.bathrooms != null) && (
+          {amenities.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {tDetail("amenitiesTitle")}
               </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {property.bathrooms != null && (
-                  <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                    <Bath className="h-5 w-5 text-brand-accent shrink-0" />
-                    <span className="break-words">
-                      {tDetail("bathrooms", { count: property.bathrooms })}
-                    </span>
-                  </div>
-                )}
-                {(amenitiesExpanded ? amenities : amenities.slice(0, 3)).map(
-                  (key) => {
-                    const optKey = optionKeyFor("amenities", key);
-                    const label =
-                      optKey === "no_balcony"
-                        ? tDetail("balconyNone")
-                        : optKey
-                          ? tOpts(`amenities.${optKey}`)
-                          : cleanAmenityLabel(key);
-                    if (!label) return null;
-                    return (
-                      <div
-                        key={key}
-                        className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
-                      >
-                        <span className="break-words">{label}</span>
-                      </div>
-                    );
-                  },
-                )}
-                {amenities.length > 3 && (
-                  <button
-                    type="button"
-                    onClick={() => setAmenitiesExpanded((v) => !v)}
-                    className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155] transition-colors hover:bg-[#F1F5F9] hover:border-[#CBD5E1]"
-                  >
-                    {amenitiesExpanded ? (
-                      <ChevronUp className="h-5 w-5 text-brand-accent shrink-0" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5 text-brand-accent shrink-0" />
-                    )}
-                    <span className="break-words">
-                      {amenitiesExpanded ? t("showLess") : t("showAll")}
-                    </span>
-                  </button>
-                )}
-              </div>
+              <PropertyAmenities
+                amenities={amenities}
+                collapsible
+                showAllLabel={t("showAll")}
+                showLessLabel={t("showLess")}
+              />
             </motion.div>
           )}
 

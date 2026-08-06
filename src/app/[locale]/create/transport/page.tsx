@@ -51,14 +51,12 @@ const ROUTE_PRICE_UNITS = [
 // One editable route+price row in the form (price held as string for input).
 type RouteRow = {
   route: string;
-  subtitle: string;
   price: string;
   unit: string;
 };
 
 const emptyRouteRow = (): RouteRow => ({
   route: "",
-  subtitle: "",
   price: "",
   unit: "one_way",
 });
@@ -219,7 +217,6 @@ function CreateTransportPageInner() {
         setRouteRows(
           parsedRows.map((r) => ({
             route: r.route,
-            subtitle: r.subtitle ?? "",
             price: String(r.price),
             unit: r.unit,
           })),
@@ -233,7 +230,6 @@ function CreateTransportPageInner() {
           legacyRoutes.length > 0
             ? legacyRoutes.map((route) => ({
                 route,
-                subtitle: "",
                 price: legacyPrice,
                 unit: legacyUnit,
               }))
@@ -320,7 +316,6 @@ function CreateTransportPageInner() {
         .filter((r) => r.route && Number(r.price) > 0)
         .map((r) => ({
           route: r.route,
-          subtitle: r.subtitle.trim() || null,
           price: Number(r.price),
           unit: r.unit,
         }));
@@ -520,7 +515,7 @@ function CreateTransportPageInner() {
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
                     <Field label={t("mainRoutes")} required>
                       <StyledSelect
                         value={row.route}
@@ -528,17 +523,6 @@ function CreateTransportPageInner() {
                         options={routeOptions}
                         accent="blue"
                         placeholder={t("chooseRoute")}
-                      />
-                    </Field>
-                    <Field label={t("routeSubtitle")}>
-                      <input
-                        type="text"
-                        value={row.subtitle}
-                        onChange={(e) =>
-                          updateRouteRow(i, { subtitle: e.target.value })
-                        }
-                        placeholder={t("routeSubtitlePlaceholder")}
-                        className={inputClass}
                       />
                     </Field>
                   </div>

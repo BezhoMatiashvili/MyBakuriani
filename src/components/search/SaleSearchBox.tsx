@@ -18,6 +18,7 @@ import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeCadastralCode } from "@/lib/utils/number";
 import BottomSheet from "@/components/shared/BottomSheet";
+import { PAYMENT_OPTIONS } from "@/lib/constants/sale-listing";
 
 // Seeded zone slugs have display translations under Zones.<slug>; unknown
 // (admin-created) zones fall back to their Georgian name_ka. Display only —
@@ -140,12 +141,6 @@ const STATUS_OPTIONS: Array<{ value: string; labelKey: string }> = [
   { value: "new", labelKey: "statusNew" },
   { value: "progress", labelKey: "statusInProgress" },
   { value: "ready", labelKey: "statusReady" },
-];
-
-const PAYMENT_OPTIONS: Array<{ value: string; labelKey: string }> = [
-  { value: "cash", labelKey: "paymentCash" },
-  { value: "installment", labelKey: "paymentInstallment" },
-  { value: "mortgage", labelKey: "paymentMortgage" },
 ];
 
 const ROOM_OPTIONS = [1, 2, 3, 4] as const;
@@ -832,6 +827,36 @@ export function SaleSearchBox({
               icon={<BedDouble className="size-4 text-[#94A3B8]" />}
               active={activeDropdown === "rooms"}
               onClick={() => toggleDropdown("rooms")}
+              popover={
+                tab === "search" &&
+                activeDropdown === "rooms" && (
+                  <div className="absolute left-0 top-full z-50 mt-2 w-[240px] rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
+                    <p className="mb-2 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
+                      {t("roomsCountTitle")}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {ROOM_OPTIONS.map((n) => {
+                        const checked = rooms.includes(n);
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => toggleRoomQuick(n)}
+                            className={cn(
+                              "h-9 min-w-9 rounded-full border px-3 text-[12px] font-bold transition-colors",
+                              checked
+                                ? "border-[#16A34A] bg-[#16A34A] text-white"
+                                : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
+                            )}
+                          >
+                            {n === 4 ? "4+" : String(n)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
+              }
             />
 
             <button
@@ -1010,34 +1035,6 @@ export function SaleSearchBox({
               setActiveDropdown(null);
             }}
           />
-        </div>
-      )}
-
-      {tab === "search" && activeDropdown === "rooms" && (
-        <div className="absolute right-[260px] top-full z-50 mt-2 hidden w-[240px] rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:block">
-          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.6px] text-[#64748B]">
-            {t("roomsCountTitle")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {ROOM_OPTIONS.map((n) => {
-              const checked = rooms.includes(n);
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => toggleRoomQuick(n)}
-                  className={cn(
-                    "h-9 min-w-9 rounded-full border px-3 text-[12px] font-bold transition-colors",
-                    checked
-                      ? "border-[#16A34A] bg-[#16A34A] text-white"
-                      : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
-                  )}
-                >
-                  {n === 4 ? "4+" : String(n)}
-                </button>
-              );
-            })}
-          </div>
         </div>
       )}
 
@@ -1289,12 +1286,14 @@ function DesktopField({
   icon,
   active,
   onClick,
+  popover,
 }: {
   label: string;
   value: string;
   icon?: React.ReactNode;
   active: boolean;
   onClick: () => void;
+  popover?: React.ReactNode;
 }) {
   return (
     <div className="relative flex h-[68px] flex-1 flex-col justify-center px-5">
@@ -1323,6 +1322,7 @@ function DesktopField({
           )}
         />
       </button>
+      {popover}
     </div>
   );
 }
@@ -1820,6 +1820,7 @@ function FiltersPanel({
   mobile?: boolean;
 }) {
   const t = useTranslations("SaleSearchBox");
+  const tOptions = useTranslations("ListingOptions");
   return (
     <div className="text-left">
       {investment && (
@@ -1990,7 +1991,9 @@ function FiltersPanel({
                   >
                     {checked && <Check className="size-2.5" strokeWidth={3} />}
                   </span>
-                  <span className="truncate">{t(p.labelKey)}</span>
+                  <span className="truncate">
+                    {tOptions(`paymentOptions.${p.value}`)}
+                  </span>
                 </button>
               );
             })}

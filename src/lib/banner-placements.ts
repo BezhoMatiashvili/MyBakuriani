@@ -32,6 +32,13 @@ export type PlacementSpec = {
   /** Recommended creative ratio, surfaced in the admin form as guidance. */
   aspect: string;
   /**
+   * Georgian, plain language: where this placement actually renders on the
+   * live site. Surfaced as helper text under the placement <select> in both
+   * admin banner forms so "სად გამოჩნდება" never requires guessing from a
+   * live preview.
+   */
+  description: string;
+  /**
    * `landing_banners.kind` is a NOT NULL enum that predates placements.  Writes
    * derive it from here so the column stays valid and a code revert still puts
    * every banner somewhere sane.  Nothing reads `kind` at render time.
@@ -58,6 +65,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "strip",
     surface: "site",
     aspect: "—",
+    description: "გამოჩნდება ყველა გვერდზე, ნავიგაციის ზემოთ",
     legacyKind: "info",
   },
   {
@@ -65,6 +73,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "leaderboard",
     surface: "site",
     aspect: "1160×180",
+    description: "გამოჩნდება ყველა გვერდზე, ფუტერის თავზე",
     legacyKind: "promo",
   },
   {
@@ -72,6 +81,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "sticky",
     surface: "site",
     aspect: "—",
+    description:
+      "გამოჩნდება ყველა გვერდზე, ეკრანის ბოლოში მიმაგრებული ზოლის სახით",
     legacyKind: "sticky_news",
   },
   {
@@ -79,6 +90,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "leaderboard",
     surface: "home",
     aspect: "1160×180",
+    description: "მთავარი გვერდის თავზე, დიდი ბანერი",
     legacyKind: "promo",
   },
   {
@@ -86,6 +98,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "strip",
     surface: "home",
     aspect: "—",
+    description: "მთავარი გვერდი, ჰედერის ქვემოთ",
     legacyKind: "info",
   },
   {
@@ -93,6 +106,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "home",
     aspect: "320×180",
+    description: "მთავარი გვერდის პრომო ბლოკი",
     legacyKind: "promo",
   },
   {
@@ -100,6 +114,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "home",
     aspect: "320×180",
+    description: "მთავარი გვერდი, კონტენტის სექციებს შორის",
     legacyKind: "promo",
   },
   {
@@ -107,6 +122,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "leaderboard",
     surface: "listing",
     aspect: "1160×180",
+    description:
+      "განცხადებების გვერდებზე (ბინები, სასტუმროები, გაყიდვები, კვება და სხვ.), ბადის თავზე",
     legacyKind: "promo",
   },
   {
@@ -114,6 +131,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "in-grid",
     surface: "listing",
     aspect: "1×1",
+    description: "იგივე გვერდები, ბადეში, განცხადებების ბარათებს შორის",
     legacyKind: "promo",
   },
   {
@@ -121,6 +139,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "sidebar",
     surface: "detail",
     aspect: "320×400",
+    description:
+      "დეტალურ გვერდებზე (ბინა, სასტუმრო, გაყიდვა, კვება, სამუშაო) — გვერდითი პანელი",
     legacyKind: "promo",
   },
   {
@@ -128,6 +148,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "blog",
     aspect: "320×180",
+    description: "ბლოგის სტატიის ტექსტში",
     legacyKind: "promo",
   },
 ];

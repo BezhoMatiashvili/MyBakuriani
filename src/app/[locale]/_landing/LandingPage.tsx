@@ -431,19 +431,57 @@ export default function LandingPage({
       {vipPropertyCards.length > 0 && (
         <section className="mx-auto w-full max-w-[1160px] px-4 pb-12 pt-[52px] sm:pt-8 lg:pb-16 lg:pt-10">
           <ScrollReveal>
-            <div className="mb-6 flex items-center justify-between">
-              <div>
+            <div className="mb-6 flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <h2
                   data-testid="homepage-hot-offers-heading"
-                  className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"
+                  className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"
                 >
                   {t("hotOffers")}
                 </h2>
-                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
                   {t("verifiedOwners")}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex shrink-0 flex-col items-end gap-2 sm:hidden">
+                <Link
+                  href="/apartments"
+                  className="flex min-h-9 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 text-[12px] font-black text-[#1E293B]"
+                >
+                  {t("viewAll")}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setHotOffersDiscountOnly((v) => !v)}
+                  aria-pressed={hotOffersDiscountOnly}
+                  className={cn(
+                    "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+                    hotOffersDiscountOnly
+                      ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+                      : "border border-[#E2E8F0] bg-white text-[#64748B]",
+                  )}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Flame className="h-3.5 w-3.5" />
+                    {t("discountsOnly")}
+                  </span>
+                  <span
+                    className={cn(
+                      "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+                      hotOffersDiscountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+                        hotOffersDiscountOnly ? "right-0.5" : "left-0.5",
+                      )}
+                    />
+                  </span>
+                </button>
+              </div>
+              <div className="hidden items-center gap-3 sm:flex">
                 <Link
                   href="/apartments"
                   className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-black text-[#1E293B] transition-colors hover:text-[#F97316]"
@@ -456,7 +494,7 @@ export default function LandingPage({
                   onClick={() => setHotOffersDiscountOnly((v) => !v)}
                   aria-pressed={hotOffersDiscountOnly}
                   className={cn(
-                    "hidden items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors sm:inline-flex",
+                    "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
                     hotOffersDiscountOnly
                       ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
                       : "border border-[#E2E8F0] bg-white text-[#64748B]",
@@ -541,6 +579,7 @@ export default function LandingPage({
         cards={servicesByCategory("transport")}
         href="/transport"
         muted
+        showDiscountToggle
         showAddButton
       />
 
@@ -561,6 +600,7 @@ export default function LandingPage({
         cards={servicesByCategory("entertainment")}
         href="/entertainment"
         muted
+        showDiscountToggle
         showAddButton
       />
 
@@ -570,6 +610,7 @@ export default function LandingPage({
         subtitle={t("foodSubtitle")}
         cards={servicesByCategory("food")}
         href="/food"
+        showDiscountToggle
         showAddButton
       />
 
@@ -583,13 +624,13 @@ export default function LandingPage({
       <section className="bg-brand-surface-muted px-4 py-12 lg:py-16">
         <div className="mx-auto max-w-[1160px]">
           <ScrollReveal>
-            <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
+            <div className="mb-8 flex items-center justify-between gap-3">
+              <h2 className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {t("blogAndNews")}
               </h2>
               <Link
                 href="/blog"
-                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-bold text-[#0F172A] hover:underline"
+                className="flex min-h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#E2E8F0] bg-white px-3.5 text-[12px] font-bold text-[#0F172A] hover:underline lg:border-none lg:bg-transparent lg:px-0 lg:text-[13px]"
               >
                 {t("viewAll")} <ArrowRight className="h-4 w-4" />
               </Link>
@@ -731,56 +772,65 @@ function ServiceSection({
         : cards,
     [cards, discountOnly],
   );
+  const discountToggle = showDiscountToggle && (
+    <button
+      type="button"
+      onClick={() => setDiscountOnly((v) => !v)}
+      aria-pressed={discountOnly}
+      className={cn(
+        "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+        discountOnly
+          ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+          : "border border-[#E2E8F0] bg-white text-[#64748B]",
+      )}
+    >
+      <span className="flex items-center gap-1.5">
+        <Flame className="h-3.5 w-3.5" />
+        {t("discountsOnly")}
+      </span>
+      <span
+        className={cn(
+          "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+          discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+            discountOnly ? "right-0.5" : "left-0.5",
+          )}
+        />
+      </span>
+    </button>
+  );
   return (
-    <section className={`px-4 py-12 lg:py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
+    <section
+      className={`px-4 py-12 lg:py-16 ${muted ? "bg-brand-surface-muted" : ""}`}
+    >
       <div className="mx-auto max-w-[1160px]">
         <ScrollReveal>
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {title}
               </h2>
               {subtitle && (
-                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
                   {subtitle}
                 </p>
               )}
             </div>
-            <Link href={href} className="flex min-h-11 shrink-0 items-center gap-1 text-[13px] font-bold text-[#0F172A] lg:hidden">
-              {t("viewAll")} <ArrowRight className="size-4" />
-            </Link>
+            <div className="flex shrink-0 flex-col items-end gap-2 lg:hidden">
+              <Link
+                href={href}
+                className="flex min-h-9 items-center gap-1 rounded-full border border-[#E2E8F0] bg-white px-3.5 text-[12px] font-bold text-[#0F172A]"
+              >
+                {t("viewAll")} <ArrowRight className="size-3.5" />
+              </Link>
+              {discountToggle}
+            </div>
             <div className="hidden items-center gap-4 lg:flex">
-              {showDiscountToggle && (
-                <button
-                  type="button"
-                  onClick={() => setDiscountOnly((v) => !v)}
-                  aria-pressed={discountOnly}
-                  className={cn(
-                    "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
-                    discountOnly
-                      ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
-                      : "border border-[#E2E8F0] bg-white text-[#64748B]",
-                  )}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Flame className="h-3.5 w-3.5" />
-                    {t("discountsOnly")}
-                  </span>
-                  <span
-                    className={cn(
-                      "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
-                      discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
-                        discountOnly ? "right-0.5" : "left-0.5",
-                      )}
-                    />
-                  </span>
-                </button>
-              )}
+              {discountToggle}
               {showAddButton && (
                 <AddListingButton
                   label={t("add")}
@@ -846,17 +896,20 @@ function EmploymentSection({
     <section className="bg-brand-surface-muted px-4 py-12 lg:py-16">
       <div className="mx-auto max-w-[1160px]">
         <ScrollReveal>
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {t("employmentInBakuriani")}
               </h2>
-              <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+              <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
                 {t("employmentSubtitle")}
               </p>
             </div>
-            <Link href={href} className="flex min-h-11 shrink-0 items-center gap-1 text-[13px] font-bold text-[#0F172A] lg:hidden">
-              {t("viewAll")} <ArrowRight className="size-4" />
+            <Link
+              href={href}
+              className="flex min-h-9 shrink-0 items-center gap-1 rounded-full border border-[#E2E8F0] bg-white px-3.5 text-[12px] font-bold text-[#0F172A] lg:hidden"
+            >
+              {t("viewAll")} <ArrowRight className="size-3.5" />
             </Link>
             <div className="hidden items-center gap-4 lg:flex">
               <AddListingButton
@@ -879,19 +932,19 @@ function EmploymentSection({
           {cards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
               <EmploymentCard
-                  id={card.id}
-                  title={card.title}
-                  employer={card.location}
-                  location={card.location}
-                  salaryLabel={
-                    card.price != null
-                      ? `${card.price} ₾${card.priceUnit ? ` / ${card.priceUnit}` : ""}`
-                      : null
-                  }
-                  scheduleLabel={availabilities[i % availabilities.length]}
-                  badge={i === 0 ? "vip" : i <= 2 ? "new" : null}
-                  postedLabel={postedLabels[i % postedLabels.length]}
-                  highlighted={i === 0}
+                id={card.id}
+                title={card.title}
+                employer={card.location}
+                location={card.location}
+                salaryLabel={
+                  card.price != null
+                    ? `${card.price} ₾${card.priceUnit ? ` / ${card.priceUnit}` : ""}`
+                    : null
+                }
+                scheduleLabel={availabilities[i % availabilities.length]}
+                badge={i === 0 ? "vip" : i <= 2 ? "new" : null}
+                postedLabel={postedLabels[i % postedLabels.length]}
+                highlighted={i === 0}
               />
             </ScrollReveal>
           ))}
@@ -951,56 +1004,65 @@ function PropertySection({
         : properties,
     [properties, discountOnly],
   );
+  const discountToggle = showDiscountToggle && (
+    <button
+      type="button"
+      onClick={() => setDiscountOnly((v) => !v)}
+      aria-pressed={discountOnly}
+      className={cn(
+        "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+        discountOnly
+          ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
+          : "border border-[#E2E8F0] bg-white text-[#64748B]",
+      )}
+    >
+      <span className="flex items-center gap-1.5">
+        <Flame className="h-3.5 w-3.5" />
+        {t("discountsOnly")}
+      </span>
+      <span
+        className={cn(
+          "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
+          discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
+            discountOnly ? "right-0.5" : "left-0.5",
+          )}
+        />
+      </span>
+    </button>
+  );
   return (
-    <section className={`px-4 py-12 lg:py-16 ${muted ? "bg-brand-surface-muted" : ""}`}>
+    <section
+      className={`px-4 py-12 lg:py-16 ${muted ? "bg-brand-surface-muted" : ""}`}
+    >
       <div className="mx-auto max-w-[1160px]">
         <ScrollReveal>
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-[24px] font-black leading-[30px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]">
                 {title}
               </h2>
               {subtitle && (
-                <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
+                <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
                   {subtitle}
                 </p>
               )}
             </div>
-            <Link href={href} className="flex min-h-11 shrink-0 items-center gap-1 text-[13px] font-bold text-[#0F172A] lg:hidden">
-              {t("viewAll")} <ArrowRight className="size-4" />
-            </Link>
+            <div className="flex shrink-0 flex-col items-end gap-2 lg:hidden">
+              <Link
+                href={href}
+                className="flex min-h-9 items-center gap-1 rounded-full border border-[#E2E8F0] bg-white px-3.5 text-[12px] font-bold text-[#0F172A]"
+              >
+                {t("viewAll")} <ArrowRight className="size-3.5" />
+              </Link>
+              {discountToggle}
+            </div>
             <div className="hidden items-center gap-4 lg:flex">
-              {showDiscountToggle && (
-                <button
-                  type="button"
-                  onClick={() => setDiscountOnly((v) => !v)}
-                  aria-pressed={discountOnly}
-                  className={cn(
-                    "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
-                    discountOnly
-                      ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
-                      : "border border-[#E2E8F0] bg-white text-[#64748B]",
-                  )}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Flame className="h-3.5 w-3.5" />
-                    {t("discountsOnly")}
-                  </span>
-                  <span
-                    className={cn(
-                      "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
-                      discountOnly ? "bg-[#F97316]" : "bg-[#CBD5E1]",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute size-[16px] rounded-full bg-white shadow-sm transition-all",
-                        discountOnly ? "right-0.5" : "left-0.5",
-                      )}
-                    />
-                  </span>
-                </button>
-              )}
+              {discountToggle}
               {showAddButton && (
                 <AddListingButton
                   label={t("add")}

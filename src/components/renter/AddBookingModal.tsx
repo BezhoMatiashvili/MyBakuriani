@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Briefcase, ChevronDown, Trash2, Check, LoaderCircle } from "lucide-react";
+import {
+  X,
+  Briefcase,
+  ChevronDown,
+  Trash2,
+  Check,
+  LoaderCircle,
+} from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import PhoneInput from "@/components/forms/PhoneInput";
@@ -91,6 +98,7 @@ interface AddBookingModalProps {
    *  booking being edited. Drives the pickers' disabled days as well as the
    *  inline overlap check; the server RPC remains the hard guarantee. */
   occupied?: OccupiedMap;
+  blacklistedPhoneKeys?: Set<string>;
 }
 
 export default function AddBookingModal({
@@ -105,6 +113,7 @@ export default function AddBookingModal({
   existing = null,
   viewBooking = null,
   occupied,
+  blacklistedPhoneKeys,
 }: AddBookingModalProps) {
   const t = useTranslations("RenterDashboard.modals.addBooking");
   const tShared = useTranslations("DashboardShared");
@@ -150,7 +159,8 @@ export default function AddBookingModal({
       setNote(existing.note ?? "");
       setStatus(
         existing.status === "booked" ||
-          (existing.status === "cancelled" && existing.status_before_cancel === "booked")
+          (existing.status === "cancelled" &&
+            existing.status_before_cancel === "booked")
           ? "booked"
           : "manual",
       );
@@ -213,6 +223,10 @@ export default function AddBookingModal({
   }, [mode, checkIn, occupied]);
 
   const phoneInvalid = Boolean(guestPhone) && !isValidGePhone(guestPhone);
+  const isPhoneBlacklisted =
+    mode !== "view" &&
+    isValidGePhone(guestPhone) &&
+    Boolean(blacklistedPhoneKeys?.has(toLocalGePhone(guestPhone)));
   const totalNumber = amount.trim() === "" ? null : Number(amount);
   const depositNumber =
     depositAmount.trim() === "" ? null : Number(depositAmount);
@@ -398,6 +412,11 @@ export default function AddBookingModal({
                             : null
                         }
                       />
+                      {isPhoneBlacklisted && (
+                        <p className="mt-1.5 text-[11px] font-semibold text-[#B45309]">
+                          {tShared("phoneBlacklistedWarning")}
+                        </p>
+                      )}
                     </Field>
                   </div>
 
@@ -440,7 +459,8 @@ export default function AddBookingModal({
                         value={depositAmount}
                         onChange={(value) => {
                           setDepositAmount(value);
-                          if (!value || Number(value) <= 0) setDepositPaidOn("");
+                          if (!value || Number(value) <= 0)
+                            setDepositPaidOn("");
                         }}
                         min={0}
                         max={999999}
@@ -564,9 +584,11 @@ export default function AddBookingModal({
                   )}
                 </form>
 
-                {mode === "edit" && existing && existing.status !== "cancelled" && (
-                  <SmsConsentLinkPanel bookingId={existing.id} />
-                )}
+                {mode === "edit" &&
+                  existing &&
+                  existing.status !== "cancelled" && (
+                    <SmsConsentLinkPanel bookingId={existing.id} />
+                  )}
 
                 {mode === "edit" &&
                   (confirmingDelete ? (

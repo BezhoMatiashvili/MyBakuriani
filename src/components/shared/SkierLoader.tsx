@@ -22,7 +22,9 @@ export function SkierLoader({
   const t = useTranslations("Shared");
   const resolvedLabel = label ?? t("loading");
   const wrapperClass = wrapperByVariant[variant];
-  const skierWidth = variant === "inline" ? "w-32" : "w-56";
+  const skierWidth = variant === "inline" ? "w-32" : "w-48 sm:w-56";
+  const contentGap = variant === "inline" ? "gap-6" : "gap-2 sm:gap-6";
+  const skierSpacing = variant === "inline" ? "" : "-mb-8 sm:mb-0";
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
     if (variant === "inline") return;
@@ -32,8 +34,10 @@ export function SkierLoader({
 
   return (
     <div className={[wrapperClass, className].filter(Boolean).join(" ")}>
-      <div className="flex flex-col items-center gap-6">
-        <div className={`${skierWidth} relative translate-y-2`}>
+      <div className={`flex flex-col items-center ${contentGap}`}>
+        <div
+          className={`${skierWidth} ${skierSpacing} relative translate-y-2`}
+        >
           <SkierSvg />
         </div>
         {variant !== "inline" && resolvedLabel ? (

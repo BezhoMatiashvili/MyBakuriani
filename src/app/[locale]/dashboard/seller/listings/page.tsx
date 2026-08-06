@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Plus, Edit, Building2, Search, Target } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -20,7 +21,7 @@ import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive } from "@/lib/utils/pricing";
+import { isDiscountActive, daysRemaining } from "@/lib/utils/pricing";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 
 const constructionStatusLabel: Record<string, string> = {
@@ -31,6 +32,7 @@ const constructionStatusLabel: Record<string, string> = {
 };
 
 export default function SellerListingsPage() {
+  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const scope = useActiveOrgScope();
   const isOrgScope = scope.mode === "org" && !!scope.organizationId;
@@ -204,6 +206,8 @@ export default function SellerListingsPage() {
                     {property.is_vip && (
                       <span className="rounded-md bg-[#FEF3C7] px-3 py-1.5 text-[11px] font-black uppercase text-[#A16207]">
                         VIP
+                        {daysRemaining(property.vip_expires_at) != null &&
+                          ` · ${tShared("daysRemaining", { count: daysRemaining(property.vip_expires_at)! })}`}
                       </span>
                     )}
                     {isDiscountActive(
@@ -212,6 +216,8 @@ export default function SellerListingsPage() {
                     ) && (
                       <ListingBadge variant="discount" className="normal-case">
                         −{property.discount_percent}%
+                        {daysRemaining(property.discount_expires_at) != null &&
+                          ` · ${tShared("daysRemaining", { count: daysRemaining(property.discount_expires_at)! })}`}
                       </ListingBadge>
                     )}
                   </div>

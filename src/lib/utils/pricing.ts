@@ -60,3 +60,16 @@ export function applyDiscount(
   if (price <= 0) return price;
   return price * (1 - (discountPercent as number) / 100);
 }
+
+// Whole days left, rounded up (23h left still reads as "1 day" — never round
+// down a badge that's about to go stale). Null means nothing to show: no
+// expiry, or already expired. Callers still gate the surrounding badge on
+// is_vip / isDiscountActive themselves — this only answers "how many days".
+export function daysRemaining(
+  expiresAt: string | null | undefined,
+): number | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return null;
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}

@@ -29,6 +29,7 @@ import BannerLivePreview from "@/components/admin/BannerLivePreview";
 import { landingBannerToCreative } from "@/lib/banner-creative";
 import {
   BANNER_PLACEMENTS,
+  getPlacementSpec,
   type BannerPlacement,
   type BannerSurface,
 } from "@/lib/banner-placements";
@@ -475,6 +476,11 @@ export default function AdminBannersPage() {
                       );
                     })}
                   </select>
+                  {getPlacementSpec(form.placement)?.description && (
+                    <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
+                      {getPlacementSpec(form.placement)!.description}
+                    </p>
+                  )}
                 </Field>
                 <Field label={t("color")}>
                   <select

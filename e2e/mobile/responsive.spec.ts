@@ -472,6 +472,30 @@ test.describe("Mobile filters and locales", () => {
 });
 
 test.describe("Property listing mobile", () => {
+  test("category destinations use compact two-column cards on phones", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/apartments");
+
+    const cards = page.locator(
+      '[data-listing-card][data-mobile-presentation="compact-grid"]',
+    );
+    await expect(cards.first()).toBeVisible();
+    await expect(cards.nth(1)).toBeVisible();
+    const [first, second] = await Promise.all([
+      cards.first().boundingBox(),
+      cards.nth(1).boundingBox(),
+    ]);
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(first!.y).toBeCloseTo(second!.y, 0);
+    expect(first!.width).toBeLessThan(190);
+    expect(second!.width).toBeCloseTo(first!.width, 0);
+    expect(second!.x).toBeGreaterThan(first!.x + first!.width);
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("apartments page no overflow", async ({ page }) => {
     await page.goto("/apartments");
     await expectNoHorizontalOverflow(page);
@@ -490,6 +514,46 @@ test.describe("Property listing mobile", () => {
     expect(
       await gallery.evaluate((el) => getComputedStyle(el).scrollSnapType),
     ).toContain("x");
+  });
+
+  test("apartment details show bathrooms and grouped collapsible amenities", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/en/apartments/aae2ff00-1001-4000-a000-000000000001");
+
+    await expect(page.getByTestId("property-quick-spec-bathrooms")).toBeVisible();
+    const amenities = page.getByTestId("property-amenity-groups");
+    await expect(amenities).toBeVisible();
+    await expect(amenities.locator("[data-amenity-group]")).toHaveCount(1);
+    await expect(amenities.locator("[data-amenity-value]")).toHaveCount(3);
+
+    await page.goto("/en/apartments/aae2ff00-1002-4000-a000-000000000002");
+    const collapsedAmenities = page.getByTestId("property-amenity-groups");
+    const toggle = collapsedAmenities.locator('button[aria-expanded="false"]');
+    await expect(collapsedAmenities.locator("[data-amenity-value]")).toHaveCount(3);
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(collapsedAmenities.locator("[data-amenity-value]")).toHaveCount(5);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test("sale investment metrics stay in a bordered mobile card", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/en/sales/aae2ff00-1003-4000-a000-000000000003");
+
+    const card = page.getByTestId("sale-investment-card");
+    await expect(card).toBeVisible();
+    await expect(
+      card.getByRole("heading", { name: /investment metrics/i }),
+    ).toBeVisible();
+    expect(
+      await card.getByTestId("sale-investment-metric").count(),
+    ).toBeGreaterThan(0);
+    await expect(card).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expectNoHorizontalOverflow(page);
   });
 });
 

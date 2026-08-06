@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { MessageSquare, Plus, Search } from "lucide-react";
+import { Home, MessageSquare, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -18,12 +18,13 @@ export function FoodTopbar({
   searchPlaceholder,
 }: FoodTopbarProps) {
   const t = useTranslations("DashboardLayout");
+  const tSidebar = useTranslations("DashboardSidebar");
   const placeholder = searchPlaceholder ?? t("topbar.searchDefault");
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
       <div className="flex w-full items-center gap-4">
-        <label className="relative block w-full min-w-0 max-w-[480px] flex-1">
+        <label className="relative hidden w-full min-w-0 max-w-[480px] flex-1 lg:block">
           <Search className="pointer-events-none absolute left-5 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#94A3B8]" />
           <input
             type="text"
@@ -31,6 +32,14 @@ export function FoodTopbar({
             className="h-[44px] w-full rounded-full border border-[#E2E8F0] bg-white pl-11 pr-5 text-[13px] font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
           />
         </label>
+
+        <Link
+          href="/"
+          className="flex h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#2563EB] px-4 text-[13px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] lg:hidden"
+        >
+          <Home className="size-4" />
+          {tSidebar("backToHome")}
+        </Link>
 
         <div className="flex-1" />
 

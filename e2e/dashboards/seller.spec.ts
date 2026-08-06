@@ -179,6 +179,9 @@ test.describe("Seller Dashboard", () => {
     const menu = sellerPage.getByTestId("seller-mobile-menu-list");
     await expect(switcher).toBeVisible();
     await expect(menu).toBeVisible();
+    const sheet = sellerPage.getByRole("dialog");
+    const sheetBox = await sheet.boundingBox();
+    expect(sheetBox?.height).toBeGreaterThanOrEqual(800);
     await expect(switcher.getByText("სტუმარი", { exact: true })).toHaveCount(0);
     await expect(menu.getByText("მთავარი პანელი", { exact: true })).toBeVisible();
     await expect(menu.getByText("ობიექტები და პროექტები", { exact: true })).toBeVisible();
@@ -202,6 +205,26 @@ test.describe("Seller Dashboard", () => {
 
     await expect(sellerPage.locator("main")).toBeVisible();
     await expect(sellerPage).toHaveURL(/\/dashboard\/seller\/listings/);
+  });
+
+  test("listing promotion actions remain aligned and tappable on phones", async ({
+    sellerPage,
+  }) => {
+    await sellerPage.setViewportSize({ width: 320, height: 568 });
+    await sellerPage.goto("/dashboard/seller/listings");
+    if (!(await assertDashboard(sellerPage, "/dashboard/seller/listings")))
+      return;
+
+    const promotions = sellerPage.getByTestId("listing-promotions").first();
+    await expect(promotions).toBeVisible();
+    const buttons = promotions.locator("button");
+    await expect(buttons).toHaveCount(3);
+    const boxes = await Promise.all(
+      [0, 1, 2].map((index) => buttons.nth(index).boundingBox()),
+    );
+    expect(boxes.every((box) => (box?.height ?? 0) >= 44)).toBe(true);
+    expect(boxes[0]?.y).toBeCloseTo(boxes[1]?.y ?? 0, 0);
+    expect(boxes[1]?.y).toBeCloseTo(boxes[2]?.y ?? 0, 0);
   });
 
   test("sidebar has Georgian labels", async ({ sellerPage }) => {

@@ -462,7 +462,7 @@
     "discountLine": "ფასდაკლება (-{percent}%)",
     "total": "ჯამში",
     "minBookingNotice": "მინ. ჯავშანი: {count} დღე",
-    "callOwner": "დარეკვა მესაკუთრეთან",
+    "callOwner": "დარეკვა მესაკუთრესთან",
     "verifiedOwner": "ვერიფიცირებული მესაკუთრე",
     "hostStats": "მასპინძელია 3 წელი • პასუხობს 1 საათში"
   },
@@ -786,7 +786,9 @@
         "visitDatesPlaceholder": "10-12 თებ.",
         "checkIn": "შესვლა",
         "checkOut": "გასვლა",
-        "notePlaceholder": "მშვიდი, სუფთა სტუმარია."
+        "notePlaceholder": "მშვიდი, სუფთა სტუმარია.",
+        "blacklistAdded": "დაემატა შავ სიაში",
+        "alreadyBlacklisted": "ეს ნომერი უკვე შავ სიაშია"
       },
       "priceRange": {
         "title": "ფასი დიაპაზონისთვის",
@@ -1005,7 +1007,13 @@
     "disabled": "ფასის ალერტი გამოირთო",
     "loadError": "ფასის ალერტები ვერ ჩაიტვირთა.",
     "saveError": "პარამეტრი ვერ შეინახა.",
-    "statuses": { "open": "ცვლილებები გროვდება", "awaiting_credit": "კრედიტს ელოდება", "queued": "რიგშია", "cancelled": "გაუქმებულია", "expired": "ვადა გავიდა" },
+    "statuses": {
+      "open": "ცვლილებები გროვდება",
+      "awaiting_credit": "კრედიტს ელოდება",
+      "queued": "რიგშია",
+      "cancelled": "გაუქმებულია",
+      "expired": "ვადა გავიდა"
+    },
     "public": {
       "action": "შემატყობინე ფასის კლებისას",
       "active": "ფასის ალერტი ჩართულია",
@@ -1450,9 +1458,6 @@
     "statusNew": "ახალი",
     "statusInProgress": "მიმდინარე",
     "statusReady": "მზადი",
-    "paymentCash": "ნაღდი",
-    "paymentInstallment": "განვადება",
-    "paymentMortgage": "იპოთეკა",
     "amenityBalcony": "აივანი",
     "amenityShed": "ფარდული",
     "amenityWater": "წყალი",
@@ -2468,8 +2473,6 @@
     "chooseRoute": "აირჩიეთ მინიმუმ ერთი მარშრუტი",
     "enterPrice": "მიუთითეთ საწყისი ფასი",
     "routePrice": "ფასი",
-    "routeSubtitle": "ქვესათაური (არჩევითი)",
-    "routeSubtitlePlaceholder": "მაგ. საწყისი ფასი",
     "addRoute": "მარშრუტის დამატება",
     "removeRoute": "წაშლა"
   },
@@ -3006,6 +3009,8 @@
     "notSpecified": "არ არის მითითებული",
     "views": "{count} ნახვა",
     "totalCount": "{count} სულ",
+    "daysRemaining": "{count} დღე დარჩა",
+    "phoneBlacklistedWarning": "ეს ნომერი შავ სიაშია — გადაამოწმეთ სანამ გააგრძელებთ",
     "periodWeek": "კვირა",
     "periodMonth": "თვე",
     "periodAll": "სულ",

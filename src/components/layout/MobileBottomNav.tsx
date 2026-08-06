@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
-import { CABINET_SWITCHER_ITEMS } from "@/components/layout/CabinetSwitcher";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 import BottomSheet from "@/components/shared/BottomSheet";
 
@@ -401,12 +400,10 @@ export function MobileBottomNav({
   // roleToCabinetKey — its `default: return "guest"` would put the check on
   // სტუმარი for admin and any unknown segment.
   const activeCabinetKey = toServiceSegment(userRole) ?? userRole;
-  // Only offer the switcher where the current cabinet can be marked, which is
-  // exactly the branches whose desktop sidebar mounts a CabinetSwitcher (admin
-  // and the fallback sidebar do not).
-  const showCabinets = CABINET_SWITCHER_ITEMS.some(
-    (item) => item.key === activeCabinetKey,
-  );
+  // Cross-cabinet switching is only offered from the rental/sale cabinets —
+  // other cabinet types (cleaner, employment, food, etc.) don't have it.
+  const showCabinets =
+    activeCabinetKey === "renter" || activeCabinetKey === "seller";
   const isSeller = userRole === "seller";
   const memberCompanies = companies.filter(
     (company) => company.role === "owner" || company.role === "agent",
@@ -518,6 +515,7 @@ export function MobileBottomNav({
         isOpen={moreOpen}
         onClose={() => setMoreOpen(false)}
         title={isSeller ? tSidebar("menu") : t("more")}
+        panelClassName="h-[calc(100dvh-env(safe-area-inset-top)-0.75rem)]"
       >
         <div
           id="dashboard-more-sheet"
@@ -551,7 +549,8 @@ export function MobileBottomNav({
                   {item.detail === "notifications" && notificationCount > 0 && (
                     <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-1 text-[10px] font-extrabold text-[#EA580C]">
                       {tSidebar("newCount", {
-                        count: notificationCount > 99 ? "99+" : notificationCount,
+                        count:
+                          notificationCount > 99 ? "99+" : notificationCount,
                       })}
                     </span>
                   )}
@@ -574,31 +573,33 @@ export function MobileBottomNav({
                 </button>
               )}
             </div>
-          ) : more.map((item) => {
-            const Icon = item.icon;
-            const badge = badgeFor(item);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMoreOpen(false)}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
-                  isActive(item, currentPath)
-                    ? "bg-[#EFF6FF] text-[#2563EB]"
-                    : "text-[#334155] hover:bg-[#F8FAFC]",
-                )}
-              >
-                <Icon className="size-5 shrink-0" aria-hidden />
-                <span className="flex-1">{t(item.labelKey)}</span>
-                {badge > 0 && (
-                  <span className="rounded-full bg-[#EF4444] px-2 py-0.5 text-[10px] text-white">
-                    {badge > 99 ? "99+" : badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+          ) : (
+            more.map((item) => {
+              const Icon = item.icon;
+              const badge = badgeFor(item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
+                    isActive(item, currentPath)
+                      ? "bg-[#EFF6FF] text-[#2563EB]"
+                      : "text-[#334155] hover:bg-[#F8FAFC]",
+                  )}
+                >
+                  <Icon className="size-5 shrink-0" aria-hidden />
+                  <span className="flex-1">{t(item.labelKey)}</span>
+                  {badge > 0 && (
+                    <span className="rounded-full bg-[#EF4444] px-2 py-0.5 text-[10px] text-white">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })
+          )}
           {!isSeller && (
             <>
               <div className="my-3 border-t border-[#E2E8F0]" />

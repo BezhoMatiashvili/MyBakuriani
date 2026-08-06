@@ -734,6 +734,7 @@ export function DashboardShell({
           userRole={activeRole}
           onSignOut={handleSignOut}
           notificationCount={notificationCount}
+          availableCabinets={availableCabinets}
         />
       </div>
     );

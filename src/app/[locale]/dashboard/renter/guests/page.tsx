@@ -21,6 +21,7 @@ import GuestHistoryPanel, {
 } from "@/components/renter/GuestHistoryPanel";
 import { parseISODate } from "@/components/shared/DateField";
 import { formatDate, formatDateRange } from "@/lib/utils/format";
+import { toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
 type Guest = Tables<"renter_guests">;
@@ -235,6 +236,14 @@ export default function RenterGuestsPage() {
   const openBlacklistModal = () =>
     setModal({ open: true, guest: null, createMode: "blacklist" });
 
+  const blacklistedPhoneKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of guests) {
+      if (g.blacklisted && g.phone) set.add(toLocalGePhone(g.phone));
+    }
+    return set;
+  }, [guests]);
+
   const visibleGuests = guests.filter((g) =>
     tab === "all" ? true : g.blacklisted,
   );
@@ -378,6 +387,7 @@ export default function RenterGuestsPage() {
         createMode={modal.createMode}
         guest={modal.guest}
         properties={properties}
+        blacklistedPhoneKeys={blacklistedPhoneKeys}
         onClose={() =>
           setModal({ open: false, guest: null, createMode: "booking" })
         }
@@ -390,6 +400,7 @@ export default function RenterGuestsPage() {
         isOpen={Boolean(bookingGuest)}
         bookingGuest={bookingGuest}
         properties={properties}
+        blacklistedPhoneKeys={blacklistedPhoneKeys}
         onClose={() => setBookingGuest(null)}
         onSaved={() => {
           fetchGuests();

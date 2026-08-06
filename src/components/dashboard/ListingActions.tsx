@@ -125,33 +125,36 @@ export default function ListingActions({
         </div>
 
         {onPromote && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#F1F5F9] pt-3">
-            <span className="mr-auto text-[12px] font-semibold text-[#64748B]">
+          <div
+            data-testid="listing-promotions"
+            className="mt-3 grid grid-cols-3 gap-2 border-t border-[#F1F5F9] pt-3 sm:flex sm:flex-wrap sm:items-center"
+          >
+            <span className="col-span-3 w-full text-[12px] font-semibold text-[#64748B] sm:mr-auto sm:w-auto">
               {t("promote")}
             </span>
             <button
               type="button"
               onClick={() => onPromote("super-vip")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#EA580C] transition-colors hover:bg-[#FFEDD5]"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#EA580C] transition-colors hover:bg-[#FFEDD5] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
             >
-              <Rocket className="h-3 w-3" />
-              SUPER VIP
+              <Rocket className="size-3 shrink-0" />
+              <span className="truncate">SUPER VIP</span>
             </button>
             <button
               type="button"
               onClick={() => onPromote("vip")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#BE185D] transition-colors hover:bg-[#FBCFE8]"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
             >
-              <Ticket className="h-3 w-3" />
+              <Ticket className="size-3 shrink-0" />
               VIP
             </button>
             <button
               type="button"
               onClick={() => onPromote("discount")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-black tracking-wide text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-1.5 text-[10px] font-black tracking-tight text-[#15803D] transition-colors hover:bg-[#BBF7D0] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
             >
-              <Percent className="h-3 w-3" />
-              {t("discount")}
+              <Percent className="size-3 shrink-0" />
+              <span className="truncate">{t("discount")}</span>
             </button>
           </div>
         )}

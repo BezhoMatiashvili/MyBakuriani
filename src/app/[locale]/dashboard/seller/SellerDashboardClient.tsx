@@ -20,7 +20,7 @@ import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive } from "@/lib/utils/pricing";
+import { isDiscountActive, daysRemaining } from "@/lib/utils/pricing";
 import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
 import { loadSellerData, type SellerData } from "./loadData";
@@ -348,6 +348,8 @@ export default function SellerDashboardClient({
                       {property.is_vip && (
                         <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#A16207]">
                           VIP
+                          {daysRemaining(property.vip_expires_at) != null &&
+                            ` · ${tStats("daysRemaining", { count: daysRemaining(property.vip_expires_at)! })}`}
                         </span>
                       )}
                       {isDiscountActive(
@@ -359,6 +361,9 @@ export default function SellerDashboardClient({
                           className="normal-case"
                         >
                           −{property.discount_percent}%
+                          {daysRemaining(property.discount_expires_at) !=
+                            null &&
+                            ` · ${tStats("daysRemaining", { count: daysRemaining(property.discount_expires_at)! })}`}
                         </ListingBadge>
                       )}
                     </div>
