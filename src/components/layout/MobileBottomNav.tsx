@@ -400,10 +400,10 @@ export function MobileBottomNav({
   // roleToCabinetKey — its `default: return "guest"` would put the check on
   // სტუმარი for admin and any unknown segment.
   const activeCabinetKey = toServiceSegment(userRole) ?? userRole;
-  // Cross-cabinet switching is only offered from the rental/sale cabinets —
-  // other cabinet types (cleaner, employment, food, etc.) don't have it.
-  const showCabinets =
-    activeCabinetKey === "renter" || activeCabinetKey === "seller";
+  // Every cabinet's desktop sidebar renders CabinetSwitcher except admin
+  // (see AdminSidebar.tsx) — mirror that here instead of restricting mobile
+  // cross-cabinet switching to just renter/seller.
+  const showCabinets = activeCabinetKey !== "admin";
   const isSeller = userRole === "seller";
   const memberCompanies = companies.filter(
     (company) => company.role === "owner" || company.role === "agent",

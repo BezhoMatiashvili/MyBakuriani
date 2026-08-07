@@ -7,8 +7,9 @@ import {
   useRef,
   useEffect,
   useTransition,
+  Suspense,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Home, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
@@ -69,6 +70,26 @@ export type ApartmentListing = Pick<
 interface Props {
   properties: ApartmentListing[];
   statusCards: StatusCard[];
+}
+
+// Reads the `?source=hot` query param to swap the heading when arriving from
+// the landing page's "Hot Offers" section. Isolated in its own component +
+// Suspense boundary so useSearchParams() doesn't force the rest of this
+// (otherwise statically-rendered) page into dynamic rendering.
+function ApartmentsHeading({
+  tLanding,
+}: {
+  tLanding: ReturnType<typeof useTranslations>;
+}) {
+  const searchParams = useSearchParams();
+  const isFromHotOffers = searchParams.get("source") === "hot";
+  return (
+    <>
+      {isFromHotOffers
+        ? tLanding("hotOffers")
+        : tLanding("apartmentsAndCottages")}
+    </>
+  );
 }
 
 export default function ApartmentsPageClient({
@@ -245,10 +266,7 @@ export default function ApartmentsPageClient({
           </div>
 
           {/* Status Cards Row */}
-          <StatusCards
-            cards={statusCards}
-            className="mt-8 sm:-mb-[42px]"
-          />
+          <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
         </div>
       </section>
 
@@ -263,7 +281,9 @@ export default function ApartmentsPageClient({
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                {tLanding("apartmentsAndCottages")}
+                <Suspense fallback={tLanding("apartmentsAndCottages")}>
+                  <ApartmentsHeading tLanding={tLanding} />
+                </Suspense>
               </h2>
               <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#64748B]">
                 {t("subtitle")}
@@ -282,14 +302,19 @@ export default function ApartmentsPageClient({
               <button
                 type="button"
                 onClick={() => setOnlyAvailable(!onlyAvailable)}
+                aria-pressed={onlyAvailable}
+                aria-label={tLanding("discountsOnly")}
                 className={cn(
-                  "flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+                  "flex min-h-11 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors sm:px-4 sm:py-2",
                   onlyAvailable
                     ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
                     : "border border-[#E2E8F0] bg-white text-[#64748B]",
                 )}
               >
-                {tLanding("discountsOnly")}
+                <span className="hidden sm:inline">
+                  {tLanding("discountsOnly")}
+                </span>
+                <span className="text-[14px] font-black sm:hidden">%</span>
                 <div
                   className={cn(
                     "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
@@ -332,14 +357,17 @@ export default function ApartmentsPageClient({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">
-            <BannerSlot placement="listing_top" bare className="col-span-full" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+            <BannerSlot
+              placement="listing_top"
+              bare
+              className="col-span-full"
+            />
             <BannerSlot placement="listing_grid" bare />
 
             {paginatedProperties.map((p, i) => (
               <ScrollReveal key={p.id} delay={i * 0.05}>
                 <PropertyCard
-                  mobilePresentation="compact-grid"
                   id={p.id}
                   title={p.title}
                   location={p.location}

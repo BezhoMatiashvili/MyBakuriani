@@ -9,7 +9,9 @@ const phoneViewports = [
   { width: 767, height: 900 },
 ];
 
-async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {
+async function expectNoHorizontalOverflow(
+  page: import("@playwright/test").Page,
+) {
   await expect
     .poll(() =>
       page.evaluate(
@@ -39,7 +41,9 @@ test.describe("Landing page mobile", () => {
   });
 
   for (const viewport of phoneViewports) {
-    test(`landing has no horizontal overflow at ${viewport.width}px`, async ({ page }) => {
+    test(`landing has no horizontal overflow at ${viewport.width}px`, async ({
+      page,
+    }) => {
       await page.setViewportSize(viewport);
       await page.goto("/");
       await expectNoHorizontalOverflow(page);
@@ -145,7 +149,9 @@ test.describe("Landing page mobile", () => {
       await page.goto("/");
 
       const hero = page.getByTestId("homepage-hero");
-      const searchForm = hero.locator('form[data-phone-layout="landing-compact"]');
+      const searchForm = hero.locator(
+        'form[data-phone-layout="landing-compact"]',
+      );
       const statusCards = page
         .getByTestId("homepage-status-cards")
         .locator("[data-status-card]");
@@ -276,9 +282,7 @@ test.describe("Navbar mobile", () => {
       'button[aria-label*="menu"], button[aria-label*="Menu"], [data-testid="menu-toggle"]',
     );
     // Fallback: any button with an SVG icon that looks like a menu
-    const fallbackButton = page
-      .locator("header button")
-      .last();
+    const fallbackButton = page.locator("header button").last();
     const isMenuVisible = await menuButton
       .first()
       .isVisible()
@@ -311,12 +315,16 @@ test.describe("Navbar mobile", () => {
     await page.goto("/");
     await expect(page.getByTestId("menu-toggle")).toBeVisible();
     await expect(page.getByTestId("category-nav")).toBeHidden();
-    expect((await page.locator("header > div").first().boundingBox())?.height).toBe(72);
+    expect(
+      (await page.locator("header > div").first().boundingBox())?.height,
+    ).toBe(72);
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await expect(page.getByTestId("menu-toggle")).toBeHidden();
     await expect(page.getByTestId("category-nav")).toBeVisible();
-    expect((await page.locator("header > div").first().boundingBox())?.height).toBe(91);
+    expect(
+      (await page.locator("header > div").first().boundingBox())?.height,
+    ).toBe(91);
   });
 });
 
@@ -355,7 +363,9 @@ test.describe("Mobile filters and locales", () => {
 
     const sheetBox = await sheet.boundingBox();
     expect(sheetBox?.x).toBeGreaterThanOrEqual(0);
-    expect((sheetBox?.x ?? 0) + (sheetBox?.width ?? 0)).toBeLessThanOrEqual(320);
+    expect((sheetBox?.x ?? 0) + (sheetBox?.width ?? 0)).toBeLessThanOrEqual(
+      320,
+    );
 
     const trigger = page.getByTestId("search-mobile-location");
     const triggerTextBefore = await trigger.textContent();
@@ -445,15 +455,22 @@ test.describe("Mobile filters and locales", () => {
 
     await page.keyboard.press("Escape");
     await expect(sheet).toBeHidden();
-    await expect(page.getByTestId("search-results-mobile-filters")).toBeFocused();
+    await expect(
+      page.getByTestId("search-results-mobile-filters"),
+    ).toBeFocused();
   });
 
   for (const [locale, query] of [
-    ["ka", "გრძელი საძიებო მოთხოვნა ბაკურიანის საოჯახო დასასვენებელი სახლებისთვის"],
+    [
+      "ka",
+      "გრძელი საძიებო მოთხოვნა ბაკურიანის საოჯახო დასასვენებელი სახლებისთვის",
+    ],
     ["en", "long family-friendly Bakuriani accommodation search query"],
     ["ru", "длинный поисковый запрос семейного жилья в Бакуриани"],
   ]) {
-    test(`${locale} search text does not overflow at 320px`, async ({ page }) => {
+    test(`${locale} search text does not overflow at 320px`, async ({
+      page,
+    }) => {
       await page.setViewportSize({ width: 320, height: 568 });
       await page.goto(`/${locale}/search?q=${encodeURIComponent(query)}`);
       await expectNoHorizontalOverflow(page);
@@ -472,14 +489,14 @@ test.describe("Mobile filters and locales", () => {
 });
 
 test.describe("Property listing mobile", () => {
-  test("category destinations use compact two-column cards on phones", async ({
+  test("category destinations use full-width single-column cards on phones", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/apartments");
 
     const cards = page.locator(
-      '[data-listing-card][data-mobile-presentation="compact-grid"]',
+      '[data-listing-card][data-mobile-presentation="default"]',
     );
     await expect(cards.first()).toBeVisible();
     await expect(cards.nth(1)).toBeVisible();
@@ -489,10 +506,12 @@ test.describe("Property listing mobile", () => {
     ]);
     expect(first).not.toBeNull();
     expect(second).not.toBeNull();
-    expect(first!.y).toBeCloseTo(second!.y, 0);
-    expect(first!.width).toBeLessThan(190);
+    // Single column: second card stacks below the first, not beside it.
+    expect(second!.y).toBeGreaterThan(first!.y + first!.height - 1);
+    expect(second!.x).toBeCloseTo(first!.x, 0);
+    // Full-width: card spans nearly the whole 390px viewport, not a half-width cell.
+    expect(first!.width).toBeGreaterThan(300);
     expect(second!.width).toBeCloseTo(first!.width, 0);
-    expect(second!.x).toBeGreaterThan(first!.x + first!.width);
     await expectNoHorizontalOverflow(page);
   });
 
@@ -522,7 +541,9 @@ test.describe("Property listing mobile", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/en/apartments/aae2ff00-1001-4000-a000-000000000001");
 
-    await expect(page.getByTestId("property-quick-spec-bathrooms")).toBeVisible();
+    await expect(
+      page.getByTestId("property-quick-spec-bathrooms"),
+    ).toBeVisible();
     const amenities = page.getByTestId("property-amenity-groups");
     await expect(amenities).toBeVisible();
     await expect(amenities.locator("[data-amenity-group]")).toHaveCount(1);
@@ -531,10 +552,14 @@ test.describe("Property listing mobile", () => {
     await page.goto("/en/apartments/aae2ff00-1002-4000-a000-000000000002");
     const collapsedAmenities = page.getByTestId("property-amenity-groups");
     const toggle = collapsedAmenities.locator('button[aria-expanded="false"]');
-    await expect(collapsedAmenities.locator("[data-amenity-value]")).toHaveCount(3);
+    await expect(
+      collapsedAmenities.locator("[data-amenity-value]"),
+    ).toHaveCount(3);
     await expect(toggle).toBeVisible();
     await toggle.click();
-    await expect(collapsedAmenities.locator("[data-amenity-value]")).toHaveCount(5);
+    await expect(
+      collapsedAmenities.locator("[data-amenity-value]"),
+    ).toHaveCount(5);
     await expectNoHorizontalOverflow(page);
   });
 

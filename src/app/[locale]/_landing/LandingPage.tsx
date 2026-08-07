@@ -398,8 +398,13 @@ export default function LandingPage({
                   {/* Discount toggle */}
                   <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
                     <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                      <Flame className="h-3.5 w-3.5" />
-                      {t("discountsOnly")}
+                      <Flame className="hidden h-3.5 w-3.5 sm:block" />
+                      <span className="hidden sm:inline">
+                        {t("discountsOnly")}
+                      </span>
+                      <span className="text-[14px] font-black sm:hidden">
+                        %
+                      </span>
                     </span>
                     <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
                       <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
@@ -445,7 +450,7 @@ export default function LandingPage({
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2 sm:hidden">
                 <Link
-                  href="/apartments"
+                  href="/apartments?source=hot"
                   className="flex min-h-9 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 text-[12px] font-black text-[#1E293B]"
                 >
                   {t("viewAll")}
@@ -455,17 +460,15 @@ export default function LandingPage({
                   type="button"
                   onClick={() => setHotOffersDiscountOnly((v) => !v)}
                   aria-pressed={hotOffersDiscountOnly}
+                  aria-label={t("discountsOnly")}
                   className={cn(
-                    "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+                    "flex min-h-11 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors",
                     hotOffersDiscountOnly
                       ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
                       : "border border-[#E2E8F0] bg-white text-[#64748B]",
                   )}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Flame className="h-3.5 w-3.5" />
-                    {t("discountsOnly")}
-                  </span>
+                  <span className="text-[14px] font-black">%</span>
                   <span
                     className={cn(
                       "relative inline-flex h-[20px] w-[40px] items-center rounded-full transition-colors",
@@ -483,7 +486,7 @@ export default function LandingPage({
               </div>
               <div className="hidden items-center gap-3 sm:flex">
                 <Link
-                  href="/apartments"
+                  href="/apartments?source=hot"
                   className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-black text-[#1E293B] transition-colors hover:text-[#F97316]"
                 >
                   {t("viewAll")}
@@ -777,16 +780,18 @@ function ServiceSection({
       type="button"
       onClick={() => setDiscountOnly((v) => !v)}
       aria-pressed={discountOnly}
+      aria-label={t("discountsOnly")}
       className={cn(
-        "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+        "flex min-h-11 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors sm:min-h-0 sm:gap-3 sm:px-4 sm:py-2",
         discountOnly
           ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
           : "border border-[#E2E8F0] bg-white text-[#64748B]",
       )}
     >
       <span className="flex items-center gap-1.5">
-        <Flame className="h-3.5 w-3.5" />
-        {t("discountsOnly")}
+        <Flame className="hidden h-3.5 w-3.5 sm:block" />
+        <span className="hidden sm:inline">{t("discountsOnly")}</span>
+        <span className="text-[14px] font-black sm:hidden">%</span>
       </span>
       <span
         className={cn(
@@ -1009,16 +1014,18 @@ function PropertySection({
       type="button"
       onClick={() => setDiscountOnly((v) => !v)}
       aria-pressed={discountOnly}
+      aria-label={t("discountsOnly")}
       className={cn(
-        "flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+        "flex min-h-11 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors sm:min-h-0 sm:gap-3 sm:px-4 sm:py-2",
         discountOnly
           ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
           : "border border-[#E2E8F0] bg-white text-[#64748B]",
       )}
     >
       <span className="flex items-center gap-1.5">
-        <Flame className="h-3.5 w-3.5" />
-        {t("discountsOnly")}
+        <Flame className="hidden h-3.5 w-3.5 sm:block" />
+        <span className="hidden sm:inline">{t("discountsOnly")}</span>
+        <span className="text-[14px] font-black sm:hidden">%</span>
       </span>
       <span
         className={cn(

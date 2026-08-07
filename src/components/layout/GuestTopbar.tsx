@@ -33,10 +33,11 @@ export function GuestTopbar({
 
         <Link
           href="/"
-          className="flex h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#2563EB] px-4 text-[13px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] lg:hidden"
+          aria-label={tSidebar("backToHome")}
+          className="flex h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#2563EB] px-3 text-[13px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] sm:px-4 lg:hidden"
         >
           <Home className="size-4" />
-          {tSidebar("backToHome")}
+          <span className="hidden sm:inline">{tSidebar("backToHome")}</span>
         </Link>
 
         <div className="flex-1" />
