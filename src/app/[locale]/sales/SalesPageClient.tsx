@@ -82,16 +82,20 @@ export default function SalesPageClient({ properties }: Props) {
                   setCurrentPage(1);
                 }}
                 aria-pressed={discountOnly}
+                aria-label={tLanding("discountsOnly")}
                 className={cn(
-                  "inline-flex items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors",
+                  "inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors sm:gap-3 sm:px-4 sm:py-2",
                   discountOnly
                     ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
                     : "border border-[#E2E8F0] bg-white text-[#64748B]",
                 )}
               >
                 <span className="flex items-center gap-1.5">
-                  <Flame className="h-3.5 w-3.5" />
-                  {tLanding("discountsOnly")}
+                  <Flame className="hidden h-3.5 w-3.5 sm:block" />
+                  <span className="hidden sm:inline">
+                    {tLanding("discountsOnly")}
+                  </span>
+                  <span className="text-[14px] font-black sm:hidden">%</span>
                 </span>
                 <span
                   className={cn(
@@ -129,7 +133,7 @@ export default function SalesPageClient({ properties }: Props) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             <BannerSlot
               placement="listing_top"
               bare
@@ -147,7 +151,6 @@ export default function SalesPageClient({ properties }: Props) {
               return (
                 <ScrollReveal key={p.id} delay={i * 0.05}>
                   <InvestmentCard
-                    mobilePresentation="compact-grid"
                     id={p.id}
                     title={p.title}
                     location={p.location}

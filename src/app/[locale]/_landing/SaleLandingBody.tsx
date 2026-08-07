@@ -305,16 +305,20 @@ export default function SaleLandingBody({
                   type="button"
                   onClick={() => setDiscountOnly((value) => !value)}
                   aria-pressed={discountOnly}
+                  aria-label={t("discountsOnly")}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-full px-4 py-2 text-[12px] font-bold transition-colors lg:min-h-0",
+                    "flex min-h-11 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors sm:gap-3 sm:px-4 sm:py-2 lg:min-h-0",
                     discountOnly
                       ? "border border-[#F97316]/30 bg-[#FFF7ED] text-[#F97316]"
                       : "border border-[#E2E8F0] bg-white text-[#64748B]",
                   )}
                 >
                   <span className="flex items-center gap-1.5">
-                    <Flame className="h-3.5 w-3.5" />
-                    {t("discountsOnly")}
+                    <Flame className="hidden h-3.5 w-3.5 sm:block" />
+                    <span className="hidden sm:inline">
+                      {t("discountsOnly")}
+                    </span>
+                    <span className="text-[14px] font-black sm:hidden">%</span>
                   </span>
                   <span
                     className={cn(
