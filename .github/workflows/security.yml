@@ -36,7 +36,7 @@ jobs:
       # Scanning runs BEFORE the audits on purpose. These steps analyse our own
       # code; a CVE in a third-party dev dependency must never be able to
       # suppress them, which is what the previous ordering did.
-      - uses: github/codeql-action/init@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v3.28.17
+      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v3.28.17
