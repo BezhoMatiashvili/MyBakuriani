@@ -16,13 +16,15 @@ Shared client/server logic — the seam between UI and Supabase.
   `getCachedPublicListing`).
 - `constants/`, `utils/`, plus domain modules: `smart-match/`, `zones/`, `sms/`,
   `payments/`, `notifications/`, `status-cards/`, `pricing-packages`, `banners`,
-  `seo`, `rateLimit`, `with-timeout`.
+  `analytics/pageview`, `seo`, `rateLimit`, `with-timeout`.
 
 ## Responsibilities
 
 - Own the Supabase client configuration (timeouts, cookie handling, `<Database>`
   typing) so callers never construct raw clients.
 - Data-access helpers wrap queries with caching + `with-timeout`.
+- `analytics/pageview.ts` is the shared public-route normalizer for page-view
+  beacons; client and server must use the same allow-list (**C16**).
 
 ## Blast radius
 
@@ -35,4 +37,5 @@ Shared client/server logic — the seam between UI and Supabase.
 
 ## Contracts touching this area
 
-C3 (generated types + clients), C7 (realtime hooks), C8 (auth helpers).
+C3 (generated types + clients), C7 (realtime hooks), C8 (auth helpers), C16
+(page-view normalization and rate limiting).

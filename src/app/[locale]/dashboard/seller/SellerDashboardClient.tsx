@@ -23,6 +23,7 @@ import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicke
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 import { loadSellerData, type SellerData } from "./loadData";
 
 const ListingAnalyticsPanel = dynamic(
@@ -371,6 +372,10 @@ export default function SellerDashboardClient({
                   viewUrl={propertyViewUrl(property)}
                   editUrl={propertyEditUrl(property)}
                   onPromote={(tier) => setPickerModal({ open: true, tier })}
+                  standardVipDisabled={isSuperVipActive(
+                    property.is_super_vip,
+                    property.vip_expires_at,
+                  )}
                   mobilePresentation="seller-overview"
                   className="mt-3 sm:mt-4 sm:border-t sm:border-[#F1F5F9] sm:pt-4"
                 >
@@ -422,6 +427,10 @@ export default function SellerDashboardClient({
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? true,
           price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          standardVipDisabled: isSuperVipActive(
+            p.is_super_vip,
+            p.vip_expires_at,
+          ),
         }))}
         target="property"
         onPurchased={async () => {

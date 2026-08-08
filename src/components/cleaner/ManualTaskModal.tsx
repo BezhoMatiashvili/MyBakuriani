@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Sparkles } from "lucide-react";
@@ -23,7 +23,14 @@ interface ManualTaskModalProps {
   /** Non-null puts the modal in edit mode, seeded from this row. */
   task: ManualTaskRow | null;
   initialDate: Date;
+  occupiedSlots: OccupiedCleanerSlot[];
   onSaved: (scheduledAt: string) => void;
+}
+
+export interface OccupiedCleanerSlot {
+  id: string;
+  source: "platform" | "manual";
+  scheduledAt: string;
 }
 
 /** Split a stored timestamptz into the local "YYYY-MM-DD" / "HH:MM" the fields want. */
@@ -41,6 +48,7 @@ export default function ManualTaskModal({
   onClose,
   task,
   initialDate,
+  occupiedSlots,
   onSaved,
 }: ManualTaskModalProps) {
   const t = useTranslations("CleanerSchedule.manualTask");
@@ -100,6 +108,28 @@ export default function ManualTaskModal({
 
   const priceNumber = Number(price.trim());
   const phoneValid = isValidGePhone(phone);
+  const selectedScheduledAt = useMemo(() => {
+    if (!date || !time) return null;
+    const parsed = new Date(`${date}T${time}`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }, [date, time]);
+  const slotConflict = useMemo(() => {
+    if (!selectedScheduledAt) return false;
+    const selectedMs = new Date(selectedScheduledAt).getTime();
+
+    // Legacy duplicates are preserved. An edit that leaves its original slot
+    // unchanged must remain saveable; only moving into an occupied slot fails.
+    if (
+      task &&
+      new Date(task.scheduled_at).getTime() === selectedMs
+    ) {
+      return false;
+    }
+
+    return occupiedSlots.some(
+      (slot) => new Date(slot.scheduledAt).getTime() === selectedMs,
+    );
+  }, [occupiedSlots, selectedScheduledAt, task]);
   const canSubmit =
     clientName.trim() !== "" &&
     phoneValid &&
@@ -107,7 +137,8 @@ export default function ManualTaskModal({
     time !== "" &&
     address.trim() !== "" &&
     price.trim() !== "" &&
-    !Number.isNaN(priceNumber);
+    !Number.isNaN(priceNumber) &&
+    !slotConflict;
 
   const handleSubmit = async () => {
     if (!canSubmit || saving || !user) return;
@@ -121,7 +152,7 @@ export default function ManualTaskModal({
       client_phone: `+995${phone}`,
       address: address.trim(),
       cleaning_type: cleaningType,
-      scheduled_at: new Date(`${date}T${time}`).toISOString(),
+      scheduled_at: selectedScheduledAt!,
       price: priceNumber,
       notes: notes.trim() || null,
     };
@@ -138,7 +169,12 @@ export default function ManualTaskModal({
 
     setSaving(false);
     if (writeError) {
-      setError(t("saveError"));
+      setError(
+        writeError.code === "23P01" ||
+          writeError.message.includes("cleaner_schedule_slot_conflict")
+          ? t("timeConflict")
+          : t("saveError"),
+      );
       return;
     }
     onSaved(payload.scheduled_at);
@@ -253,18 +289,31 @@ export default function ManualTaskModal({
                   <Field label={tShared("date")}>
                     <DateField
                       value={date}
-                      onChange={setDate}
+                      onChange={(value) => {
+                        setDate(value);
+                        setError(null);
+                      }}
                       className="h-12 lg:h-[42px]"
                     />
                   </Field>
                   <Field label={tShared("time")}>
                     <TimeField
                       value={time}
-                      onChange={setTime}
+                      onChange={(value) => {
+                        setTime(value);
+                        setError(null);
+                      }}
+                      error={slotConflict || error === t("timeConflict")}
                       className="h-12 lg:h-[42px]"
                     />
                   </Field>
                 </div>
+
+                {slotConflict && (
+                  <p role="alert" className="text-[12px] font-bold text-[#DC2626]">
+                    {t("timeConflict")}
+                  </p>
+                )}
 
                 <Field label={t("address")}>
                   <input

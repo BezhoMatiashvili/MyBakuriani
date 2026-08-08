@@ -138,6 +138,177 @@ test.describe("Renter Dashboard", () => {
     }
   });
 
+  test("active SUPER VIP disables standard VIP while an expired flag stays eligible", async ({
+    renterPage,
+  }) => {
+    const activeId = randomUUID();
+    const expiredId = randomUUID();
+    const activeTitle = `E2E active SUPER ${activeId.slice(0, 6)}`;
+    const expiredTitle = `E2E expired SUPER ${expiredId.slice(0, 6)}`;
+    const base = {
+      owner_id: TEST_IDS.renter,
+      type: "apartment",
+      description: "SUPER VIP exclusivity UI regression",
+      location: "Bakuriani",
+      price_per_night: 100,
+      currency: "GEL",
+      photos: [] as string[],
+      status: "active",
+      is_for_sale: false,
+      is_vip: false,
+      is_super_vip: true,
+    };
+    await properties.create({
+      ...base,
+      id: activeId,
+      title: activeTitle,
+      vip_expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    await properties.create({
+      ...base,
+      id: expiredId,
+      title: expiredTitle,
+      vip_expires_at: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    try {
+      await renterPage.goto("/dashboard/renter");
+      if (!(await assertDashboard(renterPage, "/dashboard/renter"))) return;
+
+      const activeCard = renterPage.locator(`[data-listing-id="${activeId}"]`);
+      const expiredCard = renterPage.locator(`[data-listing-id="${expiredId}"]`);
+      const activeVip = activeCard.getByRole("button", {
+        name: /VIP —/,
+      });
+      await expect(activeVip).toBeDisabled();
+      await expect(expiredCard.getByRole("button", { name: "VIP" })).toBeEnabled();
+
+      await expiredCard.getByRole("button", { name: "VIP" }).click();
+      const blockedPickerRow = renterPage.getByRole("button", {
+        name: new RegExp(`${activeTitle} —`),
+      });
+      await expect(blockedPickerRow).toBeDisabled();
+      await expect(blockedPickerRow).toContainText("SUPER VIP აქტიურია");
+    } finally {
+      await properties.delete(activeId);
+      await properties.delete(expiredId);
+    }
+  });
+
+  test("VIP RPCs reject active SUPER VIP atomically and SUPER VIP replaces VIP", async () => {
+    const listingId = randomUUID();
+    const { data: packages, error: packageError } = await supabaseAdmin
+      .from("pricing_packages")
+      .select("id, code")
+      .eq("category", "vip")
+      .in("code", ["boost", "vip24"]);
+    expect(packageError).toBeNull();
+    const standardPackage = packages?.find((pkg) => pkg.code === "boost");
+    const superPackage = packages?.find((pkg) => pkg.code === "vip24");
+    expect(standardPackage).toBeTruthy();
+    expect(superPackage).toBeTruthy();
+
+    const { data: originalBalance } = await supabaseAdmin
+      .from("balances")
+      .select("amount")
+      .eq("user_id", TEST_IDS.renter)
+      .single();
+    await properties.create({
+      id: listingId,
+      owner_id: TEST_IDS.renter,
+      type: "apartment",
+      title: "E2E VIP exclusivity RPC",
+      description: "Atomic promotion test",
+      location: "Bakuriani",
+      price_per_night: 100,
+      currency: "GEL",
+      photos: [],
+      status: "active",
+      is_for_sale: false,
+      is_super_vip: true,
+      is_vip: false,
+      vip_expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    await supabaseAdmin
+      .from("balances")
+      .update({ amount: 100 })
+      .eq("user_id", TEST_IDS.renter);
+
+    try {
+      const { count: transactionsBefore } = await supabaseAdmin
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("reference_id", listingId);
+      const packageAttempt = await supabaseAdmin.rpc("purchase_package", {
+        p_user_id: TEST_IDS.renter,
+        p_package_id: standardPackage!.id,
+        p_property_id: listingId,
+        p_quantity: 1,
+      });
+      expect(packageAttempt.error?.message).toContain("vip_tier_conflict");
+      const legacyAttempt = await supabaseAdmin.rpc("purchase_vip", {
+        p_user_id: TEST_IDS.renter,
+        p_purchase_type: "vip_boost",
+        p_property_id: listingId,
+        p_days: 1,
+      });
+      expect(legacyAttempt.error?.message).toContain("vip_tier_conflict");
+      const { data: balanceAfterReject } = await supabaseAdmin
+        .from("balances")
+        .select("amount")
+        .eq("user_id", TEST_IDS.renter)
+        .single();
+      const { count: transactionsAfter } = await supabaseAdmin
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("reference_id", listingId);
+      expect(balanceAfterReject?.amount).toBe(100);
+      expect(transactionsAfter).toBe(transactionsBefore);
+
+      await properties.update(listingId, {
+        is_vip: true,
+        is_super_vip: false,
+        vip_expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+      });
+      const superPurchase = await supabaseAdmin.rpc("purchase_package", {
+        p_user_id: TEST_IDS.renter,
+        p_package_id: superPackage!.id,
+        p_property_id: listingId,
+        p_quantity: 1,
+      });
+      expect(superPurchase.error).toBeNull();
+      const promoted = await properties.get(listingId);
+      expect(promoted?.is_super_vip).toBe(true);
+      expect(promoted?.is_vip).toBe(false);
+
+      await properties.update(listingId, {
+        is_vip: false,
+        is_super_vip: true,
+        vip_expires_at: new Date(Date.now() - 60_000).toISOString(),
+      });
+      const standardAfterExpiry = await supabaseAdmin.rpc("purchase_package", {
+        p_user_id: TEST_IDS.renter,
+        p_package_id: standardPackage!.id,
+        p_property_id: listingId,
+        p_quantity: 1,
+      });
+      expect(standardAfterExpiry.error).toBeNull();
+      const standard = await properties.get(listingId);
+      expect(standard?.is_vip).toBe(true);
+      expect(standard?.is_super_vip).toBe(false);
+    } finally {
+      await supabaseAdmin
+        .from("transactions")
+        .delete()
+        .eq("reference_id", listingId);
+      await properties.delete(listingId);
+      await supabaseAdmin
+        .from("balances")
+        .update({ amount: originalBalance?.amount ?? 0 })
+        .eq("user_id", TEST_IDS.renter);
+    }
+  });
+
   test("overview matches the compact renter mobile layout", async ({
     renterPage,
   }) => {

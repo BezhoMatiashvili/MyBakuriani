@@ -24,7 +24,9 @@ import {
   formatTime,
 } from "@/lib/utils/format";
 import { optionKeyFor } from "@/lib/constants/listing-options";
-import ManualTaskModal from "@/components/cleaner/ManualTaskModal";
+import ManualTaskModal, {
+  type OccupiedCleanerSlot,
+} from "@/components/cleaner/ManualTaskModal";
 import CleanerMonthCalendar from "@/components/cleaner/CleanerMonthCalendar";
 import {
   mergeCleanerTasks,
@@ -55,6 +57,7 @@ export default function CleanerSchedulePage() {
   const supabase = createClient();
 
   const [tasks, setTasks] = useState<CleanerTaskItem[]>([]);
+  const [occupiedSlots, setOccupiedSlots] = useState<OccupiedCleanerSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDate, setActiveDate] = useState<Date>(() => new Date());
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => {
@@ -79,7 +82,7 @@ export default function CleanerSchedulePage() {
           "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone)",
         )
         .eq("cleaner_id", userId)
-        .in("status", ["accepted", "in_progress", "completed"])
+        .or("status.is.null,status.in.(pending,accepted,in_progress,completed)")
         .order("scheduled_at", { ascending: true }),
       supabase
         .from("cleaner_manual_tasks")
@@ -94,10 +97,24 @@ export default function CleanerSchedulePage() {
       return;
     }
 
+    const platformRows = (platform.data ?? []) as PlatformTaskRow[];
+    const manualRows = (manual.data ?? []) as ManualTaskRow[];
+    setOccupiedSlots([
+      ...platformRows.map((row) => ({
+        id: row.id,
+        source: "platform" as const,
+        scheduledAt: row.scheduled_at,
+      })),
+      ...manualRows.map((row) => ({
+        id: row.id,
+        source: "manual" as const,
+        scheduledAt: row.scheduled_at,
+      })),
+    ]);
     setTasks(
       mergeCleanerTasks(
-        (platform.data ?? []) as PlatformTaskRow[],
-        (manual.data ?? []) as ManualTaskRow[],
+        platformRows.filter((row) => (row.status ?? "pending") !== "pending"),
+        manualRows,
       ),
     );
     setLoading(false);
@@ -613,6 +630,7 @@ export default function CleanerSchedulePage() {
         onClose={() => setModalOpen(false)}
         task={editing}
         initialDate={activeDate}
+        occupiedSlots={occupiedSlots}
         onSaved={handleManualSaved}
       />
     </div>

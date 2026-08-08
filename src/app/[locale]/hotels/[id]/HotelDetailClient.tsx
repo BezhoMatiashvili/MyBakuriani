@@ -42,6 +42,7 @@ import { applyDiscount } from "@/lib/utils/pricing";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
+import HostLanguages from "@/components/detail/HostLanguages";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -290,6 +291,8 @@ export default function HotelDetailClient({
               <PropertyAmenities amenities={amenities} />
             </motion.div>
           )}
+
+          <HostLanguages value={houseRulesObj.hosting_langs} />
 
           {/* Location with Map */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>

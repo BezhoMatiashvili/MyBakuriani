@@ -26,6 +26,9 @@ type UserCtx = Awaited<ReturnType<typeof requireUser>>;
 // the database error surface private (errorResponse's default behaviour).
 function userSafePurchaseError(error: { message?: string }) {
   const message = error.message ?? "";
+  if (message.includes("vip_tier_conflict")) {
+    return new ApiError("vip_tier_conflict", 409, "BAD_REQUEST");
+  }
   if (
     message.includes("არასაკმარისი ბალანსი") ||
     message.includes("პაკეტი არ არის ხელმისაწვდომი")
@@ -155,7 +158,12 @@ serve(async (req) => {
           user_id: ctx.user.id,
           type: "payment_failed",
           title: "გადახდა ვერ შესრულდა",
-          message: err instanceof Error ? err.message : "სცადეთ თავიდან.",
+          message:
+            err instanceof Error && err.message === "vip_tier_conflict"
+              ? "სტანდარტული VIP მიუწვდომელია, სანამ SUPER VIP აქტიურია."
+              : err instanceof Error
+                ? err.message
+                : "სცადეთ თავიდან.",
           action_url: "/dashboard",
           severity: "warning",
           dashboard_scope: dashboardScope,

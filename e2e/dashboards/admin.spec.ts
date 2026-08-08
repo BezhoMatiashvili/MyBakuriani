@@ -20,6 +20,10 @@ test.describe("Admin Dashboard", () => {
 
     await expect(adminPage.locator("main")).toBeVisible();
     await expect(adminPage).toHaveURL(/\/dashboard\/admin/);
+    await expect(adminPage.getByText("გვერდის ნახვები (სულ)")).toBeVisible();
+    await expect(adminPage.getByText("სისტემაში შესული ვიზიტორები")).toBeVisible();
+    await expect(adminPage.getByTestId("admin-funnel-step")).toHaveCount(4);
+    await expect(adminPage.getByText(/დანაკარგი: -\d/)).toHaveCount(0);
   });
 
   test("verifications page loads", async ({ adminPage }) => {

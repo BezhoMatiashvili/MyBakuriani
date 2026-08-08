@@ -102,6 +102,11 @@ applies and was dropped. Hand-editing
 is the deliberate exception, not the rule — keep the edit to the affected lines so
 a future regen is a clean diff.
 
+The 2026-08-08 public-page analytics restoration adds `completed_7d` to the
+`admin_overview_stats` return signature. Until the next verified full regen,
+`src/lib/types/database.ts` mirrors that single additive field by hand alongside
+the append-only migration `20260808201000_restore_admin_pageview_analytics.sql`.
+
 **Verified 2026-07-25:** every hand-edit above was probed against the live schema
 (column types, nullability, defaults, and `pg_get_functiondef` for each RPC) and
 matches. The file is truthful for everything C17/C18 touch; it remains stale for
@@ -863,6 +868,9 @@ Participating symbols:
 - `src/app/api/listings/[kind]/[id]/contact/route.ts` — **two** buckets per call, both keyed on `subject` = `user:<id>` when signed in, else `ip:<addr>`: `listing-contact:<subject>:<kind>:<id>` at 8/h and `listing-contact-all:<subject>` at 30/h. The per-listing bucket alone bounds nothing — with ~49 active listings a scraper stays inside it while taking the whole catalogue — so the cross-listing bucket is the one doing the work. Keying signed-in users on their own id is what stops anonymous traffic from a carrier NAT starving an authenticated user on the same egress. `device_id` is NOT in either key (client-supplied: rotating it minted a fresh budget per request, so the limit bound only honest clients) but is still written to `contact_reveal_events` for audit. This is friction, not prevention: only Turnstile stops a distributed scrape, and its secret is unset. Its listing lookup uses the explicit `properties_owner_id_fkey` / `services_owner_id_fkey` profile embeds; a lookup error is a `500 lookup_failed`, while only a successful lookup with no active row is `404`. Collapsing an ambiguous-relationship or database error into `404` hides outages as missing listings and breaks contact reveals silently
 - `src/lib/turnstile.ts:isTurnstileConfigured` — call-site gate. `verifyTurnstile` must keep returning `false` without a secret; the _caller_ skips it. Making the helper itself return `true` when unconfigured would silently disarm bot protection for every future caller
 - `src/app/api/banner-slots/track/route.ts` — its `limiterConfigured` workaround is **gone**; the limit now applies unconditionally, which is only correct because the limiter fails open
+- `src/app/api/track/view/route.ts:POST` — validates and stores public-page views, applies the shared limiter, and keeps the anonymous `mb_vid` cookie server-issued
+- `src/lib/analytics/pageview.ts:normalizePublicPageviewPath` — the shared public-route allow-list used by both the client beacon and server handler; dashboard/auth/API paths never enter analytics
+- `src/components/analytics/PageviewTracker.tsx:PageviewTracker` — emits one fire-and-forget beacon per normalized client navigation and suppresses immediate Strict Mode duplicates
 - `src/lib/types/database.ts:consume_rate_limit` — hand-added RPC signature (**C3**)
 - `scripts/check-production-config.mjs:validateProductionConfig` — must **not** require the Turnstile/Upstash vars. It briefly did, and the Vercel Production build failed on exactly those four names (deploy of `7c915c9`)
 
@@ -949,6 +957,18 @@ Platform status changes still use `transition_cleaning_task` and must follow
 `accepted → in_progress → completed`; manual rows are cleaner-owned direct updates.
 Do not optimistically remove either source when its transition returns an error.
 
+**The two tables share one exact-time slot invariant.** Migration
+`20260808200000_cleaner_slot_and_vip_exclusivity.sql` attaches the same
+`enforce_cleaner_schedule_slot` trigger to both tables. With no duration column,
+collision means equal `(cleaner_id, scheduled_at)`: every manual row occupies its
+slot, while platform `pending`/`accepted`/`in_progress`/`completed` rows occupy and
+`declined`/`cancelled` rows release it. The trigger takes a transaction advisory
+lock before checking both tables, so concurrent cross-source inserts cannot both
+win. It raises stable `23P01` / `cleaner_schedule_slot_conflict`; both writer UIs
+must map that outcome to their localized time-conflict copy. Existing duplicates
+are deliberately preserved, and status-only progress at an unchanged legacy slot
+remains valid; creating, moving, or reactivating into an occupied slot is rejected.
+
 **Two deliberate omissions — do not "fix" without re-reading the migration comment:**
 
 1. **No audit trigger.** `audit_row_change()` snapshots the whole row into
@@ -975,6 +995,10 @@ the two tables by relaxing `cleaning_tasks.property_id`/`owner_id` to NULL — t
 re-opens the browser write path the security remediation closed, fires the
 owner-notification triggers back at the cleaner, and leaks manual rows into the renter
 and cabinet-derivation queries listed above.
+
+The schedule page additionally fetches platform `pending` rows into its occupied
+slot set without rendering them as accepted work. Removing that hidden reservation
+read makes the manual-task modal offer times that the database will reject.
 
 ---
 
@@ -1255,3 +1279,106 @@ review); general content approval is allowed to transition `food_discount` rows 
 charge); a public query orders raw `discount_percent` instead of `has_active_discount` (expired offers
 stay promoted); a later `public_services` restatement drops `has_active_discount`; or submit-time and
 approval-time prices are recomputed independently (reviewed amount and charged amount diverge).
+
+---
+
+## C22 — Per-listing analytics: only three metrics, all event-backed
+
+**Invariant:** the owner-facing "ანალიტიკა" panel shows exactly three metrics — views, phone/WhatsApp
+reveals, favorites — and nothing else, because those are the only signals with a real per-event log.
+There is deliberately **no "impressions" metric** (how often a listing appeared in a search/grid list);
+nothing tracks that today, and the panel must never approximate or fabricate it. Adding a fourth metric
+to this panel requires a real event source first, not just a UI mock.
+
+Participating symbols:
+
+- `supabase/migrations/20260808120000_listing_analytics.sql:listing_view_events` — new event log,
+  mirrors `contact_reveal_events`'s posture exactly (RLS enabled, no policies, all grants revoked from
+  PUBLIC/anon/authenticated — readable only through the RPC below)
+- `supabase/migrations/20260808120000_listing_analytics.sql:record_listing_view` — SECURITY DEFINER
+  wrapper, `service_role`-only EXECUTE. Bumps `properties.views_count`/`services.views_count` AND inserts
+  a `listing_view_events` row atomically. A NEW function rather than adding a parameter to the legacy
+  `increment_views`/`increment_service_views` — `CREATE OR REPLACE` only replaces an identical signature,
+  so adding an arg creates a second resolvable overload instead of retiring the old one. Those two legacy
+  RPCs are left in place, untouched; nothing else calls them
+- `supabase/migrations/20260808120000_listing_analytics.sql:listing_analytics` — the read RPC.
+  SECURITY DEFINER, granted to `authenticated`, but the ownership check inside is keyed on `auth.uid()`
+  against the listing's `owner_id` — this only resolves correctly when called through the **user-scoped**
+  server client, never `createServiceClient()` (that would make `auth.uid()` NULL and reject every
+  legitimate call). Buckets daily in `Asia/Tbilisi`, not UTC, so an evening event lands on the correct
+  Georgian calendar day. `p_days` is clamped server-side to `[1, 90]`
+- `src/app/api/listings/[kind]/[id]/view/route.ts` — now calls `record_listing_view` instead of the
+  legacy increment RPCs; the existing `checkRateLimit` dedup (1/IP/kind/id/24h, C16) is unchanged and
+  still runs first, so the event log inherits the same dedup guarantee as the counter
+- `src/app/api/listings/[kind]/[id]/analytics/route.ts` — GET, user-scoped `createClient()` (not
+  service client — see above), maps the RPC's `42501` to HTTP `403`
+- `src/components/renter/ListingAnalyticsPanel.tsx` — the one shared panel component, used by BOTH
+  dashboards below. Three stat tiles double as the metric switcher; a period pill (7d/30d) refetches;
+  a single Recharts `Area` renders whichever metric is selected
+- `src/app/[locale]/dashboard/renter/RenterDashboardClient.tsx:PropertyRow` — rentals. The "ანალიტიკა"
+  button sits next to "გადახდა" in both the desktop action row and the mobile compact row (which is now
+  `grid-cols-4`, was `grid-cols-3`)
+- `src/app/[locale]/dashboard/seller/SellerDashboardClient.tsx` — individually-owned sale listings
+  (`owner_id = uid AND organization_id IS NULL`, per C11's personal-scope filter). The button is passed
+  as a `children` node to `src/components/dashboard/ListingActions.tsx`, which already supports extra
+  buttons after Edit — `ListingActions.tsx` itself was NOT modified
+- `messages/{ka,en,ru}.json:DashboardShared.analytics` — shared namespace (not `RenterDashboard` or a
+  seller-specific one), since the one panel component serves both dashboards
+
+**`totals.views` and the views series intentionally disagree.** `totals.views` reads the lifetime
+`views_count` counter (all history, since the column has always existed); the views entry in `series`
+only has real data from whenever this migration shipped forward, because `listing_view_events` has no
+history to backfill and none was fabricated. `reveals`/`favorites` totals and series are mutually
+consistent (both computed from event tables that already existed). The panel's `viewsCaveat` copy exists
+specifically to make this honest rather than let it read as a bug.
+
+**Also check:** `src/lib/types/database.ts` carries `listing_view_events` and the two new RPC signatures
+as hand-edits (C3) — `contact_reveal_events` itself is still absent from that file (a pre-existing gap
+this feature did not create or fix). Not added to `supabase_realtime` (C7) — deliberately fetch-on-expand
+only, no live updates.
+
+**Breaks silently when:** a future metric is added to the panel without a real per-event source behind it
+(reintroduces the fabricated-impressions problem this contract exists to prevent); the analytics route is
+changed to use `createServiceClient()` (every request 403s, since `auth.uid()` goes NULL); a new
+cross-listing read path skips the `auth.uid() <> owner_id` check inside `listing_analytics` (any
+authenticated user could read any listing's stats); or `record_listing_view` is dropped in favor of
+re-adding a parameter to `increment_views`/`increment_service_views` (creates a silently-ambiguous
+overload rather than a clean replacement, the exact trap C19 and others document elsewhere in this file).
+
+---
+
+## C23 — Standard VIP and SUPER VIP are mutually exclusive
+
+**Invariant:** an active SUPER VIP listing cannot buy standard VIP. This applies
+equally to `properties` and `services`, to `purchase_package` and the legacy
+`purchase_vip` RPC, and to every dashboard/balance picker. SUPER VIP activation
+replaces standard VIP immediately; it does not refund or preserve the old tier's
+remaining time. Once a stale SUPER VIP expiry is in the past, standard VIP may be
+purchased and clears the stale flag.
+
+Participating symbols:
+
+- `supabase/migrations/20260808200000_cleaner_slot_and_vip_exclusivity.sql` —
+  normalizes historical dual flags in favor of SUPER VIP, adds CHECK constraints,
+  and installs one BEFORE trigger on both listing tables. A standard purchase
+  during active SUPER VIP raises stable `23P01` / `vip_tier_conflict`; because the
+  listing update is inside the purchase RPC transaction, balance debit,
+  transaction insert, and notifications roll back too
+- `supabase/functions/purchase-vip/index.ts:userSafePurchaseError` — converts only
+  that stable database message to a safe HTTP 409 body (`error:
+  "vip_tier_conflict"`). This edge function must be redeployed with the migration;
+  otherwise clients receive a generic 500 even though the database still protects
+  the balance
+- `src/lib/utils/pricing.ts:isSuperVipActive` — the shared null-expiry/future-expiry
+  predicate used by listing badges, action rows, package cards, and picker mappings
+- `src/components/dashboard/ListingActions.tsx`, renter's two custom action rows,
+  `VipPropertyPickerModal.tsx`, and the three balance implementations — native
+  disabled controls are the UX guard; the trigger remains the authority
+- `src/lib/promotion-purchase.ts:promotionPurchaseError` — parses the edge response
+  and substitutes localized copy without exposing other database errors
+
+**Breaks silently when:** a new listing action checks raw `is_super_vip` without
+the shared expiry predicate (expired listings stay disabled); a picker caller omits
+`standardVipDisabled` (the row looks selectable but fails at payment); a purchase
+writer bypasses both RPCs (the table trigger still protects flags, but its error
+mapping is lost); or the migration and edge function deploy out of order.

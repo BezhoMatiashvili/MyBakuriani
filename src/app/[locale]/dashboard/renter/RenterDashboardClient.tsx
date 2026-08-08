@@ -33,6 +33,7 @@ import VipInfoModal, {
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 import type { Tables } from "@/lib/types/database";
 import {
   loadRenterOverview,
@@ -420,6 +421,10 @@ export default function RenterDashboardClient({
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
           price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          standardVipDisabled: isSuperVipActive(
+            p.is_super_vip,
+            p.vip_expires_at,
+          ),
         }))}
         target="property"
         onPurchased={async () => {
@@ -449,6 +454,7 @@ function PropertyRow({
   onOpenTier: (tier: VipInfoTier) => void;
 }) {
   const t = useTranslations("RenterDashboard");
+  const tShared = useTranslations("DashboardShared");
   const tAnalytics = useTranslations("DashboardShared.analytics");
   const locale = useLocale();
   const photo = (property.photos ?? [])[0];
@@ -662,8 +668,22 @@ function PropertyRow({
             </button>
             <button
               type="button"
+              disabled={isSuperVipActive(
+                property.is_super_vip,
+                property.vip_expires_at,
+              )}
               onClick={() => onOpenTier("vip")}
-              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
+              title={
+                isSuperVipActive(property.is_super_vip, property.vip_expires_at)
+                  ? tShared("superVipBlocksVip")
+                  : undefined
+              }
+              aria-label={
+                isSuperVipActive(property.is_super_vip, property.vip_expires_at)
+                  ? `VIP — ${tShared("superVipBlocksVip")}`
+                  : "VIP"
+              }
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8] disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0 sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
             >
               <Zap className="size-3 shrink-0" />
               VIP

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import VipPropertyPickerModal, {
   type PickerProperty,
 } from "@/components/renter/VipPropertyPickerModal";
@@ -12,6 +13,7 @@ import {
   packageForPromotionTier,
   type PricingPackage,
 } from "@/lib/pricing-packages";
+import { promotionPurchaseError } from "@/lib/promotion-purchase";
 
 interface PackagePromotionPickerProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ export default function PackagePromotionPicker({
   packageId,
   onPurchased,
 }: PackagePromotionPickerProps) {
+  const t = useTranslations("DashboardShared");
   const supabase = createClient();
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [purchasing, setPurchasing] = useState(false);
@@ -85,7 +88,9 @@ export default function PackagePromotionPicker({
               }),
             },
           });
-          if (error) throw error;
+          if (error) {
+            throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+          }
           await onPurchased?.();
         } finally {
           setPurchasing(false);

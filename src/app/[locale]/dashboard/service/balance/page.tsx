@@ -23,6 +23,7 @@ import {
 import { formatDate } from "@/lib/utils/format";
 import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
@@ -196,6 +197,15 @@ export default function ServiceBalancePage() {
           const display = getPackageDisplay(pkg);
           const tier = inferVipInfoTier(pkg);
           const price = pkg.amount_gel;
+          const standardVipAvailable =
+            tier !== "vip" ||
+            services.some(
+              (service) =>
+                !isSuperVipActive(
+                  service.is_super_vip,
+                  service.vip_expires_at,
+                ),
+            );
           return (
             <BalancePackageCard
               key={pkg.id}
@@ -208,6 +218,12 @@ export default function ServiceBalancePage() {
               unit={display.unit}
               ctaColor={display.ctaColor}
               canAfford={(balance?.amount ?? 0) >= price}
+              available={standardVipAvailable}
+              disabledReason={
+                standardVipAvailable
+                  ? undefined
+                  : tShared("noVipEligibleListings")
+              }
               purchasing={purchasing === pkg.id}
               onHowItWorks={() =>
                 setVipModal({ open: true, tier })
@@ -306,6 +322,10 @@ export default function ServiceBalancePage() {
           id: s.id,
           title: s.title,
           photoUrl: (s.photos ?? [])[0] ?? null,
+          standardVipDisabled: isSuperVipActive(
+            s.is_super_vip,
+            s.vip_expires_at,
+          ),
         }))}
         onPurchased={async () => {
           if (!user) return;

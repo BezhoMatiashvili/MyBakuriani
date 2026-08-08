@@ -208,28 +208,31 @@ export default function TransportDetailClient({
         </div>
       </motion.div>
 
-      {/* Stats row (flat, no card) */}
+      {/* Compact mobile spec tiles; flat four-column row on wider screens. */}
       <motion.div
         {...fadeIn}
         transition={{ duration: 0.4, delay: 0.2 }}
-        className="mt-8 grid grid-cols-1 gap-6 border-t border-b border-[#E2E8F0] py-6 sm:grid-cols-3"
+        data-testid="transport-detail-stats"
+        className="mt-6 grid grid-cols-2 gap-2 border-b border-[#E2E8F0] pb-6 md:mt-8 md:grid-cols-4 md:gap-6 md:border-t md:py-6"
       >
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
-            <Users className="h-3.5 w-3.5" />
-            {t("seats")}
-          </span>
-          <span className="text-[15px] font-black text-[#1E293B]">
-            {t("seatsCount", { count: service.vehicle_capacity ?? 8 })}
-          </span>
-        </div>
+        {service.vehicle_capacity != null && (
+          <div className="flex min-w-0 flex-col gap-1 rounded-[14px] border border-[#E2E8F0] bg-white px-3 py-3 md:rounded-none md:border-0 md:bg-transparent md:p-0">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:text-[11px]">
+              <Users className="h-3.5 w-3.5" />
+              {t("seats")}
+            </span>
+            <span className="break-words text-[13px] font-black text-[#1E293B] md:text-[15px]">
+              {t("seatsCount", { count: service.vehicle_capacity })}
+            </span>
+          </div>
+        )}
         {service.transport_type && (
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+          <div className="flex min-w-0 flex-col gap-1 rounded-[14px] border border-[#E2E8F0] bg-white px-3 py-3 md:rounded-none md:border-0 md:bg-transparent md:p-0">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:text-[11px]">
               <Gauge className="h-3.5 w-3.5" />
               {t("type")}
             </span>
-            <span className="text-[15px] font-black text-[#1E293B]">
+            <span className="break-words text-[13px] font-black text-[#1E293B] md:text-[15px]">
               {service.transport_type &&
               tCard.has(`transportTypes.${service.transport_type}`)
                 ? tCard(`transportTypes.${service.transport_type}`)
@@ -238,23 +241,23 @@ export default function TransportDetailClient({
           </div>
         )}
         {service.vehicle_color && (
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+          <div className="flex min-w-0 flex-col gap-1 rounded-[14px] border border-[#E2E8F0] bg-white px-3 py-3 md:rounded-none md:border-0 md:bg-transparent md:p-0">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:text-[11px]">
               <Palette className="h-3.5 w-3.5" />
               {t("color")}
             </span>
-            <span className="text-[15px] font-black text-[#1E293B]">
+            <span className="break-words text-[13px] font-black text-[#1E293B] md:text-[15px]">
               {optionLabel("vehicleColors", service.vehicle_color)}
             </span>
           </div>
         )}
         {languagesText && (
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+          <div className="flex min-w-0 flex-col gap-1 rounded-[14px] border border-[#E2E8F0] bg-white px-3 py-3 md:rounded-none md:border-0 md:bg-transparent md:p-0">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:text-[11px]">
               <Languages className="h-3.5 w-3.5" />
               {t("languages")}
             </span>
-            <span className="text-[15px] font-black text-[#1E293B]">
+            <span className="break-words text-[13px] font-black text-[#1E293B] md:text-[15px]">
               {languagesText}
             </span>
           </div>
@@ -266,16 +269,16 @@ export default function TransportDetailClient({
         <motion.div
           {...fadeIn}
           transition={{ duration: 0.4, delay: 0.25 }}
-          className="mt-6"
+          className="mt-5 md:mt-6"
         >
-          <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+          <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:mb-4">
             {t("equipmentAndSafety")}
           </h2>
           <div className="flex flex-wrap gap-2">
             {service.equipment.map((item) => (
               <span
                 key={item}
-                className="rounded-[14px] border border-[#DBEAFE] bg-[#EFF6FF] px-4 py-2 text-[13px] font-semibold text-[#2563EB]"
+                className="rounded-[12px] border border-[#DBEAFE] bg-[#EFF6FF] px-3 py-1.5 text-[12px] font-semibold text-[#2563EB] md:rounded-[14px] md:px-4 md:py-2 md:text-[13px]"
               >
                 {optionLabel("vehicleEquipment", item)}
               </span>
@@ -289,16 +292,16 @@ export default function TransportDetailClient({
         <motion.div
           {...fadeIn}
           transition={{ duration: 0.4, delay: 0.27 }}
-          className="mt-6"
+          className="mt-5 md:mt-6"
         >
-          <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+          <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:mb-4">
             {t("comfortAndServices")}
           </h2>
           <div className="flex flex-wrap gap-2">
             {service.features.map((item) => (
               <span
                 key={item}
-                className="rounded-[14px] border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-2 text-[13px] font-semibold text-[#16A34A]"
+                className="rounded-[12px] border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-[12px] font-semibold text-[#16A34A] md:rounded-[14px] md:px-4 md:py-2 md:text-[13px]"
               >
                 {optionLabel("transportFeatures", item)}
               </span>
@@ -312,12 +315,12 @@ export default function TransportDetailClient({
         <motion.div
           {...fadeIn}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="mt-8"
+          className="mt-6 md:mt-8"
         >
-          <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
+          <h2 className="mb-3 text-[15px] font-black leading-6 text-[#0F172A] md:text-[20px] md:leading-[30px]">
             {t("description")}
           </h2>
-          <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
+          <p className="whitespace-pre-line rounded-[14px] border border-[#E2E8F0] bg-white px-4 py-3 text-[14px] font-medium leading-6 text-[#475569] md:rounded-none md:border-0 md:bg-transparent md:p-0 md:text-[15px] md:leading-[27px]">
             {service.description}
           </p>
         </motion.div>
@@ -328,7 +331,7 @@ export default function TransportDetailClient({
         <motion.div
           {...fadeIn}
           transition={{ duration: 0.4, delay: 0.35 }}
-          className="mt-8"
+          className="mt-6 md:mt-8"
         >
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             {t("routeAndPrice")}
@@ -337,12 +340,12 @@ export default function TransportDetailClient({
             {routePricing.map((row, i) => (
               <div
                 key={i}
-                className={`flex items-center justify-between gap-4 p-6 ${
+                className={`flex items-center justify-between gap-3 p-4 md:gap-4 md:p-6 ${
                   i > 0 ? "border-t border-[#E2E8F0]" : ""
                 }`}
               >
                 <div className="min-w-0">
-                  <p className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]">
+                  <p className="text-[14px] font-black leading-tight text-[#1E293B] md:text-[20px]">
                     {optionLabel("transportRoutes", row.route)}
                   </p>
                 </div>
@@ -352,7 +355,7 @@ export default function TransportDetailClient({
                       {formatPrice(row.price)}
                     </p>
                   )}
-                  <p className="text-[22px] font-black leading-tight text-[#1E293B] sm:text-[26px]">
+                  <p className="text-[20px] font-black leading-tight text-[#1E293B] md:text-[26px]">
                     {formatPrice(discounted(row.price))}
                   </p>
                   <p className="mt-0.5 text-[12px] text-[#94A3B8]">
@@ -368,18 +371,18 @@ export default function TransportDetailClient({
           <motion.div
             {...fadeIn}
             transition={{ duration: 0.4, delay: 0.35 }}
-            className="mt-8"
+            className="mt-6 md:mt-8"
           >
             <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               {t("routeAndPrice")}
             </h2>
-            <div className="flex flex-col gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-between gap-3 rounded-[20px] border border-[#E2E8F0] bg-white p-4 md:gap-4 md:p-6">
               <div className="min-w-0">
                 <ul className="flex flex-col gap-1">
                   {routes.map((r) => (
                     <li
                       key={r}
-                      className="text-[18px] font-black leading-tight text-[#1E293B] sm:text-[20px]"
+                      className="text-[14px] font-black leading-tight text-[#1E293B] md:text-[20px]"
                     >
                       {optionLabel("transportRoutes", r)}
                     </li>
@@ -390,13 +393,13 @@ export default function TransportDetailClient({
                 </p>
               </div>
               {service.price != null && (
-                <div className="shrink-0 sm:text-right">
+                <div className="shrink-0 text-right">
                   {discountActive && (
                     <p className="text-[13px] font-bold text-[#94A3B8] line-through">
                       {formatPrice(service.price)}
                     </p>
                   )}
-                  <p className="text-[26px] font-black leading-tight text-[#1E293B] sm:text-[28px]">
+                  <p className="text-[20px] font-black leading-tight text-[#1E293B] md:text-[28px]">
                     {formatPrice(discounted(service.price))}
                   </p>
                   {service.price_unit && (

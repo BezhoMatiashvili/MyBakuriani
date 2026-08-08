@@ -21,6 +21,7 @@ import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 
 const constructionStatusLabel: Record<string, string> = {
   under_construction: "მშენებარე",
@@ -282,6 +283,10 @@ export default function SellerListingsPage() {
                     viewUrl={propertyViewUrl(property)}
                     editUrl={propertyEditUrl(property)}
                     onPromote={(tier) => setPickerModal({ open: true, tier })}
+                    standardVipDisabled={isSuperVipActive(
+                      property.is_super_vip,
+                      property.vip_expires_at,
+                    )}
                   >
                     <button
                       type="button"
@@ -320,6 +325,10 @@ export default function SellerListingsPage() {
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
           price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          standardVipDisabled: isSuperVipActive(
+            p.is_super_vip,
+            p.vip_expires_at,
+          ),
         }))}
         target="property"
         onPurchased={async () => {

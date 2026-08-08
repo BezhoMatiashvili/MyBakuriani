@@ -236,6 +236,9 @@ test.describe("Seller Dashboard", () => {
     expect(sheetBox?.height).toBeGreaterThanOrEqual(800);
     await expect(switcher.getByText("სტუმარი", { exact: true })).toHaveCount(0);
     await expect(menu.getByText("მთავარი პანელი", { exact: true })).toBeVisible();
+    await expect(
+      menu.getByRole("link", { name: "მთავარი პანელი", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
     await expect(menu.getByText("ობიექტები და პროექტები", { exact: true })).toBeVisible();
     await expect(menu.getByText(/\d+\.\d{2} ₾/)).toBeVisible();
     expect(await sellerPage.evaluate(() => document.body.style.overflow)).toBe(
@@ -243,6 +246,18 @@ test.describe("Seller Dashboard", () => {
     );
     await sellerPage.keyboard.press("Escape");
     await expect(menu).toBeHidden();
+
+    await sellerPage.goto("/dashboard/seller/analytics");
+    if (!(await assertDashboard(sellerPage, "/dashboard/seller/analytics")))
+      return;
+    await sellerPage
+      .locator('button[aria-controls="dashboard-more-sheet"]')
+      .click();
+    await expect(
+      sellerPage
+        .getByTestId("seller-mobile-menu-list")
+        .getByRole("link", { name: "ანალიტიკა და უკუგება", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
 
     const overflows = await sellerPage.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,

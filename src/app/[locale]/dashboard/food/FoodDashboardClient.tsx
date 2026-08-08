@@ -25,6 +25,7 @@ import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadge
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 import { loadFoodData, type FoodData, type OwnerStats } from "./loadData";
 
 type Service = Tables<"services">;
@@ -304,6 +305,10 @@ export default function FoodDashboardClient({
             viewUrl={serviceViewUrl(restaurant)}
             editUrl={serviceEditUrl(restaurant)}
             onPromote={(tier) => setPickerModal({ open: true, tier })}
+            standardVipDisabled={isSuperVipActive(
+              restaurant.is_super_vip,
+              restaurant.vip_expires_at,
+            )}
           />
         )}
       </motion.div>
@@ -323,6 +328,10 @@ export default function FoodDashboardClient({
                   photoUrl: (restaurant.photos ?? [])[0] ?? null,
                   badgeLabel: tShared("foodBadge"),
                   badgeColor: "blue",
+                  standardVipDisabled: isSuperVipActive(
+                    restaurant.is_super_vip,
+                    restaurant.vip_expires_at,
+                  ),
                 },
               ]
             : []

@@ -181,7 +181,7 @@ export default function ServicesPageClient({ services }: Props) {
           <>
             <div
               data-testid="services-results-grid"
-              className="grid grid-cols-1 gap-4 min-[375px]:grid-cols-2 min-[375px]:gap-3 lg:grid-cols-3 lg:gap-6"
+              className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-6"
             >
               <BannerSlot
                 placement="listing_top"
@@ -193,7 +193,6 @@ export default function ServicesPageClient({ services }: Props) {
               {paginated.map((s, i) => (
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <ServiceCard
-                    mobilePresentation="compact-grid"
                     id={s.id}
                     createdAt={s.created_at}
                     title={s.title}

@@ -40,6 +40,7 @@ import type { Tables } from "@/lib/types/database";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
+import HostLanguages from "@/components/detail/HostLanguages";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -285,6 +286,8 @@ export default function ApartmentDetailClient({
               />
             </motion.div>
           )}
+
+          <HostLanguages value={houseRulesObj.hosting_langs} />
 
           {/* Location with Map */}
           <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>

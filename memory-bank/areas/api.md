@@ -19,6 +19,8 @@ from Deno edge functions; see `edge.md`).
   is public, no-store, and accepts only accept/decline/revoke (**C18**).
 - `src/app/api/food/discount-requests/route.ts` owns restaurant discount submission/status;
   admin approval dispatches food requests to the specialized single-charge RPC (**C21**).
+- `src/app/api/track/view/route.ts` accepts only normalized public routes, rate-limits
+  through the shared backend, and records anonymous/authenticated page views (**C16**).
 - `src/app/actions/` — server actions (`revalidateListing.ts`).
 
 ## Responsibilities
@@ -40,4 +42,5 @@ from Deno edge functions; see `edge.md`).
 ## Contracts touching this area
 
 C3 (types), C6 (external calls), C8 (admin gating), C20 (manual-booking history),
-C21 (restaurant discount submission and approval).
+C21 (restaurant discount submission and approval), C16 (shared rate limiting for
+the public-page view beacon).

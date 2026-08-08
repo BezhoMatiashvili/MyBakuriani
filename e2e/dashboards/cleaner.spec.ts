@@ -1,4 +1,5 @@
 import { type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { test, expect } from "../helpers/fixtures";
 import { services, supabaseAdmin } from "../helpers/supabase";
 
@@ -59,6 +60,91 @@ test.describe("Cleaner Dashboard", () => {
 
     await expect(cleanerPage.locator("main")).toBeVisible();
     await expect(cleanerPage).toHaveURL(/\/dashboard\/cleaner\/schedule/);
+  });
+
+  test("exact cleaner slots are exclusive across both task sources", async ({
+    testIds,
+  }) => {
+    const platformId = randomUUID();
+    const releasedId = randomUUID();
+    const manualId = randomUUID();
+    const concurrentIds = [randomUUID(), randomUUID()];
+    const { data: existingManual, error: lookupError } = await supabaseAdmin
+      .from("cleaner_manual_tasks")
+      .select("scheduled_at")
+      .eq("id", testIds.cleanerManualTask)
+      .single();
+    expect(lookupError).toBeNull();
+
+    const platformPayload = {
+      property_id: testIds.apartment,
+      owner_id: testIds.renter,
+      cleaner_id: testIds.cleaner,
+      cleaning_type: "standard",
+      scheduled_at: existingManual!.scheduled_at,
+      price: 80,
+    };
+
+    try {
+      const occupied = await supabaseAdmin
+        .from("cleaning_tasks")
+        .insert({ ...platformPayload, id: platformId, status: "pending" });
+      expect(occupied.error?.code).toBe("23P01");
+      expect(occupied.error?.message).toContain(
+        "cleaner_schedule_slot_conflict",
+      );
+
+      const released = await supabaseAdmin
+        .from("cleaning_tasks")
+        .insert({ ...platformPayload, id: releasedId, status: "declined" });
+      expect(released.error).toBeNull();
+
+      const freeSlot = new Date(Date.now() + 21 * 86_400_000);
+      freeSlot.setHours(10, 17, 0, 0);
+      const reserve = await supabaseAdmin.from("cleaning_tasks").insert({
+        ...platformPayload,
+        id: platformId,
+        scheduled_at: freeSlot.toISOString(),
+        status: "pending",
+      });
+      expect(reserve.error).toBeNull();
+      const manualConflict = await supabaseAdmin
+        .from("cleaner_manual_tasks")
+        .insert({
+          id: manualId,
+          cleaner_id: testIds.cleaner,
+          client_name: "E2E conflicting client",
+          cleaning_type: "standard",
+          scheduled_at: freeSlot.toISOString(),
+          status: "accepted",
+        });
+      expect(manualConflict.error?.code).toBe("23P01");
+
+      const raceSlot = new Date(freeSlot.getTime() + 60_000).toISOString();
+      const race = await Promise.all(
+        concurrentIds.map((id) =>
+          supabaseAdmin.from("cleaner_manual_tasks").insert({
+            id,
+            cleaner_id: testIds.cleaner,
+            client_name: `E2E race ${id.slice(0, 4)}`,
+            cleaning_type: "standard",
+            scheduled_at: raceSlot,
+            status: "accepted",
+          }),
+        ),
+      );
+      expect(race.filter((result) => result.error === null)).toHaveLength(1);
+      expect(race.filter((result) => result.error?.code === "23P01")).toHaveLength(1);
+    } finally {
+      await supabaseAdmin
+        .from("cleaning_tasks")
+        .delete()
+        .in("id", [platformId, releasedId]);
+      await supabaseAdmin
+        .from("cleaner_manual_tasks")
+        .delete()
+        .in("id", [manualId, ...concurrentIds]);
+    }
   });
 
   test("overview merges personal work into scheduled tasks", async ({

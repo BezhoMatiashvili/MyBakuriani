@@ -23,6 +23,7 @@ import FoodDiscountRequestModal from "@/components/dashboard/FoodDiscountRequest
 import { formatDate } from "@/lib/utils/format";
 import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
@@ -190,6 +191,15 @@ export default function FoodBalancePage() {
           packages.map((pkg) => {
             const display = getPackageDisplay(pkg, locale);
             const tier = inferVipInfoTier(pkg);
+            const standardVipAvailable =
+              tier !== "vip" ||
+              Boolean(
+                restaurant &&
+                  !isSuperVipActive(
+                    restaurant.is_super_vip,
+                    restaurant.vip_expires_at,
+                  ),
+              );
             return (
               <BalancePackageCard
                 key={pkg.id}
@@ -202,6 +212,12 @@ export default function FoodBalancePage() {
                 unit={display.unit}
                 ctaColor={display.ctaColor}
                 canAfford={(balance?.amount ?? 0) >= pkg.amount_gel}
+                available={standardVipAvailable}
+                disabledReason={
+                  standardVipAvailable
+                    ? undefined
+                    : tShared("noVipEligibleListings")
+                }
                 purchasing={purchasing === pkg.id}
                 onHowItWorks={() => setVipModal({ open: true, tier })}
                 onActivate={() =>
@@ -300,6 +316,10 @@ export default function FoodBalancePage() {
           photoUrl: (restaurant.photos ?? [])[0] ?? null,
           badgeLabel: tShared("foodBadge"),
           badgeColor: "blue",
+          standardVipDisabled: isSuperVipActive(
+            restaurant.is_super_vip,
+            restaurant.vip_expires_at,
+          ),
         }] : []}
         onPurchased={async () => {
           if (!user || !restaurant) return;

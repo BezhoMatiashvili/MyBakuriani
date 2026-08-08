@@ -20,6 +20,8 @@ import {
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import { formatDate } from "@/lib/utils/format";
+import { isSuperVipActive } from "@/lib/utils/pricing";
+import { promotionPurchaseError } from "@/lib/promotion-purchase";
 import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 
@@ -175,7 +177,9 @@ export default function PropertyBalanceClient() {
       const { error } = await supabase.functions.invoke("purchase-vip", {
         body: { package_id: pkg.id, quantity: 1 },
       });
-      if (error) throw error;
+      if (error) {
+        throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+      }
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")
@@ -208,7 +212,9 @@ export default function PropertyBalanceClient() {
           }),
         },
       });
-      if (error) throw error;
+      if (error) {
+        throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+      }
 
       const { data: txData } = await supabase
         .from("transactions")
@@ -282,6 +288,15 @@ export default function PropertyBalanceClient() {
           sortedPackages.map((pkg) => {
             const display = getPackageDisplay(pkg, locale);
             const tier = inferVipInfoTier(pkg);
+            const standardVipAvailable =
+              tier !== "vip" ||
+              properties.some(
+                (property) =>
+                  !isSuperVipActive(
+                    property.is_super_vip,
+                    property.vip_expires_at,
+                  ),
+              );
             return (
               <BalancePackageCard
                 key={pkg.id}
@@ -294,6 +309,10 @@ export default function PropertyBalanceClient() {
                 unit={display.unit}
                 ctaColor={display.ctaColor}
                 canAfford={(balance?.amount ?? 0) >= pkg.amount_gel}
+                available={standardVipAvailable}
+                disabledReason={
+                  standardVipAvailable ? undefined : t("noVipEligibleListings")
+                }
                 purchasing={purchasing === pkg.id}
                 onHowItWorks={() => setVipModal({ open: true, tier })}
                 onActivate={() => handlePurchaseClick(pkg)}
@@ -389,6 +408,10 @@ export default function PropertyBalanceClient() {
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
           price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          standardVipDisabled: isSuperVipActive(
+            p.is_super_vip,
+            p.vip_expires_at,
+          ),
         }))}
         pkg={{
           amountGel: pickerPkg?.amount_gel ?? 0,

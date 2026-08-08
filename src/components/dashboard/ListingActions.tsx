@@ -21,6 +21,8 @@ interface ListingActionsProps {
   editUrl: string;
   /** When provided, renders the promote tier row. */
   onPromote?: (tier: VipInfoTier) => void;
+  /** Active SUPER VIP makes buying standard VIP invalid. */
+  standardVipDisabled?: boolean;
   /** Extra buttons rendered inline after Edit (e.g. delete, construction). */
   children?: ReactNode;
   className?: string;
@@ -36,12 +38,15 @@ export default function ListingActions({
   viewUrl,
   editUrl,
   onPromote,
+  standardVipDisabled = false,
   children,
   className,
   mobilePresentation = "default",
 }: ListingActionsProps) {
   const t = useTranslations("ListingActions");
+  const tShared = useTranslations("DashboardShared");
   const sellerOverview = mobilePresentation === "seller-overview";
+  const vipDisabledReason = tShared("superVipBlocksVip");
 
   return (
     <div className={className}>
@@ -62,8 +67,11 @@ export default function ListingActions({
               </button>
               <button
                 type="button"
+                disabled={standardVipDisabled}
                 onClick={() => onPromote("vip")}
-                className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8]"
+                aria-label={standardVipDisabled ? `VIP — ${vipDisabledReason}` : "VIP"}
+                title={standardVipDisabled ? vipDisabledReason : undefined}
+                className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8] disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0"
               >
                 <Star className="size-3 shrink-0" />
                 VIP
@@ -142,8 +150,11 @@ export default function ListingActions({
             </button>
             <button
               type="button"
+              disabled={standardVipDisabled}
               onClick={() => onPromote("vip")}
-              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
+              aria-label={standardVipDisabled ? `VIP — ${vipDisabledReason}` : "VIP"}
+              title={standardVipDisabled ? vipDisabledReason : undefined}
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-1.5 text-[10px] font-black uppercase tracking-tight text-[#BE185D] transition-colors hover:bg-[#FBCFE8] disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0 sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
             >
               <Ticket className="size-3 shrink-0" />
               VIP

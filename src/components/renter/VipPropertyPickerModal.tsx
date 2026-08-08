@@ -23,6 +23,8 @@ export interface PickerProperty {
   /** Overrides the rental/sale badge (e.g. a service category label). */
   badgeLabel?: string;
   badgeColor?: "blue" | "orange" | "green";
+  /** Standard VIP cannot target a listing with active SUPER VIP. */
+  standardVipDisabled?: boolean;
 }
 
 const TIER_KEYS: Record<
@@ -88,6 +90,14 @@ export default function VipPropertyPickerModal({
   const [targetPrice, setTargetPrice] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState(false);
+
+  const isEligible = (p: PickerProperty) =>
+    tier !== "vip" || !p.standardVipDisabled;
+  const eligibleProperties = properties.filter(isEligible);
+  const selectedProperty = properties.find((p) => p.id === selectedId);
+  const hasValidSelection = Boolean(
+    selectedProperty && isEligible(selectedProperty),
+  );
 
   const listingPrice = (p: PickerProperty | undefined) =>
     typeof p?.price === "number" && p.price > 0 ? p.price : null;
@@ -158,10 +168,14 @@ export default function VipPropertyPickerModal({
   };
 
   useEffect(() => {
-    if (properties.length > 0 && !selectedId) {
-      setSelectedId(properties[0].id);
-    }
-  }, [properties, selectedId]);
+    if (!isOpen) return;
+    setSelectedId((current) => {
+      const currentProperty = properties.find((p) => p.id === current);
+      if (currentProperty && isEligible(currentProperty)) return current;
+      return eligibleProperties[0]?.id ?? "";
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eligibility is fully represented by these inputs
+  }, [isOpen, properties, tier]);
 
   useEffect(() => {
     if (isOpen) {
@@ -219,7 +233,7 @@ export default function VipPropertyPickerModal({
   );
 
   const submitForReview = async () => {
-    if (!selectedId || reviewSubmitting) return;
+    if (!hasValidSelection || reviewSubmitting) return;
     setReviewSubmitting(true);
     setReviewError(false);
     try {
@@ -286,15 +300,25 @@ export default function VipPropertyPickerModal({
 
                   const renderRow = (p: PickerProperty) => {
                     const isSelected = selectedId === p.id;
+                    const disabled = !isEligible(p);
                     return (
                       <button
                         key={p.id}
                         type="button"
+                        disabled={disabled}
                         onClick={() => selectProperty(p)}
+                        title={disabled ? tShared("superVipBlocksVip") : undefined}
+                        aria-label={
+                          disabled
+                            ? `${p.title} — ${tShared("superVipBlocksVip")}`
+                            : p.title
+                        }
                         className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
                           isSelected
                             ? "border-[#2563EB] bg-[#EFF6FF]"
-                            : "border-[#EEF1F4] bg-white hover:border-[#CBD5E1]"
+                            : disabled
+                              ? "cursor-not-allowed border-[#EEF1F4] bg-[#F8FAFC] opacity-45 saturate-0"
+                              : "border-[#EEF1F4] bg-white hover:border-[#CBD5E1]"
                         }`}
                       >
                         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
@@ -338,6 +362,11 @@ export default function VipPropertyPickerModal({
                               {p.subtitle}
                             </p>
                           )}
+                          {disabled && (
+                            <p className="mt-0.5 text-[10px] font-bold text-[#B45309]">
+                              {tShared("superVipActive")}
+                            </p>
+                          )}
                         </div>
                         <span
                           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
@@ -379,6 +408,11 @@ export default function VipPropertyPickerModal({
                     </>
                   );
                 })()}
+                {properties.length > 0 && eligibleProperties.length === 0 && (
+                  <p role="status" className="rounded-xl bg-[#FFF7ED] px-3 py-2 text-center text-[11px] font-bold text-[#B45309]">
+                    {tShared("noVipEligibleListings")}
+                  </p>
+                )}
               </div>
 
               <div className="mt-5 border-t border-[#EEF1F4] pt-5">
@@ -491,11 +525,11 @@ export default function VipPropertyPickerModal({
                   </div>
                   <button
                     type="button"
-                    disabled={!selectedId || loading || reviewSubmitting}
+                    disabled={!hasValidSelection || loading || reviewSubmitting}
                     onClick={() =>
                       reviewMode
                         ? void submitForReview()
-                        : selectedId && setConfirmOpen(true)
+                        : hasValidSelection && setConfirmOpen(true)
                     }
                     className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(37,99,235,0.3)] transition-colors hover:bg-[#1E40AF] disabled:opacity-50"
                   >

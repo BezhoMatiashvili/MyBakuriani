@@ -3,6 +3,7 @@ import {
   formatRelativeGe,
   isListingNewlyAdded,
 } from "../../src/lib/utils/format";
+import { normalizePublicPageviewPath } from "../../src/lib/analytics/pageview";
 
 // ---------------------------------------------------------------------------
 // Landing page
@@ -55,6 +56,16 @@ test.describe("Landing page", () => {
 });
 
 test.describe("PDF listing recency and public parity", () => {
+  test("page-view paths are locale-normalized and restricted to public routes", () => {
+    expect(normalizePublicPageviewPath("/en/services/abc")).toBe(
+      "/services/abc",
+    );
+    expect(normalizePublicPageviewPath("/ka")).toBe("/");
+    expect(normalizePublicPageviewPath("/dashboard/admin")).toBeNull();
+    expect(normalizePublicPageviewPath("/review/private-token")).toBeNull();
+    expect(normalizePublicPageviewPath("/services?phone=secret")).toBeNull();
+  });
+
   test("relative age and the rolling 24-hour boundary are deterministic", () => {
     const now = Date.parse("2026-08-08T12:00:00.000Z");
     expect(
@@ -120,7 +131,7 @@ test.describe("PDF listing recency and public parity", () => {
     await expect(card.locator('[data-slot="call-button"]')).toBeVisible();
   });
 
-  test("services and food switch to two compact columns at 375px", async ({
+  test("services use complete cards on phones while food stays compact", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 320, height: 800 });
@@ -132,7 +143,9 @@ test.describe("PDF listing recency and public parity", () => {
           .length,
       ),
     ).toBe(1);
-    let cards = page.locator('[data-service-card][data-mobile-presentation="compact-grid"]');
+    let cards = page.locator(
+      '[data-service-card][data-mobile-presentation="default"]',
+    );
     await expect(cards.nth(1)).toBeVisible();
     let first = await cards.first().boundingBox();
     let second = await cards.nth(1).boundingBox();
@@ -145,14 +158,15 @@ test.describe("PDF listing recency and public parity", () => {
         getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
           .length,
       ),
-    ).toBe(2);
-    cards = page.locator('[data-service-card][data-mobile-presentation="compact-grid"]');
+    ).toBe(1);
+    cards = page.locator(
+      '[data-service-card][data-mobile-presentation="default"]',
+    );
     await expect(cards.nth(1)).toBeVisible();
     first = await cards.first().boundingBox();
     second = await cards.nth(1).boundingBox();
-    expect(first!.y).toBeCloseTo(second!.y, 0);
-    expect(first!.width).toBeLessThan(180);
-    expect(second!.x).toBeGreaterThan(first!.x + first!.width - 1);
+    expect(second!.y).toBeGreaterThan(first!.y + first!.height - 1);
+    expect(first!.width).toBeGreaterThan(300);
 
     const whatsappCard = page.locator("[data-service-card]", {
       hasText: "E2E WhatsApp სერვისი",
@@ -168,12 +182,29 @@ test.describe("PDF listing recency and public parity", () => {
       whatsapp.boundingBox(),
     ]);
     expect(detailsBox!.height).toBeGreaterThanOrEqual(44);
-    expect(callBox!.width).toBe(44);
-    expect(callBox!.height).toBe(44);
-    expect(whatsappBox!.width).toBe(44);
-    expect(whatsappBox!.height).toBe(44);
+    expect(callBox!.width).toBeGreaterThanOrEqual(44);
+    expect(callBox!.height).toBeGreaterThanOrEqual(44);
+    expect(whatsappBox!.width).toBeGreaterThanOrEqual(44);
+    expect(whatsappBox!.height).toBeGreaterThanOrEqual(44);
     expect(callBox!.y).toBeCloseTo(whatsappBox!.y, 0);
 
+    await page.setViewportSize({ width: 640, height: 900 });
+    await page.reload();
+    expect(
+      await servicesGrid.evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      ),
+    ).toBe(2);
+    cards = page.locator(
+      '[data-service-card][data-mobile-presentation="default"]',
+    );
+    first = await cards.first().boundingBox();
+    second = await cards.nth(1).boundingBox();
+    expect(first!.y).toBeCloseTo(second!.y, 0);
+    expect(second!.x).toBeGreaterThan(first!.x + first!.width - 1);
+
+    await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/food");
     const foodGrid = page.getByTestId("food-results-grid");
     expect(
@@ -217,6 +248,7 @@ test.describe("PDF listing recency and public parity", () => {
     await expect(card.getByText("Mercedes-Benz", { exact: true })).toBeVisible();
     await expect(card.getByText("მინივენი", { exact: true })).toBeVisible();
 
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/transport/aae2ff00-4002-4000-a000-000000000002");
     await expect(page.getByText("Mercedes-Benz", { exact: true })).toBeVisible();
     await expect(page.getByText("მინივენი", { exact: true })).toBeVisible();
@@ -224,6 +256,88 @@ test.describe("PDF listing recency and public parity", () => {
     await expect(
       page.getByText("თბილისი - ბაკურიანი - თბილისი", { exact: true }),
     ).toBeVisible();
+
+    const stats = page.getByTestId("transport-detail-stats");
+    expect(
+      await stats.evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      ),
+    ).toBe(2);
+    const statBoxes = await stats.locator(":scope > div").evaluateAll((items) =>
+      items.map((item) => {
+        const box = item.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }),
+    );
+    expect(statBoxes).toHaveLength(4);
+    expect(statBoxes[0].y).toBeCloseTo(statBoxes[1].y, 0);
+    expect(statBoxes[2].y).toBeGreaterThan(
+      statBoxes[0].y + statBoxes[0].height - 1,
+    );
+
+    const sectionHeadings = await Promise.all(
+      [
+        "აღჭურვილობა და უსაფრთხოება",
+        "კომფორტი და სერვისები",
+        "აღწერა",
+        "მარშრუტი და ფასი",
+      ].map(async (name) =>
+        page.getByRole("heading", { name, exact: true }).boundingBox(),
+      ),
+    );
+    expect(sectionHeadings[0]!.y).toBeLessThan(sectionHeadings[1]!.y);
+    expect(sectionHeadings[1]!.y).toBeLessThan(sectionHeadings[2]!.y);
+    expect(sectionHeadings[2]!.y).toBeLessThan(sectionHeadings[3]!.y);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.reload();
+    expect(
+      await stats.evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      ),
+    ).toBe(4);
+  });
+
+  test("rental and hotel details show translated host languages after amenities", async ({
+    page,
+  }) => {
+    for (const [route, languages] of [
+      [
+        "/apartments/aae2ff00-1001-4000-a000-000000000001",
+        ["ქართული", "English"],
+      ],
+      [
+        "/hotels/aae2ff00-1005-4000-a000-000000000005",
+        ["Русский", "Arabic"],
+      ],
+    ] as const) {
+      await page.goto(route);
+      const amenities = page.getByTestId("property-amenity-groups");
+      const hostLanguages = page.getByTestId("host-languages");
+      await expect(amenities).toBeVisible();
+      await expect(hostLanguages).toBeVisible();
+      for (const language of languages) {
+        await expect(hostLanguages.getByText(language, { exact: true })).toBeVisible();
+      }
+      const [amenitiesBox, languagesBox, locationBox] = await Promise.all([
+        amenities.boundingBox(),
+        hostLanguages.boundingBox(),
+        page
+          .getByRole("heading", { name: "ზუსტი ლოკაცია", exact: true })
+          .boundingBox(),
+      ]);
+      expect(amenitiesBox!.y).toBeLessThan(languagesBox!.y);
+      expect(languagesBox!.y).toBeLessThan(locationBox!.y);
+    }
   });
 
   test("sales copy, status, and deterministic back destination stay aligned", async ({

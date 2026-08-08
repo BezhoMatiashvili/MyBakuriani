@@ -13,6 +13,8 @@ interface BalancePackageCardProps {
   unit: string;
   ctaColor: string;
   canAfford: boolean;
+  available?: boolean;
+  disabledReason?: string;
   purchasing: boolean;
   onHowItWorks: () => void;
   onActivate: () => void;
@@ -32,6 +34,8 @@ export default function BalancePackageCard({
   unit,
   ctaColor,
   canAfford,
+  available = true,
+  disabledReason,
   purchasing,
   onHowItWorks,
   onActivate,
@@ -52,6 +56,11 @@ export default function BalancePackageCard({
       <p className="mt-1.5 text-[12px] leading-[17px] text-[#64748B] sm:text-[13px] sm:leading-[19px]">
         {description}
       </p>
+      {!available && disabledReason && (
+        <p className="mt-2 text-[11px] font-bold leading-4 text-[#B45309]">
+          {disabledReason}
+        </p>
+      )}
       <button
         type="button"
         onClick={onHowItWorks}
@@ -70,9 +79,10 @@ export default function BalancePackageCard({
         </div>
         <button
           type="button"
-          disabled={!canAfford || purchasing}
+          disabled={!available || !canAfford || purchasing}
+          title={!available ? disabledReason : undefined}
           onClick={onActivate}
-          className={`inline-flex shrink-0 items-center rounded-xl px-3 py-2.5 text-[12px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:opacity-50 sm:px-5 sm:py-3 sm:text-[13px] ${ctaColor}`}
+          className={`inline-flex shrink-0 items-center rounded-xl px-3 py-2.5 text-[12px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0 sm:px-5 sm:py-3 sm:text-[13px] ${ctaColor}`}
         >
           {purchasing ? "..." : t("activate")}
         </button>

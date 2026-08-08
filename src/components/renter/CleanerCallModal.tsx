@@ -142,7 +142,12 @@ export default function CleanerCallModal({
 
     setSending(false);
     if (insertError) {
-      setError(t("sendError"));
+      setError(
+        insertError.code === "23P01" ||
+          insertError.message?.includes("cleaner_schedule_slot_conflict")
+          ? t("timeConflict")
+          : t("sendError"),
+      );
       return;
     }
     onSent?.();
@@ -249,14 +254,21 @@ export default function CleanerCallModal({
                   <Field label={tShared("date")}>
                     <DateField
                       value={date}
-                      onChange={setDate}
+                      onChange={(value) => {
+                        setDate(value);
+                        setError(null);
+                      }}
                       className="h-12 lg:h-[42px]"
                     />
                   </Field>
                   <Field label={tShared("time")}>
                     <TimeField
                       value={time}
-                      onChange={setTime}
+                      onChange={(value) => {
+                        setTime(value);
+                        setError(null);
+                      }}
+                      error={error === t("timeConflict")}
                       className="h-12 lg:h-[42px]"
                     />
                   </Field>

@@ -23,8 +23,6 @@ export function SkierLoader({
   const resolvedLabel = label ?? t("loading");
   const wrapperClass = wrapperByVariant[variant];
   const skierWidth = variant === "inline" ? "w-32" : "w-48 sm:w-56";
-  const contentGap = variant === "inline" ? "gap-6" : "gap-2 sm:gap-6";
-  const skierSpacing = variant === "inline" ? "" : "-mb-8 sm:mb-0";
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
     if (variant === "inline") return;
@@ -33,34 +31,19 @@ export function SkierLoader({
   }, [variant]);
 
   return (
-    <div className={[wrapperClass, className].filter(Boolean).join(" ")}>
-      <div className={`flex flex-col items-center ${contentGap}`}>
-        <div
-          className={`${skierWidth} ${skierSpacing} relative translate-y-2`}
-        >
+    <div
+      className={[wrapperClass, className].filter(Boolean).join(" ")}
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      data-testid="skier-loader"
+      data-loader-variant={variant}
+    >
+      <span className="sr-only">{resolvedLabel}</span>
+      <div className="flex flex-col items-center">
+        <div className={`${skierWidth} relative`} aria-hidden="true">
           <SkierSvg />
         </div>
-        {variant !== "inline" && resolvedLabel ? (
-          <div className="flex items-end gap-1">
-            <span className="text-xl font-medium leading-none tracking-tight text-slate-800 md:text-2xl">
-              {resolvedLabel}
-            </span>
-            <span className="ml-1 flex gap-1 pb-1">
-              <span
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400"
-                style={{ animationDelay: "0ms" }}
-              />
-              <span
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400"
-                style={{ animationDelay: "200ms" }}
-              />
-              <span
-                className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400"
-                style={{ animationDelay: "400ms" }}
-              />
-            </span>
-          </div>
-        ) : null}
       </div>
       {stuck && variant !== "inline" ? (
         <div className="mt-8 flex flex-col items-center gap-3">

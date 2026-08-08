@@ -46,6 +46,13 @@ Database schema, policies, and the generated type mirror.
   `public_services` restatement. It preserves the computed `has_active_discount`
   contract and appends the public transport-card fields `vehicle_make`,
   `transport_type`, `routes`, and `equipment`.
+- `20260808200000_cleaner_slot_and_vip_exclusivity.sql` is the latest invariant
+  migration: it serializes exact cleaner slots across platform/manual task tables
+  and makes standard VIP/SUPER VIP mutually exclusive on properties and services
+  without rewriting either purchase RPC signature (**C17**, **C23**).
+- `20260808201000_restore_admin_pageview_analytics.sql` restores the admin overview
+  RPC's public-traffic counters and adds a same-cohort `completed_7d` funnel stage;
+  its additive return field is mirrored in `database.ts` (**C3**).
 - **Adding an enum value is a two-transaction operation.** `ALTER TYPE … ADD
 VALUE` may run inside a transaction, but the new label cannot be _evaluated_
   until that transaction commits (`check_safe_enum_use` → `55P04`). Put the
@@ -69,4 +76,5 @@ RLS), C10 (discount badge duration/expiry — RPC + trigger; column on both
 properties and services, only written on properties), C13 (`property_type` enum
 fan-out — two-transaction add, 2 compile tripwires + 7 silent participants),
 C20 (manual-booking soft cancellation, restore, audit, and SMS eligibility),
-C21 (restaurant discount review, charging, and public ordering).
+C21 (restaurant discount review, charging, and public ordering), C23 (standard
+VIP/SUPER VIP exclusivity across both listing tables and purchase paths).

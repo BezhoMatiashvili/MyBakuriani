@@ -11,6 +11,8 @@ import {
   Search,
   Send,
   UserCheck,
+  Users,
+  Users2,
 } from "lucide-react";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import type { AdminStatsData } from "@/lib/admin/getAdminStats";
@@ -19,6 +21,8 @@ interface AdminKPIs {
   revenue: number;
   activeListings: number;
   registeredUsers: number;
+  totalVisits: number;
+  registeredVisitors: number;
 }
 
 export default function AdminDashboardClient({
@@ -42,14 +46,21 @@ export default function AdminDashboardClient({
     revenue: Number(initialStats?.net_revenue ?? 0),
     activeListings: Number(initialStats?.active_listings ?? 0),
     registeredUsers: Number(initialStats?.registered_users ?? 0),
+    totalVisits: Number(initialStats?.total_visits ?? 0),
+    registeredVisitors: Number(initialStats?.registered_visitors ?? 0),
   });
   const [pendingOver24] = useState(Number(initialStats?.pending_over_24h ?? 0));
 
-  // Rolling 7-day funnel computed by admin_overview_stats(): page views,
-  // /search opens and bookings. The trailing "completed" entry only feeds
-  // the last drop-off percentage.
+  // Every stage uses the same rolling 7-day window. completed_7d is restricted
+  // to bookings created in that same window instead of the lifetime total.
   const funnelCards = useMemo(
     () => [
+      {
+        label: t("funnelSiteVisits"),
+        value: Number(initialStats?.visits_7d ?? 0),
+        icon: Users2,
+        tone: "bg-[#F8FAFC] text-[#334155]",
+      },
       {
         label: t("funnelSearchOpens"),
         value: Number(initialStats?.searches_7d ?? 0),
@@ -64,7 +75,7 @@ export default function AdminDashboardClient({
       },
       {
         label: t("funnelCompleted"),
-        value: Number(initialStats?.completed_bookings ?? 0),
+        value: Number(initialStats?.completed_7d ?? 0),
         icon: Send,
         tone: "bg-[#ECFDF5] text-[#059669]",
       },
@@ -77,6 +88,16 @@ export default function AdminDashboardClient({
       label: t("netRevenue"),
       value: formatPrice(kpis.revenue),
       icon: Banknote,
+    },
+    {
+      label: t("totalVisits"),
+      value: formatNumber(kpis.totalVisits),
+      icon: Users2,
+    },
+    {
+      label: t("registeredVisitors"),
+      value: formatNumber(kpis.registeredVisitors),
+      icon: Users,
     },
     {
       label: t("activeListings"),
@@ -156,6 +177,9 @@ export default function AdminDashboardClient({
           </div>
         ))}
       </div>
+      <p className="-mt-3 text-[12px] font-medium leading-5 text-[#64748B]">
+        {t("trackingNote")}
+      </p>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[2fr,1fr]">
         <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
@@ -163,12 +187,12 @@ export default function AdminDashboardClient({
             {t("funnelTitle")}
           </h2>
           <div className="space-y-3">
-            {funnelCards.slice(0, 3).map((step, index) => {
+            {funnelCards.map((step, index) => {
               const nextStep = funnelCards[index + 1];
-              const dropoff = nextStep
+              const dropoff =
+                nextStep && step.value > 0 && nextStep.value <= step.value
                 ? Math.round(
-                    ((step.value - nextStep.value) / Math.max(step.value, 1)) *
-                      100,
+                    ((step.value - nextStep.value) / step.value) * 100,
                   )
                 : null;
 
@@ -179,6 +203,8 @@ export default function AdminDashboardClient({
                       <step.icon className="h-4 w-4" />
                     </div>
                     <div
+                      data-testid="admin-funnel-step"
+                      data-funnel-value={step.value}
                       className={`flex-1 rounded-2xl border border-[#E2E8F0] px-4 py-3 ${step.tone}`}
                     >
                       <p className="text-xs font-semibold">{step.label}</p>
@@ -187,9 +213,15 @@ export default function AdminDashboardClient({
                       </p>
                     </div>
                   </div>
-                  {dropoff !== null ? (
-                    <p className="ml-14 mt-1 text-xs font-bold text-[#EF4444]">
-                      {t("dropoff", { percent: dropoff })}
+                  {nextStep ? (
+                    <p
+                      className={`ml-14 mt-1 text-xs font-bold ${
+                        dropoff === null ? "text-[#94A3B8]" : "text-[#EF4444]"
+                      }`}
+                    >
+                      {dropoff === null
+                        ? t("dropoffUnavailable")
+                        : t("dropoff", { percent: dropoff })}
                     </p>
                   ) : null}
                 </div>

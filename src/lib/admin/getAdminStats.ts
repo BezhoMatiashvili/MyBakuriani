@@ -23,6 +23,7 @@ type AdminOverviewStatsRow = {
   visits_7d: number;
   searches_7d: number;
   requests_7d: number;
+  completed_7d: number;
 };
 
 export type AdminStatsData = AdminDashboardStatsRow & {
@@ -36,6 +37,7 @@ export type AdminStatsData = AdminDashboardStatsRow & {
   visits_7d: number;
   searches_7d: number;
   requests_7d: number;
+  completed_7d: number;
 };
 
 /**
@@ -86,6 +88,7 @@ export async function getAdminStats(): Promise<AdminStatsData | null> {
     visits_7d: overview.data?.visits_7d ?? 0,
     searches_7d: overview.data?.searches_7d ?? 0,
     requests_7d: overview.data?.requests_7d ?? 0,
+    completed_7d: overview.data?.completed_7d ?? 0,
   };
 
   return data;

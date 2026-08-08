@@ -28,6 +28,10 @@ App Router routes and all React UI.
 - Restaurant discounts use `FoodDiscountRequestModal`: the owner chooses the paid
   package and percent, then submits an admin-reviewed request. The dashboard shows
   pending/payment-required state; only approved, unexpired discounts affect public ordering.
+- `LocaleShell` mounts `PageviewTracker` once; the tracker records only normalized
+  public navigations and the API owns validation, rate limiting, and visitor identity (**C16**).
+- `HostLanguages` is the shared detail renderer for apartment/hotel
+  `house_rules.hosting_langs`; unknown or empty values render no section.
 
 ## Blast radius
 
@@ -45,7 +49,8 @@ App Router routes and all React UI.
 
 C1 (namespaces), C4 (invoke callers), C5 (uploads), C6 (image hosts), C7 (realtime
 subscribers), C8 (protected routes), C20 (renter calendar cancellation history),
-C21 (restaurant discount submission and approved-discount ordering).
+C21 (restaurant discount submission and approved-discount ordering), C16
+(public-page analytics beacon and shared rate limiting).
 
 ## Note
 

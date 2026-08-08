@@ -50,6 +50,17 @@ export function isDiscountActive(
   return new Date(discountExpiresAt).getTime() > Date.now();
 }
 
+/** SUPER VIP blocks standard VIP until its shared expiry passes. */
+export function isSuperVipActive(
+  isSuperVip: boolean | null | undefined,
+  vipExpiresAt: string | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (!isSuperVip) return false;
+  if (!vipExpiresAt) return true;
+  return new Date(vipExpiresAt).getTime() > now;
+}
+
 // Return value is deliberately unrounded (callers round at render time; this keeps "discount applied once to a summed subtotal" mathematically identical to "discount applied per-night then summed").
 export function applyDiscount(
   price: number,

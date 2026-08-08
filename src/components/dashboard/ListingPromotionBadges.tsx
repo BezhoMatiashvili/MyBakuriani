@@ -3,7 +3,11 @@
 import { useTranslations } from "next-intl";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { cn } from "@/lib/utils";
-import { daysRemaining, isDiscountActive } from "@/lib/utils/pricing";
+import {
+  daysRemaining,
+  isDiscountActive,
+  isSuperVipActive,
+} from "@/lib/utils/pricing";
 
 interface ListingPromotionBadgesProps {
   isVip?: boolean | null;
@@ -28,8 +32,10 @@ export default function ListingPromotionBadges({
   const t = useTranslations("DashboardShared");
   const vipDays = daysRemaining(vipExpiresAt);
   const discountDays = daysRemaining(discountExpiresAt);
-  const hasActiveVip =
-    Boolean(isVip || isSuperVip) && (!vipExpiresAt || vipDays !== null);
+  const hasActiveSuperVip = isSuperVipActive(isSuperVip, vipExpiresAt);
+  const hasActiveStandardVip =
+    Boolean(isVip) && (!vipExpiresAt || vipDays !== null);
+  const hasActiveVip = hasActiveSuperVip || hasActiveStandardVip;
   const hasActiveDiscount = isDiscountActive(
     discountPercent,
     discountExpiresAt,
@@ -38,7 +44,7 @@ export default function ListingPromotionBadges({
   if (!hasActiveVip && !hasActiveDiscount) return null;
 
   const overlay = presentation === "overlay";
-  const vipTier = isSuperVip ? "super-vip" : "vip";
+  const vipTier = hasActiveSuperVip ? "super-vip" : "vip";
 
   return (
     <div
@@ -53,10 +59,10 @@ export default function ListingPromotionBadges({
             overlay
               ? "rounded-md px-3 py-1.5 text-[11px] font-black uppercase"
               : "rounded-full px-2 py-0.5 text-[10px]",
-            isSuperVip && "bg-[#F3E8FF] text-[#7E22CE]",
+            hasActiveSuperVip && "bg-[#F3E8FF] text-[#7E22CE]",
           )}
         >
-          {isSuperVip ? "SUPER VIP" : "VIP"}
+          {hasActiveSuperVip ? "SUPER VIP" : "VIP"}
           {vipDays !== null && (
             <span className="ml-1">
               · {t("daysRemaining", { count: vipDays })}

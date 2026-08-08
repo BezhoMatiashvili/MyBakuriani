@@ -27,6 +27,7 @@ import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadge
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 import { CATEGORY_TO_CREATE_HREF } from "@/lib/dashboard/serviceSegments";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 import { loadServiceData, type OwnerStats, type ServiceData } from "./loadData";
 
 type Service = Tables<"services">;
@@ -296,6 +297,10 @@ export default function ServiceDashboardClient({
                   viewUrl={serviceViewUrl(s)}
                   editUrl={serviceEditUrl(s)}
                   onPromote={(tier) => setPickerModal({ open: true, tier })}
+                  standardVipDisabled={isSuperVipActive(
+                    s.is_super_vip,
+                    s.vip_expires_at,
+                  )}
                   className="border-t border-[#F1F5F9] pt-4"
                 >
                   <button
@@ -327,6 +332,10 @@ export default function ServiceDashboardClient({
             ? t(`categories.${s.category as (typeof CATEGORY_KEYS)[number]}`)
             : s.category,
           badgeColor: "blue",
+          standardVipDisabled: isSuperVipActive(
+            s.is_super_vip,
+            s.vip_expires_at,
+          ),
         }))}
         target="service"
         onPurchased={() =>

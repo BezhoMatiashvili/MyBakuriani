@@ -416,8 +416,13 @@ export function MobileBottomNav({
     labelKey: string;
     href: string;
     detail?: "balance" | "notifications";
+    active?: (path: string) => boolean;
   }> = [
-    { labelKey: "mainPanel", href: "/dashboard/seller" },
+    {
+      labelKey: "mainPanel",
+      href: "/dashboard/seller",
+      active: (path) => path === "/dashboard/seller",
+    },
     { labelKey: "clientsDatabase", href: "/dashboard/seller/leads" },
     {
       labelKey: "propertiesAndProjects",
@@ -426,9 +431,23 @@ export function MobileBottomNav({
     {
       labelKey: "myOrganizations",
       href: "/dashboard/seller/organizations",
+      active: (path) => path === "/dashboard/seller/organizations",
     },
     ...(memberCompanies.length > 0
-      ? [{ labelKey: "myCompany", href: companyHref }]
+      ? [
+          {
+            labelKey: "myCompany",
+            href: companyHref,
+            active: (path: string) =>
+              memberCompanies.some(
+                (company) =>
+                  path === `/dashboard/seller/organizations/${company.id}` ||
+                  path.startsWith(
+                    `/dashboard/seller/organizations/${company.id}/`,
+                  ),
+              ),
+          },
+        ]
       : []),
     {
       labelKey: "analyticsAndFeedback",
@@ -533,33 +552,56 @@ export function MobileBottomNav({
               data-testid="seller-mobile-menu-list"
               className="overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white"
             >
-              {sellerSheetItems.map((item) => (
-                <Link
-                  key={`${item.labelKey}-${item.href}`}
-                  href={item.href}
-                  onClick={() => setMoreOpen(false)}
-                  className="flex min-h-12 items-center gap-3 border-b border-[#EEF1F4] px-4 text-[13px] font-bold text-[#1E293B] transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
-                >
-                  <span className="min-w-0 flex-1">{t(item.labelKey)}</span>
-                  {item.detail === "balance" && (
-                    <span className="shrink-0 text-[12px] font-semibold text-[#64748B]">
-                      {balance.toFixed(2)} ₾
-                    </span>
-                  )}
-                  {item.detail === "notifications" && notificationCount > 0 && (
-                    <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-1 text-[10px] font-extrabold text-[#EA580C]">
-                      {tSidebar("newCount", {
-                        count:
-                          notificationCount > 99 ? "99+" : notificationCount,
-                      })}
-                    </span>
-                  )}
-                  <ChevronRight
-                    className="size-4 shrink-0 text-[#94A3B8]"
-                    aria-hidden
-                  />
-                </Link>
-              ))}
+              {sellerSheetItems.map((item) => {
+                const path = stripLocale(currentPath);
+                const active = item.active
+                  ? item.active(path)
+                  : path === item.href || path.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={`${item.labelKey}-${item.href}`}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex min-h-12 items-center gap-3 border-b border-[#EEF1F4] px-4 text-[13px] font-bold transition-colors last:border-b-0",
+                      active
+                        ? "bg-[#EFF6FF] text-[#2563EB]"
+                        : "text-[#1E293B] hover:bg-[#F8FAFC]",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1">{t(item.labelKey)}</span>
+                    {item.detail === "balance" && (
+                      <span
+                        className={cn(
+                          "shrink-0 text-[12px] font-semibold",
+                          active ? "text-[#2563EB]" : "text-[#64748B]",
+                        )}
+                      >
+                        {balance.toFixed(2)} ₾
+                      </span>
+                    )}
+                    {item.detail === "notifications" &&
+                      notificationCount > 0 && (
+                        <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-1 text-[10px] font-extrabold text-[#EA580C]">
+                          {tSidebar("newCount", {
+                            count:
+                              notificationCount > 99
+                                ? "99+"
+                                : notificationCount,
+                          })}
+                        </span>
+                      )}
+                    <ChevronRight
+                      className={cn(
+                        "size-4 shrink-0",
+                        active ? "text-[#2563EB]" : "text-[#94A3B8]",
+                      )}
+                      aria-hidden
+                    />
+                  </Link>
+                );
+              })}
               {onSignOut && (
                 <button
                   type="button"

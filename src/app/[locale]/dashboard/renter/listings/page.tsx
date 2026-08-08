@@ -26,6 +26,7 @@ import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
+import { isSuperVipActive } from "@/lib/utils/pricing";
 
 const STATUS_KEYS = ["active", "blocked", "pending", "draft"] as const;
 
@@ -307,8 +308,22 @@ export default function RenterListingsPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={isSuperVipActive(
+                    property.is_super_vip,
+                    property.vip_expires_at,
+                  )}
                   onClick={() => setPickerModal({ open: true, tier: "vip" })}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#BE185D] transition-colors hover:bg-[#FBCFE8]"
+                  title={
+                    isSuperVipActive(property.is_super_vip, property.vip_expires_at)
+                      ? tShared("superVipBlocksVip")
+                      : undefined
+                  }
+                  aria-label={
+                    isSuperVipActive(property.is_super_vip, property.vip_expires_at)
+                      ? `VIP — ${tShared("superVipBlocksVip")}`
+                      : "VIP"
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#BE185D] transition-colors hover:bg-[#FBCFE8] disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0"
                 >
                   <Ticket className="h-3 w-3" />
                   VIP
@@ -340,6 +355,10 @@ export default function RenterListingsPage() {
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
           price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          standardVipDisabled: isSuperVipActive(
+            p.is_super_vip,
+            p.vip_expires_at,
+          ),
         }))}
         target="property"
         onPurchased={async () => {

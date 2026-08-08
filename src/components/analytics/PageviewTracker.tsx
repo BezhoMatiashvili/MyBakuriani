@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { normalizePublicPageviewPath } from "@/lib/analytics/pageview";
 
 // Fires a fire-and-forget page-view beacon on every client-side navigation so
 // the admin dashboard can report real visit counts. Never blocks rendering and
 // silently ignores failures (mirrors lib/contact-tracking.ts).
 export function PageviewTracker() {
   const pathname = usePathname();
+  const lastTrackedPath = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!pathname) return;
+    const normalizedPath = normalizePublicPageviewPath(pathname);
+    if (!normalizedPath || lastTrackedPath.current === normalizedPath) return;
+    lastTrackedPath.current = normalizedPath;
     try {
       void fetch("/api/track/view", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         keepalive: true,
-        body: JSON.stringify({ path: pathname }),
+        body: JSON.stringify({ path: normalizedPath }),
       }).catch(() => {
         // ignore — analytics must never affect the user
       });

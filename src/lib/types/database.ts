@@ -3213,6 +3213,7 @@ export type Database = {
         Args: never;
         Returns: {
           active_listings: number;
+          completed_7d: number;
           net_revenue: number;
           pending_over_24h: number;
           registered_users: number;
