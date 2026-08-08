@@ -152,6 +152,7 @@ export default function SalesPageClient({ properties }: Props) {
                 <ScrollReveal key={p.id} delay={i * 0.05}>
                   <InvestmentCard
                     id={p.id}
+                    createdAt={p.created_at}
                     title={p.title}
                     location={p.location}
                     photo={photos[0] ?? "/placeholder-property.jpg"}

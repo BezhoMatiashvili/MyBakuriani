@@ -246,7 +246,10 @@ export default function FoodPageClient({ services }: Props) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+            <div
+              data-testid="food-results-grid"
+              className="grid grid-cols-1 gap-4 min-[375px]:grid-cols-2 min-[375px]:gap-3 lg:grid-cols-3 lg:gap-6"
+            >
               <BannerSlot
                 placement="listing_top"
                 bare
@@ -257,7 +260,9 @@ export default function FoodPageClient({ services }: Props) {
               {paginated.map((s, i) => (
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <ServiceCard
+                    mobilePresentation="compact-grid"
                     id={s.id}
+                    createdAt={s.created_at}
                     title={s.title}
                     category={s.category}
                     location={s.location}
@@ -267,9 +272,10 @@ export default function FoodPageClient({ services }: Props) {
                     discountPercent={s.discount_percent ?? 0}
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
-                    variant="overlay"
-                    phone={s.phone}
-                    description={s.description}
+                    variant="photo"
+                    schedule={s.schedule}
+                    operatingHours={s.operating_hours}
+                    phone={null}
                   />
                 </ScrollReveal>
               ))}

@@ -363,7 +363,7 @@
     }
   },
   "RentBuyToggle": {
-    "rent": "ქირაობა",
+    "rent": "გაქირავება",
     "buy": "ყიდვა (ინვესტიცია)"
   },
   "PropertyCard": {
@@ -373,7 +373,6 @@
     "view": "ნახვა",
     "details": "დეტალები",
     "b2bPartner": "B2B პარტნიორი",
-    "newlyBooked": "ახალი დაკავებული",
     "addToFavorites": "ფავორიტებში დამატება",
     "distanceToSlope": "{distance}მ ტრასამდე",
     "favoriteAdd": "რჩეულებში დამატება",
@@ -399,7 +398,6 @@
     "workingHoursLabel": "სამუშაო საათები",
     "statusActive": "აქტიური",
     "statusBusy": "დაკავებულია",
-    "statusNew": "ახალი",
     "partner": "პარტნიორი",
     "driverLabel": "მძღოლი",
     "capacityLabel": "მგზავრი",
@@ -1166,6 +1164,7 @@
     "reload": "ხელახლა ცადეთ",
     "close": "დახურვა",
     "back": "უკან დაბრუნება",
+    "newlyAdded": "ახალი დამატებული",
     "constructionProgress": "მშენებლობის პროგრესი",
     "listingsCount": "{count} განცხადება",
     "noListingsFound": "განცხადებები ვერ მოიძებნა",
@@ -1708,7 +1707,6 @@
   },
   "EmploymentCard": {
     "urgent": "სასწრაფო",
-    "new": "ახალი",
     "applications": "{count} გამოხმაურება",
     "details": "დეტალები",
     "favoriteAria": "რჩეულებში დამატება"
@@ -2981,6 +2979,18 @@
       "favorites": "რჩეულში დამატება",
       "revenue": "კალენდრის შემოსავალი",
       "menuViews": "მენიუს ნახვები"
+    },
+    "analytics": {
+      "button": "ანალიტიკა",
+      "views": "ნახვები",
+      "reveals": "ნომრის ჩვენება",
+      "favorites": "რჩეულები",
+      "period7": "7 დღე",
+      "period30": "30 დღე",
+      "noDataYet": "ჯერ მონაცემები არ არის",
+      "loadError": "ანალიტიკის ჩატვირთვა ვერ მოხერხდა",
+      "retry": "თავიდან ცდა",
+      "viewsCaveat": "საერთო ნახვა ითვლის მთელი პერიოდის მონაცემებს, გრაფიკი აჩვენებს მხოლოდ ბოლო დღეების დინამიკას"
     },
     "save": "შენახვა",
     "saving": "შენახვა...",

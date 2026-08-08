@@ -33,7 +33,7 @@ export default async function ApartmentsPage() {
       // Only the columns the listing cards + map use (not all 57) — keeps the
       // prerendered RSC payload small. Keep in sync with ApartmentListing.
       .select(
-        "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, discount_expires_at, capacity, rooms, amenities, distance_to_slope_m",
+        "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, capacity, rooms, amenities, distance_to_slope_m",
       )
       .eq("is_for_sale", false)
       .in("type", ["apartment", "cottage", "villa", "studio"])

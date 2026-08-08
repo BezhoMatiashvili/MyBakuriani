@@ -67,6 +67,7 @@ export type HotelListing = Pick<
   | "is_super_vip"
   | "discount_percent"
   | "discount_expires_at"
+  | "created_at"
   | "capacity"
   | "rooms"
   | "amenities"
@@ -366,6 +367,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
               <ScrollReveal key={p.id} delay={i * 0.05}>
                 <PropertyCard
                   id={p.id}
+                  createdAt={p.created_at}
                   title={p.title}
                   location={p.location}
                   photos={p.photos ?? []}

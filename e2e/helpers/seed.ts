@@ -73,6 +73,10 @@ export function futureLocalTimestamp(
   return date.toISOString();
 }
 
+function pastTimestamp(hours: number): string {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -200,6 +204,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     photos: ["/placeholder-property.jpg", "/placeholder-property.jpg"],
     status: "active",
     is_for_sale: false,
+    created_at: pastTimestamp(2),
   });
 
   await properties.create({
@@ -219,6 +224,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     photos: [],
     status: "active",
     is_for_sale: false,
+    created_at: pastTimestamp(25),
   });
 
   await properties.create({
@@ -239,6 +245,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     hotel_stars: 4,
     status: "active",
     is_for_sale: false,
+    created_at: pastTimestamp(5),
   });
 
   await properties.create({
@@ -258,6 +265,8 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     photos: [],
     status: "active",
     is_for_sale: true,
+    construction_status: "completed",
+    created_at: pastTimestamp(3),
   });
 
   // Dedicated public-contact fixture: immutable during parallel test runs.
@@ -360,6 +369,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     has_delivery: true,
     operating_hours: "10:00-22:00",
     status: "active",
+    created_at: pastTimestamp(1),
   });
 
   await services.create({
@@ -372,9 +382,24 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     price_unit: "რეისი",
     location: "ბაკურიანი",
     driver_name: "ტესტ მძღოლი",
+    vehicle_make: "Mercedes-Benz",
+    transport_type: "minivan",
     vehicle_capacity: 7,
-    route: "თბილისი-ბაკურიანი",
+    vehicle_color: "შავი",
+    route: "თბილისი - ბაკურიანი - თბილისი",
+    routes: ["თბილისი - ბაკურიანი - თბილისი"],
+    route_pricing: [
+      {
+        route: "თბილისი - ბაკურიანი - თბილისი",
+        price: 50,
+        unit: "one_way",
+      },
+    ],
+    equipment: ["ზამთრის საბურავები", "ბავშვის სავარძელი"],
+    features: ["Wi-Fi", "USB დამტენი"],
+    languages: ["ქართული", "English"],
     status: "active",
+    created_at: pastTimestamp(2),
   });
 
   await services.create({
@@ -387,6 +412,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     price_unit: "ადამიანი",
     location: "ბაკურიანი",
     status: "active",
+    created_at: pastTimestamp(3),
   });
 
   await services.create({
@@ -401,6 +427,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     employment_schedule: "სრული განაკვეთი",
     location: "ბაკურიანი",
     status: "active",
+    created_at: pastTimestamp(4),
   });
 
   await services.create({
@@ -419,6 +446,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     languages: ["ქართული", "რუსული"],
     service_field: "დასუფთავება/დამლაგებელი",
     status: "active",
+    created_at: pastTimestamp(5),
   });
 
   await services.create({
@@ -436,6 +464,7 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     languages: ["ქართული", "რუსული"],
     service_field: "დასუფთავება/დამლაგებელი",
     status: "active",
+    created_at: pastTimestamp(25),
   });
 
   // Dedicated public-contact fixture: immutable during parallel test runs.

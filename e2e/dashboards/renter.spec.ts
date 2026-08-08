@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/fixtures";
 import type { Locator, Page, Response } from "@playwright/test";
-import { supabaseAdmin } from "../helpers/supabase";
+import { randomUUID } from "node:crypto";
+import { properties, supabaseAdmin } from "../helpers/supabase";
 import { TEST_IDS } from "../helpers/seed";
 
 const RENTER_MEMBERSHIP_PACKAGE_IDS = {
@@ -41,6 +42,100 @@ test.describe("Renter Dashboard", () => {
 
     await expect(renterPage.locator("main")).toBeVisible();
     await expect(renterPage).toHaveURL(/\/dashboard\/renter/);
+  });
+
+  test("a purchased VIP immediately appears on the selected listing with its remaining days", async ({
+    renterPage,
+  }) => {
+    const listingId = randomUUID();
+    const listingTitle = `E2E VIP ობიექტი ${listingId.slice(0, 6)}`;
+
+    await properties.create({
+      id: listingId,
+      owner_id: TEST_IDS.renter,
+      type: "apartment",
+      title: listingTitle,
+      description: "VIP სტატუსის dashboard რეგრესიული ტესტი",
+      location: "ბაკურიანი",
+      price_per_night: 100,
+      currency: "GEL",
+      photos: [],
+      status: "active",
+      is_for_sale: false,
+    });
+
+    try {
+      await renterPage.route("**/functions/v1/purchase-vip", async (route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({
+            status: 204,
+            headers: {
+              "access-control-allow-origin": "*",
+              "access-control-allow-headers": "authorization, apikey, content-type",
+              "access-control-allow-methods": "POST, OPTIONS",
+            },
+          });
+          return;
+        }
+
+        const body = route.request().postDataJSON() as {
+          property_id?: string;
+          quantity?: number;
+        };
+        expect(body.property_id).toBe(listingId);
+        expect(body.quantity).toBe(3);
+
+        await properties.update(listingId, {
+          is_vip: true,
+          is_super_vip: false,
+          vip_expires_at: new Date(
+            Date.now() + 3 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+        });
+        await route.fulfill({
+          status: 200,
+          headers: {
+            "access-control-allow-origin": "*",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ data: { ok: true } }),
+        });
+      });
+
+      await renterPage.goto("/dashboard/renter");
+      if (!(await assertDashboard(renterPage, "/dashboard/renter"))) return;
+
+      const card = renterPage.locator(`[data-listing-id="${listingId}"]`);
+      await expect(card).toBeVisible();
+      await card.getByRole("button", { name: "VIP", exact: true }).click();
+      await renterPage
+        .getByRole("button")
+        .filter({ hasText: listingTitle })
+        .click();
+      await renterPage.getByRole("button", { name: "+" }).click();
+      await renterPage.getByRole("button", { name: "+" }).click();
+      await renterPage
+        .getByRole("button", { name: "გადახდა", exact: true })
+        .click();
+      await renterPage
+        .getByRole("button", { name: "დავეთანხმე და გადავიხდი" })
+        .click();
+
+      const status = card.getByTestId("listing-promotion-status");
+      await expect(status.locator('[data-promotion-tier="vip"]')).toContainText(
+        "VIP · 3 დღე დარჩა",
+      );
+
+      await renterPage.goto("/dashboard/renter/listings");
+      const listingCard = renterPage.locator(
+        `[data-listing-id="${listingId}"]`,
+      );
+      await expect(
+        listingCard.locator('[data-promotion-tier="vip"]'),
+      ).toContainText("VIP · 3 დღე დარჩა");
+    } finally {
+      await properties.delete(listingId);
+    }
   });
 
   test("overview matches the compact renter mobile layout", async ({

@@ -708,6 +708,7 @@ export default function SearchPageClient({
                   <ScrollReveal key={p.id} delay={i * 0.05}>
                     <PropertyCard
                       id={p.id}
+                      createdAt={p.created_at}
                       title={p.title}
                       location={p.location}
                       photos={p.photos ?? []}
@@ -943,6 +944,7 @@ function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
         <ScrollReveal key={p.id} delay={i * 0.05}>
           <PropertyCard
             id={p.id}
+            createdAt={p.created_at}
             title={p.title}
             location={p.location}
             photos={p.photos ?? []}
@@ -971,6 +973,7 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
         <ScrollReveal key={s.id} delay={i * 0.05}>
           <ServiceCard
             id={s.id}
+            createdAt={s.created_at}
             title={s.title}
             category={s.category}
             location={s.location}
@@ -987,9 +990,11 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
             driverName={s.driver_name}
             vehicleCapacity={s.vehicle_capacity}
             vehicleMake={s.vehicle_make}
+            transportType={s.transport_type}
             vehicleColor={s.vehicle_color}
             features={s.features}
             route={s.route}
+            routes={s.routes}
             description={s.description}
           />
         </ScrollReveal>

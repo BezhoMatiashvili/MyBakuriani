@@ -114,11 +114,14 @@ export function formatPhone(phone: string | null | undefined): string {
 export function formatRelativeGe(
   iso: string | null | undefined,
   locale?: string,
+  now = Date.now(),
 ): string {
   if (!iso) return "";
   const labels = RELATIVE_LABELS[normalizeLocale(locale)];
   const then = new Date(iso).getTime();
-  const diffMs = Date.now() - then;
+  if (!Number.isFinite(then)) return "";
+  const diffMs = now - then;
+  if (diffMs < 0) return "";
   const diffMin = Math.floor(diffMs / 60000);
   if (diffMin < 1) return labels.justNow;
   if (diffMin < 60) return labels.minutesAgo(diffMin);
@@ -128,6 +131,20 @@ export function formatRelativeGe(
   if (diffDay < 30) return labels.daysAgo(diffDay);
   const diffMo = Math.floor(diffDay / 30);
   return labels.monthsAgo(diffMo);
+}
+
+const LISTING_NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** True only for valid listing timestamps in the rolling previous 24 hours. */
+export function isListingNewlyAdded(
+  iso: string | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (!iso) return false;
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return false;
+  const age = now - then;
+  return age >= 0 && age < LISTING_NEW_WINDOW_MS;
 }
 
 export function maskPhone(phone: string | null | undefined): string {

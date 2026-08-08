@@ -12,6 +12,10 @@ import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
+import {
+  ListingAgeBadge,
+  NewlyAddedBadge,
+} from "@/components/shared/ListingRecency";
 
 interface SalePropertyCardProps {
   id: string;
@@ -31,6 +35,7 @@ interface SalePropertyCardProps {
   discountExpiresAt: string | null;
   /** house_rules.payment_options codes; read via readPaymentOptions(). */
   paymentOptions?: string[];
+  createdAt: string | null;
 }
 
 function formatUsd(n: number): string {
@@ -53,6 +58,7 @@ export default function SalePropertyCard({
   discountPercent,
   discountExpiresAt,
   paymentOptions,
+  createdAt,
 }: SalePropertyCardProps) {
   const t = useTranslations("SalePropertyCard");
   const tOpts = useTranslations("ListingOptions");
@@ -138,19 +144,27 @@ export default function SalePropertyCard({
             ariaLabel={t("favoriteAria")}
             className="absolute right-3 top-3"
           />
+
+          <NewlyAddedBadge
+            createdAt={createdAt}
+            className="absolute bottom-3 left-3"
+          />
         </div>
 
         <div className="flex flex-1 flex-col p-4 lg:p-5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="flex items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
-              <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
-              {location}
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <p className="flex min-w-0 items-center gap-1 text-[11px] font-bold leading-[16px] text-[#94A3B8]">
+              <MapPin className="h-[11px] w-[11px] shrink-0 text-[#CBD5E1]" />
+              <span className="truncate">{location}</span>
             </p>
-            {roi !== undefined && (
-              <span className="shrink-0 rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.5px] text-[#16A34A]">
-                ROI {roi}%
-              </span>
-            )}
+            <div className="flex shrink-0 items-center gap-1">
+              <ListingAgeBadge createdAt={createdAt} />
+              {roi !== undefined && (
+                <span className="shrink-0 rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.5px] text-[#16A34A]">
+                  ROI {roi}%
+                </span>
+              )}
+            </div>
           </div>
 
           <h3 className="mt-1 line-clamp-2 text-[16px] font-black leading-[20px] text-[#1E293B]">

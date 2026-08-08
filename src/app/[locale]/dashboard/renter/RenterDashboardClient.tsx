@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import {
   CreditCard,
   Pencil,
@@ -13,6 +14,7 @@ import {
   Rocket,
   Zap,
   Percent,
+  BarChart3,
 } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -29,8 +31,7 @@ import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
-import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive } from "@/lib/utils/pricing";
+import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 import {
@@ -38,6 +39,16 @@ import {
   type OwnerStats,
   type RenterOverview,
 } from "./loadOverview";
+
+const ListingAnalyticsPanel = dynamic(
+  () => import("@/components/renter/ListingAnalyticsPanel"),
+  {
+    ssr: false,
+    loading: () => (
+      <Skeleton className="mt-3 h-[180px] w-full rounded-2xl sm:mt-4" />
+    ),
+  },
+);
 
 type Property = Tables<"properties">;
 
@@ -214,7 +225,9 @@ export default function RenterDashboardClient({
       <section className="flex flex-col gap-3 rounded-[18px] border border-[#DBEAFE] bg-[#F8FBFF] p-4 sm:flex-row sm:items-center sm:justify-between sm:rounded-[20px] sm:p-5">
         <div>
           <p className="text-base font-extrabold text-[#0F172A]">
-            {membershipExpiresAt ? t("membershipActive") : t("membershipRequired")}
+            {membershipExpiresAt
+              ? t("membershipActive")
+              : t("membershipRequired")}
           </p>
           <p className="mt-1 text-sm font-medium text-[#64748B]">
             {membershipExpiresAt
@@ -230,7 +243,9 @@ export default function RenterDashboardClient({
           className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF] sm:w-auto"
         >
           <CreditCard className="h-4 w-4" />
-          {membershipExpiresAt ? t("extendMembership") : t("activateMembership")}
+          {membershipExpiresAt
+            ? t("extendMembership")
+            : t("activateMembership")}
         </button>
       </section>
 
@@ -434,14 +449,18 @@ function PropertyRow({
   onOpenTier: (tier: VipInfoTier) => void;
 }) {
   const t = useTranslations("RenterDashboard");
+  const tAnalytics = useTranslations("DashboardShared.analytics");
   const locale = useLocale();
   const photo = (property.photos ?? [])[0];
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const analyticsPanelId = `analytics-panel-${property.id}`;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       data-testid="renter-property-card"
+      data-listing-id={property.id}
       className={`rounded-[20px] border bg-white p-3 shadow-[0px_1px_3px_rgba(0,0,0,0.04)] sm:p-5 ${
         isBlocked ? "border-dashed border-[#FCA5A5]" : "border-[#EEF1F4]"
       }`}
@@ -474,14 +493,14 @@ function PropertyRow({
           <h3 className="truncate text-[15px] font-extrabold text-[#0F172A]">
             {property.title}
           </h3>
-          {isDiscountActive(
-            property.discount_percent,
-            property.discount_expires_at,
-          ) && (
-            <ListingBadge variant="discount" className="mt-1 normal-case">
-              −{property.discount_percent}%
-            </ListingBadge>
-          )}
+          <ListingPromotionBadges
+            className="mt-1"
+            isVip={property.is_vip}
+            isSuperVip={property.is_super_vip}
+            vipExpiresAt={property.vip_expires_at}
+            discountPercent={property.discount_percent}
+            discountExpiresAt={property.discount_expires_at}
+          />
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[#94A3B8]">
             {property.is_for_sale ? (
               <span className="rounded-md bg-[#FFEDD5] px-2 py-0.5 font-bold text-[#EA580C]">
@@ -548,6 +567,18 @@ function PropertyRow({
             <Pencil className="h-3.5 w-3.5" />
             {t("edit")}
           </Link>
+          {!isBlocked && (
+            <button
+              type="button"
+              aria-expanded={analyticsOpen}
+              aria-controls={analyticsPanelId}
+              onClick={() => setAnalyticsOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[12px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              {tAnalytics("button")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -555,7 +586,7 @@ function PropertyRow({
       <div
         data-testid="renter-mobile-actions"
         className={`mt-3 grid gap-2 border-t border-[#F1F5F9] pt-3 sm:hidden ${
-          isBlocked ? "grid-cols-2" : "grid-cols-3"
+          isBlocked ? "grid-cols-2" : "grid-cols-4"
         }`}
       >
         {!isBlocked && (
@@ -584,7 +615,32 @@ function PropertyRow({
           <Pencil className="size-3.5 shrink-0" />
           <span className="truncate">{t("edit")}</span>
         </Link>
+        {!isBlocked && (
+          <button
+            type="button"
+            aria-expanded={analyticsOpen}
+            aria-controls={analyticsPanelId}
+            onClick={() => setAnalyticsOpen((v) => !v)}
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-[#E2E8F0] bg-white px-1.5 text-[11px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+          >
+            <BarChart3 className="size-3.5 shrink-0" />
+            <span className="truncate">{tAnalytics("button")}</span>
+          </button>
+        )}
       </div>
+
+      {analyticsOpen && (
+        <motion.div
+          id={analyticsPanelId}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <ListingAnalyticsPanel
+            listingId={property.id}
+            listingType="property"
+          />
+        </motion.div>
+      )}
 
       {/* Promo tier row */}
       {!isBlocked && (

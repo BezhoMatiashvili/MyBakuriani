@@ -151,6 +151,7 @@ export default function LandingPage({
         isSuperVip: p.is_super_vip ?? false,
         discountPercent: p.discount_percent ?? 0,
         discountExpiresAt: p.discount_expires_at ?? null,
+        createdAt: p.created_at,
         isForSale: p.is_for_sale ?? false,
         distanceToSlopeM: p.distance_to_slope_m,
       }))
@@ -172,6 +173,7 @@ export default function LandingPage({
         isSuperVip: p.is_super_vip ?? false,
         discountPercent: p.discount_percent ?? 0,
         discountExpiresAt: p.discount_expires_at ?? null,
+        createdAt: p.created_at,
         isForSale: p.is_for_sale ?? false,
         distanceToSlopeM: p.distance_to_slope_m,
       })),
@@ -204,6 +206,7 @@ export default function LandingPage({
           isSuperVip: p.is_super_vip ?? false,
           discountPercent: p.discount_percent ?? 0,
           discountExpiresAt: p.discount_expires_at ?? null,
+          createdAt: p.created_at,
           isForSale: false,
           isHotel: true as const,
           hotelStars: p.hotel_stars ?? undefined,
@@ -251,6 +254,7 @@ export default function LandingPage({
           priceUnit: s.price_unit,
           discountPercent: s.discount_percent ?? 0,
           discountExpiresAt: s.discount_expires_at ?? null,
+          createdAt: s.created_at,
           isVip: s.is_vip ?? false,
           schedule: s.schedule,
           operatingHours: s.operating_hours,
@@ -263,6 +267,7 @@ export default function LandingPage({
             ? {
                 vehicleCapacity: s.vehicle_capacity,
                 transportType: s.transport_type,
+                vehicleMake: s.vehicle_make,
                 route: s.route,
                 routes: s.routes,
               }
@@ -750,6 +755,7 @@ function ServiceSection({
     priceUnit: string | null;
     discountPercent: number;
     discountExpiresAt: string | null;
+    createdAt: string | null;
     isVip: boolean;
     schedule?: string | null;
     operatingHours?: string | null;
@@ -758,6 +764,11 @@ function ServiceSection({
     providerName?: string | null;
     experienceYears?: number | null;
     availabilityStatus?: "active" | "busy" | null;
+    vehicleCapacity?: number | null;
+    transportType?: string | null;
+    vehicleMake?: string | null;
+    route?: string | null;
+    routes?: string[] | null;
   }>;
   href: string;
   muted?: boolean;
@@ -878,17 +889,11 @@ function EmploymentSection({
     location: string | null;
     price: number | null;
     priceUnit: string | null;
+    createdAt: string | null;
   }>;
   href: string;
 }) {
   const t = useTranslations("Landing");
-  const postedLabels = [
-    t("posted.today"),
-    t("posted.daysAgo1"),
-    t("posted.daysAgo3"),
-    t("posted.daysAgo5"),
-    t("posted.weekAgo1"),
-  ];
   const availabilities = [
     t("schedule.daily"),
     t("schedule.fullTime"),
@@ -947,8 +952,8 @@ function EmploymentSection({
                     : null
                 }
                 scheduleLabel={availabilities[i % availabilities.length]}
-                badge={i === 0 ? "vip" : i <= 2 ? "new" : null}
-                postedLabel={postedLabels[i % postedLabels.length]}
+                badge={i === 0 ? "vip" : null}
+                createdAt={card.createdAt}
                 highlighted={i === 0}
               />
             </ScrollReveal>
@@ -984,6 +989,7 @@ function PropertySection({
     isSuperVip: boolean;
     discountPercent: number;
     discountExpiresAt: string | null;
+    createdAt: string | null;
     isForSale: boolean;
     isHotel?: boolean;
     numericRating?: number;

@@ -26,8 +26,6 @@ const SCHEDULES = ["all", "fulltime", "parttime", "seasonal", "other"] as const;
 
 const ITEMS_PER_PAGE = 9;
 
-const POSTED_KEYS = ["today", "days3", "days5", "week1", "weeks2"] as const;
-
 interface Props {
   services: Tables<"services">[];
   cvCounts: Record<string, number>;
@@ -35,11 +33,9 @@ interface Props {
 
 function deriveBadge(
   s: Tables<"services">,
-  index: number,
-): "urgent" | "vip" | "new" | null {
+): "urgent" | "vip" | null {
   if (s.is_vip) return "vip";
   if (s.discount_percent && s.discount_percent > 0) return "urgent";
-  if (index < 2) return "new";
   return null;
 }
 
@@ -244,16 +240,14 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <EmploymentCard
                     id={s.id}
+                    createdAt={s.created_at}
                     title={s.position ?? s.title}
                     employer={s.title}
                     location={s.location}
                     salaryLabel={salaryLabel(s)}
                     scheduleLabel={scheduleLabel(s)}
                     description={s.description}
-                    badge={deriveBadge(s, i)}
-                    postedLabel={t(
-                      `posted.${POSTED_KEYS[i % POSTED_KEYS.length]}`,
-                    )}
+                    badge={deriveBadge(s)}
                     applicationsCount={cvCounts[s.id] ?? 0}
                     highlighted={s.is_vip ?? false}
                   />

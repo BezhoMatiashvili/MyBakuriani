@@ -373,7 +373,6 @@
     "view": "Смотреть",
     "details": "Подробнее",
     "b2bPartner": "B2B Партнёр",
-    "newlyBooked": "Только забронировано",
     "addToFavorites": "Добавить в избранное",
     "distanceToSlope": "{distance}м до трассы",
     "favoriteAdd": "Добавить в избранное",
@@ -399,7 +398,6 @@
     "workingHoursLabel": "Рабочие часы",
     "statusActive": "Активен",
     "statusBusy": "Занят",
-    "statusNew": "Новый",
     "partner": "Партнёр",
     "driverLabel": "Водитель",
     "capacityLabel": "Мест",
@@ -1166,6 +1164,7 @@
     "reload": "Перезагрузить",
     "close": "Закрыть",
     "back": "Назад",
+    "newlyAdded": "Недавно добавлено",
     "constructionProgress": "Ход строительства",
     "listingsCount": "{count, plural, one {# объявление} few {# объявления} many {# объявлений} other {# объявления}}",
     "noListingsFound": "Объявления не найдены",
@@ -1708,7 +1707,6 @@
   },
   "EmploymentCard": {
     "urgent": "Срочно",
-    "new": "Новое",
     "applications": "{count, plural, one {# отклик} few {# отклика} many {# откликов} other {# отклика}}",
     "details": "Подробнее",
     "favoriteAria": "Добавить в избранное"
@@ -2981,6 +2979,18 @@
       "favorites": "Добавлено в избранное",
       "revenue": "Доход по календарю",
       "menuViews": "Просмотры меню"
+    },
+    "analytics": {
+      "button": "Аналитика",
+      "views": "Просмотры",
+      "reveals": "Показ номера",
+      "favorites": "Избранное",
+      "period7": "7 дней",
+      "period30": "30 дней",
+      "noDataYet": "Пока нет данных",
+      "loadError": "Не удалось загрузить аналитику",
+      "retry": "Повторить",
+      "viewsCaveat": "Общее число просмотров — за всё время, график показывает только недавнюю динамику"
     },
     "save": "Сохранить",
     "saving": "Сохранение...",

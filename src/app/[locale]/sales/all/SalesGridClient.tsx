@@ -304,6 +304,7 @@ export default function SalesGridClient({
               <ScrollReveal key={p.id} delay={i * 0.05}>
                 <PropertyCard
                   id={p.id}
+                  createdAt={p.created_at}
                   title={p.title}
                   location={p.location}
                   photos={p.photos ?? []}

@@ -12,6 +12,10 @@ import { optionKeyFor } from "@/lib/constants/listing-options";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
+import {
+  ListingAgeBadge,
+  NewlyAddedBadge,
+} from "@/components/shared/ListingRecency";
 import { cn } from "@/lib/utils";
 
 function formatNum(n: number): string {
@@ -49,6 +53,7 @@ interface PropertyCardProps {
   // preloads them — improves landing LCP. Default false (lazy).
   priority?: boolean;
   mobilePresentation?: "default" | "compact-grid";
+  createdAt: string | null;
 }
 
 function extractZone(location: string): string {
@@ -87,6 +92,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     paymentOptions,
     priority,
     mobilePresentation = "default",
+    createdAt,
   } = props;
   const compactGrid = mobilePresentation === "compact-grid";
   const {
@@ -251,11 +257,15 @@ export default function PropertyCard(props: PropertyCardProps) {
             </span>
           )}
 
-          {!isHotel && isSuperVip && (
-            <span className={cn("absolute rounded-full bg-[#22C55E] font-bold text-white", compactGrid ? "bottom-2 left-2 px-2 py-1 text-[8px] sm:bottom-4 sm:left-4 sm:px-2.5 sm:text-[9px]" : "bottom-4 left-4 px-2.5 py-1 text-[9px]") }>
-              {t("newlyBooked")}
-            </span>
-          )}
+          <NewlyAddedBadge
+            createdAt={createdAt}
+            className={cn(
+              "absolute",
+              compactGrid
+                ? "bottom-2 left-2 max-w-[calc(100%-1rem)] truncate px-2 text-[8px] sm:bottom-4 sm:left-4 sm:max-w-none sm:px-2.5 sm:text-[9px]"
+                : "bottom-4 left-4",
+            )}
+          />
         </div>
 
         <div
@@ -276,16 +286,28 @@ export default function PropertyCard(props: PropertyCardProps) {
                   </span>
                 )}
               </div>
-              <p className={cn("mt-1 truncate font-bold text-[#94A3B8]", compactGrid ? "text-[9px] leading-[13px] sm:text-[11px] sm:leading-[16px]" : "text-[11px] leading-[16px]")}>
-                {amenities || location}
-              </p>
+              <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
+                <p className={cn("min-w-0 truncate font-bold text-[#94A3B8]", compactGrid ? "text-[9px] leading-[13px] sm:text-[11px] sm:leading-[16px]" : "text-[11px] leading-[16px]")}>
+                  {amenities || location}
+                </p>
+                <ListingAgeBadge
+                  createdAt={createdAt}
+                  className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+                />
+              </div>
             </div>
           ) : (
             <div className="lg:min-h-[44px]">
-              <p className={cn("flex min-w-0 items-center gap-1 font-bold text-[#94A3B8]", compactGrid ? "text-[9px] leading-[13px] sm:text-[11px] sm:leading-[16px]" : "text-[11px] leading-[16px]")}>
-                <MapPin className="h-[11px] w-[11px] text-[#CBD5E1]" />
-                <span className="truncate">{displayLocation}</span>
-              </p>
+              <div className="flex min-w-0 items-center justify-between gap-1.5">
+                <p className={cn("flex min-w-0 items-center gap-1 font-bold text-[#94A3B8]", compactGrid ? "text-[9px] leading-[13px] sm:text-[11px] sm:leading-[16px]" : "text-[11px] leading-[16px]")}>
+                  <MapPin className="h-[11px] w-[11px] shrink-0 text-[#CBD5E1]" />
+                  <span className="truncate">{displayLocation}</span>
+                </p>
+                <ListingAgeBadge
+                  createdAt={createdAt}
+                  className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+                />
+              </div>
               <div className="mt-1 flex items-center gap-2">
                 <h3 className={cn("truncate font-black text-[#1E293B]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]" : "text-[17px] leading-[21px]")}>
                   {title}

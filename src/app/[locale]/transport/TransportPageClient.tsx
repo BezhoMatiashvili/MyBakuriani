@@ -217,6 +217,7 @@ export default function TransportPageClient({ services }: Props) {
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <ServiceCard
                     id={s.id}
+                    createdAt={s.created_at}
                     title={s.title}
                     category={s.category}
                     location={s.location}
@@ -226,7 +227,6 @@ export default function TransportPageClient({ services }: Props) {
                     discountPercent={s.discount_percent ?? 0}
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
-                    isNew={s.is_new ?? false}
                     isVerified={s.profile_is_verified ?? false}
                     phone={null}
                     hasWhatsapp={s.has_whatsapp ?? false}

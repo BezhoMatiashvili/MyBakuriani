@@ -373,7 +373,6 @@
     "view": "View",
     "details": "Details",
     "b2bPartner": "B2B Partner",
-    "newlyBooked": "Newly Booked",
     "addToFavorites": "Add to Favorites",
     "distanceToSlope": "{distance}m to the slope",
     "favoriteAdd": "Add to favorites",
@@ -399,7 +398,6 @@
     "workingHoursLabel": "Working hours",
     "statusActive": "Active",
     "statusBusy": "Busy",
-    "statusNew": "New",
     "partner": "Partner",
     "driverLabel": "Driver",
     "capacityLabel": "Seats",
@@ -1166,6 +1164,7 @@
     "reload": "Reload",
     "close": "Close",
     "back": "Go back",
+    "newlyAdded": "Newly added",
     "constructionProgress": "Construction progress",
     "listingsCount": "{count, plural, one {# listing} other {# listings}}",
     "noListingsFound": "No listings found",
@@ -1708,7 +1707,6 @@
   },
   "EmploymentCard": {
     "urgent": "Urgent",
-    "new": "New",
     "applications": "{count, plural, one {# application} other {# applications}}",
     "details": "Details",
     "favoriteAria": "Add to favorites"
@@ -2981,6 +2979,18 @@
       "favorites": "Added to favorites",
       "revenue": "Calendar revenue",
       "menuViews": "Menu views"
+    },
+    "analytics": {
+      "button": "Analytics",
+      "views": "Views",
+      "reveals": "Phone reveals",
+      "favorites": "Favorites",
+      "period7": "7 days",
+      "period30": "30 days",
+      "noDataYet": "No data yet",
+      "loadError": "Could not load analytics",
+      "retry": "Retry",
+      "viewsCaveat": "Total views cover the whole history; the chart shows only the recent daily trend"
     },
     "save": "Save",
     "saving": "Saving...",

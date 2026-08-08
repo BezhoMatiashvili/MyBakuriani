@@ -136,6 +136,58 @@ test.describe("Seller Dashboard", () => {
     await expect(sellerPage).toHaveURL(/\/dashboard\/seller/);
   });
 
+  test("seller cards show one prioritized SUPER VIP status and discount durations", async ({
+    sellerPage,
+  }) => {
+    const listingId = randomUUID();
+    await properties.create({
+      id: listingId,
+      owner_id: TEST_IDS.seller,
+      type: "apartment",
+      title: `E2E SUPER VIP ${listingId.slice(0, 6)}`,
+      description: "Seller promotion status regression fixture",
+      location: "ბაკურიანი",
+      sale_price: 125000,
+      currency: "GEL",
+      photos: [],
+      status: "active",
+      is_for_sale: true,
+      is_vip: true,
+      is_super_vip: true,
+      vip_expires_at: new Date(
+        Date.now() + 4 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+      discount_percent: 20,
+      discount_expires_at: new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    });
+
+    try {
+      for (const path of [
+        "/dashboard/seller",
+        "/dashboard/seller/listings",
+      ]) {
+        await sellerPage.goto(path);
+        if (!(await assertDashboard(sellerPage, path))) return;
+
+        const card = sellerPage.locator(`[data-listing-id="${listingId}"]`);
+        const status = card.getByTestId("listing-promotion-status");
+        await expect(
+          status.locator('[data-promotion-tier="super-vip"]'),
+        ).toContainText("SUPER VIP · 4 დღე დარჩა");
+        await expect(
+          status.locator('[data-promotion-tier="vip"]'),
+        ).toHaveCount(0);
+        await expect(
+          status.locator('[data-promotion-tier="discount"]'),
+        ).toContainText("−20% · 2 დღე დარჩა");
+      }
+    } finally {
+      await properties.delete(listingId);
+    }
+  });
+
   test("overview and More sheet match the compact mobile layout", async ({
     sellerPage,
   }) => {

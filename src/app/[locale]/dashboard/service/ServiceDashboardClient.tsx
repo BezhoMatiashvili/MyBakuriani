@@ -23,8 +23,7 @@ import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
-import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive, daysRemaining } from "@/lib/utils/pricing";
+import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 import { CATEGORY_TO_CREATE_HREF } from "@/lib/dashboard/serviceSegments";
@@ -217,6 +216,7 @@ export default function ServiceDashboardClient({
             {services.map((s) => (
               <li
                 key={s.id}
+                data-listing-id={s.id}
                 className="flex flex-col gap-4 rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
                 <div className="flex items-center gap-4">
@@ -234,11 +234,6 @@ export default function ServiceDashboardClient({
                         <Briefcase className="h-5 w-5" />
                       </div>
                     )}
-                    {s.is_vip && (
-                      <span className="absolute left-1 top-1 rounded bg-[#F97316] px-1 py-0.5 text-[8px] font-black uppercase text-white">
-                        VIP
-                      </span>
-                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -246,26 +241,13 @@ export default function ServiceDashboardClient({
                       <h3 className="truncate text-[14px] font-black text-[#0F172A]">
                         {s.title}
                       </h3>
-                      {s.is_vip && (
-                        <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#A16207]">
-                          VIP
-                          {daysRemaining(s.vip_expires_at) != null &&
-                            ` · ${tShared("daysRemaining", { count: daysRemaining(s.vip_expires_at)! })}`}
-                        </span>
-                      )}
-                      {isDiscountActive(
-                        s.discount_percent,
-                        s.discount_expires_at,
-                      ) && (
-                        <ListingBadge
-                          variant="discount"
-                          className="normal-case"
-                        >
-                          −{s.discount_percent}%
-                          {daysRemaining(s.discount_expires_at) != null &&
-                            ` · ${tShared("daysRemaining", { count: daysRemaining(s.discount_expires_at)! })}`}
-                        </ListingBadge>
-                      )}
+                      <ListingPromotionBadges
+                        isVip={s.is_vip}
+                        isSuperVip={s.is_super_vip}
+                        vipExpiresAt={s.vip_expires_at}
+                        discountPercent={s.discount_percent}
+                        discountExpiresAt={s.discount_expires_at}
+                      />
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                           s.status === "active"

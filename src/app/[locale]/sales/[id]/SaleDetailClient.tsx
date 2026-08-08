@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,6 +37,7 @@ import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import { PriceDropAlertButton } from "@/components/sms/PriceDropAlertButton";
+import { Link } from "@/i18n/navigation";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -177,7 +177,6 @@ export default function SaleDetailClient({
   const tOpts = useTranslations("ListingOptions");
   const tMonths = useTranslations("DateRangeFilter.months");
   const locale = useLocale();
-  const router = useRouter();
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -270,6 +269,10 @@ export default function SaleDetailClient({
     : (property.location ?? "");
 
   const statusInfo = constructionStatusLabel(property.construction_status);
+  const constructionStatusKey = optionKeyFor(
+    "constructionStatuses",
+    property.construction_status,
+  );
   const envStatusKey = deriveEnvironmentStatusKey(property.amenities);
 
   const roiText =
@@ -306,7 +309,11 @@ export default function SaleDetailClient({
   if (statusInfo && !isLand) {
     metricCells.push({
       label: t("constructionStage"),
-      value: statusInfo.labelKey ? t(statusInfo.labelKey) : statusInfo.raw,
+      value: constructionStatusKey
+        ? tOpts(`constructionStatuses.${constructionStatusKey}`)
+        : statusInfo.labelKey
+          ? t(statusInfo.labelKey)
+          : statusInfo.raw,
       sub: property.completion_year
         ? handoverMonthKey
           ? t("deliveredOn", {
@@ -387,13 +394,13 @@ export default function SaleDetailClient({
         {...fadeIn}
         className="mb-6 flex items-center justify-between"
       >
-        <button
-          onClick={() => router.back()}
+        <Link
+          href="/sales"
           className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
         >
           <ArrowLeft className="h-4 w-4" />
           {tShared("back")}
-        </button>
+        </Link>
 
         <div className="flex items-center gap-1">
           {showPriceAlert && !isPending && (

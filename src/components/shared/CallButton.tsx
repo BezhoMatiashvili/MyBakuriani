@@ -20,6 +20,7 @@ interface CallButtonProps {
   serviceId?: string | null;
   layout?: "pill" | "card" | "inline";
   size?: "sm" | "default" | "lg";
+  iconOnly?: boolean;
 }
 
 export function CallButton({
@@ -32,6 +33,7 @@ export function CallButton({
   serviceId,
   layout = "pill",
   size = "default",
+  iconOnly = false,
 }: CallButtonProps) {
   const t = useTranslations("ContactReveal");
   const [resolvedPhone, setResolvedPhone] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export function CallButton({
     sizeClass,
     alwaysShowLabel &&
       "h-auto min-h-12 whitespace-normal px-3 py-2 text-center leading-5",
+    iconOnly && "size-11 min-h-11 shrink-0 p-0 whitespace-nowrap",
     layoutClass,
     className,
   );
@@ -100,14 +103,24 @@ export function CallButton({
         data-slot="call-button"
         data-layout={layout}
         aria-live="polite"
+        aria-label={
+          iconOnly
+            ? isResolving
+              ? `${label}…`
+              : revealFailed
+                ? t("failed")
+                : label
+            : undefined
+        }
         className={cn(
           "h-auto min-h-12 min-w-0 max-w-full shrink gap-2 whitespace-normal px-3 py-2 text-center leading-5",
+          iconOnly && "size-11 min-h-11 shrink-0 p-0 whitespace-nowrap",
           layoutClass,
           className,
         )}
       >
         <Phone className="size-4 shrink-0" />
-        <span className="min-w-0 break-words">
+        <span className={cn("min-w-0 break-words", iconOnly && "sr-only")}>
           {isResolving ? "…" : revealFailed ? t("failed") : label}
         </span>
       </Button>
@@ -120,6 +133,7 @@ export function CallButton({
       data-layout={layout}
       href={`tel:${normalizedPhone}`}
       className={classes}
+      aria-label={iconOnly ? label : undefined}
       onClick={(event) => {
         onClick?.(event);
         if (event.defaultPrevented) return;
@@ -127,7 +141,9 @@ export function CallButton({
       }}
     >
       <Phone className="size-4 shrink-0" />
-      {resolvedPhone ? (
+      {iconOnly ? (
+        <span className="sr-only">{label}</span>
+      ) : resolvedPhone ? (
         <span className="min-w-0 break-words">{formatPhone(normalizedPhone)}</span>
       ) : alwaysShowLabel ? (
         <span className="min-w-0 break-words">{label}</span>

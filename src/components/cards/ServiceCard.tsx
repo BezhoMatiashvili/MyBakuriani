@@ -18,6 +18,10 @@ import { ListingBadge } from "@/components/shared/ListingBadge";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { cn } from "@/lib/utils";
+import {
+  ListingAgeBadge,
+  NewlyAddedBadge,
+} from "@/components/shared/ListingRecency";
 
 interface ServiceCardProps {
   id: string;
@@ -46,10 +50,10 @@ interface ServiceCardProps {
   vehicleMake?: string | null;
   vehicleColor?: string | null;
   features?: string[] | null;
-  isNew?: boolean;
   isVerified?: boolean;
   description?: string | null;
   mobilePresentation?: "default" | "compact-grid";
+  createdAt: string | null;
 }
 
 const categoryRouteMap: Record<string, string> = {
@@ -83,12 +87,13 @@ export default function ServiceCard({
   availabilityStatus,
   vehicleCapacity,
   transportType,
+  vehicleMake,
   route,
   routes,
-  isNew = false,
   isVerified = false,
   description,
   mobilePresentation = "default",
+  createdAt,
 }: ServiceCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const isFood = category === "food";
@@ -122,6 +127,7 @@ export default function ServiceCard({
   if (variant === "avatar") {
     const isBusy = availabilityStatus === "busy";
     const hoursValue = operatingHours ?? schedule;
+    const showWhatsApp = !isBusy && hasWhatsapp;
     return (
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -145,8 +151,8 @@ export default function ServiceCard({
               : "rounded-[20px] p-4",
           )}
         >
-          <div className={cn("flex items-start justify-between gap-3", compactGrid && "flex-col sm:flex-row")}>
-            <span className={cn("relative block shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]", compactGrid ? "size-12 sm:size-[64px]" : "size-[64px]")}>
+          <div className="flex items-start justify-between gap-1 sm:gap-3">
+            <span className={cn("relative block shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]", compactGrid ? "size-10 sm:size-[64px]" : "size-[64px]")}>
               <Image
                 src={photoUrl}
                 alt={title}
@@ -155,14 +161,14 @@ export default function ServiceCard({
                 className="object-cover"
               />
             </span>
-            <div className={cn("flex flex-col items-end gap-1.5", compactGrid && "w-full sm:w-auto")}>
-              <div className={cn("flex items-center gap-1.5", compactGrid && "w-full justify-between sm:w-auto sm:justify-start")}>
+            <div className="flex min-w-0 flex-col items-end gap-1.5">
+              <div className={cn("flex items-center", compactGrid ? "gap-0" : "gap-1.5")}>
                 <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                  className={cn(`inline-flex items-center rounded-full font-bold ${
                     isBusy
                       ? "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
                       : "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
-                  }`}
+                  }`, compactGrid ? "px-1.5 py-0.5 text-[8px] sm:px-2.5 sm:text-[11px]" : "px-2.5 py-0.5 text-[11px]")}
                 >
                   {isBusy ? t("statusBusy") : t("statusActive")}
                 </span>
@@ -174,10 +180,16 @@ export default function ServiceCard({
                   size={compactGrid ? "card" : "compact"}
                 />
               </div>
-              <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
-                <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
-                4.9
-              </span>
+              <div className="flex items-center gap-1">
+                <NewlyAddedBadge
+                  createdAt={createdAt}
+                  className={compactGrid ? "max-w-[72px] truncate px-1.5 text-[7px] sm:max-w-none sm:px-2.5 sm:text-[9px]" : undefined}
+                />
+                <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
+                  <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
+                  4.9
+                </span>
+              </div>
             </div>
           </div>
           <h3 className={cn("mt-3 font-black text-[#1E293B] line-clamp-2", compactGrid ? "text-[14px] leading-[18px] sm:text-[16px] sm:leading-[20px]" : "text-[16px] leading-[20px]")}>
@@ -202,45 +214,61 @@ export default function ServiceCard({
                 </span>
               </p>
             )}
-            {hoursValue && (
-              <p className="text-[12px] font-bold text-[#334155]">
-                <span className="text-[#94A3B8] font-medium">
-                  {t("workingHoursLabel")}:{" "}
-                </span>
-                <span className="text-[#1E293B]">{hoursValue}</span>
-              </p>
-            )}
           </div>
-          <div className={cn("mt-auto grid gap-2 pt-3", compactGrid ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2")}>
+          <div className="mt-2 flex min-w-0 items-center justify-between gap-1.5">
+            {hoursValue ? (
+              compactGrid ? (
+                <p className="flex min-w-0 items-center gap-1 text-[9px] font-bold text-[#334155] sm:text-[12px]">
+                  <Clock className="size-3 shrink-0 text-[#94A3B8]" />
+                  <span className="truncate">{hoursValue}</span>
+                </p>
+              ) : (
+                <p className="min-w-0 truncate text-[12px] font-bold text-[#334155]">
+                  <span className="text-[#94A3B8] font-medium">
+                    {t("workingHoursLabel")}:{" "}
+                  </span>
+                  <span className="text-[#1E293B]">{hoursValue}</span>
+                </p>
+              )
+            ) : (
+              <span />
+            )}
+            <ListingAgeBadge
+              createdAt={createdAt}
+              className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+            />
+          </div>
+          <div className={cn("mt-auto gap-2 border-t border-[#E2E8F0] pt-3", compactGrid ? "flex items-center gap-1" : "grid grid-cols-2")}>
             <Link
               href={href}
               onClick={stop}
-              className={`flex items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-2 py-2.5 text-[12px] font-bold transition-colors ${
+              className={cn(`flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-2.5 text-[12px] font-bold transition-colors ${
                 isBusy
                   ? "text-[#94A3B8]"
                   : "text-[#334155] group-hover:bg-[#F8FAFC]"
-              }`}
+              }`, compactGrid && "h-11 flex-1 px-1 text-[10px] sm:px-2 sm:text-[12px]")}
             >
               {t("details")}
             </Link>
-            <div className="flex min-w-0 items-center gap-2">
+            <div className={cn("flex min-w-0 items-center", compactGrid ? "gap-1" : "gap-2")}>
               <CallButton
                 phone={phone}
                 serviceId={id}
                 label={t("call")}
-                alwaysShowLabel
+                alwaysShowLabel={!showWhatsApp}
+                iconOnly={showWhatsApp}
                 layout="card"
                 size="default"
                 onClick={stop}
-                className="min-w-0 flex-1 rounded-[12px] px-2"
+                className={cn("min-w-0 flex-1 rounded-[12px] px-2", showWhatsApp && "size-11 min-h-11 flex-none px-0")}
               />
-              {!isBusy && (
+              {showWhatsApp && (
                 <WhatsAppButton
                   hasWhatsApp={hasWhatsapp}
                   whatsapp={null}
                   serviceId={id}
                   onClick={stop}
-                  className="rounded-[12px]"
+                  className="size-11 rounded-[12px]"
                 />
               )}
             </div>
@@ -300,14 +328,11 @@ export default function ServiceCard({
                     -{discountPercent}%
                   </ListingBadge>
                 )}
-                {!isVip && discountPercent === 0 && (
-                  <ListingBadge
-                    variant="new"
-                    className="rounded-md px-2.5 py-1 text-[11px]"
-                  >
-                    {t("statusNew")}
-                  </ListingBadge>
-                )}
+                <NewlyAddedBadge createdAt={createdAt} />
+                <ListingAgeBadge
+                  createdAt={createdAt}
+                  className="bg-white/90 text-[#64748B] backdrop-blur-sm"
+                />
               </div>
               <div className="flex flex-col items-end gap-2">
                 <FavoriteButton
@@ -403,11 +428,6 @@ export default function ServiceCard({
                 {t("verifiedBadge")}
               </span>
             )}
-            {isNew && !isTransport && (
-              <span className="rounded-[4px] bg-[#FCD34D] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-[#78350F] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-                {t("statusNew")}
-              </span>
-            )}
             {discountActive && (
               <ListingBadge variant="discount">
                 -{discountPercent}%
@@ -421,16 +441,22 @@ export default function ServiceCard({
             ariaLabel={t("addToFavorites")}
             className={cn("absolute bg-white/90 backdrop-blur-sm", compactGrid ? "right-1 top-1 sm:right-3 sm:top-3" : "right-3 top-3")}
           />
-          {!isFood && !isTransport && (
-            <Badge
-              variant="secondary"
-              className="absolute bottom-3 left-3 bg-white/90 text-[#1E293B] backdrop-blur-sm"
-            >
-              {t.has(`categories.${category}`)
-                ? t(`categories.${category}`)
-                : category}
-            </Badge>
-          )}
+          <div className={cn("absolute flex flex-col items-start gap-1", compactGrid ? "bottom-2 left-2" : "bottom-3 left-3")}>
+            <NewlyAddedBadge
+              createdAt={createdAt}
+              className={compactGrid ? "max-w-[calc(100%-0.5rem)] truncate px-1.5 text-[8px] sm:px-2.5 sm:text-[9px]" : undefined}
+            />
+            {!isFood && !isTransport && (
+              <Badge
+                variant="secondary"
+                className="bg-white/90 text-[#1E293B] backdrop-blur-sm"
+              >
+                {t.has(`categories.${category}`)
+                  ? t(`categories.${category}`)
+                  : category}
+              </Badge>
+            )}
+          </div>
         </div>
         <div className={cn("flex flex-1 flex-col lg:p-5", compactGrid ? "p-2.5 sm:p-4" : "p-4")}>
           <div className="flex items-start justify-between gap-2">
@@ -446,6 +472,23 @@ export default function ServiceCard({
           </div>
           {isTransport ? (
             <div className="mt-2 space-y-1">
+              <div className="flex justify-end">
+                <ListingAgeBadge
+                  createdAt={createdAt}
+                  className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+                />
+              </div>
+              {vehicleMake && (
+                <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
+                  <Car aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                  <span className="font-medium text-[#94A3B8]">
+                    {t("makeLabel")}:{" "}
+                  </span>
+                  <span className="line-clamp-1 font-bold text-[#1E293B]">
+                    {vehicleMake}
+                  </span>
+                </p>
+              )}
               {transportType && (
                 <p className="flex items-center gap-1.5 text-[13px] text-[#334155]">
                   <Car aria-hidden className="h-3.5 w-3.5 shrink-0" />
@@ -486,13 +529,19 @@ export default function ServiceCard({
             </div>
           ) : (
             <>
-              <div className="mt-1 lg:min-h-[18px]">
-                {location && (
-                  <p className="flex items-center gap-1 text-[12px] font-medium leading-[18px] text-[#64748B]">
-                    <MapPin className="h-3 w-3" />
-                    {location}
+              <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5 lg:min-h-[18px]">
+                {location ? (
+                  <p className="flex min-w-0 items-center gap-1 text-[12px] font-medium leading-[18px] text-[#64748B]">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{location}</span>
                   </p>
+                ) : (
+                  <span />
                 )}
+                <ListingAgeBadge
+                  createdAt={createdAt}
+                  className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+                />
               </div>
               <div className="mt-2 lg:mt-3 lg:min-h-[33px]">
                 {isFood
@@ -534,11 +583,19 @@ export default function ServiceCard({
               </div>
             </>
           )}
-          <div className={cn("mt-auto grid gap-2 pt-3 lg:pt-4", compactGrid ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2")}>
+          <div
+            className={cn(
+              "mt-auto grid grid-cols-2 pt-3 lg:gap-2 lg:pt-4",
+              compactGrid ? "gap-1" : "gap-2",
+            )}
+          >
             <Link
               href={href}
               onClick={stop}
-              className="flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-2 py-2.5 text-[12px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]"
+              className={cn(
+                "flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-2 py-2.5 text-[12px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]",
+                compactGrid && "h-11 px-1 text-[9px] sm:px-2 sm:text-[12px]",
+              )}
             >
               {t("details")}
             </Link>
@@ -551,7 +608,10 @@ export default function ServiceCard({
                 layout="card"
                 size="default"
                 onClick={stop}
-                className="w-full min-w-0 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]"
+                className={cn(
+                  "w-full min-w-0 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]",
+                  compactGrid && "h-11 min-h-11 gap-1 px-1 text-[9px] sm:gap-2 sm:px-2 sm:text-[12px]",
+                )}
               />
             ) : (
               <div className="flex min-w-0 items-center gap-2">

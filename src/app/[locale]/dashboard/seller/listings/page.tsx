@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Plus, Edit, Building2, Search, Target } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -20,8 +19,7 @@ import { formatRelativeGe } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
-import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive, daysRemaining } from "@/lib/utils/pricing";
+import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 
 const constructionStatusLabel: Record<string, string> = {
@@ -32,7 +30,6 @@ const constructionStatusLabel: Record<string, string> = {
 };
 
 export default function SellerListingsPage() {
-  const tShared = useTranslations("DashboardShared");
   const { user } = useAuth();
   const scope = useActiveOrgScope();
   const isOrgScope = scope.mode === "org" && !!scope.organizationId;
@@ -181,6 +178,7 @@ export default function SellerListingsPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04 }}
+                data-listing-id={property.id}
                 className="overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
               >
                 <div className="relative h-[210px] w-full overflow-hidden bg-[#0F172A]">
@@ -203,23 +201,14 @@ export default function SellerListingsPage() {
                         {constrChipText}
                       </span>
                     )}
-                    {property.is_vip && (
-                      <span className="rounded-md bg-[#FEF3C7] px-3 py-1.5 text-[11px] font-black uppercase text-[#A16207]">
-                        VIP
-                        {daysRemaining(property.vip_expires_at) != null &&
-                          ` · ${tShared("daysRemaining", { count: daysRemaining(property.vip_expires_at)! })}`}
-                      </span>
-                    )}
-                    {isDiscountActive(
-                      property.discount_percent,
-                      property.discount_expires_at,
-                    ) && (
-                      <ListingBadge variant="discount" className="normal-case">
-                        −{property.discount_percent}%
-                        {daysRemaining(property.discount_expires_at) != null &&
-                          ` · ${tShared("daysRemaining", { count: daysRemaining(property.discount_expires_at)! })}`}
-                      </ListingBadge>
-                    )}
+                    <ListingPromotionBadges
+                      presentation="overlay"
+                      isVip={property.is_vip}
+                      isSuperVip={property.is_super_vip}
+                      vipExpiresAt={property.vip_expires_at}
+                      discountPercent={property.discount_percent}
+                      discountExpiresAt={property.discount_expires_at}
+                    />
                   </div>
                   <div className="absolute bottom-4 left-4 right-4">
                     <h3 className="text-[22px] font-black leading-[28px] text-white">

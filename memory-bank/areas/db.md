@@ -42,6 +42,10 @@ Database schema, policies, and the generated type mirror.
   activation happen atomically only on approval.
 - `20260804190000_cleaner_manual_tasks_realtime.sql` publishes personal cleaner
   tasks with full replica identity for the overview/schedule subscriptions.
+- `20260808121000_public_services_transport_fields.sql` is the latest
+  `public_services` restatement. It preserves the computed `has_active_discount`
+  contract and appends the public transport-card fields `vehicle_make`,
+  `transport_type`, `routes`, and `equipment`.
 - **Adding an enum value is a two-transaction operation.** `ALTER TYPE … ADD
 VALUE` may run inside a transaction, but the new label cannot be _evaluated_
   until that transaction commits (`check_safe_enum_use` → `55P04`). Put the

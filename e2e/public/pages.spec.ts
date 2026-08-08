@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+import {
+  formatRelativeGe,
+  isListingNewlyAdded,
+} from "../../src/lib/utils/format";
 
 // ---------------------------------------------------------------------------
 // Landing page
@@ -47,6 +51,195 @@ test.describe("Landing page", () => {
 
     await discountsOnly.click();
     await expect(discountsOnly).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+test.describe("PDF listing recency and public parity", () => {
+  test("relative age and the rolling 24-hour boundary are deterministic", () => {
+    const now = Date.parse("2026-08-08T12:00:00.000Z");
+    expect(
+      formatRelativeGe("2026-08-08T10:00:00.000Z", "ka", now),
+    ).toBe("2 სთ წინ");
+    expect(
+      formatRelativeGe("2026-08-07T12:00:00.000Z", "ka", now),
+    ).toBe("1 დღის წინ");
+    expect(
+      isListingNewlyAdded("2026-08-07T12:00:00.001Z", now),
+    ).toBe(true);
+    expect(
+      isListingNewlyAdded("2026-08-07T12:00:00.000Z", now),
+    ).toBe(false);
+    expect(formatRelativeGe("invalid", "ka", now)).toBe("");
+    expect(formatRelativeGe("2026-08-08T13:00:00.000Z", "ka", now)).toBe(
+      "",
+    );
+  });
+
+  for (const [route, title, selector] of [
+    ["/apartments", "E2E ბინა ბაკურიანში", "[data-listing-card]"],
+    ["/hotels", "E2E სასტუმრო ბაკურიანში", "[data-listing-card]"],
+    ["/sales", "E2E გასაყიდი ბინა", "a"],
+    ["/food", "E2E რესტორანი", "[data-service-card]"],
+    ["/services", "E2E დილის დასუფთავება", "[data-service-card]"],
+    ["/entertainment", "E2E გართობა", "[data-service-card]"],
+    ["/transport", "E2E ტრანსპორტი", "[data-service-card]"],
+    ["/employment", "E2E ვაკანსია", "[data-employment-card]"],
+  ] as const) {
+    test(`${route} renders real listing age metadata`, async ({ page }) => {
+      await page.goto(route);
+      const card = page.locator(selector, { hasText: title }).first();
+      await expect(card).toBeVisible();
+      await expect(card.locator("[data-listing-age]")).toBeVisible();
+    });
+  }
+
+  test("freshness badge uses created_at instead of VIP or list position", async ({
+    page,
+  }) => {
+    await page.goto("/apartments");
+    const fresh = page.locator("[data-listing-card]", {
+      hasText: "E2E ბინა ბაკურიანში",
+    });
+    const old = page.locator("[data-listing-card]", {
+      hasText: "E2E ვილა ბაკურიანში",
+    });
+    await expect(fresh.locator("[data-newly-added]")).toHaveText(
+      "ახალი დამატებული",
+    );
+    await expect(old.locator("[data-newly-added]")).toHaveCount(0);
+  });
+
+  test("food results retain complete comparison metadata", async ({ page }) => {
+    await page.goto("/food");
+    const card = page.locator("[data-service-card]", {
+      hasText: "E2E რესტორანი",
+    });
+    await expect(card.getByText("ბაკურიანი", { exact: true })).toBeVisible();
+    await expect(card.getByText("10:00-22:00", { exact: true })).toBeVisible();
+    await expect(card.getByRole("link", { name: "დეტალები" })).toBeVisible();
+    await expect(card.locator('[data-slot="call-button"]')).toBeVisible();
+  });
+
+  test("services and food switch to two compact columns at 375px", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto("/services");
+    const servicesGrid = page.getByTestId("services-results-grid");
+    expect(
+      await servicesGrid.evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      ),
+    ).toBe(1);
+    let cards = page.locator('[data-service-card][data-mobile-presentation="compact-grid"]');
+    await expect(cards.nth(1)).toBeVisible();
+    let first = await cards.first().boundingBox();
+    let second = await cards.nth(1).boundingBox();
+    expect(second!.y).toBeGreaterThan(first!.y + first!.height - 1);
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.reload();
+    expect(
+      await servicesGrid.evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      ),
+    ).toBe(2);
+    cards = page.locator('[data-service-card][data-mobile-presentation="compact-grid"]');
+    await expect(cards.nth(1)).toBeVisible();
+    first = await cards.first().boundingBox();
+    second = await cards.nth(1).boundingBox();
+    expect(first!.y).toBeCloseTo(second!.y, 0);
+    expect(first!.width).toBeLessThan(180);
+    expect(second!.x).toBeGreaterThan(first!.x + first!.width - 1);
+
+    const whatsappCard = page.locator("[data-service-card]", {
+      hasText: "E2E WhatsApp სერვისი",
+    });
+    const details = whatsappCard.getByRole("link", { name: "დეტალები" });
+    const call = whatsappCard.locator('[data-slot="call-button"]');
+    const whatsapp = whatsappCard.locator('[data-slot="whatsapp-button"]');
+    await expect(call).toHaveAttribute("aria-label", "დარეკვა");
+    await expect(whatsapp).toBeVisible();
+    const [detailsBox, callBox, whatsappBox] = await Promise.all([
+      details.boundingBox(),
+      call.boundingBox(),
+      whatsapp.boundingBox(),
+    ]);
+    expect(detailsBox!.height).toBeGreaterThanOrEqual(44);
+    expect(callBox!.width).toBe(44);
+    expect(callBox!.height).toBe(44);
+    expect(whatsappBox!.width).toBe(44);
+    expect(whatsappBox!.height).toBe(44);
+    expect(callBox!.y).toBeCloseTo(whatsappBox!.y, 0);
+
+    await page.goto("/food");
+    const foodGrid = page.getByTestId("food-results-grid");
+    expect(
+      await foodGrid.evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      ),
+    ).toBe(2);
+    cards = page.locator('[data-service-card][data-mobile-presentation="compact-grid"]');
+    await expect(cards.first()).toBeVisible();
+    first = await cards.first().boundingBox();
+    expect(first!.width).toBeLessThan(180);
+    const foodCard = page.locator("[data-service-card]", {
+      hasText: "E2E რესტორანი",
+    });
+    const foodDetails = await foodCard
+      .getByRole("link", { name: "დეტალები" })
+      .boundingBox();
+    const foodCall = await foodCard
+      .locator('[data-slot="call-button"]')
+      .boundingBox();
+    expect(foodDetails!.height).toBeGreaterThanOrEqual(44);
+    expect(foodCall!.height).toBeGreaterThanOrEqual(44);
+    expect(foodDetails!.y).toBeCloseTo(foodCall!.y, 0);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+  });
+
+  test("transport card and detail expose the safe create-form fields", async ({
+    page,
+  }) => {
+    await page.goto("/transport");
+    const card = page.locator("[data-service-card]", {
+      hasText: "E2E ტრანსპორტი",
+    });
+    await expect(card.getByText("Mercedes-Benz", { exact: true })).toBeVisible();
+    await expect(card.getByText("მინივენი", { exact: true })).toBeVisible();
+
+    await page.goto("/transport/aae2ff00-4002-4000-a000-000000000002");
+    await expect(page.getByText("Mercedes-Benz", { exact: true })).toBeVisible();
+    await expect(page.getByText("მინივენი", { exact: true })).toBeVisible();
+    await expect(page.getByText("ზამთრის საბურავები", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("თბილისი - ბაკურიანი - თბილისი", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("sales copy, status, and deterministic back destination stay aligned", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "ყიდვა (ინვესტიცია)" }).click();
+    await expect(page.getByRole("link", { name: "დაამატე" })).toBeVisible();
+
+    await page.goto("/sales/aae2ff00-1003-4000-a000-000000000003");
+    await expect(
+      page.getByText("ახალი აშენებული/დასრულებული", { exact: true }),
+    ).toBeVisible();
+    const back = page.getByRole("link", { name: "უკან დაბრუნება" });
+    await expect(back).toHaveAttribute("href", "/sales");
   });
 });
 

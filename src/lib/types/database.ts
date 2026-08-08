@@ -881,6 +881,30 @@ export type Database = {
           },
         ];
       };
+      listing_view_events: {
+        Row: {
+          client_ip: string;
+          created_at: string;
+          id: string;
+          listing_id: string;
+          listing_type: string;
+        };
+        Insert: {
+          client_ip: string;
+          created_at?: string;
+          id?: string;
+          listing_id: string;
+          listing_type: string;
+        };
+        Update: {
+          client_ip?: string;
+          created_at?: string;
+          id?: string;
+          listing_id?: string;
+          listing_type?: string;
+        };
+        Relationships: [];
+      };
       manual_booking_sms_consents: {
         Row: {
           accepted_at: string | null;
@@ -3431,6 +3455,14 @@ export type Database = {
       };
       increment_views: { Args: { prop_id: string }; Returns: undefined };
       is_admin_user: { Args: never; Returns: boolean };
+      listing_analytics: {
+        Args: {
+          p_days?: number;
+          p_listing_id: string;
+          p_listing_type: string;
+        };
+        Returns: Json;
+      };
       normalize_ge_phone: { Args: { p: string }; Returns: string };
       owner_dashboard_stats: {
         Args: {
@@ -3498,6 +3530,14 @@ export type Database = {
       respond_manual_booking_sms_consent: {
         Args: { p_action: string; p_token_hash: string };
         Returns: Json;
+      };
+      record_listing_view: {
+        Args: {
+          p_client_ip: string;
+          p_listing_id: string;
+          p_listing_type: string;
+        };
+        Returns: undefined;
       };
       record_contact_event: {
         Args: {

@@ -3,6 +3,10 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { cn } from "@/lib/utils";
+import {
+  ListingAgeBadge,
+  NewlyAddedBadge,
+} from "@/components/shared/ListingRecency";
 
 export interface EmploymentCardProps {
   id: string;
@@ -13,8 +17,8 @@ export interface EmploymentCardProps {
   scheduleLabel?: string | null;
   description?: string | null;
   applicationsCount?: number;
-  badge?: "urgent" | "vip" | "new" | null;
-  postedLabel?: string;
+  badge?: "urgent" | "vip" | null;
+  createdAt: string | null;
   highlighted?: boolean;
   mobilePresentation?: "default" | "compact-grid";
 }
@@ -29,7 +33,7 @@ export default function EmploymentCard({
   description,
   applicationsCount,
   badge,
-  postedLabel,
+  createdAt,
   highlighted,
   mobilePresentation = "default",
 }: EmploymentCardProps) {
@@ -79,17 +83,12 @@ export default function EmploymentCard({
               VIP
             </span>
           )}
-          {badge === "new" && (
-            <span className="inline-flex items-center rounded-md bg-[#DBEAFE] px-2 py-1 text-[11px] font-bold text-[#1D4ED8]">
-              {t("new")}
-            </span>
-          )}
+          <NewlyAddedBadge createdAt={createdAt} />
         </div>
-        {postedLabel && (
-          <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">
-            {postedLabel}
-          </span>
-        )}
+        <ListingAgeBadge
+          createdAt={createdAt}
+          className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+        />
       </div>
 
       <h3 className={cn("font-black text-[#1E293B] line-clamp-2", compactGrid ? "mt-3 text-[14px] leading-[18px] sm:mt-4 sm:text-[18px] sm:leading-[22px]" : "mt-4 text-[18px] leading-[22px]")}>

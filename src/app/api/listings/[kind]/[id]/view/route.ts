@@ -34,14 +34,16 @@ export async function POST(
     .eq("status", "active")
     .maybeSingle();
   if (!listing) return Response.json({ error: "not_found" }, { status: 404 });
-  // Services must use increment_service_views, NOT increment_service_menu_views:
-  // the latter writes menu_views_count, which no owner surface renders and which
-  // /api/menu/track already owns (a food visitor opening the menu would count
-  // twice). See 20260725150000_increment_service_views.sql.
-  const rpc =
-    kind === "property" ? "increment_views" : "increment_service_views";
-  const args = kind === "property" ? { prop_id: id } : { p_service_id: id };
-  const { error } = await db.rpc(rpc, args as never);
+  // record_listing_view bumps views_count AND logs a listing_view_events row in
+  // one atomic call, which is what makes the owner-facing daily views trend
+  // (src/app/api/listings/[kind]/[id]/analytics/route.ts) possible. It replaces
+  // the old increment_views/increment_service_views calls; those RPCs are left
+  // in place (nothing else calls them) rather than dropped.
+  const { error } = await db.rpc("record_listing_view", {
+    p_listing_type: kind,
+    p_listing_id: id,
+    p_client_ip: getClientIp(req),
+  });
   if (error) return Response.json({ counted: false }, { status: 503 });
   return Response.json({ counted: true });
 }

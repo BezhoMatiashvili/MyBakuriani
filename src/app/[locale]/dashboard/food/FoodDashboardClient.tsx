@@ -21,8 +21,7 @@ import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import FoodDiscountRequestModal from "@/components/dashboard/FoodDiscountRequestModal";
-import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive } from "@/lib/utils/pricing";
+import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
@@ -260,13 +259,21 @@ export default function FoodDashboardClient({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
+        data-listing-id={restaurant?.id}
         className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
       >
         <h2 className="text-[15px] font-black text-[#0F172A]">
           {t("myListing")}
         </h2>
-        {isDiscountActive(restaurant?.discount_percent, restaurant?.discount_expires_at) && (
-          <ListingBadge variant="discount" className="mt-2 normal-case">−{restaurant?.discount_percent}%</ListingBadge>
+        {restaurant && (
+          <ListingPromotionBadges
+            className="mt-2"
+            isVip={restaurant.is_vip}
+            isSuperVip={restaurant.is_super_vip}
+            vipExpiresAt={restaurant.vip_expires_at}
+            discountPercent={restaurant.discount_percent}
+            discountExpiresAt={restaurant.discount_expires_at}
+          />
         )}
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2 text-[13px] font-medium text-[#64748B]">

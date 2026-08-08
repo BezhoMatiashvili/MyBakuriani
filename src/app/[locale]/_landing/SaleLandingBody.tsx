@@ -155,6 +155,7 @@ export default function SaleLandingBody({
         constructionProgressPercent: p.construction_progress_percent ?? null,
         discountPercent: p.discount_percent ?? 0,
         discountExpiresAt: p.discount_expires_at ?? null,
+        createdAt: p.created_at,
         paymentOptions: readPaymentOptions(p.house_rules),
       }));
     }

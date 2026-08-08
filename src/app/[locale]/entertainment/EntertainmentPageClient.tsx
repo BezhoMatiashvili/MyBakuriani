@@ -261,6 +261,7 @@ export default function EntertainmentPageClient({ services }: Props) {
                 <ScrollReveal key={s.id} delay={i * 0.05}>
                   <ServiceCard
                     id={s.id}
+                    createdAt={s.created_at}
                     title={s.title}
                     category={s.category}
                     location={s.location}

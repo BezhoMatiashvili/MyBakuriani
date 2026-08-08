@@ -1230,6 +1230,9 @@ Participating symbols:
 
 - `supabase/migrations/20260804180000_food_discount_admin_review.sql` — request metadata, specialized
   submit/approve RPCs, transition guard, legacy proposal conversion, and `public_services.has_active_discount`
+- `supabase/migrations/20260808121000_public_services_transport_fields.sql` — restates the public
+  service projection while preserving `has_active_discount` and appends only the safe transport display
+  fields (`vehicle_make`, `transport_type`, `routes`, and `equipment`)
 - `src/app/api/food/discount-requests/route.ts` — owner-authenticated submit/status endpoint
 - `src/app/api/admin/content-change-requests/[id]/route.ts` — dispatches food approvals to the specialized
   RPC; the general content RPC cannot approve this request kind
@@ -1250,5 +1253,5 @@ publicly active only when percent is positive and expiry is in the future.
 **Breaks silently when:** a UI calls `purchase_package` directly for a restaurant discount (bypasses
 review); general content approval is allowed to transition `food_discount` rows (can activate without a
 charge); a public query orders raw `discount_percent` instead of `has_active_discount` (expired offers
-stay promoted); or submit-time and approval-time prices are recomputed independently (reviewed amount and
-charged amount diverge).
+stay promoted); a later `public_services` restatement drops `has_active_discount`; or submit-time and
+approval-time prices are recomputed independently (reviewed amount and charged amount diverge).

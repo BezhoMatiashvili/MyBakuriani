@@ -18,9 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRealtimeList } from "@/lib/hooks/useRealtime";
-import { Badge } from "@/components/ui/badge";
-import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive } from "@/lib/utils/pricing";
+import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
@@ -204,6 +202,7 @@ export default function RenterListingsPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
+              data-listing-id={property.id}
               className="rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -262,22 +261,13 @@ export default function RenterListingsPage() {
                   </div>
 
                   <div className="mt-2 flex items-center gap-2">
-                    {property.is_vip && (
-                      <Badge className="bg-amber-500 text-white">VIP</Badge>
-                    )}
-                    {property.is_super_vip && (
-                      <Badge className="bg-purple-500 text-white">
-                        Super VIP
-                      </Badge>
-                    )}
-                    {isDiscountActive(
-                      property.discount_percent,
-                      property.discount_expires_at,
-                    ) && (
-                      <ListingBadge variant="discount" className="normal-case">
-                        −{property.discount_percent}%
-                      </ListingBadge>
-                    )}
+                    <ListingPromotionBadges
+                      isVip={property.is_vip}
+                      isSuperVip={property.is_super_vip}
+                      vipExpiresAt={property.vip_expires_at}
+                      discountPercent={property.discount_percent}
+                      discountExpiresAt={property.discount_expires_at}
+                    />
                   </div>
                 </div>
 

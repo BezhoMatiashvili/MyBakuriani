@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
-import { Building2, Eye, Plus, Heart } from "lucide-react";
+import { Building2, Eye, Plus, Heart, BarChart3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,11 +20,20 @@ import {
 import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
-import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive, daysRemaining } from "@/lib/utils/pricing";
+import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
 import { loadSellerData, type SellerData } from "./loadData";
+
+const ListingAnalyticsPanel = dynamic(
+  () => import("@/components/renter/ListingAnalyticsPanel"),
+  {
+    ssr: false,
+    loading: () => (
+      <Skeleton className="mt-3 h-[180px] w-full rounded-2xl sm:mt-4" />
+    ),
+  },
+);
 
 type SellerStats =
   Database["public"]["Functions"]["owner_dashboard_stats"]["Returns"][number];
@@ -70,6 +80,7 @@ export default function SellerDashboardClient({
     open: boolean;
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
+  const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
 
   // Tracks whether the properties effect below has already run once, so the
   // very first run (server-seeded `initial.properties`) never triggers an
@@ -294,6 +305,7 @@ export default function SellerDashboardClient({
               <div
                 key={property.id}
                 data-testid="seller-overview-listing"
+                data-listing-id={property.id}
                 className="block rounded-[20px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_8px_24px_rgba(15,23,42,0.06)] sm:p-4"
               >
                 <div className="flex gap-3 sm:gap-4">
@@ -345,27 +357,13 @@ export default function SellerDashboardClient({
                           {property.area_sqm} {tShared("sqm")}
                         </span>
                       )}
-                      {property.is_vip && (
-                        <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#A16207]">
-                          VIP
-                          {daysRemaining(property.vip_expires_at) != null &&
-                            ` · ${tStats("daysRemaining", { count: daysRemaining(property.vip_expires_at)! })}`}
-                        </span>
-                      )}
-                      {isDiscountActive(
-                        property.discount_percent,
-                        property.discount_expires_at,
-                      ) && (
-                        <ListingBadge
-                          variant="discount"
-                          className="normal-case"
-                        >
-                          −{property.discount_percent}%
-                          {daysRemaining(property.discount_expires_at) !=
-                            null &&
-                            ` · ${tStats("daysRemaining", { count: daysRemaining(property.discount_expires_at)! })}`}
-                        </ListingBadge>
-                      )}
+                      <ListingPromotionBadges
+                        isVip={property.is_vip}
+                        isSuperVip={property.is_super_vip}
+                        vipExpiresAt={property.vip_expires_at}
+                        discountPercent={property.discount_percent}
+                        discountExpiresAt={property.discount_expires_at}
+                      />
                     </div>
                   </div>
                 </div>
@@ -375,7 +373,38 @@ export default function SellerDashboardClient({
                   onPromote={(tier) => setPickerModal({ open: true, tier })}
                   mobilePresentation="seller-overview"
                   className="mt-3 sm:mt-4 sm:border-t sm:border-[#F1F5F9] sm:pt-4"
-                />
+                >
+                  <button
+                    type="button"
+                    aria-expanded={openAnalytics.has(property.id)}
+                    aria-controls={`seller-analytics-panel-${property.id}`}
+                    onClick={() =>
+                      setOpenAnalytics((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(property.id)) next.delete(property.id);
+                        else next.add(property.id);
+                        return next;
+                      })
+                    }
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] sm:min-h-0 sm:px-3.5 sm:py-2.5"
+                  >
+                    <BarChart3 className="size-3.5" />
+                    {tStats("analytics.button")}
+                  </button>
+                </ListingActions>
+
+                {openAnalytics.has(property.id) && (
+                  <motion.div
+                    id={`seller-analytics-panel-${property.id}`}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <ListingAnalyticsPanel
+                      listingId={property.id}
+                      listingType="property"
+                    />
+                  </motion.div>
+                )}
               </div>
             ))
           )}

@@ -14,6 +14,10 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { cn } from "@/lib/utils";
+import {
+  ListingAgeBadge,
+  NewlyAddedBadge,
+} from "@/components/shared/ListingRecency";
 
 // Seeded zone names get translated display labels (Zones.<slug>.name);
 // free-text / non-seeded locations pass through raw. Display only — the
@@ -48,6 +52,7 @@ interface InvestmentCardProps {
   discountPercent: number;
   discountExpiresAt: string | null;
   mobilePresentation?: "default" | "compact-grid";
+  createdAt: string | null;
 }
 
 export default function InvestmentCard({
@@ -65,6 +70,7 @@ export default function InvestmentCard({
   discountPercent,
   discountExpiresAt,
   mobilePresentation = "default",
+  createdAt,
 }: InvestmentCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const t = useTranslations("InvestmentCard");
@@ -163,23 +169,37 @@ export default function InvestmentCard({
           >
             <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
           </button>
+
+          <NewlyAddedBadge
+            createdAt={createdAt}
+            className={cn(
+              "absolute",
+              compactGrid ? "bottom-2 left-2 px-2 text-[8px] sm:bottom-4 sm:left-4" : "bottom-4 left-4",
+            )}
+          />
         </div>
 
         <div className={cn("flex flex-1 flex-col lg:p-5", compactGrid ? "p-2.5 sm:p-4" : "p-4")}>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center justify-between gap-2">
             <p className="flex min-w-0 items-center gap-1 text-[12px] font-medium text-[#94A3B8]">
               <MapPin className="h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
               <span className="truncate">{locationLabel}</span>
             </p>
-            {roiPercent != null && roiPercent > 0 ? (
-              <span className="shrink-0 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-bold text-[#16A34A]">
-                ROI {Number(roiPercent).toFixed(0)}%
-              </span>
-            ) : isCompleted ? (
-              <span className="shrink-0 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-bold text-[#B45309]">
-                {t("completed")}
-              </span>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-1">
+              <ListingAgeBadge
+                createdAt={createdAt}
+                className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+              />
+              {roiPercent != null && roiPercent > 0 ? (
+                <span className="shrink-0 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-bold text-[#16A34A]">
+                  ROI {Number(roiPercent).toFixed(0)}%
+                </span>
+              ) : isCompleted ? (
+                <span className="shrink-0 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-bold text-[#B45309]">
+                  {tOpts("constructionStatuses.completed")}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <h3 className={cn("mt-2 truncate font-black text-[#1E293B]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[22px]" : "text-[17px] leading-[22px]")}>
