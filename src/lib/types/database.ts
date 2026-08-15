@@ -2366,6 +2366,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      service_menu_items: {
+        Row: {
+          created_at: string;
+          currency: string;
+          description: string | null;
+          discount_expires_at: string | null;
+          discount_percent: number;
+          id: string;
+          is_available: boolean;
+          name: string;
+          photo_url: string | null;
+          price: number;
+          service_id: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          currency?: string;
+          description?: string | null;
+          discount_expires_at?: string | null;
+          discount_percent?: number;
+          id?: string;
+          is_available?: boolean;
+          name: string;
+          photo_url?: string | null;
+          price: number;
+          service_id: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          currency?: string;
+          description?: string | null;
+          discount_expires_at?: string | null;
+          discount_percent?: number;
+          id?: string;
+          is_available?: boolean;
+          name?: string;
+          photo_url?: string | null;
+          price?: number;
+          service_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "service_menu_items_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       site_settings: {
         Row: {
           key: string;
@@ -3164,6 +3220,13 @@ export type Database = {
         Row: Database["public"]["Tables"]["services"]["Row"] & {
           has_whatsapp: boolean;
           has_active_discount: boolean;
+          best_active_menu_item_discount_percent: number | null;
+        };
+        Relationships: [];
+      };
+      public_service_menu_items: {
+        Row: Database["public"]["Tables"]["service_menu_items"]["Row"] & {
+          has_active_discount: boolean;
         };
         Relationships: [];
       };
@@ -3600,6 +3663,55 @@ export type Database = {
           p_service_id: string;
           p_working_hours: string;
         };
+        Returns: Json;
+      };
+      self_service_create_menu_item: {
+        Args: {
+          p_actor_id: string;
+          p_description: string | null;
+          p_name: string;
+          p_photo_url?: string | null;
+          p_price: number;
+          p_service_id: string;
+        };
+        Returns: Json;
+      };
+      self_service_update_menu_item: {
+        Args: {
+          p_actor_id: string;
+          p_description: string | null;
+          p_is_available: boolean | null;
+          p_menu_item_id: string;
+          p_name: string | null;
+          p_photo_url: string | null;
+          p_price: number | null;
+        };
+        Returns: Json;
+      };
+      self_service_delete_menu_item: {
+        Args: { p_actor_id: string; p_menu_item_id: string };
+        Returns: Json;
+      };
+      self_service_reorder_menu_items: {
+        Args: {
+          p_actor_id: string;
+          p_ordered_ids: string[];
+          p_service_id: string;
+        };
+        Returns: Json;
+      };
+      submit_menu_item_discount_request: {
+        Args: {
+          p_discount_percent: number;
+          p_menu_item_id: string;
+          p_package_id: string;
+          p_quantity?: number;
+          p_requester_id: string;
+        };
+        Returns: Json;
+      };
+      approve_menu_item_discount_request: {
+        Args: { p_admin_id: string; p_request_id: string };
         Returns: Json;
       };
       sms_audience_count: {

@@ -4,6 +4,98 @@ Started: 2026-07-05. Scope: database (live Supabase project `yuwyrmxccrpfjvidwhh
 
 Status legend: 🔴 found → 🟡 fix written → 🟢 fixed & verified
 
+## 2026-08-15 production reassessment (authoritative)
+
+This section supersedes older status notes below. Historical findings remain in
+the document as an audit trail, including incidents and deferrals that have
+since been resolved.
+
+### Outcome
+
+No unresolved critical or high-severity application/database vulnerability was
+found in this reassessment. The following issues were reproduced, fixed, and
+verified against the live Supabase project:
+
+| Area | Finding and remediation | Verification |
+| --- | --- | --- |
+| Internal RPC authorization | `ensure_renter_guest(...)` and other internal definer helpers inherited executable grants. An anonymous cross-owner insert was reproduced in a rolled-back transaction. Public/anon/authenticated grants were revoked except for explicitly client-facing, ownership-checking RPCs. | Anonymous exploit now fails with SQLSTATE `42501`; the helper has zero anon/authenticated grants. |
+| Storage | `chat-media` was public and anonymously writable; `product-images` and `logos` also had over-broad write policies. Buckets now have private/public intent aligned with the app, image-only MIME/5 MB limits, scoped logo paths, and no misleading role-`public` “service role” policies. | Real anonymous upload now receives `403`; `chat-media` is private and empty; the audit object was removed. |
+| Administrator MFA | Direct PostgREST/storage and protected-field triggers treated an AAL1 profile role as fully administrative. `is_admin_user()`, every admin RLS policy, and protected triggers now require AAL2. | AAL1 admin reads/writes are denied; the same rolled-back test succeeds at AAL2. No policy retains a direct profile-role admin check. |
+| Orphaned Edge Functions | Live `ai-respond` and `webhook-facebook` deployments were absent from source and retained unsafe legacy behavior. Both are now repository-tracked inert tombstones. | `ai-respond` rejects unauthenticated requests at the gateway; `webhook-facebook` returns `410` and performs no work. |
+| Search and abuse controls | Production rate limiting could fail open; request bounds and CORS responses were inconsistent. Added bounded per-isolate fallback, Postgres-backed shared limiting, strict JSON/query/page/coordinate bounds, exact request-origin CORS, and explicit loopback support for localhost. | Deployed search accepts valid localhost/production calls, rejects malformed payloads with `400`, and passes Deno checking. |
+| Navigation and browser boundaries | Notification action URLs could accept unsafe targets, non-default-locale protected links looped during RSC prefetch, and the CSP omitted useful directives. URLs now use the shared internal-path sanitizer; auth redirects preserve locale; CSP adds `script-src-attr 'none'` and `manifest-src 'self'`; insecure-request upgrading is HTTPS-only. | Production-mode Chromium showed a single `/en/create` → `/en/auth/login` redirect, correct CSP, no horizontal overflow, and no unexpected console errors. |
+| Auth UX | Registration/reset paths used inconsistent password policy and could disclose provider errors/account existence. The client policy is now 12 characters, duplicate registration and reset responses are neutral, callbacks share the same redirect sanitizer, and recovery pages reject missing sessions. | Browser-tested neutral forgot-password response and invalid recovery session; production build renders all auth routes. |
+| Public database projections | Explicit safe-column public views must remain definer views because their base tables contain private columns. All six publication views now use `security_barrier=true`; `pg_trgm` moved from `public` to `extensions`. A later menu migration that recreated `public_services` was caught and followed by a barrier-restoring migration. | Anonymous reads still work; 6/6 views have barrier + definer options; `pg_trgm` reports schema `extensions`. |
+| Payments | Legacy direct balance top-up is an inert `503` tombstone. The test-card flow is authenticated, owner-bound, amount-bounded, and guarded by the server-only `TEST_PAYMENTS_ENABLED` kill switch. | The live Edge secret inventory has no `TEST_PAYMENTS_ENABLED`, so sandbox settlement is disabled in production. Money RPCs remain service-role-only. |
+| Dependencies and error disclosure | Vulnerable `js-yaml`/`nanoid` lock entries were upgraded. Public APIs and token routes no longer serialize raw database/provider errors; token endpoints are rate limited and return no-store/no-referrer responses. | Both full and production-only `npm audit` report zero vulnerabilities. |
+
+### Live invariants captured after remediation
+
+- `direct_admin_role_policies = 0`
+- `private_bucket_public_count = 0` for `chat-media`, `product-images`, and
+  `service-photos`
+- `chat_media_objects = 0`
+- `exposed_ensure_renter_guest_grants = 0`
+- `hardened_public_views = 6`
+- all six public projection views remain anonymously readable
+
+Applied migrations:
+
+- `20260815120000_revoke_internal_definer_rpc_access.sql`
+- `20260815121000_harden_legacy_storage_buckets.sql`
+- `20260815122000_require_admin_aal2_in_database_guard.sql`
+- `20260815123000_apply_admin_mfa_guard_to_rls.sql`
+- `20260815124000_apply_admin_mfa_guard_to_protected_triggers.sql`
+- `20260815125000_add_public_view_security_barriers.sql`
+- `20260815131000_move_pg_trgm_out_of_public.sql`
+- `20260816121000_harden_menu_publication_views.sql`
+- `20260816122000_schedule_vip_lifecycle.sql`
+
+### Validation evidence
+
+- Full `next build`: passed, including all 395 generated pages.
+- TypeScript: passed.
+- ESLint: passed with existing non-blocking warnings only.
+- Production configuration tests: 7/7 passed.
+- SMS domain tests: 6/6 passed.
+- Deno checks: search and both retired Edge tombstones passed.
+- i18n namespace scope and 3-locale parity: passed (3,988 keys each).
+- Secret file/permission check and `git diff --check`: passed.
+- Chromium, production-mode localhost: landing, search, services, auth,
+  password recovery, protected redirect, origin rejection, and validation
+  paths passed. Local weather intentionally returns a handled `503` because
+  Vercel does not disclose `WEATHERAPI_API_KEY` when pulling sensitive env vars.
+- Chromium, deployed Vercel site: landing/search/services/weather returned
+  `200`, no horizontal overflow, and no browser console errors.
+
+### Residual controls / accepted advisor findings
+
+- Supabase Auth leaked-password protection is still reported disabled. Enable
+  it in Authentication → Policies and confirm the authoritative minimum
+  password length is 12. The repository and local Supabase config already
+  enforce 12 characters, but a broad remote config push was deliberately not
+  used because it could overwrite unrelated production Auth settings.
+- Supabase reports the six intentional publication views as generic
+  `security_definer_view` errors. They project explicit non-sensitive columns,
+  apply active/availability filters, have restricted grants, and now all use
+  security barriers. Converting them to invoker views without redesigning base
+  table column grants/RLS would break public reads or expose private columns.
+- `pg_net` remains reported in `public`; the installed extension is not
+  relocatable. Its callable objects are in the `net` schema. `pg_trgm`, which is
+  relocatable, was moved.
+- RLS-with-no-policy INFO findings are intentional deny-all tables used through
+  trusted server/definer paths (audit events, private admin-note tables, upload
+  intents, counters, and backups).
+- Authenticated SECURITY DEFINER RPC warnings are retained only for intentional
+  client workflows whose bodies enforce `auth.uid()` ownership/membership.
+- A fresh isolated Supabase E2E project is still required for destructive/full
+  role-matrix Playwright coverage. The suite correctly refuses the production
+  project, and the local QA guest credential currently does not authenticate;
+  no live account password was changed during this audit.
+- The Next.js/source changes in this reassessment are local and build-ready but
+  were not deployed to Vercel. Live database migrations and Edge Function
+  remediations listed above are already active.
+
 ## CRITICAL
 
 | #   | Finding                                                                                                                                                                                    | Status | Notes                                                                                                                                                                                                                                                                                                           |

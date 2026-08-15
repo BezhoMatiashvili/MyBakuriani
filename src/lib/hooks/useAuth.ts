@@ -80,6 +80,26 @@ export function useAuth() {
     return data;
   }
 
+  async function resetPasswordForEmail(email: string) {
+    const { error } = await withRetry(
+      () =>
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+        }),
+      isRetryableAuthError,
+    );
+    if (error) throw error;
+  }
+
+  async function updatePassword(password: string) {
+    const { data, error } = await withRetry(
+      () => supabase.auth.updateUser({ password }),
+      isRetryableAuthError,
+    );
+    if (error) throw error;
+    return data;
+  }
+
   async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -93,6 +113,8 @@ export function useAuth() {
     verifyOtp,
     signUp,
     signInWithPassword,
+    resetPasswordForEmail,
+    updatePassword,
     signOut,
   };
 }

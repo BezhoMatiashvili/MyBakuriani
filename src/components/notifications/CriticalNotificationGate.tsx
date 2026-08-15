@@ -5,6 +5,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { safeInternalPath } from "@/lib/security";
 
 type CriticalNotification = {
   id: string;
@@ -107,6 +108,7 @@ export function CriticalNotificationGate() {
   }, [userId]);
 
   const current = queue[0];
+  const actionPath = safeInternalPath(current?.action_url);
 
   const acknowledge = useCallback(async () => {
     if (!current || acknowledging) return;
@@ -148,9 +150,9 @@ export function CriticalNotificationGate() {
             {current.message}
           </p>
         ) : null}
-        {current.action_url ? (
+        {actionPath ? (
           <Link
-            href={current.action_url}
+            href={actionPath as never}
             className="mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[13px] font-bold text-slate-700 hover:bg-slate-100"
           >
             {t("learnMore")}

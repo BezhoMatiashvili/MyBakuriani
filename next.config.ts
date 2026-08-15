@@ -18,8 +18,8 @@ const nextConfig: NextConfig = {
     "/api/media/intents/[id]/finalize": ["./public/watermark.png"],
   },
   async headers() {
-    // Applies to API and static responses, which intentionally do not receive
-    // the page-only nonce CSP emitted by middleware.
+    // Applies to API and static responses. Navigable page responses receive the
+    // stricter CSP emitted by middleware.
     const baseline = [
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "DENY" },

@@ -79,9 +79,10 @@ next-env.d.ts
 /*.jpg
 /*.jpeg
 
-# Other agent tools' local config (Codex CLI). Not part of this codebase, and
-# the same category as .mcp.json above.
-/.codex/
+# Codex project configuration is safe to share and is loaded automatically for
+# trusted clones. Keep any other machine-local Codex files out of Git.
+/.codex/*
+!/.codex/config.toml
 
 # SMS automation planning docs (prompt pack + live-findings/decisions state).
 # Deliberately local: this repo is public and sms-decisions.md enumerates which

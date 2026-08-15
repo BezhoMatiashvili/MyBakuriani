@@ -17,6 +17,7 @@ import GuestOffersModal, {
 } from "@/components/guest/GuestOffersModal";
 import type { Tables } from "@/lib/types/database";
 import { isStale } from "@/lib/smart-match/match";
+import { safeInternalPath } from "@/lib/security";
 import MyRequestCard from "@/components/guest/MyRequestCard";
 import { loadGuestData, type GuestData, type MyRequest } from "./loadData";
 
@@ -269,7 +270,10 @@ export default function GuestDashboardClient({
             {reviewRequests.map((n) => (
               <li key={n.id}>
                 <Link
-                  href={n.action_url ?? "/dashboard/guest"}
+                  href={
+                    (safeInternalPath(n.action_url) ??
+                      "/dashboard/guest") as never
+                  }
                   className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:bg-[#FFFBEB]"
                 >
                   <div className="min-w-0">

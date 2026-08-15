@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/with-timeout";
+import { safeInternalPath } from "@/lib/security";
 
-// Only allow same-origin, absolute paths. Reject protocol-relative (`//host`)
-// and backslash-prefixed forms (`/\\host`) that some browsers treat as external.
 function safeNextPath(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
-  return raw;
+  return safeInternalPath(raw);
 }
 
 export async function GET(request: Request) {
@@ -21,6 +17,10 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      if (next === "/auth/reset-password") {
+        return NextResponse.redirect(`${origin}${next}`);
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -62,5 +62,10 @@ export async function GET(request: Request) {
     }
   }
 
+  if (next === "/auth/reset-password") {
+    return NextResponse.redirect(
+      `${origin}/auth/forgot-password?error=invalid_link`,
+    );
+  }
   return NextResponse.redirect(`${origin}/auth/login`);
 }

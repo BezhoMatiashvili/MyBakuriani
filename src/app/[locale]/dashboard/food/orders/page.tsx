@@ -10,6 +10,7 @@ import {
   Plus,
   Percent,
   ExternalLink,
+  UtensilsCrossed,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -18,15 +19,16 @@ import {
 } from "@/lib/content-change/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import FoodDiscountRequestModal, {
-  type FoodDiscountRequestResult,
-} from "@/components/dashboard/FoodDiscountRequestModal";
+import MenuItemDiscountModal, {
+  type MenuItemDiscountRequestResult,
+} from "@/components/dashboard/MenuItemDiscountModal";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
-type DiscountRequest = {
+type MenuItem = Tables<"service_menu_items">;
+type MenuItemDiscountRequest = {
   id: string;
   status: "pending" | "approved" | "rejected" | "superseded";
   proposed_values: { discount_percent?: number } | null;
@@ -56,7 +58,6 @@ export default function FoodOrdersPage() {
   const { user } = useAuth();
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
-  const [promotionOpen, setPromotionOpen] = useState(false);
   const [menuUrl, setMenuUrl] = useState("");
   const [menuUrlError, setMenuUrlError] = useState(false);
   // Derived once rather than guarding at the call site: the value that reaches
@@ -66,8 +67,21 @@ export default function FoodOrdersPage() {
   const safeMenuUrl = isHttpUrl(trimmedMenuUrl) ? trimmedMenuUrl : null;
   const [reviewNotice, setReviewNotice] = useState("");
   const [reviewError, setReviewError] = useState("");
-  const [discountRequest, setDiscountRequest] =
-    useState<DiscountRequest | null>(null);
+
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [itemRequests, setItemRequests] = useState<
+    Record<string, MenuItemDiscountRequest | null>
+  >({});
+  const [discountModalItem, setDiscountModalItem] = useState<MenuItem | null>(
+    null,
+  );
+  const [dishFormOpen, setDishFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [dishName, setDishName] = useState("");
+  const [dishDescription, setDishDescription] = useState("");
+  const [dishPrice, setDishPrice] = useState("");
+  const [dishSaving, setDishSaving] = useState(false);
+  const [dishError, setDishError] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -84,16 +98,30 @@ export default function FoodOrdersPage() {
       setService(svcRes.data);
       const menuData = (svcRes.data.menu as unknown as MenuData | null) ?? {};
       setMenuUrl(menuData.url ?? "");
-      const requestRes = await fetch(
-        `/api/food/discount-requests?serviceId=${encodeURIComponent(svcRes.data.id)}`,
+
+      const itemsRes = await fetch(
+        `/api/food/menu-items?serviceId=${encodeURIComponent(svcRes.data.id)}`,
         { cache: "no-store" },
       );
-      if (requestRes.ok) {
-        const payload = (await requestRes.json()) as {
-          request: DiscountRequest | null;
-        };
-        setDiscountRequest(payload.request);
-      }
+      const fetchedItems = itemsRes.ok
+        ? (((await itemsRes.json()) as { items: MenuItem[] }).items ?? [])
+        : [];
+      setItems(fetchedItems);
+
+      const requestEntries = await Promise.all(
+        fetchedItems.map(async (item) => {
+          const res = await fetch(
+            `/api/food/menu-item-discount-requests?menuItemId=${encodeURIComponent(item.id)}`,
+            { cache: "no-store" },
+          );
+          if (!res.ok) return [item.id, null] as const;
+          const payload = (await res.json()) as {
+            request: MenuItemDiscountRequest | null;
+          };
+          return [item.id, payload.request] as const;
+        }),
+      );
+      setItemRequests(Object.fromEntries(requestEntries));
     }
     setLoading(false);
   }, [user, supabase]);
@@ -133,6 +161,97 @@ export default function FoodOrdersPage() {
     }
     setMenuUrlError(false);
     await submitMenuChange({ ...menuData, url: trimmedMenuUrl });
+  }
+
+  function openAddForm() {
+    setEditingItem(null);
+    setDishName("");
+    setDishDescription("");
+    setDishPrice("");
+    setDishError("");
+    setDishFormOpen(true);
+  }
+
+  function openEditForm(item: MenuItem) {
+    setEditingItem(item);
+    setDishName(item.name);
+    setDishDescription(item.description ?? "");
+    setDishPrice(String(item.price));
+    setDishError("");
+    setDishFormOpen(true);
+  }
+
+  function closeDishForm() {
+    setDishFormOpen(false);
+    setEditingItem(null);
+  }
+
+  async function saveDish() {
+    if (!service) return;
+    const trimmedName = dishName.trim();
+    const priceNumber = Number(dishPrice);
+    if (!trimmedName || !Number.isFinite(priceNumber) || priceNumber < 0) {
+      setDishError(tCreate("genericError"));
+      return;
+    }
+    setDishSaving(true);
+    setDishError("");
+    try {
+      const res = editingItem
+        ? await fetch(`/api/food/menu-items/${editingItem.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: trimmedName,
+              // Unlike the create RPC, the update RPC treats a null
+              // description as "keep current" — an empty string is the only
+              // way to actually clear it, so this branch must NOT fall back
+              // to null the way the create branch below does.
+              description: dishDescription.trim(),
+              price: priceNumber,
+              isAvailable: editingItem.is_available,
+            }),
+          })
+        : await fetch("/api/food/menu-items", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              serviceId: service.id,
+              name: trimmedName,
+              description: dishDescription.trim() || null,
+              price: priceNumber,
+            }),
+          });
+      if (!res.ok) throw new Error("request_failed");
+      closeDishForm();
+      await fetchData();
+    } catch {
+      setDishError(tCreate("genericError"));
+    } finally {
+      setDishSaving(false);
+    }
+  }
+
+  async function toggleAvailability(item: MenuItem) {
+    const res = await fetch(`/api/food/menu-items/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: item.name,
+        description: item.description,
+        price: Number(item.price),
+        isAvailable: !item.is_available,
+      }),
+    });
+    if (res.ok) await fetchData();
+  }
+
+  async function handleDeleteDish(item: MenuItem) {
+    if (!window.confirm(t("confirmDeleteDish"))) return;
+    const res = await fetch(`/api/food/menu-items/${item.id}`, {
+      method: "DELETE",
+    });
+    if (res.ok) await fetchData();
   }
 
   return (
@@ -177,9 +296,7 @@ export default function FoodOrdersPage() {
                 <p className="text-[13px] font-black text-[#0F172A]">
                   {t("pdfMenu")}
                 </p>
-                <p className="text-[11px] text-[#94A3B8]">
-                  {t("pdfMenuHint")}
-                </p>
+                <p className="text-[11px] text-[#94A3B8]">{t("pdfMenuHint")}</p>
               </div>
             </div>
             <p className="mt-4 rounded-xl bg-[#F8FAFC] px-3 py-2.5 text-[11px] font-medium text-[#64748B]">
@@ -258,108 +375,250 @@ export default function FoodOrdersPage() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-[16px] font-black text-[#0F172A]">
-              {t("discountTitle")}
+              {t("menuItemsSection")}
             </h2>
             <p className="mt-0.5 text-[12px] text-[#94A3B8]">
-              {t("discountHint")}
+              {t("menuItemsHint")}
             </p>
           </div>
           <button
             type="button"
-            disabled={!service || service.status !== "active"}
-            onClick={() => setPromotionOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#16A34A] px-4 py-2.5 text-[12px] font-bold text-white shadow-[0_6px_14px_-4px_rgba(22,163,74,0.35)] transition-colors hover:bg-[#15803D] disabled:opacity-50"
+            onClick={openAddForm}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#0F172A] px-4 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E293B]"
           >
-            <Percent className="h-4 w-4" />
-            {t("activateDiscount")}
+            <Plus className="h-4 w-4" />
+            {t("addDish")}
           </button>
         </div>
 
+        {dishFormOpen && (
+          <div className="mb-4 rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+            <p className="text-[13px] font-black text-[#0F172A]">
+              {editingItem ? t("editDish") : t("addDish")}
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="text-[11px] font-bold text-[#64748B]">
+                  {t("dishName")}
+                </label>
+                <input
+                  type="text"
+                  value={dishName}
+                  onChange={(e) => setDishName(e.target.value)}
+                  placeholder={t("dishNamePlaceholder")}
+                  className="mt-1 h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[12px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-[#64748B]">
+                  {t("dishPrice")}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={dishPrice}
+                  onChange={(e) => setDishPrice(e.target.value)}
+                  className="mt-1 h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[12px] font-medium text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="text-[11px] font-bold text-[#64748B]">
+                {t("dishDescription")}
+              </label>
+              <textarea
+                value={dishDescription}
+                onChange={(e) => setDishDescription(e.target.value)}
+                rows={2}
+                className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[12px] font-medium text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/15"
+              />
+            </div>
+            {dishError && (
+              <p className="mt-2 text-[11px] font-medium text-[#EF4444]">
+                {dishError}
+              </p>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={saveDish}
+                disabled={dishSaving}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#0F172A] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E293B] disabled:opacity-50"
+              >
+                {t("saveDish")}
+              </button>
+              <button
+                type="button"
+                onClick={closeDishForm}
+                className="rounded-xl border border-[#E2E8F0] px-5 py-2.5 text-[12px] font-bold text-[#64748B] hover:border-[#CBD5E1]"
+              >
+                {t("cancelDish")}
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <Skeleton className="h-24 rounded-[20px]" />
+        ) : items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[#CBD5E1] bg-white py-10 text-center">
+            <UtensilsCrossed className="h-9 w-9 text-[#CBD5E1]" />
+            <p className="mt-3 text-[13px] font-bold text-[#0F172A]">
+              {t("noDishesYet")}
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
-          {discountRequest?.status === "pending" && (
-            <div className="rounded-[20px] border border-[#BFDBFE] bg-[#EFF6FF] p-5">
-              <p className="text-[14px] font-black text-[#1E3A8A]">
-                {t("requestPending")}
-              </p>
-              <p className="mt-1 text-[11px] font-semibold text-[#1D4ED8]">
-                {t("requestPendingDetails", {
-                  percent: discountRequest.proposed_values?.discount_percent ?? 0,
-                  amount: Number(discountRequest.quoted_amount_gel ?? 0).toFixed(2),
-                  hours: discountRequest.quoted_duration_hours ?? 0,
-                })}
-              </p>
-              {discountRequest.payment_error === "insufficient_balance" && (
-                <p className="mt-2 text-[11px] font-bold text-[#B45309]">
-                  {t("requestNeedsBalance")}
-                </p>
-              )}
-            </div>
-          )}
-          {isDiscountActive(
-            service?.discount_percent,
-            service?.discount_expires_at,
-          ) ? (
-          <div className="flex items-center gap-4 rounded-[20px] border border-[#BBF7D0] bg-[#F0FDF4] p-5">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#16A34A] shadow-sm">
-              <Percent className="size-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[14px] font-black text-[#14532D]">
-                  {t("activeDiscount")}
-                </p>
-                <ListingBadge variant="discount" className="normal-case">
-                  −{service?.discount_percent}%
-                </ListingBadge>
-              </div>
-              <p className="mt-1 text-[11px] font-semibold text-[#166534]">
-                {service?.discount_expires_at
-                  ? t("discountExpires", {
-                      date: new Intl.DateTimeFormat(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }).format(new Date(service.discount_expires_at)),
-                    })
-                  : t("discountActive")}
-              </p>
-            </div>
-          </div>
-          ) : (
-          <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[#CBD5E1] bg-white py-10 text-center">
-            <Percent className="h-9 w-9 text-[#CBD5E1]" />
-            <p className="mt-3 text-[13px] font-bold text-[#0F172A]">
-              {t("noActiveDiscount")}
-            </p>
-            <p className="mt-1 max-w-md text-[11px] leading-4 text-[#94A3B8]">
-              {t("paidDiscountHelp")}
-            </p>
-          </div>
-          )}
+            {items.map((item) => {
+              const discountActive = isDiscountActive(
+                item.discount_percent,
+                item.discount_expires_at,
+              );
+              const pendingRequest = itemRequests[item.id];
+              const hasPendingRequest = pendingRequest?.status === "pending";
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[13px] font-black text-[#0F172A]">
+                          {item.name}
+                        </p>
+                        {discountActive && (
+                          <ListingBadge
+                            variant="discount"
+                            className="normal-case"
+                          >
+                            −{item.discount_percent}%
+                          </ListingBadge>
+                        )}
+                      </div>
+                      {item.description && (
+                        <p className="mt-1 text-[12px] text-[#64748B]">
+                          {item.description}
+                        </p>
+                      )}
+                      <p className="mt-1.5 text-[13px] font-bold text-[#0F172A]">
+                        {Number(item.price).toFixed(2)} ₾
+                      </p>
+                      {discountActive && item.discount_expires_at && (
+                        <p className="mt-1 text-[11px] font-semibold text-[#166534]">
+                          {t("itemDiscountExpires", {
+                            date: new Intl.DateTimeFormat(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            }).format(new Date(item.discount_expires_at)),
+                          })}
+                        </p>
+                      )}
+                      {hasPendingRequest && (
+                        <div className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2">
+                          <p className="text-[12px] font-black text-[#1E3A8A]">
+                            {t("itemDiscountPending")}
+                          </p>
+                          <p className="mt-0.5 text-[11px] font-semibold text-[#1D4ED8]">
+                            {t("itemDiscountPendingDetails", {
+                              percent:
+                                pendingRequest?.proposed_values
+                                  ?.discount_percent ?? 0,
+                              amount: Number(
+                                pendingRequest?.quoted_amount_gel ?? 0,
+                              ).toFixed(2),
+                              hours: pendingRequest?.quoted_duration_hours ?? 0,
+                            })}
+                          </p>
+                          {pendingRequest?.payment_error ===
+                            "insufficient_balance" && (
+                            <p className="mt-1 text-[11px] font-bold text-[#B45309]">
+                              {t("itemDiscountNeedsBalance")}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleAvailability(item)}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                          item.is_available
+                            ? "bg-[#DCFCE7] text-[#16A34A]"
+                            : "bg-[#F1F5F9] text-[#64748B]"
+                        }`}
+                      >
+                        {item.is_available
+                          ? t("dishAvailable")
+                          : t("dishUnavailable")}
+                      </button>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(item)}
+                          className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#0F172A] hover:border-[#2563EB] hover:text-[#2563EB]"
+                        >
+                          {t("editDish")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDish(item)}
+                          className="rounded-lg border border-[#FCA5A5] px-2.5 py-1.5 text-[11px] font-bold text-[#EF4444] hover:bg-[#FEF2F2]"
+                        >
+                          {t("deleteDish")}
+                        </button>
+                      </div>
+                      {!discountActive && !hasPendingRequest && (
+                        <button
+                          type="button"
+                          disabled={!service || service.status !== "active"}
+                          onClick={() => setDiscountModalItem(item)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#16A34A] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#15803D] disabled:opacity-50"
+                        >
+                          <Percent className="h-3.5 w-3.5" />
+                          {t("activateItemDiscount")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </motion.section>
 
-      <FoodDiscountRequestModal
-        isOpen={promotionOpen}
-        onClose={() => setPromotionOpen(false)}
-        restaurant={service}
-        onSubmitted={(request: FoodDiscountRequestResult) => {
-          setDiscountRequest({
-            id: request.id,
-            status: request.status,
-            proposed_values: {
-              discount_percent: request.discount_percent,
+      <MenuItemDiscountModal
+        isOpen={!!discountModalItem}
+        onClose={() => setDiscountModalItem(null)}
+        item={
+          discountModalItem
+            ? {
+                id: discountModalItem.id,
+                name: discountModalItem.name,
+                price: Number(discountModalItem.price),
+              }
+            : null
+        }
+        onSubmitted={(request: MenuItemDiscountRequestResult) => {
+          setItemRequests((prev) => ({
+            ...prev,
+            [request.menu_item_id]: {
+              id: request.id,
+              status: "pending",
+              proposed_values: { discount_percent: request.discount_percent },
+              quoted_amount_gel: request.quoted_amount_gel,
+              quoted_duration_hours: request.quoted_duration_hours,
+              payment_error: null,
+              rejection_reason: null,
+              created_at: request.created_at,
+              reviewed_at: null,
             },
-            quoted_amount_gel: request.quoted_amount_gel,
-            quoted_duration_hours: request.quoted_duration_hours,
-            payment_error: null,
-            rejection_reason: null,
-            created_at: request.created_at,
-            reviewed_at: null,
-          });
+          }));
+          setDiscountModalItem(null);
         }}
       />
     </div>

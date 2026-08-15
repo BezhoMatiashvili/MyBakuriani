@@ -1543,6 +1543,8 @@
     "contact": "Contact",
     "contactAndActions": "Contact & actions",
     "menuLink": "Menu • URL menu",
+    "menu": "Menu",
+    "menuEmpty": "Menu coming soon",
     "viewLocation": "View location",
     "getInTouch": "Get in touch",
     "info": {
@@ -1891,6 +1893,7 @@
     "emailLabel": "Email",
     "passwordLabel": "Password",
     "confirmPasswordLabel": "Confirm password",
+    "forgotPassword": "Forgot password?",
     "signIn": "Sign in",
     "register": "Register",
     "noAccount": "Don't have an account? Register",
@@ -1914,12 +1917,40 @@
       "wrongCode": "Wrong code. Try again.",
       "fillAllFields": "Please fill in all fields",
       "wrongCredentials": "Wrong email or password",
-      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordTooShort": "Password must be at least 12 characters",
       "passwordsMismatch": "Passwords do not match",
       "emailTaken": "This email is already registered.",
       "generic": "Error. Please try again.",
       "error": "Error.",
       "timeout": "Server is taking too long to respond. Please try again."
+    }
+  },
+  "AuthForgotPassword": {
+    "title": "Reset your password",
+    "subtitle": "Enter your email and we'll send you a password reset link",
+    "emailLabel": "Email",
+    "sendLink": "Send reset link",
+    "linkSent": "If that email is registered, a password reset link has been sent.",
+    "backToLogin": "Back to sign in",
+    "errors": {
+      "fillAllFields": "Please enter your email",
+      "linkExpired": "This link has expired or was already used. Please try again.",
+      "tooManyRequests": "Too many requests. Please try again later.",
+      "generic": "Error. Please try again."
+    }
+  },
+  "AuthResetPassword": {
+    "title": "Set a new password",
+    "passwordLabel": "New password",
+    "confirmPasswordLabel": "Confirm password",
+    "submit": "Save password",
+    "noSession": "This link is invalid or has expired.",
+    "requestNewLink": "Request a new link",
+    "errors": {
+      "fillAllFields": "Please fill in all fields",
+      "passwordTooShort": "Password must be at least 12 characters",
+      "passwordsMismatch": "Passwords do not match",
+      "generic": "Error. Please try again."
     }
   },
   "AuthRegister": {
@@ -3262,7 +3293,7 @@
       "client": "Client",
       "manualBadge": "Personal",
       "saveError": "Could not save, please try again",
-      "timeConflict": "You already have a job scheduled at this time",
+      "timeConflict": "You already have a job scheduled within 30 minutes of this time",
       "deleteConfirm": "Delete this job?"
     }
   },
@@ -3313,7 +3344,33 @@
     "newOffer": "New offer",
     "emptyOffersTitle": "No promotions yet",
     "emptyOffersDesc": "Add a VIP offer to get more views.",
-    "deleteOffer": "Delete"
+    "deleteOffer": "Delete",
+    "menuItemsSection": "Dishes",
+    "menuItemsHint": "Add dishes with prices and offer a discount on each one individually.",
+    "addDish": "Add dish",
+    "editDish": "Edit",
+    "deleteDish": "Delete",
+    "confirmDeleteDish": "Delete this dish?",
+    "dishName": "Name",
+    "dishNamePlaceholder": "e.g. Grilled Trout",
+    "dishPrice": "Price (₾)",
+    "dishDescription": "Description (optional)",
+    "dishAvailable": "Available",
+    "dishUnavailable": "Temporarily unavailable",
+    "noDishesYet": "You haven't added any dishes yet",
+    "saveDish": "Save",
+    "cancelDish": "Cancel",
+    "activateItemDiscount": "Request discount",
+    "itemDiscountPending": "Discount is under admin review",
+    "itemDiscountPendingDetails": "−{percent}% · {amount} ₾ · {hours} hours after approval",
+    "itemDiscountNeedsBalance": "Top up the balance so the admin can complete approval.",
+    "itemDiscountActive": "Discount is active",
+    "itemDiscountExpires": "Active until {date}",
+    "itemDiscountModalTitle": "Request discount",
+    "itemDiscountPercentLabel": "Discount percentage",
+    "itemDiscountQuantityLabel": "Duration (days)",
+    "itemDiscountSubmit": "Submit request",
+    "itemDiscountPriceLabel": "Price: {price} ₾"
   },
   "FoodParameters": {
     "subtitle": "Profile details and notification controls.",
@@ -3559,7 +3616,7 @@
       "sending": "Sending...",
       "submit": "Send call-out",
       "sendError": "Could not send the request, please try again",
-      "timeConflict": "This cleaner already has a job scheduled at this time"
+      "timeConflict": "This cleaner already has a job scheduled within 30 minutes of this time"
     },
     "addModal": {
       "title": "Add a cleaner",

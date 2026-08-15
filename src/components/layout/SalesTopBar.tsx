@@ -11,24 +11,11 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
-
 export function SalesTopBar() {
   const t = useTranslations("Navbar");
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<{
     display_name: string;
-    role: string;
     avatar_url: string | null;
   } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -45,7 +32,7 @@ export function SalesTopBar() {
       const [profileRes, balanceRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("display_name, role, avatar_url")
+          .select("display_name, avatar_url")
           .eq("id", user!.id)
           .single(),
         supabase
@@ -81,10 +68,6 @@ export function SalesTopBar() {
     };
   }, [user]);
 
-  const dashboardPath = profile
-    ? (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest")
-    : "/dashboard/guest";
-
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
       <div className="mx-auto flex h-[91px] max-w-[1160px] items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -104,9 +87,14 @@ export function SalesTopBar() {
 
         <div className="flex items-center gap-3">
           <LanguageSelector />
-          {user && <AddListingButton label={t("addListing")} className="hidden h-[39.5px] px-5 leading-5 sm:inline-flex" />}
           {user && (
-            <Link href={dashboardPath} className="hidden sm:block">
+            <AddListingButton
+              label={t("addListing")}
+              className="hidden h-[39.5px] px-5 leading-5 sm:inline-flex"
+            />
+          )}
+          {user && (
+            <Link href="/dashboard" className="hidden sm:block">
               <Button
                 variant="outline"
                 className="gap-1.5 rounded-xl border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-bold leading-5 text-[#334155]"
@@ -130,7 +118,7 @@ export function SalesTopBar() {
           )}
           {user && (
             <Link
-              href={dashboardPath}
+              href="/dashboard"
               aria-label={t("profile")}
               className="flex size-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF]"
             >

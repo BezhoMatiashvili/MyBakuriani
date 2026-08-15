@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
+import { useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +20,6 @@ import VipInfoModal, {
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
-import FoodDiscountRequestModal from "@/components/dashboard/FoodDiscountRequestModal";
 import { formatDate } from "@/lib/utils/format";
 import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
@@ -44,6 +44,7 @@ export default function FoodBalancePage() {
   const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
+  const router = useRouter();
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -195,10 +196,10 @@ export default function FoodBalancePage() {
               tier !== "vip" ||
               Boolean(
                 restaurant &&
-                  !isSuperVipActive(
-                    restaurant.is_super_vip,
-                    restaurant.vip_expires_at,
-                  ),
+                !isSuperVipActive(
+                  restaurant.is_super_vip,
+                  restaurant.vip_expires_at,
+                ),
               );
             return (
               <BalancePackageCard
@@ -220,9 +221,19 @@ export default function FoodBalancePage() {
                 }
                 purchasing={purchasing === pkg.id}
                 onHowItWorks={() => setVipModal({ open: true, tier })}
-                onActivate={() =>
-                  pkg.category === "vip" ? setPickerPkg(pkg) : setConfirmPkg(pkg)
-                }
+                onActivate={() => {
+                  // Restaurant discounts are now per-dish, managed from the
+                  // menu screen instead of a whole-listing promotion purchase.
+                  if (pkg.category === "vip" && tier === "discount") {
+                    router.push("/dashboard/food/orders");
+                    return;
+                  }
+                  if (pkg.category === "vip") {
+                    setPickerPkg(pkg);
+                    return;
+                  }
+                  setConfirmPkg(pkg);
+                }}
               />
             );
           })
@@ -303,24 +314,30 @@ export default function FoodBalancePage() {
       />
 
       <PackagePromotionPicker
-        isOpen={!!pickerPkg && inferVipInfoTier(pickerPkg) !== "discount"}
+        isOpen={!!pickerPkg}
         onClose={() => setPickerPkg(null)}
         tier={pickerPkg ? inferVipInfoTier(pickerPkg) : "vip"}
         packageId={pickerPkg?.id}
         target="service"
         flat
-        listings={restaurant ? [{
-          id: restaurant.id,
-          title: restaurant.title,
-          subtitle: restaurant.location ?? undefined,
-          photoUrl: (restaurant.photos ?? [])[0] ?? null,
-          badgeLabel: tShared("foodBadge"),
-          badgeColor: "blue",
-          standardVipDisabled: isSuperVipActive(
-            restaurant.is_super_vip,
-            restaurant.vip_expires_at,
-          ),
-        }] : []}
+        listings={
+          restaurant
+            ? [
+                {
+                  id: restaurant.id,
+                  title: restaurant.title,
+                  subtitle: restaurant.location ?? undefined,
+                  photoUrl: (restaurant.photos ?? [])[0] ?? null,
+                  badgeLabel: tShared("foodBadge"),
+                  badgeColor: "blue",
+                  standardVipDisabled: isSuperVipActive(
+                    restaurant.is_super_vip,
+                    restaurant.vip_expires_at,
+                  ),
+                },
+              ]
+            : []
+        }
         onPurchased={async () => {
           if (!user || !restaurant) return;
           const { data } = await supabase
@@ -330,13 +347,6 @@ export default function FoodBalancePage() {
             .maybeSingle();
           if (data) setRestaurant(data);
         }}
-      />
-
-      <FoodDiscountRequestModal
-        isOpen={!!pickerPkg && inferVipInfoTier(pickerPkg) === "discount"}
-        onClose={() => setPickerPkg(null)}
-        restaurant={restaurant}
-        packageId={pickerPkg?.id}
       />
 
       <ConfirmPaymentModal

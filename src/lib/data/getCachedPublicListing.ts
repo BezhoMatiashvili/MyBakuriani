@@ -56,15 +56,16 @@ export function getCachedPublicProperty(
       // Don't cache a transient failure as "not found": throw so unstable_cache
       // skips caching and the caller falls through to the dynamic path.
       if (error) throw error;
-      const row = (data as PublicPropertyWithProfile & {
-        profile_display_name?: string | null;
-        profile_avatar_url?: string | null;
-        profile_is_verified?: boolean | null;
-        organization_brand_name?: string | null;
-        organization_logo_url?: string | null;
-        organization_verified_at?: string | null;
-        organization_company_type?: string | null;
-      }) ?? null;
+      const row =
+        (data as PublicPropertyWithProfile & {
+          profile_display_name?: string | null;
+          profile_avatar_url?: string | null;
+          profile_is_verified?: boolean | null;
+          organization_brand_name?: string | null;
+          organization_logo_url?: string | null;
+          organization_verified_at?: string | null;
+          organization_company_type?: string | null;
+        }) ?? null;
       if (!row) return null;
       // The view has no owner or contact fields.  Reconstitute only the small,
       // presentation-safe profile/org objects expected by legacy detail UI.
@@ -78,7 +79,12 @@ export function getCachedPublicProperty(
           brand_name: row.organization_brand_name,
           logo_url: row.organization_logo_url ?? null,
           verified_at: row.organization_verified_at ?? null,
-          company_type: row.organization_company_type as PropertyWithProfile["organizations"] extends infer T ? T extends { company_type: infer C } ? C : never : never,
+          company_type:
+            row.organization_company_type as PropertyWithProfile["organizations"] extends infer T
+              ? T extends { company_type: infer C }
+                ? C
+                : never
+              : never,
         } as PropertyWithProfile["organizations"];
       }
       row.photos = sanitizePhotos(row.photos);
@@ -105,11 +111,12 @@ export function getCachedPublicService(
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
-      const row = (data as unknown as PublicServiceWithFoodExtras & {
-        profile_display_name?: string | null;
-        profile_avatar_url?: string | null;
-        profile_is_verified?: boolean | null;
-      }) ?? null;
+      const row =
+        (data as unknown as PublicServiceWithFoodExtras & {
+          profile_display_name?: string | null;
+          profile_avatar_url?: string | null;
+          profile_is_verified?: boolean | null;
+        }) ?? null;
       if (!row) return null;
       row.profiles = {
         display_name: row.profile_display_name ?? null,
@@ -120,6 +127,28 @@ export function getCachedPublicService(
       return row;
     },
     ["public-service", id],
+    {
+      tags: [listingTag("service", id)],
+      revalidate: PUBLIC_LISTING_REVALIDATE_S,
+    },
+  )();
+}
+
+export function getCachedPublicMenuItems(id: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createPublicClient();
+      const { data, error } = await supabase
+        .from("public_service_menu_items")
+        .select("*")
+        .eq("service_id", id)
+        .order("sort_order", { ascending: true });
+      // Don't cache a transient failure as "empty menu": throw so unstable_cache
+      // skips caching and the caller falls through to the dynamic path.
+      if (error) throw error;
+      return data ?? [];
+    },
+    ["public-menu-items", id],
     {
       tags: [listingTag("service", id)],
       revalidate: PUBLIC_LISTING_REVALIDATE_S,
@@ -138,7 +167,9 @@ export function getCachedPublicReviews(id: string) {
         .order("created_at", { ascending: false })
         .limit(20);
       return (data ?? []).map((review) => {
-        const row = review as typeof review & { guest_display_name?: string | null };
+        const row = review as typeof review & {
+          guest_display_name?: string | null;
+        };
         return {
           ...row,
           profiles: { display_name: row.guest_display_name ?? "" },
@@ -243,3 +274,6 @@ export type PublicCalendar = Awaited<
   ReturnType<typeof getCachedPublicCalendar>
 >;
 export type PublicPriceOverrides = { date: string; price: number }[];
+export type PublicMenuItem = Awaited<
+  ReturnType<typeof getCachedPublicMenuItems>
+>[number];

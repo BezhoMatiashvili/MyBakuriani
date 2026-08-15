@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 import {
   authenticateAsRole,
   createTestUser,
@@ -8,6 +9,8 @@ import {
   generateTotpCode,
 } from "../helpers/auth";
 import { supabaseAdmin } from "../helpers/supabase";
+import { configureIsolatedE2E } from "../helpers/env";
+import type { Database } from "../../src/lib/types/database";
 
 async function createTemporaryUser(role: "admin" | "guest") {
   const id = randomUUID();
@@ -115,6 +118,34 @@ test.describe("Administrator MFA route protection", () => {
         /\/en\/dashboard\/admin\/verifications\?tab=pending$/,
       );
       await expect(page.locator("main")).toBeVisible();
+    } finally {
+      await temporary.cleanup();
+    }
+  });
+
+  test("database admin policies reject AAL1 and accept AAL2", async () => {
+    const temporary = await createTemporaryUser("admin");
+    try {
+      const { supabaseUrl, anonKey } = configureIsolatedE2E();
+      const client = createClient<Database>(supabaseUrl, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      await client.auth.setSession({
+        access_token: temporary.user.accessToken,
+        refresh_token: temporary.user.refreshToken,
+      });
+      const aal1 = await client.rpc("is_admin_user");
+      expect(aal1.error).toBeNull();
+      expect(aal1.data).toBe(false);
+
+      const elevated = await elevateTestUserToAal2(temporary.user);
+      await client.auth.setSession({
+        access_token: elevated.accessToken,
+        refresh_token: elevated.refreshToken,
+      });
+      const aal2 = await client.rpc("is_admin_user");
+      expect(aal2.error).toBeNull();
+      expect(aal2.data).toBe(true);
     } finally {
       await temporary.cleanup();
     }

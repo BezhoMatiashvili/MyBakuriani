@@ -17,7 +17,8 @@ export async function GET() {
         .order("sort_order", { ascending: true }),
     );
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      console.error("GET /api/zones failed", error);
+      return Response.json({ error: "server_error" }, { status: 500 });
     }
     return Response.json(
       { zones: data ?? [] },

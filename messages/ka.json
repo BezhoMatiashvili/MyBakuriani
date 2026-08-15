@@ -1543,6 +1543,8 @@
     "contact": "კონტაქტი",
     "contactAndActions": "კონტაქტი და ქმედებები",
     "menuLink": "მენიუ • URL მენიუ",
+    "menu": "მენიუ",
+    "menuEmpty": "მენიუ მალე დაემატება",
     "viewLocation": "ლოკაციის ნახვა",
     "getInTouch": "დაკავშირება",
     "info": {
@@ -1891,6 +1893,7 @@
     "emailLabel": "ელ. ფოსტა",
     "passwordLabel": "პაროლი",
     "confirmPasswordLabel": "პაროლის დადასტურება",
+    "forgotPassword": "დაგავიწყდათ პაროლი?",
     "signIn": "შესვლა",
     "register": "რეგისტრაცია",
     "noAccount": "არ გაქვთ ანგარიში? რეგისტრაცია",
@@ -1914,12 +1917,40 @@
       "wrongCode": "არასწორი კოდი. სცადეთ თავიდან.",
       "fillAllFields": "გთხოვთ შეავსოთ ყველა ველი",
       "wrongCredentials": "არასწორი ელ. ფოსტა ან პაროლი",
-      "passwordTooShort": "პაროლი მინიმუმ 6 სიმბოლო",
+      "passwordTooShort": "პაროლი მინიმუმ 12 სიმბოლო",
       "passwordsMismatch": "პაროლები არ ემთხვევა",
       "emailTaken": "ეს ელ. ფოსტა უკვე რეგისტრირებულია.",
       "generic": "შეცდომა. სცადეთ თავიდან.",
       "error": "შეცდომა.",
       "timeout": "სერვერი ნელა პასუხობს. გთხოვთ სცადოთ თავიდან."
+    }
+  },
+  "AuthForgotPassword": {
+    "title": "პაროლის აღდგენა",
+    "subtitle": "შეიყვანეთ თქვენი ელ. ფოსტა და გამოგიგზავნით პაროლის აღდგენის ბმულს",
+    "emailLabel": "ელ. ფოსტა",
+    "sendLink": "ბმულის გაგზავნა",
+    "linkSent": "თუ ეს ელ. ფოსტა დარეგისტრირებულია, პაროლის აღდგენის ბმული უკვე გამოგზავნილია.",
+    "backToLogin": "შესვლაზე დაბრუნება",
+    "errors": {
+      "fillAllFields": "გთხოვთ შეიყვანოთ ელ. ფოსტა",
+      "linkExpired": "ბმულს ვადა გაუვიდა ან უკვე გამოყენებულია. სცადეთ თავიდან.",
+      "tooManyRequests": "მოთხოვნები ძალიან ხშირია. სცადეთ მოგვიანებით.",
+      "generic": "შეცდომა. სცადეთ თავიდან."
+    }
+  },
+  "AuthResetPassword": {
+    "title": "ახალი პაროლის დაყენება",
+    "passwordLabel": "ახალი პაროლი",
+    "confirmPasswordLabel": "პაროლის დადასტურება",
+    "submit": "პაროლის შენახვა",
+    "noSession": "ბმული არასწორია ან ვადაგასულია.",
+    "requestNewLink": "ახალი ბმულის მოთხოვნა",
+    "errors": {
+      "fillAllFields": "გთხოვთ შეავსოთ ყველა ველი",
+      "passwordTooShort": "პაროლი მინიმუმ 12 სიმბოლო",
+      "passwordsMismatch": "პაროლები არ ემთხვევა",
+      "generic": "შეცდომა. სცადეთ თავიდან."
     }
   },
   "AuthRegister": {
@@ -3262,7 +3293,7 @@
       "client": "კლიენტი",
       "manualBadge": "პირადი",
       "saveError": "შენახვა ვერ მოხერხდა, სცადეთ თავიდან",
-      "timeConflict": "ამ დროს უკვე გაქვთ დაგეგმილი სამუშაო",
+      "timeConflict": "ამ დროს ან მასთან 30 წუთის დაშორებით უკვე გაქვთ დაგეგმილი სამუშაო",
       "deleteConfirm": "წაშალოთ ეს სამუშაო?"
     }
   },
@@ -3313,7 +3344,33 @@
     "newOffer": "ახალი შეთავაზება",
     "emptyOffersTitle": "ჯერ აქციები არ გაქვს",
     "emptyOffersDesc": "დაამატე VIP შეთავაზება და მიიღე მეტი ნახვა.",
-    "deleteOffer": "წაშლა"
+    "deleteOffer": "წაშლა",
+    "menuItemsSection": "კერძები",
+    "menuItemsHint": "დაამატეთ კერძები ფასებით და თითოეულზე ცალკე გამოაცხადეთ ფასდაკლება.",
+    "addDish": "კერძის დამატება",
+    "editDish": "რედაქტირება",
+    "deleteDish": "წაშლა",
+    "confirmDeleteDish": "წავშალოთ ეს კერძი?",
+    "dishName": "დასახელება",
+    "dishNamePlaceholder": "მაგ: ხაჭაპური აჭარული",
+    "dishPrice": "ფასი (₾)",
+    "dishDescription": "აღწერა (არასავალდებულო)",
+    "dishAvailable": "ხელმისაწვდომია",
+    "dishUnavailable": "დროებით არ არის",
+    "noDishesYet": "ჯერ არცერთი კერძი არ დაგიმატებიათ",
+    "saveDish": "შენახვა",
+    "cancelDish": "გაუქმება",
+    "activateItemDiscount": "ფასდაკლების მოთხოვნა",
+    "itemDiscountPending": "ფასდაკლება ადმინის განხილვაშია",
+    "itemDiscountPendingDetails": "−{percent}% · {amount} ₾ · დამტკიცებიდან {hours} საათი",
+    "itemDiscountNeedsBalance": "შეავსეთ ბალანსი, რათა ადმინმა მოთხოვნის დამტკიცება დაასრულოს.",
+    "itemDiscountActive": "ფასდაკლება აქტიურია",
+    "itemDiscountExpires": "აქტიურია {date}-მდე",
+    "itemDiscountModalTitle": "ფასდაკლების მოთხოვნა",
+    "itemDiscountPercentLabel": "ფასდაკლების პროცენტი",
+    "itemDiscountQuantityLabel": "ხანგრძლივობა (დღეები)",
+    "itemDiscountSubmit": "მოთხოვნის გაგზავნა",
+    "itemDiscountPriceLabel": "ფასი: {price} ₾"
   },
   "FoodParameters": {
     "subtitle": "პროფილის დეტალები და ნოტიფიკაციების კონტროლი.",
@@ -3559,7 +3616,7 @@
       "sending": "იგზავნება...",
       "submit": "გამოძახების გაგზავნა",
       "sendError": "გაგზავნა ვერ მოხერხდა, სცადეთ თავიდან",
-      "timeConflict": "დამლაგებელს ამ დროს უკვე აქვს დაგეგმილი სამუშაო"
+      "timeConflict": "დამლაგებელს ამ დროს ან მასთან 30 წუთის დაშორებით უკვე აქვს დაგეგმილი სამუშაო"
     },
     "addModal": {
       "title": "დამლაგებლის დამატება",

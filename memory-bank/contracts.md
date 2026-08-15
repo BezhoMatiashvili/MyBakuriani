@@ -957,17 +957,34 @@ Platform status changes still use `transition_cleaning_task` and must follow
 `accepted → in_progress → completed`; manual rows are cleaner-owned direct updates.
 Do not optimistically remove either source when its transition returns an error.
 
-**The two tables share one exact-time slot invariant.** Migration
-`20260808200000_cleaner_slot_and_vip_exclusivity.sql` attaches the same
-`enforce_cleaner_schedule_slot` trigger to both tables. With no duration column,
-collision means equal `(cleaner_id, scheduled_at)`: every manual row occupies its
-slot, while platform `pending`/`accepted`/`in_progress`/`completed` rows occupy and
-`declined`/`cancelled` rows release it. The trigger takes a transaction advisory
-lock before checking both tables, so concurrent cross-source inserts cannot both
-win. It raises stable `23P01` / `cleaner_schedule_slot_conflict`; both writer UIs
-must map that outcome to their localized time-conflict copy. Existing duplicates
-are deliberately preserved, and status-only progress at an unchanged legacy slot
-remains valid; creating, moving, or reactivating into an occupied slot is rejected.
+**The two tables share one 30-minute slot invariant.** Migration
+`20260808200000_cleaner_slot_and_vip_exclusivity.sql` attached the
+`enforce_cleaner_schedule_slot` trigger to both tables requiring an EXACT
+`(cleaner_id, scheduled_at)` match to collide; `20260815130000_cleaner_schedule_slot_30min_buffer.sql`
+widened the window to any two of a cleaner's jobs (platform or manual) being
+**strictly less than 30 minutes apart** — a job at 13:00 blocks 12:31–13:29 and
+allows 12:30/13:30 exactly (half-open `(scheduled_at - 30m, scheduled_at + 30m)`
+on both bounds, symmetric). Platform `pending`/`accepted`/`in_progress`/`completed`
+rows occupy their window; `declined`/`cancelled` rows release it. The advisory
+lock is now taken **per cleaner** (`'cleaner-slot:' || cleaner_id`), not per
+timestamp — a per-timestamp lock let two concurrent inserts 15 minutes apart both
+pass their existence checks before either committed. It raises stable `23P01` /
+`cleaner_schedule_slot_conflict`; both writer UIs must map that outcome to their
+localized time-conflict copy (`CleanerSchedule.manualTask.timeConflict` and
+`CleanerSchedule.callModal.timeConflict`, **C1**). Existing rows closer than 30
+minutes are deliberately preserved (no backfill), and status-only progress at an
+unchanged legacy slot remains valid; creating, moving, or reactivating into a
+conflicting slot is rejected.
+
+`src/components/cleaner/ManualTaskModal.tsx:slotConflict` is a **client-side
+mirror**, not the authority — the trigger is. It matches the DB's strict `<`
+comparison via `Math.abs(diff) < THIRTY_MIN_MS`, keeps the "unchanged own slot is
+always saveable" exception for legacy near-duplicates, and excludes the row being
+edited **by id** (`slot.source === "manual" && slot.id === task.id`), not by
+its original time — excluding by time would make moving a task collide with its
+own old slot in `occupiedSlots`. `src/components/renter/CleanerCallModal.tsx` has
+no client-side mirror; it only maps the `23P01` error after the trigger rejects
+the insert.
 
 **Two deliberate omissions — do not "fix" without re-reading the migration comment:**
 
@@ -1242,43 +1259,101 @@ or team permission expansion in this contract.
 
 ---
 
-## C21 — Restaurant discounts are review-gated and charged on approval
+## C21 — Restaurant discounts are per-menu-item, review-gated, and charged on approval
 
-**Invariant:** submitting a restaurant discount creates or refreshes one pending
-`content_change_requests.request_kind='food_discount'` row. Submission quotes price and duration from
-the selected enabled pricing package but does not change the service or balance. Only
-`approve_food_discount_request` may approve it; that RPC locks the request, restaurant, and balance,
-then charges once and activates the discount in one transaction.
+**Invariant (2026-08-15 redesign — supersedes the original flat-listing version of this contract):**
+restaurants discount individual dishes, not the whole listing. Every restaurant now has a real,
+structured menu in `service_menu_items` (name, price, description, availability, sort order — the
+PDF/link `services.menu_url`/`menu` fields are unchanged and remain a supplementary download).
+Requesting a discount on one dish creates or refreshes one pending
+`content_change_requests.request_kind='menu_item_discount'` row scoped to that item via the
+`target_menu_item_id` column (`target_type`/`target_id` still point at the parent restaurant `service`,
+so every generic `content_change_requests` code path — cache revalidation, reject-notification scope
+lookup — needed zero changes). Submission quotes price and duration from the selected enabled pricing
+package but does not charge. Only `approve_menu_item_discount_request` may approve it; that RPC locks
+the request, the item, its parent service, and the balance, then charges once and writes
+`discount_percent`/`discount_expires_at` onto the **item row**, never onto `services`.
+
+The prior flat, whole-listing mechanism (`request_kind='food_discount'`,
+`submit_food_discount_request`/`approve_food_discount_request`, `FoodDiscountRequestModal.tsx`,
+`src/app/api/food/discount-requests/route.ts`) is **retired**: the migration below superseded any
+still-pending `food_discount` request and zeroed any active `services.discount_percent` for
+`category='food'` in one cutover, the route was deleted (nothing called it), and the modal was deleted
+(its only callers — `dashboard/food/orders`, `FoodDashboardClient`, `dashboard/food/balance` — were
+migrated off it). The two RPCs and `guard_food_discount_approval`'s `food_discount` branch are left in
+place (harmless, `service_role`-only, kept for historical `content_change_requests` row audit) but are
+unreachable from any client since their only entry point is gone. `services.discount_percent`/
+`discount_expires_at` remain fully live for every **other** category (cleaning, transport, entertainment,
+employment, handyman) via the unrelated generic `purchase_package` VIP-discount tier — this redesign
+touches only food's use of those columns, not the columns themselves (see **C10**).
 
 Participating symbols:
 
-- `supabase/migrations/20260804180000_food_discount_admin_review.sql` — request metadata, specialized
-  submit/approve RPCs, transition guard, legacy proposal conversion, and `public_services.has_active_discount`
-- `supabase/migrations/20260808121000_public_services_transport_fields.sql` — restates the public
-  service projection while preserving `has_active_discount` and appends only the safe transport display
-  fields (`vehicle_make`, `transport_type`, `routes`, and `equipment`)
-- `src/app/api/food/discount-requests/route.ts` — owner-authenticated submit/status endpoint
-- `src/app/api/admin/content-change-requests/[id]/route.ts` — dispatches food approvals to the specialized
-  RPC; the general content RPC cannot approve this request kind
-- `src/components/dashboard/FoodDiscountRequestModal.tsx` and the food dashboard/order/balance surfaces —
-  collect percent/quantity and show pending or payment-required state
-- `src/app/[locale]/page.tsx`, `src/app/[locale]/food/page.tsx`, and
-  `src/lib/data/getCachedPublicListing.ts` — order currently active discounts before VIP and recency
+- `supabase/migrations/20260804180000_food_discount_admin_review.sql` — the original (now superseded)
+  flat mechanism; kept for history, not touched by the redesign migration below
+- `supabase/migrations/20260816120000_menu_item_discounts.sql` — `service_menu_items` table (RLS:
+  owner SELECT-only; all writes via `self_service_create/update/delete/reorder_menu_item`, `service_role`
+  RPCs mirroring the `self_service_set_cleaner_working_hours` precedent — menu CRUD is deliberately
+  **not** routed through the C14 review gate, since it's frequently-changing operational data; only the
+  paid discount stays admin-reviewed), `prevent_menu_item_protected_field_change` trigger (blocks direct
+  writes to the item's `discount_percent`/`discount_expires_at` outside `service_role`),
+  `public_service_menu_items` view (public read model, filters to `services.status='active' AND
+is_available=true`), `content_change_requests.target_menu_item_id` + the new `request_kind` value +
+  its own partial unique pending-index (one pending discount request **per item**, not per restaurant —
+  two different dishes on the same restaurant can each have an independent pending request), the
+  `submit_menu_item_discount_request`/`approve_menu_item_discount_request` RPC pair, and the
+  `public_services` view recreate: `has_active_discount` for `category='food'` now means "any menu item
+  has an active discount" (an `EXISTS` subquery over `service_menu_items`, unchanged expression for every
+  other category), plus a new `best_active_menu_item_discount_percent` column (max active-item percent,
+  `null` for non-food) that public card call sites read instead of `discount_percent` for food rows
+- `supabase/functions/vip-lifecycle/index.ts:clearExpiredMenuItemDiscounts` — the same idempotent
+  expiry sweep as `clearExpiredDiscounts`, extended to `service_menu_items`; like the original,
+  public-facing correctness never depends on this sweep running (both check `expires_at > now()` at
+  read time) — see **C4**'s note that this job has never actually been scheduled (`cron.job` holds only
+  `rate-limit-gc`), so treat `menu_item_discounts_cleared` as inert, not a live guarantee
+- `src/app/api/food/menu-items/route.ts`, `[id]/route.ts`, `reorder/route.ts` — owner-authenticated menu
+  CRUD, all via the `self_service_*` RPCs above through `createServiceClient()`
+- `src/app/api/food/menu-item-discount-requests/route.ts` — owner-authenticated submit/status endpoint,
+  scoped to one `menuItemId` (replaces the deleted `discount-requests/route.ts`)
+- `src/app/api/admin/content-change-requests/[id]/route.ts` — three-way `rpcName` dispatch
+  (`food_discount` → legacy RPC still wired for any lingering historical row; `menu_item_discount` →
+  `approve_menu_item_discount_request`; else → the generic RPC)
+- `src/components/dashboard/MenuItemDiscountModal.tsx` and
+  `src/app/[locale]/dashboard/food/orders/page.tsx` — the "Menu items" management section (add/edit/
+  delete/availability, per-item discount request + pending/active state); the PDF/link menu section on
+  the same page is untouched
+- `src/app/[locale]/dashboard/food/FoodDashboardClient.tsx` and `.../dashboard/food/balance/page.tsx` —
+  both had a generic `ListingActions`/`BalancePackageCard` "discount" promotion tier that used to open
+  `FoodDiscountRequestModal`; both now redirect that tier to `/dashboard/food/orders` instead (a food
+  listing no longer has a whole-listing discount to purchase)
+- `src/app/[locale]/food/[id]/FoodDetailClient.tsx` + `page.tsx` +
+  `src/lib/data/getCachedPublicListing.ts:getCachedPublicMenuItems` — the public menu section (struck
+  original price + discounted price + badge per active-discount item, cached under the same
+  `listingTag("service", id)` tag as the service itself); `avgCheckLabel`'s `service.price` fallback no
+  longer applies `applyDiscount` (there is no single flat percent left to apply to it)
+- `src/app/[locale]/food/FoodPageClient.tsx`, `_landing/LandingPage.tsx`, `search/SearchPageClient.tsx` —
+  card-building sites that source `discountPercent` from `best_active_menu_item_discount_percent` instead
+  of `discount_percent` **only** when `category === 'food'`; every other category unchanged
 
 The quote is fixed when submitted. If the balance becomes insufficient before review, approval returns
 `payment_required`, keeps the request pending, records `payment_error`, and creates at most one payment
 notification until the request is refreshed. A later retry can approve it. Approved requests are
-terminal; `transactions.reference_id=request.id` provides the exactly-once billing identity.
-
-Legacy pending `menu.promotions` proposals are converted only when a valid percent can be parsed; other
-legacy proposals are superseded and their original payload remains in request metadata. A discount is
-publicly active only when percent is positive and expiry is in the future.
+terminal; `transactions.reference_id=request.id` provides the exactly-once billing identity (`type`
+stays `'discount_badge'` for the new kind too, so `admin_overview_stats`'s revenue aggregation needed no
+change).
 
 **Breaks silently when:** a UI calls `purchase_package` directly for a restaurant discount (bypasses
-review); general content approval is allowed to transition `food_discount` rows (can activate without a
-charge); a public query orders raw `discount_percent` instead of `has_active_discount` (expired offers
-stay promoted); a later `public_services` restatement drops `has_active_discount`; or submit-time and
-approval-time prices are recomputed independently (reviewed amount and charged amount diverge).
+review); general content approval is allowed to transition `menu_item_discount`/`food_discount` rows
+(can activate without a charge — the `guard_food_discount_approval` trigger's two GUC checks are what
+prevent this); a public query orders raw `discount_percent` instead of `has_active_discount` /
+`best_active_menu_item_discount_percent` for a food row (expired offers stay promoted, or the badge
+reads the wrong source); a later `public_services` restatement drops either column; a new card call
+site for food is added without the `category === 'food'` conditional (falls back to the always-zero
+`services.discount_percent`, silently showing no badge on a restaurant with an active item discount);
+submit-time and approval-time prices are recomputed independently (reviewed amount and charged amount
+diverge); or a new menu-item write path bypasses the `self_service_*` RPCs (the protective trigger still
+blocks direct writes to the discount columns from a non-`service_role` session, but any other column
+would write through unvalidated).
 
 ---
 
@@ -1366,7 +1441,7 @@ Participating symbols:
   transaction insert, and notifications roll back too
 - `supabase/functions/purchase-vip/index.ts:userSafePurchaseError` — converts only
   that stable database message to a safe HTTP 409 body (`error:
-  "vip_tier_conflict"`). This edge function must be redeployed with the migration;
+"vip_tier_conflict"`). This edge function must be redeployed with the migration;
   otherwise clients receive a generic 500 even though the database still protects
   the balance
 - `src/lib/utils/pricing.ts:isSuperVipActive` — the shared null-expiry/future-expiry

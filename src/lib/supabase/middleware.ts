@@ -19,7 +19,18 @@ function redirectToLogin(
   sessionResponse: NextResponse,
 ) {
   const url = request.nextUrl.clone();
-  url.pathname = "/auth/login";
+  const requestedLocale = routing.locales.find(
+    (locale) =>
+      request.nextUrl.pathname === `/${locale}` ||
+      request.nextUrl.pathname.startsWith(`/${locale}/`),
+  );
+  // Keep non-default locale prefixes on the auth redirect. Redirecting an
+  // English/Russian protected route to the unprefixed default-locale URL can
+  // make next-intl canonicalize back to itself during an RSC prefetch.
+  url.pathname =
+    requestedLocale && requestedLocale !== routing.defaultLocale
+      ? `/${requestedLocale}/auth/login`
+      : "/auth/login";
   url.searchParams.set("next", getSafeNextPath(request));
 
   // A confirmed signed-out result can arrive after Supabase refreshed or

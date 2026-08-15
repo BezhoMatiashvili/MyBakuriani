@@ -186,20 +186,8 @@ function SkierSvg() {
             animate={animateOr({ y: [0, 10, 0] })}
             transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut" }}
           >
-            <motion.path
-              animate={animateOr({
-                d: [
-                  "M 320 150 Q 250 140 180 160",
-                  "M 320 150 Q 230 160 180 150",
-                  "M 320 150 Q 250 140 180 160",
-                ],
-              })}
+            <path
               d="M 320 150 Q 250 140 180 160"
-              transition={{
-                repeat: Infinity,
-                duration: 0.4,
-                ease: "easeInOut",
-              }}
               stroke="#991b1b"
               strokeWidth="14"
               strokeLinecap="round"
@@ -252,16 +240,8 @@ function SkierSvg() {
             fill="none"
           />
           <rect x="200" y="325" width="28" height="15" rx="6" fill="#0f172a" />
-          <motion.path
+          <path
             d="M 220 220 L 280 270 L 210 340"
-            animate={animateOr({
-              d: [
-                "M 220 220 L 280 270 L 210 340",
-                "M 220 230 L 290 280 L 210 340",
-                "M 220 220 L 280 270 L 210 340",
-              ],
-            })}
-            transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut" }}
             stroke="#0f172a"
             strokeWidth="32"
             strokeLinecap="round"
@@ -292,20 +272,8 @@ function SkierSvg() {
               strokeLinecap="round"
             />
 
-            <motion.path
+            <path
               d="M 320 150 Q 270 160 210 180"
-              animate={animateOr({
-                d: [
-                  "M 320 150 Q 270 160 210 180",
-                  "M 320 150 Q 250 180 200 170",
-                  "M 320 150 Q 270 160 210 180",
-                ],
-              })}
-              transition={{
-                repeat: Infinity,
-                duration: 0.5,
-                ease: "easeInOut",
-              }}
               stroke="#ef4444"
               strokeWidth="20"
               strokeLinecap="round"
@@ -341,16 +309,8 @@ function SkierSvg() {
           </motion.g>
 
           <rect x="235" y="335" width="30" height="15" rx="6" fill="#1e293b" />
-          <motion.path
+          <path
             d="M 220 220 L 300 280 L 250 350"
-            animate={animateOr({
-              d: [
-                "M 220 220 L 300 280 L 250 350",
-                "M 220 230 L 310 290 L 250 350",
-                "M 220 220 L 300 280 L 250 350",
-              ],
-            })}
-            transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut" }}
             stroke="#1e293b"
             strokeWidth="35"
             strokeLinecap="round"

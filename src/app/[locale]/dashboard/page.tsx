@@ -1,4 +1,5 @@
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-user";
 
 const roleToDashboard: Record<string, string> = {
@@ -18,11 +19,18 @@ const roleToDashboard: Record<string, string> = {
 // no extra "fetch role then redirect" round-trips, no loader flash.
 // getCurrentProfile() is already memoized by the dashboard layout's call.
 export default async function DashboardRedirect() {
-  const profile = await getCurrentProfile();
+  const [profile, locale] = await Promise.all([
+    getCurrentProfile(),
+    getLocale(),
+  ]);
 
   if (!profile) {
-    redirect("/auth/login");
+    redirect({ href: "/auth/login", locale });
+    return;
   }
 
-  redirect(roleToDashboard[profile.role] ?? "/dashboard/guest");
+  redirect({
+    href: roleToDashboard[profile.role] ?? "/dashboard/guest",
+    locale,
+  });
 }

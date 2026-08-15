@@ -10,9 +10,10 @@ import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
-import { applyDiscount } from "@/lib/utils/pricing";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
+import type { PublicMenuItem } from "@/lib/data/getCachedPublicListing";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import {
   FOOD_AMENITIES,
@@ -20,9 +21,11 @@ import {
   priceUnitPathFor,
 } from "@/lib/constants/listing-options";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { ListingBadge } from "@/components/shared/ListingBadge";
 
 interface Props {
   service: ServiceWithFoodExtras;
+  menuItems: PublicMenuItem[];
   isMock?: boolean;
   isPending?: boolean;
 }
@@ -35,6 +38,7 @@ const fadeIn = {
 
 export default function FoodDetailClient({
   service,
+  menuItems,
   isMock = false,
   isPending = false,
 }: Props) {
@@ -54,7 +58,7 @@ export default function FoodDetailClient({
   useEffect(() => {
     if (isMock) return;
     void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [service.id, isMock]);
 
   const categoryKey = optionKeyFor("serviceCategories", service.category);
@@ -86,21 +90,15 @@ export default function FoodDetailClient({
 
   // ServiceCard's overlay variant (used by /food) shows a discount badge but no
   // price, so the card advertised a discount this page then contradicted.
-  // Only the service.price fallback is discounted — avg_check is a different
-  // metric (typical spend per guest), not a price being discounted, so it must
-  // not be silently marked down.
+  // avg_check is a different metric (typical spend per guest), not a price
+  // being discounted, so it must not be marked down. The service.price
+  // fallback no longer applies a discount either: discounts now live per menu
+  // item (see the menu section below), so there is no single flat percent
+  // left to apply to the whole listing's price.
   const avgCheckLabel =
     formatAvgCheck(service.avg_check) ??
     (service.price != null
-      ? `${formatPrice(
-          Math.round(
-            applyDiscount(
-              service.price,
-              service.discount_percent,
-              service.discount_expires_at,
-            ),
-          ),
-        )}${priceUnitLabel ? ` / ${priceUnitLabel}` : ""}`
+      ? `${formatPrice(Math.round(service.price))}${priceUnitLabel ? ` / ${priceUnitLabel}` : ""}`
       : null);
 
   const amenityTags = FOOD_AMENITIES.filter(
@@ -177,6 +175,63 @@ export default function FoodDetailClient({
               </div>
             </motion.div>
           )}
+
+          {menuItems.length > 0 ? (
+            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
+                {t("menu")}
+              </h2>
+              <div className="divide-y divide-[#E2E8F0]">
+                {menuItems.map((item) => {
+                  const discountActive = isDiscountActive(
+                    item.discount_percent,
+                    item.discount_expires_at,
+                  );
+                  const discountedPrice = applyDiscount(
+                    item.price,
+                    item.discount_percent,
+                    item.discount_expires_at,
+                  );
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-start justify-between gap-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[15px] font-medium leading-[27px] text-[#475569]">
+                          {item.name}
+                        </p>
+                        {item.description && (
+                          <p className="text-[13px] leading-[20px] text-[#94A3B8]">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+                        {discountActive ? (
+                          <>
+                            <span className="text-[13px] text-[#94A3B8] line-through">
+                              {formatPrice(item.price)}
+                            </span>
+                            <span className="text-[15px] font-medium leading-[27px] text-[#475569]">
+                              {formatPrice(discountedPrice)}
+                            </span>
+                            <ListingBadge variant="discount">
+                              -{item.discount_percent}%
+                            </ListingBadge>
+                          </>
+                        ) : (
+                          <span className="text-[15px] font-medium leading-[27px] text-[#475569]">
+                            {formatPrice(item.price)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          ) : null}
         </div>
 
         <motion.aside

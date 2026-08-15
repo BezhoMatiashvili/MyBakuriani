@@ -10,16 +10,38 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // a missing env never silently opens CORS to the world.
 function parseAllowedOrigins(): string[] {
   const raw = Deno.env.get("ALLOWED_ORIGINS") ?? Deno.env.get("APP_ORIGIN");
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const configured = raw
+    ? raw.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  // The production Edge Function also backs local development. These exact
+  // loopback origins are safe to expose because callers still need the same
+  // Bearer credentials as any other request and no cookies are involved.
+  return [
+    ...configured,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://[::1]:3000",
+  ];
 }
 
 function isAllowedOrigin(origin: string, allowed: string[]): boolean {
-  if (!origin.startsWith("https://")) return false;
-  return allowed.includes(origin);
+  if (!allowed.includes(origin)) return false;
+  if (origin.startsWith("https://")) return true;
+
+  // Permit an explicitly configured loopback origin for local development.
+  // Plain HTTP remains forbidden for every non-loopback host.
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === "http:" &&
+      (url.hostname === "localhost" ||
+        url.hostname === "127.0.0.1" ||
+        url.hostname === "[::1]")
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function buildCorsHeaders(req: Request): Record<string, string> {
@@ -50,12 +72,36 @@ export const corsHeaders: Record<string, string> = {
 };
 
 const edgeBuckets = new Map<string, { count: number; resetAt: number }>();
+const MAX_EDGE_BUCKETS = 5_000;
+
+function localEdgeLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  if (edgeBuckets.size >= MAX_EDGE_BUCKETS) {
+    for (const [bucketKey, bucket] of edgeBuckets) {
+      if (bucket.resetAt < now) edgeBuckets.delete(bucketKey);
+    }
+    while (edgeBuckets.size >= MAX_EDGE_BUCKETS) {
+      const oldestKey = edgeBuckets.keys().next().value as string | undefined;
+      if (oldestKey === undefined) break;
+      edgeBuckets.delete(oldestKey);
+    }
+  }
+  const bucket = edgeBuckets.get(key);
+  if (!bucket || bucket.resetAt < now) {
+    edgeBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (bucket.count >= limit) return false;
+  bucket.count += 1;
+  return true;
+}
 
 /**
  * Shared limiter for Edge functions. The store is Postgres (consume_rate_limit);
  * Upstash is used instead when both of its env vars are present.
  *
- * This MUST NOT fail closed on an unconfigured store, and the Deno half is the
+ * This MUST NOT fail closed on an unconfigured store. It falls back to a
+ * bounded per-isolate bucket, and the Deno half is the
  * reason that rule needs writing down twice: it previously returned false
  * whenever DENO_DEPLOYMENT_ID was set and Upstash was absent — which is every
  * deployed function — so the public /search page 429'd in production from
@@ -110,24 +156,10 @@ export async function checkRateLimit(
   } catch {
     /* fall through to the local bucket / fail open */
   }
-  if (
-    Deno.env.get("DENO_DEPLOYMENT_ID") ||
-    Deno.env.get("ENVIRONMENT") === "production"
-  ) {
-    console.warn(
-      `[guards] no shared rate-limit store reachable; allowing "${key}"`,
-    );
-    return true;
-  }
-  const now = Date.now();
-  const bucket = edgeBuckets.get(key);
-  if (!bucket || bucket.resetAt < now) {
-    edgeBuckets.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-  if (bucket.count >= limit) return false;
-  bucket.count += 1;
-  return true;
+  console.warn(
+    `[guards] no shared rate-limit store reachable; using local fallback for "${key}"`,
+  );
+  return localEdgeLimit(key, limit, windowMs);
 }
 
 type ErrorCode =
@@ -136,6 +168,7 @@ type ErrorCode =
   | "AUTH_INVALID_TOKEN"
   | "AUTH_UNAUTHORIZED"
   | "ENV_MISSING"
+  | "ENV_INVALID"
   | "BAD_REQUEST"
   | "SUBSCRIPTION_TIER_LOCKED";
 

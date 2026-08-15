@@ -12,8 +12,10 @@
 export const PUBLIC_NAMESPACES = [
   "ApartmentDetail",
   "ApartmentsPage",
+  "AuthForgotPassword",
   "AuthLogin",
   "AuthRegister",
+  "AuthResetPassword",
   "AvailabilityWizard",
   "BakurianiMap",
   "BlogPage",

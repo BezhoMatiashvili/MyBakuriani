@@ -44,7 +44,10 @@ import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
 import { MobileRail } from "@/components/shared/MobileRail";
 
-type PublicService = Tables<"services"> & { has_whatsapp?: boolean };
+type PublicService = Tables<"services"> & {
+  has_whatsapp?: boolean;
+  best_active_menu_item_discount_percent?: number | null;
+};
 
 interface LandingPageProps {
   zones: Zone[];
@@ -223,17 +226,16 @@ export default function LandingPage({
       // Transport-only extras (type/seats/route) — scoped to transport so other
       // categories' cards stay unchanged.
       const isTransport = category === "transport";
+      const isFood = category === "food";
       return serverServices
         .filter((s) => s.category === category)
         .sort((a, b) => {
-          const aDiscount = isDiscountActive(
-            a.discount_percent,
-            a.discount_expires_at,
-          );
-          const bDiscount = isDiscountActive(
-            b.discount_percent,
-            b.discount_expires_at,
-          );
+          const aDiscount = isFood
+            ? isDiscountActive(a.best_active_menu_item_discount_percent, null)
+            : isDiscountActive(a.discount_percent, a.discount_expires_at);
+          const bDiscount = isFood
+            ? isDiscountActive(b.best_active_menu_item_discount_percent, null)
+            : isDiscountActive(b.discount_percent, b.discount_expires_at);
           if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
           if (Boolean(a.is_vip) !== Boolean(b.is_vip)) {
             return a.is_vip ? -1 : 1;
@@ -252,8 +254,10 @@ export default function LandingPage({
           photos: s.photos ?? [],
           price: s.price ? Number(s.price) : null,
           priceUnit: s.price_unit,
-          discountPercent: s.discount_percent ?? 0,
-          discountExpiresAt: s.discount_expires_at ?? null,
+          discountPercent: isFood
+            ? (s.best_active_menu_item_discount_percent ?? 0)
+            : (s.discount_percent ?? 0),
+          discountExpiresAt: isFood ? null : (s.discount_expires_at ?? null),
           createdAt: s.created_at,
           isVip: s.is_vip ?? false,
           schedule: s.schedule,
@@ -867,6 +871,7 @@ function ServiceSection({
           desktopItemClassName={
             cardVariant === "avatar" ? "lg:w-[280px]" : "lg:w-[340px]"
           }
+          desktopArrows
         >
           {filteredCards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
@@ -938,6 +943,7 @@ function EmploymentSection({
         <MobileRail
           desktopClassName="lg:gap-6 lg:pb-0"
           desktopItemClassName="lg:w-[300px]"
+          desktopArrows
         >
           {cards.map((card, i) => (
             <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
@@ -1094,6 +1100,7 @@ function PropertySection({
         <MobileRail
           desktopClassName="lg:gap-6 lg:pb-0"
           desktopItemClassName="lg:w-[340px]"
+          desktopArrows
         >
           {filteredProperties.map((prop, i) => (
             <ScrollReveal key={prop.id} delay={i * 0.08} className="h-full">

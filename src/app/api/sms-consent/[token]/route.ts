@@ -5,6 +5,7 @@ import {
   maskConsentPhone,
 } from "@/lib/sms/manual-booking-consent";
 import { toCanonicalGePhone } from "@/lib/sms/phone";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -54,10 +55,22 @@ async function consentDetails(token: string) {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  if (
+    !(await checkRateLimit(
+      `sms-consent-read:${getClientIp(request)}`,
+      60,
+      60_000,
+    ))
+  ) {
+    return Response.json(
+      { error: "rate_limited" },
+      { status: 429, headers: noStoreHeaders },
+    );
+  }
   try {
     const result = await consentDetails(token);
     if (!result) {
@@ -94,6 +107,18 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  if (
+    !(await checkRateLimit(
+      `sms-consent-write:${getClientIp(request)}`,
+      15,
+      60 * 60_000,
+    ))
+  ) {
+    return Response.json(
+      { error: "rate_limited" },
+      { status: 429, headers: noStoreHeaders },
+    );
+  }
   const body = (await request.json().catch(() => null)) as {
     action?: unknown;
   } | null;

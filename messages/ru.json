@@ -1543,6 +1543,8 @@
     "contact": "Контакт",
     "contactAndActions": "Контакт и действия",
     "menuLink": "Меню • URL-меню",
+    "menu": "Меню",
+    "menuEmpty": "Меню появится скоро",
     "viewLocation": "Показать локацию",
     "getInTouch": "Связаться",
     "info": {
@@ -1891,6 +1893,7 @@
     "emailLabel": "Эл. почта",
     "passwordLabel": "Пароль",
     "confirmPasswordLabel": "Подтверждение пароля",
+    "forgotPassword": "Забыли пароль?",
     "signIn": "Войти",
     "register": "Регистрация",
     "noAccount": "Нет аккаунта? Зарегистрируйтесь",
@@ -1914,12 +1917,40 @@
       "wrongCode": "Неверный код. Попробуйте снова.",
       "fillAllFields": "Пожалуйста, заполните все поля",
       "wrongCredentials": "Неверная почта или пароль",
-      "passwordTooShort": "Пароль — минимум 6 символов",
+      "passwordTooShort": "Пароль — минимум 12 символов",
       "passwordsMismatch": "Пароли не совпадают",
       "emailTaken": "Эта почта уже зарегистрирована.",
       "generic": "Ошибка. Попробуйте снова.",
       "error": "Ошибка.",
       "timeout": "Сервер слишком долго отвечает. Попробуйте снова."
+    }
+  },
+  "AuthForgotPassword": {
+    "title": "Восстановление пароля",
+    "subtitle": "Введите вашу эл. почту, и мы отправим ссылку для восстановления пароля",
+    "emailLabel": "Эл. почта",
+    "sendLink": "Отправить ссылку",
+    "linkSent": "Если эта почта зарегистрирована, ссылка для восстановления пароля уже отправлена.",
+    "backToLogin": "Вернуться ко входу",
+    "errors": {
+      "fillAllFields": "Пожалуйста, введите эл. почту",
+      "linkExpired": "Срок действия ссылки истёк или она уже использована. Попробуйте снова.",
+      "tooManyRequests": "Слишком много запросов. Попробуйте позже.",
+      "generic": "Ошибка. Попробуйте снова."
+    }
+  },
+  "AuthResetPassword": {
+    "title": "Установите новый пароль",
+    "passwordLabel": "Новый пароль",
+    "confirmPasswordLabel": "Подтверждение пароля",
+    "submit": "Сохранить пароль",
+    "noSession": "Эта ссылка недействительна или истекла.",
+    "requestNewLink": "Запросить новую ссылку",
+    "errors": {
+      "fillAllFields": "Пожалуйста, заполните все поля",
+      "passwordTooShort": "Пароль — минимум 12 символов",
+      "passwordsMismatch": "Пароли не совпадают",
+      "generic": "Ошибка. Попробуйте снова."
     }
   },
   "AuthRegister": {
@@ -3262,7 +3293,7 @@
       "client": "Клиент",
       "manualBadge": "Личная",
       "saveError": "Не удалось сохранить, попробуйте снова",
-      "timeConflict": "На это время у вас уже запланирована работа",
+      "timeConflict": "В пределах 30 минут от этого времени у вас уже запланирована работа",
       "deleteConfirm": "Удалить эту работу?"
     }
   },
@@ -3313,7 +3344,33 @@
     "newOffer": "Новое предложение",
     "emptyOffersTitle": "Акций пока нет",
     "emptyOffersDesc": "Добавьте VIP-предложение для большего числа просмотров.",
-    "deleteOffer": "Удалить"
+    "deleteOffer": "Удалить",
+    "menuItemsSection": "Блюда",
+    "menuItemsHint": "Добавьте блюда с ценами и укажите скидку отдельно для каждого.",
+    "addDish": "Добавить блюдо",
+    "editDish": "Редактировать",
+    "deleteDish": "Удалить",
+    "confirmDeleteDish": "Удалить это блюдо?",
+    "dishName": "Название",
+    "dishNamePlaceholder": "например, Хачапури",
+    "dishPrice": "Цена (₾)",
+    "dishDescription": "Описание (необязательно)",
+    "dishAvailable": "Доступно",
+    "dishUnavailable": "Временно недоступно",
+    "noDishesYet": "Вы ещё не добавили ни одного блюда",
+    "saveDish": "Сохранить",
+    "cancelDish": "Отмена",
+    "activateItemDiscount": "Запросить скидку",
+    "itemDiscountPending": "Скидка на рассмотрении администратора",
+    "itemDiscountPendingDetails": "−{percent}% · {amount} ₾ · {hours} ч после одобрения",
+    "itemDiscountNeedsBalance": "Пополните баланс, чтобы администратор смог завершить одобрение.",
+    "itemDiscountActive": "Скидка активна",
+    "itemDiscountExpires": "Активна до {date}",
+    "itemDiscountModalTitle": "Запрос скидки",
+    "itemDiscountPercentLabel": "Процент скидки",
+    "itemDiscountQuantityLabel": "Длительность (дней)",
+    "itemDiscountSubmit": "Отправить запрос",
+    "itemDiscountPriceLabel": "Цена: {price} ₾"
   },
   "FoodParameters": {
     "subtitle": "Данные профиля и управление уведомлениями.",
@@ -3559,7 +3616,7 @@
       "sending": "Отправляется...",
       "submit": "Отправить вызов",
       "sendError": "Не удалось отправить вызов, попробуйте ещё раз",
-      "timeConflict": "У этого клинера на это время уже запланирована работа"
+      "timeConflict": "В пределах 30 минут от этого времени у клинера уже запланирована работа"
     },
     "addModal": {
       "title": "Добавить уборщика",

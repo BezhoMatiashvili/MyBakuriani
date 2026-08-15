@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   BookOpen,
   Star,
@@ -20,7 +20,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
-import FoodDiscountRequestModal from "@/components/dashboard/FoodDiscountRequestModal";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
@@ -40,6 +39,7 @@ export default function FoodDashboardClient({
   const t = useTranslations("FoodDashboard");
   const tShared = useTranslations("DashboardShared");
   const supabase = createClient();
+  const router = useRouter();
 
   // Seeded from the server render — content is present on first paint, so there
   // is no loading skeleton on initial load. Realtime updates refresh silently.
@@ -304,7 +304,15 @@ export default function FoodDashboardClient({
             className="mt-5 border-t border-[#F1F5F9] pt-4"
             viewUrl={serviceViewUrl(restaurant)}
             editUrl={serviceEditUrl(restaurant)}
-            onPromote={(tier) => setPickerModal({ open: true, tier })}
+            onPromote={(tier) => {
+              // Restaurant discounts are now per-dish, managed from the menu
+              // screen instead of a whole-listing promotion purchase.
+              if (tier === "discount") {
+                router.push("/dashboard/food/orders");
+                return;
+              }
+              setPickerModal({ open: true, tier });
+            }}
             standardVipDisabled={isSuperVipActive(
               restaurant.is_super_vip,
               restaurant.vip_expires_at,
@@ -314,7 +322,7 @@ export default function FoodDashboardClient({
       </motion.div>
 
       <PackagePromotionPicker
-        isOpen={pickerModal.open && pickerModal.tier !== "discount"}
+        isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
         flat
@@ -338,11 +346,6 @@ export default function FoodDashboardClient({
         }
         target="service"
         onPurchased={() => loadFoodData(supabase, userId).then(apply)}
-      />
-      <FoodDiscountRequestModal
-        isOpen={pickerModal.open && pickerModal.tier === "discount"}
-        onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
-        restaurant={restaurant}
       />
     </div>
   );

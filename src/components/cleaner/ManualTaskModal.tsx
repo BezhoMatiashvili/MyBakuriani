@@ -17,6 +17,10 @@ import { toLocalDateKey, type ManualTaskRow } from "@/lib/cleaner/tasks";
 const inputClass =
   "w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10";
 
+// Mirrors the DB trigger's window: two of a cleaner's jobs must be at least
+// 30 minutes apart (see enforce_cleaner_schedule_slot).
+const THIRTY_MIN_MS = 30 * 60 * 1000;
+
 interface ManualTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -117,18 +121,24 @@ export default function ManualTaskModal({
     if (!selectedScheduledAt) return false;
     const selectedMs = new Date(selectedScheduledAt).getTime();
 
-    // Legacy duplicates are preserved. An edit that leaves its original slot
-    // unchanged must remain saveable; only moving into an occupied slot fails.
-    if (
-      task &&
-      new Date(task.scheduled_at).getTime() === selectedMs
-    ) {
+    // Legacy near-duplicates are preserved. An edit that leaves its original
+    // slot unchanged must remain saveable even if another job is within 30
+    // minutes of it; only moving into a conflicting slot fails.
+    if (task && new Date(task.scheduled_at).getTime() === selectedMs) {
       return false;
     }
 
-    return occupiedSlots.some(
-      (slot) => new Date(slot.scheduledAt).getTime() === selectedMs,
-    );
+    return occupiedSlots.some((slot) => {
+      // Exclude the row being edited itself, not just its original time —
+      // otherwise moving it a few minutes collides with its own old slot.
+      if (task && slot.source === "manual" && slot.id === task.id) {
+        return false;
+      }
+      return (
+        Math.abs(new Date(slot.scheduledAt).getTime() - selectedMs) <
+        THIRTY_MIN_MS
+      );
+    });
   }, [occupiedSlots, selectedScheduledAt, task]);
   const canSubmit =
     clientName.trim() !== "" &&
@@ -157,15 +167,27 @@ export default function ManualTaskModal({
       notes: notes.trim() || null,
     };
 
-    const { error: writeError } = task
-      ? await supabase
-          .from("cleaner_manual_tasks")
-          .update(payload)
-          .eq("id", task.id)
-          .eq("cleaner_id", user.id)
-      : await supabase
-          .from("cleaner_manual_tasks")
-          .insert({ ...payload, cleaner_id: user.id });
+    // try/finally: this component stays mounted across close/reopen (only its
+    // JSX is conditionally hidden), so an uncaught rejection here — e.g. a
+    // dropped mobile connection — would otherwise leave `saving` stuck true
+    // and the button permanently disabled on every future edit attempt.
+    let writeError: { code?: string; message: string } | null = null;
+    try {
+      const result = task
+        ? await supabase
+            .from("cleaner_manual_tasks")
+            .update(payload)
+            .eq("id", task.id)
+            .eq("cleaner_id", user.id)
+        : await supabase
+            .from("cleaner_manual_tasks")
+            .insert({ ...payload, cleaner_id: user.id });
+      writeError = result.error;
+    } catch {
+      setSaving(false);
+      setError(t("saveError"));
+      return;
+    }
 
     setSaving(false);
     if (writeError) {
@@ -310,7 +332,10 @@ export default function ManualTaskModal({
                 </div>
 
                 {slotConflict && (
-                  <p role="alert" className="text-[12px] font-bold text-[#DC2626]">
+                  <p
+                    role="alert"
+                    className="text-[12px] font-bold text-[#DC2626]"
+                  >
                     {t("timeConflict")}
                   </p>
                 )}

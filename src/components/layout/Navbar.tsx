@@ -29,18 +29,6 @@ import { NotificationBell } from "@/components/layout/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
-
 const navItemKeys = [
   { key: "apartments" as const, href: "/apartments", icon: Home },
   { key: "hotels" as const, href: "/hotels", icon: Building2 },
@@ -83,7 +71,6 @@ export function Navbar() {
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const [profile, setProfile] = useState<{
     display_name: string;
-    role: string;
     avatar_url: string | null;
   } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -100,7 +87,7 @@ export function Navbar() {
       const [profileRes, balanceRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("display_name, role, avatar_url")
+          .select("display_name, avatar_url")
           .eq("id", user!.id)
           .single(),
         supabase
@@ -136,9 +123,6 @@ export function Navbar() {
     };
   }, [user]);
 
-  const dashboardPath = profile
-    ? (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest")
-    : "/dashboard/guest";
   // The public bell is intentionally cross-cabinet, so it always opens the
   // aggregate inbox rather than whichever cabinet happens to be primary.
   const viewAllNotificationsPath = "/notifications";
@@ -257,7 +241,7 @@ export function Navbar() {
             className="h-[39.5px] w-[222px] px-5 leading-5"
           />
           {user && (
-            <Link href={dashboardPath}>
+            <Link href="/dashboard">
               <Button
                 variant="outline"
                 className="gap-1.5 rounded-xl border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-bold leading-5 text-[#334155]"
@@ -298,7 +282,7 @@ export function Navbar() {
           )}
           {user && (
             <Link
-              href={dashboardPath}
+              href="/dashboard"
               aria-label={t("profile")}
               className="flex size-11 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF] lg:size-10"
             >
@@ -449,10 +433,7 @@ export function Navbar() {
                       {balance !== null ? `${balance.toFixed(2)} ₾` : "..."}
                     </span>
                   </div>
-                  <Link
-                    href={dashboardPath}
-                    onClick={() => setMobileOpen(false)}
-                  >
+                  <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
                     <Button className="min-h-11 w-full rounded-xl bg-[#2563EB] text-white hover:bg-[#1D4ED8]">
                       <User className="mr-2 size-4" />
                       {t("dashboard")}

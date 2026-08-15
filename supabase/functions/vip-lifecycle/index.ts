@@ -16,10 +16,12 @@ import {
 //            cleared so the badge disappears. Silent (the 48h warning covered
 //            it). Keys off the flags, so it never re-clears -> idempotent.
 // Also: expired discount badges (discount_expires_at in the past) have
-// discount_percent / discount_expires_at cleared on both listing tables.
+// discount_percent / discount_expires_at cleared on both listing tables, and
+// (since the per-menu-item food discount redesign) on service_menu_items too.
 //
-// Auth: shared secret in VIP_LIFECYCLE_SECRET (Bearer header). The cron job and
-// any manual invocations must present this token.
+// Auth: a dedicated VIP_LIFECYCLE_SECRET is preferred. Existing installations
+// may reuse SMS_AUTOMATION_RUN_SECRET for the two daily automation jobs; the
+// database scheduler migration uses that already-provisioned Vault secret.
 //
 // SMS rows are inserted directly as status='approved' (no admin moderation, no
 // credit consumption) and sent by the sms-dispatch job once a provider is
@@ -34,10 +36,11 @@ type ListingTable = (typeof LISTING_TABLES)[number];
 const VIP_EXPIRY_SMS = "MyBakuriani: თქვენი VIP მალე იწურება.";
 
 function requireSharedSecret(req: Request) {
-  const expected = Deno.env.get("VIP_LIFECYCLE_SECRET");
+  const expected = Deno.env.get("VIP_LIFECYCLE_SECRET") ??
+    Deno.env.get("SMS_AUTOMATION_RUN_SECRET");
   if (!expected) {
     throw new ApiError(
-      "VIP_LIFECYCLE_SECRET is not configured",
+      "VIP lifecycle authentication is not configured",
       500,
       "ENV_MISSING",
     );
@@ -178,6 +181,28 @@ async function clearExpiredDiscounts(
   return data?.length ?? 0;
 }
 
+// Per-menu-item food discounts (submit_menu_item_discount_request /
+// approve_menu_item_discount_request) write the same two columns onto
+// service_menu_items instead of services -- this sweep is the same idempotent
+// expiry cleanup as clearExpiredDiscounts, just for the new table. Correctness
+// of public-facing has_active_discount never depends on this sweep running
+// (it already checks expires_at > now() directly); a missed run just leaves a
+// stale-but-inert percent on an already-inactive row.
+async function clearExpiredMenuItemDiscounts(
+  db: SbClient,
+  nowISO: string,
+): Promise<number> {
+  const { data, error } = await db
+    .from("service_menu_items")
+    .update({ discount_percent: 0, discount_expires_at: null })
+    .lt("discount_expires_at", nowISO)
+    .not("discount_expires_at", "is", null)
+    .select("id");
+
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
 
@@ -211,11 +236,16 @@ serve(async (req) => {
     for (const table of LISTING_TABLES) {
       discountsCleared += await clearExpiredDiscounts(db, table, nowISO);
     }
+    const menuItemDiscountsCleared = await clearExpiredMenuItemDiscounts(
+      db,
+      nowISO,
+    );
 
     summary.warned = warned;
     summary.sms_queued = sms;
     summary.expired_cleared = expired;
     summary.discounts_cleared = discountsCleared;
+    summary.menu_item_discounts_cleared = menuItemDiscountsCleared;
 
     return jsonResponse(summary, 200, cors);
   } catch (err) {

@@ -31,6 +31,14 @@ function localLimit(key: string, limit: number, windowMs: number): boolean {
     for (const [bucketKey, bucket] of buckets) {
       if (now > bucket.resetAt) buckets.delete(bucketKey);
     }
+    // An attacker can otherwise keep the map above MAX_BUCKETS indefinitely by
+    // presenting fresh keys faster than the windows expire. Map iteration is
+    // insertion ordered, so evict the oldest residual entries first.
+    while (buckets.size >= MAX_BUCKETS) {
+      const oldestKey = buckets.keys().next().value as string | undefined;
+      if (oldestKey === undefined) break;
+      buckets.delete(oldestKey);
+    }
   }
   const bucket = buckets.get(key);
   if (!bucket || now > bucket.resetAt) {
@@ -122,13 +130,11 @@ async function postgresLimit(
 /**
  * Returns true when the call is within its budget.
  *
- * Fails OPEN when no store can be reached, deliberately. These limiters sit in
- * front of endpoints that each enforce their own authorization (RLS, ownership
- * checks, service-role RPC constraints) — the limit is abuse mitigation, not an
- * access control. Making a store round-trip a hard dependency of photo upload
- * and job applications is how a transient outage becomes "sellers cannot list",
- * which is precisely the failure this module already caused once. The
- * unreachable case is logged so it cannot pass unnoticed.
+ * Falls back to a bounded in-process limiter when no shared store can be
+ * reached. This preserves availability during a database/Redis incident while
+ * still providing per-instance abuse resistance. It is intentionally not
+ * described as distributed protection: separate serverless instances maintain
+ * separate buckets.
  */
 export async function checkRateLimit(
   key: string,
@@ -144,11 +150,10 @@ export async function checkRateLimit(
   const verdict = await postgresLimit(key, limit, windowMs);
   if (verdict !== null) return verdict;
 
-  if (process.env.NODE_ENV !== "production") {
-    return localLimit(key, limit, windowMs);
-  }
-  console.warn(`[rateLimit] no shared store reachable; allowing "${key}"`);
-  return true;
+  console.warn(
+    `[rateLimit] no shared store reachable; using local fallback for "${key}"`,
+  );
+  return localLimit(key, limit, windowMs);
 }
 
 /**

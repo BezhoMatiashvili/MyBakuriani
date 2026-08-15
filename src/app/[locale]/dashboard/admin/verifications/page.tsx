@@ -32,7 +32,7 @@ type ContentChangeRequest = {
   proposed_values: Record<string, unknown>;
   field_diff: Record<string, { before: unknown; after: unknown }>;
   created_at: string;
-  request_kind: "content" | "food_discount";
+  request_kind: "content" | "food_discount" | "menu_item_discount";
   quoted_amount_gel?: number | null;
   quoted_duration_hours?: number | null;
   payment_error?: string | null;
@@ -711,14 +711,18 @@ function ContentChangeRequestsPanel() {
                   <span className="ml-2 rounded bg-[#EFF6FF] px-2 py-1 text-xs text-[#1D4ED8]">
                     {item.request_kind === "food_discount"
                       ? "რესტორნის ფასდაკლება"
-                      : item.target_type}
+                      : item.request_kind === "menu_item_discount"
+                        ? "კერძის ფასდაკლება"
+                        : item.target_type}
                   </span>
                 </p>
                 <p className="mt-1 text-xs text-[#64748B]">
                   {item.requester?.role ?? ""} · {formatDate(item.created_at)} ·{" "}
                   {item.request_kind === "food_discount"
                     ? `−${String(item.proposed_values.discount_percent ?? "?")}% · ${Number(item.quoted_amount_gel ?? 0).toFixed(2)} ₾ · ${item.quoted_duration_hours ?? 0} სთ`
-                    : `${Object.keys(item.field_diff).length} ველი`}
+                    : item.request_kind === "menu_item_discount"
+                      ? `${String(item.request_metadata?.menu_item_name ?? "—")} · ${String(item.request_metadata?.menu_item_price ?? "?")}₾ · −${String(item.proposed_values.discount_percent ?? "?")}% · ${Number(item.quoted_amount_gel ?? 0).toFixed(2)} ₾ · ${item.quoted_duration_hours ?? 0} სთ`
+                      : `${Object.keys(item.field_diff).length} ველი`}
                 </p>
                 {item.payment_error === "insufficient_balance" && (
                   <p className="mt-1 text-xs font-bold text-[#B45309]">

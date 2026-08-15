@@ -3,6 +3,7 @@ import {
   buildCorsHeaders,
   checkRateLimit,
   createServiceClient,
+  ApiError,
   errorResponse,
   jsonResponse,
 } from "../_shared/guards.ts";
@@ -24,6 +25,11 @@ serve(async (req) => {
 
   try {
     const supabase = createServiceClient();
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw new ApiError("A JSON object is required", 400, "BAD_REQUEST");
+    }
 
     const {
       q,
@@ -49,21 +55,36 @@ serve(async (req) => {
       renovation_status,
       lat,
       lng,
-      page = 1,
+      page: requestedPage = 1,
       per_page: requestedPerPage = 20,
-    } = await req.json();
+    } = body as Record<string, unknown>;
 
     // Bound page size for this unauthenticated endpoint.  It reads only the
     // explicit public views below; contact and owner fields never enter its
     // response regardless of a future base-table column addition.
     const per_page = Math.min(Math.max(1, Number(requestedPerPage) || 20), 100);
+    const page = Math.min(
+      Math.max(1, Math.trunc(Number(requestedPage)) || 1),
+      1_000,
+    );
+    const normalizedQuery = typeof query === "string"
+      ? query.trim().slice(0, 200)
+      : "";
+    const latitude = typeof lat === "number" && Number.isFinite(lat) &&
+        lat >= -90 && lat <= 90
+      ? lat
+      : null;
+    const longitude = typeof lng === "number" && Number.isFinite(lng) &&
+        lng >= -180 && lng <= 180
+      ? lng
+      : null;
 
     // Global keyword search path: when `q` is set, fan out across
     // properties + services + blog_posts via the global_search RPC and
     // return a bucketed payload. Property-specific filters apply only to the
     // property bucket; services and blog results retain the broad global
     // search behavior.
-    const trimmedQ = typeof q === "string" ? q.trim() : "";
+    const trimmedQ = typeof q === "string" ? q.trim().slice(0, 200) : "";
     if (trimmedQ.length > 0) {
       const types = Array.isArray(entity_types) && entity_types.length > 0
         ? entity_types
@@ -105,8 +126,8 @@ serve(async (req) => {
           .select("*")
           .in("id", propertyIds);
 
-        if (query) {
-          const safeQuery = sanitizeQuery(query);
+        if (normalizedQuery) {
+          const safeQuery = sanitizeQuery(normalizedQuery);
           propertyQuery = propertyQuery.or(
             `location.ilike.%${safeQuery}%,title.ilike.%${safeQuery}%`,
           );
@@ -211,6 +232,7 @@ serve(async (req) => {
           per_page: rows.length,
         },
         200,
+        corsHeaders,
       );
     }
 
@@ -219,8 +241,8 @@ serve(async (req) => {
       .select("*", { count: "exact" });
 
     // Location trigram search (also search title)
-    if (query) {
-      const safeQuery = sanitizeQuery(query);
+    if (normalizedQuery) {
+      const safeQuery = sanitizeQuery(normalizedQuery);
       dbQuery = dbQuery.or(
         `location.ilike.%${safeQuery}%,title.ilike.%${safeQuery}%`,
       );
@@ -310,19 +332,19 @@ serve(async (req) => {
     }
 
     // Distance sorting if lat/lng provided
-    if (lat && lng && filtered) {
+    if (latitude !== null && longitude !== null && filtered) {
       filtered.sort(
         (
           a: { location_lat: number; location_lng: number },
           b: { location_lat: number; location_lng: number },
         ) => {
           const distA = Math.sqrt(
-            Math.pow((a.location_lat || 0) - lat, 2) +
-              Math.pow((a.location_lng || 0) - lng, 2),
+            Math.pow((a.location_lat || 0) - latitude, 2) +
+              Math.pow((a.location_lng || 0) - longitude, 2),
           );
           const distB = Math.sqrt(
-            Math.pow((b.location_lat || 0) - lat, 2) +
-              Math.pow((b.location_lng || 0) - lng, 2),
+            Math.pow((b.location_lat || 0) - latitude, 2) +
+              Math.pow((b.location_lng || 0) - longitude, 2),
           );
           return distA - distB;
         },
@@ -338,6 +360,7 @@ serve(async (req) => {
         total_pages: Math.ceil((count || 0) / per_page),
       },
       200,
+      corsHeaders,
     );
   } catch (err) {
     return errorResponse(err, corsHeaders);

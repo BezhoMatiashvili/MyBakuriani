@@ -45,6 +45,9 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await query;
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("GET /api/pricing-packages failed", error);
+    return Response.json({ error: "server_error" }, { status: 500 });
+  }
   return Response.json({ packages: data ?? [] }, { headers: CACHE_HEADERS });
 }

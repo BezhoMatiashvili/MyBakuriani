@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 // `logos` bucket (authenticated upload, public read). Returns the public URL.
 const BUCKET = "logos";
 const MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 interface SingleImageUploaderProps {
   value: string | null;
@@ -36,8 +37,8 @@ export default function SingleImageUploader({
 
   async function handleFile(file: File) {
     setError(null);
-    if (!file.type.startsWith("image/")) {
-      setError("მხოლოდ სურათის ატვირთვაა ნებადართული");
+    if (!ALLOWED_TYPES.has(file.type)) {
+      setError("ნებადართულია მხოლოდ JPG, PNG ან WebP სურათი");
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -75,7 +76,7 @@ export default function SingleImageUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];

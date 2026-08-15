@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await withRetry(() => query);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("GET /api/banners failed", error);
+    return Response.json({ error: "server_error" }, { status: 500 });
+  }
 
   const now = Date.now();
   const banners = (data ?? []).flatMap((b) => {

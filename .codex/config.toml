@@ -1,0 +1,18 @@
+# Project-local MCP configuration. Codex loads this automatically after the
+# repository is trusted. OAuth credentials are stored per machine, not here.
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=yuwyrmxccrpfjvidwhhg"
+auth = "oauth"
+enabled = true
+default_tools_approval_mode = "writes"
+
+# SQL execution and migrations always require explicit approval, including if
+# the server's tool annotations change in the future.
+[mcp_servers.supabase.tools.execute_sql]
+approval_mode = "approve"
+
+[mcp_servers.supabase.tools.apply_migration]
+approval_mode = "approve"
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"

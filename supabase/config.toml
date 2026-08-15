@@ -73,6 +73,14 @@ verify_jwt = true
 [functions.verify-listing]
 verify_jwt = true
 
+# Retired legacy AI/chat endpoints. Keep the tombstones deployed and tracked so
+# the old service-role handlers cannot be resurrected by a bulk deploy.
+[functions.ai-respond]
+verify_jwt = true
+
+[functions.webhook-facebook]
+verify_jwt = false
+
 # Payment endpoints require an authenticated user. They also enforce the bearer
 # token via requireUser(), so verify_jwt is defense-in-depth — keep it true.
 [functions.payment-create]

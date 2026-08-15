@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
   // This used to be wrapped in an "only if a limiter is configured" guard,
   // because checkRateLimit denied everything when Upstash was absent and would
   // have pinned every counter at zero — the exact bug this endpoint exists to
-  // fix. The limiter is now Postgres-backed and fails open rather than closed,
-  // so the guard is gone and the limit applies unconditionally.
+  // fix. The limiter is now Postgres-backed with a bounded local fallback, so
+  // the guard is gone and the limit applies unconditionally.
   const ok = await checkRateLimit(
     `banner-track:${getClientIp(req)}`,
     120,
@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
     p_event: event,
   });
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("POST /api/banner-slots/track failed", error);
+    return Response.json({ error: "server_error" }, { status: 500 });
+  }
   // 204: sendBeacon ignores the body anyway.
   return new Response(null, { status: 204 });
 }

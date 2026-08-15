@@ -55,14 +55,23 @@ serve(async (req) => {
 
     if (error) throw error;
     if (!booking) throw new Error("ჯავშნის შექმნა ვერ მოხერხდა");
+    const bookingRow = booking as Record<string, unknown>;
+    if (
+      typeof bookingRow.id !== "string" ||
+      typeof bookingRow.owner_id !== "string" ||
+      (typeof bookingRow.total_price !== "number" &&
+        typeof bookingRow.total_price !== "string")
+    ) {
+      throw new Error("ჯავშნის შექმნა ვერ მოხერხდა");
+    }
 
     // Notify owner
     await supabase.from("notifications").insert({
-      user_id: booking.owner_id,
+      user_id: bookingRow.owner_id,
       type: "booking",
       title: "ახალი ჯავშანი",
-      message: `ახალი ჯავშანი: ${check_in} - ${check_out}, ${booking.total_price} ₾`,
-      action_url: `/dashboard/bookings/${booking.id}`,
+      message: `ახალი ჯავშანი: ${check_in} - ${check_out}, ${bookingRow.total_price} ₾`,
+      action_url: `/dashboard/bookings/${bookingRow.id}`,
       dashboard_scope: "renter",
     });
 

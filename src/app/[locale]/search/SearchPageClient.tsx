@@ -41,7 +41,10 @@ import {
 
 const ITEMS_PER_PAGE = 12;
 
-type ServiceRow = Tables<"services"> & { has_whatsapp?: boolean };
+type ServiceRow = Tables<"services"> & {
+  has_whatsapp?: boolean;
+  best_active_menu_item_discount_percent?: number | null;
+};
 type BlogRow = Tables<"blog_posts">;
 type ActiveTab = "all" | "properties" | "services" | "blog";
 
@@ -79,7 +82,11 @@ function filterPropertiesLocally(
     const description = (property.description ?? "").toLowerCase();
     const location = (property.location ?? "").toLowerCase();
     const cadastralCode = (property.cadastral_code ?? "").toLowerCase();
-    if (locationQuery && !title.includes(locationQuery) && !location.includes(locationQuery)) {
+    if (
+      locationQuery &&
+      !title.includes(locationQuery) &&
+      !location.includes(locationQuery)
+    ) {
       return false;
     }
     if (
@@ -150,9 +157,7 @@ function filterPropertiesLocally(
         )
       : [];
     if (
-      currentFilters.amenities.some(
-        (amenity) => !amenities.includes(amenity),
-      )
+      currentFilters.amenities.some((amenity) => !amenities.includes(amenity))
     ) {
       return false;
     }
@@ -191,8 +196,7 @@ export default function SearchPageClient({
   const [mode, setMode] = useState<"rent" | "sale">(initialMode);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ActiveTab>("all");
-  const [activeDropdown, setActiveDropdown] =
-    useState<ActiveDropdown>(null);
+  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileFilterDraft, setMobileFilterDraft] = useState<Filters | null>(
     null,
@@ -226,14 +230,11 @@ export default function SearchPageClient({
   const searchBoxAdvancedFilters = useMemo<RentAdvancedFilters>(
     () =>
       normalizeRentFilters({
-        priceMin:
-          filters.priceMin === "" ? RENT_PRICE_MIN : filters.priceMin,
-        priceMax:
-          filters.priceMax === "" ? RENT_PRICE_MAX : filters.priceMax,
+        priceMin: filters.priceMin === "" ? RENT_PRICE_MIN : filters.priceMin,
+        priceMax: filters.priceMax === "" ? RENT_PRICE_MAX : filters.priceMax,
         bedrooms: filters.rooms,
         bathrooms: filters.bathrooms,
-        capacity:
-          searchState.guests === "" ? null : Number(searchState.guests),
+        capacity: searchState.guests === "" ? null : Number(searchState.guests),
         amenities: filters.amenities,
         verifiedOnly: filters.verifiedOnly,
       }),
@@ -422,10 +423,8 @@ export default function SearchPageClient({
       keyword: parsed.values.keyword,
     });
     setFilters({
-      priceMin:
-        advanced.priceMin === RENT_PRICE_MIN ? "" : advanced.priceMin,
-      priceMax:
-        advanced.priceMax === RENT_PRICE_MAX ? "" : advanced.priceMax,
+      priceMin: advanced.priceMin === RENT_PRICE_MIN ? "" : advanced.priceMin,
+      priceMax: advanced.priceMax === RENT_PRICE_MAX ? "" : advanced.priceMax,
       rooms: advanced.bedrooms,
       bathrooms: advanced.bathrooms,
       areaMin: parseOptionalNumber("area_min"),
@@ -508,9 +507,7 @@ export default function SearchPageClient({
           <ScrollReveal>
             <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
               {tLanding("trustedGuide")}{" "}
-              <span className="text-[#38BDF8]">
-                {tLanding("inBakuriani")}
-              </span>
+              <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
             </h1>
           </ScrollReveal>
 
@@ -556,10 +553,7 @@ export default function SearchPageClient({
           </div>
 
           <div data-testid="search-status-cards">
-            <StatusCards
-              cards={statusCards}
-              className="mt-8 sm:-mb-[42px]"
-            />
+            <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
           </div>
         </div>
       </section>
@@ -980,8 +974,14 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
             photos={s.photos ?? []}
             price={s.price ? Number(s.price) : null}
             priceUnit={s.price_unit}
-            discountPercent={s.discount_percent ?? 0}
-            discountExpiresAt={s.discount_expires_at}
+            discountPercent={
+              s.category === "food"
+                ? (s.best_active_menu_item_discount_percent ?? 0)
+                : (s.discount_percent ?? 0)
+            }
+            discountExpiresAt={
+              s.category === "food" ? null : s.discount_expires_at
+            }
             isVip={s.is_vip ?? false}
             schedule={s.schedule}
             operatingHours={s.operating_hours}

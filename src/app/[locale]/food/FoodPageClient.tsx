@@ -37,11 +37,15 @@ const KNOWN_LOCATIONS = new Set(["დიდველი", "კოხტა", "�
 
 const ITEMS_PER_PAGE = 9;
 
+type PublicService = Tables<"services"> & {
+  best_active_menu_item_discount_percent?: number | null;
+};
+
 interface Props {
-  services: Tables<"services">[];
+  services: PublicService[];
 }
 
-function matchesObjectType(s: Tables<"services">, value: string): boolean {
+function matchesObjectType(s: PublicService, value: string): boolean {
   const cuisine = (s.cuisine_type ?? "").toLowerCase();
   switch (value) {
     case "restaurant":
@@ -96,12 +100,12 @@ export default function FoodPageClient({ services }: Props) {
       })
       .sort((a, b) => {
         const aDiscount = isDiscountActive(
-          a.discount_percent,
-          a.discount_expires_at,
+          a.best_active_menu_item_discount_percent,
+          null,
         );
         const bDiscount = isDiscountActive(
-          b.discount_percent,
-          b.discount_expires_at,
+          b.best_active_menu_item_discount_percent,
+          null,
         );
         if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
         if (Boolean(a.is_vip) !== Boolean(b.is_vip)) return a.is_vip ? -1 : 1;
@@ -269,8 +273,10 @@ export default function FoodPageClient({ services }: Props) {
                     photos={s.photos ?? []}
                     price={s.price}
                     priceUnit={s.price_unit}
-                    discountPercent={s.discount_percent ?? 0}
-                    discountExpiresAt={s.discount_expires_at}
+                    discountPercent={
+                      s.best_active_menu_item_discount_percent ?? 0
+                    }
+                    discountExpiresAt={null}
                     isVip={s.is_vip ?? false}
                     variant="photo"
                     schedule={s.schedule}

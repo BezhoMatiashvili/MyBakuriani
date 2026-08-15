@@ -8,6 +8,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { Button } from "@/components/ui/button";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
@@ -173,7 +174,7 @@ export default function LoginPage() {
       setError(t("errors.fillAllFields"));
       return;
     }
-    if (submittedPassword.length < 6) {
+    if (submittedPassword.length < MIN_PASSWORD_LENGTH) {
       setError(t("errors.passwordTooShort"));
       return;
     }
@@ -186,7 +187,10 @@ export default function LoginPage() {
     try {
       const data = await signUp(submittedEmail, submittedPassword);
       if (data?.user && !data.user.identities?.length) {
-        setError(t("errors.emailTaken"));
+        // Supabase deliberately returns an obfuscated user for an existing
+        // address. Preserve that protection instead of turning it into an
+        // account-enumeration oracle.
+        setSuccessMessage(t("confirmationLinkSent"));
         return;
       }
       if (data?.session && data.user) await redirectAfterAuth(data.user.id);
@@ -195,12 +199,7 @@ export default function LoginPage() {
       if (isTransientAuthError(err)) {
         setError(t("errors.timeout"));
       } else {
-        const msg = err instanceof Error ? err.message : "";
-        setError(
-          msg.includes("already registered")
-            ? t("errors.emailTaken")
-            : msg || t("errors.error"),
-        );
+        setError(t("errors.error"));
       }
     } finally {
       setLoading(false);
@@ -356,6 +355,16 @@ export default function LoginPage() {
                           </button>
                         </div>
                       </div>
+                      {authMode === "login" && (
+                        <div className="text-right">
+                          <Link
+                            href="/auth/forgot-password"
+                            className="text-xs font-medium text-brand-accent hover:underline"
+                          >
+                            {t("forgotPassword")}
+                          </Link>
+                        </div>
+                      )}
                       {authMode === "register" && (
                         <div className="space-y-2">
                           <label

@@ -4,6 +4,16 @@ Source changes alone cannot configure Supabase Auth, Vercel, DNS, Cloudflare,
 Upstash, or GitHub. Do not deploy the accompanying migration until every item
 below has an owner and evidence recorded in the release ticket.
 
+2026-08-15 status: the live database/storage migrations are applied and all 18
+repository Edge Functions were redeployed with their explicit JWT settings and
+shared-guard updates. The Next.js changes pass a full production build and
+localhost browser smoke test and are included in the direct-to-main release.
+The remaining
+manual release gates are Supabase Auth leaked-password protection / authoritative
+12-character minimum, CAPTCHA/Turnstile where desired, WAF/branch controls, and
+an isolated non-production E2E project. See `SECURITY_AUDIT.md` for evidence and
+the controlled Supabase-advisor exceptions.
+
 - Snapshot the database schema, RLS policies, grants, functions, storage
   policies, Auth configuration, and pending payment rows. Apply
   `20260723000000_production_security_remediation.sql` to staging first, then

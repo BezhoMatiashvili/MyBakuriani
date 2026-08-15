@@ -45,12 +45,14 @@ export async function POST(
     const rpcName =
       pending.request_kind === "food_discount"
         ? "approve_food_discount_request"
-        : "approve_content_change_request";
+        : pending.request_kind === "menu_item_discount"
+          ? "approve_menu_item_discount_request"
+          : "approve_content_change_request";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any).rpc(
-      rpcName,
-      { p_request_id: id, p_admin_id: guard.admin.userId },
-    );
+    const { data, error } = await (db as any).rpc(rpcName, {
+      p_request_id: id,
+      p_admin_id: guard.admin.userId,
+    });
     if (error)
       return Response.json(
         { error: error.message },
@@ -136,7 +138,9 @@ export async function POST(
     title:
       pending.request_kind === "food_discount"
         ? "ფასდაკლება უარყოფილია"
-        : "ცვლილება უარყოფილია",
+        : pending.request_kind === "menu_item_discount"
+          ? "კერძის ფასდაკლება უარყოფილია"
+          : "ცვლილება უარყოფილია",
     message: rejectionReason,
     action_url: "/dashboard",
     dashboard_scope: dashboardScope,

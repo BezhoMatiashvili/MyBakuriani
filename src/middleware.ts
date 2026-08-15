@@ -7,7 +7,7 @@ import { isAllowedMutationOrigin } from "@/lib/security";
 const intlMiddleware = createIntlMiddleware(routing);
 const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
 
-function applySecurityHeaders(response: Response) {
+function applySecurityHeaders(response: Response, secureRequest: boolean) {
   // script-src/style-src keep 'unsafe-inline': next-themes and Next's bootstrap
   // inject inline scripts/styles without a nonce, and the nonce was never wired
   // into Next's renderer (strict-dynamic then blocked every script). Mirrors the
@@ -16,7 +16,8 @@ function applySecurityHeaders(response: Response) {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com`,
+      "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://*.basemaps.cartocdn.com",
       "font-src 'self' data:",
@@ -24,9 +25,13 @@ function applySecurityHeaders(response: Response) {
       "media-src 'self' https://*.supabase.co",
       "frame-src https://challenges.cloudflare.com",
       "object-src 'none'",
+      "manifest-src 'self'",
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
+      ...(process.env.NODE_ENV === "production" && secureRequest
+        ? ["upgrade-insecure-requests"]
+        : []),
     ].join("; "),
   );
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -38,7 +43,7 @@ function applySecurityHeaders(response: Response) {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(self)",
   );
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && secureRequest) {
     response.headers.set(
       "Strict-Transport-Security",
       "max-age=63072000; includeSubDomains; preload",
@@ -47,7 +52,7 @@ function applySecurityHeaders(response: Response) {
   return response;
 }
 
-function applyBaselineSecurityHeaders(response: Response) {
+function applyBaselineSecurityHeaders(response: Response, secureRequest: boolean) {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -57,7 +62,7 @@ function applyBaselineSecurityHeaders(response: Response) {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(self)",
   );
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && secureRequest) {
     response.headers.set(
       "Strict-Transport-Security",
       "max-age=63072000; includeSubDomains; preload",
@@ -70,6 +75,7 @@ export async function middleware(request: NextRequest) {
   const isApi = request.nextUrl.pathname.startsWith("/api/");
   const unsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method);
   if (isApi) {
+    const secureRequest = request.nextUrl.protocol === "https:";
     // API routes use Supabase cookies. Reject cross-site writes before route code
     // can read a body or invoke a privileged service client.
     if (
@@ -78,14 +84,13 @@ export async function middleware(request: NextRequest) {
     ) {
       return applyBaselineSecurityHeaders(
         NextResponse.json({ error: "invalid_origin" }, { status: 403 }),
+        secureRequest,
       );
     }
-    return applyBaselineSecurityHeaders(NextResponse.next());
+    return applyBaselineSecurityHeaders(NextResponse.next(), secureRequest);
   }
 
-  const nonce = crypto.randomUUID().replace(/-/g, "");
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
   // This value is deliberately overwritten rather than forwarded from the
   // browser. Server layouts use it for post-auth redirects, so it must reflect
   // the actual request (including locale and query string), not user input.
@@ -93,13 +98,13 @@ export async function middleware(request: NextRequest) {
     ORIGINAL_REQUEST_PATH_HEADER,
     request.nextUrl.pathname + request.nextUrl.search,
   );
-  const nonceRequest = new NextRequest(request, { headers: requestHeaders });
+  const routedRequest = new NextRequest(request, { headers: requestHeaders });
 
   // Run next-intl middleware first to handle locale routing
-  const intlResponse = intlMiddleware(nonceRequest);
+  const intlResponse = intlMiddleware(routedRequest);
 
   // For protected routes, also run Supabase session check
-  const pathname = nonceRequest.nextUrl.pathname;
+  const pathname = routedRequest.nextUrl.pathname;
 
   // Strip locale prefix to check the actual route
   const pathnameWithoutLocale = routing.locales.reduce(
@@ -116,11 +121,14 @@ export async function middleware(request: NextRequest) {
 
   if (isProtected) {
     // Run Supabase auth check — updateSession returns a response with session cookies
-    const sessionResponse = await updateSession(nonceRequest);
+    const sessionResponse = await updateSession(routedRequest);
 
     // If updateSession redirected (e.g., to login), follow that redirect
     if (sessionResponse.headers.get("location")) {
-      return applySecurityHeaders(sessionResponse);
+      return applySecurityHeaders(
+        sessionResponse,
+        request.nextUrl.protocol === "https:",
+      );
     }
 
     // Otherwise, merge session cookies into the intl response.
@@ -131,7 +139,10 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  return applySecurityHeaders(intlResponse);
+  return applySecurityHeaders(
+    intlResponse,
+    request.nextUrl.protocol === "https:",
+  );
 }
 
 export const config = {
