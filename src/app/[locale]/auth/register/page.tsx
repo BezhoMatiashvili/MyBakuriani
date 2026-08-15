@@ -8,15 +8,8 @@ import {
   Users,
   Loader2,
   Camera,
-  Home,
-  Key,
   Wallet,
-  SprayCan,
   UtensilsCrossed,
-  MountainSnow,
-  Car,
-  Briefcase,
-  Wrench,
   Building2,
   Search,
   Check,
@@ -43,16 +36,23 @@ const ROLE_DASHBOARD: Record<string, string> = {
   handyman: "/dashboard/services",
 };
 
-const ROLES: { value: Enums<"user_role">; icon: LucideIcon }[] = [
-  { value: "guest", icon: Home },
-  { value: "renter", icon: Key },
+const ROLES: {
+  value: Enums<"user_role">;
+  icon?: LucideIcon;
+  iconSrc?: string;
+}[] = [
+  { value: "guest", iconSrc: "/category-icons/guest.svg" },
+  { value: "renter", iconSrc: "/category-icons/renter.svg" },
   { value: "seller", icon: Wallet },
-  { value: "cleaner", icon: SprayCan },
+  { value: "cleaner", iconSrc: "/category-icons/cleaner.svg" },
   { value: "food", icon: UtensilsCrossed },
-  { value: "entertainment", icon: MountainSnow },
-  { value: "transport", icon: Car },
-  { value: "employment", icon: Briefcase },
-  { value: "handyman", icon: Wrench },
+  {
+    value: "entertainment",
+    iconSrc: "/category-icons/entertainment.svg",
+  },
+  { value: "transport", iconSrc: "/category-icons/transport.svg" },
+  { value: "employment", iconSrc: "/category-icons/employment.svg" },
+  { value: "handyman", iconSrc: "/category-icons/handyman.svg" },
 ];
 
 type SellerOrg = {
@@ -463,7 +463,22 @@ export default function RegisterPage() {
                           : "border-transparent bg-[#F8FAFC] hover:border-[#64748B]/20"
                       }`}
                     >
-                      <role.icon className="size-6 text-brand-accent" />
+                      {role.iconSrc ? (
+                        <span
+                          aria-hidden="true"
+                          className="size-10 bg-brand-accent [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                          style={{
+                            maskImage: `url(${role.iconSrc})`,
+                            WebkitMaskImage: `url(${role.iconSrc})`,
+                          }}
+                        />
+                      ) : role.icon ? (
+                        <role.icon
+                          aria-hidden="true"
+                          className="size-10 text-brand-accent"
+                          strokeWidth={1.5}
+                        />
+                      ) : null}
                       <span className="break-words text-[13px] font-medium sm:text-sm">
                         {t(`roles.${role.value}`)}
                       </span>
