@@ -53,6 +53,12 @@ Database schema, policies, and the generated type mirror.
 - `20260808201000_restore_admin_pageview_analytics.sql` restores the admin overview
   RPC's public-traffic counters and adds a same-cohort `completed_7d` funnel stage;
   its additive return field is mirrored in `database.ts` (**C3**).
+- `20260818120000_production_security_hardening.sql` narrows client policies to
+  explicit roles, removes anonymous access to authorization helpers, fixes two
+  auth init-plan predicates, and constrains `content-change-media` to private
+  10 MiB JPEG/PNG/WebP uploads. `20260818121000_closed_table_privilege_hardening.sql`
+  revokes every client table privilege (especially non-RLS-governed `TRUNCATE`)
+  from the 13 intentional RLS/no-policy internal tables. Both are applied live.
 - **Adding an enum value is a two-transaction operation.** `ALTER TYPE … ADD
 VALUE` may run inside a transaction, but the new label cannot be _evaluated_
   until that transaction commits (`check_safe_enum_use` → `55P04`). Put the

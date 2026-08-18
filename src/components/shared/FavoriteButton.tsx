@@ -35,7 +35,7 @@ export function FavoriteButton({
       aria-pressed={pressed}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-creation shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-creation/35 focus-visible:ring-offset-2 hover:bg-creation hover:text-white disabled:pointer-events-none disabled:opacity-60",
-        size === "card" ? "size-11" : "size-8",
+        size === "card" ? "size-11" : "size-11 lg:size-8",
         pressed && "border-creation bg-creation text-white",
         className,
       )}

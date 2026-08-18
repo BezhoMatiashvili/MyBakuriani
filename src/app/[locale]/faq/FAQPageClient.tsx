@@ -36,6 +36,8 @@ export default function FAQPageClient() {
               <button
                 type="button"
                 onClick={() => toggle(i)}
+                aria-expanded={openIndex === i}
+                aria-controls={`faq-answer-${key}`}
                 className="flex w-full items-center justify-between px-6 py-5 text-left text-[16px] font-bold text-[#1E293B] transition-colors hover:text-[#1E293B]/80"
               >
                 <span>{t(`items.${key}.question`)}</span>
@@ -50,6 +52,7 @@ export default function FAQPageClient() {
               <AnimatePresence initial={false}>
                 {openIndex === i && (
                   <motion.div
+                    id={`faq-answer-${key}`}
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}

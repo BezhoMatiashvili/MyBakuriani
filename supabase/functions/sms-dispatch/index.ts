@@ -30,10 +30,11 @@ import {
   getBearerToken,
   jsonResponse,
 } from "../_shared/guards.ts";
+import { secretsEqual } from "../_shared/secrets.ts";
 
 const BATCH_SIZE = 25;
 
-function requireSharedSecret(req: Request) {
+async function requireSharedSecret(req: Request) {
   const expected = Deno.env.get("SMS_DISPATCH_SECRET");
   if (!expected) {
     throw new ApiError(
@@ -43,7 +44,7 @@ function requireSharedSecret(req: Request) {
     );
   }
   const token = getBearerToken(req);
-  if (token !== expected) {
+  if (!(await secretsEqual(token, expected))) {
     throw new ApiError("Invalid shared secret", 401, "AUTH_UNAUTHORIZED");
   }
 }
@@ -103,7 +104,7 @@ serve(async (req) => {
   }
 
   try {
-    requireSharedSecret(req);
+    await requireSharedSecret(req);
     const db = createServiceClient();
 
     let priceDropMaterialization: unknown = null;

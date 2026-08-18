@@ -65,7 +65,7 @@ export function LanguageSelector({ className }: { className?: string }) {
               type="button"
               onClick={() => switchLocale(loc)}
               className={cn(
-                "flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] font-bold transition-colors",
+                "flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] font-bold transition-colors lg:min-h-0",
                 isActive
                   ? "bg-[#EFF6FF] text-[#2563EB]"
                   : "text-[#334155] hover:bg-[#F8FAFC]",

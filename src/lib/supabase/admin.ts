@@ -1,3 +1,4 @@
+import "server-only";
 import { createClient as createJsClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
 import { timeoutFetch } from "@/lib/with-timeout";

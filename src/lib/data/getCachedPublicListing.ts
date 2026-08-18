@@ -237,6 +237,9 @@ export function getCachedPublicPriceOverrides(
 
 // Service-role (RLS-bypassing) read: job_applications only grants SELECT to the
 // listing owner and admins, so the anon/public client always sees zero rows here.
+// Count every submitted application. Structured applications intentionally have
+// cv_path=null while binary CV uploads are disabled, so filtering on cv_path
+// would make valid responses disappear from the public count.
 // Only aggregate counts (never applicant PII) leave this function.
 async function fetchCvCounts(ids: string[]): Promise<Record<string, number>> {
   if (ids.length === 0) return {};
@@ -244,8 +247,7 @@ async function fetchCvCounts(ids: string[]): Promise<Record<string, number>> {
   const { data } = await supabase
     .from("job_applications")
     .select("service_id")
-    .in("service_id", ids)
-    .not("cv_path", "is", null);
+    .in("service_id", ids);
   const counts: Record<string, number> = {};
   for (const row of data ?? []) {
     counts[row.service_id] = (counts[row.service_id] ?? 0) + 1;

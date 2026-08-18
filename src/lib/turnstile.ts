@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * True when a Turnstile secret is configured, i.e. when verification can
  * actually succeed.

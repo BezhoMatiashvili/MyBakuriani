@@ -201,8 +201,14 @@ export default function EmploymentDetailClient({
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [displayedApplicationsCount, setDisplayedApplicationsCount] =
+    useState(applicationsCount);
   // With a CV attached, the structured detail fields below become optional.
   const detailsOptional = !!cvFile;
+
+  useEffect(() => {
+    setDisplayedApplicationsCount(applicationsCount);
+  }, [applicationsCount]);
 
   useEffect(() => {
     if (isMock) return;
@@ -326,6 +332,7 @@ export default function EmploymentDetailClient({
     toast.success(t("submitSuccess"));
     setForm(INITIAL_FORM);
     clearCv();
+    setDisplayedApplicationsCount((count) => count + 1);
     await revalidatePublicService(service.id);
   }
 
@@ -426,7 +433,7 @@ export default function EmploymentDetailClient({
             <span className="text-[#CBD5E1]">·</span>
             <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
               <Users className="h-4 w-4" />
-              {t("applications", { count: applicationsCount })}
+              {t("applications", { count: displayedApplicationsCount })}
             </span>
           </motion.div>
 

@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
+import { getVerifiedSessionUser } from "@/lib/auth/verified-session-user";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -22,14 +23,11 @@ export const getCurrentUser = cache(async () => {
   // abort instead of throwing, and auth-js keeps the session (only a real
   // AuthSessionMissingError signs out). Returning that null would make every
   // dashboard guard (`if (!user) redirect("/auth/login")`) boot a still-valid
-  // session, so on a transient error fall back to the cookie session to keep the
-  // user signed in. Role-grade checks still read the role fresh from the DB via
-  // getCurrentProfile(), so identity is trusted on a blip but role never is.
+  // session. Verify the cookie token locally through getClaims() before using
+  // its embedded user: getSession() alone parses client-controlled storage and
+  // is not an authorization-grade identity.
   if (!user && isAuthRetryableFetchError(error)) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.user ?? null;
+    return getVerifiedSessionUser(supabase.auth);
   }
   return user;
 });

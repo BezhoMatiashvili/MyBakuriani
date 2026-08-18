@@ -10,7 +10,8 @@ Shared client/server logic — the seam between UI and Supabase.
 - `types/database.ts` — **generated** DB types (do not hand-edit; see **C3**).
 - `hooks/` — `useAuth`, `useProfile`, `useBalance`, `useBookings`, `useProperties`,
   `useNotifications`, `useRealtime`, `useSmartMatch`, `useFavorite`, `useStatsFilter`.
-- `auth/` — `current-user` (`getCurrentUser`/`getCurrentProfile`), `require-admin`,
+- `auth/` — `current-user` (`getCurrentUser`/`getCurrentProfile`),
+  `verified-session-user` (signed-claim-only retry identity), `require-admin`,
   `is-admin-viewer`.
 - `data/` — cached server fetchers (`getPropertyById`, `getServiceById`,
   `getCachedPublicListing`).
@@ -32,6 +33,9 @@ Shared client/server logic — the seam between UI and Supabase.
   `database.ts` mis-types all of them (**C3**).
 - `useRealtime` / `useNotifications` are the subscriber half of **C7**.
 - Auth helpers are the server-side half of **C8**.
+- `admin.ts`, `server.ts`, Gemini, Turnstile, weather, and SMS feature config are
+  explicit `server-only` boundaries. Do not remove those imports: they are the
+  compile-time tripwire against bundling service/provider secrets or QA ids.
 - Changing a client timeout affects hang behavior app-wide (tuned to serverless
   execution caps — see comments in `server.ts`).
 

@@ -1892,6 +1892,8 @@
     "phoneTab": "ტელეფონი",
     "emailLabel": "ელ. ფოსტა",
     "passwordLabel": "პაროლი",
+    "showPassword": "პაროლის ჩვენება",
+    "hidePassword": "პაროლის დამალვა",
     "confirmPasswordLabel": "პაროლის დადასტურება",
     "forgotPassword": "დაგავიწყდათ პაროლი?",
     "signIn": "შესვლა",

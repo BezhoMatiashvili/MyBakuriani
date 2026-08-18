@@ -644,18 +644,21 @@ async function buildContactSheet(route, shots) {
       meta: await sharp(s.filePath).metadata(),
     })),
   );
-  const targetW = Math.max(...metas.map((m) => m.meta.width));
+  // Keep the review sheet readable without upscaling phone screenshots to the
+  // desktop width (which can turn a normal long page into a >268 MP artifact).
+  const targetW = Math.min(1024, Math.max(...metas.map((m) => m.meta.width)));
   const composites = [];
   let y = 0;
   for (const m of metas) {
-    const scale = targetW / m.meta.width;
+    const scale = Math.min(1, targetW / m.meta.width);
+    const resizedW = Math.round(m.meta.width * scale);
     const resizedH = Math.round(m.meta.height * scale);
     const label = `${m.vp} (${m.width}px)`;
     const svg = `<svg width="${targetW}" height="${LABEL_H}"><rect width="100%" height="100%" fill="#111"/><text x="8" y="19" font-family="sans-serif" font-size="16" fill="#0f0">${label}</text></svg>`;
     composites.push({ input: Buffer.from(svg), top: y, left: 0 });
     y += LABEL_H;
     composites.push({
-      input: await sharp(m.filePath).resize({ width: targetW }).toBuffer(),
+      input: await sharp(m.filePath).resize({ width: resizedW }).toBuffer(),
       top: y,
       left: 0,
     });
@@ -665,6 +668,7 @@ async function buildContactSheet(route, shots) {
   await mkdir(path.dirname(sheetPath), { recursive: true });
   await sharp({
     create: { width: targetW, height: y, channels: 3, background: "#fff" },
+    limitInputPixels: false,
   })
     .composite(composites)
     .png()
@@ -733,16 +737,19 @@ async function main() {
   );
   console.log(`Done. Report: ${reportPath}`);
 
-  const overflowing = results.filter((r) =>
+  const successfulResults = results.filter((r) => r?.diagnostics);
+  const overflowing = successfulResults.filter((r) =>
     Object.values(r.diagnostics).some((d) => d.overflow),
   );
-  const withErrors = results.filter(
+  const withErrors = successfulResults.filter(
     (r) => r.consoleErrors && r.consoleErrors.length > 0,
   );
+  const failedCaptures = results.filter((r) => r?.error);
   console.log(
     `Routes with horizontal overflow at some viewport: ${overflowing.length}`,
   );
   console.log(`Routes with console errors: ${withErrors.length}`);
+  console.log(`Routes with capture errors: ${failedCaptures.length}`);
 }
 
 main().catch((e) => {

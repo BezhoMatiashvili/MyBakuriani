@@ -16,9 +16,10 @@ run outside Next.js.
   landing road badge now routes on OpenStreetMap inline from
   `src/lib/road-condition/server.ts`, no edge function, table or cron involved.
 - `_shared/guards.ts` — `requireUser` (Bearer auth), `createServiceClient`,
-  `buildCorsHeaders` (origin allow-list via `ALLOWED_ORIGINS` + hardcoded
-  `*-bezhomatiashvilis-projects.vercel.app` suffix for Vercel deploy URLs),
+  `buildCorsHeaders` (exact origin allow-list via `ALLOWED_ORIGINS`/`APP_ORIGIN`),
   `ApiError`.
+- `_shared/secrets.ts` — SHA-256 + timing-safe equality for the four scheduled
+  functions' Bearer secrets. Never replace it with ordinary string equality.
 - `_shared/sanitize.ts` — input sanitizing.
 
 ## Responsibilities
@@ -39,6 +40,11 @@ run outside Next.js.
 - `sms-automation-run/domain.ts` is also imported by the renter SMS Center so its win-back preview
   uses the production builder. Keep that module free of Deno-only globals and side effects; changes
   must pass both the Deno domain tests and the Next production build (**C18**).
+- `booking-finalize`, `sms-automation-run`, `sms-dispatch`, and `vip-lifecycle`
+  deploy `verify_jwt=false` because pg_cron authenticates with separate secrets.
+  Deploy `_shared/secrets.ts` with each. Live versions on 2026-08-18 are v15,
+  v18, v16, and v19 respectively; all corresponding cron jobs are active and
+  their latest runs succeeded.
 - Deployed separately from Vercel (`npx supabase functions deploy <name>`); a code
   change here does **not** ship with a `git push` to main.
 

@@ -1892,6 +1892,8 @@
     "phoneTab": "Телефон",
     "emailLabel": "Эл. почта",
     "passwordLabel": "Пароль",
+    "showPassword": "Показать пароль",
+    "hidePassword": "Скрыть пароль",
     "confirmPasswordLabel": "Подтверждение пароля",
     "forgotPassword": "Забыли пароль?",
     "signIn": "Войти",

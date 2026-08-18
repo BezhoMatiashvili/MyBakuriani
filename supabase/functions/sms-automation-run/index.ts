@@ -31,6 +31,7 @@ import {
   getBearerToken,
   jsonResponse,
 } from "../_shared/guards.ts";
+import { secretsEqual } from "../_shared/secrets.ts";
 import {
   type AutomationKind,
   buildCheckIn,
@@ -47,7 +48,7 @@ import {
 // the vip-lifecycle/sms-dispatch/booking-finalize cron functions — this
 // function does a privileged, service-role scan of all bookings/guest PII and
 // must not be triggerable by anyone holding only the public anon key.
-function requireSharedSecret(req: Request) {
+async function requireSharedSecret(req: Request) {
   const expected = Deno.env.get("SMS_AUTOMATION_RUN_SECRET");
   if (!expected) {
     throw new ApiError(
@@ -57,7 +58,7 @@ function requireSharedSecret(req: Request) {
     );
   }
   const token = getBearerToken(req);
-  if (token !== expected) {
+  if (!(await secretsEqual(token, expected))) {
     throw new ApiError("Invalid shared secret", 401, "AUTH_UNAUTHORIZED");
   }
 }
@@ -111,7 +112,7 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    requireSharedSecret(req);
+    await requireSharedSecret(req);
     const featureMode = (Deno.env.get("SMS_RENTAL_MODE") ?? "off").toLowerCase();
     if (featureMode === "off") {
       return jsonResponse({ ok: true, feature_enabled: false, processed_users: 0 }, 200, cors);

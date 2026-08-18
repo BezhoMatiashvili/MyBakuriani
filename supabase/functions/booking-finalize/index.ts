@@ -7,6 +7,7 @@ import {
   getBearerToken,
   jsonResponse,
 } from "../_shared/guards.ts";
+import { secretsEqual } from "../_shared/secrets.ts";
 
 // Daily-scheduled job. Finds bookings whose check_out has passed,
 // transitions them to `completed`, and inserts a one-time
@@ -15,7 +16,7 @@ import {
 // Auth: shared secret in BOOKING_FINALIZE_SECRET (Bearer header). The cron
 // job and any manual invocations must present this token.
 
-function requireSharedSecret(req: Request) {
+async function requireSharedSecret(req: Request) {
   const expected = Deno.env.get("BOOKING_FINALIZE_SECRET");
   if (!expected) {
     throw new ApiError(
@@ -25,7 +26,7 @@ function requireSharedSecret(req: Request) {
     );
   }
   const token = getBearerToken(req);
-  if (token !== expected) {
+  if (!(await secretsEqual(token, expected))) {
     throw new ApiError("Invalid shared secret", 401, "AUTH_UNAUTHORIZED");
   }
 }
@@ -38,7 +39,7 @@ serve(async (req) => {
   }
 
   try {
-    requireSharedSecret(req);
+    await requireSharedSecret(req);
     const supabase = createServiceClient();
 
     const today = new Date(Date.now() + 4 * 3600_000)

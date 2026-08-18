@@ -1,3 +1,5 @@
+import "server-only";
+
 export type SmsFeatureMode = "off" | "qa" | "on";
 type WebSmsFeature = "SMS_PRICE_DROP_MODE";
 

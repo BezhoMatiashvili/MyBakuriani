@@ -1892,6 +1892,8 @@
     "phoneTab": "Phone",
     "emailLabel": "Email",
     "passwordLabel": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "confirmPasswordLabel": "Confirm password",
     "forgotPassword": "Forgot password?",
     "signIn": "Sign in",

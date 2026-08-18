@@ -245,14 +245,14 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => switchTab("email")}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${tab === "email" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+            className={`min-h-11 flex-1 rounded-lg py-2.5 text-sm font-medium transition-all lg:min-h-0 ${tab === "email" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
           >
             {t("emailTab")}
           </button>
           <button
             type="button"
             onClick={() => switchTab("phone")}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${tab === "phone" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+            className={`min-h-11 flex-1 rounded-lg py-2.5 text-sm font-medium transition-all lg:min-h-0 ${tab === "phone" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
           >
             {t("phoneTab")}
           </button>
@@ -272,14 +272,14 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => switchMode("login")}
-                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${authMode === "login" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+                    className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "login" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
                   >
                     {t("signIn")}
                   </button>
                   <button
                     type="button"
                     onClick={() => switchMode("register")}
-                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${authMode === "register" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+                    className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "register" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
                   >
                     {t("register")}
                   </button>
@@ -340,12 +340,17 @@ export default function LoginPage() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••"
-                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50 lg:pr-10"
                           />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                            aria-label={
+                              showPassword
+                                ? t("hidePassword")
+                                : t("showPassword")
+                            }
+                            className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-[#94A3B8] lg:right-3 lg:size-auto"
                           >
                             {showPassword ? (
                               <EyeOff className="size-4" />
@@ -422,7 +427,7 @@ export default function LoginPage() {
                       },
                     });
                   }}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+                  className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
                 >
                   <svg
                     className="size-4"
@@ -459,7 +464,7 @@ export default function LoginPage() {
                       },
                     });
                   }}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+                  className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
                 >
                   <svg
                     className="size-4"

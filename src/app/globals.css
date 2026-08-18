@@ -183,7 +183,10 @@
     input:not([type="checkbox"]):not([type="radio"]),
     select,
     textarea {
-      font-size: 16px;
+      /* Tailwind font-size utilities are emitted in the later utilities layer.
+         Keep touch-device fields at the iOS-safe size without changing the
+         desktop typography at the 1024px handoff. */
+      font-size: 16px !important;
     }
   }
 }

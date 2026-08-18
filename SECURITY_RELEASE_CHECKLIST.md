@@ -1,18 +1,16 @@
 # Production security release checklist
 
 Source changes alone cannot configure Supabase Auth, Vercel, DNS, Cloudflare,
-Upstash, or GitHub. Do not deploy the accompanying migration until every item
-below has an owner and evidence recorded in the release ticket.
+Upstash, or GitHub. Keep an owner and evidence for every remaining manual item
+below in the release ticket.
 
-2026-08-15 status: the live database/storage migrations are applied and all 18
-repository Edge Functions were redeployed with their explicit JWT settings and
-shared-guard updates. The Next.js changes pass a full production build and
-localhost browser smoke test and are included in the direct-to-main release.
-The remaining
-manual release gates are Supabase Auth leaked-password protection / authoritative
-12-character minimum, CAPTCHA/Turnstile where desired, WAF/branch controls, and
-an isolated non-production E2E project. See `SECURITY_AUDIT.md` for evidence and
-the controlled Supabase-advisor exceptions.
+2026-08-18 status: both new privilege-hardening migrations are live, and the
+four scheduled Edge Functions use deployed constant-time shared-secret checks.
+The local Next.js source passes a clean production build but is not yet pushed
+or deployed. Remaining manual gates are Supabase Auth leaked-password
+protection, production Turnstile, WAF/branch controls, and an isolated
+non-production E2E project. See `SECURITY_AUDIT.md` for evidence and controlled
+Supabase-advisor exceptions.
 
 - Snapshot the database schema, RLS policies, grants, functions, storage
   policies, Auth configuration, and pending payment rows. Apply
@@ -26,6 +24,9 @@ the controlled Supabase-advisor exceptions.
 - Rotate the exposed Vercel credential, inspect its audit log for use, and
   record the incident decision in the release ticket. `.env.local` must remain
   owner-only (`0600`); `npm run security:secrets` is a required release gate.
+- Run `npm run test:security-auth`, the Deno shared-secret test/checks, both
+  dependency audits, and a clean-cache `npm run build` before release. Keep
+  service-role/provider/Turnstile/SMS QA modules behind `server-only` imports.
 - In Supabase Auth enable CAPTCHA (Turnstile), leaked-password protection,
   12-character passwords, generic auth responses, and mandatory TOTP AAL2 for
   administrators. Enforce AAL2 in every admin Edge function before deploying.
@@ -65,7 +66,5 @@ the controlled Supabase-advisor exceptions.
   an atomic pending → scanning → approved/rejected lifecycle; only approved
   derivatives may be public and CV downloads remain authorized/signed only.
 
-The production audit currently has no high/critical findings. Three moderate
-transitive findings remain in the optional `@google/genai` MCP stack; keep it
-outside request paths or upgrade it once its upstream publishes a compatible
-fix.
+The production audit currently has no unresolved high/critical finding, and
+both full and production-only dependency audits report zero vulnerabilities.

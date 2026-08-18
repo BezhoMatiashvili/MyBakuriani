@@ -180,9 +180,10 @@ to settle a parity check in one step instead of re-diffing 16 bundles):
 Anything else is real drift. Note the textual delta is **−2/+1 lines, not one**: dropping
 `| "SUBSCRIPTION_TIER_LOCKED";` moves the terminating semicolon back onto `| "BAD_REQUEST"`.
 
-**Also check the bundle MANIFEST, not just the hashes.** Every function must report
-exactly `["source/index.ts", "_shared/guards.ts"]` (plus `_shared/sanitize.ts` for `search`
-and `source/domain.ts` for `sms-automation-run`). `domain_test.ts` is test-only and must not deploy.
+**Also check the bundle MANIFEST, not just the hashes.** Guarded functions must
+report `source/index.ts` and `_shared/guards.ts` (plus `_shared/sanitize.ts` for
+`search`, `source/domain.ts` for `sms-automation-run`, and `_shared/secrets.ts`
+for each of the four scheduled handlers). Test files must not deploy.
 The `user_fn_<uuid>_<version>/…` nesting failure above is invisible to a content hash —
 the file contents stay correct while the paths gain a level per redeploy. Verified clean
 across all 16 on 2026-07-28.
@@ -200,39 +201,30 @@ which the CLI defaults to `true` — that direction is the dangerous one: it 401
 pg_cron caller of `booking-finalize` and the job stops
 silently). Keep the two in lock-step: changing a `verify_jwt` in `config.toml` without
 redeploying that function, or redeploying with a different flag than the file declares,
-re-opens the drift. `ai-respond` and `webhook-facebook` are deployed but have **no
-source in this repo**, so they are deliberately absent from `config.toml`.
+re-opens the drift. `ai-respond` and `webhook-facebook` are repository-tracked
+inert tombstones with explicit `config.toml` entries; they deliberately do not
+import the shared guard because they perform no privileged work.
 
 For `sms-automation-run`, include `{name:"source/domain.ts"}` as a third file in the
 MCP deploy recipe because `source/index.ts` imports it. Omitting it prevents isolate boot.
 
-Not every function is client-invoked: the would-be scheduled jobs
+Not every function is client-invoked: the scheduled jobs
 (`vip-lifecycle`, `sms-dispatch`, `sms-automation-run`, `booking-finalize`) have
 **no `invoke` caller** — they are _designed_ to be driven by pg_cron via
 `net.http_post` (see the `supabase/migrations/*schedule*.sql` files) and are gated
 by a per-function **shared secret** (their own `requireSharedSecret` comparing the
 Bearer to `<NAME>_SECRET`), deployed `verify_jwt=false`.
 
-**None of them is actually scheduled, and none ever has been.** Verified live
-2026-07-25: `select count(*) from cron.job` = **1**, and the single job is
-`rate-limit-gc` (`23 * * * *`). `cron.job_run_details` holds 1676 rows across
-jobids 1–7 and not one of them is a `vip-lifecycle-daily`,
-`booking-finalize-daily`, `sms-dispatch-frequent` or `sms-automation-*` run. So
-VIP/discount expiry (**C10**'s `clearExpiredDiscounts`) and booking finalization
-have **never executed in production** — their scheduling migrations hit the
-`IF EXISTS (pg_cron) AND EXISTS (pg_net)` guard's ELSE branch when applied and
-swallowed it. This paragraph previously asserted the opposite; the `verify_jwt`
-drift risk described above is real but downstream of a caller that does not exist.
-Do not "fix" a silent scheduled job by redeploying the function — check `cron.job`
-first.
-
-**`sms-automation-run` (v8) and `sms-dispatch` (v7) were redeployed 2026-07-25**
-and byte-verified equal to their working-tree sources (sha256 `f7a0f311…` and
-`76e9ec0e…`), both carrying the post-`d162bd9` fail-open `guards.ts`
-(`0169b829…`), both `verify_jwt=false` in lock-step with `config.toml`. Their
-rewrite needs a third secret beyond the shared one: **`SITE_URL`** — `NEXT_PUBLIC_*`
-is invisible inside Deno, and `sms-automation-run` refuses to run rather than emit
-a relative link into an SMS.
+That historical state is superseded. Verified live 2026-08-18: all four jobs now
+exist and are active (`booking-finalize-daily`, `sms-automation-daily`,
+`sms-dispatch-frequent`, `vip-lifecycle-daily`), and each latest run succeeded.
+The four handlers use `_shared/secrets.ts`, which hashes both Bearer values to a
+fixed 32-byte digest before standard timing-safe comparison. Ordinary string
+equality must not be reintroduced. Current deployed versions are
+`booking-finalize` v15, `sms-automation-run` v18, `sms-dispatch` v16, and
+`vip-lifecycle` v19, all `verify_jwt=false` in lock-step with `config.toml`.
+`sms-automation-run` also needs **`SITE_URL`** — `NEXT_PUBLIC_*` is invisible
+inside Deno, and it refuses to run rather than emit a relative link into an SMS.
 
 `road-condition-refresh` was **retired on 2026-07-25**
 (`20260725160000_retire_road_conditions.sql` dropped `public.road_conditions`,
@@ -259,8 +251,8 @@ missing field, no compile error.
 **Invariant:** a storage bucket id is a string literal that must agree across the
 upload code, the bucket-creation migration + its RLS, and the image/CSP allow-list.
 Buckets in use: `property-photos`, `avatars`, `landing-media`, `restaurant-menus`,
-`content-change-media` (private; created by the **C14** migration, currently has no
-writer — its preview route exists but nothing uploads to it yet).
+`content-change-media` (private, authenticated user-folder writes, constrained to
+10 MiB JPEG/PNG/WebP by `20260818120000_production_security_hardening.sql`).
 
 Participating symbols:
 
@@ -272,7 +264,7 @@ Participating symbols:
 - `supabase/migrations/20260424120100_avatars_bucket.sql:storage` — `avatars` bucket
 - `next.config.ts:remotePatterns` — `<Image>` host allow-list (Supabase public objects)
 
-**Also check:** `next.config.ts:CSP` `img-src`/`media-src` must include the object
+**Also check:** `src/middleware.ts` CSP `img-src`/`media-src` must include the object
 host, and RLS on `storage.objects` must scope the new bucket.
 
 **Breaks silently when:** a bucket is renamed in code but not in the
@@ -377,6 +369,12 @@ Participating symbols:
 - `src/lib/supabase/middleware.ts:updateSession` — session refresh + redirect to login
 - `src/lib/auth/require-admin.ts:requireAdmin` — server-side admin gate for API routes / pages
 - `src/lib/auth/is-admin-viewer.ts:isAdminViewer` — read-only admin check
+- `src/lib/auth/current-user.ts:getCurrentUser` — normally uses remote
+  `getUser()` verification. Its retryable-network fallback must call
+  `getVerifiedSessionUser`; never return `getSession().user` directly.
+- `src/lib/auth/verified-session-user.ts:getVerifiedSessionUser` — verifies
+  `getClaims()`, matches the signed `sub` to the cookie session, then returns
+  only signed identity fields (not attacker-editable embedded user metadata)
 - `supabase/functions/_shared/guards.ts:requireUser` — edge-side Bearer auth
 
 **Also check:** a protected page still needs RLS on the tables it reads —

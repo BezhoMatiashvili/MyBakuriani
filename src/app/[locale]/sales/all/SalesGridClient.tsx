@@ -266,7 +266,7 @@ export default function SalesGridClient({
                   type="button"
                   onClick={() => setListingTab(tab.id)}
                   className={cn(
-                    "rounded-full px-4 py-1.5 text-[12px] font-bold transition-colors",
+                    "min-h-11 rounded-full px-4 py-1.5 text-[12px] font-bold transition-colors lg:min-h-0",
                     listingTab === tab.id
                       ? "bg-[#16A34A] text-white"
                       : "text-[#64748B] hover:text-[#1E293B]",

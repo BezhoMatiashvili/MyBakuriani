@@ -7,6 +7,7 @@ import {
   getBearerToken,
   jsonResponse,
 } from "../_shared/guards.ts";
+import { secretsEqual } from "../_shared/secrets.ts";
 
 // Daily-scheduled VIP lifecycle job. For both properties and services:
 //   WARN   — listings whose VIP expires within 48h and haven't been warned yet
@@ -35,7 +36,7 @@ type ListingTable = (typeof LISTING_TABLES)[number];
 
 const VIP_EXPIRY_SMS = "MyBakuriani: თქვენი VIP მალე იწურება.";
 
-function requireSharedSecret(req: Request) {
+async function requireSharedSecret(req: Request) {
   const expected = Deno.env.get("VIP_LIFECYCLE_SECRET") ??
     Deno.env.get("SMS_AUTOMATION_RUN_SECRET");
   if (!expected) {
@@ -46,7 +47,7 @@ function requireSharedSecret(req: Request) {
     );
   }
   const token = getBearerToken(req);
-  if (token !== expected) {
+  if (!(await secretsEqual(token, expected))) {
     throw new ApiError("Invalid shared secret", 401, "AUTH_UNAUTHORIZED");
   }
 }
@@ -211,7 +212,7 @@ serve(async (req) => {
   }
 
   try {
-    requireSharedSecret(req);
+    await requireSharedSecret(req);
     const db = createServiceClient();
 
     const now = new Date();

@@ -4,6 +4,101 @@ Started: 2026-07-05. Scope: database (live Supabase project `yuwyrmxccrpfjvidwhh
 
 Status legend: 🔴 found → 🟡 fix written → 🟢 fixed & verified
 
+## 2026-08-18 production reassessment (authoritative)
+
+This section supersedes the 2026-08-15 status summary. Historical findings are
+retained below as an audit trail.
+
+### Outcome
+
+No unresolved critical or high-severity application/database vulnerability was
+found. Five defense gaps were fixed without changing public UI or business
+behavior:
+
+| Area | Finding and remediation | Verification |
+| --- | --- | --- |
+| Server authentication | A retryable `auth.getUser()` failure fell back to the cookie-only `getSession().user`. The fallback now requires a cryptographically verified `getClaims()` subject, requires the session subject to match it, and returns only signed identity fields. | Adversarial unit tests cover modified cookie metadata, missing/failed claims, subject mismatch, and missing session. TypeScript and targeted ESLint pass. |
+| RLS and RPC grants | Many authenticated-only policies still named role `public`; two authorization helpers were executable by anonymous users; two policies repeatedly evaluated auth functions per row. Client roles are now explicit, anonymous helper execution is revoked, and the init-plan predicates are fixed. | Anonymous/authenticated/owner/admin role simulations produced identical intended row counts before and after. Anonymous SECURITY DEFINER execute count is now zero. Advisor findings dropped from 43 to 41 and performance findings from 245 to 122. |
+| Internal deny-all tables | Thirteen RLS/no-policy internal tables retained default API grants; eight included `TRUNCATE`, which RLS does not govern. All table privileges were revoked from `anon` and `authenticated`; service-role grants were preserved. | A rolled-back rehearsal asserted zero client privileges and intact service access. Production now reports zero client grant rows and 91 service-role grant rows across the set. |
+| Scheduled Edge authentication | Four `verify_jwt=false` cron handlers compared Bearer secrets with ordinary string equality. They now compare fixed-size SHA-256 digests with the standard timing-safe primitive. | Deno tests/checks pass; missing/wrong credentials still return the same `401` classes. Deployed sources were read back and verified. All four pg_cron jobs remained active and their latest runs succeeded. |
+| Secrets and storage boundaries | Service-role, Gemini, Turnstile, Supabase server, and SMS QA configuration modules lacked explicit client-bundle tripwires. `content-change-media` also lacked upload constraints. Added `server-only` boundaries and set the private bucket to 10 MiB JPEG/PNG/WebP. | Clean production build passed all 395 pages. The live bucket reports the intended privacy, size, and MIME settings. Tracked files and all 211 commits matched zero known high-confidence secret signatures. |
+
+Applied production migrations:
+
+- `20260818120000_production_security_hardening.sql`
+- `20260818121000_closed_table_privilege_hardening.sql`
+
+Redeployed production Edge Functions (all preserve `verify_jwt=false`):
+
+- `booking-finalize` v15
+- `sms-automation-run` v18
+- `sms-dispatch` v16
+- `vip-lifecycle` v19
+
+### Live security invariants
+
+- Every `public` and `storage` table has RLS enabled.
+- No write policy grants role `public`/`anon` or uses an unconditional `true`
+  predicate; the remaining broad-role policies are intentional filtered public
+  reads.
+- `anon_definer_exec = 0`; all SECURITY DEFINER functions pin `search_path`.
+- The six public projection views expose no phone, owner id, email, token, role,
+  or admin-note column; the only contact-related field is the intentional
+  `has_whatsapp` boolean.
+- The 13 internal RLS/no-policy tables have no anonymous/authenticated table
+  privileges.
+- Scheduled-job status is active and the latest run is successful for
+  booking-finalize, SMS automation, SMS dispatch, VIP lifecycle, and rate-limit
+  garbage collection.
+- Production rejects a foreign mutation origin with `403`, and response headers
+  include HSTS, CSP, anti-framing, MIME-sniffing, referrer, opener/resource, and
+  permissions controls.
+
+### Validation evidence
+
+- Baseline and post-change production Chromium smoke tests: landing,
+  apartments, sales, services, food, and employment returned `200`, retained
+  expected headings/titles, and had no horizontal overflow.
+- Clean `next build`: passed, including all 395 generated pages (existing
+  non-blocking lint warnings only).
+- TypeScript, targeted ESLint, production-config tests, auth security tests,
+  SMS domain tests, Deno secret tests/checks, i18n scope/parity, secret-file
+  permissions, `git diff --check`, and full/production dependency audits: passed.
+- Both full and production-only `npm audit` report zero vulnerabilities.
+- Supabase Postgres logs contained no error/fatal event in the inspected day;
+  production UI and direct database reads continued working after both
+  migrations.
+
+### Residual controls / accepted findings
+
+- Supabase Auth leaked-password protection remains disabled and must be enabled
+  in Authentication settings; current tools do not safely edit that account
+  configuration.
+- Production Turnstile is not configured: a missing-token anonymous contact
+  reveal still returned `200`. The endpoint is protected by distributed
+  Postgres rate limits, but a distributed scraper remains only per-source
+  bounded. Provision Cloudflare Turnstile and set both documented Vercel keys.
+- Six `security_definer_view` advisor errors are intentional safe-column public
+  projections with `security_barrier=true`. Twenty authenticated definer-RPC
+  warnings are intentional client workflows or safe public aggregates and were
+  body-audited for `auth.uid()`/ownership checks. Thirteen no-policy INFO items
+  are closed internal tables whose client table grants are now also revoked.
+- `pg_net` is reported as an extension in `public`, but version 0.20.0 is not
+  relocatable and its objects live in schema `net`; no risky forced move was
+  attempted.
+- The CSP retains framework-required `script-src 'unsafe-inline'`; the prior
+  nonce experiment broke application behavior. `script-src-attr 'none'`, strict
+  source allowlists, and the other browser headers remain enforced.
+- Production runtime telemetry shows intermittent 9.5-second Supabase fetch
+  timeouts. This is an availability issue, not an authorization/data-exposure
+  finding, and is recorded separately from the security outcome.
+- A fresh isolated Supabase E2E project is still required for destructive/full
+  role-matrix Playwright coverage. Production was tested with read-only and
+  transaction-rollback role simulations instead.
+- Database migrations and four Edge deployments above are live. The Next.js
+  source hardening is build-ready locally but was not pushed or deployed to
+  Vercel in this session.
+
 ## 2026-08-15 production reassessment (authoritative)
 
 This section supersedes older status notes below. Historical findings remain in

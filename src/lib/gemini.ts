@@ -1,3 +1,4 @@
+import "server-only";
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Preferred Gemini 3.1 Flash-Lite is in preview and occasionally returns 503
