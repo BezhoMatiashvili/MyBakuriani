@@ -23,7 +23,12 @@ export async function loadCleanerTasks(
         "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone, avatar_url)",
       )
       .eq("cleaner_id", userId)
-      .in("status", ["pending", "accepted", "in_progress"])
+      .in("status", [
+        "pending",
+        "accepted",
+        "cancellation_requested",
+        "in_progress",
+      ])
       .order("scheduled_at"),
     supabase
       .from("cleaner_manual_tasks")

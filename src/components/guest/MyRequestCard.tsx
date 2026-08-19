@@ -31,14 +31,17 @@ export default function MyRequestCard({
       ? formatDateRange(request.checkIn, request.checkOut, locale)
       : "—";
 
-  const budget =
+  const budgetAmount =
     request.budgetMin != null && request.budgetMax != null
       ? `${formatNumber(request.budgetMin)}–${formatNumber(request.budgetMax)} ₾`
       : request.budgetMax != null
         ? `≤ ${formatNumber(request.budgetMax)} ₾`
         : request.budgetMin != null
           ? `≥ ${formatNumber(request.budgetMin)} ₾`
-          : t("anyBudget");
+          : null;
+  const budget = budgetAmount
+    ? `${budgetAmount} ${t("perNight")}`
+    : t("anyBudget");
 
   // Status badge: cancelled and expired both read as inactive (gray); only a
   // live request is green and cancellable.

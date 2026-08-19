@@ -107,6 +107,11 @@ The 2026-08-08 public-page analytics restoration adds `completed_7d` to the
 `src/lib/types/database.ts` mirrors that single additive field by hand alongside
 the append-only migration `20260808201000_restore_admin_pageview_analytics.sql`.
 
+The 2026-08-19 cleaner-call pass mirrors the address-aware
+`create_cleaning_task`, `transition_cleaning_task`, and
+`get_my_cleaning_task_cleaner_details` RPC signatures by hand alongside
+`20260819122000_cleaner_call_details_and_cancellation_consent.sql` (**C24**).
+
 **Verified 2026-07-25:** every hand-edit above was probed against the live schema
 (column types, nullability, defaults, and `pg_get_functiondef` for each RPC) and
 matches. The file is truthful for everything C17/C18 touch; it remains stale for
@@ -951,8 +956,9 @@ the schedule page filters on — a `'pending'` row would be invisible on the ver
 that created it. The CHECK deliberately omits `'pending'`, `'declined'` and
 `'cancelled'` so that trap cannot be reintroduced.
 
-Platform status changes still use `transition_cleaning_task` and must follow
-`accepted → in_progress → completed`; manual rows are cleaner-owned direct updates.
+Platform status changes still use `transition_cleaning_task` and must follow the
+finite lifecycle documented in **C24** (including bilateral cancellation after
+acceptance); manual rows are cleaner-owned direct updates.
 Do not optimistically remove either source when its transition returns an error.
 
 **The two tables share one 30-minute slot invariant.** Migration
@@ -962,8 +968,9 @@ Do not optimistically remove either source when its transition returns an error.
 widened the window to any two of a cleaner's jobs (platform or manual) being
 **strictly less than 30 minutes apart** — a job at 13:00 blocks 12:31–13:29 and
 allows 12:30/13:30 exactly (half-open `(scheduled_at - 30m, scheduled_at + 30m)`
-on both bounds, symmetric). Platform `pending`/`accepted`/`in_progress`/`completed`
-rows occupy their window; `declined`/`cancelled` rows release it. The advisory
+on both bounds, symmetric). Platform `pending`/`accepted`/`cancellation_requested`/
+`in_progress`/`completed` rows occupy their window; `declined`/`cancelled` rows
+release it. The advisory
 lock is now taken **per cleaner** (`'cleaner-slot:' || cleaner_id`), not per
 timestamp — a per-timestamp lock let two concurrent inserts 15 minutes apart both
 pass their existence checks before either committed. It raises stable `23P01` /
@@ -1155,6 +1162,10 @@ Participating symbols:
   — owner-scoped listing → cabinet; **not STRICT**, and the owner predicate is required, not decorative
 - `supabase/migrations/20260727180000_admin_queue_notifications.sql:_notify_admins`
   — the ONLY writer of `dashboard_scope='admin'`, and the repo's only admin _enumeration_
+- `supabase/migrations/20260819122000_cleaner_call_details_and_cancellation_consent.sql:notify_owner_of_task_status`
+  — routes both a pre-acceptance withdrawal and an accepted-job cancellation
+  request to `cleaner`, then routes the cleaner's response back to `renter`;
+  every branch passes scope explicitly (**C24**)
 - `supabase/migrations/20260727130000_scoped_dashboard_notifications.sql:assign_notification_dashboard_scope`
   — BEFORE INSERT safety net; **since 20260727160000 it covers ONLY the seller branch**
 - `src/lib/hooks/useNotifications.ts:useNotifications` — scoped bell/feed reader; also owns `markAllRead`
@@ -1455,3 +1466,74 @@ the shared expiry predicate (expired listings stay disabled); a picker caller om
 `standardVipDisabled` (the row looks selectable but fails at payment); a purchase
 writer bypasses both RPCs (the table trigger still protects flags, but its error
 mapping is lost); or the migration and edge function deploy out of order.
+
+---
+
+## C24 — Cleaner call-out terms and consent-based cancellation
+
+**Invariant:** a renter's cleaner call-out is one durable, inspectable agreement.
+The renter must be able to see the selected cleaner and every persisted term, a
+pending request can be withdrawn immediately, and an accepted request is not
+cancelled until the cleaner explicitly agrees. A cancellation request continues
+to reserve the cleaner's 30-minute slot.
+
+The finite state machine is:
+
+- owner: `pending → cancelled`
+- cleaner: `pending → accepted | declined`
+- owner: `accepted → cancellation_requested`
+- cleaner: `cancellation_requested → cancelled | accepted` (approve or keep)
+- cleaner: `accepted → in_progress → completed`
+
+Participating symbols:
+
+- `supabase/migrations/20260819122000_cleaner_call_details_and_cancellation_consent.sql`
+  — replaces the five-argument `create_cleaning_task` with one six-argument
+  function (`p_address` is the trailing default; the old overload is dropped to
+  prevent ambiguity). Owner and cleaner remain server-derived from the
+  property/service; `cleaner_service_id`, `service_title`, price, and
+  `price_unit` are snapshotted from that service so later listing edits cannot
+  rewrite the agreement shown in history. The address is trimmed, capped at 300
+  characters, and falls back to `properties.location`. The same migration expands the status CHECK,
+  restates `transition_cleaning_task`, and routes scoped notifications to the
+  cleaner for both pending withdrawal and accepted cancellation requests, then
+  back to the renter for the cleaner's response (**C19**). Its
+  `get_my_cleaning_task_cleaner_details` RPC is owner-scoped by
+  `auth.uid()`: identity remains readable even if the service is paused, while
+  direct task-card phone/WhatsApp stay NULL until `accepted` and remain visible through
+  `cancellation_requested` because that job is still active
+- `src/components/renter/CleanerCallModal.tsx` — displays the service price as
+  read-only truth instead of accepting a browser price the RPC ignores; sends the
+  actual address that the UI collects
+- `src/app/[locale]/dashboard/renter/cleaners/page.tsx` — the discoverable “My
+  call-outs” anchor, full terms/history card, pending cancellation, accepted
+  cancellation request, and retention of cancelled rows
+- `src/lib/cleaner/tasks.ts:CleanerTaskTransitionStatus`, cleaner `loadData.ts`,
+  `CleanerDashboardClient.tsx`, `schedule/page.tsx`, and
+  `CleanerMonthCalendar.tsx` — keep `cancellation_requested` visible and occupied
+  on every cleaner work surface and expose both response choices
+- `src/lib/cleaner/tasks.ts:loadCleaningTaskCleanerDetails` — typed client boundary
+  for the participant-safe identity/contact RPC; the renter card normalizes every
+  returned number again before creating a `tel:` or WhatsApp URL
+- `e2e/cross-role/renter-cleaner-flow.spec.ts` — proves full term visibility,
+  immediate pending withdrawal, both accepted-request responses, and durable
+  cancelled history
+
+**The price field is intentionally not editable.** The authoritative quote and
+unit are `services.price` / `services.price_unit` read inside the SECURITY
+DEFINER create RPC and snapshotted with the selected service id/title. Sending a
+browser price would restore the authority bug closed by the production security
+remediation. “By agreement” is the honest display when that server value is NULL.
+
+**Breaks silently when:** a create path stores the amount but drops its unit or
+selected service identity; cancelled rows are filtered out of renter history; a
+new create caller omits the address because it assumes the auto-filled input is
+persisted automatically; `cancellation_requested` is omitted from a cleaner query
+or calendar predicate (the job disappears while still reserving its slot); the
+owner is allowed to jump `accepted → cancelled` (bypasses consent); the cleaner
+can start a `cancellation_requested` task without first resolving it; or a
+notification writer omits `dashboard_scope` and becomes invisible in the target
+cabinet (**C19**). Returning direct task-card contact fields for `pending`,
+`declined`, or `cancelled` rows would also bypass that card's acceptance-based
+disclosure rule; this does not replace the platform's separate, rate-limited
+listing contact-reveal flow.

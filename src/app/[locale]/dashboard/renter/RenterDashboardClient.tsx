@@ -107,6 +107,12 @@ export default function RenterDashboardClient({
   const [membershipExpiresAt, setMembershipExpiresAt] = useState(
     initial.membershipExpiresAt,
   );
+  const [membershipPending, setMembershipPending] = useState(
+    initial.membershipPending,
+  );
+  const [membershipPendingExpiresAt, setMembershipPendingExpiresAt] = useState(
+    initial.membershipPendingExpiresAt,
+  );
   const [membershipPlans, setMembershipPlans] = useState(
     initial.membershipPlans,
   );
@@ -140,6 +146,8 @@ export default function RenterDashboardClient({
       setStats(data.stats);
       setWalletBalance(data.walletBalance);
       setMembershipExpiresAt(data.membershipExpiresAt);
+      setMembershipPending(data.membershipPending);
+      setMembershipPendingExpiresAt(data.membershipPendingExpiresAt);
       setMembershipPlans(data.membershipPlans);
       void refreshMatches();
     }
@@ -167,6 +175,16 @@ export default function RenterDashboardClient({
           schema: "public",
           table: "properties",
           filter: `owner_id=eq.${userId}`,
+        },
+        () => loadRenterOverview(supabase, userId).then(applyOverview),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "user_subscriptions",
+          filter: `user_id=eq.${userId}`,
         },
         () => loadRenterOverview(supabase, userId).then(applyOverview),
       )
@@ -200,11 +218,15 @@ export default function RenterDashboardClient({
             className={`mt-1 shrink-0 rounded-full px-3 py-1 text-[11px] font-extrabold ${
               membershipExpiresAt
                 ? "bg-[#DCFCE7] text-[#15803D]"
+                : membershipPending
+                  ? "bg-[#FEF3C7] text-[#B45309]"
                 : "bg-[#F1F5F9] text-[#64748B]"
             }`}
           >
             {membershipExpiresAt
               ? t("statuses.active")
+              : membershipPending
+                ? t("statuses.pending")
               : t("membershipInactive")}
           </span>
         </div>
@@ -218,7 +240,13 @@ export default function RenterDashboardClient({
                   </strong>
                 ),
               })
-            : t("membershipPrompt")}
+            : membershipPending
+              ? t("membershipPending", {
+                  date: membershipPendingExpiresAt
+                    ? formatDate(membershipPendingExpiresAt, locale)
+                    : t("seasonEndDate"),
+                })
+              : t("membershipPrompt")}
         </p>
       </motion.div>
 
@@ -228,6 +256,8 @@ export default function RenterDashboardClient({
           <p className="text-base font-extrabold text-[#0F172A]">
             {membershipExpiresAt
               ? t("membershipActive")
+              : membershipPending
+                ? t("membershipAwaitingApproval")
               : t("membershipRequired")}
           </p>
           <p className="mt-1 text-sm font-medium text-[#64748B]">
@@ -235,17 +265,26 @@ export default function RenterDashboardClient({
               ? t("membershipExpires", {
                   date: formatDate(membershipExpiresAt, locale),
                 })
+              : membershipPending
+                ? t("membershipPending", {
+                    date: membershipPendingExpiresAt
+                      ? formatDate(membershipPendingExpiresAt, locale)
+                      : t("seasonEndDate"),
+                  })
               : t("membershipPrompt")}
           </p>
         </div>
         <button
           type="button"
           onClick={() => setPaymentModalOpen(true)}
-          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF] sm:w-auto"
+          disabled={membershipPending || Boolean(membershipExpiresAt)}
+          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:bg-[#94A3B8] sm:w-auto"
         >
           <CreditCard className="h-4 w-4" />
           {membershipExpiresAt
-            ? t("extendMembership")
+            ? t("seasonMembershipActive")
+            : membershipPending
+              ? t("awaitingApproval")
             : t("activateMembership")}
         </button>
       </section>
@@ -363,6 +402,7 @@ export default function RenterDashboardClient({
                   statusKey={statusKey}
                   isBlocked={isBlocked}
                   hasMembership={Boolean(membershipExpiresAt)}
+                  membershipPending={membershipPending}
                   onMembership={() => setPaymentModalOpen(true)}
                   onOpenTier={(tier) => setPickerModal({ open: true, tier })}
                 />
@@ -391,6 +431,8 @@ export default function RenterDashboardClient({
         isOpen={paymentModalOpen}
         onClose={() => setPaymentModalOpen(false)}
         membershipExpiresAt={membershipExpiresAt}
+        membershipPending={membershipPending}
+        membershipPendingExpiresAt={membershipPendingExpiresAt}
         walletBalance={walletBalance}
         plans={membershipPlans}
         onPurchased={async () => {
@@ -400,6 +442,8 @@ export default function RenterDashboardClient({
           setStats(data.stats);
           setWalletBalance(data.walletBalance);
           setMembershipExpiresAt(data.membershipExpiresAt);
+          setMembershipPending(data.membershipPending);
+          setMembershipPendingExpiresAt(data.membershipPendingExpiresAt);
           setMembershipPlans(data.membershipPlans);
         }}
       />
@@ -443,6 +487,7 @@ function PropertyRow({
   statusKey,
   isBlocked,
   hasMembership,
+  membershipPending,
   onMembership,
   onOpenTier,
 }: {
@@ -450,6 +495,7 @@ function PropertyRow({
   statusKey: string;
   isBlocked: boolean;
   hasMembership: boolean;
+  membershipPending: boolean;
   onMembership: () => void;
   onOpenTier: (tier: VipInfoTier) => void;
 }) {
@@ -551,10 +597,15 @@ function PropertyRow({
             <button
               type="button"
               onClick={onMembership}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-3.5 py-2.5 text-[12px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+              disabled={hasMembership || membershipPending}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-3.5 py-2.5 text-[12px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
             >
               <CreditCard className="h-3.5 w-3.5" />
-              {hasMembership ? t("extendMembership") : t("pay")}
+              {hasMembership
+                ? t("seasonMembershipActive")
+                : membershipPending
+                  ? t("awaitingApproval")
+                  : t("pay")}
             </button>
           )}
           <a
@@ -599,10 +650,17 @@ function PropertyRow({
           <button
             type="button"
             onClick={onMembership}
-            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-1.5 text-[11px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+            disabled={hasMembership || membershipPending}
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-1.5 text-[11px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
           >
             <CreditCard className="size-3.5 shrink-0" />
-            <span className="truncate">{t("pay")}</span>
+            <span className="truncate">
+              {hasMembership
+                ? t("seasonMembershipActive")
+                : membershipPending
+                  ? t("awaitingApproval")
+                  : t("pay")}
+            </span>
           </button>
         )}
         <a

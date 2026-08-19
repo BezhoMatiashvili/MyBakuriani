@@ -11,6 +11,9 @@ export type RenterOverview = {
   walletBalance: number;
   /** The furthest currently-valid account membership expiry, if any. */
   membershipExpiresAt: string | null;
+  /** A paid membership exists but cannot grant access before admin review. */
+  membershipPending: boolean;
+  membershipPendingExpiresAt: string | null;
   membershipPlans: RenterMembershipPlan[];
 };
 
@@ -18,7 +21,7 @@ export type RenterMembershipPlan = Pick<
   Tables<"pricing_packages">,
   "id" | "name" | "label" | "description" | "amount_gel" | "sort_order"
 > & {
-  durationMonths: 1 | 3;
+  billingPeriod: "seasonal";
 };
 
 /**
@@ -57,11 +60,7 @@ export async function loadRenterOverview(
       .from("user_subscriptions")
       .select("starts_at, expires_at, status")
       .eq("user_id", userId)
-      // No starts_at filter: an extension bought while the current term is still
-      // running is stored as a future-dated row, and it is exactly that row which
-      // carries the new expiry the dashboard must show.
-      .eq("status", "active")
-      .gt("expires_at", new Date().toISOString()),
+      .in("status", ["active", "pending_approval"]),
     supabase
       .from("pricing_packages")
       .select("id, name, label, description, amount_gel, sort_order, meta")
@@ -70,7 +69,14 @@ export async function loadRenterOverview(
       .order("sort_order", { ascending: true }),
   ]);
 
-  const membershipExpiresAt = (subscriptionsRes.data ?? []).reduce<
+  const now = new Date().toISOString();
+  const activeSubscriptions = (subscriptionsRes.data ?? []).filter(
+    (subscription) =>
+      subscription.status === "active" &&
+      subscription.starts_at <= now &&
+      subscription.expires_at > now,
+  );
+  const membershipExpiresAt = activeSubscriptions.reduce<
     string | null
   >(
     (latest, subscription) =>
@@ -79,17 +85,26 @@ export async function loadRenterOverview(
         : latest,
     null,
   );
+  const pendingMemberships = (subscriptionsRes.data ?? []).filter(
+    (subscription) => subscription.status === "pending_approval",
+  );
+  const membershipPendingExpiresAt = pendingMemberships.reduce<string | null>(
+    (latest, subscription) =>
+      !latest || subscription.expires_at > latest
+        ? subscription.expires_at
+        : latest,
+    null,
+  );
   const membershipPlans = (packagesRes.data ?? []).flatMap((pkg) => {
     const meta = pkg.meta as Record<string, unknown> | null;
-    const duration = meta?.duration_months;
     if (
       meta?.subscription_scope !== "renter" ||
-      (duration !== 1 && duration !== 3)
+      meta?.billing_period !== "seasonal"
     ) {
       return [];
     }
-    return [{ ...pkg, durationMonths: duration as 1 | 3 }];
-  });
+    return [{ ...pkg, billingPeriod: "seasonal" as const }];
+  }).slice(0, 1);
 
   return {
     profile: profileRes.data ?? null,
@@ -97,6 +112,8 @@ export async function loadRenterOverview(
     stats: statsRes.data?.[0] ?? null,
     walletBalance: Number(balanceRes.data?.amount ?? 0),
     membershipExpiresAt,
+    membershipPending: pendingMemberships.length > 0,
+    membershipPendingExpiresAt,
     membershipPlans,
   };
 }

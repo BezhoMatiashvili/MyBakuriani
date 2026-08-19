@@ -59,6 +59,11 @@ Database schema, policies, and the generated type mirror.
   10 MiB JPEG/PNG/WebP uploads. `20260818121000_closed_table_privilege_hardening.sql`
   revokes every client table privilege (especially non-RLS-governed `TRUNCATE`)
   from the 13 intentional RLS/no-policy internal tables. Both are applied live.
+- `20260819122000_cleaner_call_details_and_cancellation_consent.sql` is the current
+  cleaner call-out contract: it persists the entered address, snapshots the
+  server-derived selected service id/title plus price/unit, and adds
+  `cancellation_requested` plus cleaner approval/refusal transitions (**C24**).
+  It remains local until explicitly applied.
 - **Adding an enum value is a two-transaction operation.** `ALTER TYPE … ADD
 VALUE` may run inside a transaction, but the new label cannot be _evaluated_
   until that transaction commits (`check_safe_enum_use` → `55P04`). Put the
@@ -83,4 +88,5 @@ properties and services, only written on properties), C13 (`property_type` enum
 fan-out — two-transaction add, 2 compile tripwires + 7 silent participants),
 C20 (manual-booking soft cancellation, restore, audit, and SMS eligibility),
 C21 (restaurant discount review, charging, and public ordering), C23 (standard
-VIP/SUPER VIP exclusivity across both listing tables and purchase paths).
+VIP/SUPER VIP exclusivity across both listing tables and purchase paths), C24
+(cleaner call-out terms and consent-based cancellation).

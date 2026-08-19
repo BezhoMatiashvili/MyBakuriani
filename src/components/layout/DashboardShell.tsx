@@ -223,6 +223,7 @@ export function DashboardShell({
   );
   const [leadsCount, setLeadsCount] = useState(0);
   const [verificationCount, setVerificationCount] = useState(0);
+  const [membershipCount, setMembershipCount] = useState(0);
   const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
   const [serviceSwitcherOpen, setServiceSwitcherOpen] = useState(false);
   // One timer PER scope: two notification events for different cabinets inside
@@ -422,9 +423,12 @@ export function DashboardShell({
     if (role !== "admin") return;
     fetch("/api/admin/listings/pending/count")
       .then((res) => (res.ok ? res.json() : null))
-      .then((payload: { count?: number } | null) => {
+      .then((payload: { count?: number; memberships?: number } | null) => {
         if (payload && typeof payload.count === "number") {
           setVerificationCount(payload.count);
+        }
+        if (payload && typeof payload.memberships === "number") {
+          setMembershipCount(payload.memberships);
         }
       })
       .catch(() => {});
@@ -470,6 +474,7 @@ export function DashboardShell({
       <div className="flex h-[100dvh] w-full overflow-hidden bg-[#02060E] lg:h-screen">
         <AdminSidebar
           verificationAlerts={verificationCount}
+          membershipAlerts={membershipCount}
           onSignOut={handleSignOut}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">

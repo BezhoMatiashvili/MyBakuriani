@@ -237,7 +237,7 @@ function RequestCard({
           label={isHighMatch ? t("maxBudget") : t("clientBudget")}
           value={
             <span className={isHighMatch ? "text-[#10B981]" : "text-[#0F172A]"}>
-              {request.clientBudget} ₾
+              {request.clientBudget} {t("perNight")}
             </span>
           }
           hint={

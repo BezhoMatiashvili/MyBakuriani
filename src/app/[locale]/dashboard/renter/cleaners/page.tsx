@@ -16,7 +16,13 @@ import {
   MapPin,
   AlertCircle,
   RefreshCw,
+  Home,
+  FileText,
+  Ban,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import CleanerCallModal from "@/components/renter/CleanerCallModal";
@@ -29,12 +35,18 @@ import CleanerDetailModal, {
 } from "@/components/renter/CleanerDetailModal";
 import CleanerFormModal from "@/components/renter/CleanerFormModal";
 import { CallButton } from "@/components/shared/CallButton";
-import { formatDateTime, formatPrice } from "@/lib/utils/format";
+import { formatDateTime, formatPhone, formatPrice } from "@/lib/utils/format";
 import {
   optionKeyFor,
   priceUnitPathFor,
 } from "@/lib/constants/listing-options";
 import type { Database, Tables } from "@/lib/types/database";
+import {
+  loadCleaningTaskCleanerDetails,
+  transitionPlatformCleanerTask,
+  type CleaningTaskCleanerDetails,
+} from "@/lib/cleaner/tasks";
+import { normalizeE164Phone } from "@/lib/security";
 
 type PlatformCleaner =
   Database["public"]["Functions"]["get_platform_cleaners"]["Returns"][number];
@@ -68,11 +80,17 @@ type MyTask = Tables<"cleaning_tasks"> & {
 };
 
 type CallTarget = {
-  cleaner: { cleanerId: string; serviceId: string; name: string };
+  cleaner: {
+    cleanerId: string;
+    serviceId: string;
+    serviceTitle: string;
+    name: string;
+    price: number | null;
+    priceUnit: string | null;
+  };
   prefill?: {
     propertyId?: string;
     cleaningType?: string;
-    price?: number;
     address?: string;
     notes?: string;
   };
@@ -85,6 +103,8 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   in_progress: "bg-[#EFF6FF] text-[#2563EB]",
   completed: "bg-[#F0FDF4] text-[#15803D]",
   declined: "bg-[#FEF2F2] text-[#EF4444]",
+  cancellation_requested: "bg-[#FEF3C7] text-[#B45309]",
+  cancelled: "bg-[#F1F5F9] text-[#64748B]",
 };
 
 function deriveInitials(name: string): string {
@@ -146,6 +166,11 @@ export default function RenterCleanersPage() {
   } | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSaveError, setDetailSaveError] = useState(false);
+  const [taskActionId, setTaskActionId] = useState<string | null>(null);
+  const [taskCleanerDetails, setTaskCleanerDetails] = useState<
+    Map<string, CleaningTaskCleanerDetails>
+  >(new Map());
+  const callsSectionRef = useRef<HTMLDivElement>(null);
 
   const fetchCleaners = useCallback(async () => {
     setCleanersLoaded(false);
@@ -290,12 +315,24 @@ export default function RenterCleanersPage() {
 
   const fetchTasks = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("cleaning_tasks")
-      .select("*, properties(title)")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false });
-    if (data) setTasks(data as MyTask[]);
+    const [tasksResult, detailsResult] = await Promise.all([
+      supabase
+        .from("cleaning_tasks")
+        .select("*, properties(title)")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false }),
+      loadCleaningTaskCleanerDetails(supabase),
+    ]);
+    if (tasksResult.data) setTasks(tasksResult.data as MyTask[]);
+    if (detailsResult.data) {
+      setTaskCleanerDetails(
+        new Map(detailsResult.data.map((detail) => [detail.task_id, detail])),
+      );
+    } else {
+      // Never retain contact details from a previous successful fetch. The task
+      // may have moved into a state where the renter should no longer see them.
+      setTaskCleanerDetails(new Map());
+    }
     setTasksLoaded(true);
   }, [supabase, user]);
 
@@ -350,7 +387,10 @@ export default function RenterCleanersPage() {
       cleaner: {
         cleanerId: cleaner.id,
         serviceId: service.id,
+        serviceTitle: service.title,
         name: cleaner.name,
+        price: service.price,
+        priceUnit: service.priceUnit,
       },
     });
   }
@@ -360,17 +400,24 @@ export default function RenterCleanersPage() {
     const profile = platformProfiles.find(
       (cleaner) => cleaner.id === task.cleaner_id,
     );
+    const service =
+      profile?.services.find(
+        (candidate) => candidate.id === task.cleaner_service_id,
+      ) ?? profile?.services[0];
     const name = profile?.name ?? t("defaultCleaner");
     setCallModal({
       cleaner: {
         cleanerId: task.cleaner_id,
-        serviceId: profile?.services[0]?.id ?? "",
+        serviceId: service?.id ?? "",
+        serviceTitle:
+          service?.title ?? task.service_title ?? t("serviceFallback"),
         name,
+        price: service?.price ?? task.price,
+        priceUnit: service?.priceUnit ?? task.price_unit,
       },
       prefill: {
         propertyId: task.property_id,
         cleaningType: task.cleaning_type,
-        price: task.price ?? undefined,
         address: task.address ?? undefined,
         notes: task.notes ?? undefined,
       },
@@ -383,7 +430,49 @@ export default function RenterCleanersPage() {
     return path ? tOpts(path) : unit;
   }
 
-  const visibleTasks = tasks.filter((task) => task.status !== "cancelled");
+  async function cancelTask(task: MyTask) {
+    if (task.status !== "pending" && task.status !== "accepted") return;
+    const needsConsent = task.status === "accepted";
+    if (
+      !window.confirm(
+        needsConsent ? t("cancelAcceptedConfirm") : t("cancelPendingConfirm"),
+      )
+    ) {
+      return;
+    }
+
+    setTaskActionId(task.id);
+    const { error } = await transitionPlatformCleanerTask(
+      supabase,
+      task.id,
+      needsConsent ? "cancellation_requested" : "cancelled",
+    );
+    setTaskActionId(null);
+    if (error) {
+      toast.error(t("cancelError"));
+      return;
+    }
+    toast.success(
+      needsConsent ? t("cancellationRequestedSuccess") : t("cancelledSuccess"),
+    );
+    await fetchTasks();
+  }
+
+  function handleCallSent() {
+    toast.success(t("callSentSuccess"));
+    void fetchTasks().finally(() => {
+      window.setTimeout(
+        () =>
+          callsSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          }),
+        0,
+      );
+    });
+  }
+
+  const visibleTasks = tasks;
 
   const platformProfiles = useMemo<PlatformCleanerProfile[]>(() => {
     const detailsById = new Map(
@@ -513,14 +602,34 @@ export default function RenterCleanersPage() {
             {t("subtitleEmpty")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setAddModalOpen(true)}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
-        >
-          <UserPlus className="h-4 w-4" strokeWidth={2.4} />
-          {tShared("add")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              callsSectionRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              })
+            }
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#CBD5E1] bg-white px-5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+          >
+            <Calendar className="h-4 w-4" strokeWidth={2.4} />
+            {t("myCalls")}
+            {tasksLoaded && tasks.length > 0 && (
+              <span className="rounded-full bg-[#EFF6FF] px-2 py-0.5 text-[11px] text-[#2563EB]">
+                {tasks.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddModalOpen(true)}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#0F172A] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1E293B]"
+          >
+            <UserPlus className="h-4 w-4" strokeWidth={2.4} />
+            {tShared("add")}
+          </button>
+        </div>
       </motion.div>
 
       {detailsError && (
@@ -796,6 +905,8 @@ export default function RenterCleanersPage() {
       </motion.div>
 
       <motion.div
+        ref={callsSectionRef}
+        id="my-cleaner-calls"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
@@ -808,31 +919,64 @@ export default function RenterCleanersPage() {
         {visibleTasks.map((task) => {
           const badgeClass = STATUS_BADGE_CLASSES[task.status ?? ""];
           const cleaningKey = optionKeyFor("cleaningTypes", task.cleaning_type);
+          const detail = taskCleanerDetails.get(task.id);
+          const currentProfile = task.cleaner_id
+            ? platformProfiles.find((profile) => profile.id === task.cleaner_id)
+            : null;
+          const cleanerName =
+            detail?.cleaner_name ??
+            currentProfile?.name ??
+            t("defaultCleaner");
+          const cleanerAvatar =
+            detail?.cleaner_avatar_url ?? currentProfile?.avatarUrl ?? null;
+          const contactMayBeVisible = [
+            "accepted",
+            "cancellation_requested",
+            "in_progress",
+            "completed",
+          ].includes(task.status ?? "");
+          const phone = contactMayBeVisible
+            ? normalizeE164Phone(detail?.phone)
+            : null;
+          const whatsapp = contactMayBeVisible
+            ? normalizeE164Phone(detail?.whatsapp)
+            : null;
+          const canCancel =
+            task.status === "pending" || task.status === "accepted";
+          const canRedial =
+            (task.status === "declined" || task.status === "cancelled") &&
+            Boolean(currentProfile?.services[0]);
           return (
             <article
               key={task.id}
+              data-testid={`renter-cleaning-task-${task.id}`}
               className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
-                    {task.properties?.title ?? "—"}
-                  </p>
-                  <p className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
-                    <Calendar className="h-3.5 w-3.5" strokeWidth={2.4} />
-                    {formatDateTime(task.scheduled_at)}
-                  </p>
-                  <p className="mt-1 text-[12px] font-medium text-[#64748B]">
-                    {cleaningKey
-                      ? tOpts(`cleaningTypes.${cleaningKey}`)
-                      : task.cleaning_type}
-                    {task.price != null && (
-                      <span className="font-bold text-[#0F172A]">
-                        {" "}
-                        · {formatPrice(Number(task.price))}
-                      </span>
-                    )}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  {cleanerAvatar ? (
+                    <span className="relative block h-11 w-11 shrink-0 overflow-hidden rounded-full">
+                      <Image
+                        src={cleanerAvatar}
+                        alt=""
+                        fill
+                        sizes="44px"
+                        className="object-cover"
+                      />
+                    </span>
+                  ) : (
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[12px] font-extrabold text-[#2563EB]">
+                      {deriveInitials(cleanerName)}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
+                      {t("cleanerLabel")}
+                    </p>
+                    <p className="mt-1 truncate text-[17px] font-black text-[#0F172A]">
+                      {cleanerName}
+                    </p>
+                  </div>
                 </div>
                 {badgeClass && (
                   <span
@@ -843,16 +987,147 @@ export default function RenterCleanersPage() {
                 )}
               </div>
 
-              {task.status === "declined" && task.cleaner_id && (
-                <button
-                  type="button"
-                  onClick={() => redial(task)}
-                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] lg:min-h-0"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.4} />
-                  {t("redial")}
-                </button>
+              <dl className="mt-4 grid grid-cols-1 gap-3 rounded-2xl bg-[#F8FAFC] p-4 sm:grid-cols-2">
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                    {t("propertyLabel")}
+                  </dt>
+                  <dd className="mt-1 flex items-start gap-1.5 text-[13px] font-bold text-[#0F172A]">
+                    <Home className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#64748B]" />
+                    {task.properties?.title ?? "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                    {t("dateTimeLabel")}
+                  </dt>
+                  <dd className="mt-1 flex items-start gap-1.5 text-[13px] font-bold text-[#0F172A]">
+                    <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#64748B]" />
+                    {formatDateTime(task.scheduled_at)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                    {t("typeLabel")}
+                  </dt>
+                  <dd className="mt-1 text-[13px] font-bold text-[#0F172A]">
+                    {cleaningKey
+                      ? tOpts(`cleaningTypes.${cleaningKey}`)
+                      : task.cleaning_type}
+                  </dd>
+                </div>
+                {task.service_title && (
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                      {t("serviceLabel")}
+                    </dt>
+                    <dd className="mt-1 text-[13px] font-bold text-[#0F172A]">
+                      {task.service_title}
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                    {t("priceLabel")}
+                  </dt>
+                  <dd className="mt-1 text-[13px] font-black text-[#0F172A]">
+                    {task.price != null
+                      ? formatPrice(Number(task.price))
+                      : t("priceOnAgreement")}
+                    {task.price_unit && (
+                      <span className="text-[11px] font-semibold text-[#64748B]">
+                        {" / "}
+                        {priceUnitLabel(task.price_unit)}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                    {t("addressLabel")}
+                  </dt>
+                  <dd className="mt-1 flex items-start gap-1.5 text-[13px] font-medium text-[#475569]">
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {task.address ?? "—"}
+                  </dd>
+                </div>
+                {task.notes && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                      {t("notesLabel")}
+                    </dt>
+                    <dd className="mt-1 flex items-start gap-1.5 whitespace-pre-wrap text-[13px] font-medium leading-5 text-[#475569]">
+                      <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {task.notes}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {task.status === "cancellation_requested" && (
+                <p className="mt-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[12px] font-bold leading-5 text-[#92400E]">
+                  {t("cancellationWaitingHelp")}
+                </p>
               )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {phone && (
+                  <a
+                    href={`tel:${phone}`}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0EA5E9] px-4 text-[12px] font-bold text-white"
+                  >
+                    <Phone className="size-4" />
+                    {formatPhone(phone)}
+                  </a>
+                )}
+                {whatsapp && (
+                  <a
+                    href={`https://wa.me/${whatsapp.slice(1)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#16A34A] px-4 text-[12px] font-bold text-white"
+                  >
+                    <MessageCircle className="size-4" />
+                    {t("whatsapp")}
+                  </a>
+                )}
+                {contactMayBeVisible && !phone && !whatsapp && (
+                  <span className="text-[11px] font-semibold text-[#94A3B8]">
+                    {t("contactUnavailable")}
+                  </span>
+                )}
+                {task.status === "pending" && (
+                  <span className="text-[11px] font-semibold text-[#94A3B8]">
+                    {t("contactAfterAcceptance")}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#EEF1F4] pt-4">
+                {canRedial && (
+                  <button
+                    type="button"
+                    onClick={() => redial(task)}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.4} />
+                    {t("redial")}
+                  </button>
+                )}
+                {canCancel && (
+                  <button
+                    type="button"
+                    onClick={() => void cancelTask(task)}
+                    disabled={taskActionId === task.id}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#FEF2F2] px-4 py-2.5 text-[13px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
+                  >
+                    <Ban className="h-3.5 w-3.5" strokeWidth={2.4} />
+                    {task.status === "pending"
+                      ? t("cancelCall")
+                      : t("requestCancellation")}
+                  </button>
+                )}
+              </div>
             </article>
           );
         })}
@@ -871,7 +1146,7 @@ export default function RenterCleanersPage() {
         cleaner={callModal?.cleaner ?? null}
         prefill={callModal?.prefill}
         onClose={() => setCallModal(null)}
-        onSent={fetchTasks}
+        onSent={handleCallSent}
       />
 
       <AddCleanerModal

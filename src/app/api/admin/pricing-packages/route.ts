@@ -27,11 +27,30 @@ function asMeta(value: unknown): Record<string, unknown> {
 
 function validateRenterMembershipMeta(meta: Record<string, unknown>): string | null {
   if (meta.subscription_scope !== "renter") return null;
-  const duration = meta.duration_months;
-  if (duration !== 1 && duration !== 3) {
-    return "renter membership duration_months must be 1 or 3";
+  if (
+    meta.billing_period !== "seasonal" ||
+    meta.season_end_month !== 3 ||
+    meta.season_end_day !== 15
+  ) {
+    return "renter membership must be seasonal and end on March 15";
   }
   return null;
+}
+
+async function hasAnotherEnabledRenterMembership(
+  db: ReturnType<typeof createServiceClient>,
+  excludeId?: string,
+) {
+  let query = db
+    .from("pricing_packages")
+    .select("id")
+    .eq("category", "subscription")
+    .eq("is_enabled", true)
+    .contains("meta", { subscription_scope: "renter" });
+  if (excludeId) query = query.neq("id", excludeId);
+  const { data, error } = await query.limit(1);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 function slugifyCode(input: string): string {
@@ -225,6 +244,28 @@ export async function PATCH(req: NextRequest) {
       patch.sort_order = Math.trunc(body.sort_order);
     }
 
+    if (body.is_enabled === true) {
+      const { data: target, error: targetError } = await db
+        .from("pricing_packages")
+        .select("category, meta")
+        .eq("id", body.id)
+        .maybeSingle();
+      if (targetError) {
+        return Response.json({ error: targetError.message }, { status: 500 });
+      }
+      const targetMeta = asMeta(target?.meta);
+      if (
+        target?.category === "subscription" &&
+        targetMeta.subscription_scope === "renter" &&
+        (await hasAnotherEnabledRenterMembership(db, body.id))
+      ) {
+        return Response.json(
+          { error: "an enabled seasonal renter membership already exists", code: "renter_membership_exists" },
+          { status: 409 },
+        );
+      }
+    }
+
     const hasMutableField = Object.keys(patch).some((k) => k !== "updated_at");
     if (!hasMutableField) {
       return Response.json(
@@ -336,6 +377,16 @@ export async function POST(req: NextRequest) {
     };
 
     const db = createServiceClient(guard.admin.userId);
+    if (
+      body.category === "subscription" &&
+      meta.subscription_scope === "renter" &&
+      (await hasAnotherEnabledRenterMembership(db))
+    ) {
+      return Response.json(
+        { error: "an enabled seasonal renter membership already exists", code: "renter_membership_exists" },
+        { status: 409 },
+      );
+    }
     const { data, error } = await db
       .from("pricing_packages")
       .insert(insert)

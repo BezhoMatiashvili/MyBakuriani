@@ -69,7 +69,11 @@ export default function CleanerMonthCalendar({
       const dateKey = toLocalDateKey(task.scheduledAt);
       const current = counts.get(dateKey) ?? { active: 0, completed: 0 };
       if (task.status === "completed") current.completed += 1;
-      else if (task.status === "accepted" || task.status === "in_progress") {
+      else if (
+        task.status === "accepted" ||
+        task.status === "cancellation_requested" ||
+        task.status === "in_progress"
+      ) {
         current.active += 1;
       }
       counts.set(dateKey, current);

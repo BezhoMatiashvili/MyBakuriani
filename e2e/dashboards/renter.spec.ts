@@ -5,8 +5,7 @@ import { properties, supabaseAdmin } from "../helpers/supabase";
 import { TEST_IDS } from "../helpers/seed";
 
 const RENTER_MEMBERSHIP_PACKAGE_IDS = {
-  oneMonth: "aae2ff00-e101-4000-a000-000000000001",
-  threeMonths: "aae2ff00-e102-4000-a000-000000000002",
+  season: "aae2ff00-e101-4000-a000-000000000001",
 } as const;
 
 const RENTER_BLACKLIST_CASES = {
@@ -737,30 +736,22 @@ test.describe("Renter membership", () => {
 
   test.beforeAll(async () => {
     await clearMemberships();
-    await supabaseAdmin.from("pricing_packages").upsert([
-      {
-        id: RENTER_MEMBERSHIP_PACKAGE_IDS.oneMonth,
-        category: "subscription",
-        code: "e2e-renter-membership-1",
-        name: "E2E renter membership — 1 month",
-        label: "1 month",
-        amount_gel: 30,
-        is_enabled: true,
-        sort_order: 990,
-        meta: { subscription_scope: "renter", duration_months: 1 },
+    await supabaseAdmin.from("pricing_packages").upsert({
+      id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      category: "subscription",
+      code: "e2e-renter-membership-season",
+      name: "E2E renter membership — season",
+      label: "Season",
+      amount_gel: 30,
+      is_enabled: true,
+      sort_order: 990,
+      meta: {
+        subscription_scope: "renter",
+        billing_period: "seasonal",
+        season_end_month: 3,
+        season_end_day: 15,
       },
-      {
-        id: RENTER_MEMBERSHIP_PACKAGE_IDS.threeMonths,
-        category: "subscription",
-        code: "e2e-renter-membership-3",
-        name: "E2E renter membership — 3 months",
-        label: "3 months",
-        amount_gel: 90,
-        is_enabled: true,
-        sort_order: 991,
-        meta: { subscription_scope: "renter", duration_months: 3 },
-      },
-    ]);
+    });
     await supabaseAdmin
       .from("balances")
       .update({ amount: 500 })
@@ -841,45 +832,124 @@ test.describe("Renter membership", () => {
     ).toBeVisible();
   });
 
-  test("one- and three-month purchases use the wallet and extend from expiry", async () => {
+  test("payment creates a paid pending request without activating membership", async () => {
     await clearMemberships();
     await supabaseAdmin
       .from("balances")
       .update({ amount: 500 })
       .eq("user_id", TEST_IDS.renter);
 
-    const first = await supabaseAdmin.rpc("purchase_package", {
+    const purchase = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
-      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.oneMonth,
-      p_quantity: 1,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
     });
-    expect(first.error).toBeNull();
-    const { data: firstSubscription } = await supabaseAdmin
+    expect(purchase.error).toBeNull();
+    const { data: subscription } = await supabaseAdmin
       .from("user_subscriptions")
-      .select("starts_at, expires_at")
+      .select("id, status, amount_paid, starts_at, expires_at")
       .eq("user_id", TEST_IDS.renter)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
-    expect(firstSubscription?.expires_at).toBeTruthy();
+    expect(subscription?.status).toBe("pending_approval");
+    expect(Number(subscription?.amount_paid)).toBe(30);
+    expect(new Date(subscription!.expires_at).getMonth()).toBe(2);
+    expect(new Date(subscription!.expires_at).getDate()).toBe(15);
 
-    const renewal = await supabaseAdmin.rpc("purchase_package", {
+    const duplicate = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
-      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.threeMonths,
-      p_quantity: 1,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
     });
-    expect(renewal.error).toBeNull();
-    const { data: renewedSubscription } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select("starts_at, expires_at")
+    expect(duplicate.error?.message).toContain("MEMBERSHIP_ALREADY_PENDING");
+
+    const { data: balance } = await supabaseAdmin
+      .from("balances")
+      .select("amount")
       .eq("user_id", TEST_IDS.renter)
-      .order("created_at", { ascending: false })
-      .limit(1)
       .single();
-    expect(renewedSubscription?.starts_at).toBe(firstSubscription?.expires_at);
-    expect(
-      new Date(renewedSubscription!.expires_at).getTime(),
-    ).toBeGreaterThan(new Date(firstSubscription!.expires_at).getTime());
+    expect(Number(balance?.amount)).toBe(470);
+
+    const { data: active } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("id")
+      .eq("user_id", TEST_IDS.renter)
+      .eq("status", "active");
+    expect(active).toHaveLength(0);
+  });
+
+  test("admin approval activates the season and repeated approval is idempotent", async () => {
+    await clearMemberships();
+    await supabaseAdmin.from("balances").update({ amount: 500 }).eq("user_id", TEST_IDS.renter);
+    const purchase = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+    });
+    const subscriptionId = (purchase.data as { subscription_id: string }).subscription_id;
+
+    const approval = await supabaseAdmin.rpc("review_renter_membership", {
+      p_subscription_id: subscriptionId,
+      p_admin_id: TEST_IDS.admin,
+      p_action: "approve",
+    });
+    expect(approval.error).toBeNull();
+    expect((approval.data as { status: string }).status).toBe("active");
+
+    const repeated = await supabaseAdmin.rpc("review_renter_membership", {
+      p_subscription_id: subscriptionId,
+      p_admin_id: TEST_IDS.admin,
+      p_action: "approve",
+    });
+    expect(repeated.error).toBeNull();
+    expect((repeated.data as { idempotent: boolean }).idempotent).toBe(true);
+
+    const { data: activated } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("status, starts_at, expires_at, reviewed_by, reviewed_at")
+      .eq("id", subscriptionId)
+      .single();
+    expect(activated?.status).toBe("active");
+    expect(activated?.reviewed_by).toBe(TEST_IDS.admin);
+    expect(activated?.reviewed_at).toBeTruthy();
+    expect(new Date(activated!.expires_at).getMonth()).toBe(2);
+    expect(new Date(activated!.expires_at).getDate()).toBe(15);
+  });
+
+  test("admin rejection refunds exactly once", async () => {
+    await clearMemberships();
+    await supabaseAdmin.from("balances").update({ amount: 500 }).eq("user_id", TEST_IDS.renter);
+    const purchase = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+    });
+    const subscriptionId = (purchase.data as { subscription_id: string }).subscription_id;
+
+    const rejection = await supabaseAdmin.rpc("review_renter_membership", {
+      p_subscription_id: subscriptionId,
+      p_admin_id: TEST_IDS.admin,
+      p_action: "reject",
+      p_note: "E2E rejection",
+    });
+    expect(rejection.error).toBeNull();
+    const repeated = await supabaseAdmin.rpc("review_renter_membership", {
+      p_subscription_id: subscriptionId,
+      p_admin_id: TEST_IDS.admin,
+      p_action: "reject",
+    });
+    expect(repeated.error).toBeNull();
+    expect((repeated.data as { idempotent: boolean }).idempotent).toBe(true);
+
+    const { data: balance } = await supabaseAdmin
+      .from("balances")
+      .select("amount")
+      .eq("user_id", TEST_IDS.renter)
+      .single();
+    expect(Number(balance?.amount)).toBe(500);
+    const { count } = await supabaseAdmin
+      .from("transactions")
+      .select("*", { count: "exact", head: true })
+      .eq("reference_id", subscriptionId)
+      .eq("type", "membership_refund");
+    expect(count).toBe(1);
   });
 
   test("disabled plans and insufficient balances are rejected", async () => {
@@ -888,23 +958,21 @@ test.describe("Renter membership", () => {
       .from("balances")
       .update({ amount: 0 })
       .eq("user_id", TEST_IDS.renter);
-    const insufficient = await supabaseAdmin.rpc("purchase_package", {
+    const insufficient = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
-      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.oneMonth,
-      p_quantity: 1,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
     });
     expect(insufficient.error?.message).toContain("არასაკმარისი ბალანსი");
 
     await supabaseAdmin
       .from("pricing_packages")
       .update({ is_enabled: false })
-      .eq("id", RENTER_MEMBERSHIP_PACKAGE_IDS.oneMonth);
-    const disabled = await supabaseAdmin.rpc("purchase_package", {
+      .eq("id", RENTER_MEMBERSHIP_PACKAGE_IDS.season);
+    const disabled = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
-      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.oneMonth,
-      p_quantity: 1,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
     });
-    expect(disabled.error?.message).toContain("არ არის ხელმისაწვდომი");
+    expect(disabled.error?.message).toContain("MEMBERSHIP_PACKAGE_DISABLED");
   });
 });
 

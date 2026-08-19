@@ -82,7 +82,9 @@ export default function CleanerSchedulePage() {
           "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone)",
         )
         .eq("cleaner_id", userId)
-        .or("status.is.null,status.in.(pending,accepted,in_progress,completed)")
+        .or(
+          "status.is.null,status.in.(pending,accepted,cancellation_requested,in_progress,completed)",
+        )
         .order("scheduled_at", { ascending: true }),
       supabase
         .from("cleaner_manual_tasks")
@@ -234,6 +236,19 @@ export default function CleanerSchedulePage() {
           : item,
       ),
     );
+  }
+
+  async function respondToCancellation(
+    task: CleanerTaskItem,
+    next: "accepted" | "cancelled",
+  ) {
+    if (!userId || task.source !== "platform") return;
+    const result = await transitionPlatformCleanerTask(supabase, task.id, next);
+    if (result.error) {
+      toast.error(tShared("genericRetry"));
+      return;
+    }
+    await fetchData();
   }
 
   async function deleteManual(id: string) {
@@ -498,6 +513,30 @@ export default function CleanerSchedulePage() {
                           <Check className="h-4 w-4" />
                           {t("completedBadge")}
                         </span>
+                      ) : task.status === "cancellation_requested" ? (
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <span className="w-full text-right text-[11px] font-bold text-[#B45309]">
+                            {t("cancellationRequestedBadge")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void respondToCancellation(task, "accepted")
+                            }
+                            className="min-h-11 rounded-xl border border-[#F59E0B] bg-white px-4 text-[12px] font-bold text-[#92400E]"
+                          >
+                            {t("keepTask")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void respondToCancellation(task, "cancelled")
+                            }
+                            className="min-h-11 rounded-xl bg-[#DC2626] px-4 text-[12px] font-bold text-white"
+                          >
+                            {t("approveCancellation")}
+                          </button>
+                        </div>
                       ) : task.status === "in_progress" ? (
                         <button
                           type="button"
@@ -606,6 +645,8 @@ export default function CleanerSchedulePage() {
                       className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
                         task.status === "completed"
                           ? "bg-[#DCFCE7] text-[#15803D]"
+                          : task.status === "cancellation_requested"
+                            ? "bg-[#FEF3C7] text-[#B45309]"
                           : task.status === "in_progress"
                             ? "bg-[#DBEAFE] text-[#1D4ED8]"
                             : "bg-[#FEF3C7] text-[#B45309]"
@@ -613,6 +654,8 @@ export default function CleanerSchedulePage() {
                     >
                       {task.status === "completed"
                         ? t("completedBadge")
+                        : task.status === "cancellation_requested"
+                          ? t("cancellationRequestedBadge")
                         : task.status === "in_progress"
                           ? t("inProgressBadge")
                           : t("scheduledBadge")}

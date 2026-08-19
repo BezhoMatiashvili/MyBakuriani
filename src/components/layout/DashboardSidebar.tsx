@@ -50,6 +50,11 @@ function getNavItems(role: string): NavItem[] {
           href: "/dashboard/admin/verifications",
           icon: ShieldCheck,
         },
+        {
+          labelKey: "memberships",
+          href: "/dashboard/admin/memberships",
+          icon: ShieldCheck,
+        },
         { labelKey: "clients", href: "/dashboard/admin/clients", icon: Users },
         {
           labelKey: "listings",

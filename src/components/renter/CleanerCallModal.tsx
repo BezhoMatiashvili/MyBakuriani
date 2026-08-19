@@ -6,10 +6,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { optionKeyFor } from "@/lib/constants/listing-options";
+import {
+  optionKeyFor,
+  priceUnitPathFor,
+} from "@/lib/constants/listing-options";
+import { formatPrice } from "@/lib/utils/format";
+import { createPlatformCleanerTask } from "@/lib/cleaner/tasks";
 import DateField from "@/components/shared/DateField";
 import TimeField from "@/components/shared/TimeField";
-import NumberField from "@/components/shared/NumberField";
 
 interface PropertyOption {
   id: string;
@@ -20,12 +24,18 @@ interface PropertyOption {
 interface CleanerCallModalProps {
   isOpen: boolean;
   onClose: () => void;
-  cleaner: { cleanerId: string; serviceId: string; name: string } | null;
+  cleaner: {
+    cleanerId: string;
+    serviceId: string;
+    serviceTitle: string;
+    name: string;
+    price: number | null;
+    priceUnit: string | null;
+  } | null;
   onSent?: () => void;
   prefill?: {
     propertyId?: string;
     cleaningType?: string;
-    price?: number;
     address?: string;
     notes?: string;
   };
@@ -51,7 +61,6 @@ export default function CleanerCallModal({
   );
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [price, setPrice] = useState("");
   const [address, setAddress] = useState("");
   const [addressEdited, setAddressEdited] = useState(false);
   const [notes, setNotes] = useState("");
@@ -71,7 +80,6 @@ export default function CleanerCallModal({
     );
     setDate("");
     setTime("");
-    setPrice(prefill?.price != null ? String(prefill.price) : "");
     setAddress(prefill?.address ?? "");
     setAddressEdited(Boolean(prefill?.address));
     setNotes(prefill?.notes ?? "");
@@ -114,13 +122,10 @@ export default function CleanerCallModal({
     return () => window.removeEventListener("keydown", h);
   }, [isOpen, onClose]);
 
-  const priceNumber = Number(price.trim());
   const canSubmit =
     propertyId !== "" &&
     date !== "" &&
-    time !== "" &&
-    price.trim() !== "" &&
-    !Number.isNaN(priceNumber);
+    time !== "";
 
   const handleSubmit = async () => {
     if (!canSubmit || sending || !user || !cleaner) return;
@@ -129,16 +134,14 @@ export default function CleanerCallModal({
 
     // The database derives owner, cleaner and price from the selected listing.
     // Do not send any authority-bearing values from the browser.
-    const { error: insertError } = await (supabase as any).rpc(
-      "create_cleaning_task",
-      {
-        p_property_id: propertyId,
-        p_cleaner_service_id: cleaner.serviceId,
-        p_cleaning_type: cleaningType,
-        p_scheduled_at: new Date(`${date}T${time}`).toISOString(),
-        p_notes: notes.trim() || null,
-      },
-    );
+    const { error: insertError } = await createPlatformCleanerTask(supabase, {
+      p_property_id: propertyId,
+      p_cleaner_service_id: cleaner.serviceId,
+      p_cleaning_type: cleaningType,
+      p_scheduled_at: new Date(`${date}T${time}`).toISOString(),
+      p_notes: notes.trim() || null,
+      p_address: address.trim() || null,
+    });
 
     setSending(false);
     if (insertError) {
@@ -183,6 +186,9 @@ export default function CleanerCallModal({
                   </h2>
                   <p className="text-[12px] font-semibold text-[#64748B]">
                     {cleaner.name}
+                  </p>
+                  <p className="text-[11px] font-medium text-[#94A3B8]">
+                    {cleaner.serviceTitle}
                   </p>
                 </div>
               </div>
@@ -275,20 +281,31 @@ export default function CleanerCallModal({
                 </div>
 
                 <Field label={t("price")}>
-                  <NumberField
-                    value={price}
-                    onChange={setPrice}
-                    min={0}
-                    decimals={2}
-                    placeholder="30"
-                    suffix="₾"
-                  />
+                  <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+                    <p className="text-[14px] font-black text-[#0F172A]">
+                      {cleaner.price != null
+                        ? formatPrice(cleaner.price)
+                        : t("priceOnAgreement")}
+                      {cleaner.priceUnit && (
+                        <span className="text-[12px] font-semibold text-[#64748B]">
+                          {" / "}
+                          {priceUnitPathFor(cleaner.priceUnit)
+                            ? tOpts(priceUnitPathFor(cleaner.priceUnit)!)
+                            : cleaner.priceUnit}
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
+                      {t("priceSetByService")}
+                    </p>
+                  </div>
                 </Field>
 
                 <Field label={t("address")}>
                   <input
                     type="text"
                     value={address}
+                    maxLength={300}
                     onChange={(e) => {
                       setAddress(e.target.value);
                       setAddressEdited(true);

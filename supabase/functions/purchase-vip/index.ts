@@ -35,6 +35,31 @@ function userSafePurchaseError(error: { message?: string }) {
   ) {
     return new ApiError(message, 400, "BAD_REQUEST");
   }
+  if (message.includes("MEMBERSHIP_ALREADY_PENDING")) {
+    return new ApiError(
+      "Membership payment is already awaiting admin approval.",
+      409,
+      "BAD_REQUEST",
+    );
+  }
+  if (message.includes("MEMBERSHIP_ALREADY_ACTIVE")) {
+    return new ApiError(
+      "A seasonal membership is already active.",
+      409,
+      "BAD_REQUEST",
+    );
+  }
+  if (
+    message.includes("MEMBERSHIP_PACKAGE_NOT_FOUND") ||
+    message.includes("MEMBERSHIP_PACKAGE_DISABLED") ||
+    message.includes("MEMBERSHIP_PACKAGE_NOT_SEASONAL")
+  ) {
+    return new ApiError(
+      "This seasonal membership package is not available.",
+      400,
+      "BAD_REQUEST",
+    );
+  }
   return error;
 }
 
@@ -108,6 +133,44 @@ serve(async (req) => {
           discount_percent > 90)
       ) {
         throw new Error("არასწორი ფასდაკლების პროცენტი");
+      }
+
+      // Renter membership has a stricter lifecycle than every other package:
+      // wallet payment creates a seasonal pending request and only an admin can
+      // activate it. Resolve package metadata server-side so a caller cannot
+      // bypass that lifecycle by omitting a client-supplied flag.
+      const { data: selectedPackage, error: packageError } = await supabase
+        .from("pricing_packages")
+        .select("category, meta")
+        .eq("id", package_id)
+        .maybeSingle();
+      if (packageError) throw packageError;
+
+      const packageMeta = selectedPackage?.meta as
+        | Record<string, unknown>
+        | null
+        | undefined;
+      const isRenterMembership =
+        selectedPackage?.category === "subscription" &&
+        packageMeta?.subscription_scope === "renter";
+
+      if (isRenterMembership) {
+        if (quantity !== 1 || property_id || service_id) {
+          throw new ApiError(
+            "Seasonal membership is account-wide and can only be purchased once.",
+            400,
+            "BAD_REQUEST",
+          );
+        }
+        const { data, error } = await supabase.rpc(
+          "purchase_renter_membership",
+          {
+            p_user_id: user.id,
+            p_package_id: package_id,
+          },
+        );
+        if (error) throw userSafePurchaseError(error);
+        return jsonResponse({ data }, 200, cors);
       }
 
       const { data, error } = await supabase.rpc("purchase_package", {

@@ -549,10 +549,14 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     property_id: TEST_IDS.apartment,
     owner_id: TEST_IDS.renter,
     cleaner_id: TEST_IDS.cleaner,
+    cleaner_service_id: TEST_IDS.cleaningServicePrimary,
+    service_title: "E2E დილის დასუფთავება",
     cleaning_type: "standard",
     scheduled_at: futureISO(5),
     price: 80,
+    price_unit: "საათი",
     status: "pending",
+    address: "ბაკურიანი, დიდველის ქუჩა, ბინა 12",
     notes: "ტესტ დავალება",
   });
 
@@ -563,9 +567,12 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     property_id: TEST_IDS.villa,
     owner_id: TEST_IDS.renter,
     cleaner_id: TEST_IDS.cleaner,
+    cleaner_service_id: TEST_IDS.cleaningServicePrimary,
+    service_title: "E2E დილის დასუფთავება",
     cleaning_type: "standard",
     scheduled_at: futureISO(0),
     price: 100,
+    price_unit: "საათი",
     status: "accepted",
     notes: "განრიგის CTA ტესტი",
   });

@@ -477,6 +477,7 @@ export type Database = {
         Row: {
           address: string | null;
           cleaner_id: string | null;
+          cleaner_service_id: string | null;
           cleaning_type: string;
           completed_at: string | null;
           created_at: string | null;
@@ -484,14 +485,17 @@ export type Database = {
           notes: string | null;
           owner_id: string;
           price: number | null;
+          price_unit: string | null;
           property_id: string;
           scheduled_at: string;
+          service_title: string | null;
           started_at: string | null;
           status: string | null;
         };
         Insert: {
           address?: string | null;
           cleaner_id?: string | null;
+          cleaner_service_id?: string | null;
           cleaning_type: string;
           completed_at?: string | null;
           created_at?: string | null;
@@ -499,14 +503,17 @@ export type Database = {
           notes?: string | null;
           owner_id: string;
           price?: number | null;
+          price_unit?: string | null;
           property_id: string;
           scheduled_at: string;
+          service_title?: string | null;
           started_at?: string | null;
           status?: string | null;
         };
         Update: {
           address?: string | null;
           cleaner_id?: string | null;
+          cleaner_service_id?: string | null;
           cleaning_type?: string;
           completed_at?: string | null;
           created_at?: string | null;
@@ -514,8 +521,10 @@ export type Database = {
           notes?: string | null;
           owner_id?: string;
           price?: number | null;
+          price_unit?: string | null;
           property_id?: string;
           scheduled_at?: string;
+          service_title?: string | null;
           started_at?: string | null;
           status?: string | null;
         };
@@ -525,6 +534,13 @@ export type Database = {
             columns: ["cleaner_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cleaning_tasks_cleaner_service_id_fkey";
+            columns: ["cleaner_service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
             referencedColumns: ["id"];
           },
           {
@@ -3057,28 +3073,43 @@ export type Database = {
       };
       user_subscriptions: {
         Row: {
+          amount_paid: number | null;
           created_at: string;
           expires_at: string;
           id: string;
           package_id: string | null;
+          payment_transaction_id: string | null;
+          review_note: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
           starts_at: string;
           status: string;
           user_id: string;
         };
         Insert: {
+          amount_paid?: number | null;
           created_at?: string;
           expires_at: string;
           id?: string;
           package_id?: string | null;
+          payment_transaction_id?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
           starts_at: string;
           status?: string;
           user_id: string;
         };
         Update: {
+          amount_paid?: number | null;
           created_at?: string;
           expires_at?: string;
           id?: string;
           package_id?: string | null;
+          payment_transaction_id?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
           starts_at?: string;
           status?: string;
           user_id?: string;
@@ -3089,6 +3120,20 @@ export type Database = {
             columns: ["package_id"];
             isOneToOne: false;
             referencedRelation: "pricing_packages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_subscriptions_payment_transaction_id_fkey";
+            columns: ["payment_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_subscriptions_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
           {
@@ -3411,6 +3456,17 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      create_cleaning_task: {
+        Args: {
+          p_address?: string | null;
+          p_cleaner_service_id: string;
+          p_cleaning_type: string;
+          p_notes?: string | null;
+          p_property_id: string;
+          p_scheduled_at: string;
+        };
+        Returns: Database["public"]["Tables"]["cleaning_tasks"]["Row"];
+      };
       create_guest_manual_booking: {
         Args: {
           p_amount?: number | null;
@@ -3476,6 +3532,16 @@ export type Database = {
         Returns: {
           cleaner_id: string;
           renters_served: number;
+        }[];
+      };
+      get_my_cleaning_task_cleaner_details: {
+        Args: never;
+        Returns: {
+          cleaner_avatar_url: string | null;
+          cleaner_name: string;
+          phone: string | null;
+          task_id: string;
+          whatsapp: string | null;
         }[];
       };
       get_platform_cleaners: {
@@ -3577,6 +3643,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      purchase_renter_membership: {
+        Args: { p_package_id: string; p_user_id: string };
+        Returns: Json;
+      };
       purchase_vip: {
         Args: {
           p_days?: number;
@@ -3625,6 +3695,15 @@ export type Database = {
         Args: { p_action: string; p_member_id: string };
         Returns: undefined;
       };
+      review_renter_membership: {
+        Args: {
+          p_action: string;
+          p_admin_id: string;
+          p_note?: string;
+          p_subscription_id: string;
+        };
+        Returns: Json;
+      };
       seller_dashboard_stats: {
         Args: {
           p_from: string;
@@ -3641,6 +3720,10 @@ export type Database = {
           sold: number;
           views_total: number;
         }[];
+      };
+      transition_cleaning_task: {
+        Args: { p_status: string; p_task_id: string };
+        Returns: Database["public"]["Tables"]["cleaning_tasks"]["Row"];
       };
       settle_payment: {
         Args: {
@@ -3955,7 +4038,8 @@ export type Database = {
         | "discount_badge"
         | "withdrawal"
         | "commission"
-        | "sms_send";
+        | "sms_send"
+        | "membership_refund";
       user_role:
         | "guest"
         | "renter"
@@ -4162,6 +4246,7 @@ export const Constants = {
         "withdrawal",
         "commission",
         "sms_send",
+        "membership_refund",
       ],
       user_role: [
         "guest",

@@ -35,6 +35,15 @@ test.describe("Admin Dashboard", () => {
     await expect(adminPage.getByText("ვერიფიკაციები").first()).toBeVisible();
   });
 
+  test("membership approval queue loads", async ({ adminPage }) => {
+    await adminPage.goto("/dashboard/admin/memberships");
+    if (!(await assertDashboard(adminPage))) return;
+
+    await expect(adminPage.locator("main")).toBeVisible();
+    await expect(adminPage).toHaveURL(/\/dashboard\/admin\/memberships/);
+    await expect(adminPage.getByRole("heading", { name: "საწევროს დადასტურება" })).toBeVisible();
+  });
+
   test("clients page loads", async ({ adminPage }) => {
     await adminPage.goto("/dashboard/admin/clients");
     if (!(await assertDashboard(adminPage))) return;

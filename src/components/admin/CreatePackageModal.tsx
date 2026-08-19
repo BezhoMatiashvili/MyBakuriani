@@ -71,7 +71,6 @@ export default function CreatePackageModal({
   const [vipTier, setVipTier] = useState<string>("standard");
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
-  const [durationMonths, setDurationMonths] = useState<1 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -103,7 +102,6 @@ export default function CreatePackageModal({
       setValidTo(
         typeof meta.valid_to === "string" ? (meta.valid_to as string) : "",
       );
-      setDurationMonths(meta.duration_months === 3 ? 3 : 1);
     } else {
       setName("");
       setLabel("");
@@ -114,7 +112,6 @@ export default function CreatePackageModal({
       setVipTier("standard");
       setValidFrom("");
       setValidTo("");
-      setDurationMonths(1);
     }
   }, [isOpen, editPackage]);
 
@@ -166,7 +163,10 @@ export default function CreatePackageModal({
       meta.tier = vipTier;
     } else if (effectiveCategory === "subscription" && isRenterMembership) {
       meta.subscription_scope = "renter";
-      meta.duration_months = durationMonths;
+      meta.billing_period = "seasonal";
+      meta.season_end_month = 3;
+      meta.season_end_day = 15;
+      delete meta.duration_months;
       delete meta.valid_from;
       delete meta.valid_to;
     } else if (effectiveCategory === "subscription") {
@@ -307,16 +307,11 @@ export default function CreatePackageModal({
         (editPackage?.meta?.subscription_scope === "renter" || !editPackage) ? (
           <div className="space-y-1.5">
             <label className="text-[12px] font-bold text-[#0F172A]">
-              {t("membershipDuration")} <span className="text-[#DC2626]">*</span>
+              {t("membershipDuration")}
             </label>
-            <select
-              value={durationMonths}
-              onChange={(e) => setDurationMonths(Number(e.target.value) as 1 | 3)}
-              className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-            >
-              <option value={1}>{t("oneMonth")}</option>
-              <option value={3}>{t("threeMonths")}</option>
-            </select>
+            <p className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5 text-sm font-semibold text-[#1D4ED8]">
+              {t("seasonalMembership")}
+            </p>
           </div>
         ) : effectiveCategory === "subscription" ? (
           <div className="grid grid-cols-2 gap-3">

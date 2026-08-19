@@ -142,7 +142,7 @@ export default function CleanerDashboardClient({
       }
 
       setTasks((prev) =>
-        next === "declined" || next === "completed"
+        next === "declined" || next === "cancelled" || next === "completed"
           ? prev.filter(
               (item) =>
                 item.id !== task.id || item.source !== task.source,
@@ -168,7 +168,10 @@ export default function CleanerDashboardClient({
     (task) => task.source === "platform" && task.status === "pending",
   );
   const scheduledTasks = tasks.filter(
-    (task) => task.status === "accepted" || task.status === "in_progress",
+    (task) =>
+      task.status === "accepted" ||
+      task.status === "cancellation_requested" ||
+      task.status === "in_progress",
   );
 
   return (
@@ -252,6 +255,10 @@ export default function CleanerDashboardClient({
                         : "in_progress",
                     )
                   }
+                  onApproveCancellation={() =>
+                    void transitionTask(task, "cancelled")
+                  }
+                  onKeepTask={() => void transitionTask(task, "accepted")}
                 />
               ))
             )}
@@ -377,15 +384,20 @@ function ScheduledTaskCard({
   task,
   disabled,
   onAdvance,
+  onApproveCancellation,
+  onKeepTask,
 }: {
   task: CleanerTaskItem;
   disabled: boolean;
   onAdvance: () => void;
+  onApproveCancellation: () => void;
+  onKeepTask: () => void;
 }) {
   const t = useTranslations("CleanerDashboard");
   const tManual = useTranslations("CleanerSchedule.manualTask");
   const locale = useLocale();
   const inProgress = task.status === "in_progress";
+  const cancellationRequested = task.status === "cancellation_requested";
 
   return (
     <motion.article
@@ -398,12 +410,18 @@ function ScheduledTaskCard({
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-bold ${
-              inProgress
+              cancellationRequested
+                ? "bg-[#FEF3C7] text-[#B45309]"
+                : inProgress
                 ? "bg-[#EFF6FF] text-[#2563EB]"
                 : "bg-[#DCFCE7] text-[#16A34A]"
             }`}
           >
-            {inProgress ? t("inProgressBadge") : t("confirmedBadge")}
+            {cancellationRequested
+              ? t("cancellationRequestedBadge")
+              : inProgress
+                ? t("inProgressBadge")
+                : t("confirmedBadge")}
           </span>
           {task.source === "manual" && (
             <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold text-[#64748B]">
@@ -425,18 +443,44 @@ function ScheduledTaskCard({
         {task.address ?? "—"}
       </p>
 
-      <button
-        type="button"
-        onClick={onAdvance}
-        disabled={disabled}
-        className={`mt-5 w-full rounded-xl px-4 py-3 text-[13px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-          inProgress
-            ? "bg-[#16A34A] text-white hover:bg-[#15803D]"
-            : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
-        }`}
-      >
-        {inProgress ? t("markCompleted") : t("start")}
-      </button>
+      {cancellationRequested ? (
+        <div className="mt-5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
+          <p className="text-[12px] font-bold leading-5 text-[#92400E]">
+            {t("cancellationRequestedHelp")}
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={onKeepTask}
+              disabled={disabled}
+              className="min-h-11 rounded-xl border border-[#F59E0B] bg-white px-4 text-[12px] font-bold text-[#92400E] disabled:opacity-50"
+            >
+              {t("keepTask")}
+            </button>
+            <button
+              type="button"
+              onClick={onApproveCancellation}
+              disabled={disabled}
+              className="min-h-11 rounded-xl bg-[#DC2626] px-4 text-[12px] font-bold text-white disabled:opacity-50"
+            >
+              {t("approveCancellation")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onAdvance}
+          disabled={disabled}
+          className={`mt-5 w-full rounded-xl px-4 py-3 text-[13px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            inProgress
+              ? "bg-[#16A34A] text-white hover:bg-[#15803D]"
+              : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+          }`}
+        >
+          {inProgress ? t("markCompleted") : t("start")}
+        </button>
+      )}
     </motion.article>
   );
 }

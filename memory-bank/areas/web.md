@@ -49,7 +49,8 @@ App Router routes and all React UI.
 
 C1 (namespaces), C4 (invoke callers), C5 (uploads), C6 (image hosts), C7 (realtime
 subscribers), C8 (protected routes), C20 (renter calendar cancellation history),
-C21 (restaurant discount submission and approved-discount ordering), C16
+C21 (restaurant discount submission and approved-discount ordering), C24
+(cleaner call-out details/history and bilateral cancellation), C16
 (public-page analytics beacon and shared rate limiting).
 
 ## Note

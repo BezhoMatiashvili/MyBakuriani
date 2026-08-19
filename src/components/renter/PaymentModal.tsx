@@ -13,6 +13,8 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   membershipExpiresAt: string | null;
+  membershipPending: boolean;
+  membershipPendingExpiresAt: string | null;
   walletBalance: number;
   plans: RenterMembershipPlan[];
   onPurchased: () => Promise<void>;
@@ -23,6 +25,8 @@ export default function PaymentModal({
   isOpen,
   onClose,
   membershipExpiresAt,
+  membershipPending,
+  membershipPendingExpiresAt,
   walletBalance,
   plans,
   onPurchased,
@@ -71,6 +75,7 @@ export default function PaymentModal({
     }
     await onPurchased();
     setSubmitting(false);
+    onClose();
   }
 
   return (
@@ -93,7 +98,7 @@ export default function PaymentModal({
                   <CreditCard className="h-[18px] w-[18px]" />
                 </span>
                 <h2 id="membership-dialog-title" className="text-[17px] font-extrabold text-[#0F172A]">
-                  {isActive ? t("extendTitle") : t("title")}
+                  {t("title")}
                 </h2>
               </div>
               <button onClick={onClose} className="flex size-8 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9]" aria-label={tShared("closeAria")}>
@@ -110,6 +115,8 @@ export default function PaymentModal({
                 <span className="text-sm font-semibold text-[#64748B]">{isActive ? t("validUntil") : t("membershipStatus")}</span>
                 {isActive ? (
                   <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#059669]"><CheckCircle2 className="h-4 w-4" />{formatDate(membershipExpiresAt, locale)}</span>
+                ) : membershipPending ? (
+                  <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#B45309]"><AlertCircle className="h-4 w-4" />{t("awaitingApproval")}{membershipPendingExpiresAt ? ` · ${formatDate(membershipPendingExpiresAt, locale)}` : ""}</span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#DC2626]"><AlertCircle className="h-4 w-4" />{t("inactive")}</span>
                 )}
@@ -117,7 +124,9 @@ export default function PaymentModal({
             </div>
 
             <p className="mx-6 mt-5 text-[13px] leading-[20px] text-[#64748B]">
-              {isActive ? t("extendExplanation") : t("explanationPending")}
+              {membershipPending
+                ? t("alreadyPending")
+                : t("seasonalExplanation")}
             </p>
 
             {plans.length > 0 ? (
@@ -127,7 +136,7 @@ export default function PaymentModal({
                   return (
                     <button key={plan.id} type="button" onClick={() => setSelectedId(plan.id)} aria-pressed={selected}
                       className={`rounded-xl border p-4 text-left transition-colors ${selected ? "border-[#2563EB] bg-[#EFF6FF] ring-1 ring-[#2563EB]" : "border-[#E2E8F0] hover:border-[#93C5FD]"}`}>
-                      <span className="block text-sm font-extrabold text-[#0F172A]">{plan.label || t("months", { count: plan.durationMonths })}</span>
+                      <span className="block text-sm font-extrabold text-[#0F172A]">{t("seasonPlan")}</span>
                       {plan.description ? <span className="mt-1 block text-xs text-[#64748B]">{plan.description}</span> : null}
                       <span className="mt-3 block text-xl font-black text-[#2563EB]">{formatPrice(Number(plan.amount_gel))}</span>
                     </button>
@@ -145,10 +154,10 @@ export default function PaymentModal({
             ) : null}
 
             <div className="px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
-              <button type="button" onClick={purchase} disabled={!selectedPlan || submitting}
+              <button type="button" onClick={purchase} disabled={!selectedPlan || submitting || membershipPending || isActive}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3.5 text-sm font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-50">
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                {isActive ? t("extendButton") : t("payButton")}
+                {membershipPending ? t("awaitingApproval") : t("payButton")}
               </button>
             </div>
           </motion.section>

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {
   verificationAlerts?: number;
+  membershipAlerts?: number;
   onSignOut: () => void;
 }
 
@@ -25,6 +26,10 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
       {
         labelKey: "verifications",
         href: "/dashboard/admin/verifications",
+      },
+      {
+        labelKey: "memberships",
+        href: "/dashboard/admin/memberships",
       },
       {
         labelKey: "companies",
@@ -101,6 +106,7 @@ function normalizePath(pathname: string) {
 
 export function AdminSidebar({
   verificationAlerts = 0,
+  membershipAlerts = 0,
   onSignOut,
 }: AdminSidebarProps) {
   const t = useTranslations("DashboardSidebar");
@@ -134,6 +140,8 @@ export function AdminSidebar({
                 const badge =
                   item.href === "/dashboard/admin/verifications"
                     ? verificationAlerts
+                    : item.href === "/dashboard/admin/memberships"
+                      ? membershipAlerts
                     : item.badge;
 
                 return (

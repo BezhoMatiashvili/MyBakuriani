@@ -16,8 +16,32 @@ import type { Database, Tables } from "@/lib/types/database";
 export type CleanerTaskTransitionStatus =
   | "accepted"
   | "declined"
+  | "cancellation_requested"
+  | "cancelled"
   | "in_progress"
   | "completed";
+
+export interface CreateCleaningTaskArgs {
+  p_property_id: string;
+  p_cleaner_service_id: string;
+  p_cleaning_type: string;
+  p_scheduled_at: string;
+  p_notes: string | null;
+  p_address: string | null;
+}
+
+export interface CleanerTaskRpcError {
+  code?: string;
+  message?: string;
+}
+
+export interface CleaningTaskCleanerDetails {
+  task_id: string;
+  cleaner_name: string;
+  cleaner_avatar_url: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+}
 
 interface CleanerTaskRpcClient {
   rpc(
@@ -27,6 +51,25 @@ interface CleanerTaskRpcClient {
       p_status: CleanerTaskTransitionStatus;
     },
   ): PromiseLike<{ error: unknown | null }>;
+}
+
+interface CreateCleanerTaskRpcClient {
+  rpc(
+    name: "create_cleaning_task",
+    args: CreateCleaningTaskArgs,
+  ): PromiseLike<{
+    data: Tables<"cleaning_tasks"> | null;
+    error: CleanerTaskRpcError | null;
+  }>;
+}
+
+interface CleanerTaskDetailsRpcClient {
+  rpc(
+    name: "get_my_cleaning_task_cleaner_details",
+  ): PromiseLike<{
+    data: CleaningTaskCleanerDetails[] | null;
+    error: unknown | null;
+  }>;
 }
 
 export type PlatformTaskRow = Tables<"cleaning_tasks"> & {
@@ -78,6 +121,32 @@ export async function transitionPlatformCleanerTask(
       p_task_id: taskId,
       p_status: status,
     },
+  );
+}
+
+/** Typed boundary for the address-aware, server-priced call-out RPC. */
+export async function createPlatformCleanerTask(
+  supabase: SupabaseClient<Database>,
+  args: CreateCleaningTaskArgs,
+): Promise<{
+  data: Tables<"cleaning_tasks"> | null;
+  error: CleanerTaskRpcError | null;
+}> {
+  return await (supabase as unknown as CreateCleanerTaskRpcClient).rpc(
+    "create_cleaning_task",
+    args,
+  );
+}
+
+/** Participant-safe renter projection for cleaner identity and contact data. */
+export async function loadCleaningTaskCleanerDetails(
+  supabase: SupabaseClient<Database>,
+): Promise<{
+  data: CleaningTaskCleanerDetails[] | null;
+  error: unknown | null;
+}> {
+  return await (supabase as unknown as CleanerTaskDetailsRpcClient).rpc(
+    "get_my_cleaning_task_cleaner_details",
   );
 }
 

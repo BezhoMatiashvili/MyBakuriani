@@ -97,6 +97,11 @@ function getNavigation(role: string): RoleNavigation {
         ],
         more: [
           {
+            labelKey: "memberships",
+            href: "/dashboard/admin/memberships",
+            icon: IdCard,
+          },
+          {
             labelKey: "analytics",
             href: "/dashboard/admin/analytics",
             icon: BarChart3,
