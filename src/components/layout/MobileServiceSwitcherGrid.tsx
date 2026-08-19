@@ -21,11 +21,8 @@ export function MobileServiceSwitcherGrid({
 }: MobileServiceSwitcherGridProps) {
   const t = useTranslations("DashboardSidebar");
   const items = CABINET_SWITCHER_ITEMS.filter(
-    (item) =>
-      item.key !== "guest" && availableCabinets.includes(item.key),
+    (item) => item.key !== "guest" && availableCabinets.includes(item.key),
   );
-
-  if (items.length === 0) return null;
 
   return (
     <section
@@ -35,38 +32,57 @@ export function MobileServiceSwitcherGrid({
         className,
       )}
     >
-      <p className="mb-3 text-[12px] font-extrabold text-[#475569]">
-        {t("serviceSwitcher")}
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        {items.map((item) => {
-          const active = item.key === activeCabinetKey;
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              onClick={onSelect}
-              className={cn(
-                "flex min-h-11 min-w-0 items-center justify-between gap-2 rounded-xl border px-3 text-[12px] font-bold transition-colors",
-                active
-                  ? "border-[#2563EB] bg-[#2563EB] text-white"
-                  : "border-[#D9E2EC] bg-white text-[#334155] hover:border-[#93C5FD] hover:bg-[#EFF6FF]",
-              )}
-            >
-              <span className="min-w-0 truncate">
-                {t(`switcher.${item.labelKey}`)}
-              </span>
-              {active && (
-                <span
-                  aria-hidden
-                  className="size-2 shrink-0 rounded-full bg-white"
-                />
-              )}
-            </Link>
-          );
-        })}
-      </div>
+      {items.length > 0 && (
+        <>
+          <p className="mb-3 text-[12px] font-extrabold text-[#475569]">
+            {t("serviceSwitcher")}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {items.map((item) => {
+              const active = item.key === activeCabinetKey;
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={onSelect}
+                  className={cn(
+                    "flex min-h-11 min-w-0 items-center justify-between gap-2 rounded-xl border px-3 text-[12px] font-bold transition-colors",
+                    active
+                      ? "border-[#2563EB] bg-[#2563EB] text-white"
+                      : "border-[#D9E2EC] bg-white text-[#334155] hover:border-[#93C5FD] hover:bg-[#EFF6FF]",
+                  )}
+                >
+                  <span className="min-w-0 truncate">
+                    {t(`switcher.${item.labelKey}`)}
+                  </span>
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="size-2 shrink-0 rounded-full bg-white"
+                    />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+      <Link
+        href="/dashboard/guest"
+        onClick={onSelect}
+        className={cn(
+          "block rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2.5 text-center",
+          items.length > 0 && "mt-2",
+        )}
+      >
+        <p className="text-[13px] font-bold text-[#2563EB]">
+          {t("switcher.guestMode")}
+        </p>
+        <p className="mt-0.5 text-[10px] font-medium text-[#64748B]">
+          {t("switcher.guestModeDesc")}
+        </p>
+      </Link>
     </section>
   );
 }
