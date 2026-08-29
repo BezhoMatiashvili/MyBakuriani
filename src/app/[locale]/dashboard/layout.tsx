@@ -40,16 +40,28 @@ export default async function DashboardLayout({
 
   const t = await getTranslations("DashboardLayout");
   const supabase = await createClient();
+  const sellerSmsFlag = isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id);
 
   // One RPC instead of 7 parallel REST queries — counts, balance and
   // cabinet-derivation flags arrive in a single round trip.
   // The root [locale] provider only ships public namespaces, so re-provide the
   // full message bundle for the dashboard subtree (nested providers replace,
   // not merge — locale/timeZone/formats are still inherited from the parent).
-  const [profile, layoutRes, messages] = await Promise.all([
+  // sellerSmsCount only depends on user.id (already resolved above), so it runs
+  // alongside the rest of this request's Supabase calls instead of adding a
+  // separate round-trip to the tail of the critical path.
+  const [profile, layoutRes, messages, sellerSmsCount] = await Promise.all([
     getCurrentProfile(),
     supabase.rpc("dashboard_layout_data"),
     getMessages(),
+    sellerSmsFlag
+      ? supabase
+          .from("properties")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", user.id)
+          .eq("is_for_sale", true)
+          .is("organization_id", null)
+      : Promise.resolve({ count: 0 }),
   ]);
 
   // Defensive: fall back to safe defaults if the RPC errors (e.g. code
@@ -75,15 +87,6 @@ export default async function DashboardLayout({
   const canUseSms = (data.is_for_sale_flags ?? []).some(
     (isForSale) => isForSale !== true,
   );
-  const sellerSmsFlag = isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id);
-  const sellerSmsCount = sellerSmsFlag
-    ? await supabase
-        .from("properties")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", user.id)
-        .eq("is_for_sale", true)
-        .is("organization_id", null)
-    : { count: 0 };
   const canUseSellerSms = sellerSmsFlag && (sellerSmsCount.count ?? 0) > 0;
 
   return (

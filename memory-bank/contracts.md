@@ -377,6 +377,21 @@ Participating symbols:
 - `src/lib/auth/current-user.ts:getCurrentUser` — normally uses remote
   `getUser()` verification. Its retryable-network fallback must call
   `getVerifiedSessionUser`; never return `getSession().user` directly.
+  Since 2026-08-29, `getUser()` is additionally raced against a 5s
+  `GET_USER_TIMEOUT_MS` (via `src/lib/with-timeout.ts:withTimeout`) that falls
+  through to the same `getVerifiedSessionUser` path on timeout, not only on a
+  confirmed `isAuthRetryableFetchError`. Reason: `timeoutFetch`'s own floor for
+  any `/auth/v1/*` call is 25s (kept generous there so the _login page's_
+  OTP/token calls aren't aborted mid-flight), which is longer than a single
+  request's real execution budget (~10s, see `SERVER_FETCH_TIMEOUT_MS` in
+  `supabase/server.ts`). On a slow-but-not-dead mobile connection this let the
+  platform kill the whole `dashboard/layout.tsx` render before `getUser()` ever
+  got to fall back on its own — the client's in-flight navigation was left
+  stuck on the loading skeleton indefinitely, reproduced and fixed this session
+  (deterministic repro: temporarily race the real `getUser()` call against an
+  artificial ~20s delay and confirm the render still resolves in ~5s). Do not
+  raise `GET_USER_TIMEOUT_MS` back toward 25s without also raising the real
+  per-request execution budget, or this regresses.
 - `src/lib/auth/verified-session-user.ts:getVerifiedSessionUser` — verifies
   `getClaims()`, matches the signed `sub` to the cookie session, then returns
   only signed identity fields (not attacker-editable embedded user metadata)
@@ -388,7 +403,10 @@ RLS still leaks via a direct API/query call that never hits the middleware.
 
 **Breaks silently when:** a new top-level protected segment (e.g. `/studio`) is
 added but the middleware `isProtected` prefixes aren't updated → the page renders
-for anonymous users; only RLS (if present) stops data access.
+for anonymous users; only RLS (if present) stops data access. Or `getCurrentUser`'s
+`GET_USER_TIMEOUT_MS` race is removed/lengthened past the real per-request
+execution budget → dashboards intermittently hang on the loading skeleton on slow
+connections again, worst on mobile, with no error and no clean recovery.
 
 ---
 
