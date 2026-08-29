@@ -1,5 +1,6 @@
 import { unstable_rethrow } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-user";
+import { isAal2Verified } from "@/lib/auth/mfa-assurance";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -15,8 +16,7 @@ export async function isAdminViewer(): Promise<boolean> {
     const profile = await getCurrentProfile();
     if (profile?.role !== "admin") return false;
     const supabase = await createClient();
-    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    return data?.currentLevel === "aal2";
+    return await isAal2Verified(supabase.auth);
   } catch (err) {
     // Never swallow Next's control-flow signals (dynamic-rendering bail-out,
     // redirect, notFound) — doing so corrupts the render. Treat only real

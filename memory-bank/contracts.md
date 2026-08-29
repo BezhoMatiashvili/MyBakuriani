@@ -396,6 +396,31 @@ Participating symbols:
   `getClaims()`, matches the signed `sub` to the cookie session, then returns
   only signed identity fields (not attacker-editable embedded user metadata)
 - `supabase/functions/_shared/guards.ts:requireUser` — edge-side Bearer auth
+- `src/lib/auth/mfa-assurance.ts:isAal2Verified` — since 2026-08-30, all 3 admin
+  MFA (AAL2) gates above (`requireAdmin`, `isAdminViewer`,
+  `dashboard/admin/layout.tsx`) route through this shared helper instead of
+  calling `supabase.auth.mfa.getAuthenticatorAssuranceLevel()` directly.
+  Reason: called with no jwt (as every caller does), that method falls through
+  to auth-js's own `getSession()`, which triggers a network token refresh
+  (`POST /auth/v1/token`) whenever the current access token has expired — the
+  exact same unguarded-remote-auth-call shape as `getCurrentUser`'s
+  pre-2026-08-29 bug, just left unpatched here and reachable only for admin
+  sessions (desktop-heavy usage, since admin work is almost always done from
+  desktop, and access tokens live 1 hour — a tab left open triggers this).
+  `isAal2Verified` races the call against `AAL2_CHECK_TIMEOUT_MS` = 2.5s (not
+  `GET_USER_TIMEOUT_MS`'s 5s: this check always runs after
+  `getCurrentUser`/`getCurrentProfile` have already resolved earlier in the
+  same request, so on the exact failure being guarded against, that earlier
+  call already spent up to its own 5s before falling back — another 5s here
+  would push the request's serial auth timeouts alone past
+  `SERVER_FETCH_TIMEOUT_MS`'s ~10s real execution budget) and **fails closed**
+  on timeout (returns `false`, i.e. "not aal2") — unlike `getCurrentUser`,
+  there is no cheap local signal that can positively confirm step-up MFA, so
+  an unverifiable result must never grant elevated access. The module has no
+  `@/` alias imports (the timeout race is inlined, matching
+  `verified-session-user.ts`) so it stays testable directly via
+  `node --test` (`scripts/mfa-assurance.test.mjs`, wired into
+  `npm run test:security-auth`).
 
 **Also check:** a protected page still needs RLS on the tables it reads —
 middleware gates the _route_, RLS gates the _data_. A gated page whose tables lack
@@ -406,7 +431,12 @@ added but the middleware `isProtected` prefixes aren't updated → the page rend
 for anonymous users; only RLS (if present) stops data access. Or `getCurrentUser`'s
 `GET_USER_TIMEOUT_MS` race is removed/lengthened past the real per-request
 execution budget → dashboards intermittently hang on the loading skeleton on slow
-connections again, worst on mobile, with no error and no clean recovery.
+connections again, worst on mobile, with no error and no clean recovery. Or a
+new/edited call site invokes `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`
+directly instead of through `isAal2Verified` → the admin dashboard/API hang
+reopens, this time gated on MFA assurance instead of identity, worst on desktop
+since that's where admin sessions live long enough for the access token to
+expire mid-tab.
 
 ---
 
