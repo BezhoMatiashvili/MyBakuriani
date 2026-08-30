@@ -25,7 +25,6 @@ import { formatPhone, formatPrice } from "@/lib/utils/format";
 import type { Tables, Enums } from "@/lib/types/database";
 
 type ProfileWithCounts = Tables<"profiles"> & {
-  listings_count: number;
   balance_amount: number;
 };
 
@@ -36,8 +35,6 @@ type Txn = {
   description: string | null;
   created_at: string;
 };
-
-const VIP_TX_TYPES = new Set(["vip_boost", "super_vip", "discount_badge"]);
 
 const roleBadgeClasses: Record<Enums<"user_role">, string> = {
   guest: "border border-[#E2E8F0] bg-[#ECFDF5] text-[#475569]",
@@ -86,6 +83,13 @@ function ClientsPageContent() {
     useState<ProfileWithCounts | null>(null);
   // null = still loading the selected profile's transactions
   const [txns, setTxns] = useState<Txn[] | null>(null);
+  // Lifetime LTV/topup/VIP tiles — computed server-side over the client's
+  // FULL transaction history, not the 200-row cap that feeds `txns`.
+  const [txStats, setTxStats] = useState<{
+    vipCount: number;
+    topupCount: number;
+    ltv: number;
+  } | null>(null);
   const [bonusProfile, setBonusProfile] = useState<ProfileWithCounts | null>(
     null,
   );
@@ -93,8 +97,8 @@ function ClientsPageContent() {
   const [bonusComment, setBonusComment] = useState("");
   const [bonusSubmitting, setBonusSubmitting] = useState(false);
 
-  // Profiles + listings count + balance arrive pre-joined from one admin
-  // RPC instead of downloading profiles, properties and balances separately.
+  // Profiles + balance arrive pre-joined from one admin RPC instead of
+  // downloading profiles and balances separately.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/admin/clients")
@@ -127,35 +131,32 @@ function ClientsPageContent() {
     if (!selectedProfile) return;
     let cancelled = false;
     setTxns(null);
+    setTxStats(null);
     fetch(`/api/admin/clients/${selectedProfile.id}/transactions`, {
       cache: "no-store",
     })
       .then((res) => (res.ok ? res.json() : null))
-      .then((payload: { transactions?: Txn[] } | null) => {
-        if (!cancelled) setTxns(payload?.transactions ?? []);
-      })
+      .then(
+        (
+          payload: {
+            transactions?: Txn[];
+            stats?: { vipCount: number; topupCount: number; ltv: number };
+          } | null,
+        ) => {
+          if (cancelled) return;
+          setTxns(payload?.transactions ?? []);
+          setTxStats(payload?.stats ?? { vipCount: 0, topupCount: 0, ltv: 0 });
+        },
+      )
       .catch(() => {
-        if (!cancelled) setTxns([]);
+        if (cancelled) return;
+        setTxns([]);
+        setTxStats({ vipCount: 0, topupCount: 0, ltv: 0 });
       });
     return () => {
       cancelled = true;
     };
   }, [selectedProfile]);
-
-  const txStats = useMemo(() => {
-    if (!txns) return null;
-    let vipCount = 0;
-    let topupCount = 0;
-    let ltv = 0;
-    for (const tx of txns) {
-      const amount = Number(tx.amount);
-      if (VIP_TX_TYPES.has(tx.type)) vipCount += 1;
-      if (tx.type === "topup") topupCount += 1;
-      // Spend = money out, excluding withdrawals (cash-out is not consumption)
-      if (amount < 0 && tx.type !== "withdrawal") ltv += Math.abs(amount);
-    }
-    return { vipCount, topupCount, ltv };
-  }, [txns]);
 
   function openBonus(profile: ProfileWithCounts) {
     setBonusProfile(profile);

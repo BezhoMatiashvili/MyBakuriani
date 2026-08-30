@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { getAdminStats } from "@/lib/admin/getAdminStats";
 
 export const runtime = "nodejs";
 
@@ -8,29 +9,15 @@ export async function GET() {
   if (!guard.ok) return guard.response;
   const db = createServiceClient();
 
-  const [{ data: tx }, { data: bookings }, { count: propertiesCount }] =
-    await Promise.all([
-      db.from("transactions").select("amount, type, created_at"),
-      db.from("bookings").select("total_price, status"),
-      db
-        .from("properties")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active"),
-    ]);
+  const stats = await getAdminStats();
+  if (!stats) {
+    return Response.json({ error: "stats_unavailable" }, { status: 500 });
+  }
 
-  const gross = (tx ?? []).reduce(
-    (sum, t) => (t.amount > 0 ? sum + Number(t.amount) : sum),
-    0,
-  );
-  const fees = (tx ?? [])
-    .filter((t) => t.type === "commission")
-    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-  const net = gross - fees;
-  const completedRevenue = (bookings ?? [])
-    .filter((b) => b.status === "completed")
-    .reduce((sum, b) => sum + Number(b.total_price ?? 0), 0);
+  const gross = stats.gross_revenue;
+  const net = stats.net_revenue;
   const perListing =
-    (propertiesCount ?? 0) > 0 ? net / (propertiesCount ?? 1) : 0;
+    stats.active_listings > 0 ? net / stats.active_listings : 0;
 
   const recent = await db
     .from("transactions")
@@ -43,7 +30,6 @@ export async function GET() {
   return Response.json({
     gross,
     net,
-    completedRevenue,
     perListing,
     recent: recent.data ?? [],
   });

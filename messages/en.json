@@ -184,7 +184,6 @@
       "profile": "Profile",
       "myListings": "My Listings",
       "schedule": "Schedule",
-      "earnings": "Earnings",
       "orders": "Orders",
       "cvs": "CVs",
       "bookings": "Bookings",
@@ -3310,16 +3309,6 @@
       "deleteConfirm": "Delete this job?"
     }
   },
-  "CleanerEarnings": {
-    "title": "Earnings",
-    "subtitle": "Your earnings history and statistics",
-    "statEarnings": "Earnings",
-    "statCompleted": "Completed",
-    "statAverage": "Average",
-    "chartTitle": "Earnings by period",
-    "history": "History",
-    "emptyHistory": "No records for this period"
-  },
   "FoodDashboard": {
     "premiumPaid": "PREMIUM paid",
     "dailyRevenue": "Daily revenue",
@@ -4143,10 +4132,10 @@
     "funnelViews": "Views",
     "funnelSearches": "Searches",
     "funnelRequests": "Requests",
-    "funnelCompleted": "Completed bookings",
+    "funnelCompleted": "Completed stays (7 days)",
     "funnelSiteVisits": "Page views (7 days)",
     "funnelSearchOpens": "Search page opens (7 days)",
-    "funnelRequestSends": "Booking requests (7 days)",
+    "funnelRequestSends": "New bookings (7 days)",
     "dropoff": "↓ Drop-off: {percent}%",
     "dropoffUnavailable": "↓ Drop-off: —",
     "netRevenue": "Net revenue (₾)",
@@ -4157,7 +4146,6 @@
     "trackingNote": "Page views count public-page opens; signed-in visitors count distinct authenticated accounts. Data from the period when tracking was disabled cannot be recovered.",
     "funnelTitle": "7-day activity funnel",
     "marketHealth": "Market health",
-    "passiveObjects": "Passive listings",
     "calendarFrequency": "Calendar frequency",
     "avgNightPrice": "Average nightly price"
   },
@@ -4589,8 +4577,8 @@
   "AdminClientDetail": {
     "notFound": "User not found",
     "backToClients": "Back to clients",
-    "block": "Block",
-    "unblock": "Unblock",
+    "markVerified": "Mark Verified",
+    "removeVerification": "Remove Verification",
     "notify": "Notify",
     "registered": "Registered",
     "rating": "Rating",
@@ -4601,12 +4589,9 @@
     "tabProperties": "Properties",
     "tabBookings": "Bookings",
     "tabTransactions": "Transactions",
-    "tabVerifications": "Verifications",
     "noProperties": "No properties found",
     "noBookings": "No bookings found",
-    "noTransactions": "No transactions found",
-    "noVerifications": "No verifications found",
-    "verificationRequest": "Verification request"
+    "noTransactions": "No transactions found"
   },
   "CleanerParameters": {
     "title": "Profile Settings",

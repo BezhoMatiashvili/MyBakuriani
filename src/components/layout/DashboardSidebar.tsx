@@ -19,7 +19,6 @@ import {
   BarChart3,
   ShieldCheck,
   Clock,
-  DollarSign,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -118,11 +117,6 @@ function getNavItems(role: string): NavItem[] {
           labelKey: "schedule",
           href: "/dashboard/cleaner/schedule",
           icon: Clock,
-        },
-        {
-          labelKey: "earnings",
-          href: "/dashboard/cleaner/earnings",
-          icon: DollarSign,
         },
       ];
     case "food":

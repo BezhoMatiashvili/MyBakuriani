@@ -115,21 +115,36 @@ export default function VerificationsPage() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [changesCount, setChangesCount] = useState(0);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/admin/listings/pending/count", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((payload: { changes?: number } | null) => {
-        if (active && payload && typeof payload.changes === "number") {
-          setChangesCount(payload.changes);
-        }
-      })
-      .catch(() => {});
+    void refreshChangesCount(active);
     return () => {
       active = false;
     };
   }, []);
+
+  async function refreshChangesCount(active = true) {
+    try {
+      const res = await fetch("/api/admin/listings/pending/count", {
+        cache: "no-store",
+      });
+      const payload: { changes?: number } | null = res.ok
+        ? await res.json()
+        : null;
+      if (active && payload && typeof payload.changes === "number") {
+        setChangesCount(payload.changes);
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -237,7 +252,7 @@ export default function VerificationsPage() {
       const elapsedHours = createdAt
         ? Math.max(
             1,
-            Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60)),
+            Math.floor((nowTick - createdAt.getTime()) / (1000 * 60 * 60)),
           )
         : 0;
       return {
@@ -246,7 +261,7 @@ export default function VerificationsPage() {
         isOver24: elapsedHours > 24,
       };
     });
-  }, [filtered]);
+  }, [filtered, nowTick]);
 
   const over24Count = rows.filter((it) => it.isOver24).length;
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -285,7 +300,7 @@ export default function VerificationsPage() {
           listingsCount={items.length}
           changesCount={changesCount}
         />
-        <ContentChangeRequestsPanel />
+        <ContentChangeRequestsPanel onModerated={() => refreshChangesCount()} />
       </div>
     );
   }
@@ -607,7 +622,11 @@ function VerificationTabs({
   );
 }
 
-function ContentChangeRequestsPanel() {
+function ContentChangeRequestsPanel({
+  onModerated,
+}: {
+  onModerated?: () => void;
+}) {
   const [items, setItems] = useState<ContentChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -666,6 +685,7 @@ function ContentChangeRequestsPanel() {
       toast.success(
         action === "approve" ? "ცვლილება დამტკიცდა" : "ცვლილება უარყოფილია",
       );
+      onModerated?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "შეცდომა");
     } finally {

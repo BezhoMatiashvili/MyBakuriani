@@ -22,7 +22,6 @@ type Tx = {
 type FinanceSummary = {
   gross: number;
   net: number;
-  completedRevenue: number;
   perListing: number;
   recent: Tx[];
 };

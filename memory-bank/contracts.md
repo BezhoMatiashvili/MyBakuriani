@@ -995,7 +995,6 @@ Participating symbols:
 - `supabase/migrations/20260804190000_cleaner_manual_tasks_realtime.sql` — adds the
   manual table to Realtime with full replica identity; overview and schedule both
   subscribe using `cleaner_id`, including cross-device deletes
-- `src/app/[locale]/dashboard/cleaner/earnings/page.tsx` — reads both, filtered to `status='completed'`
 - `src/components/cleaner/ManualTaskModal.tsx` — the only writer; create + edit, direct table writes (no RPC)
 
 **`status` starts at `'accepted'`, not `'pending'`.** The cleaner books the job
@@ -1585,3 +1584,148 @@ cabinet (**C19**). Returning direct task-card contact fields for `pending`,
 `declined`, or `cancelled` rows would also bypass that card's acceptance-based
 disclosure rule; this does not replace the platform's separate, rate-limited
 listing contact-reveal flow.
+
+---
+
+## C25 — `profiles` column grants must stay narrower than the table grant
+
+**Invariant:** `public.profiles` has an `anon`-facing RLS policy (`"Anon can view
+active-listing owners and reviewers"`, live today only via its `blog_posts.published`
+branch — the properties/services/reviews branches are dormant because those tables
+carry no anon SELECT policy of their own) alongside a legacy broad table-level GRANT.
+`anon` must never hold table-level `SELECT` on `profiles` — only an explicit
+column-level `SELECT` on the presentation-safe subset (`id`, `display_name`,
+`avatar_url`, `is_verified`, `bio`, `rating`, `response_time_minutes`, `verified_at`,
+`created_at`, `updated_at`, `profile_type`). `phone`, `personal_id` (Georgian national
+ID), `role`, `notification_prefs`, and `marketing_opt_out` must stay off that list.
+
+**Discovered 2026-08-29 as a live, exploitable PII leak** (fixed same session, no
+`src/` changes needed): `anon` held a blanket table-level grant
+(`pg_class.relacl` showed `anon=arwdDxtm`), so any anonymous caller could read
+`phone`/`personal_id`/`role` for the site's blog authors — including which account is
+`admin` — via a plain PostgREST call
+(`/rest/v1/profiles?select=phone,personal_id,role&id=eq.<author_id>`), fully
+bypassing the rate-limited contact-reveal flow (see the neighbor note above) and the
+existing `public_listing_profiles` curated view. **A column-level `REVOKE SELECT
+(cols) ... FROM anon` alone does NOT fix this** — that was the first (ineffective)
+attempt: Postgres column grants are additive on top of a table-level grant, they
+cannot carve out an exception from one. The actual fix is `REVOKE SELECT ON
+public.profiles FROM anon` (table-level) followed by a column-level `GRANT SELECT
+(safe columns) ... TO anon`. Verified via `SET ROLE anon` that the sensitive columns
+now raise `42501 permission denied for table profiles`, while `display_name`/
+`avatar_url` etc. still resolve.
+
+Participating symbols:
+
+- `supabase/migrations/*_rls_policies.sql` (original) → the `"Anon can view
+active-listing owners and reviewers"` policy on `public.profiles`
+- `supabase/migrations/20260829200000_revoke_anon_pii_columns_on_profiles.sql` (the
+  first, ineffective column-level-only attempt, kept for history) +
+  `supabase/migrations/20260829200100_fix_anon_profiles_grant_table_level_revoke.sql`
+  (the actual fix — table-level REVOKE + column-level re-GRANT for `anon`; applied
+  to prod under ledger versions 20260829204113/20260829204313 per C3 — filename
+  prefixes are cosmetic ordering only, the ledger assigns its own version)
+- `src/lib/data/getPropertyById.ts` / `getServiceById.ts` — select `profiles.phone`
+  directly, but this is **safe**: the raw `properties`/`services` tables have no
+  anon SELECT policy at all (verified via `SET ROLE anon` returning `[]`), so this
+  code path only ever resolves non-null for the listing's own owner or an admin
+  (service-role preview) — it is not reachable by a true anonymous visitor. The
+  actual anon-serving hot path is `src/lib/data/getCachedPublicListing.ts:
+getCachedPublicProperty` / `getCachedPublicService`, which read the
+  `public_properties` / `public_services` SECURITY DEFINER views and explicitly
+  reconstruct the profile object as `{ display_name, avatar_url, is_verified }`
+  only — "The view has no owner or contact fields" (comment in that file)
+- `src/lib/data/getCachedPublicListing.ts:getCachedPublicProperty` /
+  `:getCachedPublicService` — the correct, already-existing safe pattern this
+  contract's fix brings the direct-table anon path in line with
+
+**Also check:** any future migration that adds a public/anon SELECT policy to
+`properties`, `services`, or `reviews` reactivates the corresponding dormant branch
+of the profiles policy above — that's fine for row visibility, but ONLY if this
+contract's column-grant narrowing is still in place; if someone re-runs a blanket
+`GRANT SELECT ON public.profiles TO anon` (e.g. copy-pasting an old migration, or a
+"just fix the permission error" reflex fix), the leak reopens instantly and silently
+— no advisory lint catches an overly-broad column grant like this, only RLS-policy
+absence (`get_advisors` did not flag this at all; it was found by cross-referencing
+`pg_policies` against `information_schema.column_privileges` by hand).
+
+**Breaks silently when:** a future `GRANT ALL` / `GRANT SELECT ON public.profiles TO
+anon` (table-level, no column list) is run for any reason — instantly re-exposes
+`phone`/`personal_id`/`role` to every anonymous visitor with no error, no lint, and
+no test coverage to catch it, since nothing in this codebase currently asserts
+column-level grants.
+
+---
+
+## C26 — Admin-facing numbers have exactly one source; `public.bookings` is never one of them
+
+**Invariant:** every number rendered on an admin surface (`/dashboard/admin/**`) has
+exactly one SQL definition, called from every surface that displays it — never
+reimplemented per-route. Two specific rules follow from this:
+
+1. **Booking-volume KPIs come from `public.manual_bookings`, never `public.bookings`.**
+   `public.bookings` is dead per the `no-online-booking-flow` memory note — nothing
+   in `src/` ever inserts into it. Any admin metric describing booking counts,
+   occupancy, or booking-derived pricing must read `manual_bookings` (`status` ∈
+   `booked`/`manual`/`cancelled` — there is no `completed` value; a "completed stay"
+   is `status <> 'cancelled' AND check_out` already in the past, not a status value).
+2. **Platform revenue has one definition: `public.platform_revenue(p_since, p_until)`.**
+   Gross = `sum(abs(amount))` over `transactions.type IN ('vip_boost','super_vip',
+'discount_badge','sms_package','commission')`; net = gross minus
+   `membership_refund`. `topup` is excluded from both — it is a wallet liability, not
+   revenue. No route may re-derive gross/net by summing `transactions` itself.
+
+**Discovered 2026-08-30**: before this contract, two admin screens disagreed on
+"net revenue" by roughly 2× — `admin_overview_stats()` used the curated allowlist
+above, while `src/app/api/admin/finances/summary/route.ts` summed _all_ positive
+`transactions.amount` (including `topup` wallet deposits) and subtracted only
+`commission`. Simultaneously, `admin_dashboard_stats()` and
+`admin_overview_stats()`'s 7-day/occupancy/nightly-price fields read `public.bookings`,
+which has essentially zero real rows, so those KPIs read as ~0 regardless of actual
+platform activity. Both fixed in the same migration.
+
+Participating symbols:
+
+- `supabase/migrations/20260830120000_platform_revenue_and_kpi_consolidation.sql:platform_revenue`
+  — the one revenue definition, `SECURITY DEFINER`, `service_role`-only execute
+- `supabase/migrations/20260830120000_platform_revenue_and_kpi_consolidation.sql:admin_overview_stats`
+  — the one booking-volume/occupancy/revenue-summary RPC. Returns (among unchanged
+  fields) `gross_revenue`, `net_revenue`, `bookings_7d`, `stays_completed_7d`,
+  `occupancy_rate_pct`, `average_nightly_price`. `admin_dashboard_stats()` was
+  retired into this function by the same migration and no longer exists — its sole
+  caller (`getAdminStats.ts`) was updated in lock-step, verified via repo-wide grep
+  before dropping
+- `src/lib/admin/getAdminStats.ts:getAdminStats` — the one server-side caller; every
+  admin page/route that needs these numbers goes through this, not a fresh
+  `db.from("transactions")`/`db.from("bookings")` query
+- `src/app/api/admin/finances/summary/route.ts` — consumes `getAdminStats()` for
+  gross/net/active_listings instead of re-summing `transactions`; `perListing`
+  divides by `active_listings` (properties+services combined), matching what the
+  overview card calls "active listings"
+- `src/app/[locale]/dashboard/admin/AdminDashboardClient.tsx` — the funnel/KPI
+  cards; `occupancy_rate_pct`/`average_nightly_price`/`bookings_7d`/
+  `stays_completed_7d` are computed in SQL, never re-derived client-side from other
+  fields (the old `active_or_completed_bookings / total_properties` client-side
+  ratio was exactly the failure mode this contract exists to prevent). The
+  "პასიური ობიექტები" (passive objects) card, which duplicated the active-listings
+  number with no distinct query, was removed rather than given a fabricated metric
+  — same principle as **C22**'s refusal to display a number with no honest source
+- `src/app/[locale]/dashboard/admin/clients/[id]/page.tsx` + new
+  `src/app/api/admin/clients/[id]/route.ts` — this admin surface's own booking tab
+  now reads `manual_bookings` filtered `owner_id`, not `public.bookings`; also
+  removed its "ვერიფიკაციები" tab, which read `public.verifications` — a table
+  nothing in the repo ever writes to
+
+**Also check:** `src/lib/types/database.ts` must mirror `admin_overview_stats`'s
+return shape by hand per **C3** (the `admin_dashboard_stats` block was deleted, not
+left stale). Any new admin metric proposal should be checked against this contract
+before writing a new query: does an equivalent already exist in
+`admin_overview_stats` or `platform_revenue`? If yes, call it; if no, add the field
+there, not a parallel computation in the new surface.
+
+**Breaks silently when:** a new admin page/route queries `public.bookings` for a
+"quick" metric (it returns real-looking, always-empty-or-stale rows, never an
+error — the table has RLS and a schema, it's just never written to), or a new
+revenue card sums `transactions.amount` directly instead of calling
+`platform_revenue()` (silently includes `topup` as revenue, exactly as
+`src/app/api/admin/finances/summary/route.ts` did before this pass).

@@ -184,7 +184,6 @@
       "profile": "პროფილი",
       "myListings": "ჩემი განცხადებები",
       "schedule": "განრიგი",
-      "earnings": "შემოსავალი",
       "orders": "შეკვეთები",
       "cvs": "CV-ები",
       "bookings": "ჯავშნები",
@@ -3310,16 +3309,6 @@
       "deleteConfirm": "წაშალოთ ეს სამუშაო?"
     }
   },
-  "CleanerEarnings": {
-    "title": "შემოსავალი",
-    "subtitle": "თქვენი შემოსავლის ისტორია და სტატისტიკა",
-    "statEarnings": "შემოსავალი",
-    "statCompleted": "შესრულებული",
-    "statAverage": "საშუალო",
-    "chartTitle": "შემოსავალი პერიოდის მიხედვით",
-    "history": "ისტორია",
-    "emptyHistory": "ამ პერიოდში ჩანაწერები არ არის"
-  },
   "FoodDashboard": {
     "premiumPaid": "PREMIUM გადახდილია",
     "dailyRevenue": "დღის ბრუნვა",
@@ -4143,10 +4132,10 @@
     "funnelViews": "ნახვები",
     "funnelSearches": "ძიებები",
     "funnelRequests": "მოთხოვნები",
-    "funnelCompleted": "დასრულებული ჯავშნები",
+    "funnelCompleted": "დასრულებული ჯავშნები (7 დღე)",
     "funnelSiteVisits": "გვერდის ნახვები (7 დღე)",
     "funnelSearchOpens": "ძიების გვერდის გახსნა (7 დღე)",
-    "funnelRequestSends": "ჯავშნის მოთხოვნები (7 დღე)",
+    "funnelRequestSends": "ახალი ჯავშნები (7 დღე)",
     "dropoff": "↓ დანაკარგი: {percent}%",
     "dropoffUnavailable": "↓ დანაკარგი: —",
     "netRevenue": "სუფთა შემოსავალი (₾)",
@@ -4157,7 +4146,6 @@
     "trackingNote": "გვერდის ნახვები ითვლის საჯარო გვერდების გახსნებს, ხოლო სისტემაში შესული ვიზიტორები — უნიკალურ ავტორიზებულ ანგარიშებს. გათიშული პერიოდის მონაცემები ვერ აღდგება.",
     "funnelTitle": "7-დღიანი აქტივობის ფუნელი",
     "marketHealth": "ბაზრის ჯანმრთელობა",
-    "passiveObjects": "პასიური ობიექტები",
     "calendarFrequency": "კალენდრის სიხშირე",
     "avgNightPrice": "საშუალო ღამის ფასი"
   },
@@ -4589,8 +4577,8 @@
   "AdminClientDetail": {
     "notFound": "მომხმარებელი ვერ მოიძებნა",
     "backToClients": "კლიენტებთან დაბრუნება",
-    "block": "დაბლოკვა",
-    "unblock": "განბლოკვა",
+    "markVerified": "ვერიფიცირება",
+    "removeVerification": "ვერიფიკაციის მოხსნა",
     "notify": "შეტყობინება",
     "registered": "რეგისტრაცია",
     "rating": "რეიტინგი",
@@ -4601,12 +4589,9 @@
     "tabProperties": "ქონება",
     "tabBookings": "ჯავშნები",
     "tabTransactions": "ტრანზაქციები",
-    "tabVerifications": "ვერიფიკაციები",
     "noProperties": "ქონება არ მოიძებნა",
     "noBookings": "ჯავშნები არ მოიძებნა",
-    "noTransactions": "ტრანზაქციები არ მოიძებნა",
-    "noVerifications": "ვერიფიკაციები არ მოიძებნა",
-    "verificationRequest": "ვერიფიკაციის მოთხოვნა"
+    "noTransactions": "ტრანზაქციები არ მოიძებნა"
   },
   "CleanerParameters": {
     "title": "პროფილის პარამეტრები",

@@ -25,7 +25,9 @@ function asMeta(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function validateRenterMembershipMeta(meta: Record<string, unknown>): string | null {
+function validateRenterMembershipMeta(
+  meta: Record<string, unknown>,
+): string | null {
   if (meta.subscription_scope !== "renter") return null;
   if (
     meta.billing_period !== "seasonal" ||
@@ -115,42 +117,45 @@ async function notifySubscriptionAudience(
 }
 
 // Counts users still holding an active subscription, per package_id, so the
-// admin disable dialog can show how many people are grandfathered. Best-effort.
+// admin disable dialog can show how many people are grandfathered. A query
+// error here must NOT degrade to a silent zero (indistinguishable from a real
+// zero and could lead an admin to disable a package they believe is unused) —
+// let it throw so the caller's try/catch turns the whole request into a 500.
 async function activeSubscriberCounts(
   db: ReturnType<typeof createServiceClient>,
 ): Promise<Record<string, number>> {
-  try {
-    // user_subscriptions is in migrations but not the generated types yet.
-    const subsClient = db as unknown as {
-      from(table: "user_subscriptions"): {
-        select(columns: "package_id"): {
-          eq(
-            column: "status",
+  // user_subscriptions is in migrations but not the generated types yet.
+  const subsClient = db as unknown as {
+    from(table: "user_subscriptions"): {
+      select(columns: "package_id"): {
+        eq(
+          column: "status",
+          value: string,
+        ): {
+          gt(
+            column: "expires_at",
             value: string,
-          ): {
-            gt(
-              column: "expires_at",
-              value: string,
-            ): Promise<{ data: { package_id: string | null }[] | null }>;
-          };
+          ): Promise<{
+            data: { package_id: string | null }[] | null;
+            error: { message: string } | null;
+          }>;
         };
       };
     };
-    const { data } = await subsClient
-      .from("user_subscriptions")
-      .select("package_id")
-      .eq("status", "active")
-      .gt("expires_at", new Date().toISOString());
-    const counts: Record<string, number> = {};
-    for (const row of data ?? []) {
-      if (row.package_id)
-        counts[row.package_id] = (counts[row.package_id] ?? 0) + 1;
-    }
-    return counts;
-  } catch (error) {
-    console.error("active subscriber count failed", error);
-    return {};
+  };
+  const { data, error } = await subsClient
+    .from("user_subscriptions")
+    .select("package_id")
+    .eq("status", "active")
+    .gt("expires_at", new Date().toISOString());
+  if (error)
+    throw new Error(`active subscriber count failed: ${error.message}`);
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    if (row.package_id)
+      counts[row.package_id] = (counts[row.package_id] ?? 0) + 1;
   }
+  return counts;
 }
 
 export async function GET() {
@@ -229,7 +234,8 @@ export async function PATCH(req: NextRequest) {
       if (currentError) {
         return Response.json({ error: currentError.message }, { status: 500 });
       }
-      if (!current) return Response.json({ error: "not found" }, { status: 404 });
+      if (!current)
+        return Response.json({ error: "not found" }, { status: 404 });
       const meta = { ...asMeta(current.meta), ...asMeta(body.meta) };
       const validationError =
         current.category === "subscription"
@@ -260,7 +266,10 @@ export async function PATCH(req: NextRequest) {
         (await hasAnotherEnabledRenterMembership(db, body.id))
       ) {
         return Response.json(
-          { error: "an enabled seasonal renter membership already exists", code: "renter_membership_exists" },
+          {
+            error: "an enabled seasonal renter membership already exists",
+            code: "renter_membership_exists",
+          },
           { status: 409 },
         );
       }
@@ -358,7 +367,9 @@ export async function POST(req: NextRequest) {
 
     const meta = asMeta(body.meta);
     const validationError =
-      body.category === "subscription" ? validateRenterMembershipMeta(meta) : null;
+      body.category === "subscription"
+        ? validateRenterMembershipMeta(meta)
+        : null;
     if (validationError) {
       return Response.json({ error: validationError }, { status: 400 });
     }
@@ -383,7 +394,10 @@ export async function POST(req: NextRequest) {
       (await hasAnotherEnabledRenterMembership(db))
     ) {
       return Response.json(
-        { error: "an enabled seasonal renter membership already exists", code: "renter_membership_exists" },
+        {
+          error: "an enabled seasonal renter membership already exists",
+          code: "renter_membership_exists",
+        },
         { status: 409 },
       );
     }

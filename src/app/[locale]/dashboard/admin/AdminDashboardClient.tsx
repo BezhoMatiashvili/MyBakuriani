@@ -32,15 +32,6 @@ export default function AdminDashboardClient({
 }) {
   const t = useTranslations("AdminDashboard");
 
-  const occ =
-    initialStats && initialStats.total_properties > 0
-      ? Math.round(
-          (initialStats.active_or_completed_bookings /
-            initialStats.total_properties) *
-            100,
-        )
-      : 0;
-
   const [loading] = useState(false);
   const [kpis] = useState<AdminKPIs>({
     revenue: Number(initialStats?.net_revenue ?? 0),
@@ -51,8 +42,9 @@ export default function AdminDashboardClient({
   });
   const [pendingOver24] = useState(Number(initialStats?.pending_over_24h ?? 0));
 
-  // Every stage uses the same rolling 7-day window. completed_7d is restricted
-  // to bookings created in that same window instead of the lifetime total.
+  // Every stage uses the same rolling 7-day window. stays_completed_7d is
+  // restricted to bookings whose check_out fell in that same window instead
+  // of the lifetime total.
   const funnelCards = useMemo(
     () => [
       {
@@ -69,13 +61,13 @@ export default function AdminDashboardClient({
       },
       {
         label: t("funnelRequestSends"),
-        value: Number(initialStats?.requests_7d ?? 0),
+        value: Number(initialStats?.bookings_7d ?? 0),
         icon: Send,
         tone: "bg-[#ECFDF5] text-[#059669]",
       },
       {
         label: t("funnelCompleted"),
-        value: Number(initialStats?.completed_7d ?? 0),
+        value: Number(initialStats?.stays_completed_7d ?? 0),
         icon: Send,
         tone: "bg-[#ECFDF5] text-[#059669]",
       },
@@ -111,9 +103,11 @@ export default function AdminDashboardClient({
     },
   ];
 
-  const [occupancyRate] = useState(occ);
+  const [occupancyRate] = useState(
+    Math.round(Number(initialStats?.occupancy_rate_pct ?? 0)),
+  );
   const [avgPriceTrend] = useState(
-    Math.round(Number(initialStats?.average_booking_price ?? 0)),
+    Math.round(Number(initialStats?.average_nightly_price ?? 0)),
   );
 
   return (
@@ -191,10 +185,10 @@ export default function AdminDashboardClient({
               const nextStep = funnelCards[index + 1];
               const dropoff =
                 nextStep && step.value > 0 && nextStep.value <= step.value
-                ? Math.round(
-                    ((step.value - nextStep.value) / step.value) * 100,
-                  )
-                : null;
+                  ? Math.round(
+                      ((step.value - nextStep.value) / step.value) * 100,
+                    )
+                  : null;
 
               return (
                 <div key={step.label}>
@@ -235,16 +229,6 @@ export default function AdminDashboardClient({
             {t("marketHealth")}
           </h2>
           <div className="space-y-3">
-            <div className="rounded-2xl bg-[#F8FAFC] p-4">
-              <p className="text-sm font-semibold text-[#64748B]">
-                {t("passiveObjects")}
-              </p>
-              <div className="mt-2 flex items-end justify-between">
-                <p className="text-[38px] font-black leading-none text-[#0F172A]">
-                  {loading ? "0" : kpis.activeListings}
-                </p>
-              </div>
-            </div>
             <div className="rounded-2xl bg-[#F8FAFC] p-4">
               <p className="text-sm font-semibold text-[#64748B]">
                 {t("calendarFrequency")}

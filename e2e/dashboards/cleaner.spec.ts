@@ -134,7 +134,9 @@ test.describe("Cleaner Dashboard", () => {
         ),
       );
       expect(race.filter((result) => result.error === null)).toHaveLength(1);
-      expect(race.filter((result) => result.error?.code === "23P01")).toHaveLength(1);
+      expect(
+        race.filter((result) => result.error?.code === "23P01"),
+      ).toHaveLength(1);
     } finally {
       await supabaseAdmin
         .from("cleaning_tasks")
@@ -238,8 +240,12 @@ test.describe("Cleaner Dashboard", () => {
       exact: true,
     });
     await expect(addJobButtons).toHaveCount(1);
-    await expect(cleanerPage.getByTestId("schedule-empty-add-job")).toBeVisible();
-    await expect(cleanerPage.getByTestId("schedule-header-add-job")).toHaveCount(0);
+    await expect(
+      cleanerPage.getByTestId("schedule-empty-add-job"),
+    ).toBeVisible();
+    await expect(
+      cleanerPage.getByTestId("schedule-header-add-job"),
+    ).toHaveCount(0);
 
     await cleanerPage.getByTestId("schedule-empty-add-job").click();
     await expect(
@@ -264,8 +270,12 @@ test.describe("Cleaner Dashboard", () => {
       exact: true,
     });
     await expect(addJobButtons).toHaveCount(1);
-    await expect(cleanerPage.getByTestId("schedule-header-add-job")).toBeVisible();
-    await expect(cleanerPage.getByTestId("schedule-empty-add-job")).toHaveCount(0);
+    await expect(
+      cleanerPage.getByTestId("schedule-header-add-job"),
+    ).toBeVisible();
+    await expect(cleanerPage.getByTestId("schedule-empty-add-job")).toHaveCount(
+      0,
+    );
 
     await cleanerPage.getByTestId("schedule-header-add-job").click();
     await expect(
@@ -295,7 +305,9 @@ test.describe("Cleaner Dashboard", () => {
         }),
     );
     await task.getByRole("button", { name: "დაწყება", exact: true }).click();
-    await expect(cleanerPage.getByText("შეცდომა. სცადეთ თავიდან.")).toBeVisible();
+    await expect(
+      cleanerPage.getByText("შეცდომა. სცადეთ თავიდან."),
+    ).toBeVisible();
     await expect(task).toBeVisible();
   });
 
@@ -304,7 +316,9 @@ test.describe("Cleaner Dashboard", () => {
     await cleanerPage.goto("/dashboard/cleaner/schedule");
     if (!(await assertDashboard(cleanerPage))) return;
 
-    await expect(cleanerPage.getByTestId("cleaner-month-calendar")).toBeVisible();
+    await expect(
+      cleanerPage.getByTestId("cleaner-month-calendar"),
+    ).toBeVisible();
     const widths = await cleanerPage.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       content: document.documentElement.scrollWidth,
@@ -356,10 +370,12 @@ test.describe("Cleaner Dashboard", () => {
       secondary.getByRole("button", { name: "10:00" }),
     ).toBeDisabled();
     releaseSave();
-    await expect.poll(async () => {
-      const service = await services.get(testIds.cleaningServicePrimary);
-      return service?.schedule;
-    }).toBe("24/7");
+    await expect
+      .poll(async () => {
+        const service = await services.get(testIds.cleaningServicePrimary);
+        return service?.schedule;
+      })
+      .toBe("24/7");
     await cleanerPage.unroute(hoursApi);
 
     const [savedPrimary, untouchedSecondary] = await Promise.all([
@@ -392,13 +408,15 @@ test.describe("Cleaner Dashboard", () => {
     // Transfer to B: the server returns and the UI merges both affected rows.
     await secondary247.click();
     await secondary.getByTestId("save-working-hours").click();
-    await expect.poll(async () => {
-      const [first, second] = await Promise.all([
-        services.get(testIds.cleaningServicePrimary),
-        services.get(testIds.cleaningServiceSecondary),
-      ]);
-      return `${first?.schedule}|${second?.schedule}`;
-    }).toBe("09:00 - 19:00|24/7");
+    await expect
+      .poll(async () => {
+        const [first, second] = await Promise.all([
+          services.get(testIds.cleaningServicePrimary),
+          services.get(testIds.cleaningServiceSecondary),
+        ]);
+        return `${first?.schedule}|${second?.schedule}`;
+      })
+      .toBe("09:00 - 19:00|24/7");
     await expect(primary).toContainText("09:00");
     await expect(primary).toContainText("19:00");
     await expect(primary247).toHaveAttribute("aria-pressed", "false");
@@ -407,14 +425,18 @@ test.describe("Cleaner Dashboard", () => {
     // Create and edit flows direct the cleaner back here instead of racing the
     // unique index or placing an impossible editorial request in the queue.
     await cleanerPage.goto("/create/service");
-    await expect(cleanerPage.getByTestId("existing-247-conflict")).toBeVisible();
+    await expect(
+      cleanerPage.getByTestId("existing-247-conflict"),
+    ).toBeVisible();
     await expect(
       cleanerPage.getByRole("link", { name: "პარამეტრების გახსნა" }),
     ).toBeVisible();
     await cleanerPage.goto(
       `/create/service?edit=${testIds.cleaningServicePrimary}`,
     );
-    await expect(cleanerPage.getByTestId("existing-247-conflict")).toBeVisible();
+    await expect(
+      cleanerPage.getByTestId("existing-247-conflict"),
+    ).toBeVisible();
 
     // All-off persists across a reload and both physical hour columns stay synced.
     await cleanerPage.goto("/dashboard/cleaner/parameters");
@@ -423,10 +445,12 @@ test.describe("Cleaner Dashboard", () => {
     );
     await reloadedSecondary.getByTestId("working-hours-247").click();
     await reloadedSecondary.getByTestId("save-working-hours").click();
-    await expect.poll(async () => {
-      const service = await services.get(testIds.cleaningServiceSecondary);
-      return `${service?.schedule}|${service?.operating_hours}`;
-    }).toBe("09:00 - 19:00|09:00 - 19:00");
+    await expect
+      .poll(async () => {
+        const service = await services.get(testIds.cleaningServiceSecondary);
+        return `${service?.schedule}|${service?.operating_hours}`;
+      })
+      .toBe("09:00 - 19:00|09:00 - 19:00");
     await cleanerPage.reload();
     await expect(
       cleanerPage
@@ -537,21 +561,13 @@ test.describe("Cleaner Dashboard", () => {
     }
   });
 
-  test("earnings page loads", async ({ cleanerPage }) => {
-    await cleanerPage.goto("/dashboard/cleaner/earnings");
-    if (!(await assertDashboard(cleanerPage))) return;
-
-    await expect(cleanerPage.locator("main")).toBeVisible();
-    await expect(cleanerPage).toHaveURL(/\/dashboard\/cleaner\/earnings/);
-  });
-
   test("sidebar has Georgian labels", async ({ cleanerPage }) => {
     await cleanerPage.goto("/dashboard/cleaner");
     if (!(await assertDashboard(cleanerPage))) return;
 
     const pageContent = cleanerPage.locator("body");
 
-    const georgianLabels = ["მთავარი", "განრიგი", "შემოსავალი"];
+    const georgianLabels = ["მთავარი", "განრიგი"];
 
     for (const label of georgianLabels) {
       await expect(

@@ -66,6 +66,7 @@ export default function ReviewsPage() {
   const [filter, setFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [pendingCount, setPendingCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,6 +78,7 @@ export default function ReviewsPage() {
       setRows([]);
     } else {
       setRows(payload.reviews as AdminReview[]);
+      setPendingCount(payload.pendingCount ?? 0);
     }
     setLoading(false);
   }, [filter]);
@@ -122,11 +124,6 @@ export default function ReviewsPage() {
       setBusyId(null);
     }
   }
-
-  const pendingCount = useMemo(
-    () => rows.filter((r) => r.status === "pending").length,
-    [rows],
-  );
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();

@@ -3304,34 +3304,34 @@ export type Database = {
         Returns: undefined;
       };
       admin_clients_with_stats: { Args: never; Returns: Json };
-      admin_dashboard_stats: {
-        Args: never;
-        Returns: {
-          active_listings: number;
-          active_or_completed_bookings: number;
-          average_booking_price: number;
-          average_response_minutes: number;
-          completed_bookings: number;
-          total_bookings: number;
-          total_properties: number;
-          total_revenue: number;
-        }[];
-      };
       admin_overview_stats: {
         Args: never;
         Returns: {
           active_listings: number;
-          completed_7d: number;
+          average_nightly_price: number;
+          bookings_7d: number;
+          gross_revenue: number;
           net_revenue: number;
+          occupancy_rate_pct: number;
           pending_over_24h: number;
           registered_users: number;
           registered_visitors: number;
-          requests_7d: number;
           searches_7d: number;
+          stays_completed_7d: number;
           total_visits: number;
           unique_visits: number;
           visits_7d: number;
           weekly_visitors: number;
+        }[];
+      };
+      platform_revenue: {
+        Args: {
+          p_since?: string | null;
+          p_until?: string | null;
+        };
+        Returns: {
+          gross: number;
+          net: number;
         }[];
       };
       add_renter_guest_to_blacklist: {

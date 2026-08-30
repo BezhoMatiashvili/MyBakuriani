@@ -23,5 +23,17 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ reviews: data ?? [] });
+
+  const { count: pendingCount, error: pendingError } = await db
+    .from("reviews")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (pendingError) {
+    return Response.json({ error: pendingError.message }, { status: 500 });
+  }
+
+  return Response.json({
+    reviews: data ?? [],
+    pendingCount: pendingCount ?? 0,
+  });
 }

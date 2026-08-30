@@ -267,27 +267,14 @@ function getNavigation(role: string): RoleNavigation {
         ],
       };
     case "cleaner":
-      // The cleaner overview is the current orders board; there is no separate
-      // orders route to expose on mobile.
+      // Mirrors the web CleanerSidebar exactly: home, schedule, settings.
       return {
         tabs: [
           { labelKey: "home", href: "/dashboard/cleaner", icon: Home },
           {
-            labelKey: "orders",
-            href: "/dashboard/cleaner",
-            icon: ClipboardList,
-          },
-          {
             labelKey: "schedule",
             href: "/dashboard/cleaner/schedule",
             icon: CalendarDays,
-          },
-        ],
-        more: [
-          {
-            labelKey: "earnings",
-            href: "/dashboard/cleaner/earnings",
-            icon: Wallet,
           },
           {
             labelKey: "settings",
@@ -295,6 +282,7 @@ function getNavigation(role: string): RoleNavigation {
             icon: Settings,
           },
         ],
+        more: [],
       };
     case "food":
       return {

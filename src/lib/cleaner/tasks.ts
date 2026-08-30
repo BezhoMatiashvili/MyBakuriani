@@ -6,8 +6,8 @@
  *   - manual jobs    — `cleaner_manual_tasks`, typed in by the cleaner for an
  *     off-platform client. Owned outright by the cleaner, written directly.
  *
- * The schedule and earnings pages both need them in one sorted list, so both
- * normalize into `CleanerTaskItem` here rather than branching in the JSX.
+ * The schedule page needs them in one sorted list, so both normalize into
+ * `CleanerTaskItem` here rather than branching in the JSX.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -64,9 +64,7 @@ interface CreateCleanerTaskRpcClient {
 }
 
 interface CleanerTaskDetailsRpcClient {
-  rpc(
-    name: "get_my_cleaning_task_cleaner_details",
-  ): PromiseLike<{
+  rpc(name: "get_my_cleaning_task_cleaner_details"): PromiseLike<{
     data: CleaningTaskCleanerDetails[] | null;
     error: unknown | null;
   }>;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/types/database";
 import type { DashboardScope } from "@/lib/notifications/scopes";
@@ -14,6 +14,7 @@ type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 export function useNotifications(scope?: DashboardScope) {
   const supabase = useMemo(() => createClient(), []);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   // The read-writes below run outside the effect that resolves the session, so
   // the id is parked here to carry an explicit user_id predicate. That predicate
@@ -21,11 +22,37 @@ export function useNotifications(scope?: DashboardScope) {
   // ORs with the per-user one, so an UPDATE without it rewrites EVERY user's rows
   // whenever an admin is the one clicking.
   const userIdRef = useRef<string | null>(null);
+  // Debounces the UPDATE/DELETE recount below, mirroring
+  // DashboardShell.tsx's recountUnread — a burst of realtime events collapses
+  // into one query instead of one per event.
+  const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.is_read).length,
-    [notifications],
+  // The single source of truth for the badge number: an exact count query,
+  // never a filter over the capped 50-row list below. That list mixes
+  // read+unread and drops anything past 50, so deriving the count from it
+  // silently under-reports once a user has 50+ notifications (see contracts.md C7).
+  const fetchUnreadCount = useCallback(
+    async (userId: string) => {
+      let query = supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false);
+      if (scope) query = query.eq("dashboard_scope", scope);
+      const { count, error } = await query;
+      if (!error) setUnreadCount(count ?? 0);
+    },
+    [supabase, scope],
   );
+
+  const recountUnread = useCallback(() => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+    if (recountTimer.current) clearTimeout(recountTimer.current);
+    recountTimer.current = setTimeout(() => {
+      fetchUnreadCount(userId);
+    }, 400);
+  }, [fetchUnreadCount]);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -43,7 +70,8 @@ export function useNotifications(scope?: DashboardScope) {
         userIdRef.current = user.id;
 
         // Fetch existing notifications (cap the initial load — the bell only shows
-        // recent items, and realtime keeps newer ones in sync).
+        // recent items, and realtime keeps newer ones in sync) alongside the exact
+        // unread count (a separate concern — see fetchUnreadCount above).
         let query = supabase
           .from("notifications")
           .select("*")
@@ -51,7 +79,10 @@ export function useNotifications(scope?: DashboardScope) {
           .order("created_at", { ascending: false })
           .limit(50);
         if (scope) query = query.eq("dashboard_scope", scope);
-        const { data } = await query;
+        const [{ data }] = await Promise.all([
+          query,
+          fetchUnreadCount(user.id),
+        ]);
 
         setNotifications(data ?? []);
 
@@ -80,6 +111,9 @@ export function useNotifications(scope?: DashboardScope) {
                 }
                 return [newNotification, ...prev];
               });
+              // An INSERT is unambiguously unread — no need to round-trip for
+              // the count.
+              setUnreadCount((c) => c + 1);
             },
           )
           .on(
@@ -100,6 +134,10 @@ export function useNotifications(scope?: DashboardScope) {
               setNotifications((prev) =>
                 prev.map((n) => (n.id === updated.id ? updated : n)),
               );
+              // Can't tell locally whether this flipped read/unread (the row
+              // may not even be in the capped list above) — recount instead
+              // of guessing.
+              recountUnread();
             },
           )
           .on(
@@ -120,6 +158,10 @@ export function useNotifications(scope?: DashboardScope) {
               setNotifications((prev) =>
                 prev.filter((n) => n.id !== deleted.id),
               );
+              // A filtered DELETE's payload carries only the primary key
+              // (contracts.md C7) — whether the deleted row was read or
+              // unread is unknowable here, so recount rather than guess.
+              recountUnread();
             },
           )
           .subscribe();
@@ -136,8 +178,9 @@ export function useNotifications(scope?: DashboardScope) {
       if (channel) {
         supabase.removeChannel(channel);
       }
+      if (recountTimer.current) clearTimeout(recountTimer.current);
     };
-  }, [scope, supabase]);
+  }, [scope, supabase, fetchUnreadCount, recountUnread]);
 
   async function markAsRead(id: string) {
     const { error } = await supabase
@@ -151,6 +194,9 @@ export function useNotifications(scope?: DashboardScope) {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
     );
+    // Same call this row's own realtime UPDATE would trigger — recounting
+    // here too means the badge doesn't wait on the round-trip.
+    recountUnread();
   }
 
   /**
@@ -174,6 +220,10 @@ export function useNotifications(scope?: DashboardScope) {
     if (error) throw error;
 
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    // The write above touched exactly this feed's unread rows (same
+    // user_id/scope predicate), so the new count is known outright — no
+    // need to round-trip for it.
+    setUnreadCount(0);
   }
 
   return {

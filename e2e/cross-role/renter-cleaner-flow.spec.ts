@@ -277,27 +277,6 @@ test.describe("Renter-Cleaner workflow", () => {
     expect(completed.status).toBe("completed");
   });
 
-  test("cleaner earnings page loads after task completion", async ({
-    cleanerPage,
-    testIds,
-  }) => {
-    // Ensure the task is completed for this check
-    const task = await cleaningTasks.get(testIds.cleaningTask);
-    expect(task!.status).toBe("completed");
-
-    await cleanerPage.goto("/dashboard/cleaner/earnings");
-    await cleanerPage.waitForLoadState("networkidle");
-
-    const currentUrl = cleanerPage.url();
-    if (currentUrl.includes("/auth/")) {
-      return; // Auth redirect, skip UI assertions
-    }
-
-    // Earnings page should load
-    const mainContent = cleanerPage.locator("main, [role='main'], .dashboard");
-    await expect(mainContent.first()).toBeVisible({ timeout: 10_000 });
-  });
-
   test("renter can see property cleaning history in dashboard", async ({
     renterPage,
   }) => {

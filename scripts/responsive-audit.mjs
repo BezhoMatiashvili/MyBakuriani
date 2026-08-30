@@ -123,7 +123,10 @@ const PUBLIC_ROUTES = [
   { path: "/services", label: "services-list" },
   { path: `/services/${QA.cleaningServicePrimary}`, label: "services-detail" },
   { path: "/entertainment", label: "entertainment-list" },
-  { path: `/entertainment/${QA.entertainmentService}`, label: "entertainment-detail" },
+  {
+    path: `/entertainment/${QA.entertainmentService}`,
+    label: "entertainment-detail",
+  },
   { path: "/transport", label: "transport-list" },
   { path: `/transport/${QA.transportService}`, label: "transport-detail" },
   { path: "/employment", label: "employment-list" },
@@ -144,8 +147,16 @@ const PUBLIC_ROUTES = [
   { path: "/auth/mfa", label: "auth-mfa" },
   { path: "/checkout", label: "checkout-no-params" },
   { path: "/nonexistent-page-xyz", label: "404" },
-  { path: "/en/search?q=family-friendly-accommodation", label: "search-en-stress", viewports: VIEWPORTS_TEXT_STRESS },
-  { path: "/ru/search?q=семейное-размещение-в-бакуриани", label: "search-ru-stress", viewports: VIEWPORTS_TEXT_STRESS },
+  {
+    path: "/en/search?q=family-friendly-accommodation",
+    label: "search-en-stress",
+    viewports: VIEWPORTS_TEXT_STRESS,
+  },
+  {
+    path: "/ru/search?q=семейное-размещение-в-бакуриани",
+    label: "search-ru-stress",
+    viewports: VIEWPORTS_TEXT_STRESS,
+  },
 ];
 
 const DASHBOARD_ROUTES = [
@@ -252,11 +263,6 @@ const DASHBOARD_ROUTES = [
   },
   // cleaner
   { path: "/dashboard/cleaner", label: "cleaner-home", role: "cleaner" },
-  {
-    path: "/dashboard/cleaner/earnings",
-    label: "cleaner-earnings",
-    role: "cleaner",
-  },
   {
     path: "/dashboard/cleaner/parameters",
     label: "cleaner-parameters",

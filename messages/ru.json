@@ -184,7 +184,6 @@
       "profile": "Профиль",
       "myListings": "Мои объявления",
       "schedule": "Расписание",
-      "earnings": "Доходы",
       "orders": "Заказы",
       "cvs": "Резюме",
       "bookings": "Бронирования",
@@ -3310,16 +3309,6 @@
       "deleteConfirm": "Удалить эту работу?"
     }
   },
-  "CleanerEarnings": {
-    "title": "Доход",
-    "subtitle": "История доходов и статистика",
-    "statEarnings": "Доход",
-    "statCompleted": "Выполнено",
-    "statAverage": "Среднее",
-    "chartTitle": "Доход по периоду",
-    "history": "История",
-    "emptyHistory": "За этот период записей нет"
-  },
   "FoodDashboard": {
     "premiumPaid": "PREMIUM оплачен",
     "dailyRevenue": "Дневной оборот",
@@ -4143,10 +4132,10 @@
     "funnelViews": "Просмотры",
     "funnelSearches": "Поиски",
     "funnelRequests": "Запросы",
-    "funnelCompleted": "Завершённые бронирования",
+    "funnelCompleted": "Завершённые проживания (7 дней)",
     "funnelSiteVisits": "Просмотры страниц (7 дней)",
     "funnelSearchOpens": "Открытия поиска (7 дней)",
-    "funnelRequestSends": "Запросы бронирования (7 дней)",
+    "funnelRequestSends": "Новые бронирования (7 дней)",
     "dropoff": "↓ Отток: {percent}%",
     "dropoffUnavailable": "↓ Отток: —",
     "netRevenue": "Чистый доход (₾)",
@@ -4157,7 +4146,6 @@
     "trackingNote": "Просмотры считают открытия публичных страниц, а авторизованные посетители — уникальные вошедшие аккаунты. Данные за период отключённого отслеживания восстановить нельзя.",
     "funnelTitle": "Активность за 7 дней",
     "marketHealth": "Здоровье рынка",
-    "passiveObjects": "Пассивные объекты",
     "calendarFrequency": "Частота календаря",
     "avgNightPrice": "Средняя цена за ночь"
   },
@@ -4589,8 +4577,8 @@
   "AdminClientDetail": {
     "notFound": "Пользователь не найден",
     "backToClients": "К списку клиентов",
-    "block": "Заблокировать",
-    "unblock": "Разблокировать",
+    "markVerified": "Верифицировать",
+    "removeVerification": "Снять верификацию",
     "notify": "Уведомить",
     "registered": "Регистрация",
     "rating": "Рейтинг",
@@ -4601,12 +4589,9 @@
     "tabProperties": "Недвижимость",
     "tabBookings": "Бронирования",
     "tabTransactions": "Транзакции",
-    "tabVerifications": "Верификации",
     "noProperties": "Недвижимость не найдена",
     "noBookings": "Бронирования не найдены",
-    "noTransactions": "Транзакции не найдены",
-    "noVerifications": "Верификации не найдены",
-    "verificationRequest": "Запрос верификации"
+    "noTransactions": "Транзакции не найдены"
   },
   "CleanerParameters": {
     "title": "Настройки профиля",
