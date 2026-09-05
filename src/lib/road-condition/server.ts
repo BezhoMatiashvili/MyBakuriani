@@ -37,7 +37,7 @@ const MAPBOX_DIRECTIONS_URL =
   `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${MAPBOX_COORDS}` +
   "?overview=false&alternatives=false&steps=false";
 
-export const ROAD_REVALIDATE_SECONDS = 30 * 60;
+export const ROAD_REVALIDATE_SECONDS = 10 * 60;
 const ROAD_FETCH_TIMEOUT_MS = 5000;
 
 // Absurdity bounds, NOT plausibility bounds. The measured baseline is ~11 000 s /
@@ -131,7 +131,7 @@ function parseMapboxRoute(
 // token, network, timeout, bad shape, degenerate route) so the caller falls back to
 // the existing card value instead of rendering blank. cache() dedupes within a
 // single render; the fetch's revalidate window is what keeps upstream request volume
-// low (~2/hour).
+// low (~6/hour — still trivial against Mapbox's Directions API quota).
 export const getRoadCondition = cache(
   async (): Promise<RoadCondition | null> => {
     const token = process.env.MAPBOX_ACCESS_TOKEN;
