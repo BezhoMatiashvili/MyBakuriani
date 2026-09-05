@@ -3,7 +3,7 @@
 Premium real-estate rental/sales + services marketplace for the Bakuriani ski
 resort (mybakuriani.ge). **All user-facing text is Georgian (ქართული)**; the app
 is trilingual (ka default, en, ru). Next.js 15 App Router + React 19 RSC, Supabase
-(Postgres + RLS + Deno edge functions), Tailwind 4 / shadcn, Leaflet maps.
+(Postgres + RLS + Deno edge functions), Tailwind 4 / shadcn, Mapbox GL maps.
 
 This file + `contracts.md` are auto-loaded every session (via `@import` in the root
 `CLAUDE.md`). Everything else here is **read on demand** — open the area file and

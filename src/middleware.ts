@@ -19,11 +19,15 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
       `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com`,
       "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://*.basemaps.cartocdn.com",
+      "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com",
       "media-src 'self' https://*.supabase.co",
-      "frame-src https://challenges.cloudflare.com",
+      // Mapbox GL JS spins up its tile/render worker from a blob: URL. With no
+      // worker-src directive, browsers fall back to script-src, which has no
+      // blob: — the map silently fails to render without this.
+      "worker-src 'self' blob:",
+      "frame-src https://challenges.cloudflare.com https://rtsp.me",
       "object-src 'none'",
       "manifest-src 'self'",
       "base-uri 'self'",
@@ -52,7 +56,10 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
   return response;
 }
 
-function applyBaselineSecurityHeaders(response: Response, secureRequest: boolean) {
+function applyBaselineSecurityHeaders(
+  response: Response,
+  secureRequest: boolean,
+) {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

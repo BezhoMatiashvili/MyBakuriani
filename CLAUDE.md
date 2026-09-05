@@ -53,7 +53,7 @@ Define success criteria. Loop until verified.
 - **Auth**: Supabase Phone OTP (+995 Georgian numbers) via `@supabase/ssr` 0.9
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
-- **Maps**: Leaflet.js via `react-leaflet` (CartoDB Positron tiles, no API key; OSM+CARTO attribution required)
+- **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Same provider as the Directions API used for the landing road badge. Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
 - **Weather**: WeatherAPI.com (server-only key; free-tier attribution required — rendered in `Footer`)
 - **Routing**: FOSSGIS OSRM (`routing.openstreetmap.de/routed-car`, no API key) for the landing road badge, called server-side only. FOSSGIS terms require an app-identifying User-Agent plus ODbL attribution + a `fixthemap` link — both rendered in `Footer`
 - **Animations**: Framer Motion 12

@@ -1,23 +1,20 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { useCallback, useEffect, useRef, useState } from "react";
-import L from "leaflet";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  ZoomControl,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
+import mapboxgl from "mapbox-gl";
 import { useTranslations } from "next-intl";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import NumberField from "@/components/shared/NumberField";
 import { parseNumeric } from "@/lib/utils/number";
 
-const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
+
+// Bakuriani center, Mapbox order: [lng, lat].
+const BAKURIANI_CENTER: [number, number] = [43.5294, 41.7509];
+
+const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
 // Matches the standard form input styling used across the create wizard.
 const inputClass =
@@ -29,56 +26,18 @@ interface GeocodeResult {
   lng: number;
 }
 
-// ── CartoDB Positron basemap (no API key, retina-ready) ──
-const TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-const PIN_ICON = L.divIcon({
-  html: `<div class="bk-picker-pin-inner"><svg width="30" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#2563EB" stroke="#ffffff" stroke-width="2"/></svg></div>`,
-  className: "bk-picker-pin",
-  iconSize: [0, 0],
-  iconAnchor: [0, 0],
-});
-
 interface ExactLocationPickerProps {
   value: { lat: number; lng: number } | null;
   onChange: (coords: { lat: number; lng: number }) => void;
 }
 
-// ── Map helpers (must live inside MapContainer) ──
-function ClickHandler({
-  onPick,
-}: {
-  onPick: (coords: { lat: number; lng: number }) => void;
-}) {
-  useMapEvents({
-    click: (e) =>
-      onPick({
-        lat: Number(e.latlng.lat.toFixed(6)),
-        lng: Number(e.latlng.lng.toFixed(6)),
-      }),
-  });
-  return null;
-}
-
-function Recenter({ value }: { value: { lat: number; lng: number } | null }) {
-  const map = useMap();
-  useEffect(() => {
-    if (value) map.setView([value.lat, value.lng]);
-  }, [value, map]);
-  return null;
-}
-
-function InvalidateOnMount() {
-  const map = useMap();
-  useEffect(() => {
-    map.invalidateSize();
-    const t = setTimeout(() => map.invalidateSize(), 200);
-    return () => clearTimeout(t);
-  }, [map]);
-  return null;
+// Builds the same custom pin visual the Leaflet divIcon used to render,
+// wired instead into mapbox-gl's imperative Marker({ element }) option.
+function createPinElement(): HTMLDivElement {
+  const el = document.createElement("div");
+  el.style.lineHeight = "0";
+  el.innerHTML = `<svg width="30" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#2563EB" stroke="#ffffff" stroke-width="2"/></svg>`;
+  return el;
 }
 
 export default function ExactLocationPicker({
@@ -158,6 +117,101 @@ export default function ExactLocationPicker({
     [onChange],
   );
 
+  // ── Mapbox map lifecycle ──
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // Kept fresh via a ref so the click handler (registered once at map
+  // creation) never closes over a stale `onChange`.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // The map's initial center/zoom are read once at construction time, the
+  // same way react-leaflet's <MapContainer center/zoom> props only ever
+  // applied on mount — later `value` changes are handled by the recenter
+  // effect below, not by re-creating the map.
+  const initialValueRef = useRef(value);
+
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container || mapRef.current) return;
+
+    const initial = initialValueRef.current;
+    const map = new mapboxgl.Map({
+      container,
+      style: MAP_STYLE,
+      center: initial ? [initial.lng, initial.lat] : BAKURIANI_CENTER,
+      zoom: initial ? 15 : 13,
+      // Mapbox's ToS require a visible attribution control on any rendered
+      // map — this stays at its default (enabled), never suppressed.
+    });
+    map.addControl(
+      new mapboxgl.NavigationControl({ showCompass: false }),
+      "top-right",
+    );
+    map.on("click", (e) => {
+      onChangeRef.current({
+        lat: Number(e.lngLat.lat.toFixed(6)),
+        lng: Number(e.lngLat.lng.toFixed(6)),
+      });
+    });
+    mapRef.current = map;
+
+    // Mirrors the previous Leaflet invalidateSize-on-mount: this picker is
+    // often mounted inside a wizard step or admin panel that only just
+    // became visible, so the container's real size isn't known at the
+    // instant the map is constructed.
+    map.resize();
+    const resizeTimer = setTimeout(() => map.resize(), 200);
+
+    // Unlike the wizard steps (which unmount this component entirely when
+    // hidden), ListingAuditPanel's <details> sections CSS-hide their content
+    // instead of unmounting it — so a collapse/expand cycle leaves this map
+    // mounted through a 0-sized container with no mount effect to catch the
+    // resize. Watch the container directly instead.
+    const resizeObserver = new ResizeObserver(() => map.resize());
+    resizeObserver.observe(container);
+
+    return () => {
+      clearTimeout(resizeTimer);
+      resizeObserver.disconnect();
+      markerRef.current?.remove();
+      markerRef.current = null;
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Move/create the pin and recenter (instantly, matching the previous
+  // Leaflet `setView` behavior) whenever the controlled value changes —
+  // from a map click, a search result, or the manual lat/lng inputs.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!value) {
+      markerRef.current?.remove();
+      markerRef.current = null;
+      return;
+    }
+
+    const lngLat: [number, number] = [value.lng, value.lat];
+    if (!markerRef.current) {
+      markerRef.current = new mapboxgl.Marker({
+        element: createPinElement(),
+        anchor: "bottom",
+      })
+        .setLngLat(lngLat)
+        .addTo(map);
+    } else {
+      markerRef.current.setLngLat(lngLat);
+    }
+    map.setCenter(lngLat);
+  }, [value]);
+
   return (
     <div className="space-y-2">
       <div className="space-y-1">
@@ -223,29 +277,8 @@ export default function ExactLocationPicker({
           </>
         )}
       </div>
-      <div className="h-[240px] overflow-hidden rounded-xl border border-[#E2E8F0]">
-        <MapContainer
-          center={value ? [value.lat, value.lng] : BAKURIANI_CENTER}
-          zoom={value ? 15 : 13}
-          zoomControl={false}
-          scrollWheelZoom
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            url={TILE_URL}
-            attribution={TILE_ATTRIBUTION}
-            subdomains="abcd"
-            detectRetina
-            maxZoom={20}
-          />
-          <ZoomControl position="topright" />
-          <InvalidateOnMount />
-          <ClickHandler onPick={onChange} />
-          <Recenter value={value} />
-          {value && (
-            <Marker position={[value.lat, value.lng]} icon={PIN_ICON} />
-          )}
-        </MapContainer>
+      <div className="relative z-0 h-[240px] overflow-hidden rounded-xl border border-[#E2E8F0]">
+        <div ref={mapContainerRef} className="h-full w-full" />
       </div>
       <p className="text-xs text-[#64748B]">{t("clickHint")}</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

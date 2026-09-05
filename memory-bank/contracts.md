@@ -300,20 +300,37 @@ runtime block.
 
 Participating symbols:
 
-- `src/middleware.ts:Content-Security-Policy` — the live CSP: `img-src` / `connect-src` / `media-src` / `font-src` / `frame-src` directives. **The CSP now ships from the middleware, not `next.config.ts`** (moved when the nonce approach was abandoned); the old `next.config.ts:CSP` / `:securityHeaders` anchors no longer exist
+- `src/middleware.ts:Content-Security-Policy` — the live CSP: `img-src` / `connect-src` / `media-src` / `font-src` / `frame-src` / `worker-src` directives. **The CSP now ships from the middleware, not `next.config.ts`** (moved when the nonce approach was abandoned); the old `next.config.ts:CSP` / `:securityHeaders` anchors no longer exist
 - `next.config.ts:remotePatterns` — Next image optimizer host allow-list
 
-Current external hosts: `*.supabase.co` (+ `wss://`), `images.unsplash.com`,
-`*.basemaps.cartocdn.com` (Leaflet/CARTO tiles) in `img-src`/`connect-src`/`media-src`;
-`frame-src` additionally allows `https://challenges.cloudflare.com` (Turnstile) and,
-since 2026-09-05, `https://rtsp.me` — the landing page's `StatusCards.tsx` cameras
-card embeds an admin-configured `rtsp.me/embed/<id>/` stream in an `<iframe>` inside
-`Modal` instead of linking out to it (`ItemRow`'s `onView` prop, gated to
+Current external hosts: `*.supabase.co` (+ `wss://`), `images.unsplash.com` in
+`img-src`/`connect-src`/`media-src`; `frame-src` additionally allows
+`https://challenges.cloudflare.com` (Turnstile) and, since 2026-09-05,
+`https://rtsp.me` — the landing page's `StatusCards.tsx` cameras card embeds an
+admin-configured `rtsp.me/embed/<id>/` stream in an `<iframe>` inside `Modal`
+instead of linking out to it (`ItemRow`'s `onView` prop, gated to
 `card.id === "cameras"`). Note the two lists are **not** symmetric: `img-src`
 allows unsplash but `media-src` does **not**, and `remotePatterns` narrows supabase
 to `/storage/v1/object/public/**` while the CSP allows the whole host. Code that
 picks a renderable URL must intersect all of them — see
 `src/lib/banner-creative.ts:renderableImageUrl` (**C12**).
+
+**2026-09-05: Leaflet/CartoDB → Mapbox GL.** The property-listing maps
+(`src/components/maps/BakurianiMap.tsx`, `ExactLocationPicker.tsx`) moved from
+`react-leaflet` + free CartoDB Positron tiles to Mapbox GL JS
+(`NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure
+— separate from the server-only `MAPBOX_ACCESS_TOKEN` used by the road-badge
+Directions API call above). `*.basemaps.cartocdn.com` was **removed** from
+`img-src` (dead — nothing renders Leaflet tiles anymore); `connect-src` gained
+`https://api.mapbox.com https://events.mapbox.com` (Mapbox GL's own tile/style/
+telemetry fetches — Mapbox is not fetched via `<img>`, it renders vector tiles to
+canvas); and a **new `worker-src 'self' blob:'` directive** was added — Mapbox GL
+spins up its tile/render worker from a `blob:` URL, and with no `worker-src` at
+all a browser falls back to `script-src`, which has no `blob:`, so the map would
+silently fail to render without this. Mapbox's ToS requires the on-map
+attribution control to stay enabled for any rendered map (checked/enforced in
+both components — do not pass `attributionControl: false` or hide
+`.mapboxgl-ctrl-attrib`/`.mapboxgl-ctrl-logo` via CSS).
 
 **Also check:** put the host in the directive it's actually used from — `img-src`
 for images, `connect-src` for fetch/websocket, `media-src` for video/audio,
@@ -526,7 +543,7 @@ plus the detail page behind the card, or the card and the detail page disagree.
 
 Participating symbols:
 
-- `supabase/migrations/20260721110000_purchase_package_service_targets.sql:purchase_package` — CURRENT body: 6-arg signature with `p_service_id`; drops both prior overloads first (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement; same trap the earlier `20260719095704_discount_percent_choice_drop_old_overload.sql` existed for). `discount` tier branch validates `p_discount_percent` is `[1,90]` and sets `discount_percent`/`discount_expires_at` on the targeted table (supersedes the property-only version in `20260719095438_discount_percent_choice.sql`)
+- `supabase/migrations/20260721110000_purchase_package_service_targets.sql:purchase_package` — CURRENT body: 6-arg signature with `p_service_id`; drops both prior overloads first (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement; same trap the earlier `20260719095704_discount_percent_choice_drop_old_overload.sql` existed for). `discount` tier branch validates `p_discount_percent` is `[1,90]` and sets `discount_percent`/`discount_expires_at` on the targeted table (supersedes the property-only version in `20260719095438_discount_percent_choice.sql`). **Security fix, `supabase/migrations/20260905121000_purchase_package_subscription_scope_default_deny.sql` (2026-09-05):** the `category='subscription'` branch's "legacy fixed-date package" `ELSE` (any `subscription_scope` other than `'organization'` — rejected — or `'renter'` — routed to its own reviewed activation) used to insert a `user_subscriptions` row with no `status` given, which defaults to `'active'`. This let any authenticated user buy an _unrelated_ enabled subscription-category package (live-verified: `pricing_packages` code `developer-pro`, `meta={}`) and get an instantly-active membership row indistinguishable from an admin-approved one via `purchase_renter_membership` (see `20260819121000_seasonal_renter_membership_approval.sql`), fully bypassing that admin-review workflow. The `ELSE` now unconditionally `RAISE EXCEPTION`s — only an explicit `subscription_scope='renter'` can activate through this RPC. `purchase_package` is `service_role`-only (`EXECUTE` revoked from `anon`/`authenticated`) and its sole caller is `supabase/functions/purchase-vip/index.ts`, which already routes `subscription_scope='renter'` packages to `purchase_renter_membership` instead — so this RPC's own `'renter'` branch is presently unreachable dead code, kept rather than removed since deleting it wasn't part of the fix. The `developer-pro` (and disabled `seller-basic`) `pricing_packages` rows are very likely leftover/test data with no real `subscription_scope` — flagged to the project owner, not deleted here (a data decision outside this fix's scope)
 - `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role (current trigger BODY now lives in `20260719140000_org_auto_link_sale_listings.sql`, which re-declares it verbatim + an owner org-attach exception — see **C11**; discount-field guarding is unchanged)
 - `supabase/functions/purchase-vip/index.ts:serve` — validates `discount_percent` from the request body ([1,90] or null) and forwards it as `p_discount_percent`
 - `src/components/renter/VipPropertyPickerModal.tsx:VipPropertyPickerModal` — renders the percent stepper (only when `tier === "discount"`) and passes the chosen value through `onConfirm`; the percent can also be derived from a typed target price (second, synced "ახალი ფასი" field — shown only when the caller supplies `PickerProperty.price`, i.e. `is_for_sale ? sale_price : price_per_night`; rounds to nearest whole percent and snaps the price on blur). Client-side sugar only — the wire contract still carries just the integer percent
@@ -540,7 +557,7 @@ Participating symbols:
 - `src/lib/constants/listing-options.ts:RoutePricing` — the supported `services.route_pricing` row contract is exactly `{ route, price, unit }`. The retired free-text `subtitle` may still exist in historical JSONB rows, but `parseRoutePricing` deliberately ignores unknown fields, the transport create/edit form never writes it, and the public detail page never renders it. Do not add the author-controlled subtitle back without a product decision and all three surfaces changing together
 - `src/app/[locale]/apartments/ApartmentsPageClient.tsx` — "discounted only" filter reads `discount_percent`
 - `src/app/[locale]/sales/SalesPageClient.tsx:discountOnly` — the same "discounted only" toggle on `/sales`. Two traps, both live-reviewed: the `paginatedProperties` memo must depend on `filteredProperties` (keeping `[properties, …]` makes the toggle a silent no-op, since the prop keeps its identity and lint only warns), and the toggle handler must `setCurrentPage(1)` itself — the existing clamp effect converges only AFTER a commit, so from page 3 it paints the empty state for a frame
-- `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`
+- `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`. `supabase/migrations/20260905120000_create_booking_max_range_cap.sql` (2026-09-05, security fix) added an upper bound (`v_days > 365` raises `22023`) alongside the pre-existing `min_booking_days` lower bound — previously an unbounded `(check_out - check_in)` let any authenticated caller mark decades of `calendar_blocks` rows `'booked'` for an arbitrary property with no payment and no owner action. This RPC is reached only through `supabase/functions/booking-create/index.ts`, which is not called by any code under `src/` (the live product uses `manual_bookings` exclusively — see `no-online-booking-flow` memory note) but remains a deployed, JWT-authenticated, internet-reachable edge function; it now also rate-limits at 10/hour/IP via `checkRateLimit`, added the same day
 - `src/lib/utils/pricing.ts:isDiscountActive` — fail-open expiry check (`discount_expires_at IS NULL` counts as active, matching how `purchase_package` writes the columns; strict `>` mirrors `create_booking`'s own check) shared by every price-display and pricing call site
 - `src/lib/utils/pricing.ts:applyDiscount` — applies the percentage to a price (no-op when `isDiscountActive` is false); used by `PropertyCard`, `SalePropertyCard`, `InvestmentCard`, `ServiceCard`, `BookingSidebar`, `SaleDetailClient`, `ServiceDetailClient`, `EntertainmentDetailClient`, `TransportDetailClient` and `FoodDetailClient` so displayed prices match what `create_booking` actually charges. `SaleDetailClient`'s `MobileStickyCTA` was the last raw-price holdout on a page whose sidebar was already discounted — the two disagreed on the same screen
 
@@ -570,7 +587,17 @@ future price-display or booking-price code path reads `discount_percent`/
 `discount_expires_at` directly instead of calling `isDiscountActive`/
 `applyDiscount` — it would silently regress back to showing (or charging) the
 undiscounted price, since nothing else enforces that the percentage is actually
-applied.
+applied; or the `category='subscription'` branch's `ELSE` is changed back to
+inserting a `user_subscriptions` row unconditionally instead of raising — that
+reopens the admin-approval bypass the 2026-09-05 fix closed; or a new
+`pricing_packages` row is added with `category='subscription'` and a
+`subscription_scope` that isn't `'renter'` or `'organization'` — it will now be
+permanently unpurchasable (fails closed with `22023`), which is correct, but
+means every future non-renter, non-organization subscription package needs its
+own explicitly-handled branch rather than falling through; or `create_booking`'s
+`v_days > 365` cap is loosened/removed — reopens the unbounded-range
+`calendar_blocks` lockout (2026-09-05 fix) on a still-deployed, still
+JWT-reachable edge function that no `src/` code calls today.
 
 ---
 
@@ -849,13 +876,39 @@ the cleaner's former service. All other service content remains in the C14 revie
 flow. Pending legacy requests containing only those two hour fields are
 superseded by the migration and their requesters are notified to save again.
 
+**`profiles.display_name`/`phone`/`avatar_url` are a second, formal self-service
+exception** (`supabase/migrations/20260905122000_profile_identity_fields_self_service_exception.sql`,
+2026-09-05 — supersedes their original inclusion in B/A/C above). They were listed
+as reviewable from this migration's day one, but `self_service_update_profile`
+(`20260727143000_self_service_profile_and_progress.sql`, 3 days later) always ran as
+`service_role` and always allowed these same 3 fields, and has been the ONLY
+UI-wired edit path for them ever since — the review queue for profiles was never
+actually reachable (no client ever submitted `targetType: 'profile'`). Rather than
+build a "submit, wait for admin approval" UX for basic identity fields, the product
+decision was to keep instant self-editing and formally narrow B (`v_reviewable` for
+`profiles` is now `ARRAY['bio','response_time_minutes']`), A (`REVIEWABLE_FIELDS.profile`
+now excludes them too), and C (`approve_content_change_request`'s `v_allowed` for
+`'profile'` matches). In exchange, `self_service_update_profile` gained real
+server-side validation it never had: `display_name` must be non-empty (after trim)
+and ≤100 chars, `phone` must satisfy `public.sms_canonical_ge_phone` (reused from
+**C18**'s SMS pipeline) if non-null. `src/app/api/self-service/profile/route.ts`
+also gained its first rate limit (20/hour/user) and validates `avatar_url` via
+`safeStorageImageUrl` (restricting it to this project's own storage host, matching
+the pattern in **C6**/**C12**) before forwarding to the RPC — previously any string
+was accepted. `bio`/`response_time_minutes` remain fully review-gated; only the 3
+identity fields are exempt.
+
 **Breaks silently when:** a new form field is added to D without A/B/C (that form's every
 save 400s — exactly the `roi_percent_max` bug); or a key is added to A but not C
 (approval drops the value with no error); or a new edit surface writes a reviewable
 column directly (42501, raw Postgres text in the UI unless it maps through
 `contentChangeErrorKey`); or a handler calls `submitContentChange` without a catch and
 without telling the user the change is pending — the write silently appears to do
-nothing, because the row it renders from cannot change until approval.
+nothing, because the row it renders from cannot change until approval; or
+`display_name`/`phone`/`avatar_url` are re-added to A/B/C without also removing them
+from `self_service_update_profile`'s allow-list — that reopens the exact bypass this
+exception now formally documents, just inverted (review looks enforced but a live
+unreviewed path still exists).
 ---
 
 ## C15 — Smart Match "actionable" count (one definition, five surfaces)
