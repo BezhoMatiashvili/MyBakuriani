@@ -267,6 +267,7 @@ export function withLiveRoad(
       ? {
           ...card,
           value: ROAD_STATUS_LABEL[condition.trafficStatus],
+          subValue: formatDuration(condition.durationSeconds),
           expandable: true,
           items,
         }

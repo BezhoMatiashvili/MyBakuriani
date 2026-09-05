@@ -153,6 +153,7 @@ export default function StatusCards({
           const isOpen = expandedId === card.id;
           const label = pickLocalized(card.label, locale);
           const value = pickLocalized(card.value, locale);
+          const subValue = pickLocalized(card.subValue, locale);
 
           const inner = (
             <div className="flex w-full flex-col gap-1">
@@ -174,6 +175,11 @@ export default function StatusCards({
                   />
                 )}
               </span>
+              {subValue && (
+                <span className="text-[12px] font-semibold leading-none text-[#94A3B8]">
+                  {subValue}
+                </span>
+              )}
             </div>
           );
 

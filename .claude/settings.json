@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if echo \"$FILE\" | grep -qE \"^\\.env|\\.env\\.local|\\.env\\.production\"; then echo \".env file edit blocked\" >&2; exit 2; fi; exit 0'"
+            "command": "bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if echo \"$FILE\" | grep -qE \"(^|/)\\.env\\.local$\"; then exit 0; fi; if echo \"$FILE\" | grep -qE \"^\\.env|\\.env\\.local|\\.env\\.production\"; then echo \".env file edit blocked (except .env.local)\" >&2; exit 2; fi; exit 0'"
           }
         ]
       }

@@ -66,6 +66,9 @@ export type StatusCard = {
   icon: StatusIcon;
   label: LocalizedText;
   value: LocalizedText;
+  // Small caption rendered under `value` (e.g. the road card's drive-time
+  // estimate). Optional — most cards don't set it.
+  subValue?: LocalizedText | null;
   redDot: boolean;
   expandable: boolean;
   active: boolean;
@@ -169,6 +172,7 @@ export const DEFAULT_STATUS_CARDS: StatusCard[] = [
       ru: "Дорога из Тбилиси",
     },
     value: { ka: "თავისუფალი", en: "Clear", ru: "Свободна" },
+    subValue: { ka: "~3სთ", en: "~3h", ru: "~3ч" },
     redDot: false,
     expandable: false,
     active: true,

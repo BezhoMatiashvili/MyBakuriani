@@ -67,11 +67,13 @@ function sanitizeCard(value: unknown): StatusCard | null {
         .map(sanitizeItem)
         .filter((it): it is StatusCardItem => it !== null)
     : [];
+  const subValue = sanitizeLocalized(obj.subValue, false);
   return {
     id: str(obj.id) || randomUUID(),
     icon: isStatusIcon(obj.icon) ? obj.icon : "none",
     label,
     value: sanitizeLocalized(obj.value, false) ?? { ka: "" },
+    subValue: subValue && subValue.ka ? subValue : null,
     redDot: obj.redDot === true,
     expandable: obj.expandable === true,
     active: obj.active !== false,
