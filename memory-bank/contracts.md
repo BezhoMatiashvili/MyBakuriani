@@ -239,12 +239,25 @@ the dashboard, since MCP has no `delete_edge_function` — **that step is DONE**
 2026-07-26: `list_edge_functions` returns 18 functions and `road-condition-refresh` is not
 among them, so the retirement is complete on both sides). It had never produced a live
 value — `app.road_condition_url` was never set, so every run posted to a NULL url.
-The landing road badge now fetches `routing.openstreetmap.de` (FOSSGIS OSRM, keyless)
-**server-side from Node** in `src/lib/road-condition/server.ts`, so it needs no CSP
-`connect-src` / `remotePatterns` entry (**C6** governs only browser + Next-image-optimizer
-hosts) — moving that call into the browser or adding client polling **would** require one.
-FOSSGIS's terms also require the ODbL credit + fix-the-map link rendered in
-`src/components/layout/Footer.tsx`; removing those puts us out of compliance.
+The landing road badge first replaced that with a keyless FOSSGIS OSRM fetch
+(`routing.openstreetmap.de`), then — 2026-09-05 — switched again to the **Mapbox
+Directions API** (`mapbox/driving-traffic` profile, `MAPBOX_ACCESS_TOKEN`, the same
+key type used by the sibling Lux project) because OSRM's `driving` profile has no
+traffic model at all (`weight_name: "routability"`); Mapbox's traffic profile
+returns both a live `duration` and a historical `duration_typical` on the same
+route, so `src/lib/road-condition/server.ts` derives a real clear/moderate/heavy
+status from the ratio instead of a fixed label. Both providers were called
+**server-side from Node**, so this needs no CSP `connect-src` / `remotePatterns`
+entry (**C6** governs only browser + Next-image-optimizer hosts) — moving the call
+into the browser or adding client polling **would** require one. The Leaflet
+basemaps (property listing maps) are unaffected by this swap and still use OSM/CARTO
+tiles, so the ODbL credit + fix-the-map link in `src/components/layout/Footer.tsx`
+must stay regardless — removing those puts us out of compliance for the map tiles,
+independent of what powers the road badge. Mapbox's own attribution terms
+(docs.mapbox.com/help/dive-deeper/attribution, checked 2026-09-05) require a
+prominent credit even for API-only usage with no rendered Mapbox map — "Directions
+powered by Mapbox" plus a link — which is why `Footer.tsx` carries a dedicated
+Mapbox link alongside the OSM/ODbL one, not folded into it.
 
 **Breaks silently when:** a body field is renamed on one side only → runtime 400 /
 missing field, no compile error.
@@ -287,19 +300,27 @@ runtime block.
 
 Participating symbols:
 
-- `src/middleware.ts:Content-Security-Policy` — the live CSP: `img-src` / `connect-src` / `media-src` / `font-src` directives. **The CSP now ships from the middleware, not `next.config.ts`** (moved when the nonce approach was abandoned); the old `next.config.ts:CSP` / `:securityHeaders` anchors no longer exist
+- `src/middleware.ts:Content-Security-Policy` — the live CSP: `img-src` / `connect-src` / `media-src` / `font-src` / `frame-src` directives. **The CSP now ships from the middleware, not `next.config.ts`** (moved when the nonce approach was abandoned); the old `next.config.ts:CSP` / `:securityHeaders` anchors no longer exist
 - `next.config.ts:remotePatterns` — Next image optimizer host allow-list
 
 Current external hosts: `*.supabase.co` (+ `wss://`), `images.unsplash.com`,
-`*.basemaps.cartocdn.com` (Leaflet/CARTO tiles). Note the two lists are **not**
-symmetric: `img-src` allows unsplash but `media-src` does **not**, and
-`remotePatterns` narrows supabase to `/storage/v1/object/public/**` while the CSP
-allows the whole host. Code that picks a renderable URL must intersect all of
-them — see `src/lib/banner-creative.ts:renderableImageUrl` (**C12**).
+`*.basemaps.cartocdn.com` (Leaflet/CARTO tiles) in `img-src`/`connect-src`/`media-src`;
+`frame-src` additionally allows `https://challenges.cloudflare.com` (Turnstile) and,
+since 2026-09-05, `https://rtsp.me` — the landing page's `StatusCards.tsx` cameras
+card embeds an admin-configured `rtsp.me/embed/<id>/` stream in an `<iframe>` inside
+`Modal` instead of linking out to it (`ItemRow`'s `onView` prop, gated to
+`card.id === "cameras"`). Note the two lists are **not** symmetric: `img-src`
+allows unsplash but `media-src` does **not**, and `remotePatterns` narrows supabase
+to `/storage/v1/object/public/**` while the CSP allows the whole host. Code that
+picks a renderable URL must intersect all of them — see
+`src/lib/banner-creative.ts:renderableImageUrl` (**C12**).
 
 **Also check:** put the host in the directive it's actually used from — `img-src`
 for images, `connect-src` for fetch/websocket, `media-src` for video/audio,
-`font-src` for web fonts — and (images only) mirror it in `remotePatterns`.
+`font-src` for web fonts, `frame-src` for embedded iframes — and (images only)
+mirror it in `remotePatterns`. A new camera/stream provider added to the
+`status_cards` admin JSON needs its host added to `frame-src` too, or the embed
+silently renders blank (no CSP violation is visible without opening devtools).
 
 **Breaks silently when:** you add a new image CDN, analytics endpoint, or tile
 provider and update only one of {CSP, remotePatterns} → images 404 through the
