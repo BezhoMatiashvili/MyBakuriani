@@ -80,13 +80,10 @@ export default async function SalesGridPage({ searchParams }: Props) {
       initialAreaMin={initialAreaMin}
       initialAreaMax={initialAreaMax}
       initialCadastral={initialCadastral}
-      initialStatuses={toCsv(sp.status)}
       initialRooms={toCsv(sp.rooms)
         ?.map(Number)
         .filter((n) => !isNaN(n))}
-      initialAmenities={toCsv(sp.amenities)}
       initialPayment={toCsv(sp.payment)}
-      initialDevelopers={toCsv(sp.developer)}
       initialSellerTypes={toCsv(sp.seller)}
       initialRoiMin={initialRoiMin}
       initialConstruction={initialConstruction}

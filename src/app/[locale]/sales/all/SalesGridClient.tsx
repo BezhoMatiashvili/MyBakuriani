@@ -26,30 +26,20 @@ interface Props {
   initialAreaMin?: number;
   initialAreaMax?: number;
   initialCadastral?: string;
-  initialStatuses?: string[];
   initialRooms?: number[];
-  initialAmenities?: string[];
   initialPayment?: string[];
-  initialDevelopers?: string[];
   initialSellerTypes?: string[];
   initialRoiMin?: number;
   initialConstruction?: string;
   initialRenovation?: string;
 }
 
-// Data-matching regexes against the free-text construction_status DB column —
-// the Georgian fragments here are values, not UI copy.
-const STATUS_MAP: Record<string, RegExp> = {
-  new: /(ახალი|new)/i,
-  progress: /(მიმდინარე|progress|under)/i,
-  ready: /(მზად|ready|complete|დასრულ|old[_\s-]?built|ძველი)/i,
-};
-
 // Sale-tab `construction` URL param uses the Figma-aligned values which map
 // onto the existing free-text `construction_status` column.
 const CONSTRUCTION_MAP: Record<string, RegExp> = {
-  completed: /(დასრულ|completed|complete|მზა|ready|old[_\s-]?built|ძველი)/i,
+  completed: /(დასრულ|completed|complete|მზა|ready)/i,
   under_construction: /(მშენებარე|under|progress|in_progress)/i,
+  old_built: /(ძველი|old[_\s-]?built)/i,
 };
 
 export default function SalesGridClient({
@@ -62,11 +52,8 @@ export default function SalesGridClient({
   initialAreaMin,
   initialAreaMax,
   initialCadastral,
-  initialStatuses,
   initialRooms,
-  initialAmenities,
   initialPayment,
-  initialDevelopers,
   initialSellerTypes,
   initialRoiMin,
   initialConstruction,
@@ -119,12 +106,6 @@ export default function SalesGridClient({
           .includes(initialCadastral.toLowerCase()),
       );
     }
-    if (initialStatuses && initialStatuses.length > 0) {
-      list = list.filter((p) => {
-        const status = (p.construction_status ?? "").toLowerCase();
-        return initialStatuses.some((s) => STATUS_MAP[s]?.test(status));
-      });
-    }
     if (initialRooms && initialRooms.length > 0) {
       list = list.filter((p) => {
         if (p.rooms == null) return false;
@@ -133,24 +114,11 @@ export default function SalesGridClient({
         return initialRooms.includes(p.rooms);
       });
     }
-    if (initialAmenities && initialAmenities.length > 0) {
-      list = list.filter((p) => {
-        const amenities = Array.isArray(p.amenities)
-          ? (p.amenities as string[])
-          : [];
-        return initialAmenities.every((a) => amenities.includes(a));
-      });
-    }
     if (initialPayment && initialPayment.length > 0) {
       list = list.filter((p) => {
         const paymentOptions: string[] = readPaymentOptions(p.house_rules);
         return initialPayment.some((pay) => paymentOptions.includes(pay));
       });
-    }
-    if (initialDevelopers && initialDevelopers.length > 0) {
-      list = list.filter(
-        (p) => p.developer && initialDevelopers.includes(p.developer),
-      );
     }
     if (initialSellerTypes && initialSellerTypes.length > 0) {
       const wantsDeveloper = initialSellerTypes.includes("developer");
@@ -203,11 +171,8 @@ export default function SalesGridClient({
     initialAreaMin,
     initialAreaMax,
     initialCadastral,
-    initialStatuses,
     initialRooms,
-    initialAmenities,
     initialPayment,
-    initialDevelopers,
     initialSellerTypes,
     initialRoiMin,
     initialConstruction,

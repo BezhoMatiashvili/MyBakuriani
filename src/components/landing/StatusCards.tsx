@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { ChevronDown, ExternalLink, PlayCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ICON_MAP } from "@/lib/status-cards/icons";
 import {
@@ -12,6 +12,7 @@ import {
   type StatusKind,
 } from "@/lib/status-cards/types";
 import BottomSheet from "@/components/shared/BottomSheet";
+import Modal from "@/components/shared/Modal";
 import { safeHttpsUrl } from "@/lib/security";
 
 const DOT_COLOR: Record<StatusKind, string | null> = {
@@ -36,10 +37,13 @@ function ItemRow({
   item,
   locale,
   variant,
+  onView,
 }: {
   item: StatusCardItem;
   locale: string;
   variant: "dark" | "light";
+  /** When set, a rendered "Live" link opens embedded in-page via this callback instead of navigating away. */
+  onView?: (item: StatusCardItem) => void;
 }) {
   const label = pickLocalized(item.label, locale);
   const value = pickLocalized(item.value, locale);
@@ -52,7 +56,16 @@ function ItemRow({
         <StatusDot status={item.status} />
         {label}
       </span>
-      {href ? (
+      {href && onView ? (
+        <button
+          type="button"
+          onClick={() => onView(item)}
+          className="flex items-center gap-1 font-semibold text-[#2E79FF] hover:underline"
+        >
+          {value || "Live"}
+          <PlayCircle className="size-3.5" />
+        </button>
+      ) : href ? (
         <a
           href={href}
           target="_blank"
@@ -80,6 +93,7 @@ export default function StatusCards({
 }) {
   const locale = useLocale();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [viewingItem, setViewingItem] = useState<StatusCardItem | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   // The mobile/tablet BottomSheet stays mounted (only CSS-hidden via
   // `lg:hidden`) so
@@ -212,6 +226,9 @@ export default function StatusCards({
                     item={item}
                     locale={locale}
                     variant="dark"
+                    onView={
+                      expandedCard.id === "cameras" ? setViewingItem : undefined
+                    }
                   />
                 ))}
               </ul>
@@ -237,12 +254,37 @@ export default function StatusCards({
                   item={item}
                   locale={locale}
                   variant="light"
+                  onView={
+                    expandedCard.id === "cameras" ? setViewingItem : undefined
+                  }
                 />
               ))}
             </ul>
           )}
         </BottomSheet>
       </div>
+
+      {/* Camera stream, embedded in-page instead of navigating to an external site */}
+      <Modal
+        isOpen={!!viewingItem}
+        onClose={() => setViewingItem(null)}
+        title={viewingItem ? pickLocalized(viewingItem.label, locale) : ""}
+        size="lg"
+        bodyClassName="p-0 sm:p-0"
+      >
+        {viewingItem && (
+          <div className="aspect-video w-full bg-black">
+            <iframe
+              key={viewingItem.id}
+              src={safeHttpsUrl(viewingItem.url) ?? undefined}
+              className="size-full"
+              allow="autoplay; fullscreen"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        )}
+      </Modal>
     </>
   );
 }

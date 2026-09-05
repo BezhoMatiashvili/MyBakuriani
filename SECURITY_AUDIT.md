@@ -15,13 +15,13 @@ No unresolved critical or high-severity application/database vulnerability was
 found. Five defense gaps were fixed without changing public UI or business
 behavior:
 
-| Area | Finding and remediation | Verification |
-| --- | --- | --- |
-| Server authentication | A retryable `auth.getUser()` failure fell back to the cookie-only `getSession().user`. The fallback now requires a cryptographically verified `getClaims()` subject, requires the session subject to match it, and returns only signed identity fields. | Adversarial unit tests cover modified cookie metadata, missing/failed claims, subject mismatch, and missing session. TypeScript and targeted ESLint pass. |
-| RLS and RPC grants | Many authenticated-only policies still named role `public`; two authorization helpers were executable by anonymous users; two policies repeatedly evaluated auth functions per row. Client roles are now explicit, anonymous helper execution is revoked, and the init-plan predicates are fixed. | Anonymous/authenticated/owner/admin role simulations produced identical intended row counts before and after. Anonymous SECURITY DEFINER execute count is now zero. Advisor findings dropped from 43 to 41 and performance findings from 245 to 122. |
-| Internal deny-all tables | Thirteen RLS/no-policy internal tables retained default API grants; eight included `TRUNCATE`, which RLS does not govern. All table privileges were revoked from `anon` and `authenticated`; service-role grants were preserved. | A rolled-back rehearsal asserted zero client privileges and intact service access. Production now reports zero client grant rows and 91 service-role grant rows across the set. |
-| Scheduled Edge authentication | Four `verify_jwt=false` cron handlers compared Bearer secrets with ordinary string equality. They now compare fixed-size SHA-256 digests with the standard timing-safe primitive. | Deno tests/checks pass; missing/wrong credentials still return the same `401` classes. Deployed sources were read back and verified. All four pg_cron jobs remained active and their latest runs succeeded. |
-| Secrets and storage boundaries | Service-role, Gemini, Turnstile, Supabase server, and SMS QA configuration modules lacked explicit client-bundle tripwires. `content-change-media` also lacked upload constraints. Added `server-only` boundaries and set the private bucket to 10 MiB JPEG/PNG/WebP. | Clean production build passed all 395 pages. The live bucket reports the intended privacy, size, and MIME settings. Tracked files and all 211 commits matched zero known high-confidence secret signatures. |
+| Area                           | Finding and remediation                                                                                                                                                                                                                                                                           | Verification                                                                                                                                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server authentication          | A retryable `auth.getUser()` failure fell back to the cookie-only `getSession().user`. The fallback now requires a cryptographically verified `getClaims()` subject, requires the session subject to match it, and returns only signed identity fields.                                           | Adversarial unit tests cover modified cookie metadata, missing/failed claims, subject mismatch, and missing session. TypeScript and targeted ESLint pass.                                                                                            |
+| RLS and RPC grants             | Many authenticated-only policies still named role `public`; two authorization helpers were executable by anonymous users; two policies repeatedly evaluated auth functions per row. Client roles are now explicit, anonymous helper execution is revoked, and the init-plan predicates are fixed. | Anonymous/authenticated/owner/admin role simulations produced identical intended row counts before and after. Anonymous SECURITY DEFINER execute count is now zero. Advisor findings dropped from 43 to 41 and performance findings from 245 to 122. |
+| Internal deny-all tables       | Thirteen RLS/no-policy internal tables retained default API grants; eight included `TRUNCATE`, which RLS does not govern. All table privileges were revoked from `anon` and `authenticated`; service-role grants were preserved.                                                                  | A rolled-back rehearsal asserted zero client privileges and intact service access. Production now reports zero client grant rows and 91 service-role grant rows across the set.                                                                      |
+| Scheduled Edge authentication  | Four `verify_jwt=false` cron handlers compared Bearer secrets with ordinary string equality. They now compare fixed-size SHA-256 digests with the standard timing-safe primitive.                                                                                                                 | Deno tests/checks pass; missing/wrong credentials still return the same `401` classes. Deployed sources were read back and verified. All four pg_cron jobs remained active and their latest runs succeeded.                                          |
+| Secrets and storage boundaries | Service-role, Gemini, Turnstile, Supabase server, and SMS QA configuration modules lacked explicit client-bundle tripwires. `content-change-media` also lacked upload constraints. Added `server-only` boundaries and set the private bucket to 10 MiB JPEG/PNG/WebP.                             | Clean production build passed all 395 pages. The live bucket reports the intended privacy, size, and MIME settings. Tracked files and all 211 commits matched zero known high-confidence secret signatures.                                          |
 
 Applied production migrations:
 
@@ -111,18 +111,18 @@ No unresolved critical or high-severity application/database vulnerability was
 found in this reassessment. The following issues were reproduced, fixed, and
 verified against the live Supabase project:
 
-| Area | Finding and remediation | Verification |
-| --- | --- | --- |
-| Internal RPC authorization | `ensure_renter_guest(...)` and other internal definer helpers inherited executable grants. An anonymous cross-owner insert was reproduced in a rolled-back transaction. Public/anon/authenticated grants were revoked except for explicitly client-facing, ownership-checking RPCs. | Anonymous exploit now fails with SQLSTATE `42501`; the helper has zero anon/authenticated grants. |
-| Storage | `chat-media` was public and anonymously writable; `product-images` and `logos` also had over-broad write policies. Buckets now have private/public intent aligned with the app, image-only MIME/5 MB limits, scoped logo paths, and no misleading role-`public` “service role” policies. | Real anonymous upload now receives `403`; `chat-media` is private and empty; the audit object was removed. |
-| Administrator MFA | Direct PostgREST/storage and protected-field triggers treated an AAL1 profile role as fully administrative. `is_admin_user()`, every admin RLS policy, and protected triggers now require AAL2. | AAL1 admin reads/writes are denied; the same rolled-back test succeeds at AAL2. No policy retains a direct profile-role admin check. |
-| Orphaned Edge Functions | Live `ai-respond` and `webhook-facebook` deployments were absent from source and retained unsafe legacy behavior. Both are now repository-tracked inert tombstones. | `ai-respond` rejects unauthenticated requests at the gateway; `webhook-facebook` returns `410` and performs no work. |
-| Search and abuse controls | Production rate limiting could fail open; request bounds and CORS responses were inconsistent. Added bounded per-isolate fallback, Postgres-backed shared limiting, strict JSON/query/page/coordinate bounds, exact request-origin CORS, and explicit loopback support for localhost. | Deployed search accepts valid localhost/production calls, rejects malformed payloads with `400`, and passes Deno checking. |
+| Area                              | Finding and remediation                                                                                                                                                                                                                                                                                                                             | Verification                                                                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Internal RPC authorization        | `ensure_renter_guest(...)` and other internal definer helpers inherited executable grants. An anonymous cross-owner insert was reproduced in a rolled-back transaction. Public/anon/authenticated grants were revoked except for explicitly client-facing, ownership-checking RPCs.                                                                 | Anonymous exploit now fails with SQLSTATE `42501`; the helper has zero anon/authenticated grants.                                                         |
+| Storage                           | `chat-media` was public and anonymously writable; `product-images` and `logos` also had over-broad write policies. Buckets now have private/public intent aligned with the app, image-only MIME/5 MB limits, scoped logo paths, and no misleading role-`public` “service role” policies.                                                            | Real anonymous upload now receives `403`; `chat-media` is private and empty; the audit object was removed.                                                |
+| Administrator MFA                 | Direct PostgREST/storage and protected-field triggers treated an AAL1 profile role as fully administrative. `is_admin_user()`, every admin RLS policy, and protected triggers now require AAL2.                                                                                                                                                     | AAL1 admin reads/writes are denied; the same rolled-back test succeeds at AAL2. No policy retains a direct profile-role admin check.                      |
+| Orphaned Edge Functions           | Live `ai-respond` and `webhook-facebook` deployments were absent from source and retained unsafe legacy behavior. Both are now repository-tracked inert tombstones.                                                                                                                                                                                 | `ai-respond` rejects unauthenticated requests at the gateway; `webhook-facebook` returns `410` and performs no work.                                      |
+| Search and abuse controls         | Production rate limiting could fail open; request bounds and CORS responses were inconsistent. Added bounded per-isolate fallback, Postgres-backed shared limiting, strict JSON/query/page/coordinate bounds, exact request-origin CORS, and explicit loopback support for localhost.                                                               | Deployed search accepts valid localhost/production calls, rejects malformed payloads with `400`, and passes Deno checking.                                |
 | Navigation and browser boundaries | Notification action URLs could accept unsafe targets, non-default-locale protected links looped during RSC prefetch, and the CSP omitted useful directives. URLs now use the shared internal-path sanitizer; auth redirects preserve locale; CSP adds `script-src-attr 'none'` and `manifest-src 'self'`; insecure-request upgrading is HTTPS-only. | Production-mode Chromium showed a single `/en/create` → `/en/auth/login` redirect, correct CSP, no horizontal overflow, and no unexpected console errors. |
-| Auth UX | Registration/reset paths used inconsistent password policy and could disclose provider errors/account existence. The client policy is now 12 characters, duplicate registration and reset responses are neutral, callbacks share the same redirect sanitizer, and recovery pages reject missing sessions. | Browser-tested neutral forgot-password response and invalid recovery session; production build renders all auth routes. |
-| Public database projections | Explicit safe-column public views must remain definer views because their base tables contain private columns. All six publication views now use `security_barrier=true`; `pg_trgm` moved from `public` to `extensions`. A later menu migration that recreated `public_services` was caught and followed by a barrier-restoring migration. | Anonymous reads still work; 6/6 views have barrier + definer options; `pg_trgm` reports schema `extensions`. |
-| Payments | Legacy direct balance top-up is an inert `503` tombstone. The test-card flow is authenticated, owner-bound, amount-bounded, and guarded by the server-only `TEST_PAYMENTS_ENABLED` kill switch. | The live Edge secret inventory has no `TEST_PAYMENTS_ENABLED`, so sandbox settlement is disabled in production. Money RPCs remain service-role-only. |
-| Dependencies and error disclosure | Vulnerable `js-yaml`/`nanoid` lock entries were upgraded. Public APIs and token routes no longer serialize raw database/provider errors; token endpoints are rate limited and return no-store/no-referrer responses. | Both full and production-only `npm audit` report zero vulnerabilities. |
+| Auth UX                           | Registration/reset paths used inconsistent password policy and could disclose provider errors/account existence. The client policy is now 12 characters, duplicate registration and reset responses are neutral, callbacks share the same redirect sanitizer, and recovery pages reject missing sessions.                                           | Browser-tested neutral forgot-password response and invalid recovery session; production build renders all auth routes.                                   |
+| Public database projections       | Explicit safe-column public views must remain definer views because their base tables contain private columns. All six publication views now use `security_barrier=true`; `pg_trgm` moved from `public` to `extensions`. A later menu migration that recreated `public_services` was caught and followed by a barrier-restoring migration.          | Anonymous reads still work; 6/6 views have barrier + definer options; `pg_trgm` reports schema `extensions`.                                              |
+| Payments                          | Legacy direct balance top-up is an inert `503` tombstone. The test-card flow is authenticated, owner-bound, amount-bounded, and guarded by the server-only `TEST_PAYMENTS_ENABLED` kill switch.                                                                                                                                                     | The live Edge secret inventory has no `TEST_PAYMENTS_ENABLED`, so sandbox settlement is disabled in production. Money RPCs remain service-role-only.      |
+| Dependencies and error disclosure | Vulnerable `js-yaml`/`nanoid` lock entries were upgraded. Public APIs and token routes no longer serialize raw database/provider errors; token endpoints are rate limited and return no-store/no-referrer responses.                                                                                                                                | Both full and production-only `npm audit` report zero vulnerabilities.                                                                                    |
 
 ### Live invariants captured after remediation
 
@@ -302,3 +302,347 @@ Ran a 4-reviewer workflow specifically checking this session's own diffs for reg
 | R1  | The C5 protected-column trigger (`prevent_listing_protected_field_change`, shared by `properties` and `services`) locked `status` uniformly on both tables. **Properties never has a direct owner-driven status update anywhere in the app** (verified via grep — admin-moderation-only, as intended), but **services legitimately does**: `FoodDashboardClient.tsx` `togglePublished()` toggles `active`/`draft` and `ServiceDashboardClient.tsx` `removeService()` sets `blocked` — both via the plain browser client, both used by the service/food/entertainment/transport/employment dashboards (shared component). Since the migration deployed, these self-service publish/unpublish/remove actions have been silently failing (trigger raises 42501, neither call site checks the returned error, UI optimistically updates local state as if it succeeded regardless) | High (functional regression, live since the C5 deploy) | 🟢 Fixed: `20260705150000_fix_services_status_self_toggle_regression.sql` applied directly via `execute_sql` during a brief connection window (the `apply_migration` path still fails on its own history-table bookkeeping write — same connectivity incident — so this one bypassed it). Narrows the services-specific lock to only block leaving `status='pending'` (the actual self-approval-bypass exploit C5 was meant to close); active/draft/blocked toggling by the owner on an already-moderated listing works again. Properties keeps the full lock (unchanged, correct). **Still pending: live exploit-reattempt + functional re-verification once the API layer is reachable** (DB accepted the DDL, but the connectivity incident has prevented confirming it from the live site since). |
 
 **This is now the single highest-priority item once the DB is reachable again** — it's the only regression found across three full audit/review passes, and it's been silently breaking real dashboard functionality (not just a theoretical gap) since the original C5 migration deployed.
+
+## Fourth-pass audit — 2026-09-05 (double-verified via fresh, independent agents)
+
+Ran a 6-area parallel reconnaissance sweep (auth/session/middleware, API routes, edge
+functions, DB migrations/RLS, client-side XSS/data exposure, payments/SMS/webhooks),
+each reviewer briefed to read `memory-bank/contracts.md` and this file first and
+report only genuinely new, previously-undocumented issues. 5 candidate findings
+survived that first-pass skepticism. Each was then re-investigated from scratch by
+**two separate fresh agents** with no shared context (with each other or the
+original finder), given a neutral restatement of the claim rather than "please
+confirm this is a bug," and instructed to check the LIVE database state (via
+Supabase MCP) where relevant rather than trust migration file text alone. A finding
+was kept only where **both** verification agents independently returned CONFIRMED.
+
+4 of 5 candidates hit 2/2 CONFIRMED. The fifth (SMS template `$`-substitution) got a
+split verdict and is recorded separately below as investigated-but-not-confirmed,
+per this pass's own methodology.
+
+| #   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Severity   | Verification                                                                                                                                                           |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | **`services` content-review gate (C14) fully bypassable by the owner via a `status` round-trip.** `prevent_listing_protected_field_change`'s services carve-out only locks `status` when leaving `'pending'` (an intentional fix, `SECURITY_AUDIT.md` R1, for legitimate active/draft/blocked self-toggling). Separately, `prevent_unreviewed_public_content_update` (the C14 review trigger) unconditionally `RETURN NEW`s — skipping the reviewable-field check entirely — whenever `OLD.status <> 'active'`. Chaining `active→draft` (unlocked by R1) → edit any reviewable field (title/description/price/phone/photos/etc., unguarded because status≠active) → `draft→active` (unlocked again) lets any non-admin service owner publish fully unreviewed content with zero `content_change_requests` row, zero admin notification, zero rejection path. RLS has no `WITH CHECK` beyond ownership; no third trigger catches it. Confirmed against live `pg_get_functiondef` output for both triggers, not just migration text. `properties` is NOT affected (its status lock is unconditional).                                                                                                                                                                                                                                                                                            | High       | 🔴 2/2 CONFIRMED (independent agents, live DB introspection)                                                                                                           |
+| S2  | **Stored `javascript:`-URI injection via `services.menu_url` on public `/food/[id]` pages.** `src/components/food-detail/FoodContactCard.tsx` renders `menu_url` directly into `<a href>` with no protocol validation. The value is taken raw from a food-listing owner's create-form text input (`src/app/[locale]/create/food/page.tsx`) and written via a direct client-side INSERT — the C14 review trigger is UPDATE-only, so it never gates the initial value; no CHECK constraint restricts the column; admin listing approval never rewrites/validates it; the public `services` view selects it unmodified. An identical field already caused a documented CodeQL fix (`isHttpUrl` guard) in the owner's own dashboard (`dashboard/food/orders/page.tsx`) and a shared `safeHttpsUrl` helper (`src/lib/security.ts`) already exists and is used elsewhere for exactly this class of DB-sourced-href problem — neither is applied here. Bounded (not eliminated) by the anchor's `target="_blank" rel="noreferrer"`, which implies `noopener`: modern mainstream browsers open a `javascript:` URI here in an isolated auxiliary context rather than the site's real origin, so classic same-origin cookie theft is unlikely on current browsers — but the application itself has zero defense, and older/embedded browsers may not apply that mitigation.                             | Medium     | 🔴 2/2 CONFIRMED (independent agents; both independently flagged the `noopener` real-world bound)                                                                      |
+| S3  | **`authenticated` role's broad read access to `profiles` PII depends on an untracked, out-of-band migration — a fresh rebuild reopens it.** Contract C25 fixed the `anon`-role table-grant PII leak (phone/personal_id/role) on `2026-08-29`, but only for `anon`. Live production is currently SAFE for `authenticated` (its only applicable SELECT policy is "own row" + admin) — but that safety comes from ledger entry `20260705111547 / fix_profiles_rls_perf_regression`, which **has no corresponding file anywhere in `supabase/migrations/`** (one of the 11 untracked ledger entries already noted in project memory, just not previously connected to this security implication). The tracked migration `20260705120000_security_audit_critical_fixes.sql` creates the broad EXISTS-based policy scoped `TO anon, authenticated` and no tracked migration ever narrows or drops it for `authenticated`; `authenticated`'s table/column-level SELECT grant on `profiles` was also never revoked by any tracked migration (only `anon`'s was, on 2026-08-29). A disaster-recovery restore, a fresh CI/staging environment, or `supabase db reset` built from tracked files alone would silently reopen a scoped-but-real PII leak (phone, Georgian national ID, role) to every signed-in user, for every active-listing owner, every past reviewer, and every published blog author. | Medium     | 🔴 2/2 CONFIRMED as reproducibility/IaC-drift risk (both agents independently verified current live prod is safe, and independently traced the missing migration file) |
+| S4  | **Price-drop SMS notifications: any phone-verified user can subscribe to any stranger's sale listing, and the LISTING OWNER's SMS credit balance is debited once per subscriber when they later drop their price** (`src/app/api/listings/property/[propertyId]/price-drop-alert/route.ts` + `sms_materialize_due_price_drop_events` in `supabase/migrations/20260802120000_controlled_sms_and_price_drop.sql`). No ownership/relationship check beyond "not the owner," no per-listing subscriber cap. An attacker who mass-creates phone-verified accounts and subscribes them to a competitor's listing can force real SMS-credit consumption on that owner's next routine price drop, or — if oversubscribed past the owner's balance — silently stall/expire the owner's own legitimate notification for everyone (denial-of-service on the feature). Confirmed NOT an overdraft: two independent balance checks (a pre-flight gate and a per-send re-check) prevent the balance from ever going negative; worst case is bounded credit drain or a stalled/expired event. Gated behind the `SMS_PRICE_DROP_MODE` feature flag, which defaults to `off` in `.env.example` — production value not verifiable from this session/MCP.                                                                                                                                                         | Low–Medium | 🔴 2/2 CONFIRMED (both agents independently confirmed stall-only, no-overdraft behavior)                                                                               |
+
+### Investigated but NOT confirmed (split verdict — recorded for completeness)
+
+**SMS template `$`-substitution corruption via `profiles.display_name`.** JavaScript's
+`String.prototype.replace(plainSearchString, replacement)` honors special `$`-patterns
+(`$'`, `` $` ``, `$$`, `$&`) in the replacement argument even for a non-regex search —
+empirically confirmed by both verifiers, who reproduced real, garbled Georgian SMS
+output using the actual `buildCheckIn` template logic in
+`supabase/functions/sms-automation-run/domain.ts`, with `clampName()` doing only
+trim+length-clamp (no `$` stripping), fed from `profiles.display_name` set at
+registration with no `$` sanitization (the C14 review trigger is UPDATE-only, so it
+never gates the INSERT). Where the two verifiers diverged: one traced the "platform
+booking" scan (`sms-automation-run/index.ts`) that would carry an attacker's own
+`display_name` into an automated SMS about their own stay, and called it reachable,
+scheduled, and live. The other queried the live `bookings` table directly and found
+**zero organically-confirmed rows** — the only row is a manufactured QA fixture — and
+confirmed via grep that `booking-create`/`booking-manage` are never called from
+`src/` at all, matching the pre-existing project memory note
+`no-online-booking-flow.md`. The vulnerable `.replace()` mechanism is real and would
+need fixing (e.g. a function-replacer or `split().join()`) if the online-booking flow
+is ever wired into the UI, but is not exploitable via any live product flow today —
+the same template builders are also fed by `manual_bookings.guest_name`, but that
+field is owner-typed, not attacker-controlled, so it's a robustness gap there rather
+than a security bypass. **Not added to the findings table above per this pass's
+2-of-2 rule.**
+
+### Noted but not independently re-verified (single-source, low severity / hygiene — not "vulnerabilities" by the reporting agent's own assessment)
+
+- `supabase/functions/_shared/sanitize.ts`'s `sanitizeQuery` regex omits `.` despite
+  its own doc comment listing it; not currently exploitable (the characters that
+  actually structure a PostgREST filter — comma/parens — are still stripped), but a
+  latent risk if reused where the column/operator position becomes attacker-influenced.
+- `supabase/functions/_shared/guards.ts` pins `@supabase/supabase-js@2` to major
+  version only (via esm.sh) — a supply-chain reproducibility gap across all 16+
+  bundled functions, not an active exploit.
+- `company-subscription` edge function has its gateway-level `verify_jwt` pre-check
+  disabled (`supabase/config.toml`), unlike its wallet-debiting siblings — but it
+  performs its own real `requireUser()` token verification, so it is not currently
+  bypassable. The `config.toml` comment itself already names this as an open
+  defense-in-depth TODO.
+
+### Fix Log (this pass)
+
+No code, migration, or config changes were made in this pass — audit and
+double-verification only, per the session's scope. Recommended remediation
+directions (not applied):
+
+- **S1**: don't derive "never published, so skip review" from current `status` alone
+  — e.g. track an explicit `content_reviewed`/`first_approved_at` marker instead, or
+  stop skipping the review check for `services` on any transition that isn't the
+  row's genuine first activation.
+- **S2**: apply the existing `safeHttpsUrl` helper (`src/lib/security.ts`) at both the
+  `create/food` write boundary and the `FoodContactCard.tsx` render boundary, matching
+  the pattern already used by `banner-creative.ts`/`StatusCards.tsx`/
+  `dashboard/food/orders/page.tsx`.
+- **S3**: add a migration file that codifies the current live-safe state (recreate
+  `"Anon can view active-listing owners and reviewers"` scoped to `anon` only,
+  matching prod) so a fresh build converges to the same safe state instead of relying
+  on an untracked ledger entry.
+- **S4**: add a per-listing subscriber cap and/or require an existing relationship to
+  the listing before allowing a price-drop subscription; confirm the
+  `SMS_PRICE_DROP_MODE` production value directly in Vercel/Supabase.
+
+## Fifth pass: validation and remediation of the fourth-pass findings — 2026-09-05
+
+Re-read this entire document, re-verified all 4 confirmed fourth-pass findings against
+live code/DB (not just the write-up), and fixed all four. Also used the pass to correct
+several rows elsewhere in this document that had gone stale — later, unrelated work had
+already fixed them and nobody updated their status.
+
+### S1 — services content-review bypass — 🟢 FIXED & live-verified
+
+Root cause confirmed via `pg_get_functiondef`: `prevent_unreviewed_public_content_update`
+skipped its reviewable-field check whenever `OLD.status <> 'active'`. Migration
+`20260905142000_fix_service_review_gate_status_toggle_bypass.sql` narrows that to
+`OLD.status = 'pending'` — a row that has never been approved stays freely editable
+pre-review, but any status reached AFTER a prior approval (active/draft/blocked) keeps
+the review gate engaged. `properties`/`organizations` are unaffected (owners can't
+self-toggle their status at all).
+
+**Live-verified** (as the real owning, non-admin user, via a role-simulated session —
+no rollback needed since the row round-tripped back to its original state): step 1
+`active → draft` succeeded (R1's legitimate self-toggle, unaffected); step 2 editing
+`title` while `status = 'draft'` was **blocked with 42501** (the bug, now fixed); step 3
+`draft → active` succeeded. Confirmed the exact exploit chain from the finding is closed
+and the legitimate self-service toggle still works. **Side-effect check on the real row
+touched by this test** (`services` id `5dec5eff-…`, owner `58366bb8-…`): queried
+`audit_logs` and `notifications` for the following 2 hours — zero rows reference this
+service or fired for its owner (one unrelated pre-existing `LOGIN` audit row for the
+same user, not caused by the test). The two committed status UPDATEs left no trace
+beyond the row itself, which ended identical to its starting state.
+
+**Blast-radius check (raised on review, addressed before shipping):** the fix engages
+the review gate for `draft`/`blocked` rows too, not just `active`, which could in
+principle break a legitimate self-service content edit on a paused listing if one
+existed. Checked live data: `properties` currently has only `active`(34)/`pending`(1)
+rows and `services` only `active`(31)/`pending`(1) — **zero rows in `draft`/`blocked`
+today**, so today's blast radius is zero; this is forward-only hardening. Also verified
+by grep that every listing category's edit form (`create/{service,transport,
+entertainment,employment,rental,sale}/page.tsx`, not just `create/food`) routes edits
+through `submitContentChange` uniformly — none of them does a direct `.update()` of
+reviewable content fields — so there is no other direct-write edit path this narrowing
+could have broken.
+
+### S2 — stored `javascript:`-URI injection via `menu_url` — 🟢 FIXED
+
+Applied the existing `safeHttpsUrl` helper (`src/lib/security.ts`) at **both** boundaries
+named in the finding: `src/app/[locale]/create/food/page.tsx` now validates
+`menuUrlInput` in `validate()` (rejects non-`https:` values with a new `CreateFood.
+invalidMenuUrl` i18n key, added to all 3 locale catalogs) and normalizes through
+`safeHttpsUrl()` before writing `menu_url`; `src/components/food-detail/
+FoodContactCard.tsx` now derives `safeMenuUrl = safeHttpsUrl(menuUrl)` and renders that
+instead of the raw prop, so any pre-existing bad row would also render no link instead
+of an unsafe `href`. Checked live data: zero existing `services.menu_url` rows are
+non-`https`, so no backfill was needed.
+
+**Completeness check (raised on review):** `services` also has a separate legacy
+`menu` jsonb column with its own `.url` field, written through
+`dashboard/food/orders/page.tsx`'s `saveMenuUrl()`/`isHttpUrl()` (a pre-existing,
+already CodeQL-fixed pattern that permits `http:` as well as `https:`). Grepped the
+whole `src/` tree: that field is read only inside the owner's own dashboard (self-XSS
+at most, already accepted in that file's own comment) and is never rendered on any
+public page — confirmed no second, unclosed sink for this class of bug.
+
+### S3 — untracked migration behind current `authenticated` profiles safety — 🟢 FIXED
+
+Added `20260905143000_codify_profiles_anon_only_select_policy.sql`. **First version of
+this fix was wrong and would have been a no-op on a fresh rebuild** (caught on review,
+fixed before shipping): it dropped a policy named `"Anon can view active-listing owners
+and reviewers"` — but that name only exists on the _current live_ database, where the
+untracked ledger entry `20260705111547` had already renamed it. The tracked migration
+chain (`20260705120000_security_audit_critical_fixes.sql`) actually creates this policy
+as `"Public can view active-listing owners and reviewers"`, scoped `TO anon,
+authenticated` — a name the first version of the fix never touched. On a fresh rebuild,
+that would have left the broad `anon, authenticated` policy fully intact under its
+original name, and since `authenticated` retains an unrestricted table-level `SELECT`
+grant on `profiles` (only `anon`'s grant was narrowed, by C25), the exact PII exposure
+S3 exists to prevent would have reopened — the fix would have done nothing for the
+scenario it was written for.
+
+Corrected version drops **both** possible names (`"Public can view…"` and `"Anon can
+view…"`) before recreating one canonical `anon`-only policy, so it is correct whether
+applied to the current live database (only the second name exists there; the first drop
+no-ops) or to a fresh rebuild from tracked files alone (only the first name exists).
+Re-applied to live and re-verified via `pg_policies`: exactly one listing-owner/reviewer
+policy remains, scoped `{anon}`, and the C25 column-level grants for `anon` (no `SELECT`
+on `phone`/`personal_id`/`role`) are untouched.
+
+Two housekeeping notes for whoever next diffs the migration ledger against this repo:
+(1) the live ledger now holds two entries for this fix —
+`codify_profiles_anon_only_select_policy` (the wrong first version, now inert — its own
+`DROP` matched nothing, so it was a no-op against live) and
+`codify_profiles_anon_only_select_policy_v2` (the real fix) — while the repo has one
+file, `20260905143000_...`, containing the v2 body; this is inert drift per contract C3
+("filename prefixes are cosmetic ordering only"), not a parity bug. (2) Queried the
+separate staging project (ref `lmqhyoqmkjmikcbgofjy`, created 2026-09-05) as a cheap
+sanity check — it already reports the corrected `"Anon can view…"` policy scoped `{anon}`
+only. This is **not** independent proof the tracked-migration-only rebuild path is safe:
+Supabase branch/staging projects are typically created via a schema clone (`pg_dump`/
+`pg_restore`-style) rather than by replaying `supabase/migrations/*.sql` from a git
+checkout, so this result is consistent with staging having been cloned from prod's
+current (already-patched) state either before or after this session's fix, and says
+nothing about a genuine `supabase db reset` from tracked files alone. Treat it as a data
+point, not validation of the rebuild scenario.
+
+### S4 — unbounded price-drop SMS subscriber count — 🟢 FIXED
+
+Added a `MAX_SUBSCRIBERS_PER_LISTING = 50` cap in
+`src/app/api/listings/property/[propertyId]/price-drop-alert/route.ts`'s `PUT` handler:
+before activating a **new** subscription, counts existing active subscribers for that
+property (excluding the caller) and rejects with `409 subscriber_limit_reached` at the
+cap. Bounds the maximum possible SMS-credit drain / stall-DoS on a listing owner to a
+fixed constant regardless of how many accounts an attacker controls. (A tight
+concurrent-request race could let the count exceed the cap by a small margin; accepted,
+since the goal is bounding order-of-magnitude abuse, not perfect atomicity, and the
+table has a single writer.)
+
+### Corrections to stale statuses found while re-verifying (no new fixes needed — already resolved by later, unrelated work)
+
+- **M8** (`pg_trgm` in public schema): superseded by `20260815131000_move_pg_trgm_out_of_public.sql`.
+  Live-verified: `pg_trgm` now reports `extnamespace = extensions`. Row above is stale.
+- **M9** (`admin_notes` reachable via public listing pages): superseded by
+  `20260723000000_production_security_remediation.sql`, which introduced the
+  `public_properties`/`public_services` SECURITY DEFINER views (explicit safe column
+  lists, no `admin_notes`). Live-verified: `getCachedPublicProperty`/
+  `getCachedPublicService` (the only code path every public detail page under
+  `src/app/[locale]/{apartments,hotels,sales,food,services,entertainment,transport,
+employment}/[id]/page.tsx` uses) query `public_properties`/`public_services`, not the
+  base tables. The legacy `admin_notes` column still exists on `properties`/`services`
+  (kept for admin-editor compatibility, moved to `property_admin_notes`/
+  `service_admin_notes` side tables with client grants revoked in
+  `20260818121000_closed_table_privilege_hardening.sql`), but it is no longer reachable
+  through any public read path. Row above is stale.
+- **L1** (non-constant-time secret comparison in cron functions): superseded by the
+  2026-08-18 pass's `_shared/secrets.ts` (SHA-256 digest + `timingSafeEqual`,
+  live-verified present). Row above is stale.
+- **L5** (`increment_views` no status check / no throttle): superseded by
+  `record_listing_view` (contract C22, migration `20260808113948_listing_analytics.sql`).
+  Live-verified via `pg_get_functiondef`: it only increments `views_count` `WHERE status
+= 'active'`, and its sole caller (`src/app/api/listings/[kind]/[id]/view/route.ts`) is
+  rate-limited 1/IP/kind/id/24h via `checkRateLimit`. `increment_views`/
+  `increment_service_views` are still present but unused by any current code path. Row
+  above is stale.
+
+Left as-is, correctly: **H4** (dummy payments — confirmed intentional, matches git
+history and code's own placeholder comment, no gateway to fix in-repo); **M7** (leaked
+password protection — a Supabase Auth/GoTrue account setting with no SQL/MCP surface;
+still needs the user to enable it in Authentication → Policies); **L2** (non-admin
+dashboards check auth but not role-match — not currently exploitable per existing
+analysis, RLS scopes the underlying data; defense-in-depth only).
+
+### Verification evidence (this pass)
+
+- `npx tsc --noEmit`: clean.
+- `npx eslint` on the 3 changed files: 0 errors (1 pre-existing, unrelated warning).
+- `node scripts/check-message-parity.mjs`: OK, 4032 keys identical across ka/en/ru.
+- `node scripts/i18n-scope.mjs --check`: OK.
+- `npm run build`: succeeded (all routes built, including the changed
+  `create/food` page and the `price-drop-alert` API route).
+- `mcp__supabase__get_advisors(type: "security")`: no new findings beyond the
+  already-documented, already-accepted set (13 no-policy tables, 6 security-definer
+  views, `pg_net` in public, 21 authenticated-definer-RPC warnings, leaked-password
+  protection). Nothing above was missed by this pass.
+- Independent adversarial review of this pass's own 4 fixes (before shipping) caught
+  one real defect (S3's original policy-name target, corrected above — see that
+  section) and requested 3 additional checks, all performed and folded into the S1/S2
+  sections above: S1's live status-distribution + edit-path grep, and the live
+  audit_logs/notifications side-effect check on the row used for S1's live test; S2's
+  second-sink (`services.menu` jsonb) grep. No further defects found on re-check.
+
+**Disclosure for anyone deploying this pass**: S1 and S3 are **live in the production
+database already** (applied via Supabase MCP during this session, independent of git).
+S2 and S4 are **working-tree code changes only** — they take effect on the next deploy
+to Vercel, and the two new migration files (`20260905142000`,
+`20260905143000`) are tracked in the repo but were also already applied live directly,
+so pushing them again via the normal migration path is safe (idempotent) but not
+required for the DB-side fixes to be in effect.
+
+## Sixth pass: bounty-hunter-style sweep for remotely exploitable issues — 2026-09-05
+
+Ran a targeted pass biased toward the classes that actually pay out in a bounty
+program — SSRF, auth bypass, upload-to-RCE, SQL/command injection, path traversal,
+auto-triggered XSS — rather than a general best-practices review, on top of the five
+prior passes above. Scope: every `src/app/api/**/route.ts` handler, all 18 Supabase
+Edge Functions, and the PL/pgSQL bodies of every `self_service_*`/token-based RPC
+reachable from an unauthenticated or low-privilege caller.
+
+**Outcome: no new exploitable finding.** Everything below was checked and ruled out;
+nothing here is being promoted to a numbered finding because none of it clears the
+skill's own bar (reachable path + genuinely user-controlled input + working PoC).
+
+- **SSRF** — grepped every server-side `fetch()`/`timeoutFetch()` call site in `src/`
+  and `supabase/functions/`. All resolve to a hardcoded host (Nominatim for geocode,
+  WeatherAPI, Mapbox Directions for the road badge, Upstash for the optional rate
+  limiter). None accept a user-supplied URL or hostname; `/api/geocode` only forwards
+  a query string, never a URL, to a fixed endpoint.
+- **Command/shell injection** — no `child_process`, `exec`, or `spawn` usage anywhere
+  in `src/` or `supabase/functions/`.
+- **Path traversal** — `content-change-requests/[id]/media` (the one route that reads
+  a client-supplied storage path) scopes non-admin callers to `${user.id}/` and
+  requires the path to already appear inside that request's own `proposed_values`;
+  Supabase Storage keys are logical object names, not filesystem paths, so there is no
+  OS-level traversal surface underneath it either way.
+- **Upload → RCE** — walked the photo pipeline end to end
+  (`/api/media/intents` → signed upload to a quarantine bucket → `/api/media/intents/
+[id]/finalize`). MIME allowlist, 10 MB cap, `sharp` reprocessing with
+  `limitInputPixels` and a 4096px dimension cap before the file ever reaches a public
+  bucket. No path derived from client input (object keys are `crypto.randomUUID()`).
+- **SQL injection in dynamic PL/pgSQL** — grepped every `EXECUTE format(...)` in
+  `supabase/migrations/`. All of them (`self_service_update_profile`,
+  `approve_content_change_request`, the menu-item-discount RPCs) interpolate only
+  column/table identifiers via `%I`, sourced from a hardcoded allowlist array
+  (`WHERE k = ANY(ARRAY[...])`) or a fixed `CASE` over an enum-like column — actual
+  values always travel through `USING $1` / `jsonb_populate_record`, never string
+  concatenation. Not injectable.
+- **Auto-triggered XSS** — zero `dangerouslySetInnerHTML` in `src/`. The one live
+  stored-URI class (S2, `services.menu_url`) was already found and fixed earlier this
+  same pass; grepped for a second sink and found none.
+- **IDOR in the newer self-service RPC family** — `src/app/api/food/menu-items/
+{route.ts,[id]/route.ts,reorder/route.ts}` look up a `service_menu_items` row by id
+  with **no owner filter** at the API layer, which looked like a gap until the RPC
+  bodies were read live (`pg_get_functiondef`, not the migration file text): every
+  one of `self_service_create_menu_item`, `self_service_update_menu_item`,
+  `self_service_delete_menu_item`, `self_service_reorder_menu_items`,
+  `self_service_set_cleaner_working_hours`, `submit_menu_item_discount_request`, and
+  `approve_menu_item_discount_request` independently re-derives the owning service
+  and asserts `services.owner_id = p_actor_id` (or `p_requester_id`) before writing
+  anything; `self_service_reorder_menu_items` additionally requires the submitted id
+  array to match the target service's item count exactly and rejects any id that
+  doesn't also carry that `service_id`, so a foreign item can't be spliced into
+  another owner's ordering. Confirmed live via
+  `has_function_privilege('authenticated', ..., 'EXECUTE')` /
+  `has_function_privilege('anon', ..., 'EXECUTE')` that all nine of these RPCs
+  (including `self_service_update_profile`) are **`service_role`-only** — a browser
+  client cannot call any of them directly with a forged actor id through PostgREST.
+  Also verified the two token-gated RPCs behind unauthenticated routes
+  (`manual_review_token_details`, `submit_manual_booking_review`,
+  `respond_manual_booking_sms_consent`, `issue_manual_booking_sms_consent`) are
+  likewise `service_role`-only, so the Next.js routes' rate limits can't be bypassed
+  by calling the RPC straight from the anon key.
+- **Role-escalation route** (`/api/admin/clients/[id]/role`) explicitly excludes
+  `"admin"` from its assignable-role allowlist and is gated by `requireAdmin()`
+  (role check + AAL2/MFA).
+- **`get_advisors(type: "security")`** — identical output to the fifth pass: the same
+  13 no-policy internal tables, 6 intentional security-definer public-projection
+  views, `pg_net` in `public`, 21 authenticated-executable definer RPCs (all
+  ownership-checked in their bodies, already accepted), and leaked-password
+  protection still disabled in Supabase Auth (GoTrue setting, no SQL/MCP surface).
+  Nothing new.
+
+**Not promoted to a finding, on purpose**: the missing `checkRateLimit` on
+`/api/listings/property/[propertyId]/price-drop-alert` — every other route in this
+file has one and this one doesn't, which was flagged for a closer look, but the S4
+fix already bounds the actual damage (50 subscribers/listing cap, no balance
+overdraft possible, one subscription row per attacker account), so adding a rate
+limit here would be defense-in-depth, not a fix for an exploitable gap.
+
+This is the user's own private repository with no `SECURITY.md`/bounty program and no
+external disclosure channel, so no report was filed anywhere — this section is the
+disclosure, in the format this document already uses.

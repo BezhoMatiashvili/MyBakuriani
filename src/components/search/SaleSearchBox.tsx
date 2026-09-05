@@ -67,13 +67,10 @@ export interface SaleSearchFilters {
   priceMin: number;
   priceMax: number;
   cadastralCode: string;
-  statuses: string[];
   rooms: number[];
   areaMin: number;
   areaMax: number;
-  amenities: string[];
   payment: string[];
-  developers: string[];
   sellerTypes: string[];
   // Investment-mode quick filters (from the 4-dropdown row):
   roiMin: number | null; // 5 | 8 | 10 | null
@@ -99,13 +96,10 @@ type MobileFilterDraft = {
   priceMin: string;
   priceMax: string;
   cadastralCode: string;
-  statuses: string[];
   rooms: number[];
   areaMin: number;
   areaMax: number;
-  amenities: string[];
   payment: string[];
-  developers: string[];
   sellerTypes: string[];
   roiMin: number | null;
   areaBucket: AreaBucket;
@@ -137,30 +131,7 @@ const PROPERTY_TYPES = [
   { value: "hotel", labelKey: "typeHotel" },
 ];
 
-const STATUS_OPTIONS: Array<{ value: string; labelKey: string }> = [
-  { value: "new", labelKey: "statusNew" },
-  { value: "progress", labelKey: "statusInProgress" },
-  { value: "ready", labelKey: "statusReady" },
-];
-
 const ROOM_OPTIONS = [1, 2, 3, 4] as const;
-
-// Chip `value`s are Georgian data values matched against DB amenities —
-// they intentionally stay Georgian; only the visible label is translated.
-const AMENITY_CHIPS: Array<{ value: string; labelKey: string }> = [
-  { value: "აივანი", labelKey: "amenityBalcony" },
-  { value: "ფარდული", labelKey: "amenityShed" },
-  { value: "წყალი", labelKey: "amenityWater" },
-  { value: "გაზი", labelKey: "amenityGas" },
-  { value: "ავეჯი", labelKey: "amenityFurniture" },
-];
-
-const DEVELOPER_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "Moritori Gardens", label: "Moritori Gardens" },
-  { value: "Crystal Resort", label: "Crystal Resort" },
-  { value: "Mountain Dev Group", label: "Mountain Dev Group" },
-  { value: "Bakuriani Invest", label: "Bakuriani Invest" },
-];
 
 const SELLER_TYPE_OPTIONS: Array<{
   value: "developer" | "individual";
@@ -202,8 +173,9 @@ function areaBucketToRange(b: AreaBucket): { min: number; max: number } {
 const CONSTRUCTION_OPTIONS: Array<{ value: string | null; labelKey: string }> =
   [
     { value: null, labelKey: "allOption" },
-    { value: "completed", labelKey: "constructionCompleted" },
     { value: "under_construction", labelKey: "underConstruction" },
+    { value: "completed", labelKey: "constructionCompleted" },
+    { value: "old_built", labelKey: "constructionOld" },
   ];
 
 const RENOVATION_OPTIONS: Array<{ value: string | null; labelKey: string }> = [
@@ -257,13 +229,10 @@ export function SaleSearchBox({
   const [priceMin, setPriceMin] = useState<string>("");
   const [priceMax, setPriceMax] = useState<string>("");
   const [cadastralCode, setCadastralCode] = useState("");
-  const [statuses, setStatuses] = useState<string[]>([]);
   const [rooms, setRooms] = useState<number[]>([]);
   const [areaMin, setAreaMin] = useState(DEFAULT_AREA_MIN);
   const [areaMax, setAreaMax] = useState(DEFAULT_AREA_MAX);
-  const [amenities, setAmenities] = useState<string[]>([]);
   const [payment, setPayment] = useState<string[]>([]);
-  const [developers, setDevelopers] = useState<string[]>([]);
   const [sellerTypes, setSellerTypes] = useState<string[]>([]);
   const [internalShowMap, setInternalShowMap] = useState(false);
   const showMap = showMapProp ?? internalShowMap;
@@ -348,13 +317,10 @@ export function SaleSearchBox({
     setPriceMin("");
     setPriceMax("");
     setCadastralCode("");
-    setStatuses([]);
     setRooms([]);
     setAreaMin(DEFAULT_AREA_MIN);
     setAreaMax(DEFAULT_AREA_MAX);
-    setAmenities([]);
     setPayment([]);
-    setDevelopers([]);
     setSellerTypes([]);
   }, []);
 
@@ -364,13 +330,10 @@ export function SaleSearchBox({
       priceMin,
       priceMax,
       cadastralCode,
-      statuses: [...statuses],
       rooms: [...rooms],
       areaMin,
       areaMax,
-      amenities: [...amenities],
       payment: [...payment],
-      developers: [...developers],
       sellerTypes: [...sellerTypes],
       roiMin,
       areaBucket,
@@ -383,13 +346,10 @@ export function SaleSearchBox({
     priceMin,
     priceMax,
     cadastralCode,
-    statuses,
     rooms,
     areaMin,
     areaMax,
-    amenities,
     payment,
-    developers,
     sellerTypes,
     roiMin,
     areaBucket,
@@ -403,13 +363,10 @@ export function SaleSearchBox({
       priceMin: "",
       priceMax: "",
       cadastralCode: "",
-      statuses: [],
       rooms: [],
       areaMin: DEFAULT_AREA_MIN,
       areaMax: DEFAULT_AREA_MAX,
-      amenities: [],
       payment: [],
-      developers: [],
       sellerTypes: [],
       roiMin: null,
       areaBucket: null,
@@ -424,13 +381,10 @@ export function SaleSearchBox({
     setPriceMin(mobileFilterDraft.priceMin);
     setPriceMax(mobileFilterDraft.priceMax);
     setCadastralCode(mobileFilterDraft.cadastralCode);
-    setStatuses(mobileFilterDraft.statuses);
     setRooms(mobileFilterDraft.rooms);
     setAreaMin(mobileFilterDraft.areaMin);
     setAreaMax(mobileFilterDraft.areaMax);
-    setAmenities(mobileFilterDraft.amenities);
     setPayment(mobileFilterDraft.payment);
-    setDevelopers(mobileFilterDraft.developers);
     setSellerTypes(mobileFilterDraft.sellerTypes);
     setRoiMin(mobileFilterDraft.roiMin);
     setAreaBucket(mobileFilterDraft.areaBucket);
@@ -553,13 +507,10 @@ export function SaleSearchBox({
       priceMin: priceMinNum,
       priceMax: priceMaxNum,
       cadastralCode,
-      statuses,
       rooms,
       areaMin: resolvedAreaMin,
       areaMax: resolvedAreaMax,
-      amenities,
       payment,
-      developers,
       sellerTypes,
       roiMin,
       constructionStatus,
@@ -600,12 +551,9 @@ export function SaleSearchBox({
     propertyTypes.length +
     (priceMin || priceMax ? 1 : 0) +
     (cadastralCode ? 1 : 0) +
-    statuses.length +
     rooms.length +
     (areaMin !== DEFAULT_AREA_MIN || areaMax !== DEFAULT_AREA_MAX ? 1 : 0) +
-    amenities.length +
     payment.length +
-    developers.length +
     sellerTypes.length +
     (roiMin !== null ? 1 : 0) +
     (areaBucket !== null ? 1 : 0) +
@@ -1078,19 +1026,6 @@ export function SaleSearchBox({
                   (draft) => draft && { ...draft, cadastralCode: v },
                 )
               }
-              statuses={mobileFilterDraft.statuses}
-              onToggleStatus={(v) =>
-                setMobileFilterDraft((draft) =>
-                  !draft
-                    ? draft
-                    : {
-                        ...draft,
-                        statuses: draft.statuses.includes(v)
-                          ? draft.statuses.filter((item) => item !== v)
-                          : [...draft.statuses, v],
-                      },
-                )
-              }
               rooms={mobileFilterDraft.rooms}
               onToggleRoom={(v) =>
                 setMobileFilterDraft((draft) =>
@@ -1116,19 +1051,6 @@ export function SaleSearchBox({
                   (draft) => draft && { ...draft, areaMax: v },
                 )
               }
-              amenities={mobileFilterDraft.amenities}
-              onToggleAmenity={(v) =>
-                setMobileFilterDraft((draft) =>
-                  !draft
-                    ? draft
-                    : {
-                        ...draft,
-                        amenities: draft.amenities.includes(v)
-                          ? draft.amenities.filter((item) => item !== v)
-                          : [...draft.amenities, v],
-                      },
-                )
-              }
               payment={mobileFilterDraft.payment}
               onTogglePayment={(v) =>
                 setMobileFilterDraft((draft) =>
@@ -1139,19 +1061,6 @@ export function SaleSearchBox({
                         payment: draft.payment.includes(v)
                           ? draft.payment.filter((item) => item !== v)
                           : [...draft.payment, v],
-                      },
-                )
-              }
-              developers={mobileFilterDraft.developers}
-              onToggleDeveloper={(v) =>
-                setMobileFilterDraft((draft) =>
-                  !draft
-                    ? draft
-                    : {
-                        ...draft,
-                        developers: draft.developers.includes(v)
-                          ? draft.developers.filter((item) => item !== v)
-                          : [...draft.developers, v],
                       },
                 )
               }
@@ -1168,10 +1077,15 @@ export function SaleSearchBox({
                       },
                 )
               }
+              constructionStatus={mobileFilterDraft.constructionStatus}
+              onConstructionChange={(constructionStatus) =>
+                setMobileFilterDraft(
+                  (draft) => draft && { ...draft, constructionStatus },
+                )
+              }
               investment={{
                 roiMin: mobileFilterDraft.roiMin,
                 areaBucket: mobileFilterDraft.areaBucket,
-                constructionStatus: mobileFilterDraft.constructionStatus,
                 renovationStatus: mobileFilterDraft.renovationStatus,
                 onRoiChange: (roiMin) =>
                   setMobileFilterDraft(
@@ -1180,10 +1094,6 @@ export function SaleSearchBox({
                 onAreaChange: (areaBucket) =>
                   setMobileFilterDraft(
                     (draft) => draft && { ...draft, areaBucket },
-                  ),
-                onConstructionChange: (constructionStatus) =>
-                  setMobileFilterDraft(
-                    (draft) => draft && { ...draft, constructionStatus },
                   ),
                 onRenovationChange: (renovationStatus) =>
                   setMobileFilterDraft(
@@ -1208,34 +1118,16 @@ export function SaleSearchBox({
             onChangeMax={(v) => setPriceMax(String(v))}
             cadastralCode={cadastralCode}
             onChangeCadastral={setCadastralCode}
-            statuses={statuses}
-            onToggleStatus={(v) =>
-              setStatuses((prev) =>
-                prev.includes(v) ? prev.filter((s) => s !== v) : [...prev, v],
-              )
-            }
             rooms={rooms}
             onToggleRoom={toggleRoomQuick}
             areaMin={areaMin}
             areaMax={areaMax}
             onChangeAreaMin={setAreaMin}
             onChangeAreaMax={setAreaMax}
-            amenities={amenities}
-            onToggleAmenity={(v) =>
-              setAmenities((prev) =>
-                prev.includes(v) ? prev.filter((a) => a !== v) : [...prev, v],
-              )
-            }
             payment={payment}
             onTogglePayment={(v) =>
               setPayment((prev) =>
                 prev.includes(v) ? prev.filter((p) => p !== v) : [...prev, v],
-              )
-            }
-            developers={developers}
-            onToggleDeveloper={(v) =>
-              setDevelopers((prev) =>
-                prev.includes(v) ? prev.filter((d) => d !== v) : [...prev, v],
               )
             }
             sellerTypes={sellerTypes}
@@ -1244,6 +1136,8 @@ export function SaleSearchBox({
                 prev.includes(v) ? prev.filter((s) => s !== v) : [...prev, v],
               )
             }
+            constructionStatus={constructionStatus}
+            onConstructionChange={setConstructionStatus}
             onReset={resetFilters}
             onApply={() => setActiveDropdown(null)}
           />
@@ -1760,22 +1654,18 @@ function FiltersPanel({
   onChangeMax,
   cadastralCode,
   onChangeCadastral,
-  statuses,
-  onToggleStatus,
   rooms,
   onToggleRoom,
   areaMin,
   areaMax,
   onChangeAreaMin,
   onChangeAreaMax,
-  amenities,
-  onToggleAmenity,
   payment,
   onTogglePayment,
-  developers,
-  onToggleDeveloper,
   sellerTypes,
   onToggleSellerType,
+  constructionStatus,
+  onConstructionChange,
   investment,
   onReset,
   onApply,
@@ -1789,30 +1679,24 @@ function FiltersPanel({
   onChangeMax: (v: number) => void;
   cadastralCode: string;
   onChangeCadastral: (v: string) => void;
-  statuses: string[];
-  onToggleStatus: (v: string) => void;
   rooms: number[];
   onToggleRoom: (v: number) => void;
   areaMin: number;
   areaMax: number;
   onChangeAreaMin: (v: number) => void;
   onChangeAreaMax: (v: number) => void;
-  amenities: string[];
-  onToggleAmenity: (v: string) => void;
   payment: string[];
   onTogglePayment: (v: string) => void;
-  developers: string[];
-  onToggleDeveloper: (v: string) => void;
   sellerTypes: string[];
   onToggleSellerType: (v: string) => void;
+  constructionStatus: string | null;
+  onConstructionChange: (value: string | null) => void;
   investment?: {
     roiMin: number | null;
     areaBucket: AreaBucket;
-    constructionStatus: string | null;
     renovationStatus: string | null;
     onRoiChange: (value: number | null) => void;
     onAreaChange: (value: AreaBucket) => void;
-    onConstructionChange: (value: string | null) => void;
     onRenovationChange: (value: string | null) => void;
   };
   onReset: () => void;
@@ -1851,19 +1735,6 @@ function FiltersPanel({
                   {option.value == null
                     ? t("anyOption")
                     : t("areaRange", { range: option.value })}
-                </FilterChip>
-              ))}
-            </div>
-          </FilterCell>
-          <FilterCell label={t("quickStatus")}>
-            <div className="flex flex-wrap gap-2">
-              {CONSTRUCTION_OPTIONS.map((option) => (
-                <FilterChip
-                  key={option.value ?? "any"}
-                  selected={investment.constructionStatus === option.value}
-                  onClick={() => investment.onConstructionChange(option.value)}
-                >
-                  {t(option.labelKey)}
                 </FilterChip>
               ))}
             </div>
@@ -1911,13 +1782,13 @@ function FiltersPanel({
         {t("quickStatus")}
       </p>
       <div className="mb-6 flex flex-wrap gap-2">
-        {STATUS_OPTIONS.map((s) => {
-          const checked = statuses.includes(s.value);
+        {CONSTRUCTION_OPTIONS.map((option) => {
+          const checked = constructionStatus === option.value;
           return (
             <button
-              key={s.value}
+              key={option.value ?? "any"}
               type="button"
-              onClick={() => onToggleStatus(s.value)}
+              onClick={() => onConstructionChange(option.value)}
               className={cn(
                 "h-9 rounded-full px-4 text-[13px] font-bold transition-colors",
                 checked
@@ -1925,7 +1796,7 @@ function FiltersPanel({
                   : "border border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#1E419A] hover:text-[#1E419A]",
               )}
             >
-              {t(s.labelKey)}
+              {t(option.labelKey)}
             </button>
           );
         })}
@@ -2051,52 +1922,6 @@ function FiltersPanel({
             onChangeMin={onChangeMin}
             onChangeMax={onChangeMax}
           />
-        </FilterCell>
-
-        <FilterCell label={t("developer")} className="md:col-span-2">
-          <div className="flex flex-wrap gap-1.5">
-            {DEVELOPER_OPTIONS.map((d) => {
-              const checked = developers.includes(d.value);
-              return (
-                <button
-                  key={d.value}
-                  type="button"
-                  onClick={() => onToggleDeveloper(d.value)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-[12px] font-bold transition-colors",
-                    checked
-                      ? "border-[#1E419A] bg-[#1E419A] text-white"
-                      : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
-                  )}
-                >
-                  {d.label}
-                </button>
-              );
-            })}
-          </div>
-        </FilterCell>
-
-        <FilterCell label={t("additional")} className="md:col-span-2">
-          <div className="flex flex-wrap gap-1.5">
-            {AMENITY_CHIPS.map((a) => {
-              const checked = amenities.includes(a.value);
-              return (
-                <button
-                  key={a.value}
-                  type="button"
-                  onClick={() => onToggleAmenity(a.value)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-[12px] font-bold transition-colors",
-                    checked
-                      ? "border-[#16A34A] bg-[#16A34A] text-white"
-                      : "border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1]",
-                  )}
-                >
-                  {t(a.labelKey)}
-                </button>
-              );
-            })}
-          </div>
         </FilterCell>
       </div>
 

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { ExternalLink, MapPin } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { trackMenuOpen } from "@/lib/menu-tracking";
+import { safeHttpsUrl } from "@/lib/security";
 
 interface Props {
   phone: string | null;
@@ -20,6 +21,10 @@ export function FoodContactCard({
 }: Props) {
   const t = useTranslations("FoodDetail");
 
+  // DB-sourced and owner-typed; must never reach an <a href> unvalidated
+  // (a non-https value, e.g. `javascript:`, becomes a stored-XSS href).
+  const safeMenuUrl = menuUrl ? safeHttpsUrl(menuUrl) : null;
+
   // Google Maps search query, not visible UI — Georgian "ბაკურიანი" matches
   // the Georgian location strings stored in the DB for geocoding.
   const mapsHref = location
@@ -35,9 +40,9 @@ export function FoodContactCard({
       </h3>
 
       <div className="space-y-3">
-        {menuUrl && (
+        {safeMenuUrl && (
           <a
-            href={menuUrl}
+            href={safeMenuUrl}
             target="_blank"
             rel="noreferrer"
             onClick={() => trackMenuOpen(serviceId)}

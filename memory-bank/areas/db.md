@@ -29,8 +29,9 @@ Database schema, policies, and the generated type mirror.
 - Migrations are append-only and ordered; never rewrite an applied migration —
   add a new one. Some historical numeric prefixes collide (two `004_`, two `014_`)
   — preserve existing names, don't renumber.
-- Applied against remote (Hobby auto-deploy is Vercel-only; migrations run via the
-  Supabase CLI / MCP).
+- Applied against remote (DigitalOcean App Platform's autodeploy only ships the
+  Next.js app; migrations run via the Supabase CLI / MCP, same as before the
+  2026-09-05 move off Vercel).
 - Manual-booking deposits and verified SMS consent are append-only in
   `20260804140000_manual_booking_finance_verified_sms_consent.sql`; its RPC signatures
   intentionally preserve the ignored legacy consent argument (**C3**, **C18**).

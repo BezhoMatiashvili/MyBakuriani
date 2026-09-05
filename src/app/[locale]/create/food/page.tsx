@@ -29,6 +29,7 @@ import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
+import { safeHttpsUrl } from "@/lib/security";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
 import {
@@ -259,6 +260,9 @@ function CreateFoodPageInner() {
     if (!phone.trim()) {
       errs.push({ key: "phone", message: tShared("enterPhone") });
     }
+    if (menuUrlInput.trim() && !safeHttpsUrl(menuUrlInput.trim())) {
+      errs.push({ key: "menuUrl", message: t("invalidMenuUrl") });
+    }
     return errs;
   }
 
@@ -285,7 +289,7 @@ function CreateFoodPageInner() {
       if (menuFile) {
         menuUrl = await uploadMenuPdf();
       } else if (menuUrlInput.trim()) {
-        menuUrl = menuUrlInput.trim();
+        menuUrl = safeHttpsUrl(menuUrlInput.trim());
       }
 
       const payload = {
@@ -354,7 +358,11 @@ function CreateFoodPageInner() {
         <WizardFooter
           accent="orange"
           backHref="/create"
-          submitLabel={isEditMode ? tShared("contentChange.submitForReview") : tShared("publishListing")}
+          submitLabel={
+            isEditMode
+              ? tShared("contentChange.submitForReview")
+              : tShared("publishListing")
+          }
           submitDisabled={loading}
           loading={loading}
           error={error}
@@ -520,7 +528,11 @@ function CreateFoodPageInner() {
             title={t("sectionMenuPhotos")}
             accent="orange"
           >
-            <Field label={t("menuOptional")}>
+            <Field
+              label={t("menuOptional")}
+              fieldKey="menuUrl"
+              error={invalidFields.has("menuUrl")}
+            >
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <button
                   type="button"

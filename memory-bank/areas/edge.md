@@ -45,8 +45,9 @@ run outside Next.js.
   Deploy `_shared/secrets.ts` with each. Live versions on 2026-08-18 are v15,
   v18, v16, and v19 respectively; all corresponding cron jobs are active and
   their latest runs succeeded.
-- Deployed separately from Vercel (`npx supabase functions deploy <name>`); a code
-  change here does **not** ship with a `git push` to main.
+- Deployed separately from the app host (`npx supabase functions deploy <name>`);
+  a code change here does **not** ship with a `git push` to main, whether the app
+  is on DigitalOcean (current, since 2026-09-05) or the earlier Vercel setup.
 
 ## Contracts touching this area
 

@@ -3,13 +3,10 @@
  * other system state can never be staged through the content-review API.
  */
 export const REVIEWABLE_FIELDS = {
-  profile: [
-    "display_name",
-    "phone",
-    "avatar_url",
-    "bio",
-    "response_time_minutes",
-  ],
+  // display_name/phone/avatar_url are deliberately absent: they are edited
+  // exclusively through the self-service RPC (see prevent_unreviewed_public_content_update,
+  // 2026-09-05), never through this review queue.
+  profile: ["bio", "response_time_minutes"],
   property: [
     "type",
     "title",

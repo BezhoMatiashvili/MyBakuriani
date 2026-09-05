@@ -79,7 +79,7 @@ export default function PropertyAmenities({
           type="button"
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
-          className="inline-flex min-h-11 items-center gap-2 rounded-[14px] border border-[#DBEAFE] bg-[#EFF6FF] px-4 py-2 text-[13px] font-semibold text-[#2563EB] transition-colors hover:bg-[#DBEAFE]"
+          className="inline-flex min-h-11 items-center gap-2 px-1 text-[13px] font-semibold text-[#0F8F60] transition-colors hover:underline"
         >
           {expanded ? (
             <ChevronUp className="size-4 shrink-0" aria-hidden />

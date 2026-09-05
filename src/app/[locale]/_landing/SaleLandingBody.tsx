@@ -116,15 +116,11 @@ export default function SaleLandingBody({
       if (sf.priceMin) params.set("price_min", String(sf.priceMin));
       if (sf.priceMax) params.set("price_max", String(sf.priceMax));
       if (sf.cadastralCode) params.set("cadastral", sf.cadastralCode);
-      if (sf.statuses.length) params.set("status", sf.statuses.join(","));
       if (sf.rooms.length) params.set("rooms", sf.rooms.join(","));
       if (sf.areaMin > 0) params.set("area_min", String(sf.areaMin));
       if (sf.areaMax > 0 && sf.areaMax < 500)
         params.set("area_max", String(sf.areaMax));
-      if (sf.amenities.length) params.set("amenities", sf.amenities.join(","));
       if (sf.payment.length) params.set("payment", sf.payment.join(","));
-      if (sf.developers.length)
-        params.set("developer", sf.developers.join(","));
       if (sf.sellerTypes.length) params.set("seller", sf.sellerTypes.join(","));
       if (sf.roiMin != null) params.set("roi_min", String(sf.roiMin));
       if (sf.constructionStatus)

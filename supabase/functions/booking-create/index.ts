@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
   buildCorsHeaders,
+  checkRateLimit,
   errorResponse,
   jsonResponse,
   requireUser,
@@ -13,6 +14,14 @@ serve(async (req) => {
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
+  }
+
+  if (!(await checkRateLimit(req, "booking-create", 10, 60 * 60_000))) {
+    return jsonResponse(
+      { error: "rate_limited", code: "RATE_LIMITED" },
+      429,
+      cors,
+    );
   }
 
   try {

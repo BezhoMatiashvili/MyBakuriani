@@ -58,7 +58,7 @@ Define success criteria. Loop until verified.
 - **Routing**: FOSSGIS OSRM (`routing.openstreetmap.de/routed-car`, no API key) for the landing road badge, called server-side only. FOSSGIS terms require an app-identifying User-Agent plus ODbL attribution + a `fixthemap` link — both rendered in `Footer`
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
-- **Deployment**: Vercel + Supabase Cloud
+- **Deployment**: DigitalOcean App Platform (`mybakuriani-prod` on `main`, `mybakuriani-staging` on `staging`, both Singapore/SGP1) + Supabase Cloud
 - Key dirs: `src/app/`, `src/components/`, `src/lib/`, `supabase/functions/`, `supabase/migrations/`
 
 ## WHY — Project Purpose
@@ -74,25 +74,26 @@ Premium real estate rental/sales + services marketplace for Bakuriani ski resort
 - Lint: `npm run lint`
 - Generate DB types: `npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/lib/types/database.ts`
 
-### Testing — NEVER use localhost
+### Testing — ALWAYS use localhost
 
-**All browser/E2E verification runs against the deployed site: https://my-bakuriani.vercel.app/**
+**All browser/E2E verification runs against a local server, never the deployed site.**
 
-- Never test on `localhost` / `127.0.0.1` (`npm run dev` or `npm run start`). This applies to
-  browser automation (Chrome/Playwright MCP), Playwright specs, and manual "does it work?" checks.
-- Why localhost lies here:
-  - `.env.local` lacks `SUPABASE_SERVICE_ROLE_KEY`, so service-role pages hit the error boundary
-    and builds fail — a local failure is not a real failure.
-  - `npm run dev` + the strict CSP breaks hydration, so the page looks broken for reasons that
-    don't exist in prod.
-  - Playwright's `baseURL` silently defaults to prod anyway; a stray local server orphans and
-    corrupts `.next`.
-- Prod = `my-bakuriani.vercel.app`. The `mybakuriani.ge` domain is still parked at the registrar —
-  do not test against it.
-- `npm run build` / `npm run lint` locally is fine and encouraged; it's _serving and browsing_
-  locally that is banned.
-- Deploys are automatic on push to `main`. To verify a change, push (after asking), wait for the
-  Vercel deploy, then test on the URL above.
+- Always test on `localhost` (browser automation, Playwright specs, manual "does it work?"
+  checks). Do not push to `main`/`staging` or test against `mybakuriani.ge` /
+  `staging.mybakuriani.ge` (DigitalOcean) just to verify a change.
+- Serve with `npm run build && npm run start`, not `npm run dev` — Turbopack dev mode plus the
+  strict CSP breaks hydration, so the page looks broken for reasons that don't exist in a real
+  build. `npm run build && npm run start` uses the production bundle and CSP, so it behaves like
+  prod while still running locally.
+- `.env.local` must carry a real `SUPABASE_SERVICE_ROLE_KEY` (and the other vars listed under
+  Environment Variables below) — without it, service-role pages hit the error boundary and a local
+  failure isn't a real failure. Confirm the key is present and valid before trusting a local test
+  result; if it's missing/stale, fix `.env.local` rather than falling back to testing on prod.
+- If using Playwright, set `baseURL` explicitly to the local server — it silently defaults to prod
+  otherwise, which would test the wrong deployment.
+- `npm run build` / `npm run lint` locally is fine and expected as part of verification.
+- `mybakuriani.ge` (canonical), `mybakuriani.com`, and `mybakuriani.com.ge` (the latter two
+  redirect to `.ge`) are live on DigitalOcean — irrelevant to local testing either way.
 
 ### Design Source of Truth
 

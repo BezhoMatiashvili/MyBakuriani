@@ -834,7 +834,7 @@ enforces that they agree:
 
 Participating symbols:
 
-- `supabase/migrations/20260724180000_content_change_requests.sql:prevent_unreviewed_public_content_update` — the BEFORE UPDATE trigger (B); early-returns when `auth.role()` IS NULL or `service_role`, or `is_admin_user()`
+- `supabase/migrations/20260724180000_content_change_requests.sql:prevent_unreviewed_public_content_update` — the BEFORE UPDATE trigger (B); early-returns when `auth.role()` IS NULL or `service_role`, or `is_admin_user()`. Also early-returns on `properties`/`services`/`organizations` when `OLD.status = 'pending'` (a row never yet approved stays freely editable pre-review) — **current body lives in `20260905142000_fix_service_review_gate_status_toggle_bypass.sql`**, which narrowed this from the original `OLD.status <> 'active'`. That looser condition was a real bypass (SECURITY_AUDIT.md finding S1, fixed 2026-09-05): `services` separately allows the owner to self-toggle `active ↔ draft/blocked` on an already-approved listing (see the `prevent_listing_protected_field_change` note below), so `active → draft → edit any reviewable field (skipped, draft ≠ active) → draft → active` published fully unreviewed content with zero `content_change_requests` row. Any future loosening of the skip condition back toward "not currently active" reopens this — it must stay keyed on "never yet approved" (`= 'pending'`), not "not active right now"
 - `supabase/migrations/20260724180000_content_change_requests.sql:approve_content_change_request` — SECURITY DEFINER apply-on-approve (C). Its staleness check compares `before_snapshot` key-by-key against the live row; for a `profile` target the nested `cleaner_profile` object **must be projected onto the keys the API snapshotted** (`jsonb_object_agg` over `jsonb_object_keys(before_snapshot->'cleaner_profile')`) — comparing `to_jsonb(cp)` made every cleaner request auto-supersede, because jsonb object equality requires identical key sets
 - `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` (A) + `:CLEANER_PROFILE_FIELDS` (the 6 nested keys) + `:hasOnlyReviewableValues` — **all-or-nothing**: one non-allow-listed key rejects the whole payload, which is why a MIXED payload cannot be submitted at all
 - `src/app/api/content-change-requests/route.ts:POST` — validates against A, snapshots `before`, writes the row; maps 23505 → 409 `target_locked`
@@ -989,7 +989,7 @@ Participating symbols:
 - `supabase/migrations/20260725140000_postgres_rate_limiter.sql:rate_limit_counters` — RLS enabled with **no policies**, and SELECT/INSERT/UPDATE/DELETE revoked from `PUBLIC`, `anon` and `authenticated`. That closes the browser; it does **not** close `service_role`, which keeps its default grants and is `BYPASSRLS` — so any server-side code holding the service key can read/write the table directly, and the definer function is the convention rather than a hard boundary. Swept nightly by the `rate-limit-gc` pg_cron job (buckets are never read after expiry, but the key space grows per (ip, endpoint, listing))
 - `src/lib/rateLimit.ts:checkRateLimit` — Upstash when both env vars exist, else Postgres, else in-memory (dev) / **allow** (prod, logged). Because it imports `createServiceClient`, this module is **server-only** — importing it from a client component would pull the service-role client into the browser bundle. All 10 importers today are route handlers (`runtime = "nodejs"`) or the one `"use server"` action `src/app/actions/revalidateListing.ts`
 - `supabase/functions/_shared/guards.ts:checkRateLimit` — the Deno twin of the above, same fallback order, same fail-open rule. Calls the same RPC through `createServiceClient()`
-- `src/lib/rateLimit.ts:getClientIp` — trusts `x-forwarded-for`. Now load-bearing: the contact limit is keyed on the IP **alone**, so a host that does not overwrite that header at the edge lets a caller mint a fresh bucket per request. Vercel overwrites it
+- `src/lib/rateLimit.ts:getClientIp` — trusts `x-forwarded-for`, taking the **first** comma-separated value (`.split(",")[0]`). Now load-bearing: the contact limit is keyed on the IP **alone**, so this is only safe if the edge _overwrites_ the header with a single trusted value rather than appending to whatever the client sent — a host that appends lets a caller mint a fresh bucket per request by sending its own fake first value. Vercel overwrote it (verified). **As of the 2026-09-05 move to DigitalOcean App Platform this has NOT been re-verified** — confirm DO's edge behavior (or switch to trusting the last value / a platform-specific header) before relying on this limiter again
 - `src/app/api/listings/[kind]/[id]/contact/route.ts` — **two** buckets per call, both keyed on `subject` = `user:<id>` when signed in, else `ip:<addr>`: `listing-contact:<subject>:<kind>:<id>` at 8/h and `listing-contact-all:<subject>` at 30/h. The per-listing bucket alone bounds nothing — with ~49 active listings a scraper stays inside it while taking the whole catalogue — so the cross-listing bucket is the one doing the work. Keying signed-in users on their own id is what stops anonymous traffic from a carrier NAT starving an authenticated user on the same egress. `device_id` is NOT in either key (client-supplied: rotating it minted a fresh budget per request, so the limit bound only honest clients) but is still written to `contact_reveal_events` for audit. This is friction, not prevention: only Turnstile stops a distributed scrape, and its secret is unset. Its listing lookup uses the explicit `properties_owner_id_fkey` / `services_owner_id_fkey` profile embeds; a lookup error is a `500 lookup_failed`, while only a successful lookup with no active row is `404`. Collapsing an ambiguous-relationship or database error into `404` hides outages as missing listings and breaks contact reveals silently
 - `src/lib/turnstile.ts:isTurnstileConfigured` — call-site gate. `verifyTurnstile` must keep returning `false` without a secret; the _caller_ skips it. Making the helper itself return `true` when unconfigured would silently disarm bot protection for every future caller
 - `src/app/api/banner-slots/track/route.ts` — its `limiterConfigured` workaround is **gone**; the limit now applies unconditionally, which is only correct because the limiter fails open
@@ -1691,8 +1691,25 @@ now raise `42501 permission denied for table profiles`, while `display_name`/
 
 Participating symbols:
 
-- `supabase/migrations/*_rls_policies.sql` (original) → the `"Anon can view
-active-listing owners and reviewers"` policy on `public.profiles`
+- `supabase/migrations/20260905143000_codify_profiles_anon_only_select_policy.sql` →
+  the current, tracked, canonical definition of the `"Anon can view active-listing
+owners and reviewers"` policy on `public.profiles`, scoped `TO anon` only. Its own
+  naming history is a cautionary tale worth knowing before touching this policy again:
+  the very first `_rls_policies.sql` created it as `"Profiles are viewable by
+everyone"`; `20260705120000_security_audit_critical_fixes.sql` (tracked) replaced
+  that with TWO policies — `"Public can view active-listing owners and reviewers"`
+  scoped `TO anon, authenticated`, and a separate `"Authenticated users can view all
+profiles" USING (true)`; `20260723000000_production_security_remediation.sql`
+  (tracked) drops the second of those but never touches the first; an UNTRACKED ledger
+  entry (`20260705111547 / fix_profiles_rls_perf_regression`, no file in
+  `supabase/migrations/`) then renamed `"Public can view…"` to `"Anon can view…"` and
+  re-scoped it to `anon` only — which is the only reason live prod has been safe for
+  `authenticated` this whole time. `20260905143000` (2026-09-05, SECURITY_AUDIT.md S3)
+  closes the gap left by that untracked step by dropping BOTH possible names before
+  recreating one canonical `anon`-only policy, so a fresh rebuild converges to the safe
+  state too. (This file's own first draft of that migration got the name wrong — it
+  only dropped `"Anon can view…"`, which would have no-opped on a fresh rebuild where
+  only `"Public can view…"` exists; caught on review before shipping.)
 - `supabase/migrations/20260829200000_revoke_anon_pii_columns_on_profiles.sql` (the
   first, ineffective column-level-only attempt, kept for history) +
   `supabase/migrations/20260829200100_fix_anon_profiles_grant_table_level_revoke.sql`
@@ -1721,13 +1738,28 @@ contract's column-grant narrowing is still in place; if someone re-runs a blanke
 "just fix the permission error" reflex fix), the leak reopens instantly and silently
 — no advisory lint catches an overly-broad column grant like this, only RLS-policy
 absence (`get_advisors` did not flag this at all; it was found by cross-referencing
-`pg_policies` against `information_schema.column_privileges` by hand).
+`pg_policies` against `information_schema.column_privileges` by hand). **There is a
+SECOND, independent reopen path for `authenticated` specifically, with no grant
+change at all**: `authenticated` retains an unrestricted table-level `SELECT` grant
+on `profiles` (this contract's narrowing only ever touched `anon`'s grant), so the
+only thing standing between `authenticated` and `phone`/`personal_id`/`role` for
+every active-listing owner/reviewer/blog author is the RLS row predicate. Any future
+migration that recreates a broad `TO anon, authenticated`-scoped row policy on
+`profiles` — even a well-intentioned "restore public listing contact" fix — reopens
+this leak for every signed-in user, and would look correct at a glance since it never
+touches a `GRANT` statement at all (see the naming-history note above: this already
+happened once, silently, for the tracked migration chain, and only an untracked
+ledger entry masked it on live prod).
 
 **Breaks silently when:** a future `GRANT ALL` / `GRANT SELECT ON public.profiles TO
 anon` (table-level, no column list) is run for any reason — instantly re-exposes
 `phone`/`personal_id`/`role` to every anonymous visitor with no error, no lint, and
 no test coverage to catch it, since nothing in this codebase currently asserts
-column-level grants.
+column-level grants. Or a future migration recreates a `profiles` SELECT policy
+scoped to include `authenticated` with a predicate broader than "own row" (e.g. the
+active-listing-owner/reviewer/blog-author predicate this policy itself uses) — no
+`GRANT` changes, so this specific failure mode is invisible to anyone auditing only
+column privileges.
 
 ---
 
