@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { CreateHeader } from "@/components/layout/CreateHeader";
+import type { AppLocale } from "@/i18n/routing";
 
-export async function generateMetadata() {
-  const t = await getTranslations("Metadata");
+// The locale must be passed explicitly. getTranslations("Metadata") resolves the
+// locale by reading headers(), which throws (500) in this static/ISR render when
+// the URL carries an invalid locale segment — e.g. a crawler hitting /ads.txt.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
   return {
     title: t("create"),
     description: t("createDesc"),

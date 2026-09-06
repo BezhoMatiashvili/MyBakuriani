@@ -18,14 +18,29 @@ import { getBakurianiWeather, withLiveWeather } from "@/lib/weather/server";
 import { getRoadCondition, withLiveRoad } from "@/lib/road-condition/server";
 import { withTimeout } from "@/lib/with-timeout";
 import type { BannerCreative } from "@/lib/banner-creative";
+import type { Metadata } from "next";
+import type { AppLocale } from "@/i18n/routing";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 const LANDING_DEP_TIMEOUT_MS = 7_000;
 
 export type PricePerSqmByZone = Record<string, number | null>;
 
-export async function generateMetadata() {
-  const t = await getTranslations("Metadata");
+// The locale must be passed explicitly. getTranslations("Metadata") resolves the
+// locale by reading headers(), and this page is ISR (`revalidate` below), so that
+// read is an illegal static-to-dynamic transition and throws a 500. It happens for
+// any URL whose first segment isn't a real locale — every single-segment dotted
+// path lands here, because middleware skips dotted paths and so never rewrites
+// them (e.g. a crawler hitting /ads.txt or an iOS device hitting
+// /apple-touch-icon.png). The invalid locale is then rejected by the guard in
+// `[locale]/layout.tsx`, which is what turns these into a clean 404.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
   return {
     title: t("siteTitle"),
     description: t("siteDescription"),
@@ -59,9 +74,7 @@ async function fetchLandingServices(
   );
   const failed = results.find((result) => result.error);
   return {
-    data: failed
-      ? null
-      : results.flatMap((result) => result.data ?? []),
+    data: failed ? null : results.flatMap((result) => result.data ?? []),
     error: failed?.error ?? null,
   };
 }
@@ -221,10 +234,7 @@ type LandingQueryResult<T> = {
   error: { code?: string; message?: string } | null;
 };
 
-function landingQueryError(
-  label: string,
-  result: LandingQueryResult<unknown>,
-) {
+function landingQueryError(label: string, result: LandingQueryResult<unknown>) {
   if (result.error) {
     const code = result.error.code ? ` (${result.error.code})` : "";
     return new Error(
