@@ -52,6 +52,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="inline-flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white sm:min-h-0"
                   >
                     {link.label}
@@ -71,6 +72,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="inline-flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white sm:min-h-0"
                   >
                     {link.label}
@@ -88,6 +90,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="inline-flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white sm:min-h-0"
                   >
                     {link.label}
@@ -101,14 +104,24 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-7 text-center text-[10px] font-bold uppercase tracking-[1px] text-white/60 sm:mt-16 lg:mt-20 lg:pt-8">
           <span>{t("copyright")}</span>
+          {/* prefetch={false}: the footer sits on every page, so these two
+              prefetched a full RSC payload (~30 KB each) on every page view for
+              routes almost nobody opens. Suppressing it frees the connection
+              during the window the user is actually clicking something else.
+              The links themselves are unchanged. */}
           <div className="flex gap-6">
             <Link
               href="/privacy"
+              prefetch={false}
               className="transition-colors hover:text-white"
             >
               {t("privacyPolicy")}
             </Link>
-            <Link href="/terms" className="transition-colors hover:text-white">
+            <Link
+              href="/terms"
+              prefetch={false}
+              className="transition-colors hover:text-white"
+            >
               {t("termsOfService")}
             </Link>
           </div>

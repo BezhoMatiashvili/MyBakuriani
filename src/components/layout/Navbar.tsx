@@ -240,8 +240,18 @@ export function Navbar() {
             label={t("addListing")}
             className="h-[39.5px] w-[222px] px-5 leading-5"
           />
+          {/* prefetch={false} on the site chrome below. A measured page view fired
+              ~15 concurrent RSC prefetches (~397 KB); the nav and footer accounted
+              for 12 of them, on every single page view. These destinations are ISR
+              and CDN-cacheable, so clicking them is cheap without pre-warming,
+              whereas listing detail pages are `private, no-store` and can never be
+              cached anywhere — so their prefetch is the one worth protecting, and
+              it shares a connection with all of these.
+              "/dashboard" is the worst offender: prefetching it runs the entire
+              dashboard layout (auth + the dashboard_layout_data RPC) server-side
+              on every public page view, for a link most visitors never click. */}
           {user && (
-            <Link href="/dashboard">
+            <Link href="/dashboard" prefetch={false}>
               <Button
                 variant="outline"
                 className="gap-1.5 rounded-xl border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-bold leading-5 text-[#334155]"
@@ -271,7 +281,7 @@ export function Navbar() {
             />
           )}
           {!authLoading && !user && (
-            <Link href="/auth/login">
+            <Link href="/auth/login" prefetch={false}>
               <Button
                 variant="outline"
                 className="rounded-xl border-2 border-[#DBEAFE] bg-white px-6 text-[13px] font-bold leading-5 text-[#2563EB]"
@@ -283,6 +293,7 @@ export function Navbar() {
           {user && (
             <Link
               href="/dashboard"
+              prefetch={false}
               aria-label={t("profile")}
               className="flex size-11 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF] lg:size-10"
             >
@@ -347,6 +358,7 @@ export function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   className={`flex flex-col items-center gap-2 transition-colors ${
                     isActive
                       ? "text-[#1E293B]"
@@ -406,6 +418,7 @@ export function Navbar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-3 rounded-xl px-3 py-3 text-[14px] font-bold text-[#334155] transition-colors hover:bg-[#F8FAFC]"
                   >
@@ -417,7 +430,11 @@ export function Navbar() {
             </div>
             <div className="border-t border-[#F1F5F9] p-4">
               {!authLoading && !user ? (
-                <Link href="/auth/login" onClick={() => setMobileOpen(false)}>
+                <Link
+                  href="/auth/login"
+                  prefetch={false}
+                  onClick={() => setMobileOpen(false)}
+                >
                   <Button className="w-full rounded-xl bg-brand-accent text-white">
                     {t("login")}
                   </Button>
@@ -433,7 +450,11 @@ export function Navbar() {
                       {balance !== null ? `${balance.toFixed(2)} ₾` : "..."}
                     </span>
                   </div>
-                  <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+                  <Link
+                    href="/dashboard"
+                    prefetch={false}
+                    onClick={() => setMobileOpen(false)}
+                  >
                     <Button className="min-h-11 w-full rounded-xl bg-[#2563EB] text-white hover:bg-[#1D4ED8]">
                       <User className="mr-2 size-4" />
                       {t("dashboard")}

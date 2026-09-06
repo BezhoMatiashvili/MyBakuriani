@@ -62,6 +62,24 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns", "framer-motion"],
+    // Client Router Cache lifetimes. Next 15 defaults to `dynamic: 0`, which
+    // makes every force-dynamic entry (the 8 [id] detail pages and all of
+    // /dashboard/**) non-reusable, so browser Back/Forward refetched the whole
+    // RSC payload from the origin — ~340ms of Singapore round trip per press.
+    // Raising it to 30s serves those from memory instead. Verified in a
+    // DevTools trace: Back now issues zero RSC requests.
+    //
+    // What this does NOT fix, measured rather than assumed: a *forward* click
+    // into a force-dynamic route still refetches even when its prefetch has
+    // fully completed — Next will not reuse a prefetched dynamic segment for a
+    // forward navigation. Only converting those routes off force-dynamic would
+    // change that (see the plan's Out of scope).
+    //
+    // 30s is tighter than the 60s the data layer already serves from
+    // (PUBLIC_LISTING_REVALIDATE_S), and router.refresh() / revalidateTag still
+    // bypass this cache, so nothing needing immediacy changes. `static` is left
+    // at Next's own default of 300 — lowering it would be a regression.
+    staleTimes: { dynamic: 30, static: 300 },
   },
 };
 

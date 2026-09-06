@@ -32,6 +32,26 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+
+  // Both of these are scoped by RLS from the request cookie, not by any value
+  // getCurrentUser() returns, so they can fly alongside the auth round trip
+  // instead of queueing behind it. That collapses two serial cross-region round
+  // trips into one on every dashboard entry (the app runs in Singapore, the
+  // database in Tokyo, so each serial hop is latency the user waits on).
+  //
+  // Both carry a .catch(): redirect() below throws, and a promise started before
+  // it must not surface as an unhandled rejection. Falling back to the same
+  // "empty" shapes this code already degrades to keeps behaviour identical — a
+  // signed-out request still reaches the redirect rather than erroring.
+  const profilePromise = getCurrentProfile().catch(() => null);
+  const layoutPromise = Promise.resolve(
+    supabase.rpc("dashboard_layout_data"),
+  ).catch(() => ({
+    data: null,
+    error: { message: "dashboard_layout_data unavailable" },
+  }));
+
   const user = await getCurrentUser();
 
   if (!user) {
@@ -39,7 +59,6 @@ export default async function DashboardLayout({
   }
 
   const t = await getTranslations("DashboardLayout");
-  const supabase = await createClient();
   const sellerSmsFlag = isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id);
 
   // One RPC instead of 7 parallel REST queries — counts, balance and
@@ -51,8 +70,8 @@ export default async function DashboardLayout({
   // alongside the rest of this request's Supabase calls instead of adding a
   // separate round-trip to the tail of the critical path.
   const [profile, layoutRes, messages, sellerSmsCount] = await Promise.all([
-    getCurrentProfile(),
-    supabase.rpc("dashboard_layout_data"),
+    profilePromise,
+    layoutPromise,
     getMessages(),
     sellerSmsFlag
       ? supabase

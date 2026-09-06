@@ -55,8 +55,27 @@ Participating symbols:
 **Also check:** a `messages/<locale>.json` file must exist for every locale in
 `routing.locales`.
 
+**`localeCookie: false` is load-bearing for CDN caching — do not re-enable it.**
+Set 2026-09-06. next-intl otherwise emits `Set-Cookie: NEXT_LOCALE` on every
+**document** response, and Cloudflare refuses to cache any response carrying
+`Set-Cookie`. Measured on prod before the change: `/` (no cookie) returned
+`cf-cache-status: HIT` in ~25 ms while `/apartments` and `/faq` (cookie) returned
+`BYPASS` in ~340 ms — a full round trip to the Singapore origin, paid by every
+visitor on every public page. The cookie was pure waste here because
+`localeDetection: false` means next-intl never reads it back, and nothing in `src/`
+references `NEXT_LOCALE`; locale is carried entirely by the URL under
+`localePrefix: "as-needed"`, and `LanguageSelector` switches by
+`router.replace(pathname, { locale })`. Disabling it also no-ops
+`syncLocaleCookie` in the navigation helpers, which is harmless for the same
+reason. Verified after the change: all three locales still render their own
+content, and a stale `NEXT_LOCALE=ru` cookie on `/` does not redirect.
+
 **Breaks silently when:** you add a locale to `routing.locales` without adding
-`messages/<locale>.json` → the dynamic import throws at request time only.
+`messages/<locale>.json` → the dynamic import throws at request time only. Or
+`localeCookie` is re-enabled (or `localeDetection` flipped to `true`, which
+implies the cookie) → every public page silently stops being edge-cacheable and
+each navigation re-pays the origin round trip, with no error anywhere; the only
+symptom is `cf-cache-status: BYPASS` in response headers.
 
 ---
 

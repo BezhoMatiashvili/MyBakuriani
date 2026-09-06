@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowRight, Video, Flame } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+// Locale-aware Link, not next/link: localePrefix is "as-needed", so a raw
+// next/link with a locale-relative href like "/apartments" always points at the
+// default-locale (ka) URL. For en/ru visitors that prefetches the wrong route and
+// then pays a middleware redirect on click. This is the category nav, so it was
+// the worst instance of it on the site.
+import { Link } from "@/i18n/navigation";
 import dynamic from "next/dynamic";
 
 import {

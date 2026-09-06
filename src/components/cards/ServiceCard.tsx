@@ -111,6 +111,14 @@ export default function ServiceCard({
   const discountActive = isDiscountActive(discountPercent, discountExpiresAt);
 
   const goToDetail = () => router.push(href);
+  // The card body is a <div role="link"> rather than an <a>, because it contains
+  // its own anchors and buttons and nesting those inside an anchor is invalid.
+  // The cost is that Next never prefetches it on viewport entry the way a <Link>
+  // would. Every target here is a force-dynamic route whose response is
+  // `private, no-store`, so an unprefetched click pays a full origin round trip
+  // plus a cold render. Warm it on hover/focus instead — prefetch() is a no-op
+  // once the payload is already in the router cache.
+  const prefetchDetail = () => router.prefetch(href);
   const onCardKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -143,6 +151,8 @@ export default function ServiceCard({
           aria-label={title}
           onClick={goToDetail}
           onKeyDown={onCardKey}
+          onMouseEnter={prefetchDetail}
+          onFocus={prefetchDetail}
           data-mobile-presentation={mobilePresentation}
           className={cn(
             "flex h-full min-h-[260px] cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[300px] lg:min-h-0 lg:p-5",
@@ -152,7 +162,12 @@ export default function ServiceCard({
           )}
         >
           <div className="flex items-start justify-between gap-1 sm:gap-3">
-            <span className={cn("relative block shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]", compactGrid ? "size-10 sm:size-[64px]" : "size-[64px]")}>
+            <span
+              className={cn(
+                "relative block shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]",
+                compactGrid ? "size-10 sm:size-[64px]" : "size-[64px]",
+              )}
+            >
               <Image
                 src={photoUrl}
                 alt={title}
@@ -162,13 +177,23 @@ export default function ServiceCard({
               />
             </span>
             <div className="flex min-w-0 flex-col items-end gap-1.5">
-              <div className={cn("flex items-center", compactGrid ? "gap-0" : "gap-1.5")}>
+              <div
+                className={cn(
+                  "flex items-center",
+                  compactGrid ? "gap-0" : "gap-1.5",
+                )}
+              >
                 <span
-                  className={cn(`inline-flex items-center rounded-full font-bold ${
-                    isBusy
-                      ? "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
-                      : "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
-                  }`, compactGrid ? "px-1.5 py-0.5 text-[8px] sm:px-2.5 sm:text-[11px]" : "px-2.5 py-0.5 text-[11px]")}
+                  className={cn(
+                    `inline-flex items-center rounded-full font-bold ${
+                      isBusy
+                        ? "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
+                        : "bg-[#DCFCE7] text-[#166534] border border-[#86EFAC]"
+                    }`,
+                    compactGrid
+                      ? "px-1.5 py-0.5 text-[8px] sm:px-2.5 sm:text-[11px]"
+                      : "px-2.5 py-0.5 text-[11px]",
+                  )}
                 >
                   {isBusy ? t("statusBusy") : t("statusActive")}
                 </span>
@@ -183,7 +208,11 @@ export default function ServiceCard({
               <div className="flex items-center gap-1">
                 <NewlyAddedBadge
                   createdAt={createdAt}
-                  className={compactGrid ? "max-w-[72px] truncate px-1.5 text-[7px] sm:max-w-none sm:px-2.5 sm:text-[9px]" : undefined}
+                  className={
+                    compactGrid
+                      ? "max-w-[72px] truncate px-1.5 text-[7px] sm:max-w-none sm:px-2.5 sm:text-[9px]"
+                      : undefined
+                  }
                 />
                 <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
                   <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
@@ -192,7 +221,14 @@ export default function ServiceCard({
               </div>
             </div>
           </div>
-          <h3 className={cn("mt-3 font-black text-[#1E293B] line-clamp-2", compactGrid ? "text-[14px] leading-[18px] sm:text-[16px] sm:leading-[20px]" : "text-[16px] leading-[20px]")}>
+          <h3
+            className={cn(
+              "mt-3 font-black text-[#1E293B] line-clamp-2",
+              compactGrid
+                ? "text-[14px] leading-[18px] sm:text-[16px] sm:leading-[20px]"
+                : "text-[16px] leading-[20px]",
+            )}
+          >
             {title}
           </h3>
           <div className="mt-2 space-y-1">
@@ -235,22 +271,40 @@ export default function ServiceCard({
             )}
             <ListingAgeBadge
               createdAt={createdAt}
-              className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+              className={
+                compactGrid
+                  ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]"
+                  : undefined
+              }
             />
           </div>
-          <div className={cn("mt-auto gap-2 border-t border-[#E2E8F0] pt-3", compactGrid ? "flex items-center gap-1" : "grid grid-cols-2")}>
+          <div
+            className={cn(
+              "mt-auto gap-2 border-t border-[#E2E8F0] pt-3",
+              compactGrid ? "flex items-center gap-1" : "grid grid-cols-2",
+            )}
+          >
             <Link
               href={href}
               onClick={stop}
-              className={cn(`flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-2.5 text-[12px] font-bold transition-colors ${
-                isBusy
-                  ? "text-[#94A3B8]"
-                  : "text-[#334155] group-hover:bg-[#F8FAFC]"
-              }`, compactGrid && "h-11 flex-1 px-1 text-[10px] sm:px-2 sm:text-[12px]")}
+              className={cn(
+                `flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-2.5 text-[12px] font-bold transition-colors ${
+                  isBusy
+                    ? "text-[#94A3B8]"
+                    : "text-[#334155] group-hover:bg-[#F8FAFC]"
+                }`,
+                compactGrid &&
+                  "h-11 flex-1 px-1 text-[10px] sm:px-2 sm:text-[12px]",
+              )}
             >
               {t("details")}
             </Link>
-            <div className={cn("flex min-w-0 items-center", compactGrid ? "gap-1" : "gap-2")}>
+            <div
+              className={cn(
+                "flex min-w-0 items-center",
+                compactGrid ? "gap-1" : "gap-2",
+              )}
+            >
               <CallButton
                 phone={phone}
                 serviceId={id}
@@ -260,7 +314,10 @@ export default function ServiceCard({
                 layout="card"
                 size="default"
                 onClick={stop}
-                className={cn("min-w-0 flex-1 rounded-[12px] px-2", showWhatsApp && "size-11 min-h-11 flex-none px-0")}
+                className={cn(
+                  "min-w-0 flex-1 rounded-[12px] px-2",
+                  showWhatsApp && "size-11 min-h-11 flex-none px-0",
+                )}
               />
               {showWhatsApp && (
                 <WhatsAppButton
@@ -293,6 +350,8 @@ export default function ServiceCard({
           aria-label={title}
           onClick={goToDetail}
           onKeyDown={onCardKey}
+          onMouseEnter={prefetchDetail}
+          onFocus={prefetchDetail}
           data-mobile-presentation={mobilePresentation}
           className={cn(
             "relative flex cursor-pointer flex-col overflow-hidden shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:min-h-[420px] lg:rounded-[24px]",
@@ -305,11 +364,20 @@ export default function ServiceCard({
             src={photoUrl}
             alt={title}
             fill
-            sizes={compactGrid ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 33vw" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
+            sizes={
+              compactGrid
+                ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 33vw"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            }
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/20" />
-          <div className={cn("relative z-10 flex h-full flex-1 flex-col lg:p-5", compactGrid ? "p-2.5 sm:p-4" : "p-4")}>
+          <div
+            className={cn(
+              "relative z-10 flex h-full flex-1 flex-col lg:p-5",
+              compactGrid ? "p-2.5 sm:p-4" : "p-4",
+            )}
+          >
             <div className="flex items-start justify-between gap-2">
               <div className="flex gap-2">
                 {isVip && (
@@ -350,7 +418,14 @@ export default function ServiceCard({
               </div>
             </div>
             <div className="mt-auto">
-              <h3 className={cn("font-black text-white line-clamp-2", compactGrid ? "text-[16px] leading-[21px] sm:text-[20px] sm:leading-[26px]" : "text-[20px] leading-[26px]")}>
+              <h3
+                className={cn(
+                  "font-black text-white line-clamp-2",
+                  compactGrid
+                    ? "text-[16px] leading-[21px] sm:text-[20px] sm:leading-[26px]"
+                    : "text-[20px] leading-[26px]",
+                )}
+              >
                 {title}
               </h3>
               {description && (
@@ -358,7 +433,12 @@ export default function ServiceCard({
                   {description}
                 </p>
               )}
-              <div className={cn("mt-4 grid gap-2", compactGrid ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2")}>
+              <div
+                className={cn(
+                  "mt-4 grid gap-2",
+                  compactGrid ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2",
+                )}
+              >
                 <Link
                   href={href}
                   onClick={stop}
@@ -404,23 +484,39 @@ export default function ServiceCard({
         aria-label={title}
         onClick={goToDetail}
         onKeyDown={onCardKey}
+        onMouseEnter={prefetchDetail}
+        onFocus={prefetchDetail}
         data-mobile-presentation={mobilePresentation}
         className={cn(
           "flex h-full cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[420px] lg:rounded-[24px]",
-          compactGrid
-            ? "rounded-[16px] sm:rounded-[20px]"
-            : "rounded-[20px]",
+          compactGrid ? "rounded-[16px] sm:rounded-[20px]" : "rounded-[20px]",
         )}
       >
-        <div className={cn("relative overflow-hidden lg:h-[200px] lg:aspect-auto lg:rounded-t-[24px]", compactGrid ? "aspect-[4/3] rounded-t-[16px] sm:aspect-[8/5] sm:rounded-t-[20px]" : "aspect-[8/5] rounded-t-[20px]")}>
+        <div
+          className={cn(
+            "relative overflow-hidden lg:h-[200px] lg:aspect-auto lg:rounded-t-[24px]",
+            compactGrid
+              ? "aspect-[4/3] rounded-t-[16px] sm:aspect-[8/5] sm:rounded-t-[20px]"
+              : "aspect-[8/5] rounded-t-[20px]",
+          )}
+        >
           <Image
             src={photoUrl}
             alt={title}
             fill
-            sizes={compactGrid ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 33vw" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
+            sizes={
+              compactGrid
+                ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 33vw"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            }
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />
-          <div className={cn("absolute flex max-w-[calc(100%-3.5rem)] flex-wrap gap-1.5", compactGrid ? "left-2 top-2 sm:left-3 sm:top-3" : "left-3 top-3")}>
+          <div
+            className={cn(
+              "absolute flex max-w-[calc(100%-3.5rem)] flex-wrap gap-1.5",
+              compactGrid ? "left-2 top-2 sm:left-3 sm:top-3" : "left-3 top-3",
+            )}
+          >
             {isVip && <ListingBadge variant="vip">VIP</ListingBadge>}
             {isVerified && !isTransport && (
               <span className="inline-flex items-center gap-1 rounded-[4px] bg-[#2563EB] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
@@ -439,12 +535,26 @@ export default function ServiceCard({
             onPressedChange={toggleFavorite}
             disabled={favoriteBusy}
             ariaLabel={t("addToFavorites")}
-            className={cn("absolute bg-white/90 backdrop-blur-sm", compactGrid ? "right-1 top-1 sm:right-3 sm:top-3" : "right-3 top-3")}
+            className={cn(
+              "absolute bg-white/90 backdrop-blur-sm",
+              compactGrid
+                ? "right-1 top-1 sm:right-3 sm:top-3"
+                : "right-3 top-3",
+            )}
           />
-          <div className={cn("absolute flex flex-col items-start gap-1", compactGrid ? "bottom-2 left-2" : "bottom-3 left-3")}>
+          <div
+            className={cn(
+              "absolute flex flex-col items-start gap-1",
+              compactGrid ? "bottom-2 left-2" : "bottom-3 left-3",
+            )}
+          >
             <NewlyAddedBadge
               createdAt={createdAt}
-              className={compactGrid ? "max-w-[calc(100%-0.5rem)] truncate px-1.5 text-[8px] sm:px-2.5 sm:text-[9px]" : undefined}
+              className={
+                compactGrid
+                  ? "max-w-[calc(100%-0.5rem)] truncate px-1.5 text-[8px] sm:px-2.5 sm:text-[9px]"
+                  : undefined
+              }
             />
             {!isFood && !isTransport && (
               <Badge
@@ -458,9 +568,21 @@ export default function ServiceCard({
             )}
           </div>
         </div>
-        <div className={cn("flex flex-1 flex-col lg:p-5", compactGrid ? "p-2.5 sm:p-4" : "p-4")}>
+        <div
+          className={cn(
+            "flex flex-1 flex-col lg:p-5",
+            compactGrid ? "p-2.5 sm:p-4" : "p-4",
+          )}
+        >
           <div className="flex items-start justify-between gap-2">
-            <h3 className={cn("min-w-0 flex-1 font-black text-[#1E293B] line-clamp-2 lg:min-h-[44px] lg:text-[18px] lg:leading-[22px]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]" : "text-[17px] leading-[21px]")}>
+            <h3
+              className={cn(
+                "min-w-0 flex-1 font-black text-[#1E293B] line-clamp-2 lg:min-h-[44px] lg:text-[18px] lg:leading-[22px]",
+                compactGrid
+                  ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]"
+                  : "text-[17px] leading-[21px]",
+              )}
+            >
               {title}
             </h3>
             {!isTransport && (
@@ -475,7 +597,11 @@ export default function ServiceCard({
               <div className="flex justify-end">
                 <ListingAgeBadge
                   createdAt={createdAt}
-                  className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+                  className={
+                    compactGrid
+                      ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]"
+                      : undefined
+                  }
                 />
               </div>
               {vehicleMake && (
@@ -540,7 +666,11 @@ export default function ServiceCard({
                 )}
                 <ListingAgeBadge
                   createdAt={createdAt}
-                  className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+                  className={
+                    compactGrid
+                      ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]"
+                      : undefined
+                  }
                 />
               </div>
               <div className="mt-2 lg:mt-3 lg:min-h-[33px]">
@@ -610,7 +740,8 @@ export default function ServiceCard({
                 onClick={stop}
                 className={cn(
                   "w-full min-w-0 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]",
-                  compactGrid && "h-11 min-h-11 gap-1 px-1 text-[9px] sm:gap-2 sm:px-2 sm:text-[12px]",
+                  compactGrid &&
+                    "h-11 min-h-11 gap-1 px-1 text-[9px] sm:gap-2 sm:px-2 sm:text-[12px]",
                 )}
               />
             ) : (

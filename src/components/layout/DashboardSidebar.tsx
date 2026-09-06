@@ -128,10 +128,26 @@ function getNavItems(role: string): NavItem[] {
           icon: ShoppingBag,
         },
       ];
+    // These pointed at the bare "/dashboard", which renders the entire dashboard
+    // layout (auth + the dashboard_layout_data RPC + the full message bundle)
+    // only to redirect, then renders it a second time for the real cabinet.
+    // Linking straight to the destination removes one whole layout execution.
+    // The targets below are exactly what that redirect resolves to — see
+    // roleToDashboard in dashboard/page.tsx — so navigation is unchanged.
     case "entertainment":
+      return [
+        { labelKey: "home", href: "/dashboard/entertainment", icon: Home },
+      ];
     case "transport":
+      return [{ labelKey: "home", href: "/dashboard/transport", icon: Home }];
     case "employment":
+      return [{ labelKey: "home", href: "/dashboard/employment", icon: Home }];
     case "handyman":
+      return [{ labelKey: "home", href: "/dashboard/services", icon: Home }];
+    // "services" is deliberately left on "/dashboard": it is not a user_role
+    // value, so roleToDashboard has no entry for it and the redirect resolves to
+    // its "/dashboard/guest" fallback. Pointing it anywhere else here would be a
+    // behaviour change, not an optimisation.
     case "services":
       return [{ labelKey: "home", href: "/dashboard", icon: Home }];
     default:

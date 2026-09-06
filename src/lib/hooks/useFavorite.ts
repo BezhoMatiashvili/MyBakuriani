@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { useRouter } from "@/i18n/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { isMockPropertyId } from "@/lib/mock/properties";
 import { isMockServiceId } from "@/lib/mock/services";
@@ -32,6 +33,7 @@ type UseFavoriteArgs =
  */
 export function useFavorite({ propertyId, serviceId }: UseFavoriteArgs) {
   const t = useTranslations("Favorites");
+  const router = useRouter();
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const target: FavoriteTarget = propertyId
@@ -54,10 +56,16 @@ export function useFavorite({ propertyId, serviceId }: UseFavoriteArgs) {
     e?.stopPropagation();
     if (busy) return;
     if (!user) {
-      window.location.href = "/auth/login";
+      // Soft navigation, not window.location.href: a heart tap by a signed-out
+      // visitor used to trigger a full document load — the browser tears down
+      // the app and re-downloads the shell, which reads to the user as exactly
+      // the multi-second loading screen this pass exists to remove.
+      router.push("/auth/login");
       return;
     }
-    if (propertyId ? isMockPropertyId(propertyId) : isMockServiceId(target.id)) {
+    if (
+      propertyId ? isMockPropertyId(propertyId) : isMockServiceId(target.id)
+    ) {
       toast.info(t("demoNotice"));
       return;
     }
