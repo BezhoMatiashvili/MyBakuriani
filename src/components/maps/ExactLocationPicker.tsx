@@ -138,6 +138,7 @@ export default function ExactLocationPicker({
   useEffect(() => {
     const container = mapContainerRef.current;
     if (!container || mapRef.current) return;
+    if (!mapboxgl.accessToken) return;
 
     const initial = initialValueRef.current;
     const map = new mapboxgl.Map({

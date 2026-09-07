@@ -171,7 +171,15 @@ function MapboxMapView({
     const container = containerRef.current;
     if (!container) return;
 
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
+    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
+    if (!token) {
+      // Mapbox GL throws synchronously from `new Map()` with no token, which
+      // crashes the whole page via the nearest error boundary since this
+      // runs inside an effect. Fail quietly instead — every call site (8
+      // pages) already tolerates a map that never mounts.
+      return;
+    }
+    mapboxgl.accessToken = token;
 
     const map = new mapboxgl.Map({
       container,
