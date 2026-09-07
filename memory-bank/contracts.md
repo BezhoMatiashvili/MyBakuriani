@@ -1408,20 +1408,31 @@ or team permission expansion in this contract.
 
 ---
 
-## C21 — Restaurant discounts are per-menu-item, review-gated, and charged on approval
+## C21 — Restaurant discounts are per-menu-item, self-service, and charged on activation
 
-**Invariant (2026-08-15 redesign — supersedes the original flat-listing version of this contract):**
-restaurants discount individual dishes, not the whole listing. Every restaurant now has a real,
-structured menu in `service_menu_items` (name, price, description, availability, sort order — the
-PDF/link `services.menu_url`/`menu` fields are unchanged and remain a supplementary download).
-Requesting a discount on one dish creates or refreshes one pending
-`content_change_requests.request_kind='menu_item_discount'` row scoped to that item via the
-`target_menu_item_id` column (`target_type`/`target_id` still point at the parent restaurant `service`,
-so every generic `content_change_requests` code path — cache revalidation, reject-notification scope
-lookup — needed zero changes). Submission quotes price and duration from the selected enabled pricing
-package but does not charge. Only `approve_menu_item_discount_request` may approve it; that RPC locks
-the request, the item, its parent service, and the balance, then charges once and writes
-`discount_percent`/`discount_expires_at` onto the **item row**, never onto `services`.
+**Invariant (2026-09-07 update — supersedes the 2026-08-15 admin-review-gated version of this
+contract):** restaurants discount individual dishes, not the whole listing. Every restaurant now has
+a real, structured menu in `service_menu_items` (name, price, description, availability, sort order —
+the PDF/link `services.menu_url`/`menu` fields are unchanged and remain a supplementary download).
+Activating a discount on one dish is now **instant, self-service, and still paid**: the owner calls
+`self_service_activate_menu_item_discount` directly (via the service-role client, like every other
+`self_service_*` RPC on this table), which validates ownership/status/package, charges the balance, and
+writes `discount_percent`/`discount_expires_at` onto the **item row** in the same transaction — no admin
+step, no `content_change_requests` row created. This is a formal, deliberate self-service exception to
+admin review, matching the precedent already set for cleaner working hours
+(`self_service_set_cleaner_working_hours`, 20260801120000) and profile identity fields
+(`self_service_update_profile`, 20260905122000): those two migrations are the reference examples for
+"how a self-service RPC bypasses review but keeps the paid/validated mechanics."
+
+**The admin-review path is not deleted, just retired — same convention `20260816120000` itself used
+when it retired the older flat-listing `food_discount` RPCs.** `submit_menu_item_discount_request`,
+`approve_menu_item_discount_request`, and the `guard_food_discount_approval` trigger's
+`menu_item_discount` branch are all left in the database, still `GRANT EXECUTE`ed to `service_role`,
+still wired into the admin content-change-requests dispatch — but nothing in `src/` calls
+`submit_menu_item_discount_request` anymore, so no new pending `menu_item_discount` row can be created.
+The 2026-09-07 migration (`20260907120000_self_service_menu_item_discount.sql`) superseded any
+still-pending `menu_item_discount` requests at ship time and notified their requesters, mirroring
+`20260816120000`'s own "5. Ship-time cutover" section.
 
 The prior flat, whole-listing mechanism (`request_kind='food_discount'`,
 `submit_food_discount_request`/`approve_food_discount_request`, `FoodDiscountRequestModal.tsx`,
@@ -1442,19 +1453,27 @@ Participating symbols:
   flat mechanism; kept for history, not touched by the redesign migration below
 - `supabase/migrations/20260816120000_menu_item_discounts.sql` — `service_menu_items` table (RLS:
   owner SELECT-only; all writes via `self_service_create/update/delete/reorder_menu_item`, `service_role`
-  RPCs mirroring the `self_service_set_cleaner_working_hours` precedent — menu CRUD is deliberately
-  **not** routed through the C14 review gate, since it's frequently-changing operational data; only the
-  paid discount stays admin-reviewed), `prevent_menu_item_protected_field_change` trigger (blocks direct
-  writes to the item's `discount_percent`/`discount_expires_at` outside `service_role`),
-  `public_service_menu_items` view (public read model, filters to `services.status='active' AND
-is_available=true`), `content_change_requests.target_menu_item_id` + the new `request_kind` value +
-  its own partial unique pending-index (one pending discount request **per item**, not per restaurant —
-  two different dishes on the same restaurant can each have an independent pending request), the
-  `submit_menu_item_discount_request`/`approve_menu_item_discount_request` RPC pair, and the
-  `public_services` view recreate: `has_active_discount` for `category='food'` now means "any menu item
-  has an active discount" (an `EXISTS` subquery over `service_menu_items`, unchanged expression for every
-  other category), plus a new `best_active_menu_item_discount_percent` column (max active-item percent,
-  `null` for non-food) that public card call sites read instead of `discount_percent` for food rows
+  RPCs mirroring the `self_service_set_cleaner_working_hours` precedent), `prevent_menu_item_protected_field_change`
+  trigger (blocks direct writes to the item's `discount_percent`/`discount_expires_at` outside
+  `service_role` — this is what `self_service_activate_menu_item_discount` below relies on to be allowed
+  to write those columns), `public_service_menu_items` view (public read model, filters to
+  `services.status='active' AND is_available=true`), `content_change_requests.target_menu_item_id` + the
+  `menu_item_discount` request_kind value + its own partial unique pending-index (now dead weight going
+  forward, kept for historical rows), the `submit_menu_item_discount_request`/
+  `approve_menu_item_discount_request` RPC pair (retired, see below), and the `public_services` view
+  recreate: `has_active_discount` for `category='food'` means "any menu item has an active discount" (an
+  `EXISTS` subquery over `service_menu_items`, unchanged expression for every other category), plus a
+  `best_active_menu_item_discount_percent` column (max active-item percent, `null` for non-food) that
+  public card call sites read instead of `discount_percent` for food rows
+- `supabase/migrations/20260907120000_self_service_menu_item_discount.sql` — adds
+  `self_service_activate_menu_item_discount(p_actor_id, p_menu_item_id, p_package_id,
+p_discount_percent, p_quantity)`: validates ownership/active-status/package exactly like
+  `submit_menu_item_discount_request` did, then in the SAME call charges the balance and writes the
+  discount columns (what `approve_menu_item_discount_request` used to do on a second, admin-triggered
+  call). `SECURITY DEFINER`, `GRANT EXECUTE` to `service_role` only — always invoked through
+  `createServiceClient()`, never directly by a browser session. Also supersedes any still-pending
+  `menu_item_discount` content_change_requests rows at ship time (mirrors `20260816120000`'s own
+  cutover for `food_discount`)
 - `supabase/functions/vip-lifecycle/index.ts:clearExpiredMenuItemDiscounts` — the same idempotent
   expiry sweep as `clearExpiredDiscounts`, extended to `service_menu_items`; like the original,
   public-facing correctness never depends on this sweep running (both check `expires_at > now()` at
@@ -1462,15 +1481,19 @@ is_available=true`), `content_change_requests.target_menu_item_id` + the new `re
   `rate-limit-gc`), so treat `menu_item_discounts_cleared` as inert, not a live guarantee
 - `src/app/api/food/menu-items/route.ts`, `[id]/route.ts`, `reorder/route.ts` — owner-authenticated menu
   CRUD, all via the `self_service_*` RPCs above through `createServiceClient()`
-- `src/app/api/food/menu-item-discount-requests/route.ts` — owner-authenticated submit/status endpoint,
-  scoped to one `menuItemId` (replaces the deleted `discount-requests/route.ts`)
+- `src/app/api/food/menu-item-discount-requests/route.ts` — owner-authenticated POST-only endpoint that
+  now calls `self_service_activate_menu_item_discount` and returns the activation result synchronously
+  (201/200, not a pending row); its GET handler (status polling for the old pending state) was removed
+  since there is no pending state left to poll
 - `src/app/api/admin/content-change-requests/[id]/route.ts` — three-way `rpcName` dispatch
   (`food_discount` → legacy RPC still wired for any lingering historical row; `menu_item_discount` →
-  `approve_menu_item_discount_request`; else → the generic RPC)
+  `approve_menu_item_discount_request`, likewise now unreachable from new rows but left wired for any
+  stray historical one; else → the generic RPC)
 - `src/components/dashboard/MenuItemDiscountModal.tsx` and
   `src/app/[locale]/dashboard/food/orders/page.tsx` — the "Menu items" management section (add/edit/
-  delete/availability, per-item discount request + pending/active state); the PDF/link menu section on
-  the same page is untouched
+  delete/availability, one-click instant discount activation via the `onActivated` callback, which
+  writes `discount_percent`/`discount_expires_at` straight onto the local `items` array entry — no
+  pending state, no polling); the PDF/link menu section on the same page is untouched
 - `src/app/[locale]/dashboard/food/FoodDashboardClient.tsx` and `.../dashboard/food/balance/page.tsx` —
   both had a generic `ListingActions`/`BalancePackageCard` "discount" promotion tier that used to open
   `FoodDiscountRequestModal`; both now redirect that tier to `/dashboard/food/orders` instead (a food
@@ -1484,25 +1507,32 @@ is_available=true`), `content_change_requests.target_menu_item_id` + the new `re
   card-building sites that source `discountPercent` from `best_active_menu_item_discount_percent` instead
   of `discount_percent` **only** when `category === 'food'`; every other category unchanged
 
-The quote is fixed when submitted. If the balance becomes insufficient before review, approval returns
-`payment_required`, keeps the request pending, records `payment_error`, and creates at most one payment
-notification until the request is refreshed. A later retry can approve it. Approved requests are
-terminal; `transactions.reference_id=request.id` provides the exactly-once billing identity (`type`
-stays `'discount_badge'` for the new kind too, so `admin_overview_stats`'s revenue aggregation needed no
-change).
+There is no more quote-then-approve gap for new discounts: `self_service_activate_menu_item_discount`
+checks the balance and charges in the same call it validates in, so there is no `payment_required`
+pending state to leave stranded and no second actor who could "refresh" a stale quote — the owner
+just retries the same action if their balance was insufficient (surfaced client-side via
+`itemDiscountNeedsBalance`, mapped from the RPC's `insufficient_balance` error code). Its
+`transactions.reference_id` is the **service id** (not a request id — there is no request row), which
+is deliberately more consistent with how `purchase_package`/`purchase_vip` key most other listing-linked
+transactions than the outlier `reference_id=request.id` convention `approve_menu_item_discount_request`
+and `approve_food_discount_request` still use for any historical/admin-path row. `type` stays
+`'discount_badge'` for both paths, so `admin_overview_stats`'s revenue aggregation needed no change.
 
-**Breaks silently when:** a UI calls `purchase_package` directly for a restaurant discount (bypasses
-review); general content approval is allowed to transition `menu_item_discount`/`food_discount` rows
-(can activate without a charge — the `guard_food_discount_approval` trigger's two GUC checks are what
-prevent this); a public query orders raw `discount_percent` instead of `has_active_discount` /
+**Breaks silently when:** a UI calls `purchase_package` directly for a restaurant discount (bypasses the
+service/category checks `self_service_activate_menu_item_discount` performs); a new API route or client
+call site reintroduces `submit_menu_item_discount_request` (reopens the retired pending/admin-review
+flow — the RPC still exists and still works, it is just meant to stay uncalled); general content
+approval is allowed to transition `menu_item_discount`/`food_discount` rows (can activate without a
+charge — the `guard_food_discount_approval` trigger's two GUC checks are what prevent this, and remain
+load-bearing for any lingering historical `food_discount` row even though no new `menu_item_discount`
+row can be created); a public query orders raw `discount_percent` instead of `has_active_discount` /
 `best_active_menu_item_discount_percent` for a food row (expired offers stay promoted, or the badge
 reads the wrong source); a later `public_services` restatement drops either column; a new card call
 site for food is added without the `category === 'food'` conditional (falls back to the always-zero
 `services.discount_percent`, silently showing no badge on a restaurant with an active item discount);
-submit-time and approval-time prices are recomputed independently (reviewed amount and charged amount
-diverge); or a new menu-item write path bypasses the `self_service_*` RPCs (the protective trigger still
-blocks direct writes to the discount columns from a non-`service_role` session, but any other column
-would write through unvalidated).
+or a new menu-item write path bypasses the `self_service_*` RPCs (the protective trigger still blocks
+direct writes to the discount columns from a non-`service_role` session, but any other column would
+write through unvalidated).
 
 ---
 

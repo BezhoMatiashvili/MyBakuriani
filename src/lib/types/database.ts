@@ -3783,6 +3783,16 @@ export type Database = {
         };
         Returns: Json;
       };
+      self_service_activate_menu_item_discount: {
+        Args: {
+          p_actor_id: string;
+          p_discount_percent: number;
+          p_menu_item_id: string;
+          p_package_id: string;
+          p_quantity?: number;
+        };
+        Returns: Json;
+      };
       submit_menu_item_discount_request: {
         Args: {
           p_discount_percent: number;

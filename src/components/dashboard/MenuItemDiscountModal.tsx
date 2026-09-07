@@ -12,28 +12,26 @@ import {
   type PricingPackage,
 } from "@/lib/pricing-packages";
 
-export interface MenuItemDiscountRequestResult {
-  id: string;
+export interface MenuItemDiscountActivationResult {
   status: string;
   menu_item_id: string;
   discount_percent: number;
-  quoted_amount_gel: number;
-  quoted_duration_hours: number;
-  created_at: string;
+  discount_expires_at: string;
+  charged: number;
 }
 
 interface MenuItemDiscountModalProps {
   isOpen: boolean;
   onClose: () => void;
   item: { id: string; name: string; price: number } | null;
-  onSubmitted?: (request: MenuItemDiscountRequestResult) => void;
+  onActivated?: (result: MenuItemDiscountActivationResult) => void;
 }
 
 export default function MenuItemDiscountModal({
   isOpen,
   onClose,
   item,
-  onSubmitted,
+  onActivated,
 }: MenuItemDiscountModalProps) {
   const t = useTranslations("FoodOrders");
   const tCreate = useTranslations("CreateShared");
@@ -100,10 +98,10 @@ export default function MenuItemDiscountModal({
         }),
       });
       const payload = (await res.json().catch(() => null)) as {
-        request?: MenuItemDiscountRequestResult;
+        result?: MenuItemDiscountActivationResult;
         error?: string;
       } | null;
-      if (!res.ok || !payload?.request) {
+      if (!res.ok || !payload?.result) {
         setError(
           payload?.error === "insufficient_balance"
             ? t("itemDiscountNeedsBalance")
@@ -111,7 +109,7 @@ export default function MenuItemDiscountModal({
         );
         return;
       }
-      onSubmitted?.(payload.request);
+      onActivated?.(payload.result);
       onClose();
     } catch {
       setError(tCreate("genericError"));

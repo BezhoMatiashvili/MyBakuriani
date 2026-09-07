@@ -20,7 +20,7 @@ import {
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import MenuItemDiscountModal, {
-  type MenuItemDiscountRequestResult,
+  type MenuItemDiscountActivationResult,
 } from "@/components/dashboard/MenuItemDiscountModal";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { isDiscountActive } from "@/lib/utils/pricing";
@@ -28,17 +28,6 @@ import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
 type MenuItem = Tables<"service_menu_items">;
-type MenuItemDiscountRequest = {
-  id: string;
-  status: "pending" | "approved" | "rejected" | "superseded";
-  proposed_values: { discount_percent?: number } | null;
-  quoted_amount_gel: number | null;
-  quoted_duration_hours: number | null;
-  payment_error: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-  reviewed_at: string | null;
-};
 
 interface MenuData {
   url?: string;
@@ -69,9 +58,6 @@ export default function FoodOrdersPage() {
   const [reviewError, setReviewError] = useState("");
 
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [itemRequests, setItemRequests] = useState<
-    Record<string, MenuItemDiscountRequest | null>
-  >({});
   const [discountModalItem, setDiscountModalItem] = useState<MenuItem | null>(
     null,
   );
@@ -107,21 +93,6 @@ export default function FoodOrdersPage() {
         ? (((await itemsRes.json()) as { items: MenuItem[] }).items ?? [])
         : [];
       setItems(fetchedItems);
-
-      const requestEntries = await Promise.all(
-        fetchedItems.map(async (item) => {
-          const res = await fetch(
-            `/api/food/menu-item-discount-requests?menuItemId=${encodeURIComponent(item.id)}`,
-            { cache: "no-store" },
-          );
-          if (!res.ok) return [item.id, null] as const;
-          const payload = (await res.json()) as {
-            request: MenuItemDiscountRequest | null;
-          };
-          return [item.id, payload.request] as const;
-        }),
-      );
-      setItemRequests(Object.fromEntries(requestEntries));
     }
     setLoading(false);
   }, [user, supabase]);
@@ -475,8 +446,6 @@ export default function FoodOrdersPage() {
                 item.discount_percent,
                 item.discount_expires_at,
               );
-              const pendingRequest = itemRequests[item.id];
-              const hasPendingRequest = pendingRequest?.status === "pending";
               return (
                 <div
                   key={item.id}
@@ -515,30 +484,6 @@ export default function FoodOrdersPage() {
                           })}
                         </p>
                       )}
-                      {hasPendingRequest && (
-                        <div className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2">
-                          <p className="text-[12px] font-black text-[#1E3A8A]">
-                            {t("itemDiscountPending")}
-                          </p>
-                          <p className="mt-0.5 text-[11px] font-semibold text-[#1D4ED8]">
-                            {t("itemDiscountPendingDetails", {
-                              percent:
-                                pendingRequest?.proposed_values
-                                  ?.discount_percent ?? 0,
-                              amount: Number(
-                                pendingRequest?.quoted_amount_gel ?? 0,
-                              ).toFixed(2),
-                              hours: pendingRequest?.quoted_duration_hours ?? 0,
-                            })}
-                          </p>
-                          {pendingRequest?.payment_error ===
-                            "insufficient_balance" && (
-                            <p className="mt-1 text-[11px] font-bold text-[#B45309]">
-                              {t("itemDiscountNeedsBalance")}
-                            </p>
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end gap-2">
@@ -571,7 +516,7 @@ export default function FoodOrdersPage() {
                           {t("deleteDish")}
                         </button>
                       </div>
-                      {!discountActive && !hasPendingRequest && (
+                      {!discountActive && (
                         <button
                           type="button"
                           disabled={!service || service.status !== "active"}
@@ -603,21 +548,18 @@ export default function FoodOrdersPage() {
               }
             : null
         }
-        onSubmitted={(request: MenuItemDiscountRequestResult) => {
-          setItemRequests((prev) => ({
-            ...prev,
-            [request.menu_item_id]: {
-              id: request.id,
-              status: "pending",
-              proposed_values: { discount_percent: request.discount_percent },
-              quoted_amount_gel: request.quoted_amount_gel,
-              quoted_duration_hours: request.quoted_duration_hours,
-              payment_error: null,
-              rejection_reason: null,
-              created_at: request.created_at,
-              reviewed_at: null,
-            },
-          }));
+        onActivated={(result: MenuItemDiscountActivationResult) => {
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === result.menu_item_id
+                ? {
+                    ...item,
+                    discount_percent: result.discount_percent,
+                    discount_expires_at: result.discount_expires_at,
+                  }
+                : item,
+            ),
+          );
           setDiscountModalItem(null);
         }}
       />
