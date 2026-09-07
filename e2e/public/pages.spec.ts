@@ -68,22 +68,16 @@ test.describe("PDF listing recency and public parity", () => {
 
   test("relative age and the rolling 24-hour boundary are deterministic", () => {
     const now = Date.parse("2026-08-08T12:00:00.000Z");
-    expect(
-      formatRelativeGe("2026-08-08T10:00:00.000Z", "ka", now),
-    ).toBe("2 სთ წინ");
-    expect(
-      formatRelativeGe("2026-08-07T12:00:00.000Z", "ka", now),
-    ).toBe("1 დღის წინ");
-    expect(
-      isListingNewlyAdded("2026-08-07T12:00:00.001Z", now),
-    ).toBe(true);
-    expect(
-      isListingNewlyAdded("2026-08-07T12:00:00.000Z", now),
-    ).toBe(false);
-    expect(formatRelativeGe("invalid", "ka", now)).toBe("");
-    expect(formatRelativeGe("2026-08-08T13:00:00.000Z", "ka", now)).toBe(
-      "",
+    expect(formatRelativeGe("2026-08-08T10:00:00.000Z", "ka", now)).toBe(
+      "2 სთ წინ",
     );
+    expect(formatRelativeGe("2026-08-07T12:00:00.000Z", "ka", now)).toBe(
+      "1 დღის წინ",
+    );
+    expect(isListingNewlyAdded("2026-08-07T12:00:00.001Z", now)).toBe(true);
+    expect(isListingNewlyAdded("2026-08-07T12:00:00.000Z", now)).toBe(false);
+    expect(formatRelativeGe("invalid", "ka", now)).toBe("");
+    expect(formatRelativeGe("2026-08-08T13:00:00.000Z", "ka", now)).toBe("");
   });
 
   for (const [route, title, selector] of [
@@ -138,9 +132,11 @@ test.describe("PDF listing recency and public parity", () => {
     await page.goto("/services");
     const servicesGrid = page.getByTestId("services-results-grid");
     expect(
-      await servicesGrid.evaluate((element) =>
-        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
-          .length,
+      await servicesGrid.evaluate(
+        (element) =>
+          getComputedStyle(element)
+            .gridTemplateColumns.split(" ")
+            .filter(Boolean).length,
       ),
     ).toBe(1);
     let cards = page.locator(
@@ -154,9 +150,11 @@ test.describe("PDF listing recency and public parity", () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.reload();
     expect(
-      await servicesGrid.evaluate((element) =>
-        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
-          .length,
+      await servicesGrid.evaluate(
+        (element) =>
+          getComputedStyle(element)
+            .gridTemplateColumns.split(" ")
+            .filter(Boolean).length,
       ),
     ).toBe(1);
     cards = page.locator(
@@ -191,9 +189,11 @@ test.describe("PDF listing recency and public parity", () => {
     await page.setViewportSize({ width: 640, height: 900 });
     await page.reload();
     expect(
-      await servicesGrid.evaluate((element) =>
-        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
-          .length,
+      await servicesGrid.evaluate(
+        (element) =>
+          getComputedStyle(element)
+            .gridTemplateColumns.split(" ")
+            .filter(Boolean).length,
       ),
     ).toBe(2);
     cards = page.locator(
@@ -208,12 +208,16 @@ test.describe("PDF listing recency and public parity", () => {
     await page.goto("/food");
     const foodGrid = page.getByTestId("food-results-grid");
     expect(
-      await foodGrid.evaluate((element) =>
-        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
-          .length,
+      await foodGrid.evaluate(
+        (element) =>
+          getComputedStyle(element)
+            .gridTemplateColumns.split(" ")
+            .filter(Boolean).length,
       ),
     ).toBe(2);
-    cards = page.locator('[data-service-card][data-mobile-presentation="compact-grid"]');
+    cards = page.locator(
+      '[data-service-card][data-mobile-presentation="compact-grid"]',
+    );
     await expect(cards.first()).toBeVisible();
     first = await cards.first().boundingBox();
     expect(first!.width).toBeLessThan(180);
@@ -245,23 +249,31 @@ test.describe("PDF listing recency and public parity", () => {
     const card = page.locator("[data-service-card]", {
       hasText: "E2E ტრანსპორტი",
     });
-    await expect(card.getByText("Mercedes-Benz", { exact: true })).toBeVisible();
+    await expect(
+      card.getByText("Mercedes-Benz", { exact: true }),
+    ).toBeVisible();
     await expect(card.getByText("მინივენი", { exact: true })).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/transport/aae2ff00-4002-4000-a000-000000000002");
-    await expect(page.getByText("Mercedes-Benz", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Mercedes-Benz", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("მინივენი", { exact: true })).toBeVisible();
-    await expect(page.getByText("ზამთრის საბურავები", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("ზამთრის საბურავები", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByText("თბილისი - ბაკურიანი - თბილისი", { exact: true }),
     ).toBeVisible();
 
     const stats = page.getByTestId("transport-detail-stats");
     expect(
-      await stats.evaluate((element) =>
-        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
-          .length,
+      await stats.evaluate(
+        (element) =>
+          getComputedStyle(element)
+            .gridTemplateColumns.split(" ")
+            .filter(Boolean).length,
       ),
     ).toBe(2);
     const statBoxes = await stats.locator(":scope > div").evaluateAll((items) =>
@@ -300,9 +312,11 @@ test.describe("PDF listing recency and public parity", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.reload();
     expect(
-      await stats.evaluate((element) =>
-        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
-          .length,
+      await stats.evaluate(
+        (element) =>
+          getComputedStyle(element)
+            .gridTemplateColumns.split(" ")
+            .filter(Boolean).length,
       ),
     ).toBe(4);
   });
@@ -315,10 +329,7 @@ test.describe("PDF listing recency and public parity", () => {
         "/apartments/aae2ff00-1001-4000-a000-000000000001",
         ["ქართული", "English"],
       ],
-      [
-        "/hotels/aae2ff00-1005-4000-a000-000000000005",
-        ["Русский", "Arabic"],
-      ],
+      ["/hotels/aae2ff00-1005-4000-a000-000000000005", ["Русский", "Arabic"]],
     ] as const) {
       await page.goto(route);
       const amenities = page.getByTestId("property-amenity-groups");
@@ -326,7 +337,9 @@ test.describe("PDF listing recency and public parity", () => {
       await expect(amenities).toBeVisible();
       await expect(hostLanguages).toBeVisible();
       for (const language of languages) {
-        await expect(hostLanguages.getByText(language, { exact: true })).toBeVisible();
+        await expect(
+          hostLanguages.getByText(language, { exact: true }),
+        ).toBeVisible();
       }
       const [amenitiesBox, languagesBox, locationBox] = await Promise.all([
         amenities.boundingBox(),
@@ -374,11 +387,7 @@ async function listingLayout(page: import("@playwright/test").Page) {
   });
 }
 
-for (const path of [
-  "/en/apartments",
-  "/en/hotels",
-  "/en/search?mode=rent",
-]) {
+for (const path of ["/en/apartments", "/en/hotels", "/en/search?mode=rent"]) {
   test.describe(`${path} floating search panels`, () => {
     test("dates and filters overlap without shifting the hero or results", async ({
       page,
@@ -433,7 +442,7 @@ test.describe("Search results hero", () => {
     await expect(
       hero.getByRole("heading", {
         level: 1,
-        name: "The Most Trusted Guide in Bakuriani",
+        name: "The Bakuriani Guide on One Platform",
       }),
     ).toBeVisible();
     await expect(hero.getByRole("button", { name: "Rent" })).toBeVisible();
@@ -546,7 +555,7 @@ test.describe("Listing desktop search controls", () => {
 
     await datesTrigger.click();
     const calendar = page.getByTestId("search-desktop-calendar-panel");
-    const days = calendar.locator('button[data-day]:not([disabled])');
+    const days = calendar.locator("button[data-day]:not([disabled])");
     await days.nth(2).click();
     await days.nth(3).click();
     await expect(datesTrigger).not.toHaveText("Select date");

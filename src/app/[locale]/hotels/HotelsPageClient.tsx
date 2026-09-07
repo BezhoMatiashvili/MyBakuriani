@@ -92,7 +92,8 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
+  const filtersPortalRef = useRef<HTMLDivElement>(null);
+  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { zones } = useActiveZones();
@@ -210,18 +211,27 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
               isPending={isPending}
               className="shadow-[var(--shadow-search)]"
               dropdownPortalRef={dropdownPortalRef}
-              dropdownBoundaryRef={dropdownBoundaryRef}
+              filtersPortalRef={filtersPortalRef}
+              filtersBoundaryRef={filtersBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
               zones={zones}
             />
 
-            {activeDropdown === "filters" ? (
-              <div
-                ref={dropdownBoundaryRef}
-                onMouseDown={(e) => e.stopPropagation()}
-                className="absolute left-0 right-0 top-full z-30 mt-2 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:flex"
-              >
-                <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
+            {/* Permanently mounted (visibility toggled via CSS) so the portal
+                target exists the instant the panel opens — see ApartmentsPageClient
+                for why the conditional-mount version flashed a mapless fallback. */}
+            <div
+              ref={filtersBoundaryRef}
+              onMouseDown={(e) => e.stopPropagation()}
+              className={cn(
+                "absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                activeDropdown === "filters"
+                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
+                  : "hidden",
+              )}
+            >
+              <div ref={filtersPortalRef} className="min-w-0 flex-1" />
+              {activeDropdown === "filters" && (
                 <BakurianiMap
                   className="min-h-[400px] w-[280px] shrink-0 self-stretch"
                   embedded
@@ -229,8 +239,9 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
                   properties={mapProperties}
                   onPropertyClick={(id) => router.push(`/hotels/${id}`)}
                 />
-              </div>
-            ) : activeDropdown === "calendar" ? (
+              )}
+            </div>
+            {activeDropdown === "calendar" ? (
               <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
                 <div ref={dropdownPortalRef} className="min-w-0" />
                 <div className="flex w-[240px] flex-col gap-3">

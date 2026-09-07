@@ -227,11 +227,9 @@ export default function LoginPage() {
         className="w-full max-w-[420px] space-y-8"
       >
         <div className="text-center">
-          <h2 className="text-2xl font-black">
-            <span className="text-[#1E293B]">My</span>
-            <span className="text-brand-accent">Bakuriani</span>
-          </h2>
-          <p className="mt-1 text-xs text-[#94A3B8]">{t("tagline")}</p>
+          <p className="text-sm font-black leading-snug text-[#1E293B] sm:text-base">
+            {t("tagline")}
+          </p>
           <div className="mx-auto mt-4 flex w-48 gap-1">
             <div className="h-[3px] flex-1 rounded-full bg-brand-accent" />
             <div className="h-[3px] flex-1 rounded-full bg-[#F8FAFC]" />

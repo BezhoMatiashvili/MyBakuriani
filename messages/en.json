@@ -277,7 +277,7 @@
     "adminLogout": "Sign out"
   },
   "HeroSection": {
-    "title": "The Most Trusted Guide in Bakuriani",
+    "title": "The Bakuriani Guide on One Platform",
     "subtitle": "Only verified and trusted property owners"
   },
   "ServicesSection": {
@@ -468,8 +468,8 @@
     "failed": "Couldn’t reveal the number — try again"
   },
   "Landing": {
-    "trustedGuide": "The Most Trusted Guide",
-    "inBakuriani": "in Bakuriani",
+    "trustedGuide": "The Bakuriani Guide",
+    "inBakuriani": "on One Platform",
     "cameras": "Cameras",
     "cameraLocations": "2 Locations",
     "getCoupon": "Get Coupon",
@@ -1879,7 +1879,7 @@
     "noResults": "Nothing found"
   },
   "AuthLogin": {
-    "tagline": "Premium ecosystem",
+    "tagline": "MyBakuriani — Everything in Bakuriani, on one platform",
     "title": "Sign in / Register",
     "emailTab": "Email",
     "phoneTab": "Phone",

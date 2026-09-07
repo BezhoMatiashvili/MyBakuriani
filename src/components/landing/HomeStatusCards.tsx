@@ -8,7 +8,7 @@ import {
   type StatusIcon,
 } from "@/lib/status-cards/types";
 
-const WEATHER_REFRESH_MS = 30 * 60 * 1000;
+const WEATHER_REFRESH_MS = 10 * 60 * 1000;
 
 type PublicWeatherPayload = {
   temperatureC: number;

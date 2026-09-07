@@ -105,7 +105,8 @@ export default function ApartmentsPageClient({
   const [currentPage, setCurrentPage] = useState(1);
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
+  const filtersPortalRef = useRef<HTMLDivElement>(null);
+  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { zones } = useActiveZones();
@@ -238,19 +239,29 @@ export default function ApartmentsPageClient({
               isPending={isPending}
               className="shadow-[var(--shadow-search)]"
               dropdownPortalRef={dropdownPortalRef}
-              dropdownBoundaryRef={dropdownBoundaryRef}
+              filtersPortalRef={filtersPortalRef}
+              filtersBoundaryRef={filtersBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
               zones={zones}
             />
 
-            {/* Desktop panels float over the status cards and following section. */}
-            {activeDropdown === "filters" ? (
-              <div
-                ref={dropdownBoundaryRef}
-                onMouseDown={(e) => e.stopPropagation()}
-                className="absolute left-0 right-0 top-full z-30 mt-2 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:flex"
-              >
-                <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
+            {/* Desktop panels float over the status cards and following section.
+                The filters boundary stays permanently mounted (visibility toggled
+                via CSS) so its portal target already exists the instant the panel
+                opens — otherwise SearchBox briefly renders a narrower fallback
+                without the map before this box appears. */}
+            <div
+              ref={filtersBoundaryRef}
+              onMouseDown={(e) => e.stopPropagation()}
+              className={cn(
+                "absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                activeDropdown === "filters"
+                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
+                  : "hidden",
+              )}
+            >
+              <div ref={filtersPortalRef} className="min-w-0 flex-1" />
+              {activeDropdown === "filters" && (
                 <BakurianiMap
                   className="min-h-[400px] w-[280px] shrink-0 self-stretch"
                   embedded
@@ -258,8 +269,9 @@ export default function ApartmentsPageClient({
                   properties={mapProperties}
                   onPropertyClick={(id) => router.push(`/apartments/${id}`)}
                 />
-              </div>
-            ) : activeDropdown === "calendar" ? (
+              )}
+            </div>
+            {activeDropdown === "calendar" ? (
               <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden lg:block">
                 <div ref={dropdownPortalRef} className="min-w-0" />
               </div>

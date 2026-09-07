@@ -101,7 +101,8 @@ export default function LandingPage({
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
+  const filtersPortalRef = useRef<HTMLDivElement>(null);
+  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
   const hasHomePromo = bannerCreatives.some(
@@ -363,19 +364,28 @@ export default function LandingPage({
               onSearch={handleSearch}
               className="shadow-[var(--shadow-search)]"
               dropdownPortalRef={dropdownPortalRef}
-              dropdownBoundaryRef={dropdownBoundaryRef}
+              filtersPortalRef={filtersPortalRef}
+              filtersBoundaryRef={filtersBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
               phoneLayout="landing-compact"
               zones={zones}
             />
 
-            {/* Floating dropdown panel — absolute so it doesn't expand the blue hero */}
-            {activeDropdown === "filters" ? (
-              <div
-                ref={dropdownBoundaryRef}
-                className="absolute left-0 right-0 top-full z-30 mt-2 hidden overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] lg:flex"
-              >
-                <div ref={dropdownPortalRef} className="min-w-0 flex-1" />
+            {/* Floating dropdown panel — absolute so it doesn't expand the blue hero.
+                Permanently mounted (visibility toggled via CSS) so the portal target
+                exists the instant the panel opens, instead of flashing a mapless
+                fallback for a frame first. */}
+            <div
+              ref={filtersBoundaryRef}
+              className={cn(
+                "absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                activeDropdown === "filters"
+                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
+                  : "hidden",
+              )}
+            >
+              <div ref={filtersPortalRef} className="min-w-0 flex-1" />
+              {activeDropdown === "filters" && (
                 <BakurianiMap
                   className="min-h-[400px] w-[280px] shrink-0 self-stretch"
                   embedded
@@ -384,8 +394,9 @@ export default function LandingPage({
                   onPropertyClick={(id) => router.push(`/apartments/${id}`)}
                   zones={zones}
                 />
-              </div>
-            ) : activeDropdown === "calendar" ? (
+              )}
+            </div>
+            {activeDropdown === "calendar" ? (
               <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
                 <div ref={dropdownPortalRef} className="min-w-0" />
                 <div className="flex w-full flex-col gap-3 lg:w-[240px]">

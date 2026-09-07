@@ -3,7 +3,7 @@ import { merge } from "./_i18n-merge.mjs";
 merge({
   ka: {
     AuthLogin: {
-      tagline: "პრემიუმ ეკოსისტემა",
+      tagline: "MyBakuriani — ყველაფერი ბაკურიანზე, ერთ პლატფორმაზე",
       title: "შესვლა / რეგისტრაცია",
       emailTab: "ელ. ფოსტა",
       phoneTab: "ტელეფონი",
@@ -75,7 +75,7 @@ merge({
   },
   en: {
     AuthLogin: {
-      tagline: "Premium ecosystem",
+      tagline: "MyBakuriani — Everything in Bakuriani, on one platform",
       title: "Sign in / Register",
       emailTab: "Email",
       phoneTab: "Phone",
@@ -146,7 +146,7 @@ merge({
   },
   ru: {
     AuthLogin: {
-      tagline: "Премиум-экосистема",
+      tagline: "MyBakuriani — Всё в Бакуриани, на одной платформе",
       title: "Вход / Регистрация",
       emailTab: "Эл. почта",
       phoneTab: "Телефон",

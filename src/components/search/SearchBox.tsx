@@ -69,6 +69,15 @@ interface SearchBoxProps {
   defaultCheckOut?: string;
   dropdownPortalRef?: React.RefObject<HTMLDivElement | null>;
   dropdownBoundaryRef?: React.RefObject<HTMLElement | null>;
+  /**
+   * Target for the filters panel, distinct from dropdownPortalRef/dropdownBoundaryRef
+   * (used by the calendar dropdown). The parent keeps this node permanently mounted
+   * (visibility toggled via CSS, not conditional rendering) so it already exists the
+   * moment the filters panel opens — avoiding a one-frame fallback render without the
+   * map before the portal target appears.
+   */
+  filtersPortalRef?: React.RefObject<HTMLDivElement | null>;
+  filtersBoundaryRef?: React.RefObject<HTMLElement | null>;
   onActiveDropdownChange?: (active: ActiveDropdown) => void;
   isPending?: boolean;
   phoneLayout?: "default" | "landing-compact";
@@ -160,6 +169,8 @@ export function SearchBox({
   defaultCheckOut = "",
   dropdownPortalRef,
   dropdownBoundaryRef,
+  filtersPortalRef,
+  filtersBoundaryRef,
   onActiveDropdownChange,
   isPending = false,
   phoneLayout = "default",
@@ -203,9 +214,7 @@ export function SearchBox({
     }
     setDateRange({
       from: new Date(`${defaultCheckIn}T00:00:00`),
-      to: defaultCheckOut
-        ? new Date(`${defaultCheckOut}T00:00:00`)
-        : undefined,
+      to: defaultCheckOut ? new Date(`${defaultCheckOut}T00:00:00`) : undefined,
     });
   }, [
     defaultCheckIn,
@@ -243,6 +252,7 @@ export function SearchBox({
       const inContainer = containerRef.current?.contains(target);
       const inPortal = dropdownPortalRef?.current?.contains(target);
       const inBoundary = dropdownBoundaryRef?.current?.contains(target);
+      const inFiltersBoundary = filtersBoundaryRef?.current?.contains(target);
 
       const inContainerPath = containerRef.current
         ? eventPath.includes(containerRef.current)
@@ -253,14 +263,19 @@ export function SearchBox({
       const inBoundaryPath = dropdownBoundaryRef?.current
         ? eventPath.includes(dropdownBoundaryRef.current)
         : false;
+      const inFiltersBoundaryPath = filtersBoundaryRef?.current
+        ? eventPath.includes(filtersBoundaryRef.current)
+        : false;
 
       const isInside =
         inContainer ||
         inPortal ||
         inBoundary ||
+        inFiltersBoundary ||
         inContainerPath ||
         inPortalPath ||
-        inBoundaryPath;
+        inBoundaryPath ||
+        inFiltersBoundaryPath;
 
       if (!isInside) {
         setActiveDropdown(null);
@@ -274,17 +289,21 @@ export function SearchBox({
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [activeDropdown, dropdownPortalRef, dropdownBoundaryRef, isMobile]);
+  }, [
+    activeDropdown,
+    dropdownPortalRef,
+    dropdownBoundaryRef,
+    filtersBoundaryRef,
+    isMobile,
+  ]);
 
-  // Track portal readiness — ref can appear one frame later when parent
-  // conditionally mounts the portal container.
+  // Track calendar portal readiness — ref can appear one frame later when
+  // the parent conditionally mounts the portal container. The filters panel
+  // no longer uses this: its target is permanently mounted (see filtersReady
+  // below), which avoids the async wait entirely.
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => {
-    if (
-      !dropdownPortalRef ||
-      activeDropdown === "location" ||
-      !activeDropdown
-    ) {
+    if (!dropdownPortalRef || activeDropdown !== "calendar") {
       setPortalReady(false);
       return;
     }
@@ -313,21 +332,33 @@ export function SearchBox({
 
   const toggleDropdown = useCallback(
     (name: ActiveDropdown) => {
-      setActiveDropdown((prev) => {
-        if (prev === name) return null;
-        if (isMobile && name === "filters") {
-          setFilterDraft(normalizeRentFilters(filters));
-        }
-        if (isMobile && name === "calendar") {
-          setDateDraft(dateRange);
-        }
-        if (isMobile && name === "location") {
-          setLocationDraft(location);
-        }
-        return name;
-      });
+      const next = activeDropdown === name ? null : name;
+      if (isMobile && name === "filters") {
+        setFilterDraft(normalizeRentFilters(filters));
+      }
+      if (isMobile && name === "calendar") {
+        setDateDraft(dateRange);
+      }
+      if (isMobile && name === "location") {
+        setLocationDraft(location);
+      }
+      setActiveDropdown(next);
+      // Notify the parent synchronously (same event, same commit) instead of
+      // waiting for the effect below — the parent's filters boundary is
+      // permanently mounted and only its visibility depends on this value, so
+      // an effect-delayed notify would show it a frame late (the flash this
+      // fixes). The effect remains as the catch-all for close paths that
+      // don't go through this handler (click-outside, apply, confirm).
+      onActiveDropdownChange?.(next);
     },
-    [dateRange, filters, isMobile, location],
+    [
+      activeDropdown,
+      dateRange,
+      filters,
+      isMobile,
+      location,
+      onActiveDropdownChange,
+    ],
   );
 
   const closeMobileSheet = useCallback(() => {
@@ -492,7 +523,8 @@ export function SearchBox({
           <label
             className={cn(
               "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
-              isLandingCompact && "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+              isLandingCompact &&
+                "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
             )}
           >
             {t("location")}
@@ -537,7 +569,8 @@ export function SearchBox({
           <label
             className={cn(
               "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
-              isLandingCompact && "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+              isLandingCompact &&
+                "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
             )}
           >
             {t("date")}
@@ -578,7 +611,8 @@ export function SearchBox({
           <label
             className={cn(
               "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
-              isLandingCompact && "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+              isLandingCompact &&
+                "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
             )}
           >
             {t("filters")}
@@ -922,36 +956,38 @@ export function SearchBox({
           />
         );
 
-        // Filters — portals when available
+        // Filters — the parent keeps filtersPortalRef's node permanently
+        // mounted (visibility toggled via CSS), so unlike the calendar panel
+        // above it never needs to wait a frame for the target to appear.
+        const filtersReady = !!filtersPortalRef?.current;
         const filtersPanel = activeDropdown === "filters" && (
           <FiltersDropdown
             filters={filters}
             onChange={setFilters}
             onApply={handleApplyFilters}
             onClear={() => setFilters(DEFAULT_FILTERS)}
-            inline={usePortal}
+            inline={filtersReady}
           />
         );
+        const filtersContent = filtersPanel
+          ? filtersReady && filtersPortalRef?.current
+            ? createPortal(filtersPanel, filtersPortalRef.current)
+            : filtersPanel
+          : null;
 
-        // Only calendar and filters use portal
-        const portalPanel = calendarPanel || filtersPanel || null;
-        let portalContent: React.ReactNode = null;
-        if (portalPanel) {
-          if (usePortal && dropdownPortalRef?.current) {
-            // Portal is ready — render inside it
-            portalContent = createPortal(
-              portalPanel,
-              dropdownPortalRef.current,
-            );
-          } else {
-            // Portal target not ready yet — render inline fallback
-            portalContent = portalPanel;
-          }
+        // Calendar uses the older async-ready portal (dropdownPortalRef).
+        let calendarContent: React.ReactNode = null;
+        if (calendarPanel) {
+          calendarContent =
+            usePortal && dropdownPortalRef?.current
+              ? createPortal(calendarPanel, dropdownPortalRef.current)
+              : calendarPanel;
         }
 
         return (
           <>
-            {portalContent}
+            {filtersContent}
+            {calendarContent}
             {locationPanel}
           </>
         );
@@ -985,8 +1021,8 @@ function LocationDropdown({
         sheet
           ? "w-full rounded-none border-0 p-0 shadow-none"
           : inline
-          ? "w-full"
-          : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[480px]",
+            ? "w-full"
+            : "absolute left-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] md:w-[480px]",
       )}
     >
       {zones.map((zone) => {
@@ -1051,15 +1087,17 @@ function FiltersDropdown({
   const t = useTranslations("SearchBox");
   const minPriceId = useId();
   const maxPriceId = useId();
-  const [priceMinInput, setPriceMinInput] = useState(
-    String(filters.priceMin),
-  );
-  const [priceMaxInput, setPriceMaxInput] = useState(
-    String(filters.priceMax),
-  );
+  const [priceMinInput, setPriceMinInput] = useState(String(filters.priceMin));
+  const [priceMaxInput, setPriceMaxInput] = useState(String(filters.priceMax));
 
-  useEffect(() => setPriceMinInput(String(filters.priceMin)), [filters.priceMin]);
-  useEffect(() => setPriceMaxInput(String(filters.priceMax)), [filters.priceMax]);
+  useEffect(
+    () => setPriceMinInput(String(filters.priceMin)),
+    [filters.priceMin],
+  );
+  useEffect(
+    () => setPriceMaxInput(String(filters.priceMax)),
+    [filters.priceMax],
+  );
 
   const updateFilter = <K extends keyof FilterState>(
     key: K,
@@ -1075,10 +1113,7 @@ function FiltersDropdown({
     updateFilter("amenities", next);
   };
 
-  const updatePriceInput = (
-    key: "priceMin" | "priceMax",
-    raw: string,
-  ) => {
+  const updatePriceInput = (key: "priceMin" | "priceMax", raw: string) => {
     if (key === "priceMin") setPriceMinInput(raw);
     else setPriceMaxInput(raw);
     if (!raw) return;
@@ -1091,21 +1126,24 @@ function FiltersDropdown({
     updateFilter(key, value);
   };
 
-  const normalizePriceInput = (
-    key: "priceMin" | "priceMax",
-    raw: string,
-  ) => {
+  const normalizePriceInput = (key: "priceMin" | "priceMax", raw: string) => {
     const fallback = key === "priceMin" ? RENT_PRICE_MIN : RENT_PRICE_MAX;
     const parsed = raw ? Number(raw) : fallback;
     const value =
       key === "priceMin"
         ? Math.max(
             RENT_PRICE_MIN,
-            Math.min(Number.isFinite(parsed) ? parsed : fallback, filters.priceMax - 1),
+            Math.min(
+              Number.isFinite(parsed) ? parsed : fallback,
+              filters.priceMax - 1,
+            ),
           )
         : Math.min(
             RENT_PRICE_MAX,
-            Math.max(Number.isFinite(parsed) ? parsed : fallback, filters.priceMin + 1),
+            Math.max(
+              Number.isFinite(parsed) ? parsed : fallback,
+              filters.priceMin + 1,
+            ),
           );
     if (key === "priceMin") setPriceMinInput(String(value));
     else setPriceMaxInput(String(value));
@@ -1127,7 +1165,8 @@ function FiltersDropdown({
         sheet || inline
           ? "w-full"
           : "absolute z-50 rounded-3xl border border-[#E2E8F0] shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-        !inline && !sheet &&
+        !inline &&
+          !sheet &&
           (mobile
             ? "left-0 right-0 top-full mt-2"
             : "left-0 top-full mt-2 w-[700px]"),
@@ -1374,27 +1413,29 @@ function FiltersDropdown({
       </div>
 
       {/* Bottom bar */}
-      {!sheet && <div className="mt-8 flex items-center justify-between border-t border-[#EEF1F4] pt-6">
-        <button
-          type="button"
-          onClick={onClear}
-          data-testid={sheet ? "mobile-filter-reset" : undefined}
-          className={cn(
-            "text-[14px] font-bold text-[#64748B] hover:text-[#1E293B]",
-            sheet && "min-h-11 px-2",
-          )}
-        >
-          {t("clear")}
-        </button>
-        <Button
-          type="button"
-          onClick={onApply}
-          data-testid={sheet ? "mobile-filter-apply" : undefined}
-          className="min-h-11 rounded-[12px] bg-[#2563EB] px-8 text-[14px] font-bold text-white shadow-[0px_4px_12px_rgba(37,99,235,0.2)] hover:bg-[#1D4ED8]"
-        >
-          {t("showResults")}
-        </Button>
-      </div>}
+      {!sheet && (
+        <div className="mt-8 flex items-center justify-between border-t border-[#EEF1F4] pt-6">
+          <button
+            type="button"
+            onClick={onClear}
+            data-testid={sheet ? "mobile-filter-reset" : undefined}
+            className={cn(
+              "text-[14px] font-bold text-[#64748B] hover:text-[#1E293B]",
+              sheet && "min-h-11 px-2",
+            )}
+          >
+            {t("clear")}
+          </button>
+          <Button
+            type="button"
+            onClick={onApply}
+            data-testid={sheet ? "mobile-filter-apply" : undefined}
+            className="min-h-11 rounded-[12px] bg-[#2563EB] px-8 text-[14px] font-bold text-white shadow-[0px_4px_12px_rgba(37,99,235,0.2)] hover:bg-[#1D4ED8]"
+          >
+            {t("showResults")}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

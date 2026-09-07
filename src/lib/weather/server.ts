@@ -21,7 +21,7 @@ const BAKURIANI_LAT = 41.75;
 const BAKURIANI_LNG = 43.53;
 const WEATHERAPI_URL = "https://api.weatherapi.com/v1/current.json";
 
-export const WEATHER_REVALIDATE_SECONDS = 30 * 60;
+export const WEATHER_REVALIDATE_SECONDS = 10 * 60;
 
 // Fetches the live Bakuriani weather from WeatherAPI. It is intentionally
 // server-only: the API key is used only in this outbound request. Returns null
@@ -42,9 +42,7 @@ export const getBakurianiWeather = cache(
       });
       if (!res.ok) return null;
 
-      return parseWeatherApiWeather(
-        (await res.json()) as WeatherApiResponse,
-      );
+      return parseWeatherApiWeather((await res.json()) as WeatherApiResponse);
     } catch {
       return null;
     }

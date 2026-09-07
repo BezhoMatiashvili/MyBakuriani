@@ -65,6 +65,9 @@ function renderZoneIcon(icon: string, zoneSlug: string, isLast: boolean) {
 // Convert GEL → USD for display (rough conversion; backend stores GEL).
 const GEL_TO_USD = 1 / 2.7;
 
+const ZONE_CARD_ROW_CLASS =
+  "scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0";
+
 function toUsd(gel: number | null | undefined): number {
   if (!gel) return 0;
   return Math.round(gel * GEL_TO_USD);
@@ -186,12 +189,37 @@ export default function SaleLandingBody({
     [saleProperties],
   );
 
+  const heroZones = zones.slice(0, 4);
+  const extraZones = zones.slice(4);
+  const lastZoneId = zones[zones.length - 1]?.id;
+
+  const renderZoneCard = (zone: Zone) => {
+    const isLast = zone.id === lastZoneId;
+    return (
+      <StatCard
+        key={zone.id}
+        label={
+          TRANSLATED_ZONE_SLUGS.has(zone.slug)
+            ? tZones(`${zone.slug}.name`)
+            : zone.name_ka
+        }
+        // pricePerSqmByZone is keyed by the DB name_ka — keep as-is.
+        value={formatPricePerSqm(pricePerSqmByZone?.[zone.name_ka])}
+        icon={renderZoneIcon(zone.icon, zone.slug, isLast)}
+        highlight={isLast}
+      />
+    );
+  };
+
   return (
     <div className="flex flex-col">
       {/* ═══ 1. Hero (green) ═══ */}
       <section
         data-testid="homepage-hero"
-        className="relative flex items-start justify-center px-4 pb-14 pt-10 lg:min-h-[620px] lg:pb-16 lg:pt-16"
+        className={cn(
+          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:pt-16",
+          showMap ? "lg:pb-16" : "lg:pb-0",
+        )}
         style={{
           background:
             "linear-gradient(180deg, #0B3A2C 0%, #0F4C3A 55%, #134E3A 100%)",
@@ -234,34 +262,35 @@ export default function SaleLandingBody({
             />
           </div>
 
-          {/* Stat cards — sit below the search box, overhang the hero bottom (matches rental landing) */}
+          {/* First 4 zone cards overhang the hero; extras render after this section. */}
           <div
             className={cn(
-              "scrollbar-hide -mx-4 mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0",
+              ZONE_CARD_ROW_CLASS,
+              "mt-8",
               !showMap && "sm:-mb-[42px]",
             )}
           >
-            {zones.map((zone, i) => (
-              <StatCard
-                key={zone.id}
-                label={
-                  TRANSLATED_ZONE_SLUGS.has(zone.slug)
-                    ? tZones(`${zone.slug}.name`)
-                    : zone.name_ka
-                }
-                // pricePerSqmByZone is keyed by the DB name_ka — keep as-is.
-                value={formatPricePerSqm(pricePerSqmByZone?.[zone.name_ka])}
-                icon={renderZoneIcon(
-                  zone.icon,
-                  zone.slug,
-                  i === zones.length - 1,
-                )}
-                highlight={i === zones.length - 1}
-              />
-            ))}
+            {heroZones.map(renderZoneCard)}
           </div>
         </div>
       </section>
+
+      {extraZones.length > 0 && (
+        <div data-testid="homepage-sale-extra-zone-cards" className="px-4">
+          <div
+            className={cn(
+              "mx-auto w-full max-w-[1180px]",
+              // 42px hanging first row + 16px gutter, so extras sit below it
+              // and push ads / listings down instead of overlapping them.
+              showMap ? "pb-2 pt-4" : "pb-6 pt-4 sm:pt-[calc(42px+1rem)]",
+            )}
+          >
+            <div className={ZONE_CARD_ROW_CLASS}>
+              {extraZones.map(renderZoneCard)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ Inline map (toggled by the map button in SaleSearchBox) ═══ */}
       {showMap && (
