@@ -14,6 +14,7 @@ export const PUBLIC_NAMESPACES = [
   "ApartmentsPage",
   "AuthForgotPassword",
   "AuthLogin",
+  "AuthMfa",
   "AuthRegister",
   "AuthResetPassword",
   "AvailabilityWizard",

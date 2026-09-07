@@ -151,7 +151,7 @@
     "terms": "Terms and Conditions",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
-    "copyright": "© 2024 MYBAKURIANI.GE - All rights reserved"
+    "copyright": "© {year} MYBAKURIANI.GE - All rights reserved"
   },
   "DashboardSidebar": {
     "roles": {
@@ -1947,6 +1947,19 @@
       "passwordsMismatch": "Passwords do not match",
       "generic": "Error. Please try again."
     }
+  },
+  "AuthMfa": {
+    "title": "Administrator verification",
+    "subtitle": "Multi-factor authentication is required before opening the admin panel.",
+    "scanQr": "Scan this QR code in your authenticator app",
+    "manualKey": "Manual key:",
+    "codeLabel": "Authenticator code",
+    "verify": "Verify and continue",
+    "verifying": "Verifying…",
+    "codeRequired": "Enter the six-digit code from your authenticator.",
+    "challengeError": "Could not verify MFA. Please retry.",
+    "invalidCode": "That code is invalid or expired.",
+    "enrollError": "Could not start MFA enrollment. Please try again."
   },
   "AuthRegister": {
     "createProfile": "Create profile",

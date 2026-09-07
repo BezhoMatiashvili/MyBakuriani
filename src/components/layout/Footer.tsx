@@ -103,7 +103,7 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-7 text-center text-[10px] font-bold uppercase tracking-[1px] text-white/60 sm:mt-16 lg:mt-20 lg:pt-8">
-          <span>{t("copyright")}</span>
+          <span>{t("copyright", { year: new Date().getFullYear() })}</span>
           {/* prefetch={false}: the footer sits on every page, so these two
               prefetched a full RSC payload (~30 KB each) on every page view for
               routes almost nobody opens. Suppressing it frees the connection

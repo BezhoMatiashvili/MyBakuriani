@@ -99,7 +99,8 @@ export default function SeoPage() {
         }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? "AI draft failed");
+      if (!res.ok)
+        throw new Error(payload.error ?? "AI დრაფტის გენერაცია ვერ მოხერხდა");
       setTitle(payload.title ?? "");
       setExcerpt(payload.excerpt ?? "");
       setContent(payload.body_markdown ?? "");
