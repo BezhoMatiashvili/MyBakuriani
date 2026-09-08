@@ -1959,6 +1959,20 @@ Participating symbols:
 - `src/lib/security.ts:safeInternalPath` — the open-redirect guard on the
   `from`/`redirect` value at both the gate page and the unlock route; never swap
   it for a hand-rolled check
+- `src/app/api/site-lock/unlock/route.ts:SITE_ORIGIN` — **live-discovered
+  2026-09-08:** for a Node.js-runtime route handler on this DigitalOcean
+  deployment, `request.url`/`request.nextUrl` reflects the container's
+  internal address (`http://localhost:8080`), NOT the external host — unlike
+  Edge middleware, where `request.url` is correctly forwarded-host-aware
+  (verified: middleware's own `SITE_LOCK_PATH` redirects rendered correctly
+  while this route's `new URL(path, request.url)` sent real visitors to
+  `https://localhost:8080/`, discovered via a live curl against the deployed
+  unlock endpoint). Fixed by building redirect targets from
+  `NEXT_PUBLIC_SITE_URL` instead (this app's existing pattern for the
+  canonical origin — see `layout.tsx`, `robots.ts`, `sitemap.ts`). Any future
+  Node.js-runtime route handler that constructs a redirect/absolute URL must
+  do the same — never assume `request.url`'s origin is trustworthy outside
+  middleware on this host
 - Every lock-related redirect and the gate page's own pass-through response sets
   `Cache-Control: no-store` explicitly — this app runs behind Cloudflare (**C2**
   documents its public-page caching), and an edge-cached redirect would keep

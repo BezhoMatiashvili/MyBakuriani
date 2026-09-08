@@ -2216,7 +2216,7 @@ Each entry: exported symbols with `file:line`, then internal import edges (alias
 - imports: `@/lib/sms/feature-flags`, `@/lib/supabase/admin`, `@/lib/supabase/server`
 
 ### `src/app/api/site-lock/unlock/route.ts`
-- exports: `POST` (7)
+- exports: `POST` (16)
 - imports: `@/lib/rateLimit`, `@/lib/security`
 
 ### `src/app/api/sms-consent/[token]/route.ts`
