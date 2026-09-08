@@ -159,14 +159,27 @@ export async function checkRateLimit(
 /**
  * Client address from the trusted deployment proxy; never accept user input.
  *
- * Load-bearing: some limits are keyed on this value ALONE, so a deployment that
- * does not overwrite x-forwarded-for at the edge would let a caller mint its own
- * bucket per request. Vercel overwrites it; re-check before hosting elsewhere.
+ * Load-bearing: some limits are keyed on this value ALONE. DigitalOcean App
+ * Platform's edge APPENDS the true client IP to any client-supplied
+ * x-forwarded-for rather than replacing it, so the FIRST entry is
+ * attacker-controlled — confirmed live 2026-09-08: 25 requests against the
+ * geocode rate limiter (20/60s) each carrying a distinct spoofed
+ * X-Forwarded-For all returned 200, while an unmodified control hit 429 at
+ * request 21 as expected. Since there is exactly one trusted hop between the
+ * client and this app, the LAST entry is the one DO's own edge appended and is
+ * the one to trust. Do not revert to the first entry — that is the bypass this
+ * fixes (see contracts.md C16).
  */
 export function getClientIp(req: {
   headers: { get(name: string): string | null };
 }): string {
   const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  if (forwarded) {
+    const hops = forwarded
+      .split(",")
+      .map((hop) => hop.trim())
+      .filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
   return req.headers.get("x-real-ip") ?? "unknown";
 }

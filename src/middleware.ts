@@ -10,10 +10,11 @@ const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
 // Password gate for closing the public site to browsing while keeping /api/*
 // and static assets (excluded by config.matcher below) reachable. Active only
 // when SITE_LOCKED="true" — a server-only env var set on the target deployment,
-// never committed.
+// never committed. The bypass link's path segment is SITE_LOCK_PASSWORD itself
+// (never a separate hardcoded value) so there is exactly one secret, and it
+// stays rotatable via env var alone — no code change or redeploy to change it.
 const SITE_LOCK_COOKIE = "mb_gate";
 const SITE_LOCK_PATH = "/site-locked";
-const SITE_LOCK_BYPASS_SEGMENT = "B2e0j0i2";
 
 function stripLocalePrefix(pathname: string): string {
   return routing.locales.reduce(
@@ -125,26 +126,25 @@ export async function middleware(request: NextRequest) {
   }
 
   if (process.env.SITE_LOCKED === "true") {
-    // Visiting the shareable bypass link unlocks this browser and sends it home.
-    if (stripLocalePrefix(pathname) === `/${SITE_LOCK_BYPASS_SEGMENT}`) {
+    const password = process.env.SITE_LOCK_PASSWORD;
+
+    // Visiting the shareable bypass link (the password itself, as a path
+    // segment) unlocks this browser and sends it home.
+    if (password && stripLocalePrefix(pathname) === `/${password}`) {
       const response = NextResponse.redirect(new URL("/", request.url));
       response.headers.set("Cache-Control", "no-store");
-      if (process.env.SITE_LOCK_PASSWORD) {
-        response.cookies.set(SITE_LOCK_COOKIE, process.env.SITE_LOCK_PASSWORD, {
-          httpOnly: true,
-          secure: secureRequest,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 24 * 30,
-        });
-      }
+      response.cookies.set(SITE_LOCK_COOKIE, password, {
+        httpOnly: true,
+        secure: secureRequest,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
       return applyBaselineSecurityHeaders(response, secureRequest);
     }
 
     const unlocked =
-      !!process.env.SITE_LOCK_PASSWORD &&
-      request.cookies.get(SITE_LOCK_COOKIE)?.value ===
-        process.env.SITE_LOCK_PASSWORD;
+      !!password && request.cookies.get(SITE_LOCK_COOKIE)?.value === password;
 
     if (!unlocked) {
       const target = new URL(SITE_LOCK_PATH, request.url);

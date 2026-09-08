@@ -1008,7 +1008,7 @@ Participating symbols:
 - `supabase/migrations/20260725140000_postgres_rate_limiter.sql:rate_limit_counters` — RLS enabled with **no policies**, and SELECT/INSERT/UPDATE/DELETE revoked from `PUBLIC`, `anon` and `authenticated`. That closes the browser; it does **not** close `service_role`, which keeps its default grants and is `BYPASSRLS` — so any server-side code holding the service key can read/write the table directly, and the definer function is the convention rather than a hard boundary. Swept nightly by the `rate-limit-gc` pg_cron job (buckets are never read after expiry, but the key space grows per (ip, endpoint, listing))
 - `src/lib/rateLimit.ts:checkRateLimit` — Upstash when both env vars exist, else Postgres, else in-memory (dev) / **allow** (prod, logged). Because it imports `createServiceClient`, this module is **server-only** — importing it from a client component would pull the service-role client into the browser bundle. All 10 importers today are route handlers (`runtime = "nodejs"`) or the one `"use server"` action `src/app/actions/revalidateListing.ts`
 - `supabase/functions/_shared/guards.ts:checkRateLimit` — the Deno twin of the above, same fallback order, same fail-open rule. Calls the same RPC through `createServiceClient()`
-- `src/lib/rateLimit.ts:getClientIp` — trusts `x-forwarded-for`, taking the **first** comma-separated value (`.split(",")[0]`). Now load-bearing: the contact limit is keyed on the IP **alone**, so this is only safe if the edge _overwrites_ the header with a single trusted value rather than appending to whatever the client sent — a host that appends lets a caller mint a fresh bucket per request by sending its own fake first value. Vercel overwrote it (verified). **As of the 2026-09-05 move to DigitalOcean App Platform this has NOT been re-verified** — confirm DO's edge behavior (or switch to trusting the last value / a platform-specific header) before relying on this limiter again
+- `src/lib/rateLimit.ts:getClientIp` — trusts `x-forwarded-for`, taking the **last** comma-separated value. Now load-bearing: the contact limit is keyed on the IP **alone**, so this is only safe if the trusted edge's own hop is the one being read. **Resolved 2026-09-08, and the resolution went the opposite way from the standing assumption**: DigitalOcean App Platform's edge APPENDS the true client IP rather than overwriting the header, so the old `.split(",")[0]` (first value) was attacker-controlled — confirmed live against `https://mybakuriani.ge/api/geocode` (20/60s limit): 25 requests each carrying a distinct spoofed `X-Forwarded-For` all returned 200 (bypassed), while an unmodified control correctly 429'd starting at request 21. This affected every caller of `getClientIp` (contact reveal, geocode, view/analytics beacons, job applications, photo-upload intents, banner tracking, and the C27 site-lock unlock endpoint that surfaced it), not just one route. Fixed by switching to the **last** hop, which is the one this single trusted proxy actually appended; a client can prepend arbitrarily many fake hops but cannot control what appears after its own request leaves it. The Vercel-era "overwrites, trust the first value" assumption was correct for Vercel and is exactly backwards for DO — don't restore first-value parsing when reasoning from the old Vercel note
 - `src/app/api/listings/[kind]/[id]/contact/route.ts` — **two** buckets per call, both keyed on `subject` = `user:<id>` when signed in, else `ip:<addr>`: `listing-contact:<subject>:<kind>:<id>` at 8/h and `listing-contact-all:<subject>` at 30/h. The per-listing bucket alone bounds nothing — with ~49 active listings a scraper stays inside it while taking the whole catalogue — so the cross-listing bucket is the one doing the work. Keying signed-in users on their own id is what stops anonymous traffic from a carrier NAT starving an authenticated user on the same egress. `device_id` is NOT in either key (client-supplied: rotating it minted a fresh budget per request, so the limit bound only honest clients) but is still written to `contact_reveal_events` for audit. This is friction, not prevention: only Turnstile stops a distributed scrape, and its secret is unset. Its listing lookup uses the explicit `properties_owner_id_fkey` / `services_owner_id_fkey` profile embeds; a lookup error is a `500 lookup_failed`, while only a successful lookup with no active row is `404`. Collapsing an ambiguous-relationship or database error into `404` hides outages as missing listings and breaks contact reveals silently
 - `src/lib/turnstile.ts:isTurnstileConfigured` — call-site gate. `verifyTurnstile` must keep returning `false` without a secret; the _caller_ skips it. Making the helper itself return `true` when unconfigured would silently disarm bot protection for every future caller
 - `src/app/api/banner-slots/track/route.ts` — its `limiterConfigured` workaround is **gone**; the limit now applies unconditionally, which is only correct because the limiter fails open
@@ -1058,6 +1058,16 @@ function by **raw `fetch` to `/functions/v1/search`**, not
 unused. Because `guards.ts` is bundled per function at deploy time, changing it
 requires redeploying **all 17** functions (**C4**), even though only `search`
 calls this limiter.
+
+**Still open, discovered but NOT fixed 2026-09-08:** inside
+`supabase/functions/_shared/guards.ts:checkRateLimit` the inline IP extraction
+has the identical first-hop `x-forwarded-for` bug just fixed in `rateLimit.ts`
+above (`req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()`), so `search`'s own
+rate limit is very likely bypassable the same way on DigitalOcean. Left
+unfixed here because the fix's cost (redeploy all 17 functions, per the
+paragraph above) was disproportionate to a task that never touched an edge
+function; do not assume it was checked or excluded by the empirical test
+above, which only exercised the Next.js API route path.
 
 **Breaks silently when:** a caller re-adds a per-request-controllable component
 (device id, a header, a body field) to a rate-limit key — the limit then binds
@@ -1909,10 +1919,28 @@ Participating symbols:
 - `src/middleware.ts:SITE_LOCK_COOKIE` (`mb_gate`) — the only unlock state; its
   value is literally the password (deliberate, not HMAC'd — a soft "closed for
   now" gate, not a security boundary, so the password is acceptable to appear in
-  `Cookie:` request logs)
-- `src/middleware.ts:SITE_LOCK_BYPASS_SEGMENT` (`B2e0j0i2`) — visiting
-  `/<segment>` (after `stripLocalePrefix`) sets the cookie and redirects home;
-  the same value also works typed into the gate form
+  `Cookie:` request logs). **Reconsidered 2026-09-08** after an automated
+  post-commit review flagged this as credential-exposure: hashing the cookie
+  was deliberately NOT done, because the cookie is the bearer credential either
+  way (stealing a hash unlocks the site exactly as well as stealing the
+  password, since middleware only ever compares against this one cookie), and
+  the password is already meant to be public-ish — it doubles as the bypass URL
+  below, so it already lives in browser history and proxy access logs by
+  design. Hashing would add an async `crypto.subtle` call to the middleware hot
+  path to protect a value that isn't actually secret-shaped. Don't revisit this
+  without changing the bypass-link design first
+- The bypass link's path segment IS `process.env.SITE_LOCK_PASSWORD` itself —
+  visiting `/<password>` (after `stripLocalePrefix`) sets the cookie and
+  redirects home; the same value also works typed into the gate form. **This
+  was a separate hardcoded literal (`SITE_LOCK_BYPASS_SEGMENT = "B2e0j0i2"`)
+  until the same 2026-09-08 review flagged it as a hardcoded secret** — a
+  committed literal can't be rotated without a code change + redeploy, and
+  stays in git history forever even after changing it. Fixed by deriving the
+  segment from the env var directly; there is now exactly one secret, not two
+  that happen to start out equal. A consequence: the password must stay
+  URL-path-safe (no `/`, `?`, `#`, or spaces) — `B2e0j0i2` is fine, but a future
+  "strengthen the password" change can't pick an arbitrary string without also
+  reworking the bypass mechanism
 - `src/middleware.ts:stripLocalePrefix` — factored out of the pre-existing
   `pathnameWithoutLocale` reduce so both the lock check and the protected-route
   check (**C8**) share one locale-stripping definition

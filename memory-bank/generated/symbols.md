@@ -1770,7 +1770,7 @@ Each entry: exported symbols with `file:line`, then internal import edges (alias
 - exports: `promotionPurchaseError` (2)
 
 ### `src/lib/rateLimit.ts`
-- exports: `checkRateLimit` (139), `getClientIp` (166)
+- exports: `checkRateLimit` (139), `getClientIp` (173)
 - imports: `@/lib/supabase/admin`
 
 ### `src/lib/road-condition/server.ts`
