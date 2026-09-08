@@ -149,7 +149,7 @@ export default function SalesPageClient({ properties }: Props) {
                 ? (p.amenities as string[])
                 : [];
               return (
-                <ScrollReveal key={p.id} delay={i * 0.05}>
+                <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
                   <InvestmentCard
                     id={p.id}
                     createdAt={p.created_at}

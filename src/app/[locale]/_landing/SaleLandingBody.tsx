@@ -378,11 +378,11 @@ export default function SaleLandingBody({
           </ScrollReveal>
 
           <MobileRail
-            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
-            desktopItemClassName="lg:w-auto lg:snap-none"
+            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:items-stretch lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
+            desktopItemClassName="lg:h-full lg:w-auto lg:snap-none"
           >
             {gridCards.map((card) => (
-              <ScrollReveal key={card.id}>
+              <ScrollReveal key={card.id} className="h-full">
                 <SalePropertyCard {...card} />
               </ScrollReveal>
             ))}

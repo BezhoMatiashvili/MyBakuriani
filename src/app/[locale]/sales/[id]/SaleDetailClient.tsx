@@ -12,6 +12,7 @@ import {
   Check,
   Eye,
   Heart,
+  Info,
   MapPin,
   Maximize,
   Share2,
@@ -701,6 +702,21 @@ export default function SaleDetailClient({
                 {t("noCoordinates")}
               </div>
             )}
+          </motion.div>
+
+          {/* Disclaimer */}
+          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.36 }}>
+            <div className="flex items-start gap-2.5 rounded-[16px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" />
+              <div>
+                <p className="text-[12px] font-bold text-[#475569]">
+                  {t("disclaimerTitle")}
+                </p>
+                <p className="mt-1 text-[12px] leading-[18px] text-[#94A3B8]">
+                  {t("disclaimerBody")}
+                </p>
+              </div>
+            </div>
           </motion.div>
 
           {/* Reviews */}

@@ -364,7 +364,9 @@
   },
   "RentBuyToggle": {
     "rent": "Rent",
-    "buy": "Buy (Investment)"
+    "buy": "Buy (Investment)",
+    "rentSubtitle": "Find a place to relax",
+    "buySubtitle": "Find property to live in or invest in."
   },
   "PropertyCard": {
     "rooms": "{count} rooms",
@@ -1413,6 +1415,8 @@
     "developerUpdate": "Developer update",
     "viewDetails": "View details",
     "noCoordinates": "Map coordinates have not been added",
+    "disclaimerTitle": "About this listing",
+    "disclaimerBody": "This information is provided by the listing's author. MyBakuriani is an information-technology platform and is not a party to the transaction. The price, terms, and other details of the deal are determined directly between the listing's author and the user.",
     "reviewsTitle": "Reviews",
     "price": "Price",
     "negotiable": "Negotiable",

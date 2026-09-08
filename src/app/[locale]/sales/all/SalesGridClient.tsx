@@ -266,7 +266,7 @@ export default function SalesGridClient({
             <BannerSlot placement="listing_grid" bare />
 
             {paginatedProperties.map((p, i) => (
-              <ScrollReveal key={p.id} delay={i * 0.05}>
+              <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
                 <PropertyCard
                   id={p.id}
                   createdAt={p.created_at}

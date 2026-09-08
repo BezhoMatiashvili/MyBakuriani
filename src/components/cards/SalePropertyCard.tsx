@@ -104,6 +104,7 @@ export default function SalePropertyCard({
     >
       <Link
         href={href}
+        data-sale-card
         className="flex h-full flex-col overflow-hidden rounded-[20px] border border-[#E7EEE9] bg-white shadow-[0px_4px_16px_-2px_rgba(15,61,46,0.08)] transition-shadow hover:shadow-[0px_12px_28px_-6px_rgba(15,61,46,0.18)]"
       >
         <div className="relative aspect-[8/5] overflow-hidden lg:aspect-[4/3]">

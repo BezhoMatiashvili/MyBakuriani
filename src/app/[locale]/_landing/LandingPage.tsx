@@ -665,8 +665,8 @@ export default function LandingPage({
             </div>
           </ScrollReveal>
           <MobileRail
-            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
-            desktopItemClassName="lg:w-auto lg:snap-none"
+            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:items-stretch lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
+            desktopItemClassName="lg:h-full lg:w-auto lg:snap-none"
           >
             {blogItems.map((post, i) => {
               const chipPalette = [
@@ -685,15 +685,11 @@ export default function LandingPage({
                   ? post.image
                   : fallbackPhotos[i % fallbackPhotos.length];
               return (
-                <ScrollReveal
-                  key={post.id}
-                  delay={i * 0.1}
-                  className="h-full md:h-auto"
-                >
+                <ScrollReveal key={post.id} delay={i * 0.1} className="h-full">
                   <Link
                     href={`/blog/${post.id}`}
                     data-home-blog-card
-                    className="group block h-full overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)] md:h-auto"
+                    className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
                   >
                     <div className="relative aspect-[8/5] overflow-hidden">
                       <Image
@@ -710,7 +706,7 @@ export default function LandingPage({
                         {chip.label}
                       </span>
                     </div>
-                    <div className="p-4 lg:p-6">
+                    <div className="flex flex-1 flex-col p-4 lg:p-6">
                       <time className="text-[11px] font-medium text-[#94A3B8]">
                         {post.date}
                       </time>

@@ -47,10 +47,11 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
           <BannerSlot placement="listing_grid" bare />
 
           {displayPosts.map((post, i) => (
-            <ScrollReveal key={post.id} delay={i * 0.08}>
+            <ScrollReveal key={post.id} delay={i * 0.08} className="h-full">
               <Link
                 href={`/blog/${post.id}`}
-                className="group block overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+                data-blog-card
+                className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
               >
                 <div className="relative aspect-[8/5] overflow-hidden">
                   <Image
@@ -66,7 +67,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
                     {post.category}
                   </span>
                 </div>
-                <div className="p-6">
+                <div className="flex flex-1 flex-col p-6">
                   <time className="text-[11px] font-medium leading-[16px] text-[#94A3B8]">
                     {post.date}
                   </time>

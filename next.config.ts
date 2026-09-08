@@ -48,6 +48,16 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ["image/avif", "image/webp"],
+    // Next's optimizer sets its response Cache-Control to
+    // max(minimumCacheTTL, upstream max-age). Supabase Storage uploads default
+    // to a 1h cacheControl (only one upload route out of eight overrides it),
+    // so without this floor every distinct photo/width/format combination goes
+    // cold again every hour. Measured on prod: a cold /_next/image transform
+    // takes ~1.1-2.3s on the single-vCPU origin, which is what "images load
+    // slowly" actually was. Uploaded photos are immutable (random UUID
+    // filenames, never overwritten - see PhotoUploader.tsx upsert:false), so a
+    // 1-year floor is safe.
+    minimumCacheTTL: 31536000,
     remotePatterns: [
       {
         protocol: "https",
