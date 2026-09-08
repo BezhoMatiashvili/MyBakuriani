@@ -6,6 +6,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { isAuthApiError } from "@supabase/supabase-js";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { Button } from "@/components/ui/button";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
@@ -196,7 +197,12 @@ export default function LoginPage() {
       if (data?.session && data.user) await redirectAfterAuth(data.user.id);
       else if (!data?.session) setSuccessMessage(t("confirmationLinkSent"));
     } catch (err) {
-      if (isTransientAuthError(err)) {
+      if (isAuthApiError(err) && err.code === "user_already_exists") {
+        // Only reachable when "Confirm email" is disabled — with it enabled,
+        // Supabase returns the obfuscated-user branch above instead of an
+        // error, to avoid an account-enumeration oracle.
+        setError(t("errors.emailTaken"));
+      } else if (isTransientAuthError(err)) {
         setError(t("errors.timeout"));
       } else {
         setError(t("errors.error"));
