@@ -7,6 +7,24 @@ import { isAllowedMutationOrigin } from "@/lib/security";
 const intlMiddleware = createIntlMiddleware(routing);
 const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
 
+// Password gate for closing the public site to browsing while keeping /api/*
+// and static assets (excluded by config.matcher below) reachable. Active only
+// when SITE_LOCKED="true" — a server-only env var set on the target deployment,
+// never committed.
+const SITE_LOCK_COOKIE = "mb_gate";
+const SITE_LOCK_PATH = "/site-locked";
+const SITE_LOCK_BYPASS_SEGMENT = "B2e0j0i2";
+
+function stripLocalePrefix(pathname: string): string {
+  return routing.locales.reduce(
+    (path, locale) =>
+      path.startsWith(`/${locale}/`) || path === `/${locale}`
+        ? path.replace(`/${locale}`, "") || "/"
+        : path,
+    pathname,
+  );
+}
+
 function applySecurityHeaders(response: Response, secureRequest: boolean) {
   // script-src/style-src keep 'unsafe-inline': next-themes and Next's bootstrap
   // inject inline scripts/styles without a nonce, and the nonce was never wired
@@ -79,10 +97,10 @@ function applyBaselineSecurityHeaders(
 }
 
 export async function middleware(request: NextRequest) {
+  const secureRequest = request.nextUrl.protocol === "https:";
   const isApi = request.nextUrl.pathname.startsWith("/api/");
   const unsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method);
   if (isApi) {
-    const secureRequest = request.nextUrl.protocol === "https:";
     // API routes use Supabase cookies. Reject cross-site writes before route code
     // can read a body or invoke a privileged service client.
     if (
@@ -95,6 +113,46 @@ export async function middleware(request: NextRequest) {
       );
     }
     return applyBaselineSecurityHeaders(NextResponse.next(), secureRequest);
+  }
+
+  const pathname = request.nextUrl.pathname;
+
+  // The gate page itself always bypasses locale routing, same as /api/*.
+  if (pathname === SITE_LOCK_PATH) {
+    const response = NextResponse.next();
+    response.headers.set("Cache-Control", "no-store");
+    return applySecurityHeaders(response, secureRequest);
+  }
+
+  if (process.env.SITE_LOCKED === "true") {
+    // Visiting the shareable bypass link unlocks this browser and sends it home.
+    if (stripLocalePrefix(pathname) === `/${SITE_LOCK_BYPASS_SEGMENT}`) {
+      const response = NextResponse.redirect(new URL("/", request.url));
+      response.headers.set("Cache-Control", "no-store");
+      if (process.env.SITE_LOCK_PASSWORD) {
+        response.cookies.set(SITE_LOCK_COOKIE, process.env.SITE_LOCK_PASSWORD, {
+          httpOnly: true,
+          secure: secureRequest,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      }
+      return applyBaselineSecurityHeaders(response, secureRequest);
+    }
+
+    const unlocked =
+      !!process.env.SITE_LOCK_PASSWORD &&
+      request.cookies.get(SITE_LOCK_COOKIE)?.value ===
+        process.env.SITE_LOCK_PASSWORD;
+
+    if (!unlocked) {
+      const target = new URL(SITE_LOCK_PATH, request.url);
+      target.searchParams.set("from", pathname + request.nextUrl.search);
+      const response = NextResponse.redirect(target);
+      response.headers.set("Cache-Control", "no-store");
+      return applyBaselineSecurityHeaders(response, secureRequest);
+    }
   }
 
   const requestHeaders = new Headers(request.headers);
@@ -110,17 +168,9 @@ export async function middleware(request: NextRequest) {
   // Run next-intl middleware first to handle locale routing
   const intlResponse = intlMiddleware(routedRequest);
 
-  // For protected routes, also run Supabase session check
-  const pathname = routedRequest.nextUrl.pathname;
-
+  // For protected routes, also run Supabase session check.
   // Strip locale prefix to check the actual route
-  const pathnameWithoutLocale = routing.locales.reduce(
-    (path, locale) =>
-      path.startsWith(`/${locale}/`) || path === `/${locale}`
-        ? path.replace(`/${locale}`, "") || "/"
-        : path,
-    pathname,
-  );
+  const pathnameWithoutLocale = stripLocalePrefix(pathname);
 
   const isProtected =
     pathnameWithoutLocale.startsWith("/create") ||
@@ -146,10 +196,7 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  return applySecurityHeaders(
-    intlResponse,
-    request.nextUrl.protocol === "https:",
-  );
+  return applySecurityHeaders(intlResponse, secureRequest);
 }
 
 export const config = {

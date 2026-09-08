@@ -1884,3 +1884,66 @@ error — the table has RLS and a schema, it's just never written to), or a new
 revenue card sums `transactions.amount` directly instead of calling
 `platform_revenue()` (silently includes `topup` as revenue, exactly as
 `src/app/api/admin/finances/summary/route.ts` did before this pass).
+
+---
+
+## C27 — Production site lock (`SITE_LOCKED`) gates page views only
+
+**Invariant:** `src/middleware.ts` can put the entire page-view surface behind a
+password when the server-only env var `SITE_LOCKED="true"` is set on a deployment
+(no `NEXT_PUBLIC_` prefix — the password must never reach the client bundle).
+`/api/*` and any path matched by `config.matcher`'s own dotted-path exclusion
+(`robots.txt`, `sitemap.xml`, `favicon.ico`, an `opengraph-image.png`, etc.) are
+NOT gated — the accurate description is "page views are gated," not "the site is
+dark." Set up 2026-09-08 to close mybakuriani.ge to visitors; staging was
+deliberately left unlocked.
+
+Participating symbols:
+
+- `src/middleware.ts:SITE_LOCKED` / `src/middleware.ts:SITE_LOCK_PASSWORD` — both
+  read from `process.env` only, set as encrypted env vars on the DigitalOcean
+  `mybakuriani-prod` app, never committed. If `SITE_LOCK_PASSWORD` is unset while
+  `SITE_LOCKED="true"`, the gate fails **closed** — nobody can unlock, including
+  via the bypass link — which is correct but worth knowing before assuming a bad
+  password is the problem
+- `src/middleware.ts:SITE_LOCK_COOKIE` (`mb_gate`) — the only unlock state; its
+  value is literally the password (deliberate, not HMAC'd — a soft "closed for
+  now" gate, not a security boundary, so the password is acceptable to appear in
+  `Cookie:` request logs)
+- `src/middleware.ts:SITE_LOCK_BYPASS_SEGMENT` (`B2e0j0i2`) — visiting
+  `/<segment>` (after `stripLocalePrefix`) sets the cookie and redirects home;
+  the same value also works typed into the gate form
+- `src/middleware.ts:stripLocalePrefix` — factored out of the pre-existing
+  `pathnameWithoutLocale` reduce so both the lock check and the protected-route
+  check (**C8**) share one locale-stripping definition
+- `src/app/site-locked/page.tsx:SiteLockedPage` — the gate page. Deliberately
+  OUTSIDE `[locale]/`; middleware returns it via an early `NextResponse.next()`
+  before `intlMiddleware` runs, exactly like the `/api/*` branch, so it never
+  interacts with locale routing (**C2**). Plain hardcoded Georgian strings, not
+  the message catalog — it isn't part of the locale tree, so it doesn't
+  participate in **C1**'s namespace/parity rules
+- `src/app/api/site-lock/unlock/route.ts:POST` — validates the posted password,
+  rate-limited via `checkRateLimit` (**C16**, 10/hour/IP), sets the cookie on
+  success. Reached through the `isApi` branch in middleware, so it's exempt from
+  the lock by construction and still gets the standard CSRF-style
+  `isAllowedMutationOrigin` check (**C4**'s sibling guard for Next API routes) —
+  no special-casing needed
+- `src/lib/security.ts:safeInternalPath` — the open-redirect guard on the
+  `from`/`redirect` value at both the gate page and the unlock route; never swap
+  it for a hand-rolled check
+- Every lock-related redirect and the gate page's own pass-through response sets
+  `Cache-Control: no-store` explicitly — this app runs behind Cloudflare (**C2**
+  documents its public-page caching), and an edge-cached redirect would keep
+  bouncing visitors the wrong direction after the lock is later flipped
+
+**Also check:** a new top-level route created outside `[locale]/` (mirroring this
+page's pattern) must be added to middleware's early-bypass section the same way,
+or it will be pulled into `intlMiddleware`'s locale-prefix handling unexpectedly.
+
+**Breaks silently when:** the `Cache-Control: no-store` header is dropped from a
+lock redirect — Cloudflare caches the redirect-to-gate response and visitors stay
+locked out after `SITE_LOCKED` is unset, or caches the unlock-redirect and a
+locked-out visitor is served someone else's unlocked response; or a future change
+reads `SITE_LOCK_PASSWORD` with a `NEXT_PUBLIC_` prefix (ships the password in the
+client bundle); or the bypass-segment check stops using `stripLocalePrefix`
+(the shareable link silently stops working under `/en/` or `/ru/`).
