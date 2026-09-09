@@ -33,7 +33,6 @@ import {
   optionKeyFor,
   type OptionGroup,
 } from "@/lib/constants/listing-options";
-import { createClient } from "@/lib/supabase/client";
 import { revalidatePublicService } from "@/app/actions/revalidateListing";
 import { shareListing } from "@/lib/share";
 import type { Tables } from "@/lib/types/database";
@@ -212,13 +211,7 @@ export default function EmploymentDetailClient({
 
   useEffect(() => {
     if (isMock) return;
-    const supabase = createClient();
-    supabase
-      .from("services")
-      .update({ views_count: (service.views_count ?? 0) + 1 })
-      .eq("id", service.id)
-      .then();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
   }, [service.id, isMock]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
