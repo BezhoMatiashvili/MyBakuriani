@@ -364,7 +364,7 @@
   },
   "RentBuyToggle": {
     "rent": "Rent",
-    "buy": "Buy (Investment)",
+    "buy": "Buy",
     "rentSubtitle": "Find a place to relax",
     "buySubtitle": "Find property to live in or invest in."
   },

@@ -42,7 +42,7 @@ test.describe("Landing page", () => {
   test("can toggle sale landing discounts-only filter", async ({ page }) => {
     await page.goto("/en");
 
-    await page.getByRole("button", { name: "Buy (Investment)" }).click();
+    await page.getByRole("button", { name: "Buy" }).click();
 
     const discountsOnly = page.getByRole("button", {
       name: "Discounts only",
@@ -358,7 +358,7 @@ test.describe("PDF listing recency and public parity", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
-    await page.getByRole("button", { name: "ყიდვა (ინვესტიცია)" }).click();
+    await page.getByRole("button", { name: "ყიდვა" }).click();
     await expect(page.getByRole("link", { name: "დაამატე" })).toBeVisible();
 
     await page.goto("/sales/aae2ff00-1003-4000-a000-000000000003");
