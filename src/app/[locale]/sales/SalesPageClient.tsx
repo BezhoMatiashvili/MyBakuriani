@@ -15,8 +15,29 @@ import BannerSlot from "@/components/banners/BannerSlot";
 
 const ITEMS_PER_PAGE = 6;
 
+// The subset of property columns this page actually renders (cards + filters).
+// The server query selects exactly these; widening usage here will surface as
+// a type error until the select in page.tsx is updated to match.
+export type SaleListing = Pick<
+  Tables<"properties">,
+  | "id"
+  | "title"
+  | "location"
+  | "photos"
+  | "sale_price"
+  | "type"
+  | "area_sqm"
+  | "roi_percent"
+  | "construction_status"
+  | "amenities"
+  | "house_rules"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "created_at"
+>;
+
 interface Props {
-  properties: Tables<"properties">[];
+  properties: SaleListing[];
 }
 
 export default function SalesPageClient({ properties }: Props) {

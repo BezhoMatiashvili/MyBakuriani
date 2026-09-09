@@ -33,11 +33,20 @@ function readAllowedOrigins(raw) {
 }
 
 /**
- * Validate variables required for cookie-authenticated mutations on Vercel
- * Production. Kept dependency-free so this can run before `next build`.
+ * Validate variables required for cookie-authenticated mutations on a deployed
+ * build. Kept dependency-free so this can run before `next build`.
+ *
+ * Gate: VERCEL_ENV was the Vercel-era marker; on DigitalOcean App Platform no
+ * such var exists, so this guard silently no-opped on every deploy after the
+ * migration. DO app specs now set DEPLOY_ENV explicitly (staging/production);
+ * local builds set neither and keep skipping validation.
  */
 export function validateProductionConfig(env = process.env) {
-  if (env.VERCEL_ENV !== "production") return [];
+  const deployed =
+    env.VERCEL_ENV === "production" ||
+    env.DEPLOY_ENV === "production" ||
+    env.DEPLOY_ENV === "staging";
+  if (!deployed) return [];
 
   const { origins, errors } = readAllowedOrigins(env.ALLOWED_ORIGINS);
   const canonicalOrigin = env.NEXT_PUBLIC_SITE_URL?.trim();

@@ -300,7 +300,14 @@ export default function PhotoUploader({
       const client = getUploadClient();
       const { error } = await client.storage
         .from(BUCKET)
-        .upload(path, processed, { contentType: mime, upsert: false });
+        .upload(path, processed, {
+          contentType: mime,
+          upsert: false,
+          // Immutable path (random UUID, upsert:false) — long CDN cache is
+          // safe; without it Supabase defaults to 1h and every /_next/image
+          // variant goes cold again hourly (see next.config.ts minimumCacheTTL).
+          cacheControl: "31536000",
+        });
       if (error) return { ok: false, reason: "upload" };
 
       const { data } = client.storage.from(BUCKET).getPublicUrl(path);

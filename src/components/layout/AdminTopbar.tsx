@@ -108,15 +108,21 @@ export function AdminTopbar({
       );
     } else if (result.kind === "property") {
       router.push(
-        propertyViewUrl({
-          id: result.id,
-          is_for_sale: result.is_for_sale ?? null,
-          type: result.type ?? null,
-        }),
+        propertyViewUrl(
+          {
+            id: result.id,
+            is_for_sale: result.is_for_sale ?? null,
+            type: result.type ?? null,
+          },
+          { preview: true },
+        ),
       );
     } else if (result.kind === "service") {
       router.push(
-        serviceViewUrl({ id: result.id, category: result.category ?? "" }),
+        serviceViewUrl(
+          { id: result.id, category: result.category ?? "" },
+          { preview: true },
+        ),
       );
     } else {
       router.push("/dashboard/admin/companies");

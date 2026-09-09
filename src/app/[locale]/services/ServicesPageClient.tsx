@@ -8,7 +8,27 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 
-type PublicService = Tables<"services"> & { has_whatsapp?: boolean };
+// The subset of public_services columns this page actually renders (cards +
+// filters). The server query selects exactly these; widening usage here will
+// surface as a type error until the select in page.tsx is updated to match.
+type PublicService = Pick<
+  Tables<"public_services">,
+  | "id"
+  | "title"
+  | "category"
+  | "position"
+  | "location"
+  | "photos"
+  | "price"
+  | "price_unit"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "schedule"
+  | "operating_hours"
+  | "is_vip"
+  | "has_whatsapp"
+  | "created_at"
+>;
 
 const CATEGORIES = [
   "all",

@@ -302,7 +302,7 @@ export default function FoodDashboardClient({
         {restaurant && (
           <ListingActions
             className="mt-5 border-t border-[#F1F5F9] pt-4"
-            viewUrl={serviceViewUrl(restaurant)}
+            viewUrl={serviceViewUrl(restaurant, { preview: true })}
             editUrl={serviceEditUrl(restaurant)}
             onPromote={(tier) => {
               // Restaurant discounts are now per-dish, managed from the menu

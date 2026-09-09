@@ -27,7 +27,11 @@ export default async function SalesPage() {
 
   const { data: properties, error } = await supabase
     .from("public_properties")
-    .select("*")
+    // Only the columns the sale cards + filters use — keeps the prerendered
+    // RSC payload small. Keep in sync with SaleListing.
+    .select(
+      "id, title, location, photos, sale_price, type, area_sqm, roi_percent, construction_status, amenities, house_rules, discount_percent, discount_expires_at, created_at",
+    )
     .eq("is_for_sale", true)
     .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })

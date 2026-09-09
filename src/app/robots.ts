@@ -22,6 +22,7 @@ export default function robots(): MetadataRoute.Robots {
         "/checkout",
         "/notifications",
         "/sms-consent/",
+        "/preview/",
       ],
     },
     sitemap: `${siteUrl}/sitemap.xml`,

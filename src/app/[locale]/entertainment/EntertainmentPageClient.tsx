@@ -29,7 +29,25 @@ const SUB_CATEGORIES = [
 
 const ITEMS_PER_PAGE = 9;
 
-type PublicService = Tables<"services"> & { has_whatsapp?: boolean };
+// The subset of public_services columns this page actually renders (cards +
+// filters). The server query selects exactly these; widening usage here will
+// surface as a type error until the select in page.tsx is updated to match.
+type PublicService = Pick<
+  Tables<"public_services">,
+  | "id"
+  | "title"
+  | "category"
+  | "activity_category"
+  | "location"
+  | "photos"
+  | "price"
+  | "price_unit"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "is_vip"
+  | "has_whatsapp"
+  | "created_at"
+>;
 
 interface Props {
   services: PublicService[];
@@ -72,7 +90,7 @@ function matchesType(s: PublicService, value: string): boolean {
   }
 }
 
-function matchesSubCategory(s: Tables<"services">, value: string): boolean {
+function matchesSubCategory(s: PublicService, value: string): boolean {
   const title = s.title.toLowerCase();
   switch (value) {
     case "inventory":

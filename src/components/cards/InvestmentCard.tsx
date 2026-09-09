@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Heart, MapPin, Tag } from "lucide-react";
 import Image from "next/image";
+import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
@@ -138,7 +139,9 @@ export default function InvestmentCard({
             src={photo}
             alt={title}
             fill
-            sizes={compactGrid ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 33vw" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
+            placeholder="blur"
+            blurDataURL={CARD_BLUR_DATA_URL}
+            sizes={compactGrid ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 400px" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowRight, Video, Flame } from "lucide-react";
 import Image from "next/image";
+import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 // Locale-aware Link, not next/link: localePrefix is "as-needed", so a raw
 // next/link with a locale-relative href like "/apartments" always points at the
 // default-locale (ka) URL. For en/ru visitors that prefetches the wrong route and
@@ -332,14 +333,15 @@ export default function LandingPage({
             "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
         }}
       >
-        {/* Subtle texture overlay */}
+        {/* Subtle texture overlay. Inline SVG noise, not a remote photo: the
+            previous Unsplash background cost a third-party DNS+TLS+image fetch
+            on the hero's critical path for a layer at 3% opacity — visually
+            indistinguishable from procedural noise. */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage:
-              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-            backgroundSize: "cover",
-            backgroundPosition: "center bottom",
+              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E\")",
             mixBlendMode: "overlay",
           }}
         />
@@ -696,7 +698,9 @@ export default function LandingPage({
                         src={imgSrc}
                         alt={post.title}
                         fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        placeholder="blur"
+                        blurDataURL={CARD_BLUR_DATA_URL}
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       <span

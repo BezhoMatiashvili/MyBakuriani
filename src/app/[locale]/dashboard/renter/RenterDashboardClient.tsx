@@ -220,14 +220,14 @@ export default function RenterDashboardClient({
                 ? "bg-[#DCFCE7] text-[#15803D]"
                 : membershipPending
                   ? "bg-[#FEF3C7] text-[#B45309]"
-                : "bg-[#F1F5F9] text-[#64748B]"
+                  : "bg-[#F1F5F9] text-[#64748B]"
             }`}
           >
             {membershipExpiresAt
               ? t("statuses.active")
               : membershipPending
                 ? t("statuses.pending")
-              : t("membershipInactive")}
+                : t("membershipInactive")}
           </span>
         </div>
         <p className="mt-2 text-[13px] font-medium leading-5 text-[#64748B] sm:text-[14px]">
@@ -258,7 +258,7 @@ export default function RenterDashboardClient({
               ? t("membershipActive")
               : membershipPending
                 ? t("membershipAwaitingApproval")
-              : t("membershipRequired")}
+                : t("membershipRequired")}
           </p>
           <p className="mt-1 text-sm font-medium text-[#64748B]">
             {membershipExpiresAt
@@ -271,7 +271,7 @@ export default function RenterDashboardClient({
                       ? formatDate(membershipPendingExpiresAt, locale)
                       : t("seasonEndDate"),
                   })
-              : t("membershipPrompt")}
+                : t("membershipPrompt")}
           </p>
         </div>
         <button
@@ -285,7 +285,7 @@ export default function RenterDashboardClient({
             ? t("seasonMembershipActive")
             : membershipPending
               ? t("awaitingApproval")
-            : t("activateMembership")}
+              : t("activateMembership")}
         </button>
       </section>
 
@@ -609,7 +609,7 @@ function PropertyRow({
             </button>
           )}
           <a
-            href={propertyViewUrl(property)}
+            href={propertyViewUrl(property, { preview: true })}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[12px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
@@ -664,7 +664,7 @@ function PropertyRow({
           </button>
         )}
         <a
-          href={propertyViewUrl(property)}
+          href={propertyViewUrl(property, { preview: true })}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border border-[#E2E8F0] bg-white px-1.5 text-[11px] font-bold text-[#64748B] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"

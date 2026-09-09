@@ -76,7 +76,13 @@ interface Props {
   property: PropertyWithOwner;
   isPending?: boolean;
   reviews: ReviewWithGuest[];
-  showPriceAlert?: boolean;
+  /**
+   * SMS_PRICE_DROP_MODE resolved server-side (env-only read, static-safe under
+   * ISR). Owner/QA visibility is decided client-side inside
+   * PriceDropAlertButton via useAuth() — the page no longer makes an auth
+   * round-trip for it.
+   */
+  priceAlertMode?: "off" | "qa" | "on";
 }
 
 const fadeIn = {
@@ -169,7 +175,7 @@ export default function SaleDetailClient({
   property,
   reviews,
   isPending = false,
-  showPriceAlert = false,
+  priceAlertMode = "off",
 }: Props) {
   const t = useTranslations("SaleDetail");
   const tDetail = useTranslations("PropertyDetail");
@@ -404,9 +410,15 @@ export default function SaleDetailClient({
         </Link>
 
         <div className="flex items-center gap-1">
-          {showPriceAlert && !isPending && (
-            <PriceDropAlertButton propertyId={property.id} />
-          )}
+          {priceAlertMode !== "off" &&
+            !isPending &&
+            property.organization_id === null && (
+              <PriceDropAlertButton
+                propertyId={property.id}
+                ownerId={property.owner_id}
+                mode={priceAlertMode}
+              />
+            )}
           <button
             type="button"
             onClick={handleShare}
@@ -804,6 +816,7 @@ export default function SaleDetailClient({
                         src={org.logo_url}
                         alt={org.brand_name}
                         fill
+                        sizes="44px"
                         className="object-cover"
                       />
                     ) : (

@@ -152,7 +152,11 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
       .not("area_sqm", "is", null)
       .gt("area_sqm", 0)
       .not("location_lat", "is", null)
-      .not("location_lng", "is", null),
+      .not("location_lng", "is", null)
+      // Bounded: this was the one unbounded scan on the landing render path.
+      // 500 sale rows is ~10x the current live count; the zone averages are
+      // statistical anyway, so a cap loses nothing.
+      .limit(500),
     "sale_price_aggregate",
   ).catch((error: unknown) => {
     logOptionalLandingError("sale_price_aggregate", error);

@@ -1989,3 +1989,72 @@ locked-out visitor is served someone else's unlocked response; or a future chang
 reads `SITE_LOCK_PASSWORD` with a `NEXT_PUBLIC_` prefix (ships the password in the
 client bundle); or the bypass-segment check stops using `stripLocalePrefix`
 (the shareable link silently stops working under `/en/` or `/ru/`).
+
+---
+
+## C28 — Public listing detail routes are ISR and must stay cookie-free
+
+**Invariant (2026-09-09):** the 8 public detail routes
+(`src/app/[locale]/{apartments,hotels,sales,food,services,entertainment,transport,employment}/[id]/page.tsx`)
+are ISR-on-demand (`revalidate = 60`, the blog/[id] pattern) and **must never touch
+`cookies()`/`headers()`/auth on any code path** — including `generateMetadata` and
+error/fallback branches. A runtime static→dynamic flip is a hard 500 in Next 15
+(E132 "Page changed from static to dynamic at runtime", verified in the installed
+Next source), not a graceful bail-out. Owner/admin preview of pending listings
+lives ONLY under the force-dynamic `/preview/<kind>/[id]` twins, reached via a
+middleware rewrite when the URL carries `?preview=1` AND the request has a
+Supabase auth cookie (presence check only — the preview page itself authorizes
+via the unchanged three-tier `getPropertyById`/`getServiceById` logic).
+
+Participating symbols:
+
+- the 8 public pages above — mock branch first (`isMockPropertyId`/`isMockServiceId`
+  — mock ids are non-UUID and the cached fetch nulls on them), then
+  `getCachedPublicProperty/Service` → `notFound()` on null, **rethrow** on
+  transient error (never cache a 404 of a live listing)
+- `src/app/[locale]/preview/*/[id]/page.tsx` — the force-dynamic twins: verbatim
+  copies of the pre-conversion pages (cached fast path + cookie-aware fallback),
+  `robots: { index: false }`, rendering the SAME client components by alias import
+- `src/middleware.ts:PREVIEW_DETAIL_RE` + `hasSupabaseAuthCookie` — the rewrite
+  gate; the `?preview=1` param (not a bare cookie check) is what makes this work
+  behind Cloudflare: it forms a distinct cache key so the request always reaches
+  middleware instead of being answered by an edge HIT
+- `src/middleware.ts` Cache-Control override — **load-bearing quirk fix**: an
+  on-demand-ISR route reached through next-intl's default-locale REWRITE
+  (unprefixed URL → /ka/...) renders dynamically with `no-store` and never
+  populates the ISR cache (verified locally AND matches prod /blog behavior;
+  only prefixed /en /ru requests hit ISR). Middleware therefore overrides
+  Cache-Control to `s-maxage=60, stale-while-revalidate=300` for anonymous GET
+  requests on the 8 detail shapes + `/blog/[id]` (excluding preview), which is
+  safe precisely BECAUSE the pages are cookie-free — the HTML is identical for
+  every viewer. Cloudflare serves the dominant unprefixed traffic from the edge
+- `src/lib/utils/listingUrls.ts:propertyViewUrl/serviceViewUrl` — `{ preview:
+  true }` option; all dashboard/admin "guest view" links pass it (6 dashboard
+  clients + admin listings + AdminTopbar). Moderation-notification links to
+  owners of just-approved listings stay plain public URLs
+- `src/app/[locale]/sales/[id]/page.tsx` — the lone route that used to call
+  `auth.getUser()` unconditionally; now passes
+  `priceAlertMode = smsFeatureMode("SMS_PRICE_DROP_MODE")` (env-only) and
+  `PriceDropAlertButton` decides owner/QA visibility client-side via `useAuth()`
+  (the API route re-enforces everything server-side regardless)
+- `src/app/robots.ts` — disallows `/preview/`
+
+**Also check:** `revalidateTag(listingTag(...))` purges Next's data+route caches
+but NOT Cloudflare — moderation changes can lag ≤60s at the edge for anonymous
+visitors (previously instant; accepted, bounded by s-maxage=60). A pending
+listing's public URL serves the not-found page (HTTP 200 — pre-existing
+next-intl quirk, identical on prod /blog) cacheable for ≤60s; approval self-heals
+within that window. The `staleTimes` comment in `next.config.ts` documents that
+these routes now reuse completed prefetches on forward navigation.
+
+**Breaks silently when:** anyone re-adds an auth/cookie/header read to one of the
+8 public pages (builds green, hard-500s at runtime on the first cache-miss
+render — the sales `getUser()` call is exactly the shape to watch for); or a new
+detail kind is added without extending `PREVIEW_DETAIL_RE` + a `/preview` twin
+(its owner preview 404s once the route is made ISR, or the route is left
+force-dynamic and silently uncacheable); or the middleware Cache-Control
+override is removed (default-locale detail pages silently revert to `no-store`
+— BYPASS at Cloudflare — while prefixed locales keep working, so it looks fine
+in /en testing); or a personalized element is rendered server-side on a detail
+page (every viewer gets the first viewer's HTML for 60s — personalization must
+stay client-side, like PriceDropAlertButton).

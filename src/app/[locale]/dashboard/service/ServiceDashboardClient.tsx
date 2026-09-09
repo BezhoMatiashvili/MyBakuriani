@@ -294,7 +294,7 @@ export default function ServiceDashboardClient({
                 </div>
 
                 <ListingActions
-                  viewUrl={serviceViewUrl(s)}
+                  viewUrl={serviceViewUrl(s, { preview: true })}
                   editUrl={serviceEditUrl(s)}
                   onPromote={(tier) => setPickerModal({ open: true, tier })}
                   standardVipDisabled={isSuperVipActive(

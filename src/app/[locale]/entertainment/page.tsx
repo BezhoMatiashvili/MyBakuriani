@@ -24,7 +24,11 @@ export default async function EntertainmentPage() {
 
   const { data: services, error } = await supabase
     .from("public_services")
-    .select("*")
+    // Only the columns the cards + filters use — keeps the prerendered RSC
+    // payload small. Keep in sync with PublicService in EntertainmentPageClient.
+    .select(
+      "id, title, category, activity_category, location, photos, price, price_unit, discount_percent, discount_expires_at, is_vip, has_whatsapp, created_at",
+    )
     .eq("category", "entertainment")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })

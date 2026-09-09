@@ -11,6 +11,32 @@ import { cn } from "@/lib/utils";
 const BUCKET = "logos";
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+// Logos render at <=320px anywhere on the site; storing a multi-megapixel
+// original just makes every later transform slower. Shrink-only, and the
+// original MIME is kept (a PNG logo's alpha must survive).
+const MAX_EDGE = 1024;
+
+async function downscale(file: File): Promise<Blob> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const longest = Math.max(bitmap.width, bitmap.height);
+    if (longest <= MAX_EDGE) return file;
+    const scale = MAX_EDGE / longest;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, file.type, 0.9),
+    );
+    return blob ?? file;
+  } catch {
+    // Any decode failure falls back to uploading the original unchanged.
+    return file;
+  }
+}
 
 interface SingleImageUploaderProps {
   value: string | null;
@@ -53,9 +79,17 @@ export default function SingleImageUploader({
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "") || "png";
       const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const processed = await downscale(file);
       const { error: upErr } = await client.storage
         .from(BUCKET)
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, processed, {
+          contentType: file.type,
+          upsert: false,
+          // Immutable path (random UUID, upsert:false) — long CDN cache is
+          // safe and keeps /_next/image transforms warm (see next.config.ts
+          // minimumCacheTTL note).
+          cacheControl: "31536000",
+        });
       if (upErr) throw upErr;
       const { data } = client.storage.from(BUCKET).getPublicUrl(path);
       onChange(data?.publicUrl ?? null);

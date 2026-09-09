@@ -121,15 +121,31 @@ export async function POST(
     ) {
       return Response.json({ error: "invalid_media" }, { status: 422 });
     }
-    const overlay = await watermarkOverlay(metadata.width);
+    // Downscale to the same 2560px ceiling the client upload path already
+    // enforces (PhotoUploader MAX_EDGE). This route used to only *reject*
+    // >4096px sources while storing accepted ones at full resolution, making
+    // banner/blog media the most expensive /_next/image sources in the system.
+    // Acceptance rules above are unchanged; only the stored size shrinks.
+    const resized = await sharp(rotated)
+      .resize({
+        width: 2560,
+        height: 2560,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .toBuffer();
+    const resizedMeta = await sharp(resized).metadata();
+    const outWidth = resizedMeta.width ?? metadata.width;
+    const outHeight = resizedMeta.height ?? metadata.height;
+    const overlay = await watermarkOverlay(outWidth);
     const overlayMeta = await sharp(overlay).metadata();
-    const pad = Math.max(12, Math.round(metadata.width * 0.022));
-    const output = await sharp(rotated)
+    const pad = Math.max(12, Math.round(outWidth * 0.022));
+    const output = await sharp(resized)
       .composite([
         {
           input: overlay,
-          top: Math.max(0, metadata.height - (overlayMeta.height ?? 0) - pad),
-          left: Math.max(0, metadata.width - (overlayMeta.width ?? 0) - pad),
+          top: Math.max(0, outHeight - (overlayMeta.height ?? 0) - pad),
+          left: Math.max(0, outWidth - (overlayMeta.width ?? 0) - pad),
         },
       ])
       .webp({ quality: 86 })

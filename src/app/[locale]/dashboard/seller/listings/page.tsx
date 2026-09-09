@@ -280,7 +280,7 @@ export default function SellerListingsPage() {
 
                   <ListingActions
                     className="mt-4"
-                    viewUrl={propertyViewUrl(property)}
+                    viewUrl={propertyViewUrl(property, { preview: true })}
                     editUrl={propertyEditUrl(property)}
                     onPromote={(tier) => setPickerModal({ open: true, tier })}
                     standardVipDisabled={isSuperVipActive(

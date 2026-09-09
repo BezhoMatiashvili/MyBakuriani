@@ -275,7 +275,7 @@ export default function RenterListingsPage() {
                 {/* Actions */}
                 <div className="flex shrink-0 gap-2">
                   <a
-                    href={propertyViewUrl(property)}
+                    href={propertyViewUrl(property, { preview: true })}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -314,12 +314,18 @@ export default function RenterListingsPage() {
                   )}
                   onClick={() => setPickerModal({ open: true, tier: "vip" })}
                   title={
-                    isSuperVipActive(property.is_super_vip, property.vip_expires_at)
+                    isSuperVipActive(
+                      property.is_super_vip,
+                      property.vip_expires_at,
+                    )
                       ? tShared("superVipBlocksVip")
                       : undefined
                   }
                   aria-label={
-                    isSuperVipActive(property.is_super_vip, property.vip_expires_at)
+                    isSuperVipActive(
+                      property.is_super_vip,
+                      property.vip_expires_at,
+                    )
                       ? `VIP — ${tShared("superVipBlocksVip")}`
                       : "VIP"
                   }

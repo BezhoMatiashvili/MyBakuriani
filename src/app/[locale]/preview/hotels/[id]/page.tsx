@@ -1,0 +1,179 @@
+import type { Metadata } from "next";
+import { notFound, unstable_rethrow } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
+import { createPublicClient } from "@/lib/supabase/server";
+import {
+  getPropertyById,
+  getPropertyMetadataById,
+  type PropertyWithProfile,
+} from "@/lib/data/getPropertyById";
+import {
+  getCachedPublicProperty,
+  getCachedPublicReviews,
+  getCachedPublicCalendar,
+  getCachedPublicPriceOverrides,
+  type PublicReviews,
+  type PublicCalendar,
+  type PublicPriceOverrides,
+} from "@/lib/data/getCachedPublicListing";
+import { withTimeout, DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
+import { buildListingMetadata } from "@/lib/seo";
+import HotelDetailClient from "@/app/[locale]/hotels/[id]/HotelDetailClient";
+
+interface Props {
+  params: Promise<{ locale: AppLocale; id: string }>;
+}
+
+// Owner/admin preview route: force-dynamic because get(Property|Service)ById
+// reads cookies() to let a creator/admin view a pending listing. The public
+// /hotels/[id] route is ISR and cookie-free; middleware rewrites ?preview=1
+// requests (with an auth cookie) here so the browser URL stays the public one.
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale, id } = await params;
+  const t = await getTranslations({ locale, namespace: "Metadata" });
+  // Fast path: the cached public listing, so a starved DB doesn't stall metadata.
+  const cached = await getCachedPublicProperty(id).catch(() => null);
+  const data = cached
+    ? {
+        title: cached.title,
+        location: cached.location,
+        description: cached.description,
+        photos: cached.photos,
+      }
+    : await getPropertyMetadataById(id);
+
+  if (!data) {
+    return { title: t("detail.hotelNotFound"), robots: { index: false } };
+  }
+
+  const title = t("detail.hotelTitle", { title: data.title });
+  const description =
+    data.description ??
+    t("detail.hotelDesc", { title: data.title, location: data.location });
+
+  return {
+    title,
+    description,
+    robots: { index: false },
+    ...buildListingMetadata({
+      locale,
+      title,
+      description,
+      images: data.photos ?? [],
+      path: `/hotels/${id}`,
+    }),
+  };
+}
+
+export default async function HotelDetailPage({ params }: Props) {
+  const { id } = await params;
+
+  // Fast path: cached public (active) listing — zero DB round-trip on a cache
+  // hit, served to everyone. A transient miss-time error throws (not cached) so
+  // it falls through to the dynamic path instead of being served as not-found.
+  let cached: PropertyWithProfile | null = null;
+  try {
+    cached = await getCachedPublicProperty(id);
+  } catch (err) {
+    unstable_rethrow(err);
+    cached = null;
+  }
+
+  if (cached) {
+    const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
+      getCachedPublicReviews(id),
+      getCachedPublicCalendar(id),
+      getCachedPublicPriceOverrides(id),
+    ]);
+    return (
+      <HotelDetailClient
+        property={cached}
+        isPending={false}
+        reviews={reviews}
+        calendarBlocks={calendarBlocks}
+        priceOverrides={priceOverrides}
+      />
+    );
+  }
+
+  // Dynamic fallback: pending/blocked/missing, or owner/admin preview (reads
+  // cookies via getPropertyById).
+  const { data: property, isMock } = await getPropertyById(id);
+
+  if (!property) {
+    notFound();
+  }
+
+  if (isMock) {
+    return (
+      <HotelDetailClient
+        property={property}
+        reviews={[]}
+        calendarBlocks={[]}
+        priceOverrides={[]}
+      />
+    );
+  }
+
+  const supabase = createPublicClient();
+  const today = new Date();
+  const threeMonthsLater = new Date(today);
+  threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+  const todayStr = today.toISOString().split("T")[0];
+  const horizonStr = threeMonthsLater.toISOString().split("T")[0];
+
+  // Secondary reads run concurrently and each degrades to empty on timeout, so a
+  // slow query can never block the core listing render.
+  const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
+    withTimeout(
+      supabase
+        .from("reviews")
+        .select("*, profiles!reviews_guest_id_fkey(display_name)")
+        .eq("property_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20)
+        .then((r) => r.data ?? []),
+      DETAIL_AUX_TIMEOUT_MS,
+      [] as PublicReviews,
+    ),
+    withTimeout(
+      supabase
+        .from("calendar_blocks")
+        .select("date, status")
+        .eq("property_id", id)
+        .gte("date", todayStr)
+        .lte("date", horizonStr)
+        .then((r) => r.data ?? []),
+      DETAIL_AUX_TIMEOUT_MS,
+      [] as PublicCalendar,
+    ),
+    withTimeout(
+      supabase
+        .from("price_overrides")
+        .select("date, price")
+        .eq("property_id", id)
+        .gte("date", todayStr)
+        .lte("date", horizonStr)
+        .then((r) =>
+          (r.data ?? []).map((o) => ({ date: o.date, price: Number(o.price) })),
+        ),
+      DETAIL_AUX_TIMEOUT_MS,
+      [] as PublicPriceOverrides,
+    ),
+  ]);
+
+  const isPending = property.status !== "active";
+
+  return (
+    <HotelDetailClient
+      property={property}
+      isPending={isPending}
+      reviews={reviews}
+      calendarBlocks={calendarBlocks}
+      priceOverrides={priceOverrides}
+    />
+  );
+}

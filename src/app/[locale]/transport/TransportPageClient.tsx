@@ -31,10 +31,32 @@ const ITEMS_PER_PAGE = 9;
 // Public services are delivered from the allowlisted read model.  Verification
 // is represented by the listing/profile fields used by cards, never an owner
 // relation or owner identifier.
-type TransportService = Tables<"services"> & {
-  profile_is_verified?: boolean | null;
-  has_whatsapp?: boolean;
-};
+// The subset of public_services columns this page actually renders (cards +
+// filters). The server query selects exactly these; widening usage here will
+// surface as a type error until the select in page.tsx is updated to match.
+type TransportService = Pick<
+  Tables<"public_services">,
+  | "id"
+  | "title"
+  | "category"
+  | "location"
+  | "photos"
+  | "price"
+  | "price_unit"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "is_vip"
+  | "has_whatsapp"
+  | "profile_is_verified"
+  | "transport_type"
+  | "vehicle_capacity"
+  | "vehicle_make"
+  | "vehicle_color"
+  | "features"
+  | "route"
+  | "routes"
+  | "created_at"
+>;
 
 interface Props {
   services: TransportService[];

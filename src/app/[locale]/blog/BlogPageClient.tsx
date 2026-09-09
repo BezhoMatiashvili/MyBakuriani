@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import ScrollReveal from "@/components/shared/ScrollReveal";
@@ -58,7 +59,9 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
                     src={post.image}
                     alt={post.title}
                     fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    placeholder="blur"
+                    blurDataURL={CARD_BLUR_DATA_URL}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <span

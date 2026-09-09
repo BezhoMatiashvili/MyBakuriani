@@ -15,11 +15,32 @@ type ServiceLike = {
   category: string;
 };
 
+type ViewUrlOptions = {
+  /**
+   * Owner/admin preview link. Appends `?preview=1`, which the middleware uses
+   * (together with an auth cookie) to rewrite to the force-dynamic
+   * /preview/<kind>/[id] route so pending listings stay viewable now that the
+   * public detail routes are ISR. The param doubles as a distinct CDN cache
+   * key, so a preview request always reaches the origin (a bare cookie check
+   * in middleware would be skipped on a Cloudflare edge HIT).
+   */
+  preview?: boolean;
+};
+
+const previewSuffix = (opts?: ViewUrlOptions) =>
+  opts?.preview ? "?preview=1" : "";
+
 /** Public guest-view route for a property listing. */
-export function propertyViewUrl(p: PropertyLike): string {
-  if (p.is_for_sale) return `/sales/${p.id}`;
-  if (p.type === "hotel") return `/hotels/${p.id}`;
-  return `/apartments/${p.id}`;
+export function propertyViewUrl(
+  p: PropertyLike,
+  opts?: ViewUrlOptions,
+): string {
+  const base = p.is_for_sale
+    ? `/sales/${p.id}`
+    : p.type === "hotel"
+      ? `/hotels/${p.id}`
+      : `/apartments/${p.id}`;
+  return `${base}${previewSuffix(opts)}`;
 }
 
 /** Create-form edit route for a property listing. */
@@ -47,9 +68,9 @@ const SERVICE_CREATE_FORM: Record<string, string> = {
 };
 
 /** Public guest-view route for a service listing, based on its category. */
-export function serviceViewUrl(s: ServiceLike): string {
+export function serviceViewUrl(s: ServiceLike, opts?: ViewUrlOptions): string {
   const base = SERVICE_VIEW_ROUTE[s.category] ?? "/services";
-  return `${base}/${s.id}`;
+  return `${base}/${s.id}${previewSuffix(opts)}`;
 }
 
 /** Create-form edit route for a service listing, based on its category. */

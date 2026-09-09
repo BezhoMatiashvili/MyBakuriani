@@ -37,9 +37,25 @@ const KNOWN_LOCATIONS = new Set(["დიდველი", "კოხტა", "�
 
 const ITEMS_PER_PAGE = 9;
 
-type PublicService = Tables<"services"> & {
-  best_active_menu_item_discount_percent?: number | null;
-};
+// The subset of public_services columns this page actually renders (cards +
+// filters). The server query selects exactly these; widening usage here will
+// surface as a type error until the select in page.tsx is updated to match.
+type PublicService = Pick<
+  Tables<"public_services">,
+  | "id"
+  | "title"
+  | "category"
+  | "location"
+  | "photos"
+  | "price"
+  | "price_unit"
+  | "cuisine_type"
+  | "schedule"
+  | "operating_hours"
+  | "is_vip"
+  | "created_at"
+  | "best_active_menu_item_discount_percent"
+>;
 
 interface Props {
   services: PublicService[];

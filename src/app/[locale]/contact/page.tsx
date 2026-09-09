@@ -16,8 +16,15 @@ export async function generateMetadata({
   };
 }
 
-export default async function ContactPage() {
-  const t = await getTranslations("ContactPage");
+export default async function ContactPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  // Explicit { locale }: the bare string form resolves locale via headers(),
+  // which silently flips this whole page from static to per-request dynamic.
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "ContactPage" });
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
       <h1 className="text-[32px] font-black text-[#1E293B]">{t("title")}</h1>

@@ -3266,6 +3266,7 @@ export type Database = {
           has_whatsapp: boolean;
           has_active_discount: boolean;
           best_active_menu_item_discount_percent: number | null;
+          profile_is_verified: boolean | null;
         };
         Relationships: [];
       };

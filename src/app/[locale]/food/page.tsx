@@ -24,7 +24,11 @@ export default async function FoodPage() {
 
   const { data: services, error } = await supabase
     .from("public_services")
-    .select("*")
+    // Only the columns the food cards + filters use — keeps the prerendered
+    // RSC payload small. Keep in sync with PublicService in FoodPageClient.
+    .select(
+      "id, title, category, location, photos, price, price_unit, cuisine_type, schedule, operating_hours, is_vip, created_at, best_active_menu_item_discount_percent",
+    )
     .eq("category", "food")
     .order("has_active_discount", { ascending: false })
     .order("is_vip", { ascending: false })

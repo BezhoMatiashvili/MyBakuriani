@@ -38,18 +38,19 @@ Full symbol inventory (module → exports + import edges, regenerable):
 
 ## Top invariants (one line each — details in [contracts.md](contracts.md))
 
-| #   | Invariant                                                                               | Breaks silently when                                                    |
-| --- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| C1  | 3 message catalogs stay key-parallel; public namespaces listed in `PUBLIC_NAMESPACES`   | key added to one locale only / public component uses unlisted namespace |
-| C2  | Locale set defined once in `routing.ts`, echoed by middleware + request import          | locale added without a `messages/<locale>.json`                         |
-| C3  | Migrations are schema truth; `database.ts` is generated, not hand-edited                | migration not followed by a types regen                                 |
-| C4  | `functions.invoke("name", body)` matches a Deno handler by string + shape               | function/body renamed on one side only                                  |
-| C5  | Storage bucket ids agree across upload code, migration/RLS, remotePatterns/CSP          | bucket renamed in code but not migration/config                         |
-| C6  | External hosts listed in **both** CSP and `remotePatterns`                              | new CDN/endpoint added to only one                                      |
-| C7  | Realtime subscriptions require the table in `supabase_realtime` publication             | new subscription on a table not in the publication                      |
-| C8  | `/create` + `/dashboard` gated in middleware; admin via auth helpers; RLS via role enum | new protected segment not added to `isProtected`                        |
-| C9  | `favorites` rows reference property_id XOR service_id; both must be handled             | new favorites read/write path only handles `property_id`                |
-| C19 | Notification `dashboard_scope` agrees across CHECK, TS union, writers, readers, badges  | a writer omits the scope → NULL row is invisible in every cabinet feed  |
+| #   | Invariant                                                                                                            | Breaks silently when                                                             |
+| --- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| C1  | 3 message catalogs stay key-parallel; public namespaces listed in `PUBLIC_NAMESPACES`                                | key added to one locale only / public component uses unlisted namespace          |
+| C2  | Locale set defined once in `routing.ts`, echoed by middleware + request import                                       | locale added without a `messages/<locale>.json`                                  |
+| C3  | Migrations are schema truth; `database.ts` is generated, not hand-edited                                             | migration not followed by a types regen                                          |
+| C4  | `functions.invoke("name", body)` matches a Deno handler by string + shape                                            | function/body renamed on one side only                                           |
+| C5  | Storage bucket ids agree across upload code, migration/RLS, remotePatterns/CSP                                       | bucket renamed in code but not migration/config                                  |
+| C6  | External hosts listed in **both** CSP and `remotePatterns`                                                           | new CDN/endpoint added to only one                                               |
+| C7  | Realtime subscriptions require the table in `supabase_realtime` publication                                          | new subscription on a table not in the publication                               |
+| C8  | `/create` + `/dashboard` gated in middleware; admin via auth helpers; RLS via role enum                              | new protected segment not added to `isProtected`                                 |
+| C9  | `favorites` rows reference property_id XOR service_id; both must be handled                                          | new favorites read/write path only handles `property_id`                         |
+| C19 | Notification `dashboard_scope` agrees across CHECK, TS union, writers, readers, badges                               | a writer omits the scope → NULL row is invisible in every cabinet feed           |
+| C28 | Public detail routes are ISR + cookie-free; preview via /preview/* rewrite; middleware sets their edge Cache-Control | an auth/cookie read added to a detail page → hard 500 on first cache-miss render |
 
 ## Pre-modification ritual
 

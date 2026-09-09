@@ -26,14 +26,36 @@ const SCHEDULES = ["all", "fulltime", "parttime", "seasonal", "other"] as const;
 
 const ITEMS_PER_PAGE = 9;
 
+// The subset of public_services columns this page actually renders (cards +
+// filters). The server query selects exactly these; widening usage here will
+// surface as a type error until the select in page.tsx is updated to match.
+type EmploymentListing = Pick<
+  Tables<"services">,
+  | "id"
+  | "title"
+  | "position"
+  | "location"
+  | "description"
+  | "price"
+  | "price_unit"
+  | "salary_daily"
+  | "salary_min"
+  | "salary_max"
+  | "work_schedule"
+  | "employment_schedule"
+  | "employment_type"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "is_vip"
+  | "created_at"
+>;
+
 interface Props {
-  services: Tables<"services">[];
+  services: EmploymentListing[];
   cvCounts: Record<string, number>;
 }
 
-function deriveBadge(
-  s: Tables<"services">,
-): "urgent" | "vip" | null {
+function deriveBadge(s: EmploymentListing): "urgent" | "vip" | null {
   if (s.is_vip) return "vip";
   if (s.discount_percent && s.discount_percent > 0) return "urgent";
   return null;
@@ -44,7 +66,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
   const tShared = useTranslations("Shared");
   const tOpts = useTranslations("ListingOptions");
 
-  const salaryLabel = (s: Tables<"services">): string | null => {
+  const salaryLabel = (s: EmploymentListing): string | null => {
     if (s.salary_daily != null)
       return t("salaryDaily", { amount: s.salary_daily });
     if (s.salary_min != null && s.salary_max != null) {
@@ -60,7 +82,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
 
   // Rows store Georgian enum labels (e.g. "მოქნილი"); resolve to the
   // ListingOptions translation, passing unknown free-text through raw.
-  const scheduleLabel = (s: Tables<"services">): string | null => {
+  const scheduleLabel = (s: EmploymentListing): string | null => {
     const raw = s.work_schedule ?? s.employment_schedule;
     if (!raw) return null;
     const key = optionKeyFor("employmentTypes", raw);

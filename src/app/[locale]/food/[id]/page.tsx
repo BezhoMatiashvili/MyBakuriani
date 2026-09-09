@@ -2,34 +2,32 @@ import type { Metadata } from "next";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
-import {
-  getServiceById,
-  getServiceMetadataById,
-} from "@/lib/data/getServiceById";
+import { getMockService, isMockServiceId } from "@/lib/mock/services";
+import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import {
   getCachedPublicService,
   getCachedPublicMenuItems,
   type PublicMenuItem,
 } from "@/lib/data/getCachedPublicListing";
 import { buildListingMetadata } from "@/lib/seo";
-import type { ServiceWithFoodExtras } from "@/lib/mock/services";
-import { isAdminViewer } from "@/lib/auth/is-admin-viewer";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { createClient, createPublicClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/admin";
 import FoodDetailClient from "./FoodDetailClient";
 
 interface Props {
   params: Promise<{ locale: AppLocale; id: string }>;
 }
 
-// Dynamic, not ISR: get(Property|Service)ById reads cookies() for the admin/owner
-// pending-preview path, so this route cannot be statically cached (Next "static to dynamic").
-// The cached fast-path below still serves anonymous visitors from the data cache.
-export const dynamic = "force-dynamic";
+// ISR (on-demand): rendered on first request per id, cached and edge-cacheable
+// (s-maxage=60), revalidated every 60s and purged by revalidateTag
+// ("service:<id>"). This route must NEVER touch cookies()/headers()/auth on any
+// code path — a runtime static→dynamic flip is a hard 500 in Next 15 (E132),
+// not a graceful bail-out. Owner/admin preview of pending listings lives under
+// /preview/food/[id] (force-dynamic), reached via the middleware rewrite on
+// ?preview=1 + auth cookie. Keep the literal in sync with
+// PUBLIC_LISTING_REVALIDATE_S (segment config must be a literal).
+export const revalidate = 60;
 
 // No build-time prerender — the empty list keeps the build free of any Supabase
-// dependency; every request renders dynamically (force-dynamic above). dynamicParams=true.
+// dependency; each id renders on first request (dynamicParams default true).
 export async function generateStaticParams() {
   return [];
 }
@@ -37,14 +35,11 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  const cached = await getCachedPublicService(id).catch(() => null);
-  const data = cached
-    ? {
-        title: cached.title,
-        description: cached.description,
-        photos: cached.photos,
-      }
-    : await getServiceMetadataById(id);
+  // Cached public listing only — the cookie-aware metadata fallback lives on
+  // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  const data = isMockServiceId(id)
+    ? getMockService(id)
+    : await getCachedPublicService(id).catch(() => null);
 
   if (!data) {
     return { title: t("detail.foodNotFound") };
@@ -70,9 +65,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function FoodDetailPage({ params }: Props) {
   const { id } = await params;
 
-  // Fast path: cached public (active) service — zero DB round-trip on a cache
-  // hit. A transient miss-time error throws (not cached) so it falls through to
-  // the dynamic path instead of being served as not-found.
+  // Mock ids are non-UUID, so the cached fetch below would return null for
+  // them; branch explicitly to keep demo listings rendering.
+  if (isMockServiceId(id)) {
+    const mock = getMockService(id);
+    if (!mock) notFound();
+    return (
+      <FoodDetailClient
+        service={mock}
+        menuItems={[]}
+        isMock={true}
+        isPending={false}
+      />
+    );
+  }
+
+  // Cached public (active) service + menu — zero DB round-trip on cache hits.
+  // A transient miss-time error rethrows so this render fails (uncached)
+  // instead of caching a 404 of a live listing for the next 60s.
   let cached: ServiceWithFoodExtras | null = null;
   let cachedMenuItems: PublicMenuItem[] = [];
   try {
@@ -82,57 +92,19 @@ export default async function FoodDetailPage({ params }: Props) {
     ]);
   } catch (err) {
     unstable_rethrow(err);
-    cached = null;
-    cachedMenuItems = [];
+    throw err;
   }
 
-  if (cached) {
-    return (
-      <FoodDetailClient
-        service={cached}
-        menuItems={cachedMenuItems}
-        isMock={false}
-        isPending={false}
-      />
-    );
-  }
-
-  // Dynamic fallback: pending/blocked/missing, or owner/admin preview.
-  const { data: service, isMock } = await getServiceById(id);
-
-  if (!service) {
+  if (!cached) {
     notFound();
-  }
-
-  const isPending = !isMock && service.status !== "active";
-
-  // service_menu_items RLS restricts SELECT to the row owner only, so mirror
-  // getServiceById's three-tier viewer client selection: admin bypasses RLS,
-  // a signed-in owner reads their own rows via the cookie-carrying client,
-  // anonymous sees none (fine — a non-owner already 404'd above).
-  let menuItems: PublicMenuItem[] = [];
-  if (!isMock) {
-    const adminViewer = await isAdminViewer();
-    const user = await getCurrentUser();
-    const supabase = adminViewer
-      ? createServiceClient()
-      : user
-        ? await createClient()
-        : createPublicClient();
-    const { data } = await supabase
-      .from("service_menu_items")
-      .select("*")
-      .eq("service_id", id)
-      .order("sort_order", { ascending: true });
-    menuItems = (data as PublicMenuItem[] | null) ?? [];
   }
 
   return (
     <FoodDetailClient
-      service={service}
-      menuItems={menuItems}
-      isMock={isMock}
-      isPending={isPending}
+      service={cached}
+      menuItems={cachedMenuItems}
+      isMock={false}
+      isPending={false}
     />
   );
 }

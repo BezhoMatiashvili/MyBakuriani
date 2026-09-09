@@ -129,7 +129,11 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
               fill
               sizes="100vw"
               className="object-cover"
-              priority={index === 0}
+              // Eager (not priority): the desktop grid's hero below already
+              // emits the page's single preload <link>, sized correctly for
+              // both viewports; a second priority here double-preloaded a
+              // full-width image the desktop layout never paints.
+              loading={index === 0 ? "eager" : undefined}
             />
             <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
               {index + 1} / {photos.length}
@@ -149,7 +153,12 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
             src={displayPhotos[0]}
             alt={`${title} - 1`}
             fill
-            sizes="(max-width: 768px) 100vw, 60vw"
+            // This is the page's one priority preload; media queries in sizes
+            // evaluate at preload time, so on mobile it fetches the same 100vw
+            // URL the rail's first (hidden-on-desktop) image renders, and on
+            // desktop the ~520px slot this tile actually paints (60vw selected
+            // a 1200+ rung for a ~500px box).
+            sizes="(max-width: 1023px) 100vw, 560px"
             className="object-cover transition-transform duration-300 hover:scale-105"
             priority
           />
@@ -213,7 +222,6 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
             </div>
           )}
         </div>
-
       </div>
 
       {/* Lightbox */}

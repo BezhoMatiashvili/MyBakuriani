@@ -127,7 +127,17 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
             onClick={() => openLightbox(index)}
             className="relative aspect-[8/5] w-[calc(100vw-32px)] shrink-0 snap-center overflow-hidden rounded-[20px]"
           >
-            <Image src={photo} alt={`${title} - ${index + 1}`} fill sizes="100vw" className="object-cover" priority={index === 0} />
+            <Image
+              src={photo}
+              alt={`${title} - ${index + 1}`}
+              fill
+              sizes="100vw"
+              className="object-cover"
+              // Eager (not priority): the desktop grid's hero below already
+              // emits the page's single preload <link>; a second priority here
+              // double-preloaded a full-width image desktop never paints.
+              loading={index === 0 ? "eager" : undefined}
+            />
             <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
               {index + 1} / {photos.length}
             </span>
@@ -144,7 +154,10 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
             src={main}
             alt={`${title} - 1`}
             fill
-            sizes="(max-width: 768px) 100vw, 60vw"
+            // The page's one priority preload; on mobile it fetches the same
+            // 100vw URL the rail's first image renders, on desktop the ~660px
+            // slot this 2fr tile actually paints.
+            sizes="(max-width: 1023px) 100vw, 700px"
             className="object-cover transition-transform duration-300 hover:scale-105"
             priority
           />
@@ -188,7 +201,6 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
             </button>
           )}
         </div>
-
       </div>
 
       <AnimatePresence>

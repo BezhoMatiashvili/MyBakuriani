@@ -7,11 +7,29 @@ import { toast } from "sonner";
 import { useRouter } from "@/i18n/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 
-export function PriceDropAlertButton({ propertyId }: { propertyId: string }) {
+// Mirrors SmsFeatureMode from @/lib/sms/feature-flags (a server-only module this
+// client component must not import). "off" never reaches here — SaleDetailClient
+// doesn't render the button at all in that mode.
+type PriceAlertMode = "on" | "qa";
+
+export function PriceDropAlertButton({
+  propertyId,
+  ownerId,
+  mode = "on",
+}: {
+  propertyId: string;
+  ownerId?: string | null;
+  mode?: PriceAlertMode;
+}) {
   const t = useTranslations("PriceDropSms.public");
   const router = useRouter();
   const { user, loading } = useAuth();
   const [subscribed, setSubscribed] = useState(false);
+  // In "qa" mode only allow-listed users may see the button; that list is
+  // server-only, so visibility waits on the GET eligibility probe (the API
+  // route 404s feature_unavailable for everyone else). In "on" mode the
+  // button shows immediately (matching the old SSR behavior, incl. anonymous).
+  const [qaEligible, setQaEligible] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -20,10 +38,17 @@ export function PriceDropAlertButton({ propertyId }: { propertyId: string }) {
       cache: "no-store",
     })
       .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { subscribed?: boolean } | null) =>
-        setSubscribed(payload?.subscribed === true),
-      );
+      .then((payload: { subscribed?: boolean } | null) => {
+        if (payload) setQaEligible(true);
+        setSubscribed(payload?.subscribed === true);
+      });
   }, [propertyId, user]);
+
+  // Owner never sees their own listing's alert button (was enforced server-side
+  // pre-ISR; the API route still rejects self-subscription regardless).
+  if (loading) return null;
+  if (user && ownerId && user.id === ownerId) return null;
+  if (mode === "qa" && !qaEligible) return null;
 
   const toggle = async () => {
     if (loading || busy) return;

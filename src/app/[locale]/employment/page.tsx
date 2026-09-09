@@ -25,7 +25,11 @@ export default async function EmploymentPage() {
 
   const { data: services, error } = await supabase
     .from("public_services")
-    .select("*")
+    // Only the columns the vacancy cards + filters use — keeps the prerendered
+    // RSC payload small. Keep in sync with EmploymentListing.
+    .select(
+      "id, title, position, location, description, price, price_unit, salary_daily, salary_min, salary_max, work_schedule, employment_schedule, employment_type, discount_percent, discount_expires_at, is_vip, created_at",
+    )
     .eq("category", "employment")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })

@@ -24,7 +24,11 @@ export default async function TransportPage() {
 
   const { data: services, error } = await supabase
     .from("public_services")
-    .select("*")
+    // Only the columns the transport cards + filters use — keeps the
+    // prerendered RSC payload small. Keep in sync with TransportService.
+    .select(
+      "id, title, category, location, photos, price, price_unit, discount_percent, discount_expires_at, is_vip, has_whatsapp, profile_is_verified, transport_type, vehicle_capacity, vehicle_make, vehicle_color, features, route, routes, created_at",
+    )
     .eq("category", "transport")
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })

@@ -47,7 +47,16 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    formats: ["image/avif", "image/webp"],
+    // WebP only, deliberately no AVIF: the optimizer runs on this app's own
+    // small DO instance (not a managed edge optimizer), and AVIF encodes are
+    // roughly an order of magnitude slower than WebP for a marginal byte win
+    // at card/gallery sizes. With AVIF listed first, every cold
+    // photo/width/format transform paid that cost (~1.1-2.3s measured).
+    formats: ["image/webp"],
+    // Default deviceSizes go up to 3840; nothing on the site renders an image
+    // wider than the 1160px content column at DPR 2, so the 2048/3840 rungs
+    // only added cold-transform surface. Trim the ladder at 1920.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     // Next's optimizer sets its response Cache-Control to
     // max(minimumCacheTTL, upstream max-age). Supabase Storage uploads default
     // to a 1h cacheControl (only one upload route out of eight overrides it),
@@ -82,8 +91,11 @@ const nextConfig: NextConfig = {
     // What this does NOT fix, measured rather than assumed: a *forward* click
     // into a force-dynamic route still refetches even when its prefetch has
     // fully completed — Next will not reuse a prefetched dynamic segment for a
-    // forward navigation. Only converting those routes off force-dynamic would
-    // change that (see the plan's Out of scope).
+    // forward navigation. RESOLVED for the 8 public [id] detail routes on
+    // 2026-09-09: they are ISR now (cookie-free, revalidate 60 — owner/admin
+    // preview moved to /preview/*), so `static: 300` applies to them and a
+    // completed prefetch IS reused on forward navigation. /dashboard/** stays
+    // force-dynamic and keeps paying the dynamic:30 behavior described above.
     //
     // 30s is tighter than the 60s the data layer already serves from
     // (PUBLIC_LISTING_REVALIDATE_S), and router.refresh() / revalidateTag still

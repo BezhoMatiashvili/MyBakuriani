@@ -369,7 +369,7 @@ export default function SellerDashboardClient({
                   </div>
                 </div>
                 <ListingActions
-                  viewUrl={propertyViewUrl(property)}
+                  viewUrl={propertyViewUrl(property, { preview: true })}
                   editUrl={propertyEditUrl(property)}
                   onPromote={(tier) => setPickerModal({ open: true, tier })}
                   standardVipDisabled={isSuperVipActive(

@@ -2,31 +2,31 @@ import type { Metadata } from "next";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
-import {
-  getServiceById,
-  getServiceMetadataById,
-} from "@/lib/data/getServiceById";
+import { getMockService, isMockServiceId } from "@/lib/mock/services";
+import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import {
   getCachedPublicService,
   getCachedPublicCvCount,
-  getCvCountsForServices,
 } from "@/lib/data/getCachedPublicListing";
-import { withTimeout, DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
 import { buildListingMetadata } from "@/lib/seo";
-import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import EmploymentDetailClient from "./EmploymentDetailClient";
 
 interface Props {
   params: Promise<{ locale: AppLocale; id: string }>;
 }
 
-// Dynamic, not ISR: get(Property|Service)ById reads cookies() for the admin/owner
-// pending-preview path, so this route cannot be statically cached (Next "static to dynamic").
-// The cached fast-path below still serves anonymous visitors from the data cache.
-export const dynamic = "force-dynamic";
+// ISR (on-demand): rendered on first request per id, cached and edge-cacheable
+// (s-maxage=60), revalidated every 60s and purged by revalidateTag
+// ("service:<id>"). This route must NEVER touch cookies()/headers()/auth on any
+// code path — a runtime static→dynamic flip is a hard 500 in Next 15 (E132),
+// not a graceful bail-out. Owner/admin preview of pending listings lives under
+// /preview/employment/[id] (force-dynamic), reached via the middleware rewrite on
+// ?preview=1 + auth cookie. Keep the literal in sync with
+// PUBLIC_LISTING_REVALIDATE_S (segment config must be a literal).
+export const revalidate = 60;
 
 // No build-time prerender — the empty list keeps the build free of any Supabase
-// dependency; every request renders dynamically (force-dynamic above). dynamicParams=true.
+// dependency; each id renders on first request (dynamicParams default true).
 export async function generateStaticParams() {
   return [];
 }
@@ -34,14 +34,11 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  const cached = await getCachedPublicService(id).catch(() => null);
-  const data = cached
-    ? {
-        title: cached.title,
-        description: cached.description,
-        photos: cached.photos,
-      }
-    : await getServiceMetadataById(id);
+  // Cached public listing only — the cookie-aware metadata fallback lives on
+  // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  const data = isMockServiceId(id)
+    ? getMockService(id)
+    : await getCachedPublicService(id).catch(() => null);
 
   if (!data) {
     return { title: t("detail.employmentNotFound") };
@@ -67,55 +64,44 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function EmploymentDetailPage({ params }: Props) {
   const { id } = await params;
 
-  // Fast path: cached public (active) service — zero DB round-trip on a cache
-  // hit. A transient miss-time error throws (not cached) so it falls through to
-  // the dynamic path instead of being served as not-found.
-  let cached: ServiceWithFoodExtras | null = null;
-  try {
-    cached = await getCachedPublicService(id);
-  } catch (err) {
-    unstable_rethrow(err);
-    cached = null;
-  }
-
-  if (cached) {
-    const applicationsCount = await getCachedPublicCvCount(id);
+  // Mock ids are non-UUID, so the cached fetch below would return null for
+  // them; branch explicitly to keep demo listings rendering.
+  if (isMockServiceId(id)) {
+    const mock = getMockService(id);
+    if (!mock) notFound();
     return (
       <EmploymentDetailClient
-        service={cached}
-        isMock={false}
-        applicationsCount={applicationsCount}
+        service={mock}
+        isMock={true}
+        applicationsCount={12}
         isPending={false}
       />
     );
   }
 
-  // Dynamic fallback: pending/blocked/missing, or owner/admin preview.
-  const { data: service, isMock } = await getServiceById(id);
+  // Cached public (active) service — zero DB round-trip on a cache hit. A
+  // transient miss-time error rethrows so this render fails (uncached) instead
+  // of caching a 404 of a live listing for the next 60s.
+  let cached: ServiceWithFoodExtras | null = null;
+  try {
+    cached = await getCachedPublicService(id);
+  } catch (err) {
+    unstable_rethrow(err);
+    throw err;
+  }
 
-  if (!service) {
+  if (!cached) {
     notFound();
   }
 
-  let applicationsCount = 0;
-  if (isMock) {
-    applicationsCount = 12;
-  } else {
-    applicationsCount = await withTimeout(
-      getCvCountsForServices([id]).then((counts) => counts[id] ?? 0),
-      DETAIL_AUX_TIMEOUT_MS,
-      0,
-    );
-  }
-
-  const isPending = !isMock && service.status !== "active";
+  const applicationsCount = await getCachedPublicCvCount(id);
 
   return (
     <EmploymentDetailClient
-      service={service}
-      isMock={isMock}
+      service={cached}
+      isMock={false}
       applicationsCount={applicationsCount}
-      isPending={isPending}
+      isPending={false}
     />
   );
 }

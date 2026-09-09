@@ -391,6 +391,9 @@ function MediaCreative({
         <video
           src={creative.videoUrl}
           poster={creative.videoPosterUrl ?? creative.imageUrl ?? undefined}
+          // metadata: don't let a banner video's full download compete with the
+          // hero/LCP images for bandwidth; autoplay still starts it once ready.
+          preload="metadata"
           autoPlay
           loop
           muted
@@ -554,6 +557,7 @@ function PromoCardCreative({
           <video
             src={creative.videoUrl}
             poster={creative.videoPosterUrl ?? creative.imageUrl ?? undefined}
+            preload="metadata"
             autoPlay
             loop
             muted
