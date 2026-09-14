@@ -55,6 +55,7 @@ const SERVICE_FIELDS = new Set<string>([
   "description",
   "location",
   "phone",
+  "whatsapp",
   "photos",
   "price",
   "price_unit",

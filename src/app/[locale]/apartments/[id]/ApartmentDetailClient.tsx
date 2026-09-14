@@ -98,7 +98,9 @@ export default function ApartmentDetailClient({
   }>({ start: null, end: null });
 
   useEffect(() => {
-    void fetch(`/api/listings/property/${property.id}/view`, { method: "POST" });
+    void fetch(`/api/listings/property/${property.id}/view`, {
+      method: "POST",
+    });
   }, [property.id]);
 
   const owner = property.profiles;
@@ -367,28 +369,28 @@ export default function ApartmentDetailClient({
             />
           </motion.div>
 
-          {/* Reviews */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex shrink-0 items-center gap-1 rounded-[12px] bg-[#0F172A] px-3 py-2 text-[14px] font-black text-white">
-                <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
-                {avgRating !== null ? avgRating.toFixed(1) : "—"}
-              </span>
-              <div>
-                <h2 className="text-[20px] font-black leading-[24px] text-[#0F172A]">
-                  {t("reviewsTitle", { count: reviews.length })}
-                </h2>
-                <p className="mt-1 flex items-center gap-1 text-[12px] font-bold text-[#16A34A]">
-                  <span className="inline-flex h-3 w-3 items-center justify-center rounded-full border border-[#16A34A]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
-                  </span>
-                  {t("verifiedReviews")}
-                </p>
+          {/* Reviews — hidden entirely while empty (no submission flow reaches
+              real, offline-booked stays yet), rather than showing a
+              permanent "no reviews" placeholder. */}
+          {reviews.length > 0 && (
+            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex shrink-0 items-center gap-1 rounded-[12px] bg-[#0F172A] px-3 py-2 text-[14px] font-black text-white">
+                  <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
+                  {avgRating !== null ? avgRating.toFixed(1) : "—"}
+                </span>
+                <div>
+                  <h2 className="text-[20px] font-black leading-[24px] text-[#0F172A]">
+                    {t("reviewsTitle", { count: reviews.length })}
+                  </h2>
+                  <p className="mt-1 flex items-center gap-1 text-[12px] font-bold text-[#16A34A]">
+                    <span className="inline-flex h-3 w-3 items-center justify-center rounded-full border border-[#16A34A]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
+                    </span>
+                    {t("verifiedReviews")}
+                  </p>
+                </div>
               </div>
-            </div>
-            {reviews.length === 0 ? (
-              <p className="text-sm text-[#94A3B8]">{tDetail("noReviews")}</p>
-            ) : (
               <div className="grid gap-6 sm:grid-cols-2">
                 {reviews.slice(0, 2).map((review) => (
                   <ReviewCard
@@ -402,16 +404,16 @@ export default function ApartmentDetailClient({
                   />
                 ))}
               </div>
-            )}
-            {reviews.length > 2 && (
-              <button
-                type="button"
-                className="mt-4 rounded-xl border border-[#E2E8F0] px-5 py-2.5 text-[13px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
-              >
-                {t("viewAllReviews", { count: reviews.length })}
-              </button>
-            )}
-          </motion.div>
+              {reviews.length > 2 && (
+                <button
+                  type="button"
+                  className="mt-4 rounded-xl border border-[#E2E8F0] px-5 py-2.5 text-[13px] font-bold text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+                >
+                  {t("viewAllReviews", { count: reviews.length })}
+                </button>
+              )}
+            </motion.div>
+          )}
         </div>
 
         {/* Right sidebar — lg top/max-h mirror Navbar primary (91px) + category rail (94px) */}
@@ -446,10 +448,7 @@ export default function ApartmentDetailClient({
           )}
         </motion.div>
 
-        <BannerSlot
-          placement="detail_sidebar"
-          className="lg:col-start-3"
-        />
+        <BannerSlot placement="detail_sidebar" className="lg:col-start-3" />
       </div>
 
       {property.price_per_night != null && (

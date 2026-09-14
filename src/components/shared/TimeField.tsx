@@ -129,7 +129,7 @@ export default function TimeField({
           aria-expanded={open}
           onClick={() => setOpen(true)}
           className={cn(
-            "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[16px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+            "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[16px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:border-dashed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8] disabled:opacity-60 disabled:hover:border-[#E2E8F0]",
             error && "border-[#EF4444]",
             className,
           )}
@@ -184,7 +184,7 @@ export default function TimeField({
       <PopoverTrigger
         disabled={disabled}
         className={cn(
-          "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[13px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+          "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[13px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:border-dashed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8] disabled:opacity-60 disabled:hover:border-[#E2E8F0]",
           ACCENT[accent].trigger,
           error && "border-[#EF4444]",
           className,

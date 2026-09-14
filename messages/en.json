@@ -853,7 +853,7 @@
     "membershipStatus": "Membership status",
     "validUntil": "Valid until",
     "inactive": "No active membership",
-    "seasonalExplanation": "Pay once for the current season. Access starts only after admin approval and remains valid through March 15.",
+    "seasonalExplanation": "Pay once for the current season. Access starts only after admin approval.\n\nWinter seasonal membership (November – March) — 30 ₾. Valid through the winter season.\n\nIn summer only the card content changes: Summer seasonal membership (April – October) — 30 ₾. Valid through the summer season.",
     "seasonPlan": "Seasonal membership · through March 15",
     "awaitingApproval": "Awaiting admin approval",
     "alreadyPending": "Your payment has been received. The membership will activate only after an administrator approves it.",
@@ -1265,7 +1265,8 @@
     "bakuriani": "Bakuriani",
     "expandMap": "Expand map",
     "mapTitle": "Map of Bakuriani",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "mapUnavailable": "Map is temporarily unavailable"
   },
   "ZoneLocationLink": {
     "prefix": "Bakuriani, ",
@@ -1281,7 +1282,8 @@
     "searching": "Searching…",
     "noResults": "No results. Try another address or pick a point on the map.",
     "searchError": "Search failed. Please try again later.",
-    "attribution": "Data © OpenStreetMap"
+    "attribution": "Data © OpenStreetMap",
+    "mapUnavailable": "Map is temporarily unavailable — use search or enter coordinates manually."
   },
   "StatusBadge": {
     "active": "Active",
@@ -2497,6 +2499,7 @@
     "sectionEquipment": "Equipment & languages",
     "driverName": "Driver name",
     "driverPlaceholder": "Goga M.",
+    "driverNameHint": "Max 15 characters",
     "vehicleMake": "Vehicle make",
     "chooseMake": "Choose make",
     "searchMake": "Search make...",
@@ -2512,6 +2515,7 @@
     "comfortAndServices": "Comfort & services",
     "vehiclePhotos": "Vehicle photos",
     "enterDriverName": "Enter driver name",
+    "driverNameTooLong": "Name must be 15 characters or fewer",
     "enterCapacity": "Enter number of seats",
     "chooseRoute": "Select at least one route",
     "enterPrice": "Enter starting price",
@@ -3162,6 +3166,7 @@
     "durationDays": "Duration (days)",
     "name": "Name",
     "phone": "Phone",
+    "whatsapp": "WhatsApp",
     "note": "Note",
     "guest": "Guest",
     "from": "From",

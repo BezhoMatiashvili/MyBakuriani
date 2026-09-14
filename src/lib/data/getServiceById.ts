@@ -11,6 +11,7 @@ import {
 } from "@/lib/mock/services";
 import { isUuid } from "@/lib/utils/uuid";
 import { sanitizePhotos } from "@/lib/utils/photos";
+import { hasValidWhatsapp } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
 // cache(): generateMetadata + page body share one query per request.
@@ -49,7 +50,9 @@ export const getServiceById = cache(
           : createPublicClient();
       const { data } = await supabase
         .from("services")
-        .select("*, profiles!services_owner_id_fkey(id, display_name, avatar_url, is_verified, phone)")
+        .select(
+          "*, profiles!services_owner_id_fkey(id, display_name, avatar_url, is_verified, phone)",
+        )
         .eq("id", id)
         .maybeSingle();
 
@@ -67,6 +70,7 @@ export const getServiceById = cache(
       // Drop legacy base64/oversized photo entries before they reach SSR HTML,
       // the RSC payload, or og:image — see sanitizePhotos.
       row.photos = sanitizePhotos(row.photos);
+      row.has_whatsapp = hasValidWhatsapp(row.whatsapp);
       return { data: row, isMock: false };
     } catch (err) {
       // Never swallow Next's control-flow signals (dynamic-rendering bail-out,

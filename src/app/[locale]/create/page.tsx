@@ -48,9 +48,15 @@ export default function CreatePage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04, duration: 0.25 }}
+              className={
+                i === CATEGORIES.length - 1
+                  ? "col-span-2 lg:col-span-1 lg:col-start-2"
+                  : undefined
+              }
             >
               <Link
                 href={cat.href}
+                prefetch={false}
                 className="group flex min-h-[132px] h-full flex-col items-center justify-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-3 py-5 text-center transition-all hover:border-[#2563EB] hover:shadow-md lg:px-4 lg:py-10"
               >
                 <cat.icon

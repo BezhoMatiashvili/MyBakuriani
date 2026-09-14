@@ -74,6 +74,7 @@ const FEATURE_OPTIONS = dbOptionsFor("transportFeatures");
 
 const MIN_PHOTOS = 1;
 const MAX_PHOTOS = 10;
+const DRIVER_NAME_MAX_LENGTH = 15;
 
 function TransportLoading() {
   const tShared = useTranslations("CreateShared");
@@ -278,6 +279,8 @@ function CreateTransportPageInner() {
     const errs: { key: string; message: string }[] = [];
     if (!driverName.trim())
       errs.push({ key: "driverName", message: t("enterDriverName") });
+    else if (driverName.trim().length > DRIVER_NAME_MAX_LENGTH)
+      errs.push({ key: "driverName", message: t("driverNameTooLong") });
     if (!vehicleCapacity)
       errs.push({ key: "vehicleCapacity", message: t("enterCapacity") });
     if (routeRows.every((r) => !r.route))
@@ -395,7 +398,11 @@ function CreateTransportPageInner() {
         <WizardFooter
           accent="blue"
           backHref="/create"
-          submitLabel={isEditMode ? tShared("contentChange.submitForReview") : tShared("publishListing")}
+          submitLabel={
+            isEditMode
+              ? tShared("contentChange.submitForReview")
+              : tShared("publishListing")
+          }
           submitDisabled={loading}
           loading={loading}
           error={error}
@@ -421,10 +428,18 @@ function CreateTransportPageInner() {
                 <input
                   type="text"
                   value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
+                  onChange={(e) =>
+                    setDriverName(
+                      e.target.value.slice(0, DRIVER_NAME_MAX_LENGTH),
+                    )
+                  }
+                  maxLength={DRIVER_NAME_MAX_LENGTH}
                   placeholder={t("driverPlaceholder")}
                   className={inputClass}
                 />
+                <p className="text-[12px] font-medium text-[#94A3B8]">
+                  {t("driverNameHint")}
+                </p>
               </Field>
               <Field label={t("vehicleMake")} required>
                 <SearchableSelect

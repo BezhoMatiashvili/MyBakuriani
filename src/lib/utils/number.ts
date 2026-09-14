@@ -95,6 +95,18 @@ export function isValidGePhone(value: string | null | undefined): boolean {
 }
 
 /**
+ * Whether a stored `whatsapp` value is a real, displayable number. Mirrors the
+ * `has_whatsapp` derivation on the `public_properties`/`public_services` views
+ * (`regexp_replace(whatsapp, '[^0-9]', '', 'g') ~ '^(995)?5[0-9]{8}$'`) so the
+ * owner/admin preview path — which reads the raw table, not the view — shows
+ * the WhatsApp button under the same rule the public page uses.
+ */
+export function hasValidWhatsapp(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^(995)?5\d{8}$/.test(value.replace(/\D/g, ""));
+}
+
+/**
  * Normalize a stored phone (e.g. "+995599123456", "599123456", or legacy
  * garbage) down to the bare 9-digit local form that PhoneInput expects when
  * seeding a field for editing. Drops a leading "995" country code and caps at

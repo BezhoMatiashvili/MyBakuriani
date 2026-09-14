@@ -213,9 +213,7 @@ export default function RenterCleanersPage() {
       setServiceDetails([]);
       setDetailsError(true);
     } else {
-      setServiceDetails(
-        (detailsResult.data ?? []) as PublicServiceDetail[],
-      );
+      setServiceDetails((detailsResult.data ?? []) as PublicServiceDetail[]);
     }
     setDetailsLoaded(true);
   }, [supabase]);
@@ -509,8 +507,7 @@ export default function RenterCleanersPage() {
           kind: "platform",
           id: cleaner.cleaner_id,
           name: cleaner.name,
-          avatarUrl:
-            cleaner.avatar_url ?? detail?.profile_avatar_url ?? null,
+          avatarUrl: cleaner.avatar_url ?? detail?.profile_avatar_url ?? null,
           isOnline: cleaner.is_online,
           isVerified: Boolean(detail?.profile_is_verified),
           rentersServed: renterCounts.get(cleaner.cleaner_id) ?? 0,
@@ -563,10 +560,7 @@ export default function RenterCleanersPage() {
     setDetailSaving(true);
     setDetailSaveError(false);
     try {
-      const saved = await toggleSaved(
-        profile.id,
-        !savedIds.has(profile.id),
-      );
+      const saved = await toggleSaved(profile.id, !savedIds.has(profile.id));
       setDetailSaveError(!saved);
     } finally {
       setDetailSaving(false);
@@ -574,7 +568,8 @@ export default function RenterCleanersPage() {
   }
 
   function editManualFromDetails(profile: ManualCleanerProfile) {
-    const cleaner = manualCleaners.find((item) => item.id === profile.id) ?? null;
+    const cleaner =
+      manualCleaners.find((item) => item.id === profile.id) ?? null;
     setDetailModal(null);
     setFormModal({ open: true, cleaner });
   }
@@ -726,7 +721,7 @@ export default function RenterCleanersPage() {
                   <button
                     type="button"
                     onClick={() => openDetails(profile, "saved")}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
+                    className="inline-flex min-h-11 flex-auto items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
                   >
                     <Eye className="size-4" />
                     {t("details")}
@@ -736,7 +731,7 @@ export default function RenterCleanersPage() {
                     label={tShared("call")}
                     alwaysShowLabel
                     layout="card"
-                    className="flex-1"
+                    className="flex-auto"
                   />
                   <button
                     type="button"
@@ -924,9 +919,7 @@ export default function RenterCleanersPage() {
             ? platformProfiles.find((profile) => profile.id === task.cleaner_id)
             : null;
           const cleanerName =
-            detail?.cleaner_name ??
-            currentProfile?.name ??
-            t("defaultCleaner");
+            detail?.cleaner_name ?? currentProfile?.name ?? t("defaultCleaner");
           const cleanerAvatar =
             detail?.cleaner_avatar_url ?? currentProfile?.avatarUrl ?? null;
           const contactMayBeVisible = [
@@ -1158,9 +1151,7 @@ export default function RenterCleanersPage() {
         savedIds={savedIds}
         onToggle={toggleSaved}
         onRetry={fetchCleaners}
-        onViewDetails={(profile) =>
-          openDetails(profile, "add", true)
-        }
+        onViewDetails={(profile) => openDetails(profile, "add", true)}
         onCreateOwn={() => {
           setAddModalOpen(false);
           setFormModal({ open: true, cleaner: null });

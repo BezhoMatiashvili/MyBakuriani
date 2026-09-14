@@ -104,6 +104,43 @@ export function pickLocalized(
   return (text[key] && text[key]!.trim()) || text.ka || "";
 }
 
+// Cards whose closed-card face should preview its item names (e.g. "დიდველი,
+// კოხტა…") instead of staying blank until expanded. Deliberately excludes
+// "road" (already sets its own live drive-time subValue via withLiveRoad) and
+// "weather" (has no items).
+const ITEM_SUBTITLE_CARD_IDS = new Set(["lifts", "cameras"]);
+const ITEM_SUBTITLE_MAX_NAMES = 2;
+const ITEM_SUBTITLE_LOCALES: StatusLocale[] = ["ka", "en", "ru"];
+
+function buildItemNamesSubtitle(items: StatusCardItem[]): LocalizedText {
+  const subtitle: LocalizedText = { ka: "" };
+  for (const locale of ITEM_SUBTITLE_LOCALES) {
+    const names = items
+      .map((item) => pickLocalized(item.label, locale))
+      .filter(Boolean);
+    const shown = names.slice(0, ITEM_SUBTITLE_MAX_NAMES).join(", ");
+    subtitle[locale] =
+      names.length > ITEM_SUBTITLE_MAX_NAMES ? `${shown}…` : shown;
+  }
+  return subtitle;
+}
+
+// Fills `subValue` on the lifts/cameras cards with a truncated list of their
+// item names, so the collapsed card face previews what's inside instead of
+// requiring an expand click to see anything beyond the count.
+export function withItemNameSubtitles(cards: StatusCard[]): StatusCard[] {
+  return cards.map((card) => {
+    if (
+      !ITEM_SUBTITLE_CARD_IDS.has(card.id) ||
+      card.items.length === 0 ||
+      card.subValue
+    ) {
+      return card;
+    }
+    return { ...card, subValue: buildItemNamesSubtitle(card.items) };
+  });
+}
+
 // Fallback shown when the DB row is missing/empty — mirrors FALLBACK_ZONES.
 // Kept in sync with the seed migration so the public site never renders blank.
 export const DEFAULT_STATUS_CARDS: StatusCard[] = [

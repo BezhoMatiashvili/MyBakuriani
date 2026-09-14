@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { getMockProperty, isMockPropertyId } from "@/lib/mock/properties";
 import { isUuid } from "@/lib/utils/uuid";
 import { sanitizePhotos } from "@/lib/utils/photos";
+import { hasValidWhatsapp } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 
 export type PublicOrganization = Pick<
@@ -25,6 +26,10 @@ export type PropertyWithProfile = Tables<"properties"> & {
   // Optional: only the detail-page fetchers embed it; RLS hides non-active
   // orgs from anon, so a pending org comes back null (owner-profile fallback).
   organizations?: PublicOrganization | null;
+  // Computed below — the raw `properties` table has no such column, only the
+  // `public_properties` view does. Owner/admin preview reads the raw table, so
+  // it must derive this itself to match what the public view exposes.
+  has_whatsapp?: boolean;
 };
 
 // cache(): generateMetadata + page body share one query per request.
@@ -83,6 +88,7 @@ export const getPropertyById = cache(
       // Drop legacy base64/oversized photo entries before they reach SSR HTML,
       // the RSC payload, or og:image — see sanitizePhotos.
       row.photos = sanitizePhotos(row.photos);
+      row.has_whatsapp = hasValidWhatsapp(row.whatsapp);
       return { data: row, isMock: false };
     } catch (err) {
       // Never swallow Next's control-flow signals (dynamic-rendering bail-out,

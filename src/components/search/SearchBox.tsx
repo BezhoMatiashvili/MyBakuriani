@@ -708,6 +708,16 @@ export function SearchBox({
               )}
             />
           </button>
+          {activeDropdown === "location" && !isMobile && (
+            <LocationDropdown
+              location={location}
+              onSelect={(val) => {
+                setLocation(val);
+                setActiveDropdown(null);
+              }}
+              zones={zones}
+            />
+          )}
         </div>
 
         {/* Divider */}
@@ -944,18 +954,6 @@ export function SearchBox({
           </div>
         );
 
-        // Location — always floats from SearchBox (never portaled)
-        const locationPanel = activeDropdown === "location" && (
-          <LocationDropdown
-            location={location}
-            onSelect={(val) => {
-              setLocation(val);
-              setActiveDropdown(null);
-            }}
-            zones={zones}
-          />
-        );
-
         // Filters — the parent keeps filtersPortalRef's node permanently
         // mounted (visibility toggled via CSS), so unlike the calendar panel
         // above it never needs to wait a frame for the target to appear.
@@ -988,7 +986,6 @@ export function SearchBox({
           <>
             {filtersContent}
             {calendarContent}
-            {locationPanel}
           </>
         );
       })()}

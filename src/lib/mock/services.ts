@@ -322,6 +322,10 @@ export function isMockServiceId(id: string): boolean {
 
 type ServiceWithProfile = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
+  // Computed by getServiceById — the raw `services` table has no such column,
+  // only the `public_services` view does. Owner/admin preview reads the raw
+  // table, so it must derive this itself to match what the public view shows.
+  has_whatsapp?: boolean;
 };
 
 export type FoodExtras = {

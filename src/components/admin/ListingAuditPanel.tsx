@@ -960,6 +960,12 @@ function ServiceForm({
             onChange={(v) => setField("phone", v)}
             placeholder="+995 5XX XX XX XX"
           />
+          <TextField
+            label={tDash("whatsapp")}
+            value={effective<string | null>("whatsapp", null) ?? ""}
+            onChange={(v) => setField("whatsapp", v)}
+            placeholder="+995 5XX XX XX XX"
+          />
         </Grid2>
       </Section>
 

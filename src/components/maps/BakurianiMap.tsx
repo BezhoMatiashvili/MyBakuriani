@@ -129,6 +129,7 @@ interface MapboxMapViewProps {
   fitBoundsEnabled: boolean;
   boundsKey: string;
   singleZoom: number;
+  onMapError?: () => void;
 }
 
 // ── Imperative Mapbox GL canvas. Mirrors the previous react-leaflet tree:
@@ -150,6 +151,7 @@ function MapboxMapView({
   fitBoundsEnabled,
   boundsKey,
   singleZoom,
+  onMapError,
 }: MapboxMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -174,9 +176,10 @@ function MapboxMapView({
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
     if (!token) {
       // Mapbox GL throws synchronously from `new Map()` with no token, which
-      // crashes the whole page via the nearest error boundary since this
-      // runs inside an effect. Fail quietly instead — every call site (8
-      // pages) already tolerates a map that never mounts.
+      // would crash the whole page via the nearest error boundary since this
+      // runs inside an effect. Bail out, but tell the parent so it can show a
+      // visible fallback instead of leaving the container blank.
+      onMapError?.();
       return;
     }
     mapboxgl.accessToken = token;
@@ -191,6 +194,7 @@ function MapboxMapView({
       new mapboxgl.NavigationControl({ showCompass: false }),
       "top-right",
     );
+    map.on("error", () => onMapError?.());
     map.on("click", () => setSelectedId(null));
     mapRef.current = map;
 
@@ -404,6 +408,7 @@ export default function BakurianiMap({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
   const [isPhone, setIsPhone] = useState<boolean | null>(null);
   const mapFrameRef = useRef<HTMLDivElement>(null);
 
@@ -457,32 +462,36 @@ export default function BakurianiMap({
     [properties],
   );
 
-  const mapContent =
-    mapReady && (!isPhone || expanded) ? (
-      <MapboxMapView
-        initialCenter={initialCenter}
-        initialZoom={initialZoom}
-        hasProperties={hasProperties}
-        properties={properties}
-        zones={zones}
-        isForSale={isForSale}
-        selectedId={selectedId}
-        setSelectedId={setSelectedId}
-        onPropertyClick={onPropertyClick}
-        onZoneClick={onZoneClick}
-        fitBoundsEnabled={!center}
-        boundsKey={boundsKey}
-        singleZoom={zoom ?? 14}
-      />
-    ) : (
-      <div
-        className="flex h-full w-full items-center justify-center bg-[#F1F5F9]"
-        aria-busy="true"
-        aria-label={t("mapTitle")}
-      >
-        <span className="sr-only">{t("mapTitle")}</span>
-      </div>
-    );
+  const mapContent = mapError ? (
+    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC] p-4 text-center text-xs font-medium text-[#64748B]">
+      {t("mapUnavailable")}
+    </div>
+  ) : mapReady && (!isPhone || expanded) ? (
+    <MapboxMapView
+      initialCenter={initialCenter}
+      initialZoom={initialZoom}
+      hasProperties={hasProperties}
+      properties={properties}
+      zones={zones}
+      isForSale={isForSale}
+      selectedId={selectedId}
+      setSelectedId={setSelectedId}
+      onPropertyClick={onPropertyClick}
+      onZoneClick={onZoneClick}
+      fitBoundsEnabled={!center}
+      boundsKey={boundsKey}
+      singleZoom={zoom ?? 14}
+      onMapError={() => setMapError(true)}
+    />
+  ) : (
+    <div
+      className="flex h-full w-full items-center justify-center bg-[#F1F5F9]"
+      aria-busy="true"
+      aria-label={t("mapTitle")}
+    >
+      <span className="sr-only">{t("mapTitle")}</span>
+    </div>
+  );
 
   return (
     <>

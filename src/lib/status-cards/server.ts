@@ -2,7 +2,11 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/server";
-import { DEFAULT_STATUS_CARDS, type StatusCard } from "./types";
+import {
+  DEFAULT_STATUS_CARDS,
+  withItemNameSubtitles,
+  type StatusCard,
+} from "./types";
 
 export { DEFAULT_STATUS_CARDS, type StatusCard };
 
@@ -25,17 +29,19 @@ const getStatusCardsCached = unstable_cache(
         .eq("key", STATUS_CARDS_SETTING_KEY)
         .maybeSingle();
 
-      if (error || !data) return DEFAULT_STATUS_CARDS;
+      if (error || !data) return withItemNameSubtitles(DEFAULT_STATUS_CARDS);
 
       const value = data.value as { cards?: unknown } | null;
       const cards = value?.cards;
       if (!Array.isArray(cards) || cards.length === 0) {
-        return DEFAULT_STATUS_CARDS;
+        return withItemNameSubtitles(DEFAULT_STATUS_CARDS);
       }
 
-      return (cards as StatusCard[]).filter((card) => card?.active !== false);
+      return withItemNameSubtitles(
+        (cards as StatusCard[]).filter((card) => card?.active !== false),
+      );
     } catch {
-      return DEFAULT_STATUS_CARDS;
+      return withItemNameSubtitles(DEFAULT_STATUS_CARDS);
     }
   },
   ["status-cards"],

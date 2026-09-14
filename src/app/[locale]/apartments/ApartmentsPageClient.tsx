@@ -254,7 +254,7 @@ export default function ApartmentsPageClient({
               ref={filtersBoundaryRef}
               onMouseDown={(e) => e.stopPropagation()}
               className={cn(
-                "absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                "absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
                 activeDropdown === "filters"
                   ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
                   : "hidden",
@@ -272,7 +272,7 @@ export default function ApartmentsPageClient({
               )}
             </div>
             {activeDropdown === "calendar" ? (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 hidden lg:block">
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden lg:block">
                 <div ref={dropdownPortalRef} className="min-w-0" />
               </div>
             ) : null}

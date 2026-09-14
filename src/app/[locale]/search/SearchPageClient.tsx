@@ -544,7 +544,7 @@ export default function SearchPageClient({
               ref={filtersBoundaryRef}
               onMouseDown={(event) => event.stopPropagation()}
               className={cn(
-                "absolute left-0 top-full z-30 mt-2 w-[700px] max-w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                "absolute left-0 top-full z-50 mt-2 w-[700px] max-w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
                 activeDropdown === "filters"
                   ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:block"
                   : "hidden",
@@ -556,7 +556,7 @@ export default function SearchPageClient({
               <div
                 ref={dropdownBoundaryRef}
                 onMouseDown={(event) => event.stopPropagation()}
-                className="absolute left-0 top-full z-30 mt-2 hidden w-[760px] max-w-full lg:block"
+                className="absolute left-0 top-full z-50 mt-2 hidden w-[760px] max-w-full lg:block"
               >
                 <div ref={dropdownPortalRef} className="min-w-0" />
               </div>

@@ -121,6 +121,7 @@ export default function ExactLocationPicker({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const [mapError, setMapError] = useState(!mapboxgl.accessToken);
 
   // Kept fresh via a ref so the click handler (registered once at map
   // creation) never closes over a stale `onChange`.
@@ -153,6 +154,7 @@ export default function ExactLocationPicker({
       new mapboxgl.NavigationControl({ showCompass: false }),
       "top-right",
     );
+    map.on("error", () => setMapError(true));
     map.on("click", (e) => {
       onChangeRef.current({
         lat: Number(e.lngLat.lat.toFixed(6)),
@@ -280,6 +282,11 @@ export default function ExactLocationPicker({
       </div>
       <div className="relative z-0 h-[240px] overflow-hidden rounded-xl border border-[#E2E8F0]">
         <div ref={mapContainerRef} className="h-full w-full" />
+        {mapError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#F8FAFC] p-4 text-center text-xs font-medium text-[#64748B]">
+            {t("mapUnavailable")}
+          </div>
+        )}
       </div>
       <p className="text-xs text-[#64748B]">{t("clickHint")}</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -132,31 +132,64 @@ export default function InvestmentCard({
       <Link
         href={`/sales/${id}`}
         data-mobile-presentation={mobilePresentation}
-        className={cn("flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0px_10px_30px_-4px_rgba(0,0,0,0.08)]", compactGrid ? "rounded-[16px] sm:rounded-[20px]" : "rounded-[20px]")}
+        className={cn(
+          "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0px_10px_30px_-4px_rgba(0,0,0,0.08)]",
+          compactGrid ? "rounded-[16px] sm:rounded-[20px]" : "rounded-[20px]",
+        )}
       >
-        <div className={cn("relative overflow-hidden lg:aspect-[4/3]", compactGrid ? "aspect-[4/3] sm:aspect-[8/5]" : "aspect-[8/5]")}>
+        <div
+          className={cn(
+            "relative overflow-hidden lg:aspect-[4/3]",
+            compactGrid ? "aspect-[4/3] sm:aspect-[8/5]" : "aspect-[8/5]",
+          )}
+        >
           <Image
             src={photo}
             alt={title}
             fill
             placeholder="blur"
             blurDataURL={CARD_BLUR_DATA_URL}
-            sizes={compactGrid ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 400px" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"}
+            sizes={
+              compactGrid
+                ? "(max-width: 639px) 50vw, (max-width: 1024px) 50vw, 400px"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+            }
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
 
-          <span className={cn("absolute flex items-center rounded-full bg-[#16A34A] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]", compactGrid ? "left-2 top-2 gap-1 px-2 py-1 text-[9px] sm:left-4 sm:top-4 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px]" : "left-4 top-4 gap-1.5 px-3 py-1.5 text-[12px]")}>
-            <Tag className="h-3 w-3" />
-            {t("forSale")}
-          </span>
-
-          {/* Same pill geometry as the sale badge above (no icon => same 30px
-              height), so top-14 stacks flush under it. */}
-          {discountActive && salePrice != null && (
-            <span className="absolute left-4 top-14 inline-flex items-center rounded-full bg-[#F97316] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
-              -{discountPercent}%
+          {/* One flex-col stack (not separately-offset absolute pills) so the
+              "for sale" / discount / completed badges never overlap each
+              other or the location row below them. */}
+          <div
+            className={cn(
+              "absolute flex flex-col items-start gap-2",
+              compactGrid ? "left-2 top-2 sm:left-4 sm:top-4" : "left-4 top-4",
+            )}
+          >
+            <span
+              className={cn(
+                "flex items-center rounded-full bg-[#16A34A] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]",
+                compactGrid
+                  ? "gap-1 px-2 py-1 text-[9px] sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px]"
+                  : "gap-1.5 px-3 py-1.5 text-[12px]",
+              )}
+            >
+              <Tag className="h-3 w-3" />
+              {t("forSale")}
             </span>
-          )}
+
+            {discountActive && salePrice != null && (
+              <span className="inline-flex items-center rounded-full bg-[#F97316] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
+                -{discountPercent}%
+              </span>
+            )}
+
+            {isCompleted && (
+              <span className="inline-flex items-center rounded-full bg-[#FEF3C7] px-3 py-1.5 text-[12px] font-bold text-[#B45309] shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
+                {tOpts("constructionStatuses.completed")}
+              </span>
+            )}
+          </div>
 
           <button
             type="button"
@@ -177,12 +210,19 @@ export default function InvestmentCard({
             createdAt={createdAt}
             className={cn(
               "absolute",
-              compactGrid ? "bottom-2 left-2 px-2 text-[8px] sm:bottom-4 sm:left-4" : "bottom-4 left-4",
+              compactGrid
+                ? "bottom-2 left-2 px-2 text-[8px] sm:bottom-4 sm:left-4"
+                : "bottom-4 left-4",
             )}
           />
         </div>
 
-        <div className={cn("flex flex-1 flex-col lg:p-5", compactGrid ? "p-2.5 sm:p-4" : "p-4")}>
+        <div
+          className={cn(
+            "flex flex-1 flex-col lg:p-5",
+            compactGrid ? "p-2.5 sm:p-4" : "p-4",
+          )}
+        >
           <div className="flex min-w-0 items-center justify-between gap-2">
             <p className="flex min-w-0 items-center gap-1 text-[12px] font-medium text-[#94A3B8]">
               <MapPin className="h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
@@ -191,21 +231,28 @@ export default function InvestmentCard({
             <div className="flex shrink-0 items-center gap-1">
               <ListingAgeBadge
                 createdAt={createdAt}
-                className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+                className={
+                  compactGrid
+                    ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]"
+                    : undefined
+                }
               />
-              {roiPercent != null && roiPercent > 0 ? (
+              {roiPercent != null && roiPercent > 0 && (
                 <span className="shrink-0 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-bold text-[#16A34A]">
                   ROI {Number(roiPercent).toFixed(0)}%
                 </span>
-              ) : isCompleted ? (
-                <span className="shrink-0 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-bold text-[#B45309]">
-                  {tOpts("constructionStatuses.completed")}
-                </span>
-              ) : null}
+              )}
             </div>
           </div>
 
-          <h3 className={cn("mt-2 truncate font-black text-[#1E293B]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[22px]" : "text-[17px] leading-[22px]")}>
+          <h3
+            className={cn(
+              "mt-2 truncate font-black text-[#1E293B]",
+              compactGrid
+                ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[22px]"
+                : "text-[17px] leading-[22px]",
+            )}
+          >
             {title}
           </h3>
 
@@ -234,7 +281,14 @@ export default function InvestmentCard({
             </div>
           )}
 
-          <div className={cn("mt-auto gap-3 pt-5", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:items-end sm:justify-between" : "flex items-end justify-between")}>
+          <div
+            className={cn(
+              "mt-auto gap-3 pt-5",
+              compactGrid
+                ? "flex flex-col items-stretch sm:flex-row sm:items-end sm:justify-between"
+                : "flex items-end justify-between",
+            )}
+          >
             <div className="min-w-0">
               {salePrice != null ? (
                 <>
@@ -243,7 +297,14 @@ export default function InvestmentCard({
                       {formatPrice(salePrice)}
                     </span>
                   )}
-                  <span className={cn("block whitespace-nowrap font-black text-[#0F172A]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[30px]" : "text-[24px] leading-[30px]")}>
+                  <span
+                    className={cn(
+                      "block whitespace-nowrap font-black text-[#0F172A]",
+                      compactGrid
+                        ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[30px]"
+                        : "text-[24px] leading-[30px]",
+                    )}
+                  >
                     {formatPrice(displayPrice!)}
                   </span>
                 </>
@@ -254,7 +315,14 @@ export default function InvestmentCard({
                 </span>
               )}
             </div>
-            <span className={cn("shrink-0 rounded-[12px] bg-[#16A34A] font-bold text-white transition-colors group-hover:bg-[#15803D]", compactGrid ? "flex min-h-11 w-full items-center justify-center px-2 py-2 text-[11px] sm:min-h-0 sm:w-auto sm:px-5 sm:text-[13px]" : "px-5 py-2 text-[13px]")}>
+            <span
+              className={cn(
+                "shrink-0 rounded-[12px] bg-[#16A34A] font-bold text-white transition-colors group-hover:bg-[#15803D]",
+                compactGrid
+                  ? "flex min-h-11 w-full items-center justify-center px-2 py-2 text-[11px] sm:min-h-0 sm:w-auto sm:px-5 sm:text-[13px]"
+                  : "px-5 py-2 text-[13px]",
+              )}
+            >
               {t("details")}
             </span>
           </div>

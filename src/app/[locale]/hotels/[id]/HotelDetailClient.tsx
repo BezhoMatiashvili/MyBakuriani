@@ -100,7 +100,9 @@ export default function HotelDetailClient({
   }>({ start: null, end: null });
 
   useEffect(() => {
-    void fetch(`/api/listings/property/${property.id}/view`, { method: "POST" });
+    void fetch(`/api/listings/property/${property.id}/view`, {
+      method: "POST",
+    });
   }, [property.id]);
 
   const owner = property.profiles;
@@ -384,14 +386,14 @@ export default function HotelDetailClient({
             />
           </motion.div>
 
-          {/* Reviews */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
-            <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-              {t("reviewsTitle")} {reviews.length > 0 && `(${reviews.length})`}
-            </h2>
-            {reviews.length === 0 ? (
-              <p className="text-sm text-[#94A3B8]">{tDetail("noReviews")}</p>
-            ) : (
+          {/* Reviews — hidden entirely while empty (no submission flow
+              reaches real, offline-booked stays yet), rather than showing a
+              permanent "no reviews" placeholder. */}
+          {reviews.length > 0 && (
+            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
+              <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
+                {t("reviewsTitle")} ({reviews.length})
+              </h2>
               <div className="space-y-8">
                 {reviews.map((review) => (
                   <ReviewCard
@@ -405,8 +407,8 @@ export default function HotelDetailClient({
                   />
                 ))}
               </div>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
         </div>
 
         {/* Sidebar — lg sticky offsets mirror Navbar primary (91px) + category rail (94px) */}
@@ -441,10 +443,7 @@ export default function HotelDetailClient({
           )}
         </motion.div>
 
-        <BannerSlot
-          placement="detail_sidebar"
-          className="lg:col-start-3"
-        />
+        <BannerSlot placement="detail_sidebar" className="lg:col-start-3" />
       </div>
 
       {property.price_per_night != null && (
