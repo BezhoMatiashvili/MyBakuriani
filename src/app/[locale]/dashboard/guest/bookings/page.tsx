@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -53,10 +53,37 @@ export default function GuestBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("all");
   const [modalOpen, setModalOpen] = useState(false);
+  // The guest's own smart_match_requests ids, so the realtime handler below can
+  // tell an offer on one of them apart from an offer anywhere else on the
+  // platform (guest_id lives on smart_match_requests, not on the offer row, so
+  // the postgres_changes subscription itself can't filter on it).
+  const requestIdsRef = useRef<Set<string>>(new Set());
+  // False until fetchRequestIds()'s first pass resolves. The realtime
+  // subscription below goes live immediately (synchronously, on the same
+  // tick), so an offer event can arrive before that id set is populated —
+  // while not ready, treat every event as relevant (matching the old
+  // always-refetch behavior) instead of dropping it against an empty Set.
+  const requestIdsReadyRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
+
+    async function fetchRequestIds() {
+      const { data } = await supabase
+        .from("smart_match_requests")
+        .select("id")
+        .eq("guest_id", user!.id);
+      // Merge, don't replace: a reseed racing a just-created request (from
+      // submitNewRequest below) must not drop its id.
+      if (active && data) {
+        requestIdsRef.current = new Set([
+          ...requestIdsRef.current,
+          ...data.map((r) => r.id),
+        ]);
+      }
+      if (active) requestIdsReadyRef.current = true;
+    }
 
     async function fetchData() {
       const { data } = await supabase
@@ -144,16 +171,29 @@ export default function GuestBookingsPage() {
       }
     }
     fetchData();
+    fetchRequestIds();
 
-    // Live: new/updated offers for this guest arrive over websocket. RLS scopes
-    // smart_match_offers to the guest's own requests, so we refetch on any change.
+    // Live: new/updated offers for this guest arrive over websocket. The
+    // subscription itself can't filter on guest_id (it lives on
+    // smart_match_requests, not on this table), so we check the event's
+    // request_id against the guest's own request ids before refetching —
+    // otherwise every guest's tab would refetch on any offer platform-wide.
     const channel = supabase
       .channel("guest-bookings-offers")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "smart_match_offers" },
-        () => {
-          fetchData();
+        (payload) => {
+          const requestId =
+            (payload.new as { request_id?: string } | null)?.request_id ??
+            (payload.old as { request_id?: string } | null)?.request_id;
+          if (
+            requestId &&
+            (!requestIdsReadyRef.current ||
+              requestIdsRef.current.has(requestId))
+          ) {
+            fetchData();
+          }
         },
       )
       .subscribe();
@@ -180,17 +220,24 @@ export default function GuestBookingsPage() {
     // Create the request. A DB trigger (notify_owners_of_smart_match_request)
     // fans out notifications to every matching renter server-side, so there is no
     // fragile client-side fan-out here.
-    const { error } = await supabase.from("smart_match_requests").insert({
-      guest_id: user.id,
-      check_in: p.checkIn,
-      check_out: p.checkOut,
-      guests_count: p.guestsCount ?? null,
-      budget_min: p.budgetMin ?? null,
-      budget_max: p.budgetMax ?? null,
-      zone: zoneValue,
-      status: "active",
-    });
+    const { data, error } = await supabase
+      .from("smart_match_requests")
+      .insert({
+        guest_id: user.id,
+        check_in: p.checkIn,
+        check_out: p.checkOut,
+        guests_count: p.guestsCount ?? null,
+        budget_min: p.budgetMin ?? null,
+        budget_max: p.budgetMax ?? null,
+        zone: zoneValue,
+        status: "active",
+      })
+      .select("id")
+      .single();
     if (error) throw error;
+    // Cache the new request id right away so an offer landing on it isn't
+    // ignored by the realtime handler above while waiting on a refetch.
+    if (data) requestIdsRef.current.add(data.id);
   }
 
   async function declineOffer(offerId: string) {

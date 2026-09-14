@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -31,6 +32,11 @@ import {
   type DashboardScope,
   type DashboardUnreadCounts,
 } from "@/lib/notifications/scopes";
+import {
+  DashboardNotificationsFeedProvider,
+  type DashboardNotificationsFeed,
+  type NotificationRow,
+} from "@/lib/dashboard/notificationsFeed";
 import BottomSheet from "@/components/shared/BottomSheet";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 
@@ -226,6 +232,16 @@ export function DashboardShell({
   const [membershipCount, setMembershipCount] = useState(0);
   const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
   const [serviceSwitcherOpen, setServiceSwitcherOpen] = useState(false);
+  // INSERT/UPDATE rows this component's own subscription below has seen
+  // (bounded, newest last), handed to DashboardNotificationsFeedProvider so
+  // useNotifications() (used by the guest/cleaner/admin topbar bell) can merge
+  // them instead of opening a second, redundant channel on the same
+  // table/filter. An array rather than a single slot: two rows landing in the
+  // same React batch (e.g. the smart-match fan-out) would otherwise collapse
+  // to just the last one.
+  const [notificationEvents, setNotificationEvents] = useState<
+    { eventType: "INSERT" | "UPDATE"; row: NotificationRow }[]
+  >([]);
   // One timer PER scope: two notification events for different cabinets inside
   // the debounce window must not cancel each other, or the first cabinet's badge
   // never reconciles. (smartMatchTimer is scope-less, so a single ref is right.)
@@ -314,6 +330,15 @@ export function DashboardShell({
               [scope]: (current[scope] ?? 0) + 1,
             }));
           }
+          setNotificationEvents((prev) =>
+            [
+              ...prev,
+              {
+                eventType: "INSERT" as const,
+                row: payload.new as NotificationRow,
+              },
+            ].slice(-50),
+          );
           if (
             (payload.new as { type?: string } | null)?.type ===
             "smart_match_request"
@@ -340,6 +365,15 @@ export function DashboardShell({
             payload.new as { dashboard_scope?: DashboardScope | null }
           )?.dashboard_scope;
           if (scope) recountUnread(scope);
+          setNotificationEvents((prev) =>
+            [
+              ...prev,
+              {
+                eventType: "UPDATE" as const,
+                row: payload.new as NotificationRow,
+              },
+            ].slice(-50),
+          );
         },
       )
       .on(
@@ -453,10 +487,25 @@ export function DashboardShell({
     return cabinet === "sms" ? "renter" : cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;
-  const normalizedPath =
-    pathname.replace(/^\/(ka|en|ru)(?=\/|$)/, "") || "/";
+  const normalizedPath = pathname.replace(/^\/(ka|en|ru)(?=\/|$)/, "") || "/";
   const activeScope = dashboardScopeForPath(pathname) ?? "guest";
   const notificationCount = unreadCounts[activeScope] ?? 0;
+  // Shared with DashboardNotificationsFeedProvider below (guest/cleaner/admin
+  // only) so useNotifications() can reuse this state instead of duplicating it.
+  const dashboardNotificationsFeedValue = useMemo<DashboardNotificationsFeed>(
+    () => ({
+      unreadCount: notificationCount,
+      events: notificationEvents,
+      adjustUnreadCount: (delta: number) =>
+        setUnreadCounts((current) => ({
+          ...current,
+          [activeScope]: Math.max(0, (current[activeScope] ?? 0) + delta),
+        })),
+      resetUnreadCount: () =>
+        setUnreadCounts((current) => ({ ...current, [activeScope]: 0 })),
+    }),
+    [notificationCount, notificationEvents, activeScope],
+  );
 
   const isAdmin = activeRole === "admin";
   const isRenter = activeRole === "renter";
@@ -471,29 +520,33 @@ export function DashboardShell({
 
   if (isAdmin) {
     return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#02060E] lg:h-screen">
-        <AdminSidebar
-          verificationAlerts={verificationCount}
-          membershipAlerts={membershipCount}
-          onSignOut={handleSignOut}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
-          <AdminTopbar
-            userName={displayName}
-            notificationCount={notificationCount}
+      <DashboardNotificationsFeedProvider
+        value={dashboardNotificationsFeedValue}
+      >
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#02060E] lg:h-screen">
+          <AdminSidebar
+            verificationAlerts={verificationCount}
+            membershipAlerts={membershipCount}
+            onSignOut={handleSignOut}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 xl:p-10">
-            {children}
-          </main>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
+            <AdminTopbar
+              userName={displayName}
+              notificationCount={notificationCount}
+            />
+            <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 xl:p-10">
+              {children}
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole="admin"
+            onSignOut={handleSignOut}
+            notificationCount={notificationCount}
+            availableCabinets={availableCabinets}
+          />
         </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole="admin"
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-        />
-      </div>
+      </DashboardNotificationsFeedProvider>
     );
   }
 
@@ -623,61 +676,73 @@ export function DashboardShell({
 
   if (isGuest) {
     return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-        <GuestSidebar
-          userName={displayName}
-          avatarUrl={avatarUrl ?? undefined}
-          isVerified
-          currentPath={pathname}
-          onSignOut={handleSignOut}
-          availableCabinets={availableCabinets}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <GuestTopbar notificationCount={notificationCount} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
-          </main>
+      <DashboardNotificationsFeedProvider
+        value={dashboardNotificationsFeedValue}
+      >
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
+          <GuestSidebar
+            userName={displayName}
+            avatarUrl={avatarUrl ?? undefined}
+            isVerified
+            currentPath={pathname}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+          />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <GuestTopbar notificationCount={notificationCount} />
+            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+                {children}
+              </div>
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole={activeRole}
+            onSignOut={handleSignOut}
+            notificationCount={notificationCount}
+            availableCabinets={availableCabinets}
+          />
         </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole={activeRole}
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-        />
-      </div>
+      </DashboardNotificationsFeedProvider>
     );
   }
 
   if (isCleaner) {
     return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-        <CleanerSidebar
-          userName={displayName}
-          userId={userId}
-          avatarUrl={avatarUrl ?? undefined}
-          currentPath={pathname}
-          onSignOut={handleSignOut}
-          availableCabinets={availableCabinets}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <CleanerTopbar
-            notificationCount={notificationCount}
-            available={cleanerAvailable}
-            onAvailableChange={handleCleanerAvailableChange}
+      <DashboardNotificationsFeedProvider
+        value={dashboardNotificationsFeedValue}
+      >
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
+          <CleanerSidebar
+            userName={displayName}
+            userId={userId}
+            avatarUrl={avatarUrl ?? undefined}
+            currentPath={pathname}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
-          </main>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <CleanerTopbar
+              notificationCount={notificationCount}
+              available={cleanerAvailable}
+              onAvailableChange={handleCleanerAvailableChange}
+            />
+            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+                {children}
+              </div>
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole={activeRole}
+            onSignOut={handleSignOut}
+            notificationCount={notificationCount}
+            availableCabinets={availableCabinets}
+          />
         </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole={activeRole}
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-        />
-      </div>
+      </DashboardNotificationsFeedProvider>
     );
   }
 

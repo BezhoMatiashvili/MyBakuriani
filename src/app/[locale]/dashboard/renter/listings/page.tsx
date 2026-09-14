@@ -214,6 +214,7 @@ export default function RenterListingsPage() {
                       src={(property.photos ?? [])[0]}
                       alt={property.title}
                       fill
+                      sizes="80px"
                       className="object-cover"
                     />
                   )}

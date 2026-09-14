@@ -86,9 +86,11 @@ function formatViews(count: number) {
 export default function RenterDashboardClient({
   userId,
   initial,
+  initialSmartMatchCount,
 }: {
   userId: string;
   initial: RenterOverview;
+  initialSmartMatchCount: number;
 }) {
   const t = useTranslations("RenterDashboard");
   const tShared = useTranslations("DashboardShared");
@@ -116,7 +118,10 @@ export default function RenterDashboardClient({
   const [membershipPlans, setMembershipPlans] = useState(
     initial.membershipPlans,
   );
-  const [matchesCount, setMatchesCount] = useState(0);
+  // Seeded from the server render, same as everything else above — avoids a
+  // client round trip (and a flash of 0) purely to re-fetch a number the page
+  // already computed server-side.
+  const [matchesCount, setMatchesCount] = useState(initialSmartMatchCount);
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [vipModal, setVipModal] = useState<{
@@ -151,8 +156,6 @@ export default function RenterDashboardClient({
       setMembershipPlans(data.membershipPlans);
       void refreshMatches();
     }
-
-    void refreshMatches();
 
     // Live: new bookings (income/receivable) and listing status changes refresh
     // the overview without a reload.
@@ -535,6 +538,7 @@ function PropertyRow({
               src={photo}
               alt={property.title}
               fill
+              sizes="88px"
               className="object-cover"
             />
           ) : null}

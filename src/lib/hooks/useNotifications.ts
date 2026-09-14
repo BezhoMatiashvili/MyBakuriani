@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/types/database";
 import type { DashboardScope } from "@/lib/notifications/scopes";
+import { useDashboardNotificationsFeed } from "@/lib/dashboard/notificationsFeed";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
@@ -16,6 +17,14 @@ export function useNotifications(scope?: DashboardScope) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Null outside DashboardShell's guest/cleaner/admin branches (e.g. the public
+  // Navbar's bell), in which case this hook fetches/subscribes on its own,
+  // exactly as before. Read via a ref inside init() below so the object
+  // changing on every notification (its unreadCount/events are live) never
+  // re-triggers that effect — only its one-time presence matters there.
+  const externalFeed = useDashboardNotificationsFeed();
+  const externalFeedRef = useRef(externalFeed);
+  externalFeedRef.current = externalFeed;
   // The read-writes below run outside the effect that resolves the session, so
   // the id is parked here to carry an explicit user_id predicate. That predicate
   // is load-bearing: the "Admins full access notifications" policy is FOR ALL and
@@ -71,7 +80,11 @@ export function useNotifications(scope?: DashboardScope) {
 
         // Fetch existing notifications (cap the initial load — the bell only shows
         // recent items, and realtime keeps newer ones in sync) alongside the exact
-        // unread count (a separate concern — see fetchUnreadCount above).
+        // unread count (a separate concern — see fetchUnreadCount above). When a
+        // DashboardNotificationsFeed is available, that count is already being
+        // kept warm by DashboardShell's own subscription — skip the redundant
+        // query here (the merge effect below keeps the list in sync instead of
+        // this hook's own channel).
         let query = supabase
           .from("notifications")
           .select("*")
@@ -79,12 +92,14 @@ export function useNotifications(scope?: DashboardScope) {
           .order("created_at", { ascending: false })
           .limit(50);
         if (scope) query = query.eq("dashboard_scope", scope);
-        const [{ data }] = await Promise.all([
-          query,
-          fetchUnreadCount(user.id),
-        ]);
+        const hasExternalFeed = !!externalFeedRef.current;
+        const { data } = hasExternalFeed
+          ? await query
+          : (await Promise.all([query, fetchUnreadCount(user.id)]))[0];
 
         setNotifications(data ?? []);
+
+        if (hasExternalFeed) return;
 
         // Subscribe to real-time changes
         channel = supabase
@@ -182,7 +197,37 @@ export function useNotifications(scope?: DashboardScope) {
     };
   }, [scope, supabase, fetchUnreadCount, recountUnread]);
 
+  // Stands in for this hook's own channel (skipped above) when a
+  // DashboardNotificationsFeed is available: DashboardShell already sees every
+  // INSERT/UPDATE for this user on its own subscription, so merge each one in
+  // here instead of opening a second one. Re-folds the whole (bounded) array
+  // on every change rather than tracking "the last one merged" — harmless,
+  // since merging an already-applied row is a no-op (INSERT dedupes by id,
+  // UPDATE is a replace-by-id). DELETE isn't covered — a filtered DELETE
+  // subscription never receives events under RLS (see contracts.md C7 /
+  // memory-bank), so the dropped hook's own DELETE handler was already dead
+  // code in practice.
+  useEffect(() => {
+    const events = externalFeed?.events;
+    if (!events) return;
+    for (const { eventType, row } of events) {
+      if (scope && row.dashboard_scope !== scope) continue;
+      if (eventType === "INSERT") {
+        setNotifications((prev) => {
+          if (prev.some((item) => item.id === row.id)) return prev;
+          return [row, ...prev];
+        });
+      } else {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === row.id ? row : n)),
+        );
+      }
+    }
+  }, [externalFeed?.events, scope]);
+
   async function markAsRead(id: string) {
+    const wasUnread = notifications.find((n) => n.id === id)?.is_read === false;
+
     const { error } = await supabase
       .from("notifications")
       .update({ is_read: true })
@@ -194,9 +239,16 @@ export function useNotifications(scope?: DashboardScope) {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
     );
-    // Same call this row's own realtime UPDATE would trigger — recounting
-    // here too means the badge doesn't wait on the round-trip.
-    recountUnread();
+    if (externalFeed) {
+      // DashboardShell's own subscription will also recount this write, but
+      // only after a round-trip through its debounce — decrement now (only if
+      // this row was actually unread) so the badge doesn't visibly lag.
+      if (wasUnread) externalFeed.adjustUnreadCount(-1);
+    } else {
+      // Same call this row's own realtime UPDATE would trigger — recounting
+      // here too means the badge doesn't wait on the round-trip.
+      recountUnread();
+    }
   }
 
   /**
@@ -223,12 +275,16 @@ export function useNotifications(scope?: DashboardScope) {
     // The write above touched exactly this feed's unread rows (same
     // user_id/scope predicate), so the new count is known outright — no
     // need to round-trip for it.
-    setUnreadCount(0);
+    if (externalFeed) {
+      externalFeed.resetUnreadCount();
+    } else {
+      setUnreadCount(0);
+    }
   }
 
   return {
     notifications,
-    unreadCount,
+    unreadCount: externalFeed ? externalFeed.unreadCount : unreadCount,
     loading,
     markAsRead,
     markAllRead,

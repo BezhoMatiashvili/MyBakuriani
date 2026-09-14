@@ -291,11 +291,12 @@ function CreateServicePageInner() {
         editId && loadedCategory ? loadedCategory : categoryValue;
 
       if (is24_7 && resolvedCategory === "cleaning") {
-        const { data: ownedCleaning, error: hoursConflictError } = await supabase
-          .from("services")
-          .select("id, title, schedule, operating_hours")
-          .eq("owner_id", user.id)
-          .eq("category", "cleaning");
+        const { data: ownedCleaning, error: hoursConflictError } =
+          await supabase
+            .from("services")
+            .select("id, title, schedule, operating_hours")
+            .eq("owner_id", user.id)
+            .eq("category", "cleaning");
         if (hoursConflictError) throw hoursConflictError;
         const conflict = (ownedCleaning ?? []).find(
           (service) =>
@@ -360,8 +361,8 @@ function CreateServicePageInner() {
           err.code === "23505"
           ? t("existing247Conflict")
           : isContentChangeError(err)
-          ? tShared(contentChangeErrorKey(err))
-          : formatSupabaseError(err, tShared("genericError")),
+            ? tShared(contentChangeErrorKey(err))
+            : formatSupabaseError(err, tShared("genericError")),
       );
       submittingRef.current = false;
       setLoading(false);
@@ -382,7 +383,11 @@ function CreateServicePageInner() {
         <WizardFooter
           accent="blue"
           backHref="/create"
-          submitLabel={isEditMode ? tShared("contentChange.submitForReview") : tShared("publishListing")}
+          submitLabel={
+            isEditMode
+              ? tShared("contentChange.submitForReview")
+              : tShared("publishListing")
+          }
           submitDisabled={loading}
           loading={loading}
           error={error}
@@ -543,11 +548,7 @@ function CreateServicePageInner() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (
-                      !is24_7 &&
-                      isCleaningListing &&
-                      existing247Service
-                    ) {
+                    if (!is24_7 && isCleaningListing && existing247Service) {
                       setError(t("existing247Conflict"));
                       return;
                     }
@@ -810,6 +811,7 @@ function ProfilePhotoUpload({
         .upload(path, watermarked, {
           contentType: "image/jpeg",
           upsert: false,
+          cacheControl: "31536000",
         });
       if (upErr) throw upErr;
       const { data: pub } = client.storage

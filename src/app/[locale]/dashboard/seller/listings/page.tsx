@@ -188,6 +188,7 @@ export default function SellerListingsPage() {
                       src={coverPhoto}
                       alt={property.title}
                       fill
+                      sizes="210px"
                       className="object-cover"
                     />
                   ) : (

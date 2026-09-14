@@ -67,8 +67,7 @@ function hoursFromService(service: CleaningService): ServiceHours {
     service.operating_hours?.trim() ||
     DEFAULT_WORKING_HOURS;
   return {
-    workingHours:
-      storedHours === "24/7" ? DEFAULT_WORKING_HOURS : storedHours,
+    workingHours: storedHours === "24/7" ? DEFAULT_WORKING_HOURS : storedHours,
     is24_7: storedHours === "24/7",
   };
 }
@@ -345,6 +344,7 @@ export default function CleanerParametersPage() {
         .upload(path, file, {
           upsert: true,
           contentType: file.type,
+          cacheControl: "31536000",
         });
       if (upErr) throw upErr;
 

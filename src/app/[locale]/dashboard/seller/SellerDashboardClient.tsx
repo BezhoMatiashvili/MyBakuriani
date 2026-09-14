@@ -319,6 +319,7 @@ export default function SellerDashboardClient({
                         src={(property.photos ?? [])[0]}
                         alt={property.title}
                         fill
+                        sizes="88px"
                         className="object-cover"
                       />
                     )}

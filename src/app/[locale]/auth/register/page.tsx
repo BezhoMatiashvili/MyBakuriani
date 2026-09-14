@@ -207,6 +207,7 @@ export default function RegisterPage() {
         .upload(path, avatarFile, {
           upsert: true,
           contentType: avatarFile.type,
+          cacheControl: "31536000",
         });
       if (uploadError) throw uploadError;
 

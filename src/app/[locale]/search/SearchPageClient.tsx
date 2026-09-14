@@ -353,20 +353,16 @@ export default function SearchPageClient({
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      // page.tsx already applies location/guests/price/rooms/bathrooms/area/
+      // types/amenities/verifiedOnly to initialProperties server-side, so
+      // re-running the search for those on mount would just duplicate the
+      // request. Only keyword (switches to the bucketed global_search across
+      // properties+services+blog) and check-in/check-out (availability via
+      // calendar_blocks) aren't computed server-side and still need a fetch.
       const needFetch =
         !!searchState.keyword ||
         !!searchState.checkIn ||
-        !!searchState.checkOut ||
-        !!searchState.guests ||
-        filters.priceMin !== "" ||
-        filters.priceMax !== "" ||
-        filters.rooms !== null ||
-        filters.bathrooms !== null ||
-        filters.areaMin !== "" ||
-        filters.areaMax !== "" ||
-        filters.types.length > 0 ||
-        filters.amenities.length > 0 ||
-        filters.verifiedOnly;
+        !!searchState.checkOut;
       if (!needFetch) return;
     }
     runSearch(searchState, filters, mode, page);

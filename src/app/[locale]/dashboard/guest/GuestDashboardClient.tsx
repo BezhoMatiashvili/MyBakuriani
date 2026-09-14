@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
@@ -53,6 +53,25 @@ export default function GuestDashboardClient({
     Tables<"notifications">[]
   >(initial.reviewRequests);
   const [requests, setRequests] = useState<MyRequest[]>(initial.requests);
+  // The guest's own smart_match_requests ids, so the realtime handler below can
+  // tell an offer on one of them apart from an offer anywhere else on the
+  // platform (guest_id lives on smart_match_requests, not on the offer row, so
+  // the postgres_changes subscription itself can't filter on it). Seeded from
+  // both `requests` and `offers` since `requests` is capped at the 20 newest
+  // (loadGuestData's dashboard query), while `offers` (unlimited) can still
+  // reference an older one; the effect below backfills the rest on mount.
+  const requestIdsRef = useRef<Set<string>>(
+    new Set([
+      ...initial.requests.map((r) => r.id),
+      ...initial.offers.map((o) => o.requestId),
+    ]),
+  );
+  // False until the backfill effect below resolves. The synchronous seed
+  // above only covers the 20-newest requests/their offers, and the realtime
+  // subscription goes live before the backfill query for older ids resolves
+  // — while not ready, treat every event as relevant (matching the old
+  // always-refetch behavior) instead of dropping it against an incomplete set.
+  const requestIdsReadyRef = useRef(false);
 
   const [newRequestOpen, setNewRequestOpen] = useState(false);
   const [offersOpen, setOffersOpen] = useState(false);
@@ -71,10 +90,39 @@ export default function GuestDashboardClient({
     setOffers(data.offers);
     setReviewRequests(data.reviewRequests);
     setRequests(data.requests);
+    // Merge, don't replace: a reseed racing a just-created request (this tab
+    // or another) must not drop its id — request ids only ever accumulate.
+    requestIdsRef.current = new Set([
+      ...requestIdsRef.current,
+      ...data.requests.map((r) => r.id),
+      ...data.offers.map((o) => o.requestId),
+    ]);
   }, []);
 
   useEffect(() => {
-    // Realtime: refresh offers when new ones land
+    // Backfill requestIdsRef with ALL of the guest's request ids, not just the
+    // 20 newest `requests`/`offers` above can see — otherwise an offer on an
+    // older request would be silently dropped by the realtime filter below.
+    // Indexed via idx_smart_match_guest.
+    supabase
+      .from("smart_match_requests")
+      .select("id")
+      .eq("guest_id", userId)
+      .then(({ data }) => {
+        if (data) {
+          requestIdsRef.current = new Set([
+            ...requestIdsRef.current,
+            ...data.map((r) => r.id),
+          ]);
+        }
+        requestIdsReadyRef.current = true;
+      });
+
+    // Realtime: refresh offers when new ones land. The subscription itself
+    // can't filter on guest_id (it lives on smart_match_requests, not on this
+    // table), so we check the event's request_id against the guest's own
+    // request ids before refetching — otherwise every guest's tab would
+    // refetch on any offer platform-wide.
     const channel = supabase
       .channel("guest-dashboard-offers")
       .on(
@@ -84,8 +132,17 @@ export default function GuestDashboardClient({
           schema: "public",
           table: "smart_match_offers",
         },
-        () => {
-          loadGuestData(supabase, userId).then(apply);
+        (payload) => {
+          const requestId =
+            (payload.new as { request_id?: string } | null)?.request_id ??
+            (payload.old as { request_id?: string } | null)?.request_id;
+          if (
+            requestId &&
+            (!requestIdsReadyRef.current ||
+              requestIdsRef.current.has(requestId))
+          ) {
+            loadGuestData(supabase, userId).then(apply);
+          }
         },
       )
       .subscribe();
@@ -104,19 +161,26 @@ export default function GuestDashboardClient({
     // Create the request. A DB trigger (notify_owners_of_smart_match_request)
     // fans out notifications to every matching renter server-side, so there is no
     // fragile client-side fan-out here.
-    const { error } = await supabase.from("smart_match_requests").insert({
-      guest_id: userId,
-      check_in: payload.checkIn,
-      check_out: payload.checkOut,
-      guests_count: payload.guestsCount ?? null,
-      budget_min: payload.budgetMin ?? null,
-      budget_max: payload.budgetMax ?? null,
-      zone: zoneValue,
-      status: "active",
-    });
+    const { data, error } = await supabase
+      .from("smart_match_requests")
+      .insert({
+        guest_id: userId,
+        check_in: payload.checkIn,
+        check_out: payload.checkOut,
+        guests_count: payload.guestsCount ?? null,
+        budget_min: payload.budgetMin ?? null,
+        budget_max: payload.budgetMax ?? null,
+        zone: zoneValue,
+        status: "active",
+      })
+      .select("id")
+      .single();
     // Throw so NewRequestModal stays open and shows the failure instead of
     // closing with apparent success.
     if (error) throw error;
+    // Cache the new request id right away so an offer landing on it isn't
+    // ignored by the realtime handler above while the reload below is in flight.
+    if (data) requestIdsRef.current.add(data.id);
     // Surface the new request immediately in "My Requests". The realtime channel
     // only listens on smart_match_offers, so a fresh request wouldn't otherwise
     // appear until an offer lands.

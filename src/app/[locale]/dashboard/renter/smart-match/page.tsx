@@ -115,6 +115,11 @@ export default function RenterSmartMatchPage() {
   useEffect(() => {
     if (!user) return;
 
+    // Mirrors the noActiveListings gate below so the realtime INSERT handler
+    // can skip appending while this renter has no active listing (fetchData's
+    // early return already keeps `requests` empty in that case).
+    let hasActiveListings = false;
+
     async function fetchData() {
       setLoadError(false);
       setNoActiveListings(false);
@@ -142,6 +147,8 @@ export default function RenterSmartMatchPage() {
         setLoading(false);
         return;
       }
+
+      hasActiveListings = true;
 
       // Resolve each property's zone from location text + sane coords. A null
       // zone means "unknown" and acts as a wildcard (fail-open) downstream.
@@ -269,8 +276,24 @@ export default function RenterSmartMatchPage() {
           schema: "public",
           table: "smart_match_requests",
         },
-        () => {
-          fetchData();
+        (payload) => {
+          // Unfiltered subscription (no renter-facing FK to filter on) fires
+          // for every guest's request platform-wide, so this must not refetch
+          // — append the row the payload already carries instead. `profiles`
+          // is an embedded join the payload doesn't include; leaving it null
+          // just falls back to the existing defaultGuest label until the next
+          // natural refetch, same as any other unresolved guest name.
+          if (!hasActiveListings) return;
+
+          const newRow = payload.new as Tables<"smart_match_requests">;
+          const mreq = toMatchRequest(newRow as SmartMatchRequest);
+          const today = new Date().toISOString().slice(0, 10);
+          if (newRow.status !== "active" || isStale(mreq, today)) return;
+
+          setRequests((prev) => {
+            if (prev.some((r) => r.id === newRow.id)) return prev;
+            return [{ ...newRow, profiles: null }, ...prev].slice(0, 30);
+          });
         },
       )
       .subscribe();

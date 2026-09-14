@@ -129,6 +129,7 @@ export default function GuestProfilePage() {
         .upload(path, file, {
           upsert: true,
           contentType: file.type,
+          cacheControl: "31536000",
         });
       if (upErr) throw upErr;
 

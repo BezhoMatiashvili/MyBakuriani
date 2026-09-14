@@ -378,8 +378,17 @@ export default function RenterCalendarPage() {
     setPlatformBookings([]);
   }, [selectedPropertyId, year, month]);
 
+  const fetchBookingsRef = useRef(fetchBookings);
+  useEffect(() => {
+    fetchBookingsRef.current = fetchBookings;
+  }, [fetchBookings]);
+
   useEffect(() => {
     fetchBookings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, year, month]);
+
+  useEffect(() => {
     if (!selectedPropertyId) return;
     const channel = supabase
       .channel(`manual-bookings-${selectedPropertyId}`)
@@ -391,14 +400,14 @@ export default function RenterCalendarPage() {
           table: "manual_bookings",
           filter: `property_id=eq.${selectedPropertyId}`,
         },
-        () => fetchBookings(),
+        () => fetchBookingsRef.current(),
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, year, month]);
+  }, [selectedPropertyId]);
 
   const scheduleCalendarRefresh = useCallback(
     (includeBookings = false) => {
@@ -418,6 +427,11 @@ export default function RenterCalendarPage() {
     [fetchBlocks, fetchBookings, fetchOccupancy],
   );
 
+  const scheduleCalendarRefreshRef = useRef(scheduleCalendarRefresh);
+  useEffect(() => {
+    scheduleCalendarRefreshRef.current = scheduleCalendarRefresh;
+  }, [scheduleCalendarRefresh]);
+
   const schedulePriceRefresh = useCallback(() => {
     if (priceRefreshTimerRef.current) {
       clearTimeout(priceRefreshTimerRef.current);
@@ -427,6 +441,30 @@ export default function RenterCalendarPage() {
       void fetchOverrides();
     }, 200);
   }, [fetchOverrides]);
+
+  const schedulePriceRefreshRef = useRef(schedulePriceRefresh);
+  useEffect(() => {
+    schedulePriceRefreshRef.current = schedulePriceRefresh;
+  }, [schedulePriceRefresh]);
+
+  // The channel-registration effects below now only depend on
+  // selectedPropertyId, so they no longer tear down (and cancel pending
+  // debounced timers) on month navigation. Replicate that cancellation
+  // explicitly so a timer queued for the previous month can't land stale
+  // data after the grid has moved to a new month.
+  useEffect(() => {
+    return () => {
+      if (calendarRefreshTimerRef.current) {
+        clearTimeout(calendarRefreshTimerRef.current);
+        calendarRefreshTimerRef.current = null;
+      }
+      calendarRefreshBookingsRef.current = false;
+      if (priceRefreshTimerRef.current) {
+        clearTimeout(priceRefreshTimerRef.current);
+        priceRefreshTimerRef.current = null;
+      }
+    };
+  }, [selectedPropertyId, year, month]);
 
   useEffect(() => {
     void fetchBlocks();
@@ -449,7 +487,7 @@ export default function RenterCalendarPage() {
             status?: string;
             booking_id?: string | null;
           };
-          scheduleCalendarRefresh(
+          scheduleCalendarRefreshRef.current(
             next?.status === "booked" || Boolean(next?.booking_id),
           );
         },
@@ -464,7 +502,7 @@ export default function RenterCalendarPage() {
       void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, scheduleCalendarRefresh]);
+  }, [selectedPropertyId]);
 
   useEffect(() => {
     if (!selectedPropertyId) return;
@@ -478,7 +516,7 @@ export default function RenterCalendarPage() {
           table: "price_overrides",
           filter: `property_id=eq.${selectedPropertyId}`,
         },
-        schedulePriceRefresh,
+        () => schedulePriceRefreshRef.current(),
       )
       .subscribe();
     return () => {
@@ -489,7 +527,7 @@ export default function RenterCalendarPage() {
       void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, schedulePriceRefresh]);
+  }, [selectedPropertyId]);
 
   // Close property dropdown on outside click
   useEffect(() => {
