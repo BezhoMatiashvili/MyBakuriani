@@ -6,6 +6,9 @@ import { termsRu } from "./terms.ru";
 import { privacyKa } from "./privacy.ka";
 import { privacyEn } from "./privacy.en";
 import { privacyRu } from "./privacy.ru";
+import { marketingKa } from "./marketing.ka";
+import { marketingEn } from "./marketing.en";
+import { marketingRu } from "./marketing.ru";
 
 export type { LegalDoc, LegalSection, LegalSubsection } from "./types";
 
@@ -19,4 +22,10 @@ export const privacyContent: Record<AppLocale, LegalDoc> = {
   ka: privacyKa,
   en: privacyEn,
   ru: privacyRu,
+};
+
+export const marketingContent: Record<AppLocale, LegalDoc> = {
+  ka: marketingKa,
+  en: marketingEn,
+  ru: marketingRu,
 };

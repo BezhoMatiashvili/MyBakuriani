@@ -28,6 +28,36 @@ test("does not activate outside Vercel Production", () => {
   );
 });
 
+test("does not activate when DEPLOY_ENV is unset (the dark-guard gap)", () => {
+  // DEPLOY_ENV is DigitalOcean's replacement for VERCEL_ENV, which doesn't
+  // exist on that platform. Leaving it unset — as local builds do — must keep
+  // skipping validation, not fail closed.
+  assert.deepEqual(validateProductionConfig({}), []);
+  assert.doesNotThrow(() => assertProductionConfig({}));
+});
+
+test("activates on DigitalOcean when DEPLOY_ENV is production", () => {
+  assert.throws(
+    () =>
+      assertProductionConfig({
+        DEPLOY_ENV: "production",
+        NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+      }),
+    /ALLOWED_ORIGINS must be set/,
+  );
+});
+
+test("activates on DigitalOcean when DEPLOY_ENV is staging", () => {
+  assert.throws(
+    () =>
+      assertProductionConfig({
+        DEPLOY_ENV: "staging",
+        NEXT_PUBLIC_SITE_URL: canonicalOrigin,
+      }),
+    /ALLOWED_ORIGINS must be set/,
+  );
+});
+
 test("rejects a missing production allowed-origin list", () => {
   assert.throws(
     () =>
@@ -83,7 +113,9 @@ test("rejects invalid SMS feature modes and QA without an allowlist", () => {
     NEXT_PUBLIC_SITE_URL: canonicalOrigin,
   };
   assert.match(
-    validateProductionConfig({ ...base, SMS_PRICE_DROP_MODE: "maybe" }).join(" "),
+    validateProductionConfig({ ...base, SMS_PRICE_DROP_MODE: "maybe" }).join(
+      " ",
+    ),
     /SMS_PRICE_DROP_MODE must be one of/,
   );
   assert.match(

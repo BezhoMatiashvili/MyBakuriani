@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
@@ -63,12 +63,9 @@ export async function POST(
   const { id } = await params;
   if (!isUuid(id))
     return Response.json({ error: "not_found" }, { status: 404 });
-  const client = await createClient();
-  const {
-    data: { user },
-  } = await client.auth.getUser();
-  if (!user)
-    return Response.json({ error: "unauthenticated" }, { status: 401 });
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+  const { user } = guard;
 
   const db = createServiceClient();
   const intentDb = db as any;

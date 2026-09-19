@@ -131,6 +131,25 @@ The 2026-08-19 cleaner-call pass mirrors the address-aware
 `get_my_cleaning_task_cleaner_details` RPC signatures by hand alongside
 `20260819122000_cleaner_call_details_and_cancellation_consent.sql` (**C24**).
 
+The 2026-09-19 pass mirrors `properties.cadastral_code_public boolean NOT NULL
+DEFAULT true` alongside `20260919120000_sale_cadastral_code_optional_visibility.sql`.
+The sale form's cadastral code is now optional, and when a seller does enter
+one, this column controls whether it's publicly visible. The same migration
+masks `cadastral_code` itself (not just adds the flag) in the `public_properties`
+view — `CASE WHEN pr.cadastral_code_public THEN pr.cadastral_code ELSE NULL END`
+— so a hidden code is fully absent from every anon-facing read: the detail
+page (`SaleDetailClient.tsx`'s existing `if (property.cadastral_code)` check
+needed no change), `/sales/all`'s cadastral filter, the landing page's
+cadastral search box, and the `search` edge function's `.eq("cadastral_code",
+…)` match, since all four read `public_properties`/the `search` function's own
+copy of it rather than the base table. `cadastral_code_public` itself is never
+exposed through `public_properties`. The owner's own `select("*")` reads
+(`getPropertyById.ts`, the create/edit form's hydrate query) are unmasked, as
+intended — the owner must see/edit their own value regardless of its public
+visibility. `useCadastralTaken`'s duplicate check also queries the raw table
+and is correspondingly unaffected: it must catch a duplicate regardless of
+either row's visibility.
+
 **Verified 2026-07-25:** every hand-edit above was probed against the live schema
 (column types, nullability, defaults, and `pg_get_functiondef` for each RPC) and
 matches. The file is truthful for everything C17/C18 touch; it remains stale for
@@ -452,6 +471,20 @@ Participating symbols:
 - `src/lib/auth/verified-session-user.ts:getVerifiedSessionUser` — verifies
   `getClaims()`, matches the signed `sub` to the cookie session, then returns
   only signed identity fields (not attacker-editable embedded user metadata)
+- `src/lib/auth/require-user.ts:requireUser` — since 2026-09-14, the
+  `requireAdmin`-shaped guard for plain authenticated (non-admin) Next.js API
+  routes: `const guard = await requireUser(); if (!guard.ok) return
+guard.response;`, backed by `getCurrentUser` (so it inherits the timeout
+  race above) instead of a raw `auth.getUser()` call. Added because an
+  architecture audit found ~15 of ~90 route handlers under `src/app/api`
+  still called `auth.getUser()` directly, reintroducing the pre-2026-08-29
+  hang class on routes including price-drop alerts and SMS automation/history.
+  Returns the full `getCurrentUser()` result (not a trimmed shape), since
+  call sites already depend on `user.id` in place. **Naming collision, not a
+  bug:** `supabase/functions/_shared/guards.ts` (next bullet) also exports a
+  `requireUser` — same name, unrelated contract (edge Bearer-token auth vs.
+  Next.js cookie auth), never imported from the same file. Grep results will
+  show both; check the import path before assuming which one a call site uses.
 - `supabase/functions/_shared/guards.ts:requireUser` — edge-side Bearer auth
 - `src/lib/auth/mfa-assurance.ts:isAal2Verified` — since 2026-08-30, all 3 admin
   MFA (AAL2) gates above (`requireAdmin`, `isAdminViewer`,
@@ -576,7 +609,7 @@ Participating symbols:
 - `src/lib/constants/listing-options.ts:RoutePricing` — the supported `services.route_pricing` row contract is exactly `{ route, price, unit }`. The retired free-text `subtitle` may still exist in historical JSONB rows, but `parseRoutePricing` deliberately ignores unknown fields, the transport create/edit form never writes it, and the public detail page never renders it. Do not add the author-controlled subtitle back without a product decision and all three surfaces changing together
 - `src/app/[locale]/apartments/ApartmentsPageClient.tsx` — "discounted only" filter reads `discount_percent`
 - `src/app/[locale]/sales/SalesPageClient.tsx:discountOnly` — the same "discounted only" toggle on `/sales`. Two traps, both live-reviewed: the `paginatedProperties` memo must depend on `filteredProperties` (keeping `[properties, …]` makes the toggle a silent no-op, since the prop keeps its identity and lint only warns), and the toggle handler must `setCurrentPage(1)` itself — the existing clamp effect converges only AFTER a commit, so from page 3 it paints the empty state for a frame
-- `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`. `supabase/migrations/20260905120000_create_booking_max_range_cap.sql` (2026-09-05, security fix) added an upper bound (`v_days > 365` raises `22023`) alongside the pre-existing `min_booking_days` lower bound — previously an unbounded `(check_out - check_in)` let any authenticated caller mark decades of `calendar_blocks` rows `'booked'` for an arbitrary property with no payment and no owner action. This RPC is reached only through `supabase/functions/booking-create/index.ts`, which is not called by any code under `src/` (the live product uses `manual_bookings` exclusively — see `no-online-booking-flow` memory note) but remains a deployed, JWT-authenticated, internet-reachable edge function; it now also rate-limits at 10/hour/IP via `checkRateLimit`, added the same day
+- `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`. `supabase/migrations/20260905120000_create_booking_max_range_cap.sql` (2026-09-05, security fix) added an upper bound (`v_days > 365` raises `22023`) alongside the pre-existing `min_booking_days` lower bound — previously an unbounded `(check_out - check_in)` let any authenticated caller mark decades of `calendar_blocks` rows `'booked'` for an arbitrary property with no payment and no owner action. **Stale as of 2026-09-14:** the RPC itself is unchanged, but `supabase/functions/booking-create/index.ts` — its only caller, and itself never called by any code under `src/` (the live product uses `manual_bookings` exclusively — see `no-online-booking-flow` memory note) — was retired to a static 410 tombstone that day by an architecture audit (same pattern as `admin-stats`/`verify-listing`/`smart-match`/etc.), specifically because this RPC's own `20260905120000` hardening comment warned an authenticated caller could still lock an arbitrary property's calendar for decades. `create_booking` is therefore no longer reachable over HTTP via this edge function; whether it remains callable directly over PostgREST via its Postgres grants is a separate, unverified question (see `booking-manage` sibling note below)
 - `src/lib/utils/pricing.ts:isDiscountActive` — fail-open expiry check (`discount_expires_at IS NULL` counts as active, matching how `purchase_package` writes the columns; strict `>` mirrors `create_booking`'s own check) shared by every price-display and pricing call site
 - `src/lib/utils/pricing.ts:applyDiscount` — applies the percentage to a price (no-op when `isDiscountActive` is false); used by `PropertyCard`, `SalePropertyCard`, `InvestmentCard`, `ServiceCard`, `BookingSidebar`, `SaleDetailClient`, `ServiceDetailClient`, `EntertainmentDetailClient`, `TransportDetailClient` and `FoodDetailClient` so displayed prices match what `create_booking` actually charges. `SaleDetailClient`'s `MobileStickyCTA` was the last raw-price holdout on a page whose sidebar was already discounted — the two disagreed on the same screen
 
@@ -860,6 +893,7 @@ Participating symbols:
 - `src/lib/content-change/client.ts:submitContentChange` — the only writer; `:contentChangeErrorKey` / `:isContentChangeError` map API codes onto `CreateShared.contentChange.*` (**C1**) so users never see a raw code
 - `src/app/[locale]/dashboard/admin/verifications/page.tsx` — the ONLY approval surface (calls `/api/admin/content-change-requests`)
 - `content_change_one_pending_target` — UNIQUE (target_type, target_id) WHERE status='pending': scoped to the **target**, not the requester, so one pending request blocks every later edit of that listing until an admin acts (the withdraw endpoint has no UI caller yet)
+- `supabase/migrations/20260914120000_content_review_gate_column_drift_check.sql:content_review_gate_column_drift` — added 2026-09-14 (architecture audit) as a read-only diagnostic for exactly the B/C drift risk above: `select * from public.content_review_gate_column_drift();` re-parses both hand-written arrays live out of B's and C's own `pg_get_functiondef()` source (not a third hardcoded copy) and reports where they disagree with each other or with `information_schema.columns` for `properties`/`services`. Changes nothing about what is reviewed/gated/approved — nothing in the app calls it; it exists for a human or CI to run after touching either function or the two tables' DDL. Applied to staging only as of this session; not yet wired into CI (still a manual check) and not yet applied to prod
 
 **Mixed payloads are the trap.** A write that touches both reviewable and
 non-reviewable columns cannot go through the API (A is all-or-nothing) and cannot go
@@ -884,6 +918,20 @@ not expose a timing editor), and the two consent fields are written by the owner
 attesting consent on a manual booking and by the guest opting out. Adding any of them to allow-list A
 would 42501 those writes and route a guest's opt-out through admin approval — which
 is both wrong and, for opt-out, the wrong direction legally.
+
+**`properties.cadastral_code_public` (added 2026-09-19) is the same shape of
+exception**, for the same reason: it's a display-preference toggle, not content
+an admin needs to vet (the code value itself stays fully reviewable — only
+whether to show it is not). `src/app/[locale]/create/sale/page.tsx` writes it
+via a plain direct `.update()` on edit (combined with the pre-existing
+`organization_id` direct-write, both run before `submitContentChange`, same
+reasoning as that block's own comment: the review submit can throw and must
+not silently discard either seller-controlled setting) and inline in the
+`.insert()` payload on create — never through `REVIEWABLE_FIELDS`/`submitContentChange`.
+Routing it through review would also occupy the one-pending-request-per-listing
+slot (the unique partial index above) for a plain visibility flip, blocking
+every other edit of that listing until an admin acts — exactly the friction
+this exception avoids.
 
 **Cleaner working hours are the narrow immediate-settings exception.**
 `supabase/migrations/20260801120000_one_cleaner_247_service.sql:self_service_set_cleaner_working_hours`
@@ -1077,6 +1125,20 @@ replaced by making `verifyTurnstile` return `true` when unconfigured; or the
 four optional env vars become required again in `check-production-config.mjs`
 (the production build fails, prod silently keeps serving the previous commit).
 
+**2026-09-14: `DEPLOY_ENV` documented in `.env.example`.** The var itself
+(`scripts/check-production-config.mjs`'s replacement for the Vercel-era
+`VERCEL_ENV`, per the file's own header comment) had been live in code with no
+entry in `.env.example` — the same kind of drift-out-of-sight that let the
+four-vars regression above go unnoticed. `.env.example` now documents it (no
+real value — writing "production"/"staging" there risks silently activating
+the guard against a `.env.local` copied from it); the test file gained
+explicit coverage for the unset case (no-op, as before) and for both the
+`DEPLOY_ENV=production` and `DEPLOY_ENV=staging` activation arms (previously
+untested — every prior test gated on `VERCEL_ENV`). Setting the real
+`DEPLOY_ENV` value on `mybakuriani-prod`/`mybakuriani-staging` in DigitalOcean
+itself remains a separate, unapplied infra step — the guard stays dark in
+production until a human does that.
+
 ---
 
 ## C17 — A cleaner's work lives in TWO tables
@@ -1269,9 +1331,11 @@ Participating symbols:
 (tomorrow), and `sms_expire_stale_automation`'s 36-hour `check_in` window depends on that pinning
 — change one and the other MUST change. The legacy timing columns remain only for schema compatibility
 and are fixed by constraints. **Effective consent lives on the two booking tables; manual-booking
-proof and lifecycle live in `manual_booking_sms_consents`**. Online bookings are different: the guest
-submits their own checkbox to `booking-create`, whose seven-argument `create_booking` RPC writes
-`bookings.marketing_consent`; an owner-created manual booking can never use that authority.
+proof and lifecycle live in `manual_booking_sms_consents`**. Online bookings were different in
+theory — the guest's own checkbox flowed to `create_booking`, which wrote `bookings.marketing_consent`
+— but as of 2026-09-14 `booking-create` (the RPC's only caller) is a retired 410 tombstone with zero
+real callers ever, so this path has never actually fired in production; an owner-created manual
+booking still can never use that authority regardless.
 **T2 (review request) queues zero rows by construction** and that is
 correct: its link requires a `bookings` row whose `guest_id` matches the logged-in user, which an
 offline guest can never have (follow-up `sms-f10`). Both SMS functions are `verify_jwt = false` in
@@ -2029,7 +2093,7 @@ Participating symbols:
   safe precisely BECAUSE the pages are cookie-free — the HTML is identical for
   every viewer. Cloudflare serves the dominant unprefixed traffic from the edge
 - `src/lib/utils/listingUrls.ts:propertyViewUrl/serviceViewUrl` — `{ preview:
-  true }` option; all dashboard/admin "guest view" links pass it (6 dashboard
+true }` option; all dashboard/admin "guest view" links pass it (6 dashboard
   clients + admin listings + AdminTopbar). Moderation-notification links to
   owners of just-approved listings stay plain public URLs
 - `src/app/[locale]/sales/[id]/page.tsx` — the lone route that used to call

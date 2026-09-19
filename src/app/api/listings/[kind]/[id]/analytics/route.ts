@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/utils/uuid";
 
@@ -20,9 +21,7 @@ export async function GET(
   // resolves when the RPC runs under the caller's own JWT. A service-role call
   // would make auth.uid() NULL and reject every legitimate request.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
 
   const { data, error } = await supabase.rpc("listing_analytics", {

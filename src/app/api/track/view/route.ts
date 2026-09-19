@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { normalizePublicPageviewPath } from "@/lib/analytics/pageview";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/utils/uuid";
 
 export const runtime = "nodejs";
@@ -54,10 +54,7 @@ export async function POST(req: NextRequest) {
 
   let userId: string | null = null;
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     userId = user?.id ?? null;
   } catch {
     // Authentication is optional for this anonymous first-party metric.

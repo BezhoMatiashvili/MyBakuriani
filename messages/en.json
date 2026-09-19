@@ -68,6 +68,8 @@
     "termsDesc": "Terms and conditions for using the MyBakuriani platform.",
     "privacy": "Privacy Policy — MyBakuriani",
     "privacyDesc": "How we collect, process, and protect your personal data on the MyBakuriani platform.",
+    "marketingPolicy": "Direct Marketing Policy — MyBakuriani",
+    "marketingPolicyDesc": "How we send marketing communications and how you can opt out of them.",
     "blogDesc": "Latest news, tips, and articles about Bakuriani. Learn everything about the resort.",
     "employment": "Jobs in Bakuriani — MyBakuriani",
     "employmentDesc": "Find work in Bakuriani: chef, administrator, cleaner, driver, and other vacancies.",
@@ -151,6 +153,7 @@
     "terms": "Terms and Conditions",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
+    "marketingPolicy": "Marketing Policy",
     "copyright": "© {year} MYBAKURIANI.GE - All rights reserved"
   },
   "DashboardSidebar": {
@@ -245,7 +248,8 @@
       "guestMode": "Guest mode",
       "guestModeDesc": "Browse services",
       "switchWorkspace": "Switch workspace",
-      "addListing": "Add listing"
+      "addListing": "Add listing",
+      "linkedAccounts": "Sign-in methods"
     },
     "scopeSwitcher": {
       "label": "Active scope",
@@ -2016,6 +2020,18 @@
       "requestSentTitle": "Request sent",
       "requestSentDesc": "Your request has been sent to the company for review. Once approved, you'll appear on their team.",
       "requestSentLink": "My companies"
+    },
+    "existingAccount": {
+      "title": "Already have an account?",
+      "body": "If you registered a different way before, this will create a separate, new account. Try signing in the way you originally did instead.",
+      "currentMethod": "Current sign-in method: {provider}",
+      "loginLink": "Back to sign in"
+    },
+    "providers": {
+      "phone": "Phone",
+      "email": "Email",
+      "google": "Google",
+      "facebook": "Facebook"
     }
   },
   "CreateHub": {
@@ -2592,6 +2608,8 @@
     "handoverDate": "Handover date",
     "cadastralCode": "Cadastral code",
     "cadastralHelper": "If completed, enter the unit code. If under construction — land/project code.",
+    "cadastralCodePublicLabel": "Show code publicly",
+    "cadastralCodePublicHelper": "When off, the code won't appear on the listing page or be searchable",
     "roomsCount": "Number of rooms",
     "roomsPlaceholder": "e.g. 1, 2, 3",
     "exactLocation": "Exact location",
@@ -3017,6 +3035,31 @@
       "paymentsUnavailable": "Test payments are temporarily unavailable.",
       "generic": "Something went wrong. Please try again.",
       "backToDashboard": "Back to dashboard"
+    }
+  },
+  "DashboardAccount": {
+    "title": "Sign-in methods",
+    "subtitle": "Add another sign-in method to your account — signing in a different way will never create a separate, new account again.",
+    "linkedTitle": "Linked methods",
+    "unlink": "Unlink",
+    "cannotUnlinkLast": "Only method — cannot unlink",
+    "addTitle": "Add a method",
+    "addHint": "Link another method so signing in with it never creates a separate account.",
+    "linkButton": {
+      "google": "Link Google",
+      "facebook": "Link Facebook"
+    },
+    "providers": {
+      "phone": "Phone",
+      "email": "Email",
+      "google": "Google",
+      "facebook": "Facebook"
+    },
+    "errors": {
+      "loadFailed": "Couldn't load your sign-in methods.",
+      "manualLinkingDisabled": "This feature is temporarily unavailable.",
+      "alreadyLinked": "This method is already linked to another account.",
+      "generic": "Couldn't link. Please try again."
     }
   },
   "DashboardShared": {
@@ -3695,6 +3738,19 @@
       "confirmed": "Confirmed",
       "completed": "Completed",
       "cancelled": "Cancelled"
+    },
+    "reviewLink": {
+      "generate": "Send review link",
+      "generating": "Generating...",
+      "copy": "Copy",
+      "copied": "Copied",
+      "errors": {
+        "not_consented": "Guest hasn't confirmed SMS consent yet",
+        "already_reviewed": "A review has already been submitted",
+        "not_past_checkout": "Available after the checkout date has passed",
+        "cancelled_booking": "This booking is cancelled",
+        "generic": "Couldn't create the link, please try again"
+      }
     }
   },
   "RenterReviews": {

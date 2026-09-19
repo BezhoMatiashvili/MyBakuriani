@@ -1690,6 +1690,7 @@ export type Database = {
           area_sqm: number | null;
           bathrooms: number | null;
           cadastral_code: string | null;
+          cadastral_code_public: boolean;
           capacity: number | null;
           check_in_time: string;
           cleaning_fee: number | null;
@@ -1749,6 +1750,7 @@ export type Database = {
           area_sqm?: number | null;
           bathrooms?: number | null;
           cadastral_code?: string | null;
+          cadastral_code_public?: boolean;
           capacity?: number | null;
           check_in_time?: string;
           cleaning_fee?: number | null;
@@ -1808,6 +1810,7 @@ export type Database = {
           area_sqm?: number | null;
           bathrooms?: number | null;
           cadastral_code?: string | null;
+          cadastral_code_public?: boolean;
           capacity?: number | null;
           check_in_time?: string;
           cleaning_fee?: number | null;

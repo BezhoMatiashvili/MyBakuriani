@@ -3,7 +3,7 @@ name: Security checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 permissions:
   contents: read
@@ -29,8 +29,12 @@ jobs:
       # SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_* to prerender
       # /[locale]/employment, no Actions secrets are configured, and this step
       # sat BEFORE the CodeQL steps — so it aborted the job every single run and
-      # is why CodeQL had never once scanned this repo. Vercel builds every push
-      # to main and every PR, so the build is still gated, just not here.
+      # is why CodeQL had never once scanned this repo. This project deploys via
+      # DigitalOcean App Platform now (mybakuriani-prod on main,
+      # mybakuriani-staging on staging), which builds on push to those branches —
+      # so the build is still gated there, just not here. Unlike the old Vercel
+      # setup, DO does not build PRs, so a PR alone gets no build verification
+      # anywhere until it merges.
       # To move it back: add those vars as Actions secrets and re-add the step
       # AFTER the analyze step below.
       # Scanning runs BEFORE the audits on purpose. These steps analyse our own

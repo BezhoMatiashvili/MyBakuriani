@@ -36,6 +36,8 @@ const ROLE_DASHBOARD: Record<string, string> = {
   handyman: "/dashboard/services",
 };
 
+const KNOWN_AUTH_PROVIDERS = ["phone", "email", "google", "facebook"] as const;
+
 const ROLES: {
   value: Enums<"user_role">;
   icon?: LucideIcon;
@@ -80,6 +82,19 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [checkingProfile, setCheckingProfile] = useState(true);
+
+  // Surface which sign-in method landed the user here. Someone who already
+  // registered via phone but this time authenticated via Google/Facebook/email
+  // (or vice versa) gets a brand-new, unlinked auth identity with no matching
+  // `profiles` row and lands on this wizard from scratch — naming the current
+  // method helps them recognize the mismatch and go back to `/auth/login`
+  // instead of completing a duplicate registration.
+  const authProvider = user?.app_metadata?.provider;
+  const providerLabel =
+    authProvider &&
+    (KNOWN_AUTH_PROVIDERS as readonly string[]).includes(authProvider)
+      ? t(`providers.${authProvider}`)
+      : null;
 
   // Step 3 — seller sub-path (individual / register a company / link as agent)
   const [sellerKind, setSellerKind] = useState<
@@ -369,6 +384,27 @@ export default function RegisterPage() {
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-6"
               >
+                {providerLabel && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left">
+                    <p className="text-sm font-bold text-amber-900">
+                      {t("existingAccount.title")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-medium leading-relaxed text-amber-800">
+                      {t("existingAccount.body")}
+                    </p>
+                    <p className="mt-2 text-[13px] font-bold text-amber-900">
+                      {t("existingAccount.currentMethod", {
+                        provider: providerLabel,
+                      })}
+                    </p>
+                    <Link
+                      href="/auth/login"
+                      className="mt-2 inline-block text-[13px] font-bold text-brand-accent hover:underline"
+                    >
+                      {t("existingAccount.loginLink")}
+                    </Link>
+                  </div>
+                )}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();

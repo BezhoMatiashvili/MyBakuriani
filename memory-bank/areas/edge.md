@@ -5,9 +5,15 @@ run outside Next.js.
 
 ## Roots (`supabase/functions/`)
 
-- Money/booking: `booking-create`, `booking-manage`, `booking-finalize`,
-  `balance-topup`, `purchase-vip`, `payment-create`, `payment-process`,
-  `company-subscription`.
+- Money/booking: `booking-finalize`, `balance-topup`, `purchase-vip`,
+  `payment-create`, `payment-process`, `company-subscription`.
+  `booking-create`/`booking-manage` were retired to static 410 tombstones on
+  2026-09-14 (architecture audit) — zero callers under `src/` ever (the live
+  product books exclusively through offline `manual_bookings`), and
+  `booking-create`'s own `20260905120000` hardening migration had just warned
+  any authenticated caller could still lock an arbitrary property's calendar
+  for decades. See **C17/C18** area of `contracts.md` for the still-live
+  `create_booking`/`release_booking_calendar` RPCs these used to call.
 - Discovery: `search`, `smart-match`.
 - Media/admin: `upload-photos`, `verify-listing`, `admin-stats`.
 - Scheduled/SMS: `sms-dispatch`, `sms-automation-run`, `vip-lifecycle` (pg_cron via

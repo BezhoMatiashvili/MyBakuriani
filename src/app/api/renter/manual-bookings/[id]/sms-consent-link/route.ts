@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { toCanonicalGePhone } from "@/lib/sms/phone";
 import {
@@ -15,10 +15,7 @@ const LOCALES = new Set(["ka", "en", "ru"]);
 
 async function ownerBooking(id: string) {
   if (!isUuid(id)) return { error: "invalid_booking" as const, status: 400 };
-  const auth = await createClient();
-  const {
-    data: { user },
-  } = await auth.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "unauthenticated" as const, status: 401 };
 
   const db = createServiceClient();
@@ -101,7 +98,10 @@ export async function POST(
     return Response.json({ error: latestError.message }, { status: 500 });
   }
   if (latest?.status === "accepted") {
-    return Response.json({ error: "consent_already_accepted" }, { status: 409 });
+    return Response.json(
+      { error: "consent_already_accepted" },
+      { status: 409 },
+    );
   }
 
   const body = (await request.json().catch(() => null)) as {

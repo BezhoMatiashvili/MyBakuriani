@@ -4,6 +4,8 @@ import { ChangeEvent, useRef, useState } from "react";
 import { ImageOff, ImagePlus, Loader2, Video, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { createUploadClient } from "@/lib/supabase/client";
+import { parseStorageObjectUrl } from "@/lib/utils/photos";
 
 export type MediaValue = { url: string; type: "image" | "video" } | null;
 
@@ -25,6 +27,23 @@ const IMAGE_TYPES = new Set([
 const VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
 const IMAGE_MAX = 5 * 1024 * 1024;
 const VIDEO_MAX = 50 * 1024 * 1024;
+
+// Best-effort delete of the underlying Storage object for a removed/replaced
+// media file. Fire-and-forget: a failed delete must never block the
+// user-facing remove/replace action, and a stale cross-origin URL (left over
+// from a past Supabase project migration) can't be deleted from this
+// project's bucket anyway, so it's skipped rather than risk touching the
+// wrong object. Uses the caller's own browser session — this bucket's
+// "landing-media admin delete" RLS policy allows it directly, without a
+// server route.
+function deleteStorageObject(url: string) {
+  const parsed = parseStorageObjectUrl(url);
+  if (!parsed?.sameOrigin) return;
+  createUploadClient()
+    .storage.from(parsed.bucket)
+    .remove([parsed.path])
+    .catch(() => {});
+}
 
 type Props = {
   value: MediaValue;
@@ -127,7 +146,11 @@ export default function MediaUploader({
     setUploading(true);
     const next = await uploadFile(file, {});
     setUploading(false);
-    if (next) onChange(next);
+    if (next) {
+      const previous = value;
+      onChange(next);
+      if (previous) deleteStorageObject(previous.url);
+    }
   }
 
   async function onPoster(e: ChangeEvent<HTMLInputElement>) {
@@ -137,16 +160,26 @@ export default function MediaUploader({
     setPosterUploading(true);
     const next = await uploadFile(file, { posterOnly: true });
     setPosterUploading(false);
-    if (next) onPosterChange(next.url);
+    if (next) {
+      const previousPoster = poster;
+      onPosterChange(next.url);
+      if (previousPoster) deleteStorageObject(previousPoster);
+    }
   }
 
   function clearMain() {
+    const previous = value;
+    const previousPoster = poster;
     onChange(null);
     if (onPosterChange) onPosterChange(null);
+    if (previous) deleteStorageObject(previous.url);
+    if (previousPoster) deleteStorageObject(previousPoster);
   }
 
   function clearPoster() {
+    const previousPoster = poster;
     if (onPosterChange) onPosterChange(null);
+    if (previousPoster) deleteStorageObject(previousPoster);
   }
 
   return (

@@ -21,7 +21,7 @@ export function weatherApiCodeToStatusIcon(
   code: number,
   isDay: number,
 ): StatusIcon {
-  if (code === 1000) return isDay === 1 ? "sun" : "cloud";
+  if (code === 1000) return isDay === 1 ? "sun" : "moon";
   if (code === 1003) return "cloudSun";
   if (code === 1006 || code === 1009) return "cloud";
   if (code === 1030 || code === 1135 || code === 1147) return "cloudFog";

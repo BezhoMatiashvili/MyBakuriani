@@ -29,6 +29,7 @@ export type StatusIcon =
   // Weather-condition icons — auto-assigned to the live weather card from
   // WeatherAPI conditions (see src/lib/weather/weatherapi.ts).
   | "sun"
+  | "moon"
   | "cloudSun"
   | "cloudRain"
   | "cloudSnow"
@@ -46,6 +47,7 @@ export const STATUS_ICONS: StatusIcon[] = [
   "video",
   "camera",
   "sun",
+  "moon",
   "cloudSun",
   "cloudRain",
   "cloudSnow",

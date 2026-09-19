@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
@@ -20,10 +20,7 @@ export async function POST(
   }
   const body = (await req.json().catch(() => null)) as ContactRequest | null;
   const ip = getClientIp(req);
-  const client = await createClient();
-  const {
-    data: { user },
-  } = await client.auth.getUser();
+  const user = await getCurrentUser();
   const device =
     typeof body?.device_id === "string" &&
     /^[A-Za-z0-9_-]{16,128}$/.test(body.device_id)
@@ -75,9 +72,7 @@ export async function POST(
   if (kind === "property") {
     const { data, error } = await db
       .from("properties")
-      .select(
-        "phone, whatsapp, profiles!properties_owner_id_fkey(phone)",
-      )
+      .select("phone, whatsapp, profiles!properties_owner_id_fkey(phone)")
       .eq("id", id)
       .eq("status", "active")
       .maybeSingle();
@@ -120,8 +115,7 @@ export async function POST(
   // lookup, individually rate-limited and never part of list/search payloads.
   return Response.json({
     phone:
-      normalizeE164Phone(row.phone) ??
-      normalizeE164Phone(row.profiles?.phone),
+      normalizeE164Phone(row.phone) ?? normalizeE164Phone(row.profiles?.phone),
     whatsapp: normalizeE164Phone(row.whatsapp),
   });
 }

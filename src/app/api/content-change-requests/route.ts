@@ -6,6 +6,7 @@ import {
   type ContentChangeTarget,
 } from "@/lib/content-change/fields";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -108,7 +109,7 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user)
     return Response.json({ error: "unauthenticated" }, { status: 401 });
-  const db = createServiceClient();
+  const db = await createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
     .from("content_change_requests")

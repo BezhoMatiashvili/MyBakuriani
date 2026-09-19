@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+import type {
+  Provider,
+  User,
+  Session,
+  UserIdentity,
+} from "@supabase/supabase-js";
 import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
 
 export function useAuth() {
@@ -105,6 +110,34 @@ export function useAuth() {
     if (error) throw error;
   }
 
+  // Attaches an OAuth identity to the CURRENTLY signed-in user (not a new
+  // sign-in) — full-page redirect through the provider, back through
+  // /auth/callback. Supabase's `linkIdentity` only supports OAuth/OIDC
+  // providers; phone/email use a separate `updateUser()` mechanism.
+  async function linkIdentity(provider: Provider) {
+    const { error } = await supabase.auth.linkIdentity({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/account`,
+      },
+    });
+    if (error) throw error;
+  }
+
+  async function unlinkIdentity(identity: UserIdentity) {
+    const { error } = await supabase.auth.unlinkIdentity(identity);
+    if (error) throw error;
+  }
+
+  async function getUserIdentities() {
+    const { data, error } = await withRetry(
+      () => supabase.auth.getUserIdentities(),
+      isRetryableAuthError,
+    );
+    if (error) throw error;
+    return data.identities;
+  }
+
   return {
     user,
     session,
@@ -116,5 +149,8 @@ export function useAuth() {
     resetPasswordForEmail,
     updatePassword,
     signOut,
+    linkIdentity,
+    unlinkIdentity,
+    getUserIdentities,
   };
 }

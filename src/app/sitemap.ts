@@ -23,6 +23,7 @@ const PUBLIC_PATHS = [
   "/contact",
   "/terms",
   "/privacy",
+  "/marketing-policy",
   "/search",
 ];
 

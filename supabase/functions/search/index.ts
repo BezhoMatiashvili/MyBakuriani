@@ -67,17 +67,19 @@ serve(async (req) => {
       Math.max(1, Math.trunc(Number(requestedPage)) || 1),
       1_000,
     );
-    const normalizedQuery = typeof query === "string"
-      ? query.trim().slice(0, 200)
-      : "";
-    const latitude = typeof lat === "number" && Number.isFinite(lat) &&
-        lat >= -90 && lat <= 90
-      ? lat
-      : null;
-    const longitude = typeof lng === "number" && Number.isFinite(lng) &&
-        lng >= -180 && lng <= 180
-      ? lng
-      : null;
+    const normalizedQuery =
+      typeof query === "string" ? query.trim().slice(0, 200) : "";
+    const latitude =
+      typeof lat === "number" && Number.isFinite(lat) && lat >= -90 && lat <= 90
+        ? lat
+        : null;
+    const longitude =
+      typeof lng === "number" &&
+      Number.isFinite(lng) &&
+      lng >= -180 &&
+      lng <= 180
+        ? lng
+        : null;
 
     // Global keyword search path: when `q` is set, fan out across
     // properties + services + blog_posts via the global_search RPC and
@@ -86,9 +88,10 @@ serve(async (req) => {
     // search behavior.
     const trimmedQ = typeof q === "string" ? q.trim().slice(0, 200) : "";
     if (trimmedQ.length > 0) {
-      const types = Array.isArray(entity_types) && entity_types.length > 0
-        ? entity_types
-        : ["properties", "services", "blog_posts"];
+      const types =
+        Array.isArray(entity_types) && entity_types.length > 0
+          ? entity_types
+          : ["properties", "services", "blog_posts"];
 
       const { data: hits, error: rpcError } = await supabase.rpc(
         "global_search",
@@ -113,11 +116,12 @@ serve(async (req) => {
       };
 
       const rows = (hits ?? []) as Hit[];
-      const propertyIds = rows.filter((r) => r.entity_type === "properties")
+      const propertyIds = rows
+        .filter((r) => r.entity_type === "properties")
         .map((r) => r.entity_id);
-      const serviceIds = rows.filter((r) => r.entity_type === "services").map((
-        r,
-      ) => r.entity_id);
+      const serviceIds = rows
+        .filter((r) => r.entity_type === "services")
+        .map((r) => r.entity_id);
       const fetchProperties = async () => {
         if (propertyIds.length === 0) return [];
 
@@ -180,15 +184,18 @@ serve(async (req) => {
           const { data: blockedProps } = await supabase
             .from("calendar_blocks")
             .select("property_id")
-            .in("property_id", filtered.map((property) => property.id))
+            .in(
+              "property_id",
+              filtered.map((property) => property.id),
+            )
             .gte("date", check_in)
             .lt("date", check_out)
             .in("status", ["booked", "blocked"]);
           const blockedIds = new Set(
             blockedProps?.map((block) => block.property_id) ?? [],
           );
-          filtered = filtered.filter((property) =>
-            !blockedIds.has(property.id)
+          filtered = filtered.filter(
+            (property) => !blockedIds.has(property.id),
           );
         }
 
@@ -225,7 +232,9 @@ serve(async (req) => {
             properties: propertiesArr.length,
             services: servicesArr?.length ?? 0,
             blog: blogArr.length,
-            all: propertiesArr.length + (servicesArr?.length ?? 0) +
+            all:
+              propertiesArr.length +
+              (servicesArr?.length ?? 0) +
               blogArr.length,
           },
           page: 1,
@@ -296,9 +305,34 @@ serve(async (req) => {
       }
     }
 
-    // Pagination
-    const offset = (page - 1) * per_page;
-    dbQuery = dbQuery.range(offset, offset + per_page - 1);
+    // Date availability exclusion — resolved BEFORE range/count are applied
+    // below, so total/total_pages reflect only listings actually available
+    // for the requested dates instead of overstating them. Blocked property
+    // ids are resolved first, then excluded via not-in on the main query.
+    if (check_in && check_out) {
+      // calendar_blocks holds one row per property per day, so a multi-day
+      // range can exceed PostgREST's default max-rows and get silently
+      // truncated — page through it explicitly so no blocked id is missed.
+      const blockedIds = new Set<string>();
+      const BLOCK_PAGE_SIZE = 1000;
+      for (let from = 0; ; from += BLOCK_PAGE_SIZE) {
+        const { data: blockedProps, error: blockedError } = await supabase
+          .from("calendar_blocks")
+          .select("property_id")
+          .gte("date", check_in)
+          .lt("date", check_out)
+          .in("status", ["booked", "blocked"])
+          .range(from, from + BLOCK_PAGE_SIZE - 1);
+
+        if (blockedError) throw blockedError;
+
+        for (const b of blockedProps ?? []) blockedIds.add(b.property_id);
+        if ((blockedProps?.length ?? 0) < BLOCK_PAGE_SIZE) break;
+      }
+      if (blockedIds.size > 0) {
+        dbQuery = dbQuery.not("id", "in", `(${[...blockedIds].join(",")})`);
+      }
+    }
 
     // Ordering: super_vip first, then vip, then by created_at
     dbQuery = dbQuery
@@ -306,34 +340,34 @@ serve(async (req) => {
       .order("is_vip", { ascending: false })
       .order("created_at", { ascending: false });
 
-    const { data: properties, error, count } = await dbQuery;
+    const offset = (page - 1) * per_page;
 
-    if (error) throw error;
+    // Distance sorting, if lat/lng provided, must run over the full filtered
+    // result set before slicing to a page — not just within one page — so
+    // skip range() here, fetch every matching row, sort, then paginate in JS.
+    if (latitude !== null && longitude !== null) {
+      // count: "exact" still reports the true total even if data gets
+      // truncated at PostgREST's max-rows, so page through explicitly —
+      // otherwise total_pages could promise pages the slice below can't
+      // deliver, and the "global" sort would silently stop being global.
+      const allProperties: { location_lat: number; location_lng: number }[] =
+        [];
+      const FETCH_PAGE_SIZE = 1000;
+      let total: number | null = null;
+      for (let from = 0; ; from += FETCH_PAGE_SIZE) {
+        const { data, error, count } = await dbQuery.range(
+          from,
+          from + FETCH_PAGE_SIZE - 1,
+        );
 
-    let filtered = properties ?? [];
+        if (error) throw error;
+        if (total === null) total = count;
 
-    // Filter by date availability if dates provided
-    if (check_in && check_out) {
-      const { data: blockedProps } = await supabase
-        .from("calendar_blocks")
-        .select("property_id")
-        .in(
-          "property_id",
-          filtered.map((p: { id: string }) => p.id),
-        )
-        .gte("date", check_in)
-        .lt("date", check_out)
-        .in("status", ["booked", "blocked"]);
+        allProperties.push(...(data ?? []));
+        if ((data?.length ?? 0) < FETCH_PAGE_SIZE) break;
+      }
 
-      const blockedIds = new Set(
-        blockedProps?.map((b: { property_id: string }) => b.property_id) || [],
-      );
-      filtered = filtered.filter((p: { id: string }) => !blockedIds.has(p.id));
-    }
-
-    // Distance sorting if lat/lng provided
-    if (latitude !== null && longitude !== null && filtered) {
-      filtered.sort(
+      const sorted = allProperties.sort(
         (
           a: { location_lat: number; location_lng: number },
           b: { location_lat: number; location_lng: number },
@@ -349,11 +383,30 @@ serve(async (req) => {
           return distA - distB;
         },
       );
+
+      return jsonResponse(
+        {
+          data: sorted.slice(offset, offset + per_page),
+          total,
+          page,
+          per_page,
+          total_pages: Math.ceil((total || 0) / per_page),
+        },
+        200,
+        corsHeaders,
+      );
     }
+
+    // Pagination
+    dbQuery = dbQuery.range(offset, offset + per_page - 1);
+
+    const { data: properties, error, count } = await dbQuery;
+
+    if (error) throw error;
 
     return jsonResponse(
       {
-        data: filtered,
+        data: properties ?? [],
         total: count,
         page,
         per_page,

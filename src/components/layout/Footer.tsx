@@ -124,6 +124,13 @@ export function Footer() {
             >
               {t("termsOfService")}
             </Link>
+            <Link
+              href="/marketing-policy"
+              prefetch={false}
+              className="transition-colors hover:text-white"
+            >
+              {t("marketingPolicy")}
+            </Link>
           </div>
           {/* Required by WeatherAPI's free-tier terms: free API users must
               credit WeatherAPI.com by name. Do not remove without confirming

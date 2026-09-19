@@ -123,15 +123,23 @@ export function CabinetSwitcher({
             </ul>
 
             <div className="border-t border-[#F1F5F9] px-3 py-2.5">
-              <AddListingButton label={t("switcher.addListing")} variant="full" onClick={() => setOpen(false)} />
+              <AddListingButton
+                label={t("switcher.addListing")}
+                variant="full"
+                onClick={() => setOpen(false)}
+              />
             </div>
 
-            <div className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5">
+            <Link
+              href="/dashboard/account"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5 transition-colors hover:bg-[#F8FAFC]"
+            >
               <Settings className="h-3.5 w-3.5 text-[#94A3B8]" />
               <span className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                {t("nav.settings")}
+                {t("switcher.linkedAccounts")}
               </span>
-            </div>
+            </Link>
 
             <div className="px-3 pb-3 pt-1">
               <Link

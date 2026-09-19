@@ -15,6 +15,7 @@ import Image from "next/image";
 import { Camera, Loader2, Star, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { watermarkFile } from "@/lib/utils/watermark";
+import { parseStorageObjectUrl } from "@/lib/utils/photos";
 import { createUploadClient } from "@/lib/supabase/client";
 import {
   DndContext,
@@ -487,11 +488,30 @@ export default function PhotoUploader({
     [processFiles],
   );
 
+  // Best-effort delete of the underlying Storage object for a removed photo.
+  // Fire-and-forget: a failed delete must never block the remove action, and
+  // a stale cross-origin URL (left over from a past Supabase project
+  // migration) can't be deleted from this project's bucket anyway, so it's
+  // skipped rather than risk touching the wrong object.
+  const deleteStorageObject = useCallback(
+    (url: string) => {
+      const parsed = parseStorageObjectUrl(url);
+      if (!parsed?.sameOrigin) return;
+      getUploadClient()
+        .storage.from(parsed.bucket)
+        .remove([parsed.path])
+        .catch(() => {});
+    },
+    [getUploadClient],
+  );
+
   const handleRemove = useCallback(
     (index: number) => {
+      const removed = photos[index];
       onPhotosChange(photos.filter((_, i) => i !== index));
+      if (removed) deleteStorageObject(removed);
     },
-    [photos, onPhotosChange],
+    [photos, onPhotosChange, deleteStorageObject],
   );
 
   // Move the chosen photo to the front so every photos[0] reader shows it as

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Upload, ImageIcon, Loader2, X } from "lucide-react";
 import { createUploadClient } from "@/lib/supabase/client";
+import { parseStorageObjectUrl } from "@/lib/utils/photos";
 import { cn } from "@/lib/utils";
 
 // Single-image uploader for company branding (logo / cover). Unlike PhotoUploader
@@ -15,6 +16,20 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 // original just makes every later transform slower. Shrink-only, and the
 // original MIME is kept (a PNG logo's alpha must survive).
 const MAX_EDGE = 1024;
+
+// Best-effort delete of the underlying Storage object for a removed/replaced
+// image. Fire-and-forget: a failed delete must never block the user-facing
+// remove/replace action, and a stale cross-origin URL (left over from a past
+// Supabase project migration) can't be deleted from this project's bucket
+// anyway, so it's skipped rather than risk touching the wrong object.
+function deleteStorageObject(url: string) {
+  const parsed = parseStorageObjectUrl(url);
+  if (!parsed?.sameOrigin) return;
+  createUploadClient()
+    .storage.from(parsed.bucket)
+    .remove([parsed.path])
+    .catch(() => {});
+}
 
 async function downscale(file: File): Promise<Blob> {
   try {
@@ -92,7 +107,9 @@ export default function SingleImageUploader({
         });
       if (upErr) throw upErr;
       const { data } = client.storage.from(BUCKET).getPublicUrl(path);
+      const previous = value;
       onChange(data?.publicUrl ?? null);
+      if (previous) deleteStorageObject(previous);
     } catch (e) {
       setError(e instanceof Error ? e.message : "ატვირთვა ვერ მოხერხდა");
     } finally {
@@ -128,7 +145,10 @@ export default function SingleImageUploader({
           />
           <button
             type="button"
-            onClick={() => onChange(null)}
+            onClick={() => {
+              onChange(null);
+              deleteStorageObject(value);
+            }}
             className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#64748B] shadow transition-colors hover:text-[#EF4444]"
             aria-label="Remove"
           >

@@ -14,6 +14,7 @@ import PhotoUploader from "@/components/forms/PhotoUploader";
 import PhoneInput from "@/components/forms/PhoneInput";
 import NumberField from "@/components/shared/NumberField";
 import { StyledSelect } from "@/components/ui/styled-select";
+import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, MapPinned, User } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -216,6 +217,7 @@ function CreateSalePageInner() {
     String(new Date().getFullYear() + 1),
   );
   const [cadastralCode, setCadastralCode] = useState("");
+  const [cadastralCodePublic, setCadastralCodePublic] = useState(true);
   const cadastralTaken = useCadastralTaken(cadastralCode, editId);
   const [exactLocation, setExactLocation] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
@@ -403,6 +405,7 @@ function CreateSalePageInner() {
       setDeveloper(data.developer ?? "");
       setRoiPercent(data.roi_percent != null ? String(data.roi_percent) : "");
       setCadastralCode(data.cadastral_code ?? "");
+      setCadastralCodePublic(data.cadastral_code_public ?? true);
       if (data.renovation_status) {
         setRenovationStatus(data.renovation_status);
       }
@@ -533,15 +536,15 @@ function CreateSalePageInner() {
     if (!location.trim())
       errs.push({ key: "location", message: t("invalidLocation") });
     const cadastral = cadastralCode.trim();
-    if (!cadastral) {
-      errs.push({ key: "cadastralCode", message: t("enterCadastral") });
-    } else if (!isValidCadastralCode(cadastral)) {
-      errs.push({ key: "cadastralCode", message: t("invalidCadastral") });
-    } else if (cadastralTaken) {
-      errs.push({
-        key: "cadastralCode",
-        message: tShared("cadastralAlreadyUsed"),
-      });
+    if (cadastral) {
+      if (!isValidCadastralCode(cadastral)) {
+        errs.push({ key: "cadastralCode", message: t("invalidCadastral") });
+      } else if (cadastralTaken) {
+        errs.push({
+          key: "cadastralCode",
+          message: tShared("cadastralAlreadyUsed"),
+        });
+      }
     }
 
     const areaNum = Number(areaSqm);
@@ -669,7 +672,7 @@ function CreateSalePageInner() {
         roi_percent_max: isLandPlot ? null : roiMaxNum,
         photos,
         sale_price: priceNum,
-        cadastral_code: cadastralCodeTrimmed,
+        cadastral_code: cadastralCodeTrimmed || null,
         renovation_status: isLandPlot ? null : renovationStatus,
         construction_status: isLandPlot ? null : constructionStatus,
         construction_progress_percent: progressNum,
@@ -704,16 +707,20 @@ function CreateSalePageInner() {
         // UPDATE whose SET list mentions the column, even with an unchanged
         // value, and would reject unrelated edits of a lapsed-sub org listing.
         const orgChanged = organizationId !== initialOrgIdRef.current;
-        // organization_id is NOT review-gated, so write it before the review submit:
-        // submitContentChange can throw (e.g. the proposal supersedes/collides), and
-        // running it first would silently discard the seller's company change.
-        if (orgChanged) {
-          const { error: organizationError } = await supabase
-            .from("properties")
-            .update({ organization_id: organizationId })
-            .eq("id", editId);
-          if (organizationError) throw organizationError;
-        }
+        // organization_id and cadastral_code_public are NOT review-gated, so
+        // write them before the review submit: submitContentChange can throw
+        // (e.g. the proposal supersedes/collides), and running it first would
+        // silently discard these seller-controlled settings.
+        const directUpdate: {
+          organization_id?: string | null;
+          cadastral_code_public: boolean;
+        } = { cadastral_code_public: cadastralCodePublic };
+        if (orgChanged) directUpdate.organization_id = organizationId;
+        const { error: directUpdateError } = await supabase
+          .from("properties")
+          .update(directUpdate)
+          .eq("id", editId);
+        if (directUpdateError) throw directUpdateError;
         await submitContentChange("property", editId, payload);
         router.push("/dashboard/seller");
       } else {
@@ -723,6 +730,7 @@ function CreateSalePageInner() {
             ...payload,
             owner_id: user.id,
             organization_id: organizationId,
+            cadastral_code_public: cadastralCodePublic,
             construction_stages: [],
             status: "pending" as Enums<"listing_status">,
           })
@@ -769,13 +777,12 @@ function CreateSalePageInner() {
   const requiredFilled = [
     title.trim().length > 0,
     location.trim().length > 0,
-    cadastralCode.trim().length > 0,
     areaSqm.trim().length > 0,
     priceUsd.trim().length > 0 || pricePerSqm.trim().length > 0,
     photos.length >= MIN_PHOTOS,
     isValidGePhone(phone),
   ].filter(Boolean).length;
-  const fieldPct = Math.round((requiredFilled / 7) * 100);
+  const fieldPct = Math.round((requiredFilled / 6) * 100);
 
   // Show the "post as" screen only when creating (not editing) and the user
   // belongs to at least one approved company.
@@ -1062,7 +1069,6 @@ function CreateSalePageInner() {
 
                   <Field
                     label={t("cadastralCode")}
-                    required
                     fieldKey="cadastralCode"
                     error={invalidFields.has("cadastralCode") || cadastralTaken}
                     helper={t("cadastralHelper")}
@@ -1080,6 +1086,23 @@ function CreateSalePageInner() {
                       <p className="text-xs font-bold text-[#EF4444]">
                         {tShared("cadastralAlreadyUsed")}
                       </p>
+                    )}
+                    {cadastralCode.trim().length > 0 && (
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+                        <div>
+                          <p className="text-[13px] font-bold text-[#334155]">
+                            {t("cadastralCodePublicLabel")}
+                          </p>
+                          <p className="text-xs text-[#64748B]">
+                            {t("cadastralCodePublicHelper")}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={cadastralCodePublic}
+                          onCheckedChange={setCadastralCodePublic}
+                          aria-label={t("cadastralCodePublicLabel")}
+                        />
+                      </div>
                     )}
                   </Field>
 

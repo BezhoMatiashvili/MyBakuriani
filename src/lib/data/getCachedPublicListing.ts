@@ -176,12 +176,15 @@ export function getCachedPublicReviews(id: string) {
   return unstable_cache(
     async () => {
       const supabase = createPublicClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("public_reviews")
         .select("*")
         .eq("property_id", id)
         .order("created_at", { ascending: false })
         .limit(20);
+      // Don't cache a transient failure as "no reviews": throw so unstable_cache
+      // skips caching and the caller falls through to the dynamic path.
+      if (error) throw error;
       return (data ?? []).map((review) => {
         const row = review as typeof review & {
           guest_display_name?: string | null;
@@ -215,12 +218,15 @@ export function getCachedPublicCalendar(id: string) {
       const today = new Date();
       const horizon = new Date(today);
       horizon.setMonth(horizon.getMonth() + 3);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("calendar_blocks")
         .select("date, status")
         .eq("property_id", id)
         .gte("date", today.toISOString().split("T")[0])
         .lte("date", horizon.toISOString().split("T")[0]);
+      // Don't cache a transient failure as "no blocks": throw so unstable_cache
+      // skips caching and the caller falls through to the dynamic path.
+      if (error) throw error;
       return data ?? [];
     },
     ["public-calendar", id],
@@ -237,19 +243,21 @@ export function getCachedPublicPriceOverrides(
   // See the note on getCachedPublicMenuItems: a non-UUID id raises 22P02 in
   // Postgres and surfaces as an uncached 500.
   if (!isUuid(id)) return Promise.resolve([]);
-
   return unstable_cache(
     async (): Promise<PublicPriceOverrides> => {
       const supabase = createPublicClient();
       const today = new Date();
       const horizon = new Date(today);
       horizon.setMonth(horizon.getMonth() + 3);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("price_overrides")
         .select("date, price")
         .eq("property_id", id)
         .gte("date", today.toISOString().split("T")[0])
         .lte("date", horizon.toISOString().split("T")[0]);
+      // Don't cache a transient failure as "no overrides": throw so unstable_cache
+      // skips caching and the caller falls through to the dynamic path.
+      if (error) throw error;
       return (data ?? []).map((o) => ({
         date: o.date,
         price: Number(o.price),
@@ -290,7 +298,6 @@ export function getCachedPublicCvCount(id: string): Promise<number> {
   // See the note on getCachedPublicMenuItems: a non-UUID id raises 22P02 in
   // Postgres and surfaces as an uncached 500.
   if (!isUuid(id)) return Promise.resolve(0);
-
   return unstable_cache(
     async (): Promise<number> => (await fetchCvCounts([id]))[id] ?? 0,
     ["public-cv-count", id],
