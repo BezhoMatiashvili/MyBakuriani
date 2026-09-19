@@ -453,6 +453,9 @@ export function BookingSidebar({
                   src={ownerAvatar}
                   alt={ownerName}
                   fill
+                  // Without sizes, next/image emits sizes="100vw" and this
+                  // 48px circle requests the w=1920 rung.
+                  sizes="48px"
                   className="object-cover"
                 />
               ) : (

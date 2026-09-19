@@ -135,6 +135,14 @@ export function getCachedPublicService(
 }
 
 export function getCachedPublicMenuItems(id: string) {
+  // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
+  // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
+  // URLs produce a steady stream of these. The food page runs this inside a
+  // Promise.all BEFORE notFound(), so for it the 500 was reachable in practice;
+  // the others are only safe today by statement ordering, which is a fragile
+  // reason to stay correct.
+  if (!isUuid(id)) return Promise.resolve([]);
+
   return unstable_cache(
     async () => {
       const supabase = createPublicClient();
@@ -157,6 +165,14 @@ export function getCachedPublicMenuItems(id: string) {
 }
 
 export function getCachedPublicReviews(id: string) {
+  // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
+  // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
+  // URLs produce a steady stream of these. The food page runs this inside a
+  // Promise.all BEFORE notFound(), so for it the 500 was reachable in practice;
+  // the others are only safe today by statement ordering, which is a fragile
+  // reason to stay correct.
+  if (!isUuid(id)) return Promise.resolve([]);
+
   return unstable_cache(
     async () => {
       const supabase = createPublicClient();
@@ -185,6 +201,14 @@ export function getCachedPublicReviews(id: string) {
 }
 
 export function getCachedPublicCalendar(id: string) {
+  // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
+  // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
+  // URLs produce a steady stream of these. The food page runs this inside a
+  // Promise.all BEFORE notFound(), so for it the 500 was reachable in practice;
+  // the others are only safe today by statement ordering, which is a fragile
+  // reason to stay correct.
+  if (!isUuid(id)) return Promise.resolve([]);
+
   return unstable_cache(
     async () => {
       const supabase = createPublicClient();
@@ -210,6 +234,10 @@ export function getCachedPublicCalendar(id: string) {
 export function getCachedPublicPriceOverrides(
   id: string,
 ): Promise<PublicPriceOverrides> {
+  // See the note on getCachedPublicMenuItems: a non-UUID id raises 22P02 in
+  // Postgres and surfaces as an uncached 500.
+  if (!isUuid(id)) return Promise.resolve([]);
+
   return unstable_cache(
     async (): Promise<PublicPriceOverrides> => {
       const supabase = createPublicClient();
@@ -259,6 +287,10 @@ async function fetchCvCounts(ids: string[]): Promise<Record<string, number>> {
 export const getCvCountsForServices = fetchCvCounts;
 
 export function getCachedPublicCvCount(id: string): Promise<number> {
+  // See the note on getCachedPublicMenuItems: a non-UUID id raises 22P02 in
+  // Postgres and surfaces as an uncached 500.
+  if (!isUuid(id)) return Promise.resolve(0);
+
   return unstable_cache(
     async (): Promise<number> => (await fetchCvCounts([id]))[id] ?? 0,
     ["public-cv-count", id],

@@ -180,6 +180,9 @@ export default function TransportDetailClient({
                 src={owner.avatar_url}
                 alt={driverName}
                 fill
+                // size-20 / sm:size-24. Without sizes, next/image emits
+                // sizes="100vw" and requests the w=1920 rung.
+                sizes="(max-width: 639px) 80px, 96px"
                 className="object-cover"
               />
             ) : (

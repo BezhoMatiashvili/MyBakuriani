@@ -14,6 +14,17 @@ import {
 import { useTranslations } from "next-intl";
 import { shareListing } from "@/lib/share";
 import { useFavorite } from "@/lib/hooks/useFavorite";
+import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
+
+// Lightbox frame is `w-[90vw] max-w-5xl` => hard-capped at 1024px; 1024/0.9 = 1137.
+const LIGHTBOX_SIZES = "(max-width: 1137px) 90vw, 1024px";
+// Desktop side tiles are 1fr of `grid-cols-[2fr_1fr] gap-2` in the 1248px
+// content column => ~413px; the 2fr hero is ~827px (it declared 700px).
+// 384px, not the true ~413px slot: the `50vw` clause floors the srcset at 384,
+// so declaring 413 selects w=640 at DPR1 while 384 selects w=384 for a 7%
+// upscale nobody can see — and every DPR1 desktop then shares one transform.
+const TILE_SIZES = "(max-width: 1023px) 50vw, 384px";
+const HERO_SIZES = "(max-width: 1023px) 100vw, 827px";
 
 interface Props {
   photos: string[];
@@ -30,6 +41,13 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
     toggle: toggleFavorite,
   } = useFavorite({ serviceId });
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  // Which lightbox photo has finished decoding. The neighbour prefetch below
+  // waits for this: the origin is a single vCPU, so firing the active image and
+  // both neighbours together makes sharp queue all three and the photo the user
+  // is actually looking at lands ~3x later. Prefetch only once the active one
+  // is on screen. The key={lightboxIndex} remount re-fires onLoad, so this
+  // needs no reset effect.
+  const [loadedIndex, setLoadedIndex] = useState<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const openLightbox = useCallback((index: number) => {
@@ -131,12 +149,20 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
               src={photo}
               alt={`${title} - ${index + 1}`}
               fill
+              // Must stay byte-identical to what HERO_SIZES resolves to on
+              // mobile, or the hero's preload stops deduping with this img and
+              // mobile pays two fetches instead of one.
               sizes="100vw"
               className="object-cover"
-              // Eager (not priority): the desktop grid's hero below already
-              // emits the page's single preload <link>; a second priority here
-              // double-preloaded a full-width image desktop never paints.
-              loading={index === 0 ? "eager" : undefined}
+              placeholder="blur"
+              blurDataURL={CARD_BLUR_DATA_URL}
+              // Fully lazy, including index 0. React hoists a preload <link>
+              // for ANY img that is not loading="lazy" (react-dom-server,
+              // `case "img":`), so the earlier priority->eager change dropped
+              // the duplicate <link> but NOT the duplicate fetch: on desktop
+              // this rail is display:none yet index 0 still fetched the w=1920
+              // rung for pixels nothing paints.
+              loading="lazy"
             />
             <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
               {index + 1} / {photos.length}
@@ -157,8 +183,10 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
             // The page's one priority preload; on mobile it fetches the same
             // 100vw URL the rail's first image renders, on desktop the ~660px
             // slot this 2fr tile actually paints.
-            sizes="(max-width: 1023px) 100vw, 700px"
+            sizes={HERO_SIZES}
             className="object-cover transition-transform duration-300 hover:scale-105"
+            placeholder="blur"
+            blurDataURL={CARD_BLUR_DATA_URL}
             priority
           />
         </div>
@@ -171,8 +199,10 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
             src={sideTop}
             alt={`${title} - 2`}
             fill
-            sizes="30vw"
+            sizes={TILE_SIZES}
             className="object-cover transition-transform duration-300 hover:scale-105"
+            placeholder="blur"
+            blurDataURL={CARD_BLUR_DATA_URL}
           />
         </div>
 
@@ -184,8 +214,10 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
             src={sideBottom}
             alt={`${title} - 3`}
             fill
-            sizes="30vw"
+            sizes={TILE_SIZES}
             className="object-cover transition-transform duration-300 hover:scale-105"
+            placeholder="blur"
+            blurDataURL={CARD_BLUR_DATA_URL}
           />
           {showOverlay && (
             <button
@@ -262,10 +294,40 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
                 src={photos[lightboxIndex]}
                 alt={`${title} - ${lightboxIndex + 1}`}
                 fill
-                sizes="90vw"
+                sizes={LIGHTBOX_SIZES}
                 className="object-contain"
+                onLoad={() => setLoadedIndex(lightboxIndex)}
               />
             </motion.div>
+
+            {/* Neighbour prefetch — see PhotoGallery.tsx for the full rationale.
+                Must stay positioned, really sized and opacity-hidden (never
+                display:none, which would suppress the fetch), and
+                pointer-events-none so it cannot eat the click-to-close. */}
+            {loadedIndex === lightboxIndex && photos.length > 1 && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute left-0 top-0 h-[80dvh] w-[90vw] max-w-5xl opacity-0"
+              >
+                {Array.from(
+                  new Set([
+                    (lightboxIndex + 1) % photos.length,
+                    (lightboxIndex - 1 + photos.length) % photos.length,
+                  ]),
+                )
+                  .filter((neighbour) => neighbour !== lightboxIndex)
+                  .map((neighbour) => (
+                    <Image
+                      key={neighbour}
+                      src={photos[neighbour]}
+                      alt=""
+                      fill
+                      sizes={LIGHTBOX_SIZES}
+                      className="object-contain"
+                    />
+                  ))}
+              </div>
+            )}
 
             {photos.length > 1 && (
               <button

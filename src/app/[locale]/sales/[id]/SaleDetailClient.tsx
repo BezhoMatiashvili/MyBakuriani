@@ -851,6 +851,10 @@ export default function SaleDetailClient({
                         src={owner.avatar_url}
                         alt={owner.display_name}
                         fill
+                        // Matches the org-logo branch above, which already
+                        // caps this same 44px circle. Without it next/image
+                        // emits sizes="100vw" and asks for the w=1920 rung.
+                        sizes="44px"
                         className="object-cover"
                       />
                     ) : (

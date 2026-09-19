@@ -79,6 +79,14 @@ export default async function EmploymentDetailPage({ params }: Props) {
     );
   }
 
+  // Start the extra read alongside the listing rather than after it: it used to
+  // be a second serial round-trip wave. The `.catch()` marks the promise ITSELF
+  // as handled (the derived promise it returns is what `void` discards), so an
+  // early notFound() unwind can't surface an unhandled rejection. It is still
+  // awaited below and still rejects, so a real failure stays loud.
+  const applicationsPromise = getCachedPublicCvCount(id);
+  void applicationsPromise.catch(() => {});
+
   // Cached public (active) service — zero DB round-trip on a cache hit. A
   // transient miss-time error rethrows so this render fails (uncached) instead
   // of caching a 404 of a live listing for the next 60s.
@@ -94,7 +102,7 @@ export default async function EmploymentDetailPage({ params }: Props) {
     notFound();
   }
 
-  const applicationsCount = await getCachedPublicCvCount(id);
+  const applicationsCount = await applicationsPromise;
 
   return (
     <EmploymentDetailClient

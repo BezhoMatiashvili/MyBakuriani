@@ -88,6 +88,21 @@ export default async function ApartmentDetailPage({ params }: Props) {
   // Cached public (active) listing — zero DB round-trip on a cache hit. A
   // transient miss-time error rethrows so this render fails (uncached) instead
   // of caching a 404 of a live listing for the next 60s.
+  // Start the extras alongside the listing rather than after it: they used to
+  // be a second serial round-trip wave, which doubles the DB latency this page
+  // waits on. The `.catch()` marks `extras` ITSELF as handled (the derived
+  // promise it returns is what `void` discards), so an early notFound() unwind
+  // can't surface an unhandled rejection — which under `next start` can take
+  // the whole single-instance process down. `await extras` below still rejects,
+  // so a real failure stays loud instead of silently rendering a page with no
+  // reviews/calendar.
+  const extras = Promise.all([
+    getCachedPublicReviews(id),
+    getCachedPublicCalendar(id),
+    getCachedPublicPriceOverrides(id),
+  ]);
+  void extras.catch(() => {});
+
   let cached: PropertyWithProfile | null = null;
   try {
     cached = await getCachedPublicProperty(id);
@@ -100,11 +115,7 @@ export default async function ApartmentDetailPage({ params }: Props) {
     notFound();
   }
 
-  const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
-    getCachedPublicReviews(id),
-    getCachedPublicCalendar(id),
-    getCachedPublicPriceOverrides(id),
-  ]);
+  const [reviews, calendarBlocks, priceOverrides] = await extras;
 
   return (
     <ApartmentDetailClient
