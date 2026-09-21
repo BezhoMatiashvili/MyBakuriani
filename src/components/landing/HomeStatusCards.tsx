@@ -2,50 +2,38 @@
 
 import { useCallback, useEffect, useState } from "react";
 import StatusCards from "@/components/landing/StatusCards";
-import {
-  isStatusIcon,
-  type StatusCard,
-  type StatusIcon,
-} from "@/lib/status-cards/types";
+import { isStatusIcon, type StatusCard } from "@/lib/status-cards/types";
+import { withWeatherCard } from "@/lib/weather/card";
+import type { BakurianiWeather } from "@/lib/weather/weatherapi";
 
 const WEATHER_REFRESH_MS = 10 * 60 * 1000;
 
-type PublicWeatherPayload = {
-  temperatureC: number;
-  icon: StatusIcon;
-  observedAt: string;
-};
+// Mirrors the /api/weather body, which is the server's normalized
+// BakurianiWeather. Validated field-by-field because it crosses the network.
+type PublicWeatherPayload = BakurianiWeather;
+
+function isLocalizedText(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const text = value as Record<string, unknown>;
+  return typeof text.ka === "string";
+}
+
+function isFiniteNumber(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value);
+}
 
 function isPublicWeatherPayload(value: unknown): value is PublicWeatherPayload {
   if (!value || typeof value !== "object") return false;
   const weather = value as Record<string, unknown>;
   return (
-    typeof weather.temperatureC === "number" &&
-    Number.isFinite(weather.temperatureC) &&
+    isFiniteNumber(weather.temperatureC) &&
+    isFiniteNumber(weather.dayTempC) &&
+    isFiniteNumber(weather.nightTempC) &&
+    isFiniteNumber(weather.snowCm) &&
+    isLocalizedText(weather.condition) &&
     typeof weather.observedAt === "string" &&
     Number.isFinite(new Date(weather.observedAt).getTime()) &&
     isStatusIcon(weather.icon)
-  );
-}
-
-function formatTemperature(temperatureC: number) {
-  const rounded = Math.round(temperatureC);
-  return `${Object.is(rounded, -0) ? 0 : rounded}°C`;
-}
-
-function withRefreshedWeather(
-  cards: StatusCard[],
-  weather: PublicWeatherPayload,
-): StatusCard[] {
-  const value = formatTemperature(weather.temperatureC);
-  return cards.map((card) =>
-    card.id === "weather"
-      ? {
-          ...card,
-          value: { ka: value, en: value, ru: value },
-          icon: weather.icon,
-        }
-      : card,
   );
 }
 
@@ -60,7 +48,7 @@ export default function HomeStatusCards({ cards }: { cards: StatusCard[] }) {
       if (!response.ok) return;
       const payload: unknown = await response.json();
       if (!isPublicWeatherPayload(payload)) return;
-      setDisplayedCards((current) => withRefreshedWeather(current, payload));
+      setDisplayedCards((current) => withWeatherCard(current, payload));
     } catch {
       // Keep the server-rendered or previously refreshed weather on failures.
     }

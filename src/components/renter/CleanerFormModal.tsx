@@ -181,10 +181,17 @@ export default function CleanerFormModal({
     }
   };
 
+  // The overlay sits at z-50, not z-[60]: TimeField opens its picker through a
+  // portal appended to document.body at z-50. At a higher z-index this modal
+  // painted over that portal, so the working-hours start/end fields looked
+  // completely unresponsive — the sheet was mounted but invisible, and every
+  // later tap landed on the modal instead. At equal z-index paint order falls to
+  // DOM order, and the portal is appended after the app subtree, so it wins.
+  // CleanerCallModal / ManualTaskModal already host TimeField this way.
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

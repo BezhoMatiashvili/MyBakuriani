@@ -52,6 +52,17 @@ export default function BottomSheet({
     if (!isOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // A dialog opened *inside* this sheet owns Escape while it is up. Both
+        // layers listen on `window` in the bubble phase, and this listener is
+        // registered first, so without this guard one keypress closes both —
+        // taking the sheet's unapplied draft state with it. Pre-existing (the
+        // landing page's camera modal stacks the same way); it only became
+        // costly once a sheet started hosting a nested dialog over live edits.
+        if (
+          sheetRef.current?.querySelector('[role="dialog"][aria-modal="true"]')
+        ) {
+          return;
+        }
         event.preventDefault();
         onClose();
         return;

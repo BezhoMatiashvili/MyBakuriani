@@ -39,6 +39,10 @@ import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import { PriceDropAlertButton } from "@/components/sms/PriceDropAlertButton";
 import { Link } from "@/i18n/navigation";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -883,7 +887,7 @@ export default function SaleDetailClient({
 
               <div className="flex gap-2">
                 <CallButton
-                  phone={null}
+                  phone={previewContactPhone(property)}
                   className="flex-1 rounded-2xl tracking-[0.375px]"
                   layout="card"
                   size="lg"
@@ -892,7 +896,7 @@ export default function SaleDetailClient({
                 />
                 <WhatsAppButton
                   hasWhatsApp={property.has_whatsapp ?? false}
-                  whatsapp={null}
+                  whatsapp={previewContactWhatsapp(property)}
                   propertyId={property.id}
                 />
               </div>

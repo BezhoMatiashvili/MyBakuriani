@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 
 import {
   SearchBox,
+  useIsMobileSearchLayout,
   type SearchFilters,
   type ActiveDropdown,
 } from "@/components/search/SearchBox";
@@ -134,6 +135,35 @@ export default function LandingPage({
         photo: Array.isArray(p.photos) ? (p.photos[0] as string) : undefined,
       }));
   }, [serverHotOffers, serverHotels]);
+
+  const isMobileSearchLayout = useIsMobileSearchLayout();
+
+  // One BakurianiMap call site for both layouts. The desktop filters dropdown
+  // shows it as a fixed-width rail beside the controls; the filters bottom sheet
+  // shows it full width under them.
+  //
+  // `previewUntilExpanded` is load-bearing for the sheet, not decoration. An
+  // interactive Mapbox canvas carries `touch-action: none` from mapbox-gl's own
+  // stylesheet, so a finger landing on it cannot scroll the sheet behind it. The
+  // component's built-in preview already avoids that — but only up to 767px,
+  // while the sheet itself runs to 1023px, which would leave iPad-portrait users
+  // with a dead 240px band mid-sheet. This keeps the preview at every sheet width;
+  // the real map opens in its own overlay, where it owns the whole viewport.
+  const renderFiltersMap = (placement: "desktop" | "sheet") => (
+    <BakurianiMap
+      className={
+        placement === "desktop"
+          ? "min-h-[400px] w-[280px] shrink-0 self-stretch"
+          : "h-[240px] w-full rounded-2xl border border-[#E2E8F0]"
+      }
+      embedded
+      expandable
+      previewUntilExpanded={placement === "sheet"}
+      properties={mapProperties}
+      onPropertyClick={(id) => router.push(`/apartments/${id}`)}
+      zones={zones}
+    />
+  );
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
@@ -371,6 +401,7 @@ export default function LandingPage({
               onActiveDropdownChange={setActiveDropdown}
               phoneLayout="landing-compact"
               zones={zones}
+              filtersMapSlot={renderFiltersMap("sheet")}
             />
 
             {/* Floating dropdown panel — absolute so it doesn't expand the blue hero.
@@ -387,16 +418,14 @@ export default function LandingPage({
               )}
             >
               <div ref={filtersPortalRef} className="min-w-0 flex-1" />
-              {activeDropdown === "filters" && (
-                <BakurianiMap
-                  className="min-h-[400px] w-[280px] shrink-0 self-stretch"
-                  embedded
-                  expandable
-                  properties={mapProperties}
-                  onPropertyClick={(id) => router.push(`/apartments/${id}`)}
-                  zones={zones}
-                />
-              )}
+              {/* Unmounted (not just `lg:` hidden) below the breakpoint: this
+                  container is `display:none` on phones, and a Mapbox instance that
+                  initialises at zero size stays blank forever. The phone layout
+                  gets the same map inside the filters sheet instead — see
+                  `filtersMapSlot` on SearchBox above. */}
+              {activeDropdown === "filters" &&
+                !isMobileSearchLayout &&
+                renderFiltersMap("desktop")}
             </div>
             {activeDropdown === "calendar" ? (
               <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">

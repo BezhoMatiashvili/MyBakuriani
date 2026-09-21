@@ -43,6 +43,10 @@ import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
 import HostLanguages from "@/components/detail/HostLanguages";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -80,6 +84,13 @@ const fadeIn = {
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.4 },
 };
+
+// Reviews are temporarily removed from the public detail page at the tester's
+// request (PDF "ბაკურიანი - ხარვეზები", 2026-09-19). Flip this to false to
+// restore every review surface at once: the header rating chip, the reviews
+// section, and the rating shown in the booking sidebar all derive from it.
+// Kept as a flag rather than deleted because the ask was explicitly temporary.
+const REVIEWS_TEMPORARILY_HIDDEN = true;
 
 export default function HotelDetailClient({
   property,
@@ -138,7 +149,7 @@ export default function HotelDetailClient({
     mealsIncludedRule !== null ||
     extraHouseRules.length > 0;
   const avgRating =
-    reviews.length > 0
+    !REVIEWS_TEMPORARILY_HIDDEN && reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
@@ -389,7 +400,7 @@ export default function HotelDetailClient({
           {/* Reviews — hidden entirely while empty (no submission flow
               reaches real, offline-booked stays yet), rather than showing a
               permanent "no reviews" placeholder. */}
-          {reviews.length > 0 && (
+          {!REVIEWS_TEMPORARILY_HIDDEN && reviews.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
               <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("reviewsTitle")} ({reviews.length})
@@ -426,9 +437,9 @@ export default function HotelDetailClient({
               ownerName={owner?.display_name ?? t("hotel")}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
-              ownerPhone={null}
+              ownerPhone={previewContactPhone(property)}
               hasWhatsapp={property.has_whatsapp ?? false}
-              ownerWhatsapp={null}
+              ownerWhatsapp={previewContactWhatsapp(property)}
               propertyId={property.id}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}

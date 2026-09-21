@@ -27,6 +27,10 @@ import {
 } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -422,9 +426,9 @@ export default function TransportDetailClient({
       )}
 
       <TransportContactFooter
-        phone={null}
+        phone={previewContactPhone(service)}
         hasWhatsapp={service.has_whatsapp ?? false}
-        whatsapp={null}
+        whatsapp={previewContactWhatsapp(service)}
         serviceId={service.id}
       />
     </div>

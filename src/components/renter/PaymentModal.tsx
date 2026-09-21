@@ -27,6 +27,21 @@ interface PaymentModalProps {
   onPurchased: () => Promise<void>;
 }
 
+// Winter runs November–March, summer April–October (product definition, mirrored
+// in the membership copy). Evaluated in Asia/Tbilisi — the resort's own calendar —
+// so a visitor abroad never sees the wrong season's offer. Previously the modal
+// showed BOTH seasons at once, which meant a renter opening it in, say, September
+// read the winter offer as the headline.
+function currentSeason(now: Date = new Date()): "winter" | "summer" {
+  const month = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Tbilisi",
+      month: "numeric",
+    }).format(now),
+  );
+  return month >= 4 && month <= 10 ? "summer" : "winter";
+}
+
 /** Account-wide renter membership purchase dialog (kept at this path for callers). */
 export default function PaymentModal({
   isOpen,
@@ -79,7 +94,10 @@ export default function PaymentModal({
       },
     );
     if (invokeError) {
-      setError((await edgeErrorMessage(invokeError)) ?? t("purchaseFailed"));
+      setError(
+        (await edgeErrorMessage(invokeError, tShared("purchaseNetworkError"))) ??
+          t("purchaseFailed"),
+      );
       setSubmitting(false);
       return;
     }
@@ -169,7 +187,9 @@ export default function PaymentModal({
             <p className="mx-6 mt-5 whitespace-pre-line text-[13px] leading-[20px] text-[#64748B]">
               {membershipPending
                 ? t("alreadyPending")
-                : t("seasonalExplanation")}
+                : currentSeason() === "summer"
+                  ? t("seasonalExplanationSummer")
+                  : t("seasonalExplanationWinter")}
             </p>
 
             {plans.length > 0 ? (
@@ -187,11 +207,12 @@ export default function PaymentModal({
                       <span className="block text-sm font-extrabold text-[#0F172A]">
                         {t("seasonPlan")}
                       </span>
-                      {plan.description ? (
-                        <span className="mt-1 block text-xs text-[#64748B]">
-                          {plan.description}
-                        </span>
-                      ) : null}
+                      {/* Deliberately not plan.description: that column holds an
+                          untranslated English string hard-coded to "through
+                          March 15", which contradicts the seasonal model. */}
+                      <span className="mt-1 block text-xs text-[#64748B]">
+                        {t("seasonPlanValidity")}
+                      </span>
                       <span className="mt-3 block text-xl font-black text-[#2563EB]">
                         {formatPrice(Number(plan.amount_gel))}
                       </span>
@@ -244,7 +265,10 @@ export default function PaymentModal({
   );
 }
 
-async function edgeErrorMessage(error: unknown): Promise<string | null> {
+async function edgeErrorMessage(
+  error: unknown,
+  networkMessage: string,
+): Promise<string | null> {
   // supabase-js wraps non-2xx Edge responses in FunctionHttpError. Its public
   // message is generic; the response body carries the vetted ApiError text.
   if (
@@ -262,5 +286,8 @@ async function edgeErrorMessage(error: unknown): Promise<string | null> {
       return null;
     }
   }
-  return error instanceof Error && error.message ? error.message : null;
+  // No Response at all means the fetch itself failed, and `error.message` is
+  // then supabase-js's internal English "Failed to send a request to the Edge
+  // Function" — which used to be printed verbatim into this Georgian dialog.
+  return networkMessage;
 }

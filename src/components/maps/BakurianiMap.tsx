@@ -39,6 +39,15 @@ interface BakurianiMapProps {
   zoom?: number;
   /** Show an expand button that opens a larger map overlay */
   expandable?: boolean;
+  /**
+   * Keep the lightweight preview at every width, mounting the real canvas only
+   * once the map is expanded. For callers that place this inside a scrollable
+   * container: mapbox-gl's own stylesheet puts `touch-action: none` on an
+   * interactive canvas, so a finger landing on the map cannot scroll its
+   * container. The built-in `isPhone` preview stops at 767px, which is not far
+   * enough when the container is a bottom sheet that runs to 1023px.
+   */
+  previewUntilExpanded?: boolean;
   /** Admin-managed zone list. Falls back to the 4 seeded zones if omitted. */
   zones?: Zone[];
 }
@@ -401,6 +410,7 @@ export default function BakurianiMap({
   center,
   zoom,
   expandable,
+  previewUntilExpanded,
   zones = FALLBACK_ZONES,
 }: BakurianiMapProps) {
   const t = useTranslations("BakurianiMap");
@@ -420,11 +430,17 @@ export default function BakurianiMap({
     return () => media.removeEventListener("change", update);
   }, []);
 
+  // One definition of "show the preview instead of a live canvas". `isPhone` is
+  // this component's own perf rule; `previewUntilExpanded` extends it to every
+  // width for callers that need it. Still null-guarded: `isPhone === null` is
+  // the pre-matchMedia first frame.
+  const showPreview = previewUntilExpanded || isPhone === true;
+
   useEffect(() => {
     const frame = mapFrameRef.current;
     // On phones the visible map is deliberately a lightweight preview. The
     // Mapbox instance is mounted only after the user opens the full map.
-    if (!frame || mapReady || isPhone === null || (isPhone && !expanded))
+    if (!frame || mapReady || isPhone === null || (showPreview && !expanded))
       return;
     if (!window.IntersectionObserver) {
       setMapReady(true);
@@ -440,7 +456,7 @@ export default function BakurianiMap({
     );
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [mapReady, isPhone, expanded]);
+  }, [mapReady, isPhone, expanded, showPreview]);
 
   const hasProperties = !!properties && properties.length > 0;
 
@@ -466,7 +482,7 @@ export default function BakurianiMap({
     <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC] p-4 text-center text-xs font-medium text-[#64748B]">
       {t("mapUnavailable")}
     </div>
-  ) : mapReady && (!isPhone || expanded) ? (
+  ) : mapReady && (!showPreview || expanded) ? (
     <MapboxMapView
       initialCenter={initialCenter}
       initialZoom={initialZoom}
@@ -505,7 +521,7 @@ export default function BakurianiMap({
       >
         {expanded ? (
           <div className="h-full w-full bg-[#F1F5F9]" aria-hidden="true" />
-        ) : isPhone ? (
+        ) : showPreview ? (
           <div
             className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#DBEAFE,transparent_45%),linear-gradient(135deg,#F8FAFC,#E2E8F0)]"
             aria-hidden="true"

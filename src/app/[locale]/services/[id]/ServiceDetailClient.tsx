@@ -28,6 +28,10 @@ import {
 } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -301,11 +305,11 @@ export default function ServiceDetailClient({
         <div className="flex items-center gap-3">
           <WhatsAppButton
             hasWhatsApp={service.has_whatsapp ?? false}
-            whatsapp={null}
+            whatsapp={previewContactWhatsapp(service)}
             serviceId={service.id}
           />
           <CallButton
-            phone={null}
+            phone={previewContactPhone(service)}
             className="flex-1 px-8 sm:flex-none"
             label={tCard("call")}
             alwaysShowLabel

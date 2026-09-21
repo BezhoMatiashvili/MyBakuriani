@@ -178,7 +178,11 @@ export default function PropertyBalanceClient() {
         body: { package_id: pkg.id, quantity: 1 },
       });
       if (error) {
-        throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+        throw await promotionPurchaseError(error, {
+          vipConflict: t("superVipBlocksVip"),
+          network: t("purchaseNetworkError"),
+          generic: t("genericRetry"),
+        });
       }
       const { data: txData } = await supabase
         .from("transactions")
@@ -213,7 +217,11 @@ export default function PropertyBalanceClient() {
         },
       });
       if (error) {
-        throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+        throw await promotionPurchaseError(error, {
+          vipConflict: t("superVipBlocksVip"),
+          network: t("purchaseNetworkError"),
+          generic: t("genericRetry"),
+        });
       }
 
       const { data: txData } = await supabase

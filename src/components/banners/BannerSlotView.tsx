@@ -132,7 +132,7 @@ function SlotFrame({
   // Mounted inside a container that already owns padding + max-width.
   if (bare) {
     return (
-      <div className={`@container w-full ${className ?? ""}`}>{children}</div>
+      <div className={`@container isolate w-full ${className ?? ""}`}>{children}</div>
     );
   }
 
@@ -140,7 +140,7 @@ function SlotFrame({
     case "strip":
       return (
         <div
-          className={`@container mx-auto w-full max-w-[1160px] space-y-3 px-4 ${className ?? ""}`}
+          className={`@container isolate mx-auto w-full max-w-[1160px] space-y-3 px-4 ${className ?? ""}`}
         >
           {children}
         </div>
@@ -148,27 +148,27 @@ function SlotFrame({
 
     case "promo-card":
       return (
-        <section className={`@container px-4 pb-8 pt-4 ${className ?? ""}`}>
+        <section className={`@container isolate px-4 pb-8 pt-4 ${className ?? ""}`}>
           <div className="mx-auto max-w-[1160px] space-y-4">{children}</div>
         </section>
       );
 
     case "leaderboard":
       return (
-        <section className={`@container px-4 py-6 ${className ?? ""}`}>
+        <section className={`@container isolate px-4 py-6 ${className ?? ""}`}>
           <div className="mx-auto max-w-[1160px]">{children}</div>
         </section>
       );
 
     case "sidebar":
       return (
-        <div className={`@container w-full ${className ?? ""}`}>{children}</div>
+        <div className={`@container isolate w-full ${className ?? ""}`}>{children}</div>
       );
 
     case "in-grid":
       // Occupies exactly one cell of the caller's existing grid.
       return (
-        <div className={`@container h-full w-full ${className ?? ""}`}>
+        <div className={`@container isolate h-full w-full ${className ?? ""}`}>
           {children}
         </div>
       );
@@ -288,7 +288,13 @@ function SponsoredBadge({ tone }: { tone: ReturnType<typeof getTonePalette> }) {
   return (
     <span
       data-sponsored="true"
-      className="pointer-events-none absolute right-2 top-2 z-10 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] text-white/95"
+      // No z-10 here: `@container` (container-type: inline-size) does not
+      // create a stacking context, so a positive z-index escaped into the ROOT
+      // stacking context and painted this badge over the search filter panel
+      // (tester PDF p.7: the black "რეკლამა" pill showing through the white
+      // block). The badge still paints above its own creative because it comes
+      // after the media in DOM order. SlotFrame now also isolates its subtree.
+      className="pointer-events-none absolute right-2 top-2 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] text-white/95"
       style={{ backgroundColor: tone.badgeBg }}
     >
       {sponsoredLabel(locale)}

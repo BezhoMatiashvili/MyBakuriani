@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { promotionPurchaseError } from "@/lib/promotion-purchase";
 import { motion } from "framer-motion";
 import {
   History,
@@ -139,7 +140,13 @@ export default function ServiceBalancePage() {
           quantity: 1,
         },
       });
-      if (error) throw error;
+      if (error) {
+        throw await promotionPurchaseError(error, {
+          vipConflict: tShared("superVipBlocksVip"),
+          network: tShared("purchaseNetworkError"),
+          generic: tShared("genericRetry"),
+        });
+      }
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")

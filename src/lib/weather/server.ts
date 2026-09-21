@@ -1,7 +1,9 @@
 import "server-only";
 import { cache } from "react";
 import type { StatusCard } from "@/lib/status-cards/types";
+import { withWeatherCard } from "./card";
 import {
+  formatSnowCm,
   formatWeatherTemperature,
   parseWeatherApiWeather,
   type BakurianiWeather,
@@ -9,6 +11,7 @@ import {
 } from "./weatherapi";
 
 export {
+  formatSnowCm,
   formatWeatherTemperature,
   parseWeatherApiWeather,
   weatherApiCodeToStatusIcon,
@@ -19,7 +22,10 @@ export {
 // Bakuriani ski resort town centre.
 const BAKURIANI_LAT = 41.75;
 const BAKURIANI_LNG = 43.53;
-const WEATHERAPI_URL = "https://api.weatherapi.com/v1/current.json";
+// forecast.json (not current.json): the landing card needs today's high/low
+// and snowfall alongside the live reading, and the forecast payload is a
+// superset of the current one.
+const WEATHERAPI_URL = "https://api.weatherapi.com/v1/forecast.json";
 
 export const WEATHER_REVALIDATE_SECONDS = 10 * 60;
 
@@ -36,6 +42,9 @@ export const getBakurianiWeather = cache(
       const url = new URL(WEATHERAPI_URL);
       url.searchParams.set("key", apiKey);
       url.searchParams.set("q", `${BAKURIANI_LAT},${BAKURIANI_LNG}`);
+      url.searchParams.set("days", "1");
+      url.searchParams.set("aqi", "no");
+      url.searchParams.set("alerts", "no");
 
       const res = await fetch(url, {
         next: { revalidate: WEATHER_REVALIDATE_SECONDS },
@@ -49,22 +58,15 @@ export const getBakurianiWeather = cache(
   },
 );
 
-// Overrides the live weather card's value and icon with the latest reading.
-// Live always wins (per product decision) while the label / card presence stay
-// admin-editable. No-op when weather is unavailable or the card was removed.
+// Overrides the live weather card's value, caption and icon with the latest
+// reading. Live always wins (per product decision) while the label / card
+// presence stay admin-editable. No-op when weather is unavailable or the card
+// was removed. The card face itself is built in ./card.ts, which the client
+// refresh poll shares.
 export function withLiveWeather(
   cards: StatusCard[],
   weather: BakurianiWeather | null,
 ): StatusCard[] {
   if (!weather) return cards;
-  const value = formatWeatherTemperature(weather.temperatureC);
-  return cards.map((card) =>
-    card.id === "weather"
-      ? {
-          ...card,
-          value: { ka: value, en: value, ru: value },
-          icon: weather.icon,
-        }
-      : card,
-  );
+  return withWeatherCard(cards, weather);
 }

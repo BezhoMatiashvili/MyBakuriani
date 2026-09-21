@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { promotionPurchaseError } from "@/lib/promotion-purchase";
 import { motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
@@ -130,7 +131,13 @@ export default function FoodBalancePage() {
       const { error } = await supabase.functions.invoke("purchase-vip", {
         body: { package_id: pkg.id, quantity: 1 },
       });
-      if (error) throw error;
+      if (error) {
+        throw await promotionPurchaseError(error, {
+          vipConflict: tShared("superVipBlocksVip"),
+          network: tShared("purchaseNetworkError"),
+          generic: tShared("genericRetry"),
+        });
+      }
       const { data: txData } = await supabase
         .from("transactions")
         .select("*")

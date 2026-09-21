@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { CreateHeader } from "@/components/layout/CreateHeader";
 import type { AppLocale } from "@/i18n/routing";
 
@@ -19,11 +21,21 @@ export async function generateMetadata({
   };
 }
 
-export default function CreateLayout({
+// Second gate, behind the middleware. The middleware deliberately lets a
+// TRANSIENT auth failure through rather than falsely logging the user out
+// (see src/lib/supabase/middleware.ts), so a genuinely revoked session can now
+// reach this tree once. None of the /create/* category pages redirect on their
+// own — they only read useAuth() on the client — so without this guard that
+// relaxation would make them renderable while signed out (C8). Mirrors what
+// dashboard/layout.tsx already does.
+export default async function CreateLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth/login?next=/create");
+
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       <CreateHeader />

@@ -89,7 +89,11 @@ export default function PackagePromotionPicker({
             },
           });
           if (error) {
-            throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+            throw await promotionPurchaseError(error, {
+              vipConflict: t("superVipBlocksVip"),
+              network: t("purchaseNetworkError"),
+              generic: t("genericRetry"),
+            });
           }
           await onPurchased?.();
         } finally {

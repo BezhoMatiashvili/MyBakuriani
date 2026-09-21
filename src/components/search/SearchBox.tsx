@@ -59,6 +59,38 @@ const Calendar = dynamic(
   },
 );
 
+/**
+ * The horizontal search pill has no room for three fields plus the keyword box and
+ * the submit button below this width (at 768-1023px the location field wraps
+ * mid-label), so the whole search UI falls back to a stacked form whose dropdowns
+ * open in a BottomSheet.
+ *
+ */
+const SEARCH_MOBILE_MAX_WIDTH = 1024;
+
+/**
+ * Exported so a parent shares this one definition instead of re-deriving it. The
+ * landing page needs it because it renders a desktop-only sibling of the search
+ * box — the filters map rail — which it must *unmount* below the breakpoint
+ * rather than hide with `lg:`. Hiding it leaves a BakurianiMap mounted in a
+ * `display:none` container where it can never become useful: its own
+ * IntersectionObserver only ever fires for an element with a box, so the map
+ * silently stays a placeholder while still holding a media-query listener and a
+ * slot in the tree.
+ */
+
+export function useIsMobileSearchLayout(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () =>
+      setIsMobile(window.innerWidth < SEARCH_MOBILE_MAX_WIDTH);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
+
 interface SearchBoxProps {
   onSearch: (filters: SearchFilters) => void;
   className?: string;
@@ -78,6 +110,13 @@ interface SearchBoxProps {
    */
   filtersPortalRef?: React.RefObject<HTMLDivElement | null>;
   filtersBoundaryRef?: React.RefObject<HTMLElement | null>;
+  /**
+   * Rendered at the bottom of the mobile filters BottomSheet. The desktop filters
+   * dropdown shows a map rail beside the controls, but that rail lives in the
+   * parent's DOM and is unreachable from the sheet, so the parent hands the same
+   * map down here rather than this component owning a second call site.
+   */
+  filtersMapSlot?: React.ReactNode;
   onActiveDropdownChange?: (active: ActiveDropdown) => void;
   isPending?: boolean;
   phoneLayout?: "default" | "landing-compact";
@@ -171,6 +210,7 @@ export function SearchBox({
   dropdownBoundaryRef,
   filtersPortalRef,
   filtersBoundaryRef,
+  filtersMapSlot,
   onActiveDropdownChange,
   isPending = false,
   phoneLayout = "default",
@@ -196,7 +236,7 @@ export function SearchBox({
   const [keyword, setKeyword] = useState(defaultKeyword);
 
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobileSearchLayout();
   const [filters, setFilters] = useState<FilterState>(() =>
     normalizeRentFilters(advancedFilters),
   );
@@ -229,16 +269,6 @@ export function SearchBox({
   }, [advancedFilters]);
 
   const containerRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    // Must match the lg: breakpoint below — the horizontal pill layout has no
-    // room for 3 fields + keyword box + button until 1024px (at 768-1023px
-    // the location field wraps mid-label).
-    const check = () => setIsMobile(window.innerWidth < 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => {
     onActiveDropdownChange?.(activeDropdown);
@@ -889,6 +919,14 @@ export function SearchBox({
                   mobile
                   sheet
                 />
+              )}
+              {/* Parity with the desktop filters dropdown, which pairs the same
+                  controls with a map rail. Rendered only while the filters sheet
+                  is open, so the map never mounts hidden. Safe inside the sheet:
+                  BottomSheet's drag-to-dismiss is bound to its grab handle alone,
+                  not the scrolling body, so panning the map cannot close it. */}
+              {activeDropdown === "filters" && filtersMapSlot && (
+                <div className="mt-4">{filtersMapSlot}</div>
               )}
               {activeDropdown === "calendar" && (
                 <Calendar
