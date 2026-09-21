@@ -23,7 +23,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --omit=optional
+      # No --omit=optional: `next lint` needs @parcel/watcher's platform binary,
+      # which is an optional dependency, and fails to start without it.
+      - run: npm ci
       - run: node scripts/check-secret-permissions.mjs
       - run: npx tsc --noEmit
       - run: npm run lint
