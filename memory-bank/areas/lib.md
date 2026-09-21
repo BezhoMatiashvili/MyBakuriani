@@ -7,7 +7,7 @@ Shared client/server logic — the seam between UI and Supabase.
 - `supabase/` — client factories: `client.ts` (browser, 10s + 60s upload timeout),
   `server.ts` (RSC, 9.5s), `admin.ts` (`createServiceClient`, service role),
   `middleware.ts` (`updateSession` — session refresh + login redirect).
-- `types/database.ts` — **generated** DB types (do not hand-edit; see **C3**).
+- `types/database.generated.ts` — **generated** DB types (never hand-edit); `types/database.ts` — the override layer consumers import (see **C3**).
 - `hooks/` — `useAuth`, `useProfile`, `useBalance`, `useBookings`, `useProperties`,
   `useNotifications`, `useRealtime`, `useSmartMatch`, `useFavorite`, `useStatsFilter`.
 - `auth/` — `current-user` (`getCurrentUser`/`getCurrentProfile`),

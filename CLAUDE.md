@@ -72,7 +72,9 @@ Premium real estate rental/sales + services marketplace for Bakuriani ski resort
 - Dev: `npm run dev` (uses Turbopack)
 - Build: `npm run build`
 - Lint: `npm run lint`
-- Generate DB types: `npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/lib/types/database.ts`
+- Generate DB types: `npm run types:gen` (writes `src/lib/types/database.generated.ts`; never hand-edit it — overrides go in `database.ts`). `npm run types:check` diffs without writing
+- Contract checks: `npm run check:contracts` (repo-only, also in `prebuild`) and `npm run check:db-contracts` (against the project in `.env.local`)
+- Unit tests: `npm test` (pure domain modules under `scripts/unit/`, plus config/auth suites)
 
 ### Testing — ALWAYS use localhost
 

@@ -1,0 +1,55 @@
+name: Nightly E2E
+
+# Runs the Playwright suite against a production build served locally
+# (CLAUDE.md: never test against the deployed site). It needs the TEST_*
+# variables that e2e/ reads (a dedicated Supabase project + QA accounts) as
+# Actions secrets. Until those exist the job detects the gap and exits 0 so
+# the schedule is a no-op rather than a permanently red badge.
+on:
+  schedule:
+    - cron: "30 2 * * *" # 02:30 UTC ≈ 06:30 Tbilisi
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4.0.4
+        with:
+          node-version: 22
+          cache: npm
+      - id: gate
+        name: Check for E2E secrets
+        run: |
+          if [ -z "$TEST_SUPABASE_URL" ] || [ -z "$TEST_SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "TEST_* secrets are not configured; skipping E2E." >&2
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.gate.outputs.ready == 'true'
+        run: npm ci
+      - if: steps.gate.outputs.ready == 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.gate.outputs.ready == 'true'
+        # e2e/helpers/env.ts maps TEST_* onto the NEXT_PUBLIC_* names the app
+        # process reads and refuses any non-test Supabase URL, so nothing else
+        # needs to be passed here.
+        run: npm run test:e2e
+        env:
+          CI: "true"
+      - if: steps.gate.outputs.ready == 'true' && failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

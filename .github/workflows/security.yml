@@ -15,6 +15,8 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4.0.4
@@ -24,7 +26,33 @@ jobs:
       - run: npm ci --omit=optional
       - run: node scripts/check-secret-permissions.mjs
       - run: npx tsc --noEmit
+      - run: npm run lint
+      # Repo-only halves of the string-keyed contracts (memory-bank/contracts.md):
+      # edge-function names ↔ directories ↔ config.toml, CSP ↔ remotePatterns,
+      # admin property_type lists ↔ enum, landing-media mime lists.
+      - run: npm run check:contracts
+      # Pure-domain unit tests (pricing, scopes, URLs, availability, review
+      # allow-list, pageview normaliser, security helpers, banner registry) plus
+      # the existing production-config and auth-helper suites.
+      - run: npm test
       - run: npm run test:sms-domain
+      # Database-side halves of the same contracts, against the STAGING project.
+      # Skips itself (exit 0) until STAGING_SUPABASE_URL / STAGING_SUPABASE_SERVICE_ROLE_KEY
+      # exist as Actions secrets; with them present it fails on drift between
+      # CHECK constraints / enums / the review-gate trigger / the realtime
+      # publication and their TypeScript twins.
+      - run: npm run check:db-contracts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      # database.generated.ts must equal `supabase gen types` for the staging
+      # project. Needs SUPABASE_ACCESS_TOKEN (a personal access token) as a
+      # secret; without it the step is skipped rather than failed.
+      - if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
+        run: npm run types:check
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
       # `npm run build` deliberately does NOT run here. It needs
       # SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_* to prerender
       # /[locale]/employment, no Actions secrets are configured, and this step

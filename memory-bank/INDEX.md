@@ -13,7 +13,7 @@ contract sections that match what you're about to touch.
 
 | Concern                     | Source of truth                             | Notes                                                                           |
 | --------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
-| DB schema, enums, RPCs      | `supabase/migrations/*.sql`                 | `src/lib/types/database.ts` is **generated** from it — never hand-edit (see C3) |
+| DB schema, enums, RPCs      | `supabase/migrations/*.sql`                 | `src/lib/types/database.generated.ts` is **generated** (`npm run types:gen`); `database.ts` is the 2-rule override layer (C3) |
 | User-facing copy            | `messages/{ka,en,ru}.json`                  | ka is authoritative; keys must be parity across all 3 (C1)                      |
 | Public i18n bundle scope    | `src/i18n/namespaces.ts:PUBLIC_NAMESPACES`  | guarded by `prebuild` (C1)                                                      |
 | Supported locales / routing | `src/i18n/routing.ts:routing`               | echoed by middleware + request config (C2)                                      |
@@ -42,7 +42,7 @@ Full symbol inventory (module → exports + import edges, regenerable):
 | --- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | C1  | 3 message catalogs stay key-parallel; public namespaces listed in `PUBLIC_NAMESPACES`                                | key added to one locale only / public component uses unlisted namespace          |
 | C2  | Locale set defined once in `routing.ts`, echoed by middleware + request import                                       | locale added without a `messages/<locale>.json`                                  |
-| C3  | Migrations are schema truth; `database.ts` is generated, not hand-edited                                             | migration not followed by a types regen                                          |
+| C3  | Migrations are schema truth; `database.generated.ts` is generated, `database.ts` holds the only 2 override rules     | migration not followed by `npm run types:gen` (now caught by C29's enum check)  |
 | C4  | `functions.invoke("name", body)` matches a Deno handler by string + shape                                            | function/body renamed on one side only                                           |
 | C5  | Storage bucket ids agree across upload code, migration/RLS, remotePatterns/CSP                                       | bucket renamed in code but not migration/config                                  |
 | C6  | External hosts listed in **both** CSP and `remotePatterns`                                                           | new CDN/endpoint added to only one                                               |
@@ -51,6 +51,7 @@ Full symbol inventory (module → exports + import edges, regenerable):
 | C9  | `favorites` rows reference property_id XOR service_id; both must be handled                                          | new favorites read/write path only handles `property_id`                         |
 | C19 | Notification `dashboard_scope` agrees across CHECK, TS union, writers, readers, badges                               | a writer omits the scope → NULL row is invisible in every cabinet feed           |
 | C28 | Public detail routes are ISR + cookie-free; preview via /preview/* rewrite; middleware sets their edge Cache-Control | an auth/cookie read added to a detail page → hard 500 on first cache-miss render |
+| C29 | Every mechanically-comparable coupling here is checked by `check-contracts.mjs` (prebuild/CI) or `check-db-contracts.mjs` | a new string key gets a prose paragraph but no check line → back to docs-only    |
 
 ## Pre-modification ritual
 

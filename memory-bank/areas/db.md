@@ -8,7 +8,7 @@ Database schema, policies, and the generated type mirror.
   (`001…014`), then timestamp-prefixed (`20260415…` onward). Cover schema, RLS,
   RPCs, triggers, seed data, storage buckets, realtime publication, and security
   hardening passes.
-- `src/lib/types/database.ts` — **generated** TypeScript mirror of the live schema
+- `src/lib/types/database.generated.ts` — **generated** TypeScript mirror of the live schema; `database.ts` is the hand-written 2-rule override layer on top (view shapes, null-tolerant RPC args)
   (tables, `Enums` incl. `user_role`, RPC signatures). Consumed via the `Database`
   generic everywhere.
 - `supabase/config.toml`, `supabase/seed/`.
@@ -23,9 +23,9 @@ Database schema, policies, and the generated type mirror.
 
 ## Blast radius
 
-- **Any** schema/enum/RPC change must be followed by regenerating `database.ts`
+- **Any** schema/enum/RPC change must be followed by regenerating `database.generated.ts`
   (**C3**) — otherwise TS silently compiles against a stale schema.
-  `npx supabase gen types typescript --project-id <id> > src/lib/types/database.ts`.
+  `npm run types:gen` (scripts/gen-database-types.sh; `npm run types:check` diffs without writing).
 - Migrations are append-only and ordered; never rewrite an applied migration —
   add a new one. Some historical numeric prefixes collide (two `004_`, two `014_`)
   — preserve existing names, don't renumber.
