@@ -93,42 +93,16 @@ export default function SellerDashboardClient({
       setProperties(data.properties);
     }
 
-    // Coarse single-condition realtime filter; in personal scope events for
-    // the user's org-linked rows still fire, but loadSellerData excludes them
-    // (organization_id IS NULL) so they only cause a harmless refetch.
-    const filter =
-      scope.mode === "org" && scope.organizationId
-        ? `organization_id=eq.${scope.organizationId}`
-        : `owner_id=eq.${userId}`;
-
     if (scopeInitialized.current) {
       // The active scope changed after mount — refresh immediately so the
-      // preview reflects the newly selected personal/org view without
-      // waiting for a live DB write to trigger the subscription below.
+      // preview reflects the newly selected personal/org view.
       loadSellerData(supabase, userId, scope).then(applyData);
     } else {
       scopeInitialized.current = true;
     }
-
-    // Live: status / VIP changes on the owner's (or, in org scope, the
-    // company's) listings refresh the preview.
-    const channel = supabase
-      .channel("seller-overview-rt")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "properties",
-          filter,
-        },
-        () => loadSellerData(supabase, userId, scope).then(applyData),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // No realtime channel: `properties` is not in the supabase_realtime
+    // publication (contract C7), so status / VIP changes show on the next
+    // navigation or reload rather than live.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, scope.mode, scope.organizationId]);
 

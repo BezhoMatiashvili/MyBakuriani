@@ -157,8 +157,9 @@ export default function RenterDashboardClient({
       void refreshMatches();
     }
 
-    // Live: new bookings (income/receivable) and listing status changes refresh
-    // the overview without a reload.
+    // Live: new bookings (income/receivable) and membership changes refresh the
+    // overview without a reload. `properties` is deliberately not subscribed —
+    // it is not in the supabase_realtime publication (contract C7).
     const channel = supabase
       .channel("renter-overview-rt")
       .on(
@@ -167,16 +168,6 @@ export default function RenterDashboardClient({
           event: "*",
           schema: "public",
           table: "bookings",
-          filter: `owner_id=eq.${userId}`,
-        },
-        () => loadRenterOverview(supabase, userId).then(applyOverview),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "properties",
           filter: `owner_id=eq.${userId}`,
         },
         () => loadRenterOverview(supabase, userId).then(applyOverview),

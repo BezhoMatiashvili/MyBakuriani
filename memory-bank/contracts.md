@@ -272,6 +272,19 @@ Bearer to `<NAME>_SECRET`), deployed `verify_jwt=false`.
 That historical state is superseded. Verified live 2026-08-18: all four jobs now
 exist and are active (`booking-finalize-daily`, `sms-automation-daily`,
 `sms-dispatch-frequent`, `vip-lifecycle-daily`), and each latest run succeeded.
+**Staging had NONE of them until 2026-09-21** — the 2026-09-09 pg_dump/restore
+to the EU project carried no `cron.job` rows, no Vault secrets and no edge
+secrets, so VIP expiry, booking finalization and SMS dispatch had never run
+there. Provisioned that day: three fresh shared secrets set as edge secrets
+(`BOOKING_FINALIZE_SECRET`, `SMS_AUTOMATION_RUN_SECRET`, `SMS_DISPATCH_SECRET`,
+via `supabase secrets set --project-ref laxwtegxpemuuyxluqsi`) plus
+`SITE_URL=https://staging.mybakuriani.ge` and `SMS_DELIVERY_ENABLED=false`;
+the six matching `app.*` Vault entries pointing at the staging function URLs;
+then the bodies of `20260725140000` (rate-limit-gc), `20260801132000` and
+`20260816122000` re-run. Verified: all five jobs active, `booking-finalize` and
+`vip-lifecycle` return 200 with their secret and 401 without. Staging secrets
+are distinct from prod's on purpose. `npm run check:db-contracts` warns when
+any of the five is missing on whichever project it is pointed at.
 The four handlers use `_shared/secrets.ts`, which hashes both Bearer values to a
 fixed 32-byte digest before standard timing-safe comparison. Ordinary string
 equality must not be reintroduced. Current deployed versions are
@@ -440,6 +453,13 @@ would add WAL volume and still never deliver a `property_id`-filtered DELETE. Ex
 refetch is the only fix. (Dropping the filter and subscribing unfiltered would deliver
 DELETEs — to every subscriber of the table, which is the leak the reduction prevents.)
 
+**This has already happened at scale and gone unnoticed for ten weeks.** The
+2026-07-12 publication trim removed `balances`, `transactions`, `properties`
+and `manual_bookings` but left nine subscriptions on them in place; the
+wallet pages depended on one to refresh the balance after a purchase.
+Removed 2026-09-21; `scripts/check-db-contracts.mjs` now fails on any
+subscription to an unpublished table (**C29**).
+
 **Breaks silently when:** a new dashboard subscribes to a table not yet in
 `supabase_realtime` → the channel connects but **no events ever arrive**; nothing
 errors. Or a mutation relies on its own realtime event to re-render — a DELETE under
@@ -523,6 +543,43 @@ guard.response;`, backed by `getCurrentUser` (so it inherits the timeout
   `node --test` (`scripts/mfa-assurance.test.mjs`, wired into
   `npm run test:security-auth`).
 
+- `src/lib/with-timeout.ts:isTransientAuthFailure` — since 2026-09-21, the ONE
+  "couldn't tell whether this session is valid" predicate, shared by the middleware
+  gate and `getCurrentUser`. It lives here, not in `src/lib/supabase/middleware.ts`,
+  so the RSC path never imports a `next/server` module. Before this, the middleware
+  used the widened predicate (retryable + any 5xx + the `refresh_token_not_found` /
+  `refresh_token_already_used` rotation-loser 400s) while `current-user.ts` used only
+  the narrow `isAuthRetryableFetchError` — so the middleware deliberately let a
+  transient failure through and `create/layout.tsx` then booted the very same request
+  to `/auth/login`, defeating the stated purpose of its own comment. Keep both gates
+  on this one predicate.
+- `src/lib/supabase/auth-cookies.ts:hasSupabaseAuthCookie` — the single auth-cookie
+  matcher (prefix `sb-`, contains `-auth-token`, tolerating `.0`/`.1` chunks), lifted
+  out of `src/middleware.ts`, which now imports it. Used both by the `?preview=1`
+  rewrite and by `updateSession`.
+- `src/lib/supabase/auth-cookies.ts:isAuthJarParseable` / `:clearAuthCookies` /
+  `:describeAuthCookies` — `updateSession` no longer treats "cookies produced no
+  claims" as identical to "anonymous visitor". When auth cookies WERE sent and still
+  yield nothing usable, it expires every chunk on the redirect, so a browser cannot
+  keep re-sending a dead jar forever while its in-memory session keeps the UI looking
+  signed in. A damaged jar fails TWO ways and both are handled: decodable-but-spliced
+  bytes surface as `{data:null, error:null}`, while bytes that are not valid UTF-8
+  make `@supabase/ssr` THROW `Invalid UTF-8 sequence` out of `getItem` — which
+  escaped into the catch-all "never boot on a throw" branch and left `/create`
+  returning 200 rendering its error boundary plus an unhandled rejection on EVERY
+  navigation. `isAuthJarParseable` is what lets the catch block tell that apart from
+  an unrelated throw (e.g. a lock-acquire timeout) without matching error strings.
+
+**Do NOT "simplify" the browser client into a hand-rolled singleton.**
+`@supabase/ssr`'s `createBrowserClient` already memoizes (`cachedBrowserClient`,
+returned whenever `isBrowser()`), so `createClient()` per render does NOT create
+multiple `GoTrueClient`s — verified by A/B, since auth-js unconditionally warns
+"Multiple GoTrueClient instances detected" and a pre-change production build emitted
+none. A corollary worth knowing: `createUploadClient()` therefore returns the SAME
+instance as `createClient()` in the browser, so its 60s upload budget has never
+applied, and `auth: { autoRefreshToken: false }` passed to it is inert because
+`autoRefreshToken: isBrowser()` is spread after `...options.auth`.
+
 **Also check:** a protected page still needs RLS on the tables it reads —
 middleware gates the _route_, RLS gates the _data_. A gated page whose tables lack
 RLS still leaks via a direct API/query call that never hits the middleware.
@@ -533,7 +590,13 @@ for anonymous users; only RLS (if present) stops data access. Or `getCurrentUser
 `GET_USER_TIMEOUT_MS` race is removed/lengthened past the real per-request
 execution budget → dashboards intermittently hang on the loading skeleton on slow
 connections again, worst on mobile, with no error and no clean recovery. Or a
-new/edited call site invokes `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`
+the two gates drift back onto different transient-auth
+predicates → the middleware waves a request through and the layout behind it
+redirects it anyway, so the user is bounced to the login card while visibly signed
+in, with no error anywhere. Or the corrupt-jar branch is collapsed back into the
+anonymous branch → a browser holding an unusable session cookie bounces off every
+protected route forever, because nothing in the normal flow ever rewrites those
+cookies. Or a new/edited call site invokes `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`
 directly instead of through `isAal2Verified` → the admin dashboard/API hang
 reopens, this time gated on MFA assurance instead of identity, worst on desktop
 since that's where admin sessions live long enough for the access token to
@@ -2173,10 +2236,12 @@ Participating symbols:
 - `supabase/migrations/20260921120000_schema_contract_snapshot.sql:schema_contract_snapshot`
   — the read-only, `service_role`-only SECURITY DEFINER RPC that returns enums,
   every `col = ANY(ARRAY[...])` CHECK on a public table, the publication members,
-  `cron.job`, and the review-gate arrays as one jsonb. Applied to **staging** on
-  2026-09-21; **not yet on prod** (neither is `20260914120000`'s drift function,
-  nor `20260919120000`'s `cadastral_code_public` — those three are the current
-  staging→prod backlog)
+  `cron.job`, and the review-gate arrays as one jsonb. Applied to staging AND
+  prod on 2026-09-21, together with the two other migrations prod had been
+  missing (`20260914120000` drift function, `20260919120000`
+  `cadastral_code_public`); prod's ledger names are
+  `content_review_gate_column_drift_check`, `sale_cadastral_code_optional_visibility`,
+  `schema_contract_snapshot`. Prod and staging schemas are in step again
 - `scripts/unit/*.test.mjs` — `npm run test:unit` (also inside `npm test`):
   `node --test` with type stripping, importing the pure domain modules straight
   from `src/` (`pricing.ts`, `notifications/scopes.ts`, `utils/listingUrls.ts`,
@@ -2193,16 +2258,19 @@ Participating symbols:
   are configured, so it is a scaffold that becomes live by adding secrets, not a
   red badge
 
-**Known-dead realtime subscriptions are allow-listed, not hidden.**
-`check-db-contracts` carries `KNOWN_DEAD = ["balances", "manual_bookings",
-"properties", "transactions"]`: the publication was trimmed for performance on
-2026-07-12 and nine client `postgres_changes` channels on those four tables were
-never removed (food/service balance pages, `PropertyBalanceClient`, renter
-calendar, renter + seller dashboard clients). They connect and receive nothing.
-A NEW subscription on an unpublished table fails the check; a listed table that
-stops being subscribed (or gets published) also fails it, so the list cannot go
-stale silently. Removing those nine subscriptions and emptying the list is the
-intended fix.
+**Dead realtime subscriptions: fixed 2026-09-21, allow-list now empty.** The
+publication was trimmed for performance on 2026-07-12 and nine client
+`postgres_changes` channels on `balances`, `transactions`, `properties` and
+`manual_bookings` were left behind (food/service balance pages,
+`PropertyBalanceClient`, renter calendar, renter + seller dashboard clients).
+They connected and received nothing — and the three wallet pages had relied on
+the `balances` channel to refresh the balance after a purchase, so since the
+trim the shown balance stayed stale until reload. All nine were removed; the
+wallet pages now refetch balance + transactions explicitly after
+`purchase-vip` succeeds (the "never rely on realtime to refresh your own
+write" rule from **C7**). `check-db-contracts` keeps `KNOWN_DEAD = []`: a NEW
+subscription on an unpublished table fails the check, and an entry that goes
+stale fails it too.
 
 **Deliberately not checked (yet):** `property_type` fan-out into the sale form,
 `SaleSearchBox`, `FilterPanel` and `listing-options.ts` (**C13**'s other silent

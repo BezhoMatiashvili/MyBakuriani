@@ -92,35 +92,9 @@ export default function FoodBalancePage() {
       setLoading(false);
     }
     fetchData();
-
-    // Live balance + transactions — server-side top-ups / purchases reflect instantly.
-    const channel = supabase
-      .channel("food-balance-rt")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "balances",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => fetchData(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "transactions",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => fetchData(),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // No realtime here: `balances` and `transactions` are not in the
+    // supabase_realtime publication (trimmed 2026-07-12, contract C7), so the
+    // wallet is refetched explicitly after each purchase instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -138,13 +112,17 @@ export default function FoodBalancePage() {
           generic: tShared("genericRetry"),
         });
       }
-      const { data: txData } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      if (txData) setTransactions(txData);
+      const [balRes, txRes] = await Promise.all([
+        supabase.from("balances").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase
+          .from("transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+      if (balRes.data) setBalance(balRes.data);
+      if (txRes.data) setTransactions(txRes.data);
     } finally {
       setPurchasing(null);
     }

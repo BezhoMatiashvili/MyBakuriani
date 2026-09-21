@@ -378,36 +378,16 @@ export default function RenterCalendarPage() {
     setPlatformBookings([]);
   }, [selectedPropertyId, year, month]);
 
-  const fetchBookingsRef = useRef(fetchBookings);
-  useEffect(() => {
-    fetchBookingsRef.current = fetchBookings;
-  }, [fetchBookings]);
 
   useEffect(() => {
     fetchBookings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
-  useEffect(() => {
-    if (!selectedPropertyId) return;
-    const channel = supabase
-      .channel(`manual-bookings-${selectedPropertyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "manual_bookings",
-          filter: `property_id=eq.${selectedPropertyId}`,
-        },
-        () => fetchBookingsRef.current(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId]);
+  // `manual_bookings` is not in the supabase_realtime publication (contract
+  // C7), so there is no live channel for it: every write path on this page
+  // awaits fetchBookings() itself, and the calendar_blocks channel below covers
+  // cross-client convergence for the nights a booking occupies.
 
   const scheduleCalendarRefresh = useCallback(
     (includeBookings = false) => {

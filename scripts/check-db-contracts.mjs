@@ -130,12 +130,11 @@ for (const table of ["ads", "landing_banners"]) {
   };
   walk("src");
   const published = snapshot.realtime_tables;
-  // Subscriptions that are known to be dead: the publication was trimmed for
-  // performance on 2026-07-12 and these client channels were never removed.
-  // They connect and receive nothing. Listed so a NEW dead subscription fails
-  // this check while the backlog stays visible; remove an entry when its
-  // subscription is deleted (a stale entry fails too).
-  const KNOWN_DEAD = ["balances", "manual_bookings", "properties", "transactions"];
+  // Subscriptions known to target an unpublished table. Empty since
+  // 2026-09-21, when the nine channels left behind by the 2026-07-12
+  // publication trim were removed. Add an entry only as a deliberate,
+  // temporary allow-list; a stale entry fails the check too.
+  const KNOWN_DEAD = [];
   const dead = [...subs.keys()].filter((t) => !published.includes(t)).sort();
   const unexpected = onlyIn(dead, KNOWN_DEAD);
   const stale = onlyIn(KNOWN_DEAD, dead);
