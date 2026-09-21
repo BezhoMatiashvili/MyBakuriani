@@ -226,10 +226,10 @@ export function Navbar() {
           <Image
             src="/logo.png"
             alt="MyBakuriani"
-            width={300}
-            height={199}
+            width={124}
+            height={50}
             priority
-            className="h-10 w-auto lg:h-12"
+            className="h-8 w-auto sm:h-10 lg:h-12"
           />
         </Link>
 

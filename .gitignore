@@ -90,3 +90,7 @@ next-env.d.ts
 # memory-bank/contracts.md C18 instead.
 /sms.md
 /sms-decisions.md
+
+# python bytecode (scripts/*.py)
+__pycache__/
+*.pyc

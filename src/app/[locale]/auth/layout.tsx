@@ -38,8 +38,8 @@ export default function AuthLayout({
             <Image
               src="/logo.png"
               alt="MyBakuriani"
-              width={300}
-              height={199}
+              width={124}
+              height={50}
               className="h-10 w-auto"
             />
           </Link>
