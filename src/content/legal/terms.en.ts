@@ -28,17 +28,7 @@ export const termsEn: LegalDoc = {
     {
       id: "definitions",
       title: "3. Definitions",
-      bullets: [
-        '"Platform" — MyBakuriani and the digital services connected to it.',
-        '"User" — any natural or legal person who uses the Platform.',
-        '"Account" — a personal or business profile created by a user on the Platform.',
-        '"Listing author" — a user who posts a listing on the Platform based on their own or an authorized right to do so.',
-        '"Seeker" — a user who uses the Platform to search for property, a service, employment, or another offer.',
-        '"Smart Match" — an automated Platform feature that may connect a user with a relevant listing author.',
-        '"Wallet" — the Platform\'s internal balance used to purchase paid services.',
-        '"Credit" — the Platform\'s internal conventional unit for specific digital services.',
-        '"Paid service" — a digital, informational, advertising, listing-placement, or other Platform service offered in exchange for a fee.',
-      ],
+      body: '3.1. "Platform" — MyBakuriani and the digital services connected to it.\n\n3.2. "User" — any natural or legal person who uses the Platform.\n\n3.3. "Account" — a personal or business profile created by a user on the Platform.\n\n3.4. "Listing author" — a user who posts a listing on the Platform based on their own or an authorized right to do so.\n\n3.5. "Seeker" — a user who uses the Platform to search for property, a service, employment, or another offer.\n\n3.6. "Smart Match" — an automated Platform feature that may connect a user with a relevant listing author.\n\n3.7. "Wallet" — the Platform\'s internal balance used to purchase paid services.\n\n3.8. "Credit" — the Platform\'s internal conventional unit for specific digital services.\n\n3.9. "Paid service" — a digital, informational, advertising, listing-placement, or other Platform service offered in exchange for a fee.',
     },
     {
       id: "account",
