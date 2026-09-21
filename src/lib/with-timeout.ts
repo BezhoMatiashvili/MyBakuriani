@@ -157,3 +157,43 @@ export function isRetryableAuthError(error: unknown): boolean {
     (isAuthApiError(error) && error.status >= 500)
   );
 }
+
+/**
+ * A refresh-token rotation has exactly one winner. When the browser client's
+ * own auto-refresh tick and a server-side reactive refresh race inside the
+ * expiry margin, the loser gets a 400 with one of these codes — byte-identical
+ * to a real sign-out at the auth layer, but NOT one. Booting on it is a false
+ * logout ("I am logged in, I click a category to post a listing, and it throws
+ * me back to Log In").
+ */
+const ROTATION_LOSER_CODES = new Set([
+  "refresh_token_not_found",
+  "refresh_token_already_used",
+]);
+
+/**
+ * The single "couldn't tell whether this session is valid" predicate, shared by
+ * the middleware gate and `getCurrentUser`.
+ *
+ * It lives HERE, next to `isRetryableAuthError`, rather than in
+ * `src/lib/supabase/middleware.ts`, because `current-user.ts` runs in the RSC
+ * path and must not pull a `next/server`-importing module into it.
+ *
+ * Keeping the two gates on one predicate is the point: the middleware
+ * deliberately lets a transient failure through instead of falsely logging the
+ * user out, and the server layouts behind it (`create/layout.tsx`,
+ * `dashboard/layout.tsx`) must agree about what "transient" means — otherwise
+ * the middleware waves the request through and the layout boots it anyway,
+ * which is exactly the asymmetry this replaced.
+ */
+export function isTransientAuthFailure(error: unknown): boolean {
+  // Fetch-level failure, our own timeout abort, or any 5xx (incl. the plain
+  // GoTrue 500 that isAuthRetryableFetchError misses).
+  if (isRetryableAuthError(error)) return true;
+  return (
+    isAuthApiError(error) &&
+    error.status === 400 &&
+    typeof error.code === "string" &&
+    ROTATION_LOSER_CODES.has(error.code)
+  );
+}

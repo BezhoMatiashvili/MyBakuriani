@@ -1,6 +1,7 @@
 import createIntlMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
+import { hasSupabaseAuthCookie } from "@/lib/supabase/auth-cookies";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isAllowedMutationOrigin } from "@/lib/security";
 
@@ -24,19 +25,6 @@ const SITE_LOCK_PATH = "/site-locked";
 // distinct cache key, so the request always reaches the origin/middleware.
 const PREVIEW_DETAIL_RE =
   /^\/(apartments|hotels|sales|food|services|entertainment|transport|employment)\/[^/]+$/;
-
-// Cookie *presence* only (sb-<ref>-auth-token, possibly chunked ".0"/".1") —
-// no Supabase call. The preview page itself authorizes via RLS/admin checks;
-// an anonymous ?preview=1 request simply skips the rewrite and gets the
-// public ISR page.
-function hasSupabaseAuthCookie(request: NextRequest): boolean {
-  return request.cookies
-    .getAll()
-    .some(
-      (cookie) =>
-        cookie.name.startsWith("sb-") && cookie.name.includes("-auth-token"),
-    );
-}
 
 function stripLocalePrefix(pathname: string): string {
   return routing.locales.reduce(

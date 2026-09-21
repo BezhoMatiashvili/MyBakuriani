@@ -1,8 +1,7 @@
 import { cache } from "react";
-import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { getVerifiedSessionUser } from "@/lib/auth/verified-session-user";
 import { createClient } from "@/lib/supabase/server";
-import { withTimeout } from "@/lib/with-timeout";
+import { isTransientAuthFailure, withTimeout } from "@/lib/with-timeout";
 
 /**
  * Request-memoized current user. React `cache()` dedupes the Supabase Auth
@@ -50,7 +49,14 @@ export const getCurrentUser = cache(async () => {
     data: { user },
     error,
   } = result;
-  if (!user && isAuthRetryableFetchError(error)) {
+  // Must use the SAME predicate the middleware gate uses. It deliberately lets
+  // a transient auth failure through rather than falsely logging the user out;
+  // if this second gate disagreed about what "transient" means, it would boot
+  // the very requests the middleware just waved through — which is exactly the
+  // asymmetry that made `create/layout.tsx`'s "genuinely revoked" comment
+  // untrue. isAuthRetryableFetchError alone misses plain GoTrue 500s and the
+  // refresh-token rotation-loser 400s.
+  if (!user && isTransientAuthFailure(error)) {
     return getVerifiedSessionUser(supabase.auth);
   }
   return user;

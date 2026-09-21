@@ -1,8 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
-import { AuthSessionMissingError, isAuthApiError } from "@supabase/supabase-js";
+import { AuthSessionMissingError } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
-import { isRetryableAuthError, timeoutFetch } from "@/lib/with-timeout";
+import {
+  clearAuthCookies,
+  describeAuthCookies,
+  hasSupabaseAuthCookie,
+  isAuthJarParseable,
+} from "@/lib/supabase/auth-cookies";
+import { isTransientAuthFailure, timeoutFetch } from "@/lib/with-timeout";
 
 const MIDDLEWARE_FETCH_TIMEOUT_MS = 5_000;
 
@@ -14,10 +20,7 @@ function getSafeNextPath(request: NextRequest) {
   return redirectTo;
 }
 
-function redirectToLogin(
-  request: NextRequest,
-  sessionResponse: NextResponse,
-) {
+function redirectToLogin(request: NextRequest, sessionResponse: NextResponse) {
   const url = request.nextUrl.clone();
   const requestedLocale = routing.locales.find(
     (locale) =>
@@ -41,29 +44,6 @@ function redirectToLogin(
     response.cookies.set(cookie);
   });
   return response;
-}
-
-// A refresh-token rotation has exactly one winner. When the browser client's
-// own 30s auto-refresh tick and this middleware's reactive refresh race inside
-// the 90s expiry margin, the loser gets a 400 with one of these codes — which is
-// byte-identical to a real sign-out at this layer, but is NOT one. Booting on it
-// is the false logout the tester reported ("I am logged in, I click a category
-// to post a listing, and it throws me back to Log In").
-const ROTATION_LOSER_CODES = new Set([
-  "refresh_token_not_found",
-  "refresh_token_already_used",
-]);
-
-function isTransientAuthFailure(error: unknown): boolean {
-  // Fetch-level failure, our own timeout abort, or any 5xx (incl. the plain
-  // GoTrue 500 that isAuthRetryableFetchError misses).
-  if (isRetryableAuthError(error)) return true;
-  return (
-    isAuthApiError(error) &&
-    error.status === 400 &&
-    typeof error.code === "string" &&
-    ROTATION_LOSER_CODES.has(error.code)
-  );
 }
 
 export async function updateSession(request: NextRequest) {
@@ -137,8 +117,32 @@ export async function updateSession(request: NextRequest) {
       // redirect on a confirmed signed-out state; let transient failures through
       // so page guards (and the client) re-validate.
       if (error instanceof AuthSessionMissingError || !error) {
-        // Confirmed signed out: no session in the jar at all. Stay strict —
-        // /create/* and /dashboard/* have no other server gate for anonymous
+        // No claims and no error. That covers two different situations, and
+        // conflating them is what made this failure permanent.
+        if (hasSupabaseAuthCookie(request)) {
+          // Auth cookies WERE sent and still produced no claims, so the stored
+          // session is unusable — interleaved chunk writes from concurrent
+          // refreshes (see the note in lib/supabase/client.ts) or simply dead.
+          // Nothing in the normal flow rewrites those chunks, so the browser
+          // would keep re-sending the same bytes on every navigation while its
+          // own in-memory session keeps the header looking signed in: every
+          // protected route bounces to the login card, every single time.
+          // Expiring the jar makes the next sign-in write a clean one.
+          console.warn(
+            "[middleware] unusable auth cookies, clearing jar:",
+            JSON.stringify(describeAuthCookies(request)),
+          );
+          const response = redirectToLogin(request, supabaseResponse);
+          // After redirectToLogin, so these win over the cookies it copied over.
+          clearAuthCookies(
+            request,
+            response,
+            request.nextUrl.protocol === "https:",
+          );
+          return response;
+        }
+        // Ordinary anonymous visitor: no session in the jar at all. Stay strict
+        // — /create/* and /dashboard/* have no other server gate for anonymous
         // visitors (C8).
         return redirectToLogin(request, supabaseResponse);
       }
@@ -157,14 +161,46 @@ export async function updateSession(request: NextRequest) {
           return NextResponse.next({ request });
         }
       } else {
+        // A definitive, non-transient auth error (e.g. a 4xx that is not a
+        // rotation loser). This is the OTHER way a signed-in-looking browser
+        // gets bounced, so it has to report the jar too — otherwise the
+        // diagnostic above has a blind spot exactly where the answer may be.
+        console.warn(
+          "[middleware] auth check failed, redirecting to login:",
+          error.message,
+          JSON.stringify(describeAuthCookies(request)),
+        );
         return redirectToLogin(request, supabaseResponse);
       }
     }
   } catch (err) {
-    // A genuine throw (e.g. lock-acquire timeout) is also transient — never boot.
-    // The browser client still has a valid session; let the request through and let
-    // client-side guards re-validate. Only confirmed "user === null" gates protected routes.
-    console.error("[middleware] supabase.auth.getUser threw:", err);
+    // An unreadable jar throws instead of erroring: @supabase/ssr's storage
+    // adapter raises "Invalid UTF-8 sequence" from getItem when a chunk
+    // boundary lands mid multi-byte sequence. That is not transient — it
+    // recurs on every navigation, escapes as an unhandled rejection, and
+    // leaves protected routes rendering their error boundary. Treat it like
+    // any other unusable jar: clear it so the next sign-in starts clean.
+    if (
+      isProtected &&
+      hasSupabaseAuthCookie(request) &&
+      !isAuthJarParseable(request)
+    ) {
+      console.warn(
+        "[middleware] unreadable auth cookies, clearing jar:",
+        JSON.stringify(describeAuthCookies(request)),
+      );
+      const response = redirectToLogin(request, supabaseResponse);
+      clearAuthCookies(
+        request,
+        response,
+        request.nextUrl.protocol === "https:",
+      );
+      return response;
+    }
+    // Any other genuine throw (e.g. lock-acquire timeout) IS transient — never
+    // boot. The browser client still has a valid session; let the request
+    // through and let client-side guards re-validate.
+    console.error("[middleware] supabase.auth.getClaims threw:", err);
   }
 
   return supabaseResponse;

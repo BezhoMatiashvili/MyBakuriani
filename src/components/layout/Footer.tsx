@@ -18,6 +18,9 @@ export function Footer() {
     { label: t("skiing"), href: "/entertainment" },
     { label: t("snowmobiles"), href: "/entertainment" },
     { label: t("restaurants"), href: "/food" },
+    { label: t("cleaning"), href: "/services" },
+    { label: t("handymen"), href: "/services" },
+    { label: t("employment"), href: "/employment" },
   ];
 
   const helpLinks = [

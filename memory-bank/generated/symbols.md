@@ -1883,7 +1883,7 @@ Each entry: exported symbols with `file:line`, then internal import edges (alias
 - exports: `hasSupabaseAuthCookie` (22), `describeAuthCookies` (29), `clearAuthCookies` (51), `isAuthJarParseable` (83)
 
 ### `src/lib/supabase/client.ts`
-- exports: `createClient` (40), `createUploadClient` (63)
+- exports: `createClient` (7), `createUploadClient` (31)
 - imports: `@/lib/types/database`, `@/lib/with-timeout`
 
 ### `src/lib/supabase/leads.ts`
@@ -1904,7 +1904,7 @@ Each entry: exported symbols with `file:line`, then internal import edges (alias
 - exports: `isTurnstileConfigured` (13), `verifyTurnstile` (18)
 
 ### `src/lib/types/database.generated.ts`
-- exports: `Json` (6), `Database` (14), `Tables` (5481), `TablesInsert` (5510), `TablesUpdate` (5534), `Enums` (5558), `CompositeTypes` (5574), `Constants` (5591)
+- exports: `Json` (6), `Database` (14), `Tables` (5482), `TablesInsert` (5511), `TablesUpdate` (5535), `Enums` (5559), `CompositeTypes` (5575), `Constants` (5592)
 
 ### `src/lib/types/database.ts`
 - exports: `Constants` (28), `Database` (89), `Tables` (107), `TablesInsert` (136), `TablesUpdate` (160), `Enums` (184), `CompositeTypes` (200)
