@@ -3,12 +3,26 @@ import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/with-timeout";
 import { safeInternalPath } from "@/lib/security";
 
+// `request.url` in a Node.js-runtime route handler reflects the container's
+// internal address (http://localhost:8080) behind DigitalOcean's proxy, NOT the
+// external host — unlike middleware's Edge runtime. Redirecting off it sent
+// every OAuth sign-in to http://localhost:8080/... . NEXT_PUBLIC_SITE_URL is
+// this app's canonical-origin pattern (layout.tsx, robots.ts, sitemap.ts,
+// api/site-lock/unlock) and is set per environment, so local lands on local,
+// staging on staging and prod on prod.
+const SITE_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-bakuriani.vercel.app";
+
+function redirect(path: string) {
+  return NextResponse.redirect(new URL(path, SITE_ORIGIN));
+}
+
 function safeNextPath(raw: string | null): string | null {
   return safeInternalPath(raw);
 }
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const next = safeNextPath(searchParams.get("next"));
 
@@ -18,7 +32,7 @@ export async function GET(request: Request) {
 
     if (!error) {
       if (next === "/auth/reset-password") {
-        return NextResponse.redirect(`${origin}${next}`);
+        return redirect(next);
       }
 
       const {
@@ -38,10 +52,10 @@ export async function GET(request: Request) {
           // Couldn't confirm the profile even after a retry — a DB blip, not
           // proof the account has no profile. Don't bounce a signed-in user
           // to registration on a transient failure.
-          return NextResponse.redirect(`${origin}/dashboard/guest`);
+          return redirect("/dashboard/guest");
         }
         if (!profile) {
-          return NextResponse.redirect(`${origin}/auth/register`);
+          return redirect("/auth/register");
         }
 
         const rolePaths: Record<string, string> = {
@@ -57,15 +71,13 @@ export async function GET(request: Request) {
         };
         const dashboardPath = rolePaths[profile.role] ?? "/dashboard/guest";
         const target = next ?? dashboardPath;
-        return NextResponse.redirect(`${origin}${target}`);
+        return redirect(target);
       }
     }
   }
 
   if (next === "/auth/reset-password") {
-    return NextResponse.redirect(
-      `${origin}/auth/forgot-password?error=invalid_link`,
-    );
+    return redirect("/auth/forgot-password?error=invalid_link");
   }
-  return NextResponse.redirect(`${origin}/auth/login`);
+  return redirect("/auth/login");
 }
