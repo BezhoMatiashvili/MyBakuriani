@@ -171,7 +171,7 @@ export default function SalePropertyCard({
             </div>
           </div>
 
-          <h3 className="mt-1 line-clamp-2 text-[16px] font-black leading-[20px] text-[#1E293B]">
+          <h3 className="mt-1 line-clamp-2 min-h-[40px] text-[16px] font-black leading-[20px] text-[#1E293B]">
             {title}
           </h3>
 

@@ -1352,6 +1352,7 @@
     "amenitiesTitle": "Удобства",
     "hostLanguages": "Языки общения",
     "exactLocation": "Точное местоположение",
+    "noCoordinates": "Координаты на карте не добавлены",
     "freeDates": "Свободные даты",
     "noReviews": "Отзывов пока нет",
     "anonymous": "Аноним",
@@ -1898,7 +1899,6 @@
     "tagline": "MyBakuriani — Всё в Бакуриани, на одной платформе",
     "title": "Вход / Регистрация",
     "emailTab": "Эл. почта",
-    "phoneTab": "Телефон",
     "emailLabel": "Эл. почта",
     "passwordLabel": "Пароль",
     "showPassword": "Показать пароль",
@@ -1910,22 +1910,13 @@
     "noAccount": "Нет аккаунта? Зарегистрируйтесь",
     "haveAccount": "Уже есть аккаунт? Войти",
     "continueWithGoogle": "Продолжить с Google",
-    "continueWithFacebook": "Продолжить с Facebook",
     "or": "или",
-    "phoneLabel": "Номер телефона",
-    "getSmsCode": "Получить SMS-код",
-    "otpLabel": "Одноразовый код",
-    "verify": "Подтвердить",
-    "changeNumber": "Изменить номер",
     "confirmationLinkSent": "Ссылка для подтверждения отправлена на вашу почту.",
     "agreePrefix": "Входя, вы соглашаетесь с",
     "termsOfService": "условиями обслуживания",
     "and": "и",
     "privacyPolicy": "политикой конфиденциальности",
     "errors": {
-      "invalidPhone": "Пожалуйста, введите корректный номер телефона",
-      "invalidOtp": "Пожалуйста, введите 6-значный код",
-      "wrongCode": "Неверный код. Попробуйте снова.",
       "fillAllFields": "Пожалуйста, заполните все поля",
       "wrongCredentials": "Неверная почта или пароль",
       "passwordTooShort": "Пароль — минимум 12 символов",
@@ -3039,8 +3030,7 @@
     "addTitle": "Добавить способ",
     "addHint": "Подключите ещё один способ входа, чтобы вход через него больше не создавал отдельный аккаунт.",
     "linkButton": {
-      "google": "Подключить Google",
-      "facebook": "Подключить Facebook"
+      "google": "Подключить Google"
     },
     "providers": {
       "phone": "Телефон",

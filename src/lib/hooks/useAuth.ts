@@ -50,23 +50,6 @@ export function useAuth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function signInWithOtp(phone: string) {
-    const { error } = await withRetry(
-      () => supabase.auth.signInWithOtp({ phone }),
-      isRetryableAuthError,
-    );
-    if (error) throw error;
-  }
-
-  async function verifyOtp(phone: string, token: string) {
-    const { data, error } = await withRetry(
-      () => supabase.auth.verifyOtp({ phone, token, type: "sms" }),
-      isRetryableAuthError,
-    );
-    if (error) throw error;
-    return data;
-  }
-
   async function signUp(email: string, password: string) {
     const { data, error } = await withRetry(
       () => supabase.auth.signUp({ email, password }),
@@ -142,8 +125,6 @@ export function useAuth() {
     user,
     session,
     loading,
-    signInWithOtp,
-    verifyOtp,
     signUp,
     signInWithPassword,
     resetPasswordForEmail,

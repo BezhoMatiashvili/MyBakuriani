@@ -489,7 +489,7 @@ Participating symbols:
   through to the same `getVerifiedSessionUser` path on timeout, not only on a
   confirmed `isAuthRetryableFetchError`. Reason: `timeoutFetch`'s own floor for
   any `/auth/v1/*` call is 25s (kept generous there so the _login page's_
-  OTP/token calls aren't aborted mid-flight), which is longer than a single
+  token calls aren't aborted mid-flight), which is longer than a single
   request's real execution budget (~10s, see `SERVER_FETCH_TIMEOUT_MS` in
   `supabase/server.ts`). On a slow-but-not-dead mobile connection this let the
   platform kill the whole `dashboard/layout.tsx` render before `getUser()` ever

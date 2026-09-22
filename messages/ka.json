@@ -1352,6 +1352,7 @@
     "amenitiesTitle": "კეთილმოწყობა",
     "hostLanguages": "მასპინძლობის ენები",
     "exactLocation": "ზუსტი ლოკაცია",
+    "noCoordinates": "რუკის კოორდინატები არ არის დამატებული",
     "freeDates": "თავისუფალი თარიღები",
     "noReviews": "ჯერ არ არის შეფასებები",
     "anonymous": "ანონიმური",
@@ -1898,7 +1899,6 @@
     "tagline": "MyBakuriani — ყველაფერი ბაკურიანზე, ერთ პლატფორმაზე",
     "title": "შესვლა / რეგისტრაცია",
     "emailTab": "ელ. ფოსტა",
-    "phoneTab": "ტელეფონი",
     "emailLabel": "ელ. ფოსტა",
     "passwordLabel": "პაროლი",
     "showPassword": "პაროლის ჩვენება",
@@ -1910,22 +1910,13 @@
     "noAccount": "არ გაქვთ ანგარიში? რეგისტრაცია",
     "haveAccount": "უკვე გაქვთ ანგარიში? შესვლა",
     "continueWithGoogle": "გაგრძელება Google-ით",
-    "continueWithFacebook": "გაგრძელება Facebook-ით",
     "or": "ან",
-    "phoneLabel": "ტელეფონის ნომერი",
-    "getSmsCode": "SMS კოდის მიღება",
-    "otpLabel": "ერთჯერადი კოდი",
-    "verify": "დადასტურება",
-    "changeNumber": "ნომრის შეცვლა",
     "confirmationLinkSent": "დადასტურების ბმული გამოგზავნილია თქვენს ელ. ფოსტაზე.",
     "agreePrefix": "შესვლით თქვენ ეთანხმებით",
     "termsOfService": "მომსახურების პირობებს",
     "and": "და",
     "privacyPolicy": "კონფიდენციალურობის პოლიტიკას",
     "errors": {
-      "invalidPhone": "გთხოვთ შეიყვანოთ სწორი ტელეფონის ნომერი",
-      "invalidOtp": "გთხოვთ შეიყვანოთ 6-ციფრიანი კოდი",
-      "wrongCode": "არასწორი კოდი. სცადეთ თავიდან.",
       "fillAllFields": "გთხოვთ შეავსოთ ყველა ველი",
       "wrongCredentials": "არასწორი ელ. ფოსტა ან პაროლი",
       "passwordTooShort": "პაროლი მინიმუმ 12 სიმბოლო",
@@ -3039,8 +3030,7 @@
     "addTitle": "მეთოდის დამატება",
     "addHint": "დააკავშირეთ დამატებითი მეთოდი, რომ მომავალში მასზე შესვლამ ცალკე ანგარიში არ შექმნას.",
     "linkButton": {
-      "google": "Google-ის დაკავშირება",
-      "facebook": "Facebook-ის დაკავშირება"
+      "google": "Google-ის დაკავშირება"
     },
     "providers": {
       "phone": "ტელეფონი",

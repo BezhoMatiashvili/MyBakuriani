@@ -74,7 +74,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
                   <time className="text-[11px] font-medium leading-[16px] text-[#94A3B8]">
                     {post.date}
                   </time>
-                  <h2 className="mt-2 text-[17px] font-black leading-[21px] text-[#1E293B] group-hover:text-brand-accent">
+                  <h2 className="mt-2 line-clamp-2 min-h-[42px] text-[17px] font-black leading-[21px] text-[#1E293B] group-hover:text-brand-accent">
                     {post.title}
                   </h2>
                   <p className="mt-2 text-[13px] leading-[21px] text-[#64748B] line-clamp-2">

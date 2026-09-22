@@ -156,7 +156,7 @@ export default function ServiceCard({
           onFocus={prefetchDetail}
           data-mobile-presentation={mobilePresentation}
           className={cn(
-            "flex h-full min-h-[260px] cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[300px] lg:min-h-0 lg:p-5",
+            "flex h-full min-h-[260px] cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[300px] lg:min-h-0 lg:p-5",
             compactGrid
               ? "rounded-[16px] p-2.5 sm:rounded-[20px] sm:p-4"
               : "rounded-[20px] p-4",
@@ -226,8 +226,8 @@ export default function ServiceCard({
             className={cn(
               "mt-3 font-black text-[#1E293B] line-clamp-2",
               compactGrid
-                ? "text-[14px] leading-[18px] sm:text-[16px] sm:leading-[20px]"
-                : "text-[16px] leading-[20px]",
+                ? "min-h-[36px] text-[14px] leading-[18px] sm:min-h-[40px] sm:text-[16px] sm:leading-[20px]"
+                : "min-h-[40px] text-[16px] leading-[20px]",
             )}
           >
             {title}
@@ -325,6 +325,7 @@ export default function ServiceCard({
                   hasWhatsApp={hasWhatsapp}
                   whatsapp={null}
                   serviceId={id}
+                  listingPath={href}
                   onClick={stop}
                   className="size-11 rounded-[12px]"
                 />
@@ -491,7 +492,7 @@ export default function ServiceCard({
         onFocus={prefetchDetail}
         data-mobile-presentation={mobilePresentation}
         className={cn(
-          "flex h-full cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[420px] lg:rounded-[24px]",
+          "flex h-full cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[420px] lg:rounded-[24px]",
           compactGrid ? "rounded-[16px] sm:rounded-[20px]" : "rounded-[20px]",
         )}
       >
@@ -584,8 +585,8 @@ export default function ServiceCard({
               className={cn(
                 "min-w-0 flex-1 font-black text-[#1E293B] line-clamp-2 lg:min-h-[44px] lg:text-[18px] lg:leading-[22px]",
                 compactGrid
-                  ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]"
-                  : "text-[17px] leading-[21px]",
+                  ? "min-h-[36px] text-[14px] leading-[18px] sm:min-h-[42px] sm:text-[17px] sm:leading-[21px]"
+                  : "min-h-[42px] text-[17px] leading-[21px]",
               )}
             >
               {title}
@@ -766,6 +767,7 @@ export default function ServiceCard({
                     hasWhatsApp={hasWhatsapp}
                     whatsapp={null}
                     serviceId={id}
+                    listingPath={href}
                     onClick={stop}
                     className="shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
                   />

@@ -316,20 +316,36 @@ export default function HotelDetailClient({
               <MapPin className="h-4 w-4 shrink-0 text-[#F97316]" />
               {property.location}
             </p>
-            <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
-              <BakurianiMap
-                className="h-full w-full"
-                center={
-                  property.location_lat && property.location_lng
-                    ? {
-                        lat: Number(property.location_lat),
-                        lng: Number(property.location_lng),
-                      }
-                    : undefined
-                }
-                zoom={15}
-              />
-            </div>
+            {property.location_lat && property.location_lng ? (
+              <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
+                <BakurianiMap
+                  className="h-full w-full"
+                  center={{
+                    lat: Number(property.location_lat),
+                    lng: Number(property.location_lng),
+                  }}
+                  properties={[
+                    {
+                      id: property.id,
+                      title: property.title,
+                      price: Number(property.price_per_night ?? 0),
+                      lat: Number(property.location_lat),
+                      lng: Number(property.location_lng),
+                      isVip: property.is_vip ?? false,
+                      isSuperVip: property.is_super_vip ?? false,
+                      photo: Array.isArray(property.photos)
+                        ? (property.photos[0] as string)
+                        : undefined,
+                    },
+                  ]}
+                  zoom={15}
+                />
+              </div>
+            ) : (
+              <div className="flex h-[200px] items-center justify-center rounded-2xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#94A3B8]">
+                {tDetail("noCoordinates")}
+              </div>
+            )}
           </motion.div>
 
           {/* House Rules */}

@@ -50,7 +50,7 @@ Define success criteria. Loop until verified.
 - **React**: 19.1 with Server Components
 - **Styling**: Tailwind CSS 4 + shadcn/ui (New York style, Slate base, CSS variables)
 - **Database**: Supabase (PostgreSQL) with RLS policies
-- **Auth**: Supabase Phone OTP (+995 Georgian numbers) via `@supabase/ssr` 0.9
+- **Auth**: Supabase email + password and Google OAuth via `@supabase/ssr` 0.9 (phone OTP and Facebook were removed 2026-09-22; both providers are disabled on staging and prod)
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
 - **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Same provider as the Directions API used for the landing road badge. Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
@@ -125,7 +125,7 @@ guest, renter, seller, cleaner, food, entertainment, transport, employment, hand
 1. ~~Project setup (Next.js + deps)~~ — DONE
 2. ~~Shared components (Navbar, Footer, cards, forms)~~ — DONE
 3. ~~Public pages (landing, listings, detail pages, search)~~ — DONE
-4. ~~Auth (phone OTP login, registration)~~ — DONE
+4. ~~Auth (email/password + Google OAuth login, registration)~~ — DONE
 5. ~~Listing creation forms (multi-step, category-specific)~~ — DONE
 6. ~~Dashboards (guest, renter, seller, cleaner, service, food, admin)~~ — DONE
 7. ~~Edge functions (search, smart-match, bookings, balance, admin)~~ — DONE (9 functions deployed)
@@ -134,7 +134,7 @@ guest, renter, seller, cleaner, food, entertainment, transport, employment, hand
 ### What's Built
 
 **Public pages**: landing, apartments, hotels, sales, food, services, entertainment, transport, employment, blog, FAQ, contact, terms, search
-**Auth**: login (phone OTP), register, callback
+**Auth**: login (email/password + Google OAuth), register, callback
 **Create forms**: rental, sale, food, service, entertainment, transport, employment
 **Dashboards**: guest (bookings/profile/reviews), renter (calendar/balance/listings/smart-match/profile), seller (listings), cleaner (schedule/earnings), food (orders), service (orders), admin (KPIs/verifications/clients/listings/analytics/settings)
 **Components**: booking (sidebar/calendar/date-picker), cards (property/review/service/skeleton/smart-match/stat), detail (photo gallery), forms (listing/phone-input/photo-uploader), layout (navbar/footer/dashboard-sidebar/mobile-bottom-nav), search (filter-panel/rent-buy-toggle), maps (BakurianiMap with Google Maps + fallback), shared (bottom-sheet/modal/scroll-reveal)

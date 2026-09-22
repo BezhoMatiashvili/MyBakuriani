@@ -13,7 +13,11 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
+      // "/api/og/" must be allowed explicitly: it sits under the blanket
+      // "/api/" disallow below, and facebookexternalhit honours robots.txt for
+      // the og:image fetch — without this every listing card is refused.
+      // Longest-match wins for both Google and Facebook.
+      allow: ["/", "/api/og/"],
       disallow: [
         "/api/",
         "/dashboard/",

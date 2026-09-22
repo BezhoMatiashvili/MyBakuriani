@@ -23,6 +23,10 @@ import {
   organizationSubscriptions,
 } from "./supabase";
 import { FIXTURE_IDS } from "./fixture-manifest.mjs";
+import {
+  seedStressFixtures,
+  cleanupStressFixtures,
+} from "./stress-fixtures";
 
 // ---------------------------------------------------------------------------
 // Deterministic UUIDs
@@ -640,6 +644,10 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     documents: { id_photo: "test.jpg", ownership_doc: "test.pdf" },
   });
 
+  // Content-variation listings for the card-geometry audit. Last, so they carry
+  // the newest created_at and pin to the top of every public list page.
+  await seedStressFixtures();
+
   return { users };
 }
 
@@ -648,6 +656,9 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
 // ---------------------------------------------------------------------------
 export async function cleanupTestData(): Promise<void> {
   const ignore = () => {};
+
+  // Stress listings first: they FK to the QA profiles deleted at the end.
+  await cleanupStressFixtures().catch(ignore);
 
   // Organization subscriptions must be deleted before their organization.
   await organizationSubscriptions

@@ -48,3 +48,26 @@ export const FIXTURE_IDS = Object.freeze({
   transaction: "aae2ff00-b001-4000-a000-000000000001",
   sellerLead: "aae2ff00-c001-4000-a000-000000000001",
 });
+
+/**
+ * Content-variation listings for the card-geometry audit (see stress-fixtures.ts).
+ * Same `aae2ff00-` prefix as FIXTURE_IDS so one teardown sweep finds everything.
+ */
+export const STRESS_IDS = Object.freeze({
+  rentMax: "aae2ff00-e001-4000-a000-000000000001",
+  rentMin: "aae2ff00-e001-4000-a000-000000000002",
+  saleMax: "aae2ff00-e001-4000-a000-000000000003",
+  saleMin: "aae2ff00-e001-4000-a000-000000000004",
+  hotelMax: "aae2ff00-e001-4000-a000-000000000005",
+  hotelMin: "aae2ff00-e001-4000-a000-000000000006",
+  foodMax: "aae2ff00-e002-4000-a000-000000000001",
+  foodMin: "aae2ff00-e002-4000-a000-000000000002",
+  cleaningMax: "aae2ff00-e002-4000-a000-000000000003",
+  cleaningMin: "aae2ff00-e002-4000-a000-000000000004",
+  entertainmentMax: "aae2ff00-e002-4000-a000-000000000005",
+  entertainmentMin: "aae2ff00-e002-4000-a000-000000000006",
+  transportMax: "aae2ff00-e002-4000-a000-000000000007",
+  transportMin: "aae2ff00-e002-4000-a000-000000000008",
+  employmentMax: "aae2ff00-e002-4000-a000-000000000009",
+  employmentMin: "aae2ff00-e002-4000-a000-00000000000a",
+});

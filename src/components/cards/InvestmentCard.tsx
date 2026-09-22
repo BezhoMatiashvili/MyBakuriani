@@ -131,6 +131,7 @@ export default function InvestmentCard({
     >
       <Link
         href={`/sales/${id}`}
+        data-investment-card
         data-mobile-presentation={mobilePresentation}
         className={cn(
           "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0px_10px_30px_-4px_rgba(0,0,0,0.08)]",

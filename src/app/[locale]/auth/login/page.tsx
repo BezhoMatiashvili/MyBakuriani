@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { isAuthApiError } from "@supabase/supabase-js";
-import PhoneInput from "@/components/forms/PhoneInput";
 import { Button } from "@/components/ui/button";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -43,30 +42,23 @@ const ROLE_DASHBOARD: Record<string, string> = {
   handyman: "/dashboard/services",
 };
 
-type AuthTab = "email" | "phone";
 type AuthMode = "login" | "register";
 
 export default function LoginPage() {
   const t = useTranslations("AuthLogin");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signInWithOtp, verifyOtp, signUp, signInWithPassword } = useAuth();
+  const { signUp, signInWithPassword } = useAuth();
 
-  const [tab, setTab] = useState<AuthTab>("email");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1);
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
-
-  const fullPhone = `+995${phone}`;
 
   async function redirectAfterAuth(userId: string) {
     const supabase = createClient();
@@ -93,54 +85,16 @@ export default function LoginPage() {
     router.push(target);
   }
 
-  async function signInWithProvider(provider: "google" | "facebook") {
+  async function signInWithGoogle() {
     setOauthError(null);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
+      provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     // signInWithOAuth resolves rather than throws when the provider is
     // disabled on the project — without this the button just does nothing.
     if (error) setOauthError(t("errors.generic"));
-  }
-
-  async function handleSendOtp() {
-    if (phone.length !== 9) {
-      setError(t("errors.invalidPhone"));
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      await signInWithOtp(fullPhone);
-      setStep(2);
-    } catch (err) {
-      setError(
-        isTransientAuthError(err) ? t("errors.timeout") : t("errors.generic"),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleVerifyOtp() {
-    if (otp.length !== 6) {
-      setError(t("errors.invalidOtp"));
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await verifyOtp(fullPhone, otp);
-      if (data?.user) await redirectAfterAuth(data.user.id);
-    } catch (err) {
-      setError(
-        isTransientAuthError(err) ? t("errors.timeout") : t("errors.wrongCode"),
-      );
-    } finally {
-      setLoading(false);
-    }
   }
 
   async function handleEmailLogin(form: HTMLFormElement) {
@@ -225,11 +179,6 @@ export default function LoginPage() {
     }
   }
 
-  function switchTab(t: AuthTab) {
-    setTab(t);
-    setError(null);
-    setSuccessMessage(null);
-  }
   function switchMode(m: AuthMode) {
     setAuthMode(m);
     setError(null);
@@ -258,325 +207,191 @@ export default function LoginPage() {
           </h1>
         </div>
 
-        <div className="flex rounded-xl bg-[#F8FAFC] p-1">
-          <button
-            type="button"
-            onClick={() => switchTab("email")}
-            className={`min-h-11 flex-1 rounded-lg py-2.5 text-sm font-medium transition-all lg:min-h-0 ${tab === "email" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-          >
-            {t("emailTab")}
-          </button>
-          <button
-            type="button"
-            onClick={() => switchTab("phone")}
-            className={`min-h-11 flex-1 rounded-lg py-2.5 text-sm font-medium transition-all lg:min-h-0 ${tab === "phone" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-          >
-            {t("phoneTab")}
-          </button>
-        </div>
-
         <div className="rounded-[24px] border bg-white p-10 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)]">
           <AnimatePresence mode="wait">
-            {tab === "email" ? (
-              <motion.div
-                key={`email-${authMode}`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="space-y-5"
-              >
-                <div className="flex rounded-xl bg-[#F8FAFC] p-1">
-                  <button
-                    type="button"
-                    onClick={() => switchMode("login")}
-                    className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "login" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-                  >
-                    {t("signIn")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => switchMode("register")}
-                    className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "register" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-                  >
-                    {t("register")}
-                  </button>
+            <motion.div
+              key={`email-${authMode}`}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-5"
+            >
+              <div className="flex rounded-xl bg-[#F8FAFC] p-1">
+                <button
+                  type="button"
+                  onClick={() => switchMode("login")}
+                  className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "login" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+                >
+                  {t("signIn")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode("register")}
+                  className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "register" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+                >
+                  {t("register")}
+                </button>
+              </div>
+              {successMessage ? (
+                <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
+                  {successMessage}
                 </div>
-                {successMessage ? (
-                  <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
-                    {successMessage}
-                  </div>
-                ) : (
-                  <>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (authMode === "login") {
-                          void handleEmailLogin(e.currentTarget);
-                        } else {
-                          void handleEmailRegister(e.currentTarget);
-                        }
-                      }}
-                      noValidate
-                      className="space-y-5"
-                    >
+              ) : (
+                <>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (authMode === "login") {
+                        void handleEmailLogin(e.currentTarget);
+                      } else {
+                        void handleEmailRegister(e.currentTarget);
+                      }
+                    }}
+                    noValidate
+                    className="space-y-5"
+                  >
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="auth-email"
+                        className="text-sm font-medium"
+                      >
+                        {t("emailLabel")}
+                      </label>
+                      <input
+                        id="auth-email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="example@mail.com"
+                        className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="auth-password"
+                        className="text-sm font-medium"
+                      >
+                        {t("passwordLabel")}
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="auth-password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete={
+                            authMode === "login"
+                              ? "current-password"
+                              : "new-password"
+                          }
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••"
+                          className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50 lg:pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          aria-label={
+                            showPassword ? t("hidePassword") : t("showPassword")
+                          }
+                          className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-[#94A3B8] lg:right-3 lg:size-auto"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="size-4" />
+                          ) : (
+                            <Eye className="size-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    {authMode === "login" && (
+                      <div className="text-right">
+                        <Link
+                          href="/auth/forgot-password"
+                          className="text-xs font-medium text-brand-accent hover:underline"
+                        >
+                          {t("forgotPassword")}
+                        </Link>
+                      </div>
+                    )}
+                    {authMode === "register" && (
                       <div className="space-y-2">
                         <label
-                          htmlFor="auth-email"
+                          htmlFor="auth-confirm-password"
                           className="text-sm font-medium"
                         >
-                          {t("emailLabel")}
+                          {t("confirmPasswordLabel")}
                         </label>
                         <input
-                          id="auth-email"
-                          name="email"
-                          type="email"
-                          autoComplete="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="example@mail.com"
+                          id="auth-confirm-password"
+                          name="confirmPassword"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="new-password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="••••••"
                           className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label
-                          htmlFor="auth-password"
-                          className="text-sm font-medium"
-                        >
-                          {t("passwordLabel")}
-                        </label>
-                        <div className="relative">
-                          <input
-                            id="auth-password"
-                            name="password"
-                            type={showPassword ? "text" : "password"}
-                            autoComplete={
-                              authMode === "login"
-                                ? "current-password"
-                                : "new-password"
-                            }
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••"
-                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50 lg:pr-10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            aria-label={
-                              showPassword
-                                ? t("hidePassword")
-                                : t("showPassword")
-                            }
-                            className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-[#94A3B8] lg:right-3 lg:size-auto"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="size-4" />
-                            ) : (
-                              <Eye className="size-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      {authMode === "login" && (
-                        <div className="text-right">
-                          <Link
-                            href="/auth/forgot-password"
-                            className="text-xs font-medium text-brand-accent hover:underline"
-                          >
-                            {t("forgotPassword")}
-                          </Link>
-                        </div>
-                      )}
-                      {authMode === "register" && (
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="auth-confirm-password"
-                            className="text-sm font-medium"
-                          >
-                            {t("confirmPasswordLabel")}
-                          </label>
-                          <input
-                            id="auth-confirm-password"
-                            name="confirmPassword"
-                            type={showPassword ? "text" : "password"}
-                            autoComplete="new-password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="••••••"
-                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-                          />
-                        </div>
-                      )}
-                      {error && (
-                        <p className="text-xs text-[#EF4444]">{error}</p>
-                      )}
-                      <Button
-                        type="submit"
-                        disabled={loading}
-                        className="min-h-11 w-full lg:min-h-0"
-                        size="lg"
-                      >
-                        {loading && (
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                        )}
-                        {authMode === "login" ? t("signIn") : t("register")}
-                      </Button>
-                    </form>
-                  </>
-                )}
-              </motion.div>
-            ) : step === 1 ? (
-              <motion.div
-                key="phone"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="space-y-4"
-              >
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendOtp();
-                  }}
-                  noValidate
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("phoneLabel")}
-                    </label>
-                    <PhoneInput
-                      value={phone}
-                      onChange={setPhone}
-                      error={error}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={loading || phone.length < 9}
-                    className="min-h-11 w-full lg:min-h-0"
-                    size="lg"
-                  >
-                    {loading && (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
                     )}
-                    {t("getSmsCode")}
-                  </Button>
-                </form>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="otp"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
-              >
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleVerifyOtp();
-                  }}
-                  noValidate
-                  className="space-y-6"
-                >
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("otpLabel")}
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={otp}
-                      onChange={(e) =>
-                        setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                      }
-                      placeholder="000000"
-                      className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-                    />
                     {error && <p className="text-xs text-[#EF4444]">{error}</p>}
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={loading || otp.length < 6}
-                    className="min-h-11 w-full lg:min-h-0"
-                    size="lg"
-                  >
-                    {loading && (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    )}
-                    {t("verify")}
-                  </Button>
-                </form>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep(1);
-                    setOtp("");
-                    setError(null);
-                  }}
-                  className="w-full text-center text-sm text-[#94A3B8]"
-                >
-                  {t("changeNumber")}
-                </button>
-              </motion.div>
-            )}
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="min-h-11 w-full lg:min-h-0"
+                      size="lg"
+                    >
+                      {loading && (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      )}
+                      {authMode === "login" ? t("signIn") : t("register")}
+                    </Button>
+                  </form>
+                </>
+              )}
+            </motion.div>
           </AnimatePresence>
         </div>
 
-        {!(tab === "phone" && step === 2) && (
-          <div className="space-y-3">
-            <div className="relative flex items-center">
-              <div className="flex-grow border-t border-[#E2E8F0]" />
-              <span className="mx-3 text-[11px] font-medium uppercase text-[#94A3B8]">
-                {t("or")}
-              </span>
-              <div className="flex-grow border-t border-[#E2E8F0]" />
-            </div>
-            <button
-              type="button"
-              onClick={() => void signInWithProvider("google")}
-              className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
-            >
-              <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="#4285F4"
-                  d="M22.5 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.22-4.74 3.22-8.07z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.12A6.98 6.98 0 0 1 5.47 12c0-.74.13-1.46.37-2.12V7.04H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.48c1.61 0 3.06.55 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.41 9.14 5.48 12 5.48z"
-                />
-              </svg>
-              {t("continueWithGoogle")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void signInWithProvider("facebook")}
-              className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
-            >
-              <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="#1877F2"
-                  d="M24 12a12 12 0 1 0-13.88 11.85v-8.39H7.08V12h3.04V9.36c0-3 1.79-4.67 4.53-4.67 1.31 0 2.68.24 2.68.24v2.95h-1.51c-1.49 0-1.95.93-1.95 1.87V12h3.32l-.53 3.47h-2.79v8.39A12 12 0 0 0 24 12z"
-                />
-              </svg>
-              {t("continueWithFacebook")}
-            </button>
-            {oauthError && (
-              <p className="text-center text-xs text-[#EF4444]">{oauthError}</p>
-            )}
+        <div className="space-y-3">
+          <div className="relative flex items-center">
+            <div className="flex-grow border-t border-[#E2E8F0]" />
+            <span className="mx-3 text-[11px] font-medium uppercase text-[#94A3B8]">
+              {t("or")}
+            </span>
+            <div className="flex-grow border-t border-[#E2E8F0]" />
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => void signInWithGoogle()}
+            className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
+          >
+            <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M22.5 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.22-4.74 3.22-8.07z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.12A6.98 6.98 0 0 1 5.47 12c0-.74.13-1.46.37-2.12V7.04H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.48c1.61 0 3.06.55 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.41 9.14 5.48 12 5.48z"
+              />
+            </svg>
+            {t("continueWithGoogle")}
+          </button>
+          {oauthError && (
+            <p className="text-center text-xs text-[#EF4444]">{oauthError}</p>
+          )}
+        </div>
 
         <p className="text-center text-xs text-[#94A3B8]">
           {t("agreePrefix")}{" "}

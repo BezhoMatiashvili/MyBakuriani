@@ -78,3 +78,79 @@ export function serviceEditUrl(s: ServiceLike): string {
   const base = SERVICE_CREATE_FORM[s.category] ?? "/create/service";
   return `${base}?edit=${s.id}`;
 }
+
+// ---------------------------------------------------------------------------
+// Shared with the SEO/share layer. Both helpers below are deliberately pure and
+// free of `@/` imports so `scripts/unit/*.test.mjs` can import this module
+// directly under `node --test` type-stripping (see C29).
+// ---------------------------------------------------------------------------
+
+/**
+ * Prefixes a locale-less path with its locale segment under
+ * `localePrefix: "as-needed"` — the default locale (ka) has NO prefix, every
+ * other locale does. `routing.defaultLocale` is passed in rather than imported
+ * so this module stays alias-free.
+ *
+ * This rule previously existed only inline inside `buildListingMetadata`; it is
+ * extracted here because the client-side share sheet must build exactly the
+ * same canonical URL the crawler is served, or a shared link would redirect.
+ */
+export function localizedPath(
+  path: string,
+  locale: string,
+  defaultLocale: string,
+): string {
+  return locale === defaultLocale ? path : `/${locale}${path}`;
+}
+
+/** Which listing table a public detail path reads from. */
+export type OgCardKind = "property" | "service";
+
+const OG_CARD_KIND_BY_SEGMENT: Record<string, OgCardKind> = {
+  apartments: "property",
+  hotels: "property",
+  sales: "property",
+  food: "service",
+  services: "service",
+  entertainment: "service",
+  transport: "service",
+  employment: "service",
+};
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Inverse of `propertyViewUrl` / `serviceViewUrl`: maps a public detail path
+ * (`/apartments/<uuid>`) to the OG-card route's `{ kind, id }`.
+ *
+ * Returning `{kind,id}` from the path is what lets `buildListingMetadata` point
+ * at the composed card with ZERO call-site changes across all 16 public +
+ * preview routes — the `/preview/*` twins pass the public path too, so they
+ * resolve identically.
+ *
+ * Non-listing paths (`/blog/<id>`) and mock/demo ids (non-UUID) return `null`,
+ * which makes the caller fall back to the raw photos.
+ */
+export function ogCardTargetForPath(
+  path: string,
+): { kind: OgCardKind; id: string } | null {
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length !== 2) return null;
+  const kind = OG_CARD_KIND_BY_SEGMENT[parts[0]];
+  if (!kind) return null;
+  const id = parts[1];
+  if (!UUID_RE.test(id)) return null;
+  return { kind, id };
+}
+
+/** Absolute URL of the composed Open Graph card for a public detail path. */
+export function ogCardUrlForPath(
+  path: string,
+  format?: "story",
+): string | null {
+  const target = ogCardTargetForPath(path);
+  if (!target) return null;
+  const suffix = format === "story" ? "?format=story" : "";
+  return `/api/og/listing/${target.kind}/${target.id}${suffix}`;
+}

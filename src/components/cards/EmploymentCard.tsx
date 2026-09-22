@@ -91,7 +91,7 @@ export default function EmploymentCard({
         />
       </div>
 
-      <h3 className={cn("font-black text-[#1E293B] line-clamp-2", compactGrid ? "mt-3 text-[14px] leading-[18px] sm:mt-4 sm:text-[18px] sm:leading-[22px]" : "mt-4 text-[18px] leading-[22px]")}>
+      <h3 className={cn("font-black text-[#1E293B] line-clamp-2", compactGrid ? "mt-3 min-h-[36px] text-[14px] leading-[18px] sm:mt-4 sm:min-h-[44px] sm:text-[18px] sm:leading-[22px]" : "mt-4 min-h-[44px] text-[18px] leading-[22px]")}>
         {title}
       </h3>
       {employer && (

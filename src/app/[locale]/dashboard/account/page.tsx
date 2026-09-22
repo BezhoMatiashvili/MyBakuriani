@@ -15,7 +15,7 @@ import {
   type NotificationPreferenceValues,
 } from "@/components/consent/NotificationPreferences";
 
-const OAUTH_PROVIDERS: Provider[] = ["google", "facebook"];
+const OAUTH_PROVIDERS: Provider[] = ["google"];
 
 const PROVIDER_ICON: Record<string, typeof Mail> = {
   email: Mail,

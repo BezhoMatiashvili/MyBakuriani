@@ -1352,6 +1352,7 @@
     "amenitiesTitle": "Amenities",
     "hostLanguages": "Host languages",
     "exactLocation": "Exact location",
+    "noCoordinates": "Map coordinates have not been added",
     "freeDates": "Available dates",
     "noReviews": "No reviews yet",
     "anonymous": "Anonymous",
@@ -1898,7 +1899,6 @@
     "tagline": "MyBakuriani — Everything in Bakuriani, on one platform",
     "title": "Sign in / Register",
     "emailTab": "Email",
-    "phoneTab": "Phone",
     "emailLabel": "Email",
     "passwordLabel": "Password",
     "showPassword": "Show password",
@@ -1910,22 +1910,13 @@
     "noAccount": "Don't have an account? Register",
     "haveAccount": "Already have an account? Sign in",
     "continueWithGoogle": "Continue with Google",
-    "continueWithFacebook": "Continue with Facebook",
     "or": "or",
-    "phoneLabel": "Phone number",
-    "getSmsCode": "Get SMS code",
-    "otpLabel": "One-time code",
-    "verify": "Verify",
-    "changeNumber": "Change number",
     "confirmationLinkSent": "A confirmation link has been sent to your email.",
     "agreePrefix": "By signing in you agree to the",
     "termsOfService": "Terms of Service",
     "and": "and",
     "privacyPolicy": "Privacy Policy",
     "errors": {
-      "invalidPhone": "Please enter a valid phone number",
-      "invalidOtp": "Please enter the 6-digit code",
-      "wrongCode": "Wrong code. Try again.",
       "fillAllFields": "Please fill in all fields",
       "wrongCredentials": "Wrong email or password",
       "passwordTooShort": "Password must be at least 12 characters",
@@ -3039,8 +3030,7 @@
     "addTitle": "Add a method",
     "addHint": "Link another method so signing in with it never creates a separate account.",
     "linkButton": {
-      "google": "Link Google",
-      "facebook": "Link Facebook"
+      "google": "Link Google"
     },
     "providers": {
       "phone": "Phone",

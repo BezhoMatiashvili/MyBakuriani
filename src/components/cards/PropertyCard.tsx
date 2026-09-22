@@ -159,7 +159,7 @@ export default function PropertyCard(props: PropertyCardProps) {
         data-listing-card
         data-mobile-presentation={mobilePresentation}
         className={cn(
-          "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] md:h-auto lg:h-[440px] lg:rounded-[24px]",
+          "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:h-[440px] lg:rounded-[24px]",
           compactGrid
             ? "rounded-[16px] sm:rounded-[20px]"
             : "rounded-[20px]",

@@ -1014,10 +1014,11 @@ function BlogGrid({ items }: { items: BlogRow[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
       {items.map((post, i) => (
-        <ScrollReveal key={post.id} delay={i * 0.05}>
+        <ScrollReveal key={post.id} delay={i * 0.05} className="h-full">
           <Link
             href={`/blog/${post.slug}`}
-            className="group block overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-lg"
+            data-blog-card
+            className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-lg"
           >
             {post.image_url ? (
               <div className="relative h-48 w-full">

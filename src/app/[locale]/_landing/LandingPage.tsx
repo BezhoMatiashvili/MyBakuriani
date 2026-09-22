@@ -743,7 +743,7 @@ export default function LandingPage({
                       <time className="text-[11px] font-medium text-[#94A3B8]">
                         {post.date}
                       </time>
-                      <h3 className="mt-1 text-[17px] font-black leading-[21px] text-[#1E293B]">
+                      <h3 className="mt-1 line-clamp-2 min-h-[42px] text-[17px] font-black leading-[21px] text-[#1E293B]">
                         {post.title}
                       </h3>
                       <p className="mt-2 text-[13px] leading-[21px] text-[#64748B] line-clamp-2">

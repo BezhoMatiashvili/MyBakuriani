@@ -146,17 +146,16 @@ test.describe("Public pages remain accessible", () => {
 // Login form interactions
 // ---------------------------------------------------------------------------
 test.describe("Login form interactions", () => {
-  test("can switch between tabs", async ({ page }) => {
+  test("can switch between sign-in and register", async ({ page }) => {
     await page.goto("/auth/login");
-    // The tab buttons are "ელ. ფოსტა" and "ტელეფონი"
-    const phoneTab = page.getByRole("button", { name: "ტელეფონი" });
-    const emailTab = page.getByRole("button", { name: "ელ. ფოსტა" });
-    await expect(emailTab).toBeVisible();
-    await expect(phoneTab).toBeVisible();
-    // Switch to phone tab
-    await phoneTab.click();
-    await page.waitForTimeout(300);
-    await expect(page.locator("main")).toBeVisible();
+    const signInMode = page.getByRole("button", { name: "შესვლა" }).first();
+    const registerMode = page
+      .getByRole("button", { name: "რეგისტრაცია" })
+      .first();
+    await expect(signInMode).toBeVisible();
+    await expect(registerMode).toBeVisible();
+    await registerMode.click();
+    await expect(page.locator("#auth-confirm-password")).toBeVisible();
   });
 
   test("shows validation on empty submit", async ({ page }) => {

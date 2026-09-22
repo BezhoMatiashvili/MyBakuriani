@@ -27,6 +27,9 @@ const OUT_DIR = args.out || "responsive-audit";
 const ROUTE_FILTER = args.filter || null;
 const ROUTE_SET = args.routes || "all"; // public | create | dashboard | all
 const CONCURRENCY = Number(args.concurrency || 4);
+// --mode=geometry skips screenshots + contact sheets so the full 116-route
+// sweep is cheap enough to re-run after every fix.
+const GEOMETRY_ONLY = args.mode === "geometry";
 
 const PRODUCTION_HOSTS = new Set([
   "mybakuriani.ge",
@@ -61,8 +64,14 @@ const BASE_URL = args["base-url"] || requireTestEnv("E2E_BASE_URL");
 const SUPABASE_URL = requireTestEnv("TEST_SUPABASE_URL");
 const SUPABASE_ANON_KEY = requireTestEnv("TEST_SUPABASE_ANON_KEY");
 const PROJECT_REF = new URL(SUPABASE_URL).hostname.split(".")[0];
+// .env.example and scripts/mobile-dashboard-parity-readonly.mjs both use
+// QA_TEST_PASSWORD; this script originally read only TEST_QA_PASSWORD, so it
+// could never find the password that is actually configured. Accept both.
 const QA_PASSWORD =
-  ROUTE_SET === "public" ? null : requireTestEnv("TEST_QA_PASSWORD");
+  ROUTE_SET === "public"
+    ? null
+    : process.env.TEST_QA_PASSWORD?.trim() ||
+      requireTestEnv("QA_TEST_PASSWORD");
 assertSafeTestUrl(BASE_URL, "E2E_BASE_URL");
 assertSafeTestUrl(SUPABASE_URL, "TEST_SUPABASE_URL", true);
 const QA_EMAILS = {
@@ -489,6 +498,242 @@ function buildAuthCookie(session) {
 // ---------------------------------------------------------------------------
 // Diagnostics
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Card geometry ("do all listings render the same size?")
+// ---------------------------------------------------------------------------
+// Measures, per grid row, whether cards keep equal outer height AND equal
+// internal anchor positions regardless of how much content each one carries.
+//
+// Two correctness rules baked in, both of which would otherwise fake results:
+//
+//  * Tolerances, not exact equality. getBoundingClientRect() is fractional and
+//    `gap` + grid-cols-3 at 375px guarantees sub-pixel column differences, so
+//    an exact comparison reports hundreds of failures on every route.
+//
+//  * Cards are selected by their own data-* hook and then grouped by the
+//    nearest ancestor holding >=2 of them - never by ":scope > *". All ten
+//    category grids render <BannerSlot> INSIDE the grid container, so treating
+//    direct grid children as row peers would flag every one of those pages.
+const CARD_KINDS = [
+  "listing",
+  "service",
+  "employment",
+  "sale",
+  "investment",
+  "blog",
+  "home-blog",
+];
+
+async function collectCardGeometry(page) {
+  return page.evaluate((KINDS) => {
+    const HEIGHT_TOL = 1; // px - sub-pixel fractional columns
+    const ROW_TOL = 2; // px - offsetTop banding
+    const SELECTOR = KINDS.map((k) => `[data-${k}-card]`).join(",");
+
+    const visible = (el) => {
+      const r = el.getBoundingClientRect();
+      const st = getComputedStyle(el);
+      return (
+        r.width > 0 && r.height > 0 && st.visibility !== "hidden" && st.display !== "none"
+      );
+    };
+
+    const cards = Array.from(document.querySelectorAll(SELECTOR)).filter(visible);
+    if (cards.length === 0) return null;
+
+    const kindOf = (el) =>
+      KINDS.find((k) => el.hasAttribute(`data-${k}-card`)) || "unknown";
+    const absTop = (el) => el.getBoundingClientRect().top + window.scrollY;
+    const round1 = (n) => Math.round(n * 10) / 10;
+
+    // Nearest ancestor containing >= 2 cards == the real grid, regardless of
+    // how many ScrollReveal / rail-item wrappers sit in between.
+    // The ancestor must ALSO be a real grid/flex container. Without that check
+    // a rail holding a single card makes the walk climb into an arbitrary
+    // <section> wrapper that happens to span several rails, and the "cell"
+    // then measures a whole sibling rail - reporting ~200px of phantom dead
+    // space. Only a layout container actually stretches its children.
+    const LAYOUT = new Set(["grid", "inline-grid", "flex", "inline-flex"]);
+    // Must also lay children out along the ROW axis. A `flex flex-col` wrapper
+    // stretches its children horizontally, never vertically, so its height is
+    // just its own content - comparing a card against it invents ~200px of
+    // phantom dead space. (Caught on the landing page: a 300px avatar card
+    // inside a 508px `flex flex-col` section.)
+    const isRowAxis = (node) => {
+      const st = getComputedStyle(node);
+      if (!LAYOUT.has(st.display)) return false;
+      if (st.display.includes("flex")) return !st.flexDirection.startsWith("column");
+      return true; // grid
+    };
+    const gridOf = (card) => {
+      let node = card.parentElement;
+      while (node && node !== document.body) {
+        if (node.querySelectorAll(SELECTOR).length >= 2 && isRowAxis(node))
+          return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+    // The element the grid actually lays out (may be a wrapper, not the card).
+    const cellOf = (card, grid) => {
+      let node = card;
+      while (node && node.parentElement && node.parentElement !== grid) {
+        node = node.parentElement;
+      }
+      return node && node.parentElement === grid ? node : card;
+    };
+
+    const measure = (card, grid) => {
+      const cardRect = card.getBoundingClientRect();
+      const cell = cellOf(card, grid);
+      const cellRect = cell.getBoundingClientRect();
+      const top = cardRect.top;
+      const rel = (el) => (el ? round1(el.getBoundingClientRect().top - top) : null);
+
+      const title = card.querySelector("h2,h3");
+      let titleClamped = null;
+      if (title) {
+        const ts = getComputedStyle(title);
+        titleClamped =
+          (ts.webkitLineClamp && ts.webkitLineClamp !== "none") ||
+          ts.textOverflow === "ellipsis" ||
+          ts.overflow === "hidden";
+      }
+
+      // price = first leaf rendering the lari sign, SKIPPING struck-through
+      // originals. A discounted card renders the old price above the real one;
+      // anchoring on that compares a struck line against a live price and
+      // reports a ~26px "misalignment" that is not one. (Caught by probing
+      // /apartments: the discounted card's first lari leaf was its
+      // line-through original at relTop 371 vs 397 for the real price.)
+      let price = null;
+      for (const el of card.querySelectorAll("*")) {
+        if (el.children.length !== 0) continue;
+        if (!/₾/.test(el.textContent || "")) continue;
+        if (getComputedStyle(el).textDecorationLine.includes("line-through"))
+          continue;
+        price = el;
+        break;
+      }
+      // cta = last visible interactive element in the card
+      const inter = Array.from(
+        card.querySelectorAll("a,button,[role='button']"),
+      ).filter(visible);
+      const cta = inter.length ? inter[inter.length - 1] : null;
+
+      const st = getComputedStyle(card);
+      const clipped =
+        st.overflow === "hidden" && card.scrollHeight - card.clientHeight > 1;
+
+      return {
+        kind: kindOf(card),
+        y: absTop(card),
+        h: round1(cardRect.height),
+        cellH: round1(cellRect.height),
+        fillsCell: cardRect.height >= cellRect.height - HEIGHT_TOL,
+        titleTop: rel(title),
+        titleH: title ? round1(title.getBoundingClientRect().height) : null,
+        titleClamped,
+        priceTop: rel(price),
+        ctaTop: rel(cta),
+        clipped,
+        overflowBy: clipped ? card.scrollHeight - card.clientHeight : 0,
+      };
+    };
+
+    const spread = (vals) => {
+      const nums = vals.filter((v) => typeof v === "number");
+      if (nums.length < 2) return 0;
+      return round1(Math.max(...nums) - Math.min(...nums));
+    };
+
+    // group cards by grid
+    const byGrid = new Map();
+    for (const card of cards) {
+      const grid = gridOf(card);
+      if (!grid) continue;
+      if (!byGrid.has(grid)) byGrid.set(grid, []);
+      byGrid.get(grid).push(card);
+    }
+
+    const violations = [];
+    const grids = [];
+
+    for (const [grid, members] of byGrid) {
+      const measured = members.map((c) => measure(c, grid)).sort((a, b) => a.y - b.y);
+
+      // band into rows
+      const rows = [];
+      for (const m of measured) {
+        const last = rows[rows.length - 1];
+        if (last && m.y - last[0].y <= ROW_TOL) last.push(m);
+        else rows.push([m]);
+      }
+
+      const kinds = [...new Set(measured.map((m) => m.kind))];
+      const gridInfo = {
+        kinds,
+        cards: measured.length,
+        rows: rows.length,
+        // spread across the WHOLE grid: on a 1-col mobile layout every card is
+        // its own row, so row-equality is vacuous and only this number speaks.
+        gridHeightSpread: spread(measured.map((m) => m.h)),
+        rowDetail: [],
+      };
+
+      for (const row of rows) {
+        const d = {
+          n: row.length,
+          heightSpread: spread(row.map((m) => m.h)),
+          titleHeightSpread: spread(row.map((m) => m.titleH)),
+          priceTopSpread: spread(row.map((m) => m.priceTop)),
+          ctaTopSpread: spread(row.map((m) => m.ctaTop)),
+        };
+        gridInfo.rowDetail.push(d);
+
+        if (row.length >= 2) {
+          if (d.heightSpread > HEIGHT_TOL)
+            violations.push({ g: "G1", kind: kinds.join("+"), spread: d.heightSpread });
+          if (d.ctaTopSpread > HEIGHT_TOL)
+            violations.push({ g: "G2-cta", kind: kinds.join("+"), spread: d.ctaTopSpread });
+          if (d.priceTopSpread > HEIGHT_TOL)
+            violations.push({ g: "G2-price", kind: kinds.join("+"), spread: d.priceTopSpread });
+          if (d.titleHeightSpread > HEIGHT_TOL)
+            violations.push({ g: "G5-title", kind: kinds.join("+"), spread: d.titleHeightSpread });
+        }
+      }
+
+      for (const m of measured) {
+        if (m.titleClamped === false)
+          violations.push({ g: "G4-unclamped", kind: m.kind, titleH: m.titleH });
+        if (m.clipped)
+          violations.push({ g: "G3-clip", kind: m.kind, by: m.overflowBy });
+        if (!m.fillsCell)
+          violations.push({
+            g: "G1-fill",
+            kind: m.kind,
+            cardH: m.h,
+            cellH: m.cellH,
+          });
+      }
+
+      grids.push(gridInfo);
+    }
+
+    // de-duplicate identical violations (a 3-col grid repeats the same defect)
+    const seen = new Set();
+    const uniq = [];
+    for (const v of violations) {
+      const key = JSON.stringify(v);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      uniq.push(v);
+    }
+
+    return { cardCount: cards.length, grids, violations: uniq.slice(0, 40) };
+  }, CARD_KINDS);
+}
+
 async function collectDiagnostics(page, viewportWidth) {
   return page.evaluate((vw) => {
     const overflow =
@@ -602,33 +847,59 @@ async function shootRoute(browser, route, viewports, authCookie) {
       continue;
     }
 
-    const filePath = path.join(
-      OUT_DIR,
-      "screenshots",
-      vp.name,
-      `${route.label}.png`,
-    );
-    await mkdir(path.dirname(filePath), { recursive: true });
-    try {
-      await page.screenshot({ path: filePath, fullPage: true, timeout: 15000 });
-      shots.push({ vp: vp.name, filePath, width: vp.width });
-    } catch (e) {
-      diagnostics[vp.name] = {
-        error: `screenshot failed: ${String(e).slice(0, 200)}`,
-      };
+    if (!GEOMETRY_ONLY) {
+      const filePath = path.join(
+        OUT_DIR,
+        "screenshots",
+        vp.name,
+        `${route.label}.png`,
+      );
+      await mkdir(path.dirname(filePath), { recursive: true });
+      try {
+        await page.screenshot({
+          path: filePath,
+          fullPage: true,
+          timeout: 15000,
+        });
+        shots.push({ vp: vp.name, filePath, width: vp.width });
+      } catch (e) {
+        diagnostics[vp.name] = {
+          error: `screenshot failed: ${String(e).slice(0, 200)}`,
+        };
+      }
     }
+
+    // A gated route silently renders the consent wall / login card instead of
+    // the page under test, and every geometry check then passes vacuously.
+    // Record where we actually landed so that failure is loud, not invisible.
+    const landedOn = await page
+      .evaluate(() => location.pathname + (document.body.innerText.slice(0, 0) || ""))
+      .catch(() => null);
+    const redirected =
+      landedOn &&
+      /\/(consent-required|site-locked)$|\/auth\/(login|register)$/.test(landedOn) &&
+      !route.path.includes(landedOn);
 
     const diag = await collectDiagnostics(page, vp.width).catch((e) => ({
       error: String(e),
     }));
-    diagnostics[vp.name] = { ...diag, httpStatus: status };
+    const geometry = await collectCardGeometry(page).catch((e) => ({
+      error: String(e).slice(0, 200),
+    }));
+    diagnostics[vp.name] = {
+      ...diag,
+      httpStatus: status,
+      geometry,
+      landedOn,
+      redirected: Boolean(redirected),
+    };
     await page.close();
   }
 
   await context.close();
 
   // Build contact sheet
-  if (shots.length > 0) {
+  if (!GEOMETRY_ONLY && shots.length > 0) {
     await buildContactSheet(route, shots);
   }
 
@@ -746,6 +1017,41 @@ async function main() {
   const overflowing = successfulResults.filter((r) =>
     Object.values(r.diagnostics).some((d) => d.overflow),
   );
+
+  // Card-geometry rollup: which invariant broke, how often, and where.
+  const geomCounts = new Map();
+  const geomWhere = new Map();
+  for (const r of successfulResults) {
+    for (const [vpName, d] of Object.entries(r.diagnostics)) {
+      for (const v of d.geometry?.violations ?? []) {
+        geomCounts.set(v.g, (geomCounts.get(v.g) || 0) + 1);
+        const key = `${v.g}`;
+        if (!geomWhere.has(key)) geomWhere.set(key, new Set());
+        geomWhere.get(key).add(`${r.label}@${vpName}`);
+      }
+    }
+  }
+  const gated = successfulResults.filter((r) =>
+    Object.values(r.diagnostics).some((d) => d.redirected),
+  );
+  if (gated.length) {
+    console.log(
+      `\nWARNING: ${gated.length} route(s) were REDIRECTED (consent wall / login) - their results are vacuous:`,
+    );
+    for (const r of gated.slice(0, 10)) {
+      const to = Object.values(r.diagnostics).find((d) => d.redirected)?.landedOn;
+      console.log(`  ${r.label} -> ${to}`);
+    }
+  }
+  if (geomCounts.size === 0) {
+    console.log("Card geometry: no violations");
+  } else {
+    console.log("\nCard geometry violations:");
+    for (const [g, n] of [...geomCounts].sort((a, b) => b[1] - a[1])) {
+      const where = [...geomWhere.get(g)].slice(0, 6).join(", ");
+      console.log(`  ${g}: ${n}  e.g. ${where}`);
+    }
+  }
   const withErrors = successfulResults.filter(
     (r) => r.consoleErrors && r.consoleErrors.length > 0,
   );

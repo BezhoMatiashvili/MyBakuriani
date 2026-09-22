@@ -41,6 +41,28 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
+    // Seeds WITHOUT the paired teardown. `setup` declares `teardown: "teardown"`,
+    // so running it alone seeds and then immediately deletes everything - use
+    // this when you need seeded data to persist for a standalone sweep
+    // (scripts/responsive-audit.mjs), then run `teardown-only` afterwards.
+    {
+      name: "seed-only",
+      testMatch: /global-setup\.ts/,
+    },
+    {
+      name: "teardown-only",
+      testMatch: /global-teardown\.ts/,
+    },
+
+    // Card geometry — listing cards must stay the same size regardless of how
+    // much content each one carries. Sets its own viewports per test.
+    {
+      name: "ui",
+      testMatch: /ui\/.+\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+
     // Auth flows
     {
       name: "auth",

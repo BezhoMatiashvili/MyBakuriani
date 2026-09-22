@@ -1043,19 +1043,13 @@ test.describe("Auth pages mobile", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/en/auth/login");
 
-    for (const name of ["Email", "Phone"]) {
-      const tab = page.getByRole("button", { name, exact: true });
-      const box = await tab.boundingBox();
-      expect(box?.height).toBeCloseTo(44, 0);
-      await tab.click();
-    }
-    for (const name of ["Continue with Google", "Continue with Facebook"]) {
-      const oauth = page.getByRole("button", { name, exact: true });
-      await expect(oauth).toBeVisible();
-      expect((await oauth.boundingBox())?.height).toBeCloseTo(44, 0);
-    }
+    const oauth = page.getByRole("button", {
+      name: "Continue with Google",
+      exact: true,
+    });
+    await expect(oauth).toBeVisible();
+    expect((await oauth.boundingBox())?.height).toBeCloseTo(44, 0);
 
-    await page.getByRole("button", { name: "Email", exact: true }).click();
     for (const name of ["Sign in", "Register"]) {
       const mode = page.getByRole("button", { name, exact: true }).first();
       expect((await mode.boundingBox())?.height).toBeCloseTo(44, 0);

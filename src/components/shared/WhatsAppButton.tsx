@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type MouseEventHandler } from "react";
+import { useCallback, useEffect, useState, type MouseEventHandler } from "react";
 import { cn } from "@/lib/utils";
 import { trackContactClick } from "@/lib/contact-tracking";
 import { normalizeE164Phone } from "@/lib/security";
@@ -17,6 +17,13 @@ type WhatsAppButtonProps = {
   variant?: "icon" | "label";
   size?: "sm" | "default" | "lg";
   label?: string;
+  /**
+   * Path of the listing this button belongs to (e.g. `/services/<id>`), used in
+   * the prefilled first message. Only needed where the button is NOT on the
+   * listing's own detail page (i.e. the cards) — elsewhere the current page
+   * already is the listing.
+   */
+  listingPath?: string;
   onClick?: MouseEventHandler<HTMLElement>;
 };
 
@@ -28,6 +35,21 @@ export function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
+const WHATSAPP_INTRO =
+  "გამარჯობა! თქვენი განცხადება ვნახე MyBakuriani-ზე და დაინტერესებული ვარ.";
+
+/**
+ * First message the visitor sends the owner: it says where the listing was
+ * seen and links back to it, so the owner knows which listing is meant (and
+ * WhatsApp renders its OG preview card).
+ *
+ * Hardcoded Georgian in every locale: this text goes outbound to a Georgian
+ * owner, not to the visitor — the same reasoning the win-back SMS preview uses.
+ */
+function whatsappIntroMessage(listingUrl: string | null): string {
+  return listingUrl ? `${WHATSAPP_INTRO}\n${listingUrl}` : WHATSAPP_INTRO;
+}
+
 export function WhatsAppButton({
   hasWhatsApp,
   whatsapp,
@@ -37,11 +59,22 @@ export function WhatsAppButton({
   variant = "icon",
   size = "default",
   label = "WhatsApp",
+  listingPath,
   onClick,
 }: WhatsAppButtonProps) {
   const [resolvedWhatsapp, setResolvedWhatsapp] = useState<string | null>(null);
   const [isAvailable, setIsAvailable] = useState(hasWhatsApp);
   const [isResolving, setIsResolving] = useState(false);
+  // Resolved after mount, not during render: an owner preview renders the <a>
+  // on the server too, and reading `window` inline would make the server and
+  // client hrefs disagree. `pathname` (never `href`) keeps `?preview=1` and any
+  // tracking params out of the message.
+  const [listingUrl, setListingUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setListingUrl(
+      `${window.location.origin}${listingPath ?? window.location.pathname}`,
+    );
+  }, [listingPath]);
   const isLabel = variant === "label";
   const sizeClass = isLabel
     ? ({ sm: "h-9 px-3 text-xs", default: "h-11 px-4 text-sm", lg: "h-12 px-5 text-[15px]" } as const)[size]
@@ -91,14 +124,14 @@ export function WhatsAppButton({
   if (!isAvailable) return null;
 
   if (!normalizedWhatsapp) {
-    return <button type="button" data-slot="whatsapp-button" data-variant={variant} disabled={!propertyId && !serviceId || isResolving} onClick={() => void revealContact()} aria-label={label} className={classes}>{content}</button>;
+    return <button type="button" data-slot="whatsapp-button" data-variant={variant} disabled={!propertyId && !serviceId || isResolving} onClick={(event) => { onClick?.(event); void revealContact(); }} aria-label={label} className={classes}>{content}</button>;
   }
 
   return (
     <a
       data-slot="whatsapp-button"
       data-variant={variant}
-      href={`https://wa.me/${normalizedWhatsapp.slice(1)}`}
+      href={`https://wa.me/${normalizedWhatsapp.slice(1)}?text=${encodeURIComponent(whatsappIntroMessage(listingUrl))}`}
       target="_blank"
       rel="noreferrer"
       aria-label={isLabel ? undefined : label}
