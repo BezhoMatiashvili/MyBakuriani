@@ -586,7 +586,16 @@ function buildMockSaleProperty(
       bio: null,
       created_at: epoch,
       display_name: "გიორგი მაშულაშვილი",
+      // Kept self-consistent with the profiles_derive_marketing_opt_out
+      // trigger: marketing_opt_out is NOT (marketing_sms_consent ?? false).
+      marketing_sms_consent: true,
       marketing_opt_out: false,
+      marketing_email_consent: null,
+      push_consent: null,
+      terms_accepted_at: epoch,
+      terms_version: "2026-09-09",
+      privacy_accepted_at: epoch,
+      privacy_version: "2026-09-09",
       id: "mock-owner",
       is_verified: true,
       notification_prefs: null,

@@ -59,6 +59,7 @@ const [snapshot, drift] = await Promise.all([rpc("schema_contract_snapshot"), rp
 const { DASHBOARD_SCOPES } = await import("../src/lib/notifications/scopes.ts");
 const { BANNER_PLACEMENT_IDS } = await import("../src/lib/banner-placements.ts");
 const { REVIEWABLE_FIELDS, CLEANER_PROFILE_FIELDS } = await import("../src/lib/content-change/fields.ts");
+const { CONSENT_KINDS, CONSENT_SOURCES } = await import("../src/lib/consent/channels.ts");
 const { Constants } = await import("../src/lib/types/database.generated.ts");
 
 const checkList = (table, column) =>
@@ -89,6 +90,31 @@ for (const table of ["ads", "landing_banners"]) {
   const db = checkList(table, "placement");
   if (!db) fail(`C12: ${table}.placement CHECK not found`);
   else compareSets(`C12 ${table}.placement`, db, [...BANNER_PLACEMENT_IDS], "CHECK constraint", "BANNER_PLACEMENTS");
+}
+
+// C30 — consent kinds/sources: the CHECK constraints on public.user_consents
+// against the TS unions the API route and the RPC payloads are built from.
+{
+  const kinds = checkList("user_consents", "kind");
+  if (!kinds) fail("C30: user_consents.kind CHECK not found");
+  else compareSets("C30 consent kinds", kinds, [...CONSENT_KINDS], "CHECK constraint", "CONSENT_KINDS");
+
+  const sources = checkList("user_consents", "source");
+  if (!sources) fail("C30: user_consents.source CHECK not found");
+  else compareSets("C30 consent sources", sources, [...CONSENT_SOURCES], "CHECK constraint", "CONSENT_SOURCES");
+}
+
+// C30 — marketing_opt_out must stay DERIVED. If the trigger is ever dropped,
+// affirmative opt-in silently reverts to opt-out for every new user.
+{
+  const gate = snapshot.review_gate;
+  // profiles must NOT review-gate the consent columns, or a user's own consent
+  // write would 42501 and a legal opt-out would need admin approval (C14).
+  const reviewable = gate?.profiles ?? [];
+  const leaked = ["marketing_sms_consent", "marketing_email_consent", "push_consent",
+    "terms_accepted_at", "privacy_accepted_at"].filter((c) => reviewable.includes(c));
+  if (leaked.length) fail(`C30/C14: consent columns must never be reviewable, found: ${leaked.join(", ")}`);
+  else ok("C30: consent columns are not review-gated");
 }
 
 // C14 — review-gate allow-list: trigger (B) vs TypeScript (A), and the drift

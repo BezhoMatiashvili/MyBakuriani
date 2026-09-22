@@ -63,8 +63,12 @@ export const getCurrentUser = cache(async () => {
 });
 
 /**
- * Request-memoized profile (id, role, display_name, avatar_url) for the current
- * user, reusing the cached user. Returns null when signed out.
+ * Request-memoized profile for the current user, reusing the cached user.
+ * Returns null when signed out.
+ *
+ * The consent columns are selected here rather than in a second query because
+ * this is already awaited by dashboard/layout.tsx and create/layout.tsx, which
+ * both gate on them via requireConsent() - see src/lib/auth/require-consent.ts.
  */
 export const getCurrentProfile = cache(async () => {
   const user = await getCurrentUser();
@@ -73,7 +77,9 @@ export const getCurrentProfile = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, role, display_name, avatar_url")
+    .select(
+      "id, role, display_name, avatar_url, terms_accepted_at, privacy_accepted_at, marketing_sms_consent, marketing_email_consent, push_consent",
+    )
     .eq("id", user.id)
     .maybeSingle();
   return data;

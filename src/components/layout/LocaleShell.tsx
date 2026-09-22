@@ -25,6 +25,20 @@ const CriticalNotificationGate = dynamic(
     ),
   { ssr: false },
 );
+// Both read browser state (auth session / document.cookie) and must not be
+// server-rendered: the public detail routes are cookie-free ISR by contract
+// (C28), so all personalization stays client-side.
+const ConsentGate = dynamic(
+  () => import("@/components/consent/ConsentGate").then((mod) => mod.ConsentGate),
+  { ssr: false },
+);
+const CookieConsentBanner = dynamic(
+  () =>
+    import("@/components/consent/CookieConsentBanner").then(
+      (mod) => mod.CookieConsentBanner,
+    ),
+  { ssr: false },
+);
 
 function isDashboardRoute(pathname: string) {
   return /(^|\/)dashboard(\/|$)/.test(pathname);
@@ -88,6 +102,8 @@ export function LocaleShell({ children }: LocaleShellProps) {
     <>
       <PageviewTracker />
       <CriticalNotificationGate />
+      <ConsentGate />
+      <CookieConsentBanner />
       {content}
     </>
   );

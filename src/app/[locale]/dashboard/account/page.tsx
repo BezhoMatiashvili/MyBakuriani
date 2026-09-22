@@ -9,6 +9,11 @@ import type { Provider, UserIdentity } from "@supabase/supabase-js";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { createClient } from "@/lib/supabase/client";
+import {
+  NotificationPreferences,
+  type NotificationPreferenceValues,
+} from "@/components/consent/NotificationPreferences";
 
 const OAUTH_PROVIDERS: Provider[] = ["google", "facebook"];
 
@@ -39,6 +44,7 @@ export default function LinkedAccountsPage() {
   const [linkingProvider, setLinkingProvider] = useState<Provider | null>(null);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<NotificationPreferenceValues | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -50,6 +56,17 @@ export default function LinkedAccountsPage() {
       .then(setIdentities)
       .catch(() => setError(t("errors.loadFailed")))
       .finally(() => setLoading(false));
+
+    // Notification preferences live on the same account screen. A failure here
+    // must not block the identity list, so it degrades to hiding the section.
+    createClient()
+      .from("profiles")
+      .select("marketing_sms_consent, marketing_email_consent, push_consent")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setPrefs(data);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
@@ -208,6 +225,8 @@ export default function LinkedAccountsPage() {
           </div>
         </motion.div>
       )}
+
+      {prefs ? <NotificationPreferences initial={prefs} /> : null}
     </div>
   );
 }

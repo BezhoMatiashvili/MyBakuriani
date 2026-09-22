@@ -157,7 +157,8 @@
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "marketingPolicy": "Marketing Policy",
-    "copyright": "© {year} MYBAKURIANI.GE - All rights reserved"
+    "copyright": "© {year} MYBAKURIANI.GE - All rights reserved",
+    "cookieSettings": "Cookie settings"
   },
   "DashboardSidebar": {
     "roles": {
@@ -4836,5 +4837,41 @@
       "rejectedToast": "კომპანია უარყოფილია",
       "searchPlaceholder": "Search (ID, name, ID code)..."
     }
+  },
+  "ConsentGate": {
+    "title": "Creating your MyBakuriani account",
+    "intro": "Please confirm the following before you continue:",
+    "terms": "I agree to the",
+    "termsLink": "Terms and Conditions",
+    "privacy": "I have read the",
+    "privacyLink": "Privacy Policy",
+    "marketing": "I would like to receive special offers, discounts and other promotional messages by SMS from MyBakuriani and from listing authors.",
+    "marketingNote": "Optional. You can withdraw this consent at any time in your profile settings.",
+    "submit": "Continue",
+    "signOut": "Sign out",
+    "error": "Could not save. Please try again."
+  },
+  "CookieConsent": {
+    "title": "Cookies",
+    "description": "We use essential cookies to run the site and keep you signed in. Analytics cookies help us measure usage and are only used with your consent.",
+    "learnMore": "Learn more",
+    "essentialOnly": "Essential only",
+    "acceptAll": "Accept all"
+  },
+  "NotificationSettings": {
+    "title": "Notification settings",
+    "subtitle": "Choose which channels you want to hear from us on.",
+    "serviceSms": "Service SMS — required",
+    "serviceSmsHelp": "Login codes, booking updates and account security messages. These cannot be turned off because they are needed to operate the service.",
+    "marketingSms": "Offers and discounts by SMS",
+    "marketingSmsHelp": "Promotions, discounts and other marketing messages. You can turn this off at any time.",
+    "marketingEmail": "Offers by email",
+    "marketingEmailHelp": "Email sending is not live yet — your choice is saved and will take effect as soon as it launches.",
+    "push": "Push notifications",
+    "pushHelp": "Browser push notifications are not live yet — your choice is saved and will take effect as soon as they launch.",
+    "notActiveYet": "Soon",
+    "save": "Save",
+    "saved": "Saved",
+    "failed": "Could not save"
   }
 }

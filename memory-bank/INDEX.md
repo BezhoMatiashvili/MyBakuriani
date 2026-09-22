@@ -52,6 +52,7 @@ Full symbol inventory (module → exports + import edges, regenerable):
 | C19 | Notification `dashboard_scope` agrees across CHECK, TS union, writers, readers, badges                               | a writer omits the scope → NULL row is invisible in every cabinet feed           |
 | C28 | Public detail routes are ISR + cookie-free; preview via /preview/* rewrite; middleware sets their edge Cache-Control | an auth/cookie read added to a detail page → hard 500 on first cache-miss render |
 | C29 | Every mechanically-comparable coupling here is checked by `check-contracts.mjs` (prebuild/CI) or `check-db-contracts.mjs` | a new string key gets a prose paragraph but no check line → back to docs-only    |
+| C30 | Consent: `marketing_sms_consent` is authored, `marketing_opt_out` is a derived mirror; blocking gate + audit trail | `marketing_opt_out` written directly (trigger overwrites it), or the derivation trigger dropped |
 
 ## Pre-modification ritual
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { requireConsent } from "@/lib/auth/require-consent";
 import { CreateHeader } from "@/components/layout/CreateHeader";
 import type { AppLocale } from "@/i18n/routing";
 
@@ -35,6 +36,10 @@ export default async function CreateLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login?next=/create");
+  // Publishing a listing is an act under the Terms, so it is gated on consent
+  // as well as on auth. Unlike the dashboard layout this tree did not fetch the
+  // profile at all, so this adds one memoized read.
+  await requireConsent();
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">

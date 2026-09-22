@@ -12,7 +12,9 @@ export type SelfServiceProfileValues = {
   personal_id?: string | null;
   whatsapp_enabled?: boolean;
   notification_prefs?: NotificationPrefs;
-  marketing_opt_out?: boolean;
+  /** Tri-state marketing-SMS consent. profiles.marketing_opt_out is derived
+   *  from this by a trigger and is no longer writable through this RPC. */
+  marketing_sms_consent?: boolean | null;
   cleaner_profile?: Partial<{
     first_name: string | null;
     last_name: string | null;
@@ -36,6 +38,30 @@ export async function updateSelfServiceProfile(values: SelfServiceProfileValues)
     cleaner_profile: Record<string, unknown> | null;
   }>("/api/self-service/profile", {
     method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(values),
+  });
+}
+
+export type ConsentValues = {
+  source: "registration_gate" | "account_settings";
+  version?: string;
+  terms?: boolean;
+  privacy?: boolean;
+  marketing_sms?: boolean;
+  marketing_email?: boolean;
+  push?: boolean;
+};
+
+/**
+ * Records consent and appends the user_consents audit rows. Separate from
+ * updateSelfServiceProfile because consent is its own authority: it writes the
+ * acceptance timestamps and the audit trail in one transaction, which the
+ * profile RPC neither does nor should.
+ */
+export async function recordConsent(values: ConsentValues) {
+  return request<Record<string, unknown>>("/api/consent", {
+    method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(values),
   });

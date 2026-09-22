@@ -2083,14 +2083,21 @@ export type Database = {
           display_name: string;
           id: string;
           is_verified: boolean | null;
+          marketing_email_consent: boolean | null;
           marketing_opt_out: boolean;
+          marketing_sms_consent: boolean | null;
           notification_prefs: Json | null;
           personal_id: string | null;
           phone: string | null;
+          privacy_accepted_at: string | null;
+          privacy_version: string | null;
           profile_type: string | null;
+          push_consent: boolean | null;
           rating: number | null;
           response_time_minutes: number | null;
           role: Database["public"]["Enums"]["user_role"];
+          terms_accepted_at: string | null;
+          terms_version: string | null;
           updated_at: string | null;
           verified_at: string | null;
           whatsapp_enabled: boolean | null;
@@ -2102,14 +2109,21 @@ export type Database = {
           display_name: string;
           id: string;
           is_verified?: boolean | null;
+          marketing_email_consent?: boolean | null;
           marketing_opt_out?: boolean;
+          marketing_sms_consent?: boolean | null;
           notification_prefs?: Json | null;
           personal_id?: string | null;
           phone?: string | null;
+          privacy_accepted_at?: string | null;
+          privacy_version?: string | null;
           profile_type?: string | null;
+          push_consent?: boolean | null;
           rating?: number | null;
           response_time_minutes?: number | null;
           role?: Database["public"]["Enums"]["user_role"];
+          terms_accepted_at?: string | null;
+          terms_version?: string | null;
           updated_at?: string | null;
           verified_at?: string | null;
           whatsapp_enabled?: boolean | null;
@@ -2121,14 +2135,21 @@ export type Database = {
           display_name?: string;
           id?: string;
           is_verified?: boolean | null;
+          marketing_email_consent?: boolean | null;
           marketing_opt_out?: boolean;
+          marketing_sms_consent?: boolean | null;
           notification_prefs?: Json | null;
           personal_id?: string | null;
           phone?: string | null;
+          privacy_accepted_at?: string | null;
+          privacy_version?: string | null;
           profile_type?: string | null;
+          push_consent?: boolean | null;
           rating?: number | null;
           response_time_minutes?: number | null;
           role?: Database["public"]["Enums"]["user_role"];
+          terms_accepted_at?: string | null;
+          terms_version?: string | null;
           updated_at?: string | null;
           verified_at?: string | null;
           whatsapp_enabled?: boolean | null;
@@ -3961,6 +3982,51 @@ export type Database = {
           },
         ];
       };
+      user_consents: {
+        Row: {
+          created_at: string;
+          granted: boolean;
+          id: string;
+          kind: string;
+          source: string;
+          user_id: string;
+          version: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          granted: boolean;
+          id?: string;
+          kind: string;
+          source: string;
+          user_id: string;
+          version?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          granted?: boolean;
+          id?: string;
+          kind?: string;
+          source?: string;
+          user_id?: string;
+          version?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_consents_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_consents_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_subscriptions: {
         Row: {
           amount_paid: number | null;
@@ -5049,6 +5115,10 @@ export type Database = {
           p_update_date?: string;
           p_video_url?: string;
         };
+        Returns: Json;
+      };
+      self_service_record_consent: {
+        Args: { p_actor_id: string; p_values: Json };
         Returns: Json;
       };
       self_service_reorder_menu_items: {

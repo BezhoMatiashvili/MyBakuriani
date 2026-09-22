@@ -989,6 +989,16 @@ attesting consent on a manual booking and by the guest opting out. Adding any of
 would 42501 those writes and route a guest's opt-out through admin approval — which
 is both wrong and, for opt-out, the wrong direction legally.
 
+**The consent columns added 2026-09-22 are the same shape of exception** and
+must never be added to allow-list A/B/C: `profiles.terms_accepted_at`,
+`terms_version`, `privacy_accepted_at`, `privacy_version`,
+`marketing_sms_consent`, `marketing_email_consent` and `push_consent` are the
+user's own recorded consent, written by `self_service_record_consent` (**C30**).
+Review-gating them would `42501` the user's own consent write and route a legal
+opt-out through admin approval — the same "wrong direction legally" the
+`marketing_opt_out` note above already states. `scripts/check-db-contracts.mjs`
+now fails if any of them appears in the `profiles` reviewable array.
+
 **`properties.cadastral_code_public` (added 2026-09-19) is the same shape of
 exception**, for the same reason: it's a display-preference toggle, not content
 an admin needs to vet (the code value itself stays fully reviewable — only
@@ -1393,6 +1403,14 @@ Participating symbols:
   and dispatch every 10 minutes. It refuses to apply unless all six URL/secret values exist in
   Supabase Vault. Hosted Supabase does not permit the project `postgres` role to persist custom
   `ALTER DATABASE ... SET app.*` GUCs, so the cron commands read `vault.decrypted_secrets` at runtime
+- **`profiles.marketing_opt_out` is, since 2026-09-22, a trigger-DERIVED mirror of the new
+  `profiles.marketing_sms_consent` and must never be written directly (`profiles_derive_marketing_opt_out`
+  silently overwrites it) — see **C30**. Nothing in this contract's read paths changed: the
+  `sms-automation-run` opt-out set, `sms_cancel_ineligible_automation` and the price-drop joins all
+  still read `marketing_opt_out` and were deliberately left untouched, which is why that release
+  needed no edge redeploy. What DID change is the polarity for an unanswered user: the column now
+  defaults to `true` (opted out) until the user affirmatively consents, so a profile with no consent
+  record receives no marketing SMS.**
 - `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` — `check_in_time`, `marketing_consent` and
   `marketing_opt_out` are deliberately ABSENT. Manual-booking consent is nevertheless guarded:
   owner RPC arguments are ignored and the guest token response is its only opt-in writer
@@ -2294,3 +2312,103 @@ credentials in CI before `20260921120000` is applied there (HTTP 404 on the RPC 
 hard failure, which is correct but will look like a bug); or a pure helper gains a
 runtime `@/` import and its unit test starts failing with `ERR_MODULE_NOT_FOUND`
 — fix the import, don't delete the test.
+
+---
+
+## C30 — User consent: one authored column, one derived mirror, five surfaces
+
+**Invariant (2026-09-22):** terms/privacy acceptance and per-channel marketing
+consent are captured once, blockingly, for **every** signed-in user, and the
+marketing answer is the only thing that decides whether a marketing SMS may be
+sent. `profiles.marketing_sms_consent` is the AUTHORED truth (nullable
+tri-state); `profiles.marketing_opt_out` is now a trigger-DERIVED mirror and
+**must never be written directly** — the trigger silently overwrites it.
+
+```
+marketing_opt_out := NOT COALESCE(marketing_sms_consent, false)
+```
+
+| `marketing_sms_consent` | meaning          | `marketing_opt_out` | marketing SMS |
+| ----------------------- | ---------------- | ------------------- | ------------- |
+| `NULL`                  | not yet answered | `true`              | blocked       |
+| `false`                 | declined         | `true`              | blocked       |
+| `true`                  | granted          | `false`             | sent          |
+
+**Why a mirror instead of repointing the readers.** `marketing_opt_out` has four
+readers, two of them expensive to change: `supabase/functions/sms-automation-run/index.ts`
+(an EDGE FUNCTION — a change costs a full redeploy under **C4**),
+`sms_cancel_ineligible_automation()` (`20260801131000`), the price-drop
+subscriber joins (`20260802120000`), and
+`src/app/api/listings/property/[propertyId]/price-drop-alert/route.ts`. Deriving
+the mirror flipped opt-out semantics to affirmative opt-in with **zero edge
+redeploys** and no change to any of the four.
+
+Participating symbols:
+
+- `supabase/migrations/20260922130000_user_consent_and_notification_prefs.sql:derive_marketing_opt_out`
+  — the derivation. Its trigger is named `profiles_derive_marketing_opt_out`
+  **deliberately**: `public.profiles` carries several BEFORE UPDATE row triggers
+  and Postgres fires them in ALPHABETICAL ORDER, so this name sorts AFTER
+  `prevent_unreviewed_public_content_update` (**C14**) and the C14 gate keeps
+  evaluating the caller's own NEW row. Renaming it silently reorders that
+- the same migration's `sms_lock_profile_opt_out_write` recreation — this
+  STATEMENT-level trigger takes the `sms_dispatch_claim` advisory lock and was
+  `BEFORE UPDATE OF (phone, marketing_opt_out)`. `UPDATE OF <cols>` fires on the
+  columns named in the statement's SET clause, **not** on what a BEFORE trigger
+  later assigns, so once eligibility moved to `marketing_sms_consent` the lock
+  would have stopped being taken with no error. The column list now includes it
+- `supabase/migrations/20260922130000…:self_service_record_consent` — the ONLY
+  consent writer. `service_role`-only, updates the profile columns and appends
+  the `user_consents` audit rows in one transaction, and refuses to un-accept
+  terms/privacy (`consent_cannot_be_withdrawn`)
+- `public.user_consents` — append-only audit trail (kind, granted, version,
+  source, created_at). Required by the Direct Marketing Policy §3, which wants
+  status + channel + time + source retained, not just the latest value.
+  Deliberately NO ip/user_agent
+- `src/lib/consent/channels.ts:CONSENT_KINDS` / `:CONSENT_SOURCES` — a FOUR-way
+  string coupling: this union, the two CHECKs on `user_consents`,
+  `self_service_record_consent`'s `v_allowed`, and `ALLOWED_KEYS` in
+  `src/app/api/consent/route.ts`. Checked by `check-db-contracts.mjs` (**C29**)
+- `src/lib/consent/channels.ts:marketingChannelAllowed` — the ONE delivery
+  authority. Affirmative opt-in: only an explicit `true` allows a send
+- `src/lib/consent/channels.ts:hasAcceptedRequiredPolicies` — the gate predicate
+  (terms AND privacy; marketing is irrelevant to it)
+- `src/components/consent/ConsentGate.tsx:ConsentGate` — the blocking overlay,
+  mounted in `LocaleShell`. Modelled on `CriticalNotificationGate` (no close
+  button, no Escape, no backdrop dismiss). Client-side, which is what keeps it
+  **C28**-safe on the cookie-free ISR detail routes
+- `src/lib/auth/require-consent.ts:requireConsent` — server backstop used by
+  `dashboard/layout.tsx` and `create/layout.tsx`, redirecting to
+  `/consent-required` (outside `[locale]`, plain Georgian, bypassed in
+  middleware after the site-lock block — the `/site-locked` pattern)
+- `src/components/consent/NotificationPreferences.tsx` — the four toggles;
+  mounted on `/dashboard/account` and `/dashboard/guest/profile`
+
+**The gate must re-check on navigation while unresolved.** `ConsentGate` keys
+its profile read on `[userId, pathname, settled]`, not `[userId]` alone. The
+user is ALREADY signed in while completing `/auth/register`, so `userId` never
+changes when the profile row is finally created — a `[userId]`-only check left
+the gate invisible until a full page reload. Caught in browser testing, not by
+any type or lint check. `settled` stops the query once consent is confirmed.
+
+**`self_service_update_profile` no longer accepts `marketing_opt_out`.** It
+accepts `marketing_sms_consent` instead (both its `v_allowed` guard and its
+narrower column list). A caller still sending the old key gets `42501`, which is
+the loud failure; sending it in a raw `.update()` instead would be the silent
+one, since the trigger just overwrites it.
+
+**Also check:** the consent columns must stay OUT of **C14**'s reviewable
+allow-lists — routing a legal opt-out through admin approval is both wrong and
+would `42501` the user's own write. `check-db-contracts.mjs` asserts this.
+
+**Breaks silently when:** something writes `marketing_opt_out` directly and
+assumes it stuck (the trigger overwrites it on the same statement); or the
+derivation trigger is dropped, at which point every new user reverts to
+`marketing_opt_out = false` (i.e. consented) with no error anywhere; or
+`marketing_sms_consent` is dropped from `sms_lock_profile_opt_out_write`'s
+column list, losing the dispatch serialization with no symptom; or a new
+marketing sender reads a consent column directly instead of calling
+`marketingChannelAllowed` (email and push have no sender today, so the first one
+built is exactly where this will be tempting); or `ConsentGate`'s re-check is
+narrowed back to `[userId]` (the gate stops appearing after registration until a
+reload).

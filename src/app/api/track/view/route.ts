@@ -5,6 +5,10 @@ import { normalizePublicPageviewPath } from "@/lib/analytics/pageview";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/utils/uuid";
+import {
+  CONSENT_COOKIE_NAME,
+  hasAnalyticsConsent,
+} from "@/lib/consent/cookies";
 
 export const runtime = "nodejs";
 
@@ -46,6 +50,16 @@ export async function POST(req: NextRequest) {
   if (!allowed) return response(429);
 
   const cookieStore = await cookies();
+
+  // Analytics consent is enforced here as well as in PageviewTracker, because
+  // the client check is bypassable and this is the call that would otherwise
+  // MINT the mb_vid cookie. Declining must mean no identifier is issued and no
+  // row is written - not merely that the UI stops asking. 204 keeps the beacon
+  // silent; it is fire-and-forget either way.
+  if (!hasAnalyticsConsent(cookieStore.get(CONSENT_COOKIE_NAME)?.value)) {
+    return response(204);
+  }
+
   const existingVisitorId = cookieStore.get(VISITOR_COOKIE)?.value;
   const visitorId =
     existingVisitorId && isUuid(existingVisitorId)

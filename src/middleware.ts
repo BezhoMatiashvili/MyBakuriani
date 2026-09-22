@@ -17,6 +17,11 @@ const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
 const SITE_LOCK_COOKIE = "mb_gate";
 const SITE_LOCK_PATH = "/site-locked";
 
+// The consent backstop requireConsent() redirects into. Like SITE_LOCK_PATH it
+// lives outside src/app/[locale]/ and must bypass next-intl entirely, or the
+// locale middleware would try to prefix-route it.
+const CONSENT_REQUIRED_PATH = "/consent-required";
+
 // Public listing detail routes are ISR and cookie-free; owner/admin preview of
 // a pending listing lives under the force-dynamic /preview/<kind>/[id] routes.
 // A ?preview=1 link (see listingUrls.ts) from a signed-in browser is rewritten
@@ -163,6 +168,14 @@ export async function middleware(request: NextRequest) {
       response.headers.set("Cache-Control", "no-store");
       return applyBaselineSecurityHeaders(response, secureRequest);
     }
+  }
+
+  // Bypasses locale routing like the site-lock page, but deliberately placed
+  // AFTER the SITE_LOCKED block so a locked site still hides it.
+  if (pathname === CONSENT_REQUIRED_PATH) {
+    const response = NextResponse.next();
+    response.headers.set("Cache-Control", "no-store");
+    return applySecurityHeaders(response, secureRequest);
   }
 
   const requestHeaders = new Headers(request.headers);

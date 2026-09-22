@@ -4,6 +4,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
+import { requireConsent } from "@/lib/auth/require-consent";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { deriveAvailableCabinets } from "@/lib/cabinets";
 import type { DashboardUnreadCounts } from "@/lib/notifications/scopes";
@@ -57,6 +58,11 @@ export default async function DashboardLayout({
   if (!user) {
     redirect("/auth/login");
   }
+
+  // Server-side backstop for the blocking consent gate. Reuses the same
+  // cache()-wrapped getCurrentProfile() call already in flight above, so this
+  // adds no round trip. See src/lib/auth/require-consent.ts.
+  await requireConsent();
 
   const t = await getTranslations("DashboardLayout");
   const sellerSmsFlag = isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id);

@@ -2,6 +2,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { ChevronDown } from "lucide-react";
+import { CONSENT_OPEN_EVENT } from "@/lib/consent/cookies";
 
 export function Footer() {
   const t = useTranslations("Footer");
@@ -134,6 +135,19 @@ export function Footer() {
             >
               {t("marketingPolicy")}
             </Link>
+            {/* Re-opens the cookie banner. The Direct Marketing Policy
+                section 4 requires withdrawing consent to be as simple and free
+                as giving it, so the choice has to stay reachable after the
+                first answer. */}
+            <button
+              type="button"
+              onClick={() =>
+                window.dispatchEvent(new Event(CONSENT_OPEN_EVENT))
+              }
+              className="uppercase tracking-[1px] transition-colors hover:text-white"
+            >
+              {t("cookieSettings")}
+            </button>
           </div>
           {/* Required by WeatherAPI's free-tier terms: free API users must
               credit WeatherAPI.com by name. Do not remove without confirming

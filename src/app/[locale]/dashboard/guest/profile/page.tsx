@@ -8,10 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
+import { NotificationPreferences } from "@/components/consent/NotificationPreferences";
 
 export default function GuestProfilePage() {
   const t = useTranslations("GuestProfile");
@@ -32,7 +32,6 @@ export default function GuestProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [marketingOptOut, setMarketingOptOut] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,7 +50,6 @@ export default function GuestProfilePage() {
         setPhone(toLocalGePhone(data.phone));
         setEmail(user!.email ?? "");
         setAvatarUrl(data.avatar_url ?? null);
-        setMarketingOptOut(data.marketing_opt_out);
       }
       setLoading(false);
     }
@@ -65,7 +63,6 @@ export default function GuestProfilePage() {
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
     setPhone(toLocalGePhone(profile.phone));
-    setMarketingOptOut(profile.marketing_opt_out);
     setSaved(false);
   }
 
@@ -81,7 +78,6 @@ export default function GuestProfilePage() {
       await updateSelfServiceProfile({
         display_name: [firstName, lastName].filter(Boolean).join(" "),
         phone: phone ? "+995" + phone : null,
-        marketing_opt_out: marketingOptOut,
       });
     } catch (cause) {
       error = cause instanceof Error ? cause : new Error("submit_failed");
@@ -94,7 +90,6 @@ export default function GuestProfilePage() {
               ...current,
               display_name: [firstName, lastName].filter(Boolean).join(" "),
               phone: phone ? "+995" + phone : null,
-              marketing_opt_out: marketingOptOut,
             }
           : current,
       );
@@ -283,22 +278,6 @@ export default function GuestProfilePage() {
             </ProfileField>
           </div>
 
-          <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-            <div>
-              <p className="text-[13px] font-bold text-[#0F172A]">
-                {t("marketingOptOut")}
-              </p>
-              <p className="mt-1 text-[12px] leading-[18px] text-[#64748B]">
-                {t("marketingOptOutHelp")}
-              </p>
-            </div>
-            <Switch
-              checked={marketingOptOut}
-              onCheckedChange={setMarketingOptOut}
-              aria-label={t("marketingOptOut")}
-            />
-          </div>
-
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
@@ -331,6 +310,21 @@ export default function GuestProfilePage() {
             </p>
           )}
         </form>
+
+        {/* All four notification channels live in one shared component so the
+            account page and this page cannot drift apart. It saves through
+            /api/consent on its own button, independently of the profile form. */}
+        {profile ? (
+          <div className="mt-6">
+            <NotificationPreferences
+              initial={{
+                marketing_sms_consent: profile.marketing_sms_consent,
+                marketing_email_consent: profile.marketing_email_consent,
+                push_consent: profile.push_consent,
+              }}
+            />
+          </div>
+        ) : null}
       </motion.div>
     </div>
   );
