@@ -1,6 +1,4 @@
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
-import { isAal2Verified } from "@/lib/auth/mfa-assurance";
-import { createClient } from "@/lib/supabase/server";
 
 export type AdminSession = {
   userId: string;
@@ -32,14 +30,6 @@ export async function requireAdmin(): Promise<
     return {
       ok: false,
       response: Response.json({ error: "forbidden" }, { status: 403 }),
-    };
-  }
-
-  const supabase = await createClient();
-  if (!(await isAal2Verified(supabase.auth))) {
-    return {
-      ok: false,
-      response: Response.json({ error: "mfa_required" }, { status: 403 }),
     };
   }
 

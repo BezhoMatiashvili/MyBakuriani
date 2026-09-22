@@ -144,7 +144,6 @@ const PUBLIC_ROUTES = [
   },
   { path: "/auth/login", label: "auth-login" },
   { path: "/auth/register", label: "auth-register" },
-  { path: "/auth/mfa", label: "auth-mfa" },
   { path: "/checkout", label: "checkout-no-params" },
   { path: "/nonexistent-page-xyz", label: "404" },
   {

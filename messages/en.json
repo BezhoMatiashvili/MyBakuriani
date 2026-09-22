@@ -136,7 +136,7 @@
     "viewNotification": "View"
   },
   "Footer": {
-    "brandDescription": "Premium real estate and rental platform in Bakuriani. We take care of your safe vacation.",
+    "brandDescription": "Bakuriani's digital platform — everything in one place",
     "platform": "Platform",
     "allListings": "All Listings",
     "howItWorks": "How It Works",
@@ -1962,19 +1962,6 @@
       "passwordsMismatch": "Passwords do not match",
       "generic": "Error. Please try again."
     }
-  },
-  "AuthMfa": {
-    "title": "Administrator verification",
-    "subtitle": "Multi-factor authentication is required before opening the admin panel.",
-    "scanQr": "Scan this QR code in your authenticator app",
-    "manualKey": "Manual key:",
-    "codeLabel": "Authenticator code",
-    "verify": "Verify and continue",
-    "verifying": "Verifying…",
-    "codeRequired": "Enter the six-digit code from your authenticator.",
-    "challengeError": "Could not verify MFA. Please retry.",
-    "invalidCode": "That code is invalid or expired.",
-    "enrollError": "Could not start MFA enrollment. Please try again."
   },
   "AuthRegister": {
     "createProfile": "Create profile",

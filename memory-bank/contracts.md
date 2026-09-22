@@ -517,31 +517,27 @@ guard.response;`, backed by `getCurrentUser` (so it inherits the timeout
   Next.js cookie auth), never imported from the same file. Grep results will
   show both; check the import path before assuming which one a call site uses.
 - `supabase/functions/_shared/guards.ts:requireUser` — edge-side Bearer auth
-- `src/lib/auth/mfa-assurance.ts:isAal2Verified` — since 2026-08-30, all 3 admin
-  MFA (AAL2) gates above (`requireAdmin`, `isAdminViewer`,
-  `dashboard/admin/layout.tsx`) route through this shared helper instead of
-  calling `supabase.auth.mfa.getAuthenticatorAssuranceLevel()` directly.
-  Reason: called with no jwt (as every caller does), that method falls through
-  to auth-js's own `getSession()`, which triggers a network token refresh
-  (`POST /auth/v1/token`) whenever the current access token has expired — the
-  exact same unguarded-remote-auth-call shape as `getCurrentUser`'s
-  pre-2026-08-29 bug, just left unpatched here and reachable only for admin
-  sessions (desktop-heavy usage, since admin work is almost always done from
-  desktop, and access tokens live 1 hour — a tab left open triggers this).
-  `isAal2Verified` races the call against `AAL2_CHECK_TIMEOUT_MS` = 2.5s (not
-  `GET_USER_TIMEOUT_MS`'s 5s: this check always runs after
-  `getCurrentUser`/`getCurrentProfile` have already resolved earlier in the
-  same request, so on the exact failure being guarded against, that earlier
-  call already spent up to its own 5s before falling back — another 5s here
-  would push the request's serial auth timeouts alone past
-  `SERVER_FETCH_TIMEOUT_MS`'s ~10s real execution budget) and **fails closed**
-  on timeout (returns `false`, i.e. "not aal2") — unlike `getCurrentUser`,
-  there is no cheap local signal that can positively confirm step-up MFA, so
-  an unverifiable result must never grant elevated access. The module has no
-  `@/` alias imports (the timeout race is inlined, matching
-  `verified-session-user.ts`) so it stays testable directly via
-  `node --test` (`scripts/mfa-assurance.test.mjs`, wired into
-  `npm run test:security-auth`).
+- **Admin MFA (AAL2) was removed on 2026-09-22 — at BOTH layers, deliberately.**
+  Between 2026-08-15 and that date, admin access required a TOTP second factor:
+  `requireAdmin` / `isAdminViewer` / `dashboard/admin/layout.tsx` each called a
+  shared `isAal2Verified` helper (`src/lib/auth/mfa-assurance.ts`), an
+  enrollment page lived at `/auth/mfa` (namespace `AuthMfa`), and
+  `20260815122000_require_admin_aal2_in_database_guard.sql` additionally
+  required `auth.jwt() ->> 'aal' = 'aal2'` inside `public.is_admin_user()` so a
+  direct PostgREST/Storage call could not bypass the app gate. The product
+  decision was to drop the requirement; `20260922120000_remove_admin_mfa_requirement.sql`
+  restates `is_admin_user()` as the plain `role = 'admin'` predicate and the
+  helper, page, namespace and unit test were deleted. **The two halves must
+  move together** — the app gates and `is_admin_user()` are the same policy
+  expressed twice. Removing only the app gates lets an admin reach
+  `/dashboard/admin` while every admin RLS policy and every protected-column
+  trigger from `20260815123000` / `20260815124000` (which all route through
+  `is_admin_user()`, and were therefore NOT touched by the removal) keeps
+  denying them — an admin cabinet that renders empty with no error. Re-adding
+  MFA later means restoring both sides in the same change, migration first.
+  Admins who had already enrolled a TOTP factor keep it in Supabase; nothing
+  reads it, and Supabase never forces AAL2 at sign-in, so they simply log in at
+  aal1.
 
 - `src/lib/with-timeout.ts:isTransientAuthFailure` — since 2026-09-21, the ONE
   "couldn't tell whether this session is valid" predicate, shared by the middleware
@@ -596,11 +592,11 @@ redirects it anyway, so the user is bounced to the login card while visibly sign
 in, with no error anywhere. Or the corrupt-jar branch is collapsed back into the
 anonymous branch → a browser holding an unusable session cookie bounces off every
 protected route forever, because nothing in the normal flow ever rewrites those
-cookies. Or a new/edited call site invokes `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`
-directly instead of through `isAal2Verified` → the admin dashboard/API hang
-reopens, this time gated on MFA assurance instead of identity, worst on desktop
-since that's where admin sessions live long enough for the access token to
-expire mid-tab.
+cookies. Or admin MFA is reinstated on
+only one of its two layers → either the app gate rejects an admin the database
+would have allowed, or (the silent direction) the app lets them in while
+`is_admin_user()` denies every admin read and write, so the cabinet renders
+empty with no error anywhere.
 
 ---
 
