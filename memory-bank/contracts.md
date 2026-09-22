@@ -1972,7 +1972,19 @@ Participating symbols:
   canonical origin — see `layout.tsx`, `robots.ts`, `sitemap.ts`). Any future
   Node.js-runtime route handler that constructs a redirect/absolute URL must
   do the same — never assume `request.url`'s origin is trustworthy outside
-  middleware on this host
+  middleware on this host. **This already recurred once**: on 2026-09-22 every
+  Google/OAuth sign-in on staging landed on `http://localhost:8080/auth/register`
+  because `src/app/[locale]/auth/callback/route.ts` still built its seven
+  redirects from `new URL(request.url).origin`. Same container-address cause,
+  same `NEXT_PUBLIC_SITE_URL` fix. Note the trap in verifying it: on localhost
+  `request.url`'s origin and `NEXT_PUBLIC_SITE_URL` are equal, so a normal local
+  test cannot tell the broken version from the fixed one — reproduce by serving
+  the production build with `PORT=8080` and reading the `Location` header
+  (`curl -sI 'http://localhost:8080/auth/callback'`), which must name the
+  configured site origin, never `localhost:8080`. `NEXT_PUBLIC_SITE_URL` is
+  inlined at BUILD time in route handlers (verified: overriding it at run time
+  changed nothing), so it is the deploy's build-time value that is baked in —
+  both DO apps scope it `RUN_AND_BUILD_TIME`, which is what makes this work
 - Every lock-related redirect and the gate page's own pass-through response sets
   `Cache-Control: no-store` explicitly — this app runs behind Cloudflare (**C2**
   documents its public-page caching), and an edge-cached redirect would keep
