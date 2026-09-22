@@ -6,6 +6,7 @@ import {
   getCachedPublicService,
 } from "@/lib/data/getCachedPublicListing";
 import { isUuid } from "@/lib/utils/uuid";
+import { renderableImageUrl } from "@/lib/banner-creative";
 // applyDiscount is a no-op when the discount is inactive/expired, so it alone
 // satisfies C10 ("every price surface applies the shared helper").
 import { applyDiscount } from "@/lib/utils/pricing";
@@ -43,9 +44,16 @@ function loadFonts() {
  * listing loses its image — strictly worse than a branded card with no photo.
  */
 async function loadCover(url: string | undefined): Promise<string | null> {
-  if (!url) return null;
+  // `photos` is owner-written, so never fetch an arbitrary URL server-side
+  // (SSRF): only the hosts the site itself renders images from, and no
+  // redirects that could hop off them.
+  const safe = renderableImageUrl(url);
+  if (!safe) return null;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(safe, {
+      redirect: "error",
+      signal: AbortSignal.timeout(4000),
+    });
     if (!res.ok) return null;
     const type = res.headers.get("content-type") ?? "image/jpeg";
     if (!type.startsWith("image/")) return null;
