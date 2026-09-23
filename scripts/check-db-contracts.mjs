@@ -1,4 +1,4 @@
-// Database-side contract checks (memory-bank/contracts.md). Compares the live
+// Database-side contract checks (docs/contracts.md). Compares the live
 // schema of whatever Supabase project .env.local / the environment points at
 // with the TypeScript twins of each string-keyed coupling.
 //

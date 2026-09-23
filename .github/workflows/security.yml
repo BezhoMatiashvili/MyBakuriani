@@ -29,7 +29,7 @@ jobs:
       - run: node scripts/check-secret-permissions.mjs
       - run: npx tsc --noEmit
       - run: npm run lint
-      # Repo-only halves of the string-keyed contracts (memory-bank/contracts.md):
+      # Repo-only halves of the string-keyed contracts (docs/contracts.md):
       # edge-function names ↔ directories ↔ config.toml, CSP ↔ remotePatterns,
       # admin property_type lists ↔ enum, landing-media mime lists.
       - run: npm run check:contracts

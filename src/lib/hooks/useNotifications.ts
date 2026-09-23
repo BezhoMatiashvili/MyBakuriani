@@ -204,8 +204,8 @@ export function useNotifications(scope?: DashboardScope) {
   // on every change rather than tracking "the last one merged" — harmless,
   // since merging an already-applied row is a no-op (INSERT dedupes by id,
   // UPDATE is a replace-by-id). DELETE isn't covered — a filtered DELETE
-  // subscription never receives events under RLS (see contracts.md C7 /
-  // memory-bank), so the dropped hook's own DELETE handler was already dead
+  // subscription never receives events under RLS (see docs/contracts.md C7),
+  // so the dropped hook's own DELETE handler was already dead
   // code in practice.
   useEffect(() => {
     const events = externalFeed?.events;

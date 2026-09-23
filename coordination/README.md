@@ -32,7 +32,7 @@ Claim at the granularity that avoids collisions: a single file, or a whole area
 (e.g. `src/i18n/**`). High-contention shared files worth locking before editing:
 `src/lib/types/database.ts` (generated — **C3**), `messages/*.json` (**C1**),
 `next.config.ts` (**C6**), `src/i18n/namespaces.ts` (**C1**), `CLAUDE.md`,
-`memory-bank/**`.
+`docs/contracts.md`.
 
 ## Messaging
 

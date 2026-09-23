@@ -1,5 +1,5 @@
 // Static (repo-only) checks for the string-keyed couplings in
-// memory-bank/contracts.md. Nothing here needs a database or network; it runs
+// docs/contracts.md. Nothing here needs a database or network; it runs
 // in `prebuild` and in CI. The database-side half lives in
 // scripts/check-db-contracts.mjs.
 //

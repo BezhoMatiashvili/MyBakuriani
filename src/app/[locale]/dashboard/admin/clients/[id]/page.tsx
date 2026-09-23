@@ -42,7 +42,7 @@ const assignableRoleEntries = Object.entries(roleLabels).filter(
 ) as [Enums<"user_role">, string][];
 
 // manual_bookings.status has no "pending"/"confirmed"/"completed" — those are
-// the retired public.bookings enum. See memory-bank/contracts.md C20/C25.
+// the retired public.bookings enum. See docs/contracts.md C20/C25.
 const manualBookingStatusLabels: Record<string, string> = {
   booked: "დაჯავშნილი",
   manual: "ხელით დამატებული",

@@ -6,9 +6,7 @@ _change-one-side → must-change-the-other_. Before editing any symbol below, re
 its section and grep the symbol repo-wide.
 
 Anchor grammar: `` `‹relpath›.‹ext›:‹symbol›` `` (a real one looks like
-`src/i18n/routing.ts:routing`) — validated by
-`python3 scripts/gen_code_map.py --check` (file exists AND symbol string present).
-Keep anchors in this format so the check keeps working.
+`src/i18n/routing.ts:routing`) so a grep for the file and symbol lands on it.
 
 ---
 

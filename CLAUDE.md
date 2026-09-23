@@ -175,29 +175,20 @@ SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_SITE_URL
 ```
 
-## Memory bank (always-loaded)
+## Contracts (always-loaded)
 
-@memory-bank/INDEX.md
-@memory-bank/contracts.md
+@docs/contracts.md
 
-The two imports above load every session: the project map + where "truth" lives,
-and the cross-cutting contracts (string-keyed / generated / wire couplings a
-call-graph tool can't see). Area detail (`memory-bank/areas/*.md`) and the symbol
-inventory (`memory-bank/generated/symbols.md`) are **read on demand** — they are
-plain links, not `@import`, so they don't bloat every session.
+The import above loads the cross-cutting contracts every session: string-keyed /
+generated / wire couplings a call-graph tool can't see. `scripts/check-contracts.mjs`
+and `scripts/check-db-contracts.mjs` enforce the mechanically comparable ones (C29).
 
 ### Standing rules
 
-- **Pre-modification ritual** (before editing any symbol): open the matching
-  `memory-bank/areas/<area>.md`, scan `contracts.md` for that symbol, then grep the
-  symbol repo-wide (string-keyed couplings won't show as imports). Full steps in
-  `INDEX.md`.
-- **Keep memory in sync in the SAME session:** if a change touches a participant of
-  any contract, update that `contracts.md` section (and the area file if its blast
-  radius changed) in the same session as the code change. If you add/rename/remove
-  exported symbols, regenerate the inventory: `python3 scripts/gen_code_map.py`.
-- **Validate anchors:** run `python3 scripts/gen_code_map.py --check` after editing
-  anything under `memory-bank/`; fix dangling anchors before finishing.
+- **Before editing a symbol:** scan `docs/contracts.md` for it, then grep it
+  repo-wide (string-keyed couplings won't show as imports).
+- **Keep contracts in sync in the SAME session:** if a change touches a participant
+  of any contract, update that section in the same session as the code change.
 - **Never `git commit` without asking the user.**
 
 ## Multi-session coordination

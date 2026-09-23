@@ -22,7 +22,7 @@ import type {
 // გათვალისწინებული" row. Mapbox's driving-traffic profile returns BOTH a live
 // `duration` (current conditions) and a `duration_typical` (historical baseline) on
 // the same route — comparing the two gives a real, measured traffic signal instead
-// of a guess. See memory-bank/contracts.md C4 for the history of this module.
+// of a guess. See docs/contracts.md C4 for the history of this module.
 //
 // A genuinely closed road still cannot be detected here (Mapbox has no closure
 // feed for this corridor) — the admin-set redDot remains the only channel for that.
