@@ -61,7 +61,9 @@ export default function LinkedAccountsPage() {
     // must not block the identity list, so it degrades to hiding the section.
     createClient()
       .from("profiles")
-      .select("marketing_sms_consent, marketing_email_consent, push_consent")
+      .select(
+        "marketing_sms_consent, marketing_email_consent, marketing_whatsapp_consent, push_consent",
+      )
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {

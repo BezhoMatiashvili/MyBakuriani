@@ -111,7 +111,7 @@ for (const table of ["ads", "landing_banners"]) {
   // profiles must NOT review-gate the consent columns, or a user's own consent
   // write would 42501 and a legal opt-out would need admin approval (C14).
   const reviewable = gate?.profiles ?? [];
-  const leaked = ["marketing_sms_consent", "marketing_email_consent", "push_consent",
+  const leaked = ["marketing_sms_consent", "marketing_email_consent", "marketing_whatsapp_consent", "push_consent",
     "terms_accepted_at", "privacy_accepted_at"].filter((c) => reviewable.includes(c));
   if (leaked.length) fail(`C30/C14: consent columns must never be reviewable, found: ${leaked.join(", ")}`);
   else ok("C30: consent columns are not review-gated");

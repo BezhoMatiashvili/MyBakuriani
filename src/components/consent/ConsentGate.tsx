@@ -4,10 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import {
-  CONSENT_POLICY_VERSION,
-  hasAcceptedRequiredPolicies,
-} from "@/lib/consent/channels";
+import { hasAcceptedRequiredPolicies } from "@/lib/consent/channels";
 import { ConsentForm } from "@/components/consent/ConsentForm";
 
 /**
@@ -122,7 +119,6 @@ export function ConsentGate() {
       >
         <ConsentForm
           source="registration_gate"
-          version={CONSENT_POLICY_VERSION}
           onDone={handleDone}
           labels={{
             title: t("title"),
@@ -131,7 +127,12 @@ export function ConsentGate() {
             termsLink: t("termsLink"),
             privacy: t("privacy"),
             privacyLink: t("privacyLink"),
-            marketing: t("marketing"),
+            marketingTitle: t("marketingTitle"),
+            marketingPolicyLink: t("marketingPolicyLink"),
+            channelSms: t("channelSms"),
+            channelEmail: t("channelEmail"),
+            channelWhatsapp: t("channelWhatsapp"),
+            channelPush: t("channelPush"),
             marketingNote: t("marketingNote"),
             submit: t("submit"),
             signOut: t("signOut"),

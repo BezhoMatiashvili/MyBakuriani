@@ -275,6 +275,12 @@ export default function SaleLandingBody({
         </div>
       </section>
 
+      {/* No extras row to absorb the hanging first row: reserve its 42px
+          overhang (+ gutter) so banners below never sit underneath it. */}
+      {extraZones.length === 0 && !showMap && (
+        <div aria-hidden className="hidden sm:block sm:h-[calc(42px+1.5rem)]" />
+      )}
+
       {extraZones.length > 0 && (
         <div data-testid="homepage-sale-extra-zone-cards" className="px-4">
           <div

@@ -4,12 +4,13 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Switch } from "@/components/ui/switch";
-import { CONSENT_POLICY_VERSION } from "@/lib/consent/channels";
+import { MARKETING_POLICY_VERSION } from "@/lib/consent/channels";
 import { recordConsent } from "@/lib/self-service/client";
 
 export type NotificationPreferenceValues = {
   marketing_sms_consent: boolean | null;
   marketing_email_consent: boolean | null;
+  marketing_whatsapp_consent: boolean | null;
   push_consent: boolean | null;
 };
 
@@ -17,11 +18,11 @@ export type NotificationPreferenceValues = {
  * The account-settings half of the consent system. Writes through
  * /api/consent (source: "account_settings") rather than the profile RPC, so
  * every change also lands an append-only user_consents row - the Direct
- * Marketing Policy section 3 requires retaining status, channel, time and
+ * Marketing Policy (v2) section 6.2 requires retaining status, channel, time and
  * source for each consent change, not just the latest value.
  *
- * DELIVERY HONESTY: the SMS row genuinely gates sending today. Email and push
- * have no sender anywhere in this project; their rows persist the preference
+ * DELIVERY HONESTY: the SMS row genuinely gates sending today. Email, WhatsApp
+ * and push have no sender anywhere in this project; their rows persist the preference
  * and are gated by marketingChannelAllowed(), and are labelled as not yet
  * active so the control does not pretend to do something it cannot.
  */
@@ -33,6 +34,9 @@ export function NotificationPreferences({
   const t = useTranslations("NotificationSettings");
   const [sms, setSms] = useState(initial.marketing_sms_consent === true);
   const [email, setEmail] = useState(initial.marketing_email_consent === true);
+  const [whatsapp, setWhatsapp] = useState(
+    initial.marketing_whatsapp_consent === true,
+  );
   const [push, setPush] = useState(initial.push_consent === true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "failed">("idle");
@@ -44,9 +48,10 @@ export function NotificationPreferences({
     try {
       await recordConsent({
         source: "account_settings",
-        version: CONSENT_POLICY_VERSION,
+        version: MARKETING_POLICY_VERSION,
         marketing_sms: sms,
         marketing_email: email,
+        marketing_whatsapp: whatsapp,
         push,
       });
       setStatus("saved");
@@ -86,6 +91,13 @@ export function NotificationPreferences({
           badge={t("notActiveYet")}
           checked={email}
           onChange={setEmail}
+        />
+        <Row
+          label={t("marketingWhatsapp")}
+          help={t("marketingWhatsappHelp")}
+          badge={t("notActiveYet")}
+          checked={whatsapp}
+          onChange={setWhatsapp}
         />
         <Row
           label={t("push")}

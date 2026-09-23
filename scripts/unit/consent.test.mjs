@@ -66,11 +66,18 @@ test("each channel reads its own column", () => {
   const profile = {
     marketing_sms_consent: true,
     marketing_email_consent: false,
+    marketing_whatsapp_consent: true,
     push_consent: null,
   };
   assert.equal(marketingChannelAllowed(profile, "sms"), true);
   assert.equal(marketingChannelAllowed(profile, "email"), false);
+  assert.equal(marketingChannelAllowed(profile, "whatsapp"), true);
   assert.equal(marketingChannelAllowed(profile, "push"), false);
+  // Withdrawing one channel leaves the others as they were (policy v2 13.3).
+  assert.equal(
+    marketingChannelAllowed({ ...profile, marketing_sms_consent: false }, "whatsapp"),
+    true,
+  );
 });
 
 test("the blocking gate needs BOTH terms and privacy", () => {

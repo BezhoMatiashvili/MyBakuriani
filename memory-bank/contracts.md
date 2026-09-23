@@ -2381,8 +2381,22 @@ Participating symbols:
   `dashboard/layout.tsx` and `create/layout.tsx`, redirecting to
   `/consent-required` (outside `[locale]`, plain Georgian, bypassed in
   middleware after the site-lock block — the `/site-locked` pattern)
-- `src/components/consent/NotificationPreferences.tsx` — the four toggles;
-  mounted on `/dashboard/account` and `/dashboard/guest/profile`
+- `src/components/consent/NotificationPreferences.tsx` — the per-channel
+  switches (service SMS locked on, then SMS / email / WhatsApp / push);
+  mounted on `/dashboard/account` and `/dashboard/guest/profile`. It sends
+  EVERY channel on every save, so both pages must SELECT every consent column
+  — a missing one is silently recorded as `false` (declined)
+- `src/components/consent/ConsentChoices.tsx:submitConsentChoices` — the shared
+  first-answer checkboxes (terms, privacy, four unchecked marketing channels)
+  used by `ConsentForm` (gate + `/consent-required`) AND the registration
+  wizard, which records them inside `persistProfile()` right after the profile
+  row exists. Two calls: terms/privacy stamped `CONSENT_POLICY_VERSION`,
+  channels stamped `MARKETING_POLICY_VERSION` (policy v2 §6.2)
+- **WhatsApp (added 2026-09-23, `20260923120000_marketing_whatsapp_consent.sql`,
+  staging only):** `profiles.marketing_whatsapp_consent` + consent kind
+  `marketing_whatsapp`. It is NOT `profiles.whatsapp_enabled` — that older
+  column is a contact-display flag written by `self_service_update_profile`.
+  No WhatsApp sender exists; `LIVE_MARKETING_CHANNELS` stays `["sms"]`
 
 **The gate must re-check on navigation while unresolved.** `ConsentGate` keys
 its profile read on `[userId, pathname, settled]`, not `[userId]` alone. The

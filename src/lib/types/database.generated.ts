@@ -2086,6 +2086,7 @@ export type Database = {
           marketing_email_consent: boolean | null;
           marketing_opt_out: boolean;
           marketing_sms_consent: boolean | null;
+          marketing_whatsapp_consent: boolean | null;
           notification_prefs: Json | null;
           personal_id: string | null;
           phone: string | null;
@@ -2112,6 +2113,7 @@ export type Database = {
           marketing_email_consent?: boolean | null;
           marketing_opt_out?: boolean;
           marketing_sms_consent?: boolean | null;
+          marketing_whatsapp_consent?: boolean | null;
           notification_prefs?: Json | null;
           personal_id?: string | null;
           phone?: string | null;
@@ -2138,6 +2140,7 @@ export type Database = {
           marketing_email_consent?: boolean | null;
           marketing_opt_out?: boolean;
           marketing_sms_consent?: boolean | null;
+          marketing_whatsapp_consent?: boolean | null;
           notification_prefs?: Json | null;
           personal_id?: string | null;
           phone?: string | null;

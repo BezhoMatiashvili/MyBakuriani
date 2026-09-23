@@ -50,6 +50,7 @@ export type ConsentValues = {
   privacy?: boolean;
   marketing_sms?: boolean;
   marketing_email?: boolean;
+  marketing_whatsapp?: boolean;
   push?: boolean;
 };
 

@@ -8,8 +8,10 @@
 //           (sms-automation-run's reachable(), sms_cancel_ineligible_automation,
 //           the price-drop joins) already reads that mirror.
 //   email - NO sender exists anywhere in this project.
+//   whatsapp - NO WhatsApp marketing sender exists anywhere in this project.
+//              (Unrelated to profiles.whatsapp_enabled, a contact-display flag.)
 //   push  - NO web-push infrastructure exists anywhere in this project.
-// The last two are persisted and gated here so that whoever builds a sender
+// The last three are persisted and gated here so that whoever builds a sender
 // calls this function instead of inventing a second definition of consent.
 
 /**
@@ -26,6 +28,7 @@ export const CONSENT_KINDS = [
   "privacy",
   "marketing_sms",
   "marketing_email",
+  "marketing_whatsapp",
   "push",
 ] as const;
 export type ConsentKind = (typeof CONSENT_KINDS)[number];
@@ -34,15 +37,24 @@ export const CONSENT_SOURCES = ["registration_gate", "account_settings"] as cons
 export type ConsentSource = (typeof CONSENT_SOURCES)[number];
 
 /**
- * Revision stamped onto every acceptance (profiles.terms_version /
- * privacy_version and user_consents.version). Tracks the `lastUpdated` of the
- * documents in src/content/legal/ - both currently 09.09.2026. Bumping this
- * is what lets a future policy change re-prompt users without a schema change;
- * nothing re-prompts automatically today.
+ * Revision stamped onto terms/privacy acceptance (profiles.terms_version /
+ * privacy_version and their user_consents.version). Tracks the `lastUpdated`
+ * of terms.*.ts and privacy.*.ts in src/content/legal/ - both 09.09.2026.
+ * Bumping this is what lets a future policy change re-prompt users without a
+ * schema change; nothing re-prompts automatically today.
  */
 export const CONSENT_POLICY_VERSION = "2026-09-09";
 
-export type MarketingChannel = "sms" | "email" | "push";
+/**
+ * Revision stamped onto marketing-channel consent rows. Tracks the
+ * `lastUpdated` of marketing.*.ts (Direct Marketing Policy v2, 23.09.2026),
+ * which section 6.2 requires be recorded with each consent. Kept separate from
+ * CONSENT_POLICY_VERSION so a marketing-policy revision never mislabels which
+ * Terms/Privacy text a user accepted.
+ */
+export const MARKETING_POLICY_VERSION = "2026-09-23";
+
+export type MarketingChannel = "sms" | "email" | "whatsapp" | "push";
 
 /** Only the channels whose senders actually exist today. */
 export const LIVE_MARKETING_CHANNELS: readonly MarketingChannel[] = ["sms"];
@@ -50,6 +62,7 @@ export const LIVE_MARKETING_CHANNELS: readonly MarketingChannel[] = ["sms"];
 export type ConsentFields = {
   marketing_sms_consent?: boolean | null;
   marketing_email_consent?: boolean | null;
+  marketing_whatsapp_consent?: boolean | null;
   push_consent?: boolean | null;
 };
 
@@ -61,6 +74,7 @@ export type RequiredConsentFields = {
 const FIELD_BY_CHANNEL: Record<MarketingChannel, keyof ConsentFields> = {
   sms: "marketing_sms_consent",
   email: "marketing_email_consent",
+  whatsapp: "marketing_whatsapp_consent",
   push: "push_consent",
 };
 
@@ -79,7 +93,7 @@ export function marketingChannelAllowed(
 
 /**
  * Transactional / service messages are NOT gated by any of this. Per the Direct
- * Marketing Policy section 6, withdrawing marketing consent must not switch off
+ * Marketing Policy (v2) section 9, withdrawing marketing consent must not switch off
  * the messages required to operate the account, and _enqueue_system_sms
  * correspondingly consults no preference. Exported as a function so the intent
  * is explicit at call sites rather than an unexplained missing check.

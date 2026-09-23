@@ -23,6 +23,12 @@ import { withRetry } from "@/lib/with-timeout";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import {
+  ConsentChoices,
+  NO_MARKETING,
+  submitConsentChoices,
+  type MarketingChoices,
+} from "@/components/consent/ConsentChoices";
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -66,6 +72,7 @@ type SellerOrg = {
 
 export default function RegisterPage() {
   const t = useTranslations("AuthRegister");
+  const tc = useTranslations("ConsentGate");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
@@ -82,6 +89,13 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [checkingProfile, setCheckingProfile] = useState(true);
+
+  // Consent is answered on step 1 but can only be RECORDED after persistProfile
+  // creates the profiles row (self_service_record_consent needs it). Marketing
+  // channels start unchecked: Direct Marketing Policy v2 section 3.3.
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [marketing, setMarketing] = useState<MarketingChoices>(NO_MARKETING);
 
   // Surface which sign-in method landed the user here. Someone who already
   // registered via phone but this time authenticated via Google/Facebook/email
@@ -199,6 +213,7 @@ export default function RegisterPage() {
       setError(t("errors.enterName"));
       return;
     }
+    if (!acceptTerms || !acceptPrivacy) return;
     setError(null);
     setStep(2);
   }
@@ -271,6 +286,15 @@ export default function RegisterPage() {
     if (verifyError) throw verifyError;
     if (savedProfile?.role !== selectedRole) {
       throw new Error(t("errors.roleUpdateFailed"));
+    }
+
+    // Every finish path runs through here, so this is the one place consent is
+    // recorded. A failure must not fail registration: the profile now exists
+    // without terms_accepted_at, so ConsentGate re-asks on the next navigation.
+    try {
+      await submitConsentChoices("registration_gate", marketing);
+    } catch (consentError) {
+      console.error("[register] consent could not be recorded", consentError);
     }
   }
 
@@ -468,11 +492,35 @@ export default function RegisterPage() {
                     />
                   </div>
 
+                  <ConsentChoices
+                    labels={{
+                      terms: tc("terms"),
+                      termsLink: tc("termsLink"),
+                      privacy: tc("privacy"),
+                      privacyLink: tc("privacyLink"),
+                      marketingTitle: tc("marketingTitle"),
+                      marketingPolicyLink: tc("marketingPolicyLink"),
+                      channelSms: tc("channelSms"),
+                      channelEmail: tc("channelEmail"),
+                      channelWhatsapp: tc("channelWhatsapp"),
+                      channelPush: tc("channelPush"),
+                      marketingNote: tc("marketingNote"),
+                    }}
+                    terms={acceptTerms}
+                    privacy={acceptPrivacy}
+                    marketing={marketing}
+                    onTermsChange={setAcceptTerms}
+                    onPrivacyChange={setAcceptPrivacy}
+                    onMarketingChange={setMarketing}
+                  />
+
                   {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
                   <Button
                     type="submit"
-                    disabled={!displayName.trim()}
+                    disabled={
+                      !displayName.trim() || !acceptTerms || !acceptPrivacy
+                    }
                     className="min-h-11 w-full lg:min-h-0"
                     size="lg"
                   >

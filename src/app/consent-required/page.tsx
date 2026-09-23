@@ -1,5 +1,4 @@
 import { ConsentForm } from "@/components/consent/ConsentForm";
-import { CONSENT_POLICY_VERSION } from "@/lib/consent/channels";
 
 // Deliberately OUTSIDE src/app/[locale]/, mirroring /site-locked: middleware
 // returns it before next-intl runs, so it never interacts with locale routing
@@ -22,7 +21,6 @@ export default function ConsentRequiredPage() {
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm sm:p-8">
         <ConsentForm
           source="registration_gate"
-          version={CONSENT_POLICY_VERSION}
           labels={{
             title: "MyBakuriani-ზე ანგარიშის შექმნა",
             intro: "გაგრძელებამდე გთხოვთ დაადასტუროთ შემდეგი:",
@@ -30,10 +28,14 @@ export default function ConsentRequiredPage() {
             termsLink: "წესებსა და პირობებს",
             privacy: "გავეცანი",
             privacyLink: "კონფიდენციალურობის პოლიტიკას",
-            marketing:
-              "მსურს მივიღო MyBakuriani-ისა და განცხადების ავტორებისგან სპეციალური შეთავაზებები, ფასდაკლებები და სხვა სარეკლამო შეტყობინებები SMS-ით.",
+            marketingTitle: "მსურს მივიღო MyBakuriani-ისა და განცხადების ავტორების სპეციალური შეთავაზებები, ფასდაკლებები და სხვა სარეკლამო შეტყობინებები მონიშნული არხებით",
+            marketingPolicyLink: "(პირდაპირი მარკეტინგის პოლიტიკა)",
+            channelSms: "SMS",
+            channelEmail: "ელფოსტა",
+            channelWhatsapp: "WhatsApp",
+            channelPush: "Push",
             marketingNote:
-              "არასავალდებულოა. თანხმობის გაუქმება ნებისმიერ დროს შეგიძლიათ პროფილის პარამეტრებიდან.",
+              "არასავალდებულოა — შეგიძლიათ მონიშნოთ ერთი, რამდენიმე ან არცერთი არხი. თანხმობის გაუქმება ნებისმიერ დროს, უფასოდ შეგიძლიათ პროფილის პარამეტრებიდან. სერვისული შეტყობინებები (მაგ. ავტორიზაციის კოდები, ჯავშნები) ამაზე არ არის დამოკიდებული.",
             submit: "გაგრძელება",
             signOut: "გასვლა",
             error: "ვერ მოხერხდა შენახვა. გთხოვთ, სცადოთ თავიდან.",

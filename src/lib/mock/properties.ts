@@ -591,6 +591,7 @@ function buildMockSaleProperty(
       marketing_sms_consent: true,
       marketing_opt_out: false,
       marketing_email_consent: null,
+      marketing_whatsapp_consent: null,
       push_consent: null,
       terms_accepted_at: epoch,
       terms_version: "2026-09-09",

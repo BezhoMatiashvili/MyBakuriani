@@ -311,7 +311,7 @@ export default function GuestProfilePage() {
           )}
         </form>
 
-        {/* All four notification channels live in one shared component so the
+        {/* All notification channels live in one shared component so the
             account page and this page cannot drift apart. It saves through
             /api/consent on its own button, independently of the profile form. */}
         {profile ? (
@@ -320,6 +320,7 @@ export default function GuestProfilePage() {
               initial={{
                 marketing_sms_consent: profile.marketing_sms_consent,
                 marketing_email_consent: profile.marketing_email_consent,
+                marketing_whatsapp_consent: profile.marketing_whatsapp_consent,
                 push_consent: profile.push_consent,
               }}
             />
