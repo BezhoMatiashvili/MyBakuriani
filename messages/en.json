@@ -1830,35 +1830,43 @@
     "items": {
       "booking": {
         "question": "How do I book an apartment?",
-        "answer": "Choose the apartment you like, set your check-in and check-out dates and number of guests, and press the booking button. The owner will confirm your request within 24 hours."
+        "answer": "To find an apartment, enter your dates, location and any filters you need. Pick an apartment from the search results and open its listing.\n\nOn the listing page, check the available dates in the calendar, the price and the minimum stay. If your dates are available, you can call the owner and arrange the booking directly with them.\n\nUnder MyBakuriani's current model, the final booking terms are agreed between you and the listing's author.\n\nIf you use Smart Match, you can describe what you need and receive matching offers. After that, you should still confirm the chosen apartment's availability and booking terms on its listing."
       },
       "payment": {
         "question": "How does payment work?",
-        "answer": "Payment is made via the platform balance. Top up your balance with a bank card (TBC, BOG) and pay the booking amount."
+        "answer": "Paid digital services on the MyBakuriani platform can be paid for with the online payment methods available on the platform.\n\nWhen renting an apartment, the payment terms and method for the rent are agreed directly between you and the listing's author."
       },
       "verifiedOwner": {
         "question": "What is a verified owner?",
-        "answer": "A verified owner is someone who has successfully passed identity verification, property documentation checks and admin approval."
+        "answer": "A “verified owner” is a listing author whose identification details and proof of ownership or right of use have been checked by MyBakuriani under the platform's established rules.\n\nVerification helps you make a more informed choice, but it is not a full legal guarantee of the property, the listing or any future transaction."
       },
       "cancellation": {
         "question": "Can I cancel a booking?",
-        "answer": "Yes, bookings can be cancelled. The cancellation policy depends on the rules set by the owner. Generally, cancelling at least 48 hours in advance gets a full refund."
+        "answer": "Yes, but the cancellation terms depend on the conditions stated in the specific apartment's listing and on what you agree with the owner.\n\nBefore cancelling, please read the listing's cancellation terms and refund rules carefully."
       },
       "becomeOwner": {
-        "question": "How do I become an owner on the platform?",
-        "answer": "Register, add your property with photos and a description, upload your proof of ownership document, and wait for admin approval."
+        "question": "How do I post a listing?",
+        "answer": "Register on MyBakuriani and create a new listing.\n\nWhen posting, fill in the information the platform asks for, including the property type, location, price, availability, amenities, photos and other relevant details.\n\nBefore the listing is published, you may be asked to provide additional information or documents for verification, in line with the platform's rules.\n\nThe listing's author is responsible for the accuracy of the information in the listing and for having the right to offer it."
       },
       "services": {
         "question": "What services are available on the platform?",
-        "answer": "The platform offers: transport and transfers, services and craftsmen, entertainment and activities, food and restaurants, job listings, and more."
+        "answer": "On MyBakuriani you can find a range of Bakuriani offers and services, including:\n\n• apartments and cottages;\n• hotels;\n• transport and transfers;\n• restaurants and food;\n• entertainment and activities;\n• local services;\n• job offers.\n\nThe platform also offers listing authors promotion and additional digital services for their listings."
       },
       "smartMatch": {
         "question": "What is Smart Match?",
-        "answer": "Smart Match is our algorithm that automatically picks the best apartments for you based on your preferences: budget, location, number of guests and other criteria."
+        "answer": "Smart Match is a MyBakuriani feature that sends your request only to the listing authors it fits.\n\nDescribe what you need — for example, an apartment for 4, specific dates, your budget and a location near Didveli. The system compares these requirements with the listings' terms and sends your request only to authors whose offer matches them.\n\nFor example, if you are looking for an apartment for 4 near Didveli, your request will not go to an author whose apartment is in the centre or doesn't meet your requirements.\n\nYou no longer need to search through dozens of listings and call each one — you say what you need, and the matching listing authors receive your request and contact you themselves.\n\nSmart Match — you say what you need. MyBakuriani finds who has the right offer."
+      },
+      "responsibility": {
+        "question": "Who is responsible for the information in a listing?",
+        "answer": "The listing's author is responsible for the accuracy of the information, price, availability, photos and other details in the listing.\n\nMyBakuriani carries out moderation as provided by the platform's rules and, where applicable, verification.\n\nHowever, verification of a listing does not mean MyBakuriani gives a full legal or financial guarantee of the listing, the property or the transaction."
+      },
+      "availability": {
+        "question": "How do I know if an apartment is free on specific dates?",
+        "answer": "On the apartment's page you'll see an availability calendar showing free and booked days. Choose your check-in and check-out dates and check the minimum stay. To confirm final availability and booking terms, contact the listing's author."
       },
       "support": {
         "question": "How do I contact the support team?",
-        "answer": "You can reach the support team via the platform chat, email or phone. Our team is available daily from 09:00 to 21:00."
+        "answer": "You can contact the support team through the contact channels listed on the MyBakuriani platform."
       }
     }
   },

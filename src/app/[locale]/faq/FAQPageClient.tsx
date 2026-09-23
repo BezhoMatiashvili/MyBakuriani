@@ -13,6 +13,8 @@ const FAQ_KEYS = [
   "becomeOwner",
   "services",
   "smartMatch",
+  "responsibility",
+  "availability",
   "support",
 ] as const;
 
@@ -59,7 +61,7 @@ export default function FAQPageClient() {
                     transition={{ duration: 0.25, ease: "easeInOut" }}
                     className="overflow-hidden"
                   >
-                    <p className="px-6 pb-5 text-[14px] text-[#64748B] leading-relaxed">
+                    <p className="whitespace-pre-line px-6 pb-5 text-[14px] text-[#64748B] leading-relaxed">
                       {t(`items.${key}.answer`)}
                     </p>
                   </motion.div>
