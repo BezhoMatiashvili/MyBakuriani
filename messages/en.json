@@ -1820,9 +1820,7 @@
     "title": "Contact",
     "subtitle": "Have a question? Reach us through any available channel.",
     "phone": "Phone",
-    "email": "Email",
-    "address": "Address",
-    "addressValue": "Bakuriani, Georgia"
+    "email": "Email"
   },
   "FAQ": {
     "title": "Frequently asked questions",
