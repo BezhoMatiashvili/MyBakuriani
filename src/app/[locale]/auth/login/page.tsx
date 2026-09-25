@@ -10,6 +10,7 @@ import { isAuthApiError } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { safeInternalPath } from "@/lib/security";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
 
@@ -20,14 +21,11 @@ function isTransientAuthError(err: unknown) {
   return isRetryableAuthError(err);
 }
 
-// Mirrors the callback route's/middleware's guard: only allow same-origin,
-// absolute paths. Reject protocol-relative (`//host`) and backslash-prefixed
-// forms (`/\host`) that some browsers treat as external.
+// Same guard as the OAuth callback route. A hand-rolled `//` / `/\` check is
+// not enough: the URL parser strips tabs/newlines, so `/\t/evil.com` becomes
+// the protocol-relative `//evil.com` inside router.push.
 function safeNextPath(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
-  return raw;
+  return safeInternalPath(raw);
 }
 
 const ROLE_DASHBOARD: Record<string, string> = {

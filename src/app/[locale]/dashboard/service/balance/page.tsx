@@ -336,6 +336,16 @@ export default function ServiceBalancePage() {
           confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""
         }
         balance={balance?.amount}
+        validity={
+          confirmPkg?.category === "sms"
+            ? tShared("purchaseTerms.smsNoExpiry")
+            : undefined
+        }
+        conditions={
+          confirmPkg?.category === "sms"
+            ? [tShared("purchaseTerms.smsConsent")]
+            : undefined
+        }
       />
     </div>
   );

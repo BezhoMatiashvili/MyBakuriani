@@ -3,17 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Share2,
-  Heart,
-  Image as ImageIcon,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Image as ImageIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { shareListing } from "@/lib/share";
-import { useFavorite } from "@/lib/hooks/useFavorite";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 
 // Lightbox frame is `w-[90vw] max-w-5xl` => hard-capped at 1024px; 1024/0.9 = 1137.
@@ -29,17 +20,11 @@ const HERO_SIZES = "(max-width: 1023px) 100vw, 827px";
 interface Props {
   photos: string[];
   title: string;
-  serviceId: string;
 }
 
-export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
+// Share / favourite live in FoodDetailClient's header row, next to back.
+export function FoodPhotoGallery({ photos, title }: Props) {
   const t = useTranslations("PhotoGallery");
-  const tShare = useTranslations("ShareListing");
-  const {
-    isFavorited,
-    busy: favoriteBusy,
-    toggle: toggleFavorite,
-  } = useFavorite({ serviceId });
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // Which lightbox photo has finished decoding. The neighbour prefetch below
   // waits for this: the origin is a single vCPU, so firing the active image and
@@ -102,38 +87,6 @@ export function FoodPhotoGallery({ photos, title, serviceId }: Props) {
 
   return (
     <>
-      <div className="mb-3 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() =>
-            shareListing(title, {
-              copied: tShare("copied"),
-              error: tShare("error"),
-            })
-          }
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] lg:h-10 lg:w-10"
-          aria-label={t("share")}
-        >
-          <Share2 className="h-[18px] w-[18px]" />
-        </button>
-        <button
-          type="button"
-          onClick={toggleFavorite}
-          disabled={favoriteBusy}
-          aria-pressed={isFavorited}
-          className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors disabled:opacity-60 lg:h-10 lg:w-10 ${
-            isFavorited
-              ? "border-red-500 bg-red-50 text-red-500"
-              : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC] hover:text-red-500"
-          }`}
-          aria-label={t("addToFavorites")}
-        >
-          <Heart
-            className={`h-[18px] w-[18px] ${isFavorited ? "fill-current" : ""}`}
-          />
-        </button>
-      </div>
-
       <div
         data-mobile-gallery
         className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 lg:hidden"

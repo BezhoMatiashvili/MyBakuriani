@@ -3,13 +3,15 @@
 import { useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Heart, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
+import { shareListing } from "@/lib/share";
+import { useFavorite } from "@/lib/hooks/useFavorite";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
@@ -45,7 +47,14 @@ export default function FoodDetailClient({
   const router = useRouter();
   const t = useTranslations("FoodDetail");
   const tShared = useTranslations("Shared");
+  const tGallery = useTranslations("PhotoGallery");
+  const tShare = useTranslations("ShareListing");
   const tOpts = useTranslations("ListingOptions");
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite({ serviceId: service.id });
 
   // "10:30 - 21:00" → localized "from 10:30 to 21:00"; falls back to the raw string.
   const formatHoursRange = (hours: string | null): string | null => {
@@ -108,21 +117,56 @@ export default function FoodDetailClient({
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
-      <motion.button
+      {/* Back, share and favourite on one row, instead of back alone above a
+          separate share/favourite row. DetailSkeleton's "2col" variant
+          mirrors this row. */}
+      <motion.div
         {...fadeIn}
-        onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+        className="mb-4 flex items-center justify-between gap-3"
       >
-        <ArrowLeft className="h-4 w-4" />
-        {tShared("back")}
-      </motion.button>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-[#64748B] transition-colors hover:text-[#1E293B] lg:min-h-10"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {tShared("back")}
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              shareListing(service.title, {
+                copied: tShare("copied"),
+                error: tShare("error"),
+              })
+            }
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] lg:h-10 lg:w-10"
+            aria-label={tGallery("share")}
+          >
+            <Share2 className="h-[18px] w-[18px]" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
+            aria-pressed={isFavorited}
+            className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors disabled:opacity-60 lg:h-10 lg:w-10 ${
+              isFavorited
+                ? "border-red-500 bg-red-50 text-red-500"
+                : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC] hover:text-red-500"
+            }`}
+            aria-label={tGallery("addToFavorites")}
+          >
+            <Heart
+              className={`h-[18px] w-[18px] ${isFavorited ? "fill-current" : ""}`}
+            />
+          </button>
+        </div>
+      </motion.div>
 
       <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-        <FoodPhotoGallery
-          photos={service.photos ?? []}
-          title={service.title}
-          serviceId={service.id}
-        />
+        <FoodPhotoGallery photos={service.photos ?? []} title={service.title} />
       </motion.div>
 
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">

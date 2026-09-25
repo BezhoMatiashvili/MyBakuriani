@@ -54,23 +54,8 @@ export default function EmploymentCard({
           : "border-[#E2E8F0] shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)]"
       }`}
     >
-      <button
-        type="button"
-        onClick={toggleFavorite}
-        disabled={favoriteBusy}
-        aria-pressed={isFavorited}
-        aria-label={t("favoriteAria")}
-        className={`absolute flex h-11 w-11 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors disabled:opacity-60 ${compactGrid ? "right-1 top-1 sm:right-5 sm:top-5" : "right-5 top-5"} ${
-          isFavorited
-            ? "bg-[#F97316] text-white"
-            : "border border-[#E2E8F0] bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
-        }`}
-      >
-        <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
-      </button>
-
-      <div className={cn("flex items-start justify-between gap-2", compactGrid ? "pr-10 sm:pr-14" : "pr-14")}>
-        <div className="flex flex-wrap gap-1.5">
+      <div className={cn("flex items-start justify-between gap-2", compactGrid && "pr-10 sm:pr-14")}>
+        <div className="flex min-w-0 flex-wrap gap-1.5">
           {badge === "urgent" && (
             <span className="inline-flex items-center gap-1 rounded-md bg-[#DCFCE7] px-2 py-1 text-[11px] font-bold text-[#166534]">
               <span className="inline-block size-1.5 rounded-full bg-[#16A34A]" />
@@ -85,10 +70,30 @@ export default function EmploymentCard({
           )}
           <NewlyAddedBadge createdAt={createdAt} />
         </div>
-        <ListingAgeBadge
-          createdAt={createdAt}
-          className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
-        />
+        {/* Time chip and heart share the first badge line's centre: min-h-6
+            matches a VIP/urgent chip's height, and -my-3 keeps the heart's
+            44px hit area from growing the row, so the title below stays where
+            it was. compact-grid keeps its corner heart. */}
+        <div className={cn("flex shrink-0 items-center gap-2", badge && "min-h-6")}>
+          <ListingAgeBadge
+            createdAt={createdAt}
+            className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}
+          />
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
+            aria-pressed={isFavorited}
+            aria-label={t("favoriteAria")}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors disabled:opacity-60 ${compactGrid ? "absolute right-1 top-1 sm:right-5 sm:top-5" : "-my-3"} ${
+              isFavorited
+                ? "bg-[#F97316] text-white"
+                : "border border-[#E2E8F0] bg-white text-[#F97316] hover:bg-[#F97316] hover:text-white"
+            }`}
+          >
+            <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
+          </button>
+        </div>
       </div>
 
       <h3 className={cn("font-black text-[#1E293B] line-clamp-2", compactGrid ? "mt-3 min-h-[36px] text-[14px] leading-[18px] sm:mt-4 sm:min-h-[44px] sm:text-[18px] sm:leading-[22px]" : "mt-4 min-h-[44px] text-[18px] leading-[22px]")}>
@@ -130,17 +135,17 @@ export default function EmploymentCard({
       )}
 
       <div className={cn("mt-auto gap-3 pt-5", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:items-center sm:justify-between" : "flex items-center justify-between")}>
-        {applicationsCount != null ? (
+        {applicationsCount != null && (
           <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#64748B]">
             <Users className="h-3.5 w-3.5 text-[#22C55E]" />
             {t("applications", { count: applicationsCount })}
           </span>
-        ) : (
-          <span />
         )}
+        {/* With no count beside it (the landing rail passes none) the button
+            fills the row instead of leaving an empty left half. */}
         <Link
           href={`/employment/${id}`}
-          className={cn("flex h-11 items-center justify-center rounded-xl bg-[#0F172A] font-bold text-white transition-colors hover:bg-[#1E293B] lg:h-10", compactGrid ? "w-full px-2 text-[11px] sm:w-auto sm:px-5 sm:text-[13px]" : "px-5 text-[13px]")}
+          className={cn("flex h-11 items-center justify-center rounded-xl bg-[#0F172A] font-bold text-white transition-colors hover:bg-[#1E293B] lg:h-10", compactGrid ? "w-full px-2 text-[11px] sm:w-auto sm:px-5 sm:text-[13px]" : "px-5 text-[13px]", applicationsCount == null && "w-full sm:w-full")}
         >
           {t("details")}
         </Link>

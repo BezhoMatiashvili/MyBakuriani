@@ -390,6 +390,7 @@ test.describe("Seller Dashboard", () => {
     sellerPage,
   }) => {
     await organizationSubscriptions.update(TEST_IDS.organizationSubscription, {
+      tier: "pro",
       status: "active",
       expires_at: ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
     });
@@ -408,10 +409,12 @@ test.describe("Seller Dashboard", () => {
       ),
     );
 
-    await expect(sellerPage.getByText("PRO", { exact: true })).toBeVisible();
+    // The tier cards also render package names, so read the active badge itself.
+    await expect(sellerPage.getByTestId("organization-active-tier")).toHaveText("PRO");
     await expect(sellerPage.getByTestId("organization-tier-entry")).toBeDisabled();
     await expect(sellerPage.getByTestId("organization-tier-pro")).toBeDisabled();
     await expect(sellerPage.getByTestId("organization-tier-premium")).toBeEnabled();
+    await expect(sellerPage.getByTestId("organization-tier-premium_plus")).toBeEnabled();
     await expect(
       sellerPage.getByTestId("organization-subscription-activate"),
     ).toBeDisabled();
@@ -419,7 +422,12 @@ test.describe("Seller Dashboard", () => {
     await expect(expiry).toContainText(
       formatDateTime(ORGANIZATION_SUBSCRIPTION_EXPIRES_AT, "ka"),
     );
-    await expect(expiry).toContainText(`${expectedDaysLeft} დღე`);
+    // ICU formats counts ≥ 1000 with a group separator ("3,552 დღე").
+    await expect(expiry).toContainText(
+      new RegExp(
+        `${String(expectedDaysLeft).replace(/\B(?=(\d{3})+(?!\d))/g, "[,\\s\\u00a0\\u202f]?")} დღე`,
+      ),
+    );
 
     await organizationSubscriptions.update(TEST_IDS.organizationSubscription, {
       tier: "premium",
@@ -430,6 +438,9 @@ test.describe("Seller Dashboard", () => {
     await expect(sellerPage.getByTestId("organization-tier-entry")).toBeDisabled();
     await expect(sellerPage.getByTestId("organization-tier-pro")).toBeDisabled();
     await expect(sellerPage.getByTestId("organization-tier-premium")).toBeDisabled();
+    await expect(sellerPage.getByTestId("organization-active-tier")).toHaveText("PREMIUM");
+    // PREMIUM+ (2026 price list) still ranks above an active PREMIUM.
+    await expect(sellerPage.getByTestId("organization-tier-premium_plus")).toBeEnabled();
     await expect(
       sellerPage.getByTestId("organization-subscription-activate"),
     ).toBeDisabled();
@@ -443,6 +454,7 @@ test.describe("Seller Dashboard", () => {
     await expect(sellerPage.getByTestId("organization-tier-entry")).toBeDisabled();
     await expect(sellerPage.getByTestId("organization-tier-pro")).toBeEnabled();
     await expect(sellerPage.getByTestId("organization-tier-premium")).toBeEnabled();
+    await expect(sellerPage.getByTestId("organization-tier-premium_plus")).toBeEnabled();
     await sellerPage.getByTestId("organization-tier-pro").click();
     await expect(
       sellerPage.getByTestId("organization-subscription-activate"),
@@ -462,6 +474,7 @@ test.describe("Seller Dashboard", () => {
     await expect(sellerPage.getByTestId("organization-tier-entry")).toBeEnabled();
     await expect(sellerPage.getByTestId("organization-tier-pro")).toBeEnabled();
     await expect(sellerPage.getByTestId("organization-tier-premium")).toBeEnabled();
+    await expect(sellerPage.getByTestId("organization-tier-premium_plus")).toBeEnabled();
   });
 });
 
@@ -496,7 +509,10 @@ test.describe("Company subscription tier lock", () => {
       await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
     }
 
-    async function setSubscription(tier: "entry" | "pro" | "premium", expiresAt: string) {
+    async function setSubscription(
+      tier: "entry" | "pro" | "premium" | "premium_plus",
+      expiresAt: string,
+    ) {
       await supabaseAdmin
         .from("organization_subscriptions")
         .delete()
@@ -506,8 +522,8 @@ test.describe("Company subscription tier lock", () => {
         .delete()
         .eq("user_id", userId);
       await supabaseAdmin.from("balances").update({ amount: 1000 }).eq("user_id", userId);
-      const limits = { entry: 10, pro: 50, premium: null };
-      const amounts = { entry: 100, pro: 200, premium: 350 };
+      const limits = { entry: 10, pro: 50, premium: null, premium_plus: null };
+      const amounts = { entry: 100, pro: 200, premium: 350, premium_plus: 500 };
       const { error } = await supabaseAdmin.from("organization_subscriptions").insert({
         organization_id: orgId,
         tier,
@@ -546,7 +562,7 @@ test.describe("Company subscription tier lock", () => {
       };
     }
 
-    async function purchase(tier: "entry" | "pro" | "premium") {
+    async function purchase(tier: "entry" | "pro" | "premium" | "premium_plus") {
       return supabaseAdmin.rpc("purchase_company_subscription", {
         p_user_id: userId,
         p_org_id: orgId,
@@ -554,7 +570,10 @@ test.describe("Company subscription tier lock", () => {
       });
     }
 
-    async function expectRejected(active: "pro" | "premium", requested: "entry" | "pro") {
+    async function expectRejected(
+      active: "pro" | "premium" | "premium_plus",
+      requested: "entry" | "pro" | "premium",
+    ) {
       await setSubscription(active, new Date(Date.now() + 86_400_000).toISOString());
       const before = await state();
       const { error } = await purchase(requested);
@@ -589,6 +608,7 @@ test.describe("Company subscription tier lock", () => {
       await expectRejected("premium", "pro");
       await expectRejected("pro", "entry");
       await expectRejected("pro", "pro");
+      await expectRejected("premium_plus", "premium");
 
       await setSubscription("entry", new Date(Date.now() + 86_400_000).toISOString());
       const entryToPro = await purchase("pro");
@@ -611,6 +631,11 @@ test.describe("Company subscription tier lock", () => {
       const entryToPremium = await purchase("premium");
       expect(entryToPremium.error).toBeNull();
       expect((await state()).balance).toBe(650);
+
+      await setSubscription("premium", new Date(Date.now() + 86_400_000).toISOString());
+      const premiumToPremiumPlus = await purchase("premium_plus");
+      expect(premiumToPremiumPlus.error).toBeNull();
+      expect((await state()).balance).toBe(500);
 
       await setSubscription("pro", new Date(Date.now() - 60_000).toISOString());
       const expiredProToEntry = await purchase("entry");

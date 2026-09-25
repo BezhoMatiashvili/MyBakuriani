@@ -43,6 +43,14 @@ const compareSets = (label, dbVals, tsVals, dbName, tsName) => {
   fail(`${label}: only in ${dbName}: [${onlyIn(dbVals, tsVals)}] · only in ${tsName}: [${onlyIn(tsVals, dbVals)}]`);
 };
 
+async function rest(path) {
+  const res = await fetch(`${url}/rest/v1/${path}`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  });
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
 async function rpc(name) {
   const res = await fetch(`${url}/rest/v1/rpc/${name}`, {
     method: "POST",
@@ -61,6 +69,10 @@ const { BANNER_PLACEMENT_IDS } = await import("../src/lib/banner-placements.ts")
 const { REVIEWABLE_FIELDS, CLEANER_PROFILE_FIELDS } = await import("../src/lib/content-change/fields.ts");
 const { CONSENT_KINDS, CONSENT_SOURCES } = await import("../src/lib/consent/channels.ts");
 const { Constants } = await import("../src/lib/types/database.generated.ts");
+const { COMPANY_TIERS } = await import("../src/lib/org-tiers.ts");
+const { MEMBERSHIP_SEASONS, MEMBERSHIP_PRICE_TIERS, validateRenterMembershipMeta } = await import(
+  "../src/lib/membership/plans.ts"
+);
 
 const checkList = (table, column) =>
   snapshot.check_value_lists.find((c) => c.table === table && c.column === column)?.values ?? null;
@@ -170,6 +182,46 @@ for (const table of ["ads", "landing_banners"]) {
     ok(`C7: ${subs.size} subscribed tables checked against the publication`);
     if (dead.length) warn(`C7: ${dead.length} known-dead subscriptions still in code: ${dead.map((t) => `${t} ← ${[...subs.get(t)].join(", ")}`).join("; ")}`);
   }
+}
+
+// C11 — company subscription tiers: the organization_subscriptions.tier CHECK
+// against COMPANY_TIERS, and every enabled organization package's code names a
+// tier (purchase_company_subscription looks packages up as company-<tier>).
+// C31 — seasonal renter memberships: every enabled renter package carries a
+// valid season window, and at most one is enabled per (season, price tier) —
+// the same rule the admin pricing-packages API enforces on writes.
+{
+  const tiers = checkList("organization_subscriptions", "tier");
+  if (!tiers) fail("C11: organization_subscriptions.tier CHECK not found");
+  else compareSets("C11 company tiers", tiers, [...COMPANY_TIERS], "CHECK constraint", "COMPANY_TIERS");
+
+  const subscriptionPackages = await rest(
+    "pricing_packages?select=code,meta&category=eq.subscription&is_enabled=eq.true",
+  );
+  const company = subscriptionPackages.filter((p) => p.meta?.subscription_scope === "organization");
+  const badCompany = company.filter(
+    (p) => !p.code.startsWith("company-") || !COMPANY_TIERS.includes(p.code.slice("company-".length)),
+  );
+  if (badCompany.length) fail(`C11: enabled organization packages whose code names no tier: ${badCompany.map((p) => p.code)}`);
+  else ok(`C11: ${company.length} enabled company packages all map to COMPANY_TIERS`);
+
+  const renter = subscriptionPackages.filter((p) => p.meta?.subscription_scope === "renter");
+  const invalid = renter
+    .map((p) => [p.code, validateRenterMembershipMeta(p.meta)])
+    .filter(([, error]) => error);
+  if (invalid.length) fail(`C31: enabled renter packages with invalid season meta: ${invalid.map(([c, e]) => `${c} (${e})`).join("; ")}`);
+  const slots = new Map();
+  for (const p of renter) {
+    const slot = `${p.meta?.season}/${p.meta?.price_tier}`;
+    slots.set(slot, [...(slots.get(slot) ?? []), p.code]);
+  }
+  const duplicated = [...slots].filter(([, codes]) => codes.length > 1);
+  if (duplicated.length) fail(`C31: more than one enabled renter package per season/tier: ${duplicated.map(([s, c]) => `${s} → ${c}`).join("; ")}`);
+  if (!invalid.length && !duplicated.length) ok(`C31: ${renter.length} enabled renter memberships, valid and one per season/price tier`);
+  const empty = MEMBERSHIP_SEASONS.flatMap((season) => MEMBERSHIP_PRICE_TIERS.map((tier) => `${season}/${tier}`)).filter(
+    (slot) => !slots.has(slot),
+  );
+  if (empty.length) warn(`C31: no enabled renter package for ${empty.join(", ")} — /pricing shows "—" there`);
 }
 
 // C4 — scheduled jobs. Infra state rather than code, so a warning.

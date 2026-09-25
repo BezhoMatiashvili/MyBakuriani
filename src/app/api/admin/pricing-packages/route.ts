@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/types/database";
+import { validateRenterMembershipMeta } from "@/lib/membership/plans";
 
 type PricingPackageUpdate =
   Database["public"]["Tables"]["pricing_packages"]["Update"];
@@ -25,22 +26,11 @@ function asMeta(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function validateRenterMembershipMeta(
-  meta: Record<string, unknown>,
-): string | null {
-  if (meta.subscription_scope !== "renter") return null;
-  if (
-    meta.billing_period !== "seasonal" ||
-    meta.season_end_month !== 3 ||
-    meta.season_end_day !== 15
-  ) {
-    return "renter membership must be seasonal and end on March 15";
-  }
-  return null;
-}
-
+// 2026 price list: one enabled renter package per season × price tier
+// (summer / winter × fb_group_vip / standard) — see src/lib/membership/plans.ts.
 async function hasAnotherEnabledRenterMembership(
   db: ReturnType<typeof createServiceClient>,
+  meta: Record<string, unknown>,
   excludeId?: string,
 ) {
   let query = db
@@ -48,7 +38,11 @@ async function hasAnotherEnabledRenterMembership(
     .select("id")
     .eq("category", "subscription")
     .eq("is_enabled", true)
-    .contains("meta", { subscription_scope: "renter" });
+    .contains("meta", {
+      subscription_scope: "renter",
+      season: meta.season,
+      price_tier: meta.price_tier,
+    });
   if (excludeId) query = query.neq("id", excludeId);
   const { data, error } = await query.limit(1);
   if (error) throw error;
@@ -263,11 +257,12 @@ export async function PATCH(req: NextRequest) {
       if (
         target?.category === "subscription" &&
         targetMeta.subscription_scope === "renter" &&
-        (await hasAnotherEnabledRenterMembership(db, body.id))
+        (await hasAnotherEnabledRenterMembership(db, targetMeta, body.id))
       ) {
         return Response.json(
           {
-            error: "an enabled seasonal renter membership already exists",
+            error:
+              "an enabled renter membership for this season and price tier already exists",
             code: "renter_membership_exists",
           },
           { status: 409 },
@@ -391,11 +386,12 @@ export async function POST(req: NextRequest) {
     if (
       body.category === "subscription" &&
       meta.subscription_scope === "renter" &&
-      (await hasAnotherEnabledRenterMembership(db))
+      (await hasAnotherEnabledRenterMembership(db, meta))
     ) {
       return Response.json(
         {
-          error: "an enabled seasonal renter membership already exists",
+          error:
+            "an enabled renter membership for this season and price tier already exists",
           code: "renter_membership_exists",
         },
         { status: 409 },

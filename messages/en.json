@@ -107,7 +107,9 @@
       "employmentDesc": "{title} — job in Bakuriani",
       "blogNotFound": "Article not found — MyBakuriani",
       "blogTitle": "{title} — MyBakuriani Blog"
-    }
+    },
+    "pricing": "Prices and terms — MyBakuriani",
+    "pricingDesc": "Prices and terms for seasonal membership, VIP services, SMS and developer packages on MyBakuriani."
   },
   "Navbar": {
     "apartments": "Apartments",
@@ -603,7 +605,9 @@
       },
       "selectedInventoryEyebrow": "Selected Inventory",
       "researchEyebrow": "Q3 2024 Research"
-    }
+    },
+    "superVipTitle": "SUPER VIP",
+    "superVipSubtitle": "Listings with the highest visibility package — shown first."
   },
   "Error": {
     "title": "An Error Occurred",
@@ -645,7 +649,6 @@
     "subtitle": "Your property management dashboard",
     "activeService": "Active service:",
     "seasonActive": "Your seasonal license is active <b>until {date}</b>.",
-    "seasonEndDate": "Mar 15",
     "membershipInactive": "Inactive",
     "mainIndicators": "Main indicators",
     "smartMatchShort": "SMART MATCH",
@@ -816,17 +819,17 @@
         "tiers": {
           "superVip": {
             "title": "SUPER VIP",
-            "what": "This is the maximum promotion package. Your listing appears at the top of search results and in the SUPER VIP section on the homepage for 24 hours.",
+            "what": "SUPER VIP is the highest listing-visibility package. While it is active, the listing gets priority placement, appears among the priority search results and in the SUPER VIP section of the home page.",
             "how": "After purchase, the system automatically moves your listing up in the promotion queue. It shows a priority badge and gets maximum visibility in any search."
           },
           "vip": {
             "title": "VIP status",
-            "what": "VIP status gives your listing a colorful attention-grabbing badge and a premium position on the main listing page.",
+            "what": "VIP status gives the listing a special VIP badge and presents it more prominently on the platform wherever VIP listings are shown.",
             "how": "After purchase, a VIP badge is automatically attached in the public view. Duration can be managed from the Balance & VIP page."
           },
           "discount": {
             "title": "Discount badge",
-            "what": "A discount badge gives your listing a bright marker that signals a special offer to guests.",
+            "what": "The discount badge gives the listing a special mark that tells users a discount or special condition applies to the offer. The listing may appear in the corresponding “special offers” section/filter.",
             "how": "When activated, choose a discount percentage. The listing appears in the Hot Deals section for searching guests."
           },
           "sms": {
@@ -838,12 +841,6 @@
       },
       "vipPicker": {
         "subtitle": "Purchase {tier} for your property.",
-        "units": {
-          "superVip": "/ 24h",
-          "vip": "/ day",
-          "discount": "/ day",
-          "sms": "/ 200 SMS"
-        },
         "quantityLabel": "Number of days",
         "daysCount": "{count, plural, =1 {# day} other {# days}}",
         "discountPercentLabel": "Discount percentage",
@@ -853,7 +850,10 @@
         "submitForReview": "Submit for review",
         "reviewError": "Could not submit the discount request. Check that the restaurant is active and your balance is sufficient."
       }
-    }
+    },
+    "membershipUpcoming": "Next season's membership is approved and valid {start} – {end}.",
+    "buyNextSeason": "Next season membership",
+    "membershipPendingPeriod": "Awaiting approval: {start} – {end}"
   },
   "PaymentModal": {
     "title": "Renter membership",
@@ -861,16 +861,41 @@
     "membershipStatus": "Membership status",
     "validUntil": "Valid until",
     "inactive": "No active membership",
-    "seasonalExplanationWinter": "Pay once for the current season. Access starts only after admin approval.\n\nWinter seasonal membership (November – March) — 30 ₾. Valid through the winter season.",
-    "seasonalExplanationSummer": "Pay once for the current season. Access starts only after admin approval.\n\nSummer seasonal membership (April – October) — 30 ₾. Valid through the summer season.",
-    "seasonPlan": "Seasonal membership",
-    "seasonPlanValidity": "Valid through the end of the current season",
     "awaitingApproval": "Awaiting admin approval",
     "alreadyPending": "Your payment has been received. The membership will activate only after an administrator approves it.",
     "noPlans": "There are no renter membership plans available right now.",
     "purchaseFailed": "Could not complete the membership purchase. Please try again.",
     "goToBalance": "Go to Balance & VIP",
-    "payButton": "Pay and request approval"
+    "payButton": "Pay and request approval",
+    "intro": "A seasonal membership is required to post rental listings on MyBakuriani. Paying the membership fee does not activate it automatically — the membership becomes active only after the administration confirms it.",
+    "seasons": {
+      "summer": "Summer season",
+      "winter": "Winter season"
+    },
+    "seasonPeriods": {
+      "summer": "April – October",
+      "winter": "November – March"
+    },
+    "tiers": {
+      "fb_group_vip": "VIP member of our Facebook group",
+      "standard": "Other user"
+    },
+    "validity": "Valid: {start} – {end}",
+    "planCovered": "You already have a membership for this period",
+    "fbDeclaration": "I confirm that I am a VIP member of the MyBakuriani Facebook group. The administration verifies this before approval; if it cannot be confirmed, the request is rejected and the payment is returned to your balance.",
+    "processTitle": "Activation process:",
+    "processSteps": {
+      "1": "You choose a seasonal membership and pay the fee.",
+      "2": "The administration checks your details and whether the listing complies with the platform rules.",
+      "3": "After the administration confirms, the membership is activated.",
+      "4": "With an active membership you can post the corresponding rental listing."
+    },
+    "refundOnReject": "If the request is rejected, the payment is returned to your balance in full.",
+    "errors": {
+      "alreadyPending": "Your membership payment is already awaiting admin approval.",
+      "alreadyActive": "You already have a membership for this season.",
+      "unavailable": "This membership package is not available right now."
+    }
   },
   "SmartMatchModal": {
     "title": "Incoming Requests",
@@ -993,7 +1018,17 @@
     "phoneNumber": "Phone number",
     "whatsappNumber": "WhatsApp number",
     "optionalHelper": "Optional",
-    "landscapeWarning": "Use landscape photos"
+    "landscapeWarning": "Use landscape photos",
+    "membershipGate": {
+      "title": "A seasonal membership is required to post a rental",
+      "missing": "Posting a rental listing on MyBakuriani requires the matching seasonal membership. Paying the membership fee does not activate it automatically — the membership becomes active only after the administration confirms it.",
+      "pending": "Your membership request is awaiting admin approval. You can post rental listings once it is approved.",
+      "upcoming": "Your approved membership starts on {date}. You can post rental listings from that date.",
+      "error": "An active seasonal membership is required to post a rental listing.",
+      "ctaBuy": "Get a membership",
+      "ctaStatus": "Membership status",
+      "pricing": "Prices and terms"
+    }
   },
   "CriticalNotification": {
     "severityCritical": "Critical",
@@ -1725,7 +1760,6 @@
     "favoriteAria": "Add to favorites"
   },
   "EmploymentDetail": {
-    "backToSearch": "Back to search",
     "publishedAt": "Published: {date}",
     "urgent": "Urgent",
     "applications": "{count, plural, one {# application} other {# applications}}",
@@ -3085,7 +3119,9 @@
     "cancel": "Cancel",
     "confirmPayment": {
       "title": "Confirm payment",
-      "agree": "I agree, proceed with payment"
+      "agree": "I agree, proceed with payment",
+      "validity": "Validity",
+      "conditions": "Main conditions"
     },
     "back": "Back",
     "completed": "Completed",
@@ -3227,7 +3263,15 @@
     "no": "No",
     "required": "Required",
     "genericRetry": "Error. Please try again.",
-    "invalidPhone": "Enter a valid number (9 digits, starting with 5)"
+    "invalidPhone": "Enter a valid number (9 digits, starting with 5)",
+    "purchaseTerms": {
+      "hours": "{hours} hours",
+      "startsNow": "Starts immediately after payment. Buying again restarts the period from the moment of purchase — remaining time is not added.",
+      "superReplacesVip": "SUPER VIP immediately replaces an active VIP status; the remaining VIP time is not kept.",
+      "notPublication": "Payment and service activation do not mean the listing is published automatically. Listings are subject to administrative review under MyBakuriani's rules.",
+      "smsNoExpiry": "No expiry — the SMS are added to your SMS balance.",
+      "smsConsent": "Promotional SMS are sent only when the corresponding marketing consent has been given."
+    }
   },
   "CleanerDashboard": {
     "title": "My tasks",
@@ -4131,8 +4175,7 @@
       "smsPlaceholder": "e.g. 200",
       "durationHours": "Duration (hours)",
       "vipType": "VIP type",
-      "membershipDuration": "Membership duration",
-      "seasonalMembership": "Seasonal membership — valid through March 15 after admin approval",
+      "seasonalMembership": "Seasonal membership — valid until the end of the selected season after admin approval",
       "validFrom": "Valid from",
       "validTo": "Valid until",
       "periodRequired": "Specify the validity period",
@@ -4148,11 +4191,21 @@
         "super": "Super VIP — top position",
         "standard": "VIP status — highlight",
         "discount": "Discount badge"
+      },
+      "membershipSeason": "Season",
+      "membershipTier": "Price tier",
+      "membershipSeasons": {
+        "summer": "Summer season (April – October)",
+        "winter": "Winter season (November – March)"
+      },
+      "membershipTiers": {
+        "fb_group_vip": "VIP member of our Facebook group",
+        "standard": "Other user"
       }
     },
     "apiErrors": {
       "duplicate_package_code": "This code is already in use in this category",
-      "renter_membership_exists": "An enabled seasonal renter membership already exists"
+      "renter_membership_exists": "An enabled package for this season and price tier already exists"
     },
     "placement": "Placement",
     "placementGroups": {
@@ -4496,14 +4549,22 @@
     "noPhone": "No phone number",
     "seasonPlan": "Seasonal renter membership",
     "paidAt": "Paid {date}",
-    "seasonEnds": "Season ends {date}",
     "approve": "Approve",
     "reject": "Reject & refund",
     "rejectPrompt": "Optional rejection reason:",
     "approved": "Membership approved and activated",
     "rejected": "Membership rejected and refunded",
     "loadFailed": "Could not load membership requests",
-    "reviewFailed": "Could not review this membership"
+    "reviewFailed": "Could not review this membership",
+    "period": "Period: {start} – {end}",
+    "fbTierBadge": "Facebook-group VIP rate — verify group membership",
+    "openClient": "Client profile",
+    "errors": {
+      "MEMBERSHIP_SEASON_ENDED": "The season has already ended — reject the request; the payment is refunded automatically.",
+      "MEMBERSHIP_ALREADY_ACTIVE": "The user already has an active membership for this period.",
+      "MEMBERSHIP_ALREADY_REVIEWED": "This request has already been reviewed.",
+      "MEMBERSHIP_REQUEST_NOT_FOUND": "Request not found."
+    }
   },
   "AdminSettings": {
     "title": "Pricing & packages",
@@ -4832,7 +4893,21 @@
       "approvedToast": "კომპანია დადასტურდა",
       "rejectedToast": "კომპანია უარყოფილია",
       "searchPlaceholder": "Search (ID, name, ID code)..."
-    }
+    },
+    "tierFeaturesTitle": "Every package includes:",
+    "tierFeatures": {
+      "listings": "Apartment (listing) management",
+      "constructionStages": "Construction stage display",
+      "constructionProgress": "Construction progress management",
+      "statistics": "Basic statistics",
+      "map": "Project location on the map",
+      "buyerRequests": "Management of prospective buyers' requests"
+    },
+    "tierFeaturesNote": "Packages differ in their apartment limit.",
+    "termValidity": "30 days",
+    "termUpgradeOnly": "While a package is active you can only upgrade to a higher one.",
+    "termNoCarryOver": "Upgrading ends the current package immediately; remaining days are not carried over.",
+    "termNoAutoRenew": "The package does not renew automatically after 30 days."
   },
   "ConsentGate": {
     "title": "Creating your MyBakuriani account",
@@ -4876,5 +4951,100 @@
     "save": "Save",
     "saved": "Saved",
     "failed": "Could not save"
+  },
+  "Pricing": {
+    "title": "Price list and service terms",
+    "subtitle": "All prices are in Georgian lari (₾).",
+    "hours": "{count, plural, one {# hour} other {# hours}}",
+    "hoursShort": "{count} h",
+    "membership": {
+      "title": "1. Seasonal membership for private owners",
+      "intro": "Posting a rental listing on MyBakuriani requires the matching seasonal membership. Paying the membership fee does not activate it automatically — the membership becomes active only after the administration confirms it.",
+      "colType": "Membership type",
+      "colPeriod": "Validity period",
+      "tiers": {
+        "fb_group_vip": "VIP member of our Facebook group",
+        "standard": "Other user"
+      },
+      "seasons": {
+        "summer": "Summer season",
+        "winter": "Winter season"
+      },
+      "periods": {
+        "summer": "April – October",
+        "winter": "November – March"
+      },
+      "fbNote": "The Facebook-group VIP rate is verified by the administration before activation; if the claim is incorrect, the request is rejected and the payment is refunded to the balance.",
+      "processTitle": "Activation process:",
+      "steps": {
+        "1": "The user chooses a seasonal membership and pays the corresponding fee.",
+        "2": "The administration checks the user's details and the listing's compliance with the platform rules.",
+        "3": "After the administration confirms, the membership becomes active.",
+        "4": "With an active membership, the user can post the corresponding rental listing."
+      }
+    },
+    "vip": {
+      "title": "2. VIP and listing visibility services",
+      "intro": "All VIP services listed below are valid for 24 hours.",
+      "tiers": {
+        "standard": {
+          "name": "VIP status",
+          "description": "VIP status gives the listing a special VIP badge and makes it more prominent on the platform wherever VIP listings are shown."
+        },
+        "discount": {
+          "name": "Discount badge",
+          "description": "The discount badge gives the listing a special mark that tells users a discount or special offer applies. The listing can appear in the matching “special offers” section/filter."
+        },
+        "super": {
+          "name": "SUPER VIP",
+          "description": "SUPER VIP is the highest listing-visibility package. While active, the listing gets priority placement, appears among the priority search results and in the SUPER VIP section of the home page."
+        }
+      }
+    },
+    "compare": {
+      "title": "3. Comparison of VIP services",
+      "colFeature": "Feature",
+      "rows": {
+        "badge": "Special badge",
+        "discountMark": "Discount mark",
+        "offers": "Special offers section/filter",
+        "priority": "Priority visibility",
+        "superSection": "Home page SUPER VIP section",
+        "validity": "Validity",
+        "price": "Price"
+      },
+      "yes": "Yes",
+      "no": "No",
+      "strong": "Yes, highest priority"
+    },
+    "sms": {
+      "title": "4. SMS packages",
+      "intro": "SMS packages let the user send service and/or promotional messages to guests' mobile numbers within the platform's relevant features.",
+      "colPackage": "Package",
+      "colCount": "Number of SMS",
+      "colPrice": "Price",
+      "count": "{count} SMS",
+      "consent": "Promotional SMS are sent only when the corresponding marketing consent exists."
+    },
+    "developer": {
+      "title": "5. Developer packages",
+      "colPackage": "Package",
+      "colPrice": "Price / month",
+      "colListings": "Number of apartments",
+      "upTo": "up to {count}",
+      "unlimited": "Unlimited"
+    },
+    "rules": {
+      "title": "6. Short rules for publication on the site",
+      "items": {
+        "1": "All prices are in lari (₾).",
+        "2": "VIP services are valid for 24 hours.",
+        "3": "Seasonal membership is activated only after the administration confirms it.",
+        "4": "Payment and activation of a service do not mean the listing is published automatically.",
+        "5": "Listings are subject to the administrative review provided for by MyBakuriani's rules.",
+        "6": "Before payment, the user must be shown the specific service's price, validity period and main conditions.",
+        "7": "Promotional SMS are sent only when the corresponding marketing consent exists."
+      }
+    }
   }
 }

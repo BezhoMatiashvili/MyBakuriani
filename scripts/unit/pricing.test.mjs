@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sumNightlyPrice, isDiscountActive, applyDiscount, isSuperVipActive, daysRemaining } from "../../src/lib/utils/pricing.ts";
+import { sumNightlyPrice, isDiscountActive, applyDiscount, isSuperVipActive, daysRemaining, sortByPromotion, formatGelAmount } from "../../src/lib/utils/pricing.ts";
 
 const d = (iso) => new Date(`${iso}T12:00:00`);
 
@@ -42,4 +42,32 @@ test("daysRemaining rounds up and hides expired or absent values", () => {
   assert.equal(daysRemaining("2000-01-01T00:00:00Z"), null);
   const inTwentyThreeHours = new Date(Date.now() + 23 * 3600 * 1000).toISOString();
   assert.equal(daysRemaining(inTwentyThreeHours), 1);
+});
+
+test("sortByPromotion ranks SUPER VIP, then VIP, and keeps the incoming order within a tier", () => {
+  const rows = [
+    { id: "plain-1", is_vip: false, is_super_vip: false },
+    { id: "vip-1", is_vip: true, is_super_vip: false },
+    { id: "super-1", is_vip: false, is_super_vip: true },
+    { id: "plain-2", is_vip: null, is_super_vip: null },
+    { id: "vip-2", is_vip: true },
+    { id: "super-2", is_super_vip: true },
+  ];
+  assert.deepEqual(
+    sortByPromotion(rows).map((r) => r.id),
+    ["super-1", "super-2", "vip-1", "vip-2", "plain-1", "plain-2"],
+  );
+  // Input is not mutated.
+  assert.equal(rows[0].id, "plain-1");
+  assert.deepEqual(sortByPromotion([]), []);
+});
+
+test("formatGelAmount prints package prices like the 2026 price list", () => {
+  assert.equal(formatGelAmount(1.5), "1.50 ₾");
+  assert.equal(formatGelAmount(2.5), "2.50 ₾");
+  assert.equal(formatGelAmount(5), "5 ₾");
+  assert.equal(formatGelAmount(30), "30 ₾");
+  assert.equal(formatGelAmount(500), "500 ₾");
+  assert.equal(formatGelAmount(Number("1.50")), "1.50 ₾");
+  assert.equal(formatGelAmount(0.1 + 0.2), "0.30 ₾");
 });

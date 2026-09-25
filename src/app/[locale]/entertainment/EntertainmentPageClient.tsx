@@ -45,6 +45,7 @@ type PublicService = Pick<
   | "discount_percent"
   | "discount_expires_at"
   | "is_vip"
+  | "is_super_vip"
   | "has_whatsapp"
   | "created_at"
 >;
@@ -289,6 +290,7 @@ export default function EntertainmentPageClient({ services }: Props) {
                     discountPercent={s.discount_percent ?? 0}
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
+                    isSuperVip={s.is_super_vip ?? false}
                     phone={null}
                     hasWhatsapp={s.has_whatsapp ?? false}
                   />

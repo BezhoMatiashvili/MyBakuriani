@@ -1091,13 +1091,18 @@ test.describe("Footer mobile", () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test("phone link groups use native accordions", async ({ page }) => {
+  test("phone link groups are open like desktop", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    const details = page.locator("footer details");
-    await expect(details).toHaveCount(3);
-    await details.first().locator("summary").click();
-    await expect(details.first()).toHaveAttribute("open", "");
+    const footer = page.locator("footer");
+    await expect(footer.locator("details")).toHaveCount(0);
+    await expect(footer.locator("h3")).toHaveCount(3);
+    const groupLinks = footer.locator("ul a");
+    await expect(groupLinks).toHaveCount(14);
+    for (const link of await groupLinks.all()) {
+      await expect(link).toBeVisible();
+      expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
   });
 });
 

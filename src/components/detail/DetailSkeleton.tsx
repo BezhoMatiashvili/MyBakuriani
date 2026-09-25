@@ -32,23 +32,34 @@ export function DetailSkeleton({
       aria-busy="true"
       className="mx-auto max-w-7xl px-4 py-6 sm:py-8"
     >
-      {/* Back nav — real is `mb-6 ... text-sm` */}
-      <Skeleton className="mb-6 h-5 w-24" />
-
-      {/* Title + meta row. Food renders its title below the gallery, so this
-          block only exists for the 3col routes. */}
-      {!isFood && (
-        <div className="mb-6">
-          <Skeleton className="h-[34px] w-3/4 sm:h-[42px]" />
-          <Skeleton className="mt-2 h-5 w-1/2" />
+      {isFood ? (
+        /* Food: back + share + favourite on one `mb-4` row (FoodDetailClient) */
+        <div className="mb-4 flex items-center justify-between">
+          <Skeleton className="h-5 w-24" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-11 w-11 rounded-full lg:h-10 lg:w-10" />
+            <Skeleton className="h-11 w-11 rounded-full lg:h-10 lg:w-10" />
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Back nav — real is `mb-6 ... text-sm` */}
+          <Skeleton className="mb-6 h-5 w-24" />
 
-      {/* Share / favourite row that lives inside both galleries */}
-      <div className="mb-3 flex items-center justify-end gap-2">
-        <Skeleton className="h-11 w-11 rounded-full lg:h-10 lg:w-10" />
-        <Skeleton className="h-11 w-11 rounded-full lg:h-10 lg:w-10" />
-      </div>
+          {/* Title + meta row. Food renders its title below the gallery, so
+              this block only exists for the 3col routes. */}
+          <div className="mb-6">
+            <Skeleton className="h-[34px] w-3/4 sm:h-[42px]" />
+            <Skeleton className="mt-2 h-5 w-1/2" />
+          </div>
+
+          {/* Share / favourite row that lives inside PhotoGallery */}
+          <div className="mb-3 flex items-center justify-end gap-2">
+            <Skeleton className="h-11 w-11 rounded-full lg:h-10 lg:w-10" />
+            <Skeleton className="h-11 w-11 rounded-full lg:h-10 lg:w-10" />
+          </div>
+        </>
+      )}
 
       {/* Mobile: the single full-width rail slide */}
       <Skeleton className="aspect-[8/5] w-full rounded-[20px] lg:hidden" />

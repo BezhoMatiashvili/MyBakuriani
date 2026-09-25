@@ -157,6 +157,43 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!existsSync(join(root, "src/lib/types/database.generated.ts"))) fail("C3: database.generated.ts is missing");
 }
 
+// ---------------------------------------------------------------------------
+// C11 — company subscription tier codes: the company-subscription edge
+// function's VALID_TIERS must equal COMPANY_TIERS (the organization_subscriptions
+// CHECK and the company-* package codes are compared in check-db-contracts.mjs).
+// ---------------------------------------------------------------------------
+{
+  const tiersIn = (file, name) =>
+    new Set(
+      [...(read(file).match(new RegExp(`${name}[^=]*=\\s*\\[([^\\]]+)\\]`))?.[1] ?? "").matchAll(/"([a-z_]+)"/g)].map(
+        (m) => m[1],
+      ),
+    );
+  const appTiers = tiersIn("src/lib/org-tiers.ts", "COMPANY_TIERS");
+  const edgeTiers = tiersIn("supabase/functions/company-subscription/index.ts", "VALID_TIERS");
+  if (!appTiers.size || !edgeTiers.size) fail("C11: could not parse COMPANY_TIERS or company-subscription VALID_TIERS");
+  else if (setEq(appTiers, edgeTiers)) ok(`C11: company-subscription VALID_TIERS match COMPANY_TIERS (${appTiers.size})`);
+  else describeSetMismatch("C11 company tiers", appTiers, "COMPANY_TIERS", edgeTiers, "company-subscription VALID_TIERS");
+}
+
+// ---------------------------------------------------------------------------
+// C31 — the rental posting gate's HINT is the token the create form matches:
+// the newest migration defining enforce_private_rental_membership() must raise
+// exactly RENTAL_MEMBERSHIP_REQUIRED_HINT from src/lib/membership/plans.ts.
+// ---------------------------------------------------------------------------
+{
+  const hint = read("src/lib/membership/plans.ts").match(/RENTAL_MEMBERSHIP_REQUIRED_HINT\s*=\s*"([A-Z_]+)"/)?.[1];
+  const gateFile = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /FUNCTION public\.enforce_private_rental_membership\(/.test(read(join("supabase/migrations", f))))
+    .at(-1);
+  const sqlHint = gateFile && read(join("supabase/migrations", gateFile)).match(/HINT = '([A-Z_]+)'/)?.[1];
+  if (!hint || !sqlHint) fail("C31: could not read RENTAL_MEMBERSHIP_REQUIRED_HINT or the gate migration's HINT");
+  else if (hint === sqlHint) ok(`C31: ${gateFile} raises the HINT the rental form matches (${hint})`);
+  else fail(`C31: gate migration ${gateFile} raises HINT '${sqlHint}' but plans.ts matches '${hint}'`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

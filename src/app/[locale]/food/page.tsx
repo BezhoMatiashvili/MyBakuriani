@@ -36,12 +36,13 @@ export default async function FoodPage() {
     // Only the columns the food cards + filters use — keeps the prerendered
     // RSC payload small. Keep in sync with PublicService in FoodPageClient.
     .select(
-      "id, title, category, location, photos, price, price_unit, cuisine_type, schedule, operating_hours, is_vip, created_at, best_active_menu_item_discount_percent",
+      "id, title, category, location, photos, price, price_unit, cuisine_type, schedule, operating_hours, is_vip, is_super_vip, created_at, best_active_menu_item_discount_percent",
       { count: "exact" },
     )
     .eq("category", "food")
-    .order("has_active_discount", { ascending: false })
+    .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
+    .order("has_active_discount", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(MAX_LISTINGS);
 

@@ -995,6 +995,7 @@ test.describe("Viewport responsiveness", () => {
     "/employment",
     "/blog",
     "/faq",
+    "/pricing",
     "/contact",
     "/terms",
     "/search",
@@ -1031,6 +1032,7 @@ test.describe("SEO metadata", () => {
     "/employment",
     "/blog",
     "/faq",
+    "/pricing",
     "/contact",
     "/terms",
   ];
@@ -1049,5 +1051,31 @@ test.describe("SEO metadata", () => {
       .locator('meta[name="description"]')
       .getAttribute("content");
     expect(description && description.length).toBeGreaterThan(0);
+  });
+});
+
+test.describe("Pricing page", () => {
+  test("publishes the 2026 price list with live package prices", async ({
+    page,
+  }) => {
+    await page.goto("/pricing");
+    await expect(page).toHaveTitle(/ფასები და პირობები/);
+    const main = page.locator("main");
+    await expect(
+      main.getByRole("heading", {
+        level: 1,
+        name: "ფასების ცხრილი და მომსახურებების განმარტებები",
+      }),
+    ).toBeVisible();
+    await expect(main.getByText("1.50 ₾").first()).toBeVisible();
+    await expect(main.getByText("PREMIUM+", { exact: true })).toBeVisible();
+    await expect(main.getByText("Pro SMS", { exact: true })).toBeVisible();
+  });
+
+  test("footer links to the pricing page", async ({ page }) => {
+    await page.goto("/faq");
+    await expect(
+      page.locator("footer").getByRole("link", { name: "ფასები" }),
+    ).toHaveAttribute("href", /\/pricing$/);
   });
 });

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { CigaretteOff, PawPrint, UtensilsCrossed } from "lucide-react";
@@ -35,6 +35,14 @@ import {
   isContentChangeError,
   submitContentChange,
 } from "@/lib/content-change/client";
+import { Link } from "@/i18n/navigation";
+import { formatDate } from "@/lib/utils/format";
+import {
+  deriveMembershipState,
+  isRentalMembershipRequiredError,
+  rentalPostingGate,
+  type RentalPostingGate,
+} from "@/lib/membership/plans";
 
 const PROPERTY_TYPES: Enums<"property_type">[] = [
   "apartment",
@@ -91,6 +99,7 @@ function CreateRentalPageInner() {
   const t = useTranslations("CreateRental");
   const tShared = useTranslations("CreateShared");
   const tOpts = useTranslations("ListingOptions");
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -105,6 +114,16 @@ function CreateRentalPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
+  // Posting a rental needs an active seasonal membership; the
+  // properties_require_rental_membership trigger enforces it on insert. Create
+  // mode checks up front so the owner learns before filling in every step and
+  // uploading photos. null = unknown, which never blocks (the trigger decides).
+  const [posting, setPosting] = useState<{
+    gate: RentalPostingGate;
+    startsAt: string | null;
+  } | null>(null);
+  const postingBlocked =
+    !isEditMode && posting !== null && posting.gate !== "allowed";
 
   // Step 1: basics
   const [propertyType, setPropertyType] =
@@ -282,6 +301,45 @@ function CreateRentalPageInner() {
     };
   }, [editId, user, supabase]);
 
+  useEffect(() => {
+    if (isEditMode || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      const [
+        { data: profile, error: profileError },
+        { data: rows, error: rowsError },
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("user_subscriptions")
+          .select("status, starts_at, expires_at")
+          .eq("user_id", user.id)
+          .in("status", ["active", "pending_approval"]),
+      ]);
+      if (cancelled) return;
+      // Either read failing leaves the gate unknown, which never blocks.
+      if (profileError || rowsError) return;
+      if (profile?.role === "admin") {
+        setPosting({ gate: "allowed", startsAt: null });
+        return;
+      }
+      const state = deriveMembershipState(rows ?? [], Date.now());
+      setPosting({
+        gate: rentalPostingGate(state),
+        startsAt: state.upcoming?.startsAt ?? null,
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, user, supabase]);
+
   // Meals-in-price applies only to hotels; drop any stale value otherwise.
   useEffect(() => {
     if (propertyType !== "hotel") setMealsIncluded(null);
@@ -304,6 +362,8 @@ function CreateRentalPageInner() {
   function validateStep(s: number): { key: string; message: string }[] {
     const errs: { key: string; message: string }[] = [];
     if (s === 0) {
+      if (postingBlocked)
+        errs.push({ key: "membership", message: t("membershipGate.error") });
       if (!location)
         errs.push({ key: "location", message: t("invalidLocation") });
       if (cadastralTaken)
@@ -516,7 +576,11 @@ function CreateRentalPageInner() {
 
       router.push("/dashboard/renter");
     } catch (err) {
-      if (isCadastralDuplicateError(err)) {
+      if (isRentalMembershipRequiredError(err)) {
+        setStep(0);
+        setPosting({ gate: "missing", startsAt: null });
+        setError(t("membershipGate.error"));
+      } else if (isCadastralDuplicateError(err)) {
         setStep(0);
         setInvalidFields(new Set(["cadastralCode"]));
         setError(tShared("cadastralAlreadyUsed"));
@@ -596,6 +660,42 @@ function CreateRentalPageInner() {
           >
             {step === 0 && (
               <WizardSection>
+                {postingBlocked && posting && (
+                  <div
+                    data-field="membership"
+                    data-testid="rental-membership-gate"
+                    className="scroll-mt-24 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-4 text-[#92400E]"
+                  >
+                    <p className="text-sm font-extrabold text-[#0F172A]">
+                      {t("membershipGate.title")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-medium leading-5">
+                      {posting.gate === "upcoming"
+                        ? t("membershipGate.upcoming", {
+                            date: formatDate(posting.startsAt, locale),
+                          })
+                        : posting.gate === "pending"
+                          ? t("membershipGate.pending")
+                          : t("membershipGate.missing")}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link
+                        href="/dashboard/renter"
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF]"
+                      >
+                        {posting.gate === "missing"
+                          ? t("membershipGate.ctaBuy")
+                          : t("membershipGate.ctaStatus")}
+                      </Link>
+                      <Link
+                        href="/pricing"
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#93C5FD]"
+                      >
+                        {t("membershipGate.pricing")}
+                      </Link>
+                    </div>
+                  </div>
+                )}
                 <Field label={t("propertyType")} required>
                   <select
                     value={propertyType}

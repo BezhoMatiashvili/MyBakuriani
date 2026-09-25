@@ -157,9 +157,9 @@ export default function LinkedAccountsPage() {
               return (
                 <div
                   key={identity.identity_id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] p-3.5"
+                  className="flex flex-col items-start gap-1 rounded-xl border border-[#E2E8F0] p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex shrink-0 items-center gap-3">
                     <span className="flex size-9 items-center justify-center rounded-full bg-[#F8FAFC]">
                       <Icon className="size-4 text-[#64748B]" />
                     </span>
@@ -174,7 +174,7 @@ export default function LinkedAccountsPage() {
                       type="button"
                       onClick={() => handleUnlink(identity)}
                       disabled={unlinkingId === identity.identity_id}
-                      className="flex items-center gap-1.5 text-xs font-bold text-[#EF4444] hover:underline disabled:opacity-50"
+                      className="flex min-h-11 items-center gap-1.5 pl-12 text-xs font-bold text-[#EF4444] hover:underline disabled:opacity-50 sm:min-h-0 sm:pl-0"
                     >
                       {unlinkingId === identity.identity_id ? (
                         <Loader2 className="size-3.5 animate-spin" />
@@ -184,7 +184,7 @@ export default function LinkedAccountsPage() {
                       {t("unlink")}
                     </button>
                   ) : (
-                    <span className="text-xs font-medium text-[#94A3B8]">
+                    <span className="pl-12 text-xs font-medium text-[#94A3B8] sm:pl-0 sm:text-right">
                       {t("cannotUnlinkLast")}
                     </span>
                   )}
@@ -214,7 +214,7 @@ export default function LinkedAccountsPage() {
                 variant="outline"
                 onClick={() => handleLink(provider)}
                 disabled={linkingProvider === provider}
-                className="flex-1"
+                className="min-h-11 flex-1 sm:min-h-0"
               >
                 {linkingProvider === provider ? (
                   <Loader2 className="mr-2 size-4 animate-spin" />

@@ -17,7 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { CallButton } from "@/components/shared/CallButton";
-import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
+import {
+  WhatsAppButton,
+  WhatsAppIcon,
+} from "@/components/shared/WhatsAppButton";
 import { cn } from "@/lib/utils";
 import {
   ListingAgeBadge,
@@ -35,6 +38,8 @@ interface ServiceCardProps {
   discountPercent: number;
   discountExpiresAt: string | null;
   isVip: boolean;
+  /** SUPER VIP is a separate flag: the C23 trigger clears is_vip on SUPER VIP rows. */
+  isSuperVip?: boolean;
   variant?: "photo" | "avatar" | "overlay";
   schedule?: string | null;
   operatingHours?: string | null;
@@ -78,6 +83,7 @@ export default function ServiceCard({
   discountPercent,
   discountExpiresAt,
   isVip,
+  isSuperVip = false,
   variant = "photo",
   schedule,
   operatingHours,
@@ -384,12 +390,12 @@ export default function ServiceCard({
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex gap-2">
-                {isVip && (
+                {(isSuperVip || isVip) && (
                   <ListingBadge
                     variant="vip"
                     className="rounded-md px-2.5 py-1 text-[11px]"
                   >
-                    VIP {t("partner")}
+                    {isSuperVip ? "SUPER VIP" : `VIP ${t("partner")}`}
                   </ListingBadge>
                 )}
                 {discountActive && (
@@ -523,7 +529,11 @@ export default function ServiceCard({
               compactGrid ? "left-2 top-2 sm:left-3 sm:top-3" : "left-3 top-3",
             )}
           >
-            {isVip && <ListingBadge variant="vip">VIP</ListingBadge>}
+            {(isSuperVip || isVip) && (
+              <ListingBadge variant="vip">
+                {isSuperVip ? "SUPER VIP" : "VIP"}
+              </ListingBadge>
+            )}
             {isVerified && !isTransport && (
               <span className="inline-flex items-center gap-1 rounded-[4px] bg-[#2563EB] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
                 <Check className="h-3 w-3" strokeWidth={3} />
@@ -719,10 +729,21 @@ export default function ServiceCard({
               </div>
             </>
           )}
+          {/* Non-food rows may add an icon-only WhatsApp button as a third
+              item. A flex row keeps Details and Call equal shares of the space
+              that is left; a fixed grid-cols-2 gave Details a whole half and
+              squeezed "დარეკვა" onto 3 lines. Call is min-w-min, not nowrap:
+              the one-word label never breaks, while a revealed number or the
+              longer reveal-failed text still wraps inside the button instead
+              of pushing WhatsApp off the card. Below lg the row gap and Call's
+              icon gap are 6px, not 8px: at 8px the three items need 264px, but
+              at 360px the landing-rail card (296px) only has 262px, which
+              ellipsised "დეტალები". */}
           <div
             className={cn(
-              "mt-auto grid grid-cols-2 pt-3 lg:gap-2 lg:pt-4",
-              compactGrid ? "gap-1" : "gap-2",
+              "mt-auto pt-3 lg:gap-2 lg:pt-4",
+              isFood ? "grid grid-cols-2" : "flex",
+              compactGrid ? "gap-1" : isFood ? "gap-2" : "gap-1.5",
             )}
           >
             <Link
@@ -730,10 +751,11 @@ export default function ServiceCard({
               onClick={stop}
               className={cn(
                 "flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-2 py-2.5 text-[12px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]",
+                !isFood && "flex-1 basis-0",
                 compactGrid && "h-11 px-1 text-[9px] sm:px-2 sm:text-[12px]",
               )}
             >
-              {t("details")}
+              <span className="truncate">{t("details")}</span>
             </Link>
             {isFood ? (
               <CallButton
@@ -751,7 +773,7 @@ export default function ServiceCard({
                 )}
               />
             ) : (
-              <div className="flex min-w-0 items-center gap-2">
+              <>
                 <CallButton
                   phone={phone}
                   serviceId={id}
@@ -760,19 +782,29 @@ export default function ServiceCard({
                   layout="card"
                   size="default"
                   onClick={stop}
-                  className="min-w-0 flex-1 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]"
+                  className="min-w-min flex-1 basis-0 gap-1.5 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)] lg:gap-2"
                 />
-                {!(isTransport && isBusy) && (
+                {/* The WhatsApp slot is always present so Details and Call
+                    keep the same width on every card; without WhatsApp it
+                    holds a muted, non-interactive icon. */}
+                {hasWhatsapp && !(isTransport && isBusy) ? (
                   <WhatsAppButton
                     hasWhatsApp={hasWhatsapp}
                     whatsapp={null}
                     serviceId={id}
                     listingPath={href}
                     onClick={stop}
-                    className="shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
+                    className="size-12 self-center rounded-xl shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
                   />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex size-12 shrink-0 items-center justify-center self-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#CBD5E1]"
+                  >
+                    <WhatsAppIcon />
+                  </span>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

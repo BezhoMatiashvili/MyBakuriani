@@ -7,6 +7,15 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPhone, formatPrice } from "@/lib/utils/format";
 import type { PendingMembership } from "@/app/api/admin/memberships/route";
+import { Link } from "@/i18n/navigation";
+
+// Stable review_renter_membership tokens the API forwards as `code`.
+const REVIEW_ERROR_CODES = [
+  "MEMBERSHIP_ALREADY_REVIEWED",
+  "MEMBERSHIP_ALREADY_ACTIVE",
+  "MEMBERSHIP_SEASON_ENDED",
+  "MEMBERSHIP_REQUEST_NOT_FOUND",
+] as const;
 
 export default function AdminMembershipsPage() {
   const t = useTranslations("AdminMemberships");
@@ -53,8 +62,15 @@ export default function AdminMembershipsPage() {
       });
       const payload = (await res.json().catch(() => null)) as {
         error?: string;
+        code?: (typeof REVIEW_ERROR_CODES)[number];
       } | null;
-      if (!res.ok) throw new Error(payload?.error ?? t("reviewFailed"));
+      if (!res.ok) {
+        throw new Error(
+          payload?.code && REVIEW_ERROR_CODES.includes(payload.code)
+            ? t(`errors.${payload.code}`)
+            : (payload?.error ?? t("reviewFailed")),
+        );
+      }
       setItems((current) => current.filter((row) => row.id !== item.id));
       toast.success(action === "approve" ? t("approved") : t("rejected"));
     } catch (error) {
@@ -123,6 +139,17 @@ export default function AdminMembershipsPage() {
                       <span className="rounded-md bg-[#EFF6FF] px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
                         {item.profile?.role ?? "renter"}
                       </span>
+                      {item.package?.meta?.price_tier === "fb_group_vip" && (
+                        <span className="rounded-md bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-bold text-[#B45309]">
+                          {t("fbTierBadge")}
+                        </span>
+                      )}
+                      <Link
+                        href={`/dashboard/admin/clients/${item.user_id}`}
+                        className="text-[11px] font-bold text-[#2563EB] underline"
+                      >
+                        {t("openClient")}
+                      </Link>
                     </div>
                     <p className="mt-1 text-xs font-medium text-[#64748B]">
                       {item.profile?.phone ? formatPhone(item.profile.phone) : t("noPhone")}
@@ -134,7 +161,7 @@ export default function AdminMembershipsPage() {
                         <Clock3 className="size-3.5" />
                         {t("paidAt", { date: formatDate(item.created_at, locale) })}
                       </span>
-                      <span>{t("seasonEnds", { date: formatDate(item.expires_at, locale) })}</span>
+                      <span>{t("period", { start: formatDate(item.starts_at, locale), end: formatDate(item.expires_at, locale) })}</span>
                     </div>
                   </div>
 

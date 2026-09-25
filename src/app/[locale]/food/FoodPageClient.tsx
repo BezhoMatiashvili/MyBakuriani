@@ -53,6 +53,7 @@ type PublicService = Pick<
   | "schedule"
   | "operating_hours"
   | "is_vip"
+  | "is_super_vip"
   | "created_at"
   | "best_active_menu_item_discount_percent"
 >;
@@ -115,6 +116,11 @@ export default function FoodPageClient({ services }: Props) {
         return true;
       })
       .sort((a, b) => {
+        // SUPER VIP → VIP → active menu discount → newest (2026 price list:
+        // the discount badge buys no priority over the paid VIP tiers).
+        if (Boolean(a.is_super_vip) !== Boolean(b.is_super_vip))
+          return a.is_super_vip ? -1 : 1;
+        if (Boolean(a.is_vip) !== Boolean(b.is_vip)) return a.is_vip ? -1 : 1;
         const aDiscount = isDiscountActive(
           a.best_active_menu_item_discount_percent,
           null,
@@ -124,7 +130,6 @@ export default function FoodPageClient({ services }: Props) {
           null,
         );
         if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
-        if (Boolean(a.is_vip) !== Boolean(b.is_vip)) return a.is_vip ? -1 : 1;
         return (
           new Date(b.created_at ?? 0).getTime() -
           new Date(a.created_at ?? 0).getTime()
@@ -294,6 +299,7 @@ export default function FoodPageClient({ services }: Props) {
                     }
                     discountExpiresAt={null}
                     isVip={s.is_vip ?? false}
+                    isSuperVip={s.is_super_vip ?? false}
                     variant="photo"
                     schedule={s.schedule}
                     operatingHours={s.operating_hours}

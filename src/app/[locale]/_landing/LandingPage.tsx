@@ -63,7 +63,9 @@ interface LandingPageProps {
   hotels?: Tables<"properties">[];
   saleProperties?: Tables<"properties">[];
   vipProperties?: Tables<"properties">[];
+  superVipProperties?: Tables<"properties">[];
   services?: PublicService[];
+  superVipServices?: PublicService[];
   blogPosts?: Tables<"blog_posts">[];
   bannerCreatives?: BannerCreative[];
   pricePerSqmByZone?: Record<string, number | null>;
@@ -84,6 +86,68 @@ const MONTH_KEYS = [
   "december",
 ] as const;
 
+/** HotOffersCarousel card from a public_properties row. */
+function toCarouselCard(p: Tables<"properties">) {
+  return {
+    id: p.id,
+    title: p.title,
+    location: p.location,
+    photos: p.photos ?? [],
+    pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
+    salePrice: p.sale_price ? Number(p.sale_price) : null,
+    rating: null as number | null,
+    capacity: p.capacity,
+    rooms: p.rooms,
+    isVip: p.is_vip ?? false,
+    isSuperVip: p.is_super_vip ?? false,
+    discountPercent: p.discount_percent ?? 0,
+    discountExpiresAt: p.discount_expires_at ?? null,
+    createdAt: p.created_at,
+    isForSale: p.is_for_sale ?? false,
+    distanceToSlopeM: p.distance_to_slope_m,
+  };
+}
+
+/** Landing ServiceCard props from a public_services row. */
+function toLandingServiceCard(s: PublicService) {
+  // Transport-only extras (type/seats/route) — scoped to transport so other
+  // categories' cards stay unchanged.
+  const isTransport = s.category === "transport";
+  const isFood = s.category === "food";
+  return {
+    id: s.id,
+    title: s.title,
+    category: s.category,
+    location: s.location,
+    photos: s.photos ?? [],
+    price: s.price ? Number(s.price) : null,
+    priceUnit: s.price_unit,
+    discountPercent: isFood
+      ? (s.best_active_menu_item_discount_percent ?? 0)
+      : (s.discount_percent ?? 0),
+    discountExpiresAt: isFood ? null : (s.discount_expires_at ?? null),
+    createdAt: s.created_at,
+    isVip: s.is_vip ?? false,
+    isSuperVip: s.is_super_vip ?? false,
+    schedule: s.schedule,
+    operatingHours: s.operating_hours,
+    phone: null,
+    hasWhatsapp: s.has_whatsapp ?? false,
+    providerName: null,
+    experienceYears: null,
+    availabilityStatus: null,
+    ...(isTransport
+      ? {
+          vehicleCapacity: s.vehicle_capacity,
+          transportType: s.transport_type,
+          vehicleMake: s.vehicle_make,
+          route: s.route,
+          routes: s.routes,
+        }
+      : {}),
+  };
+}
+
 // ─── Component ───────────────────────────────────────────────────────────
 
 export default function LandingPage({
@@ -93,7 +157,9 @@ export default function LandingPage({
   hotels: serverHotels,
   saleProperties: serverSaleProperties,
   vipProperties: serverVipProperties,
+  superVipProperties: serverSuperVipProperties,
   services: serverServices,
+  superVipServices: serverSuperVipServices,
   blogPosts: serverBlogPosts,
   bannerCreatives = [],
   pricePerSqmByZone,
@@ -198,26 +264,26 @@ export default function LandingPage({
     : [];
 
   const vipPropertyCards = useMemo(
-    () =>
-      (serverVipProperties ?? []).map((p) => ({
-        id: p.id,
-        title: p.title,
-        location: p.location,
-        photos: p.photos ?? [],
-        pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
-        salePrice: p.sale_price ? Number(p.sale_price) : null,
-        rating: null as number | null,
-        capacity: p.capacity,
-        rooms: p.rooms,
-        isVip: p.is_vip ?? false,
-        isSuperVip: p.is_super_vip ?? false,
-        discountPercent: p.discount_percent ?? 0,
-        discountExpiresAt: p.discount_expires_at ?? null,
-        createdAt: p.created_at,
-        isForSale: p.is_for_sale ?? false,
-        distanceToSlopeM: p.distance_to_slope_m,
-      })),
+    () => (serverVipProperties ?? []).map(toCarouselCard),
     [serverVipProperties],
+  );
+
+  // Main-page SUPER VIP section (2026 price list §2.3): rentals in this
+  // carousel, services in the rail below it, sales in SaleLandingBody.
+  const superVipPropertyCards = useMemo(
+    () =>
+      (serverSuperVipProperties ?? [])
+        .filter((p) => !p.is_for_sale)
+        .map(toCarouselCard),
+    [serverSuperVipProperties],
+  );
+  const superVipSaleProperties = useMemo(
+    () => (serverSuperVipProperties ?? []).filter((p) => p.is_for_sale),
+    [serverSuperVipProperties],
+  );
+  const superVipServiceCards = useMemo(
+    () => (serverSuperVipServices ?? []).map(toLandingServiceCard),
+    [serverSuperVipServices],
   );
 
   const filteredVipProperties = useMemo(
@@ -260,13 +326,18 @@ export default function LandingPage({
   // Group server services by category
   const servicesByCategory = (category: string) => {
     if (serverServices && serverServices.length > 0) {
-      // Transport-only extras (type/seats/route) — scoped to transport so other
-      // categories' cards stay unchanged.
-      const isTransport = category === "transport";
       const isFood = category === "food";
       return serverServices
         .filter((s) => s.category === category)
         .sort((a, b) => {
+          // SUPER VIP → VIP → active discount → newest (2026 price list: the
+          // discount badge buys no priority over the paid VIP tiers).
+          if (Boolean(a.is_super_vip) !== Boolean(b.is_super_vip)) {
+            return a.is_super_vip ? -1 : 1;
+          }
+          if (Boolean(a.is_vip) !== Boolean(b.is_vip)) {
+            return a.is_vip ? -1 : 1;
+          }
           const aDiscount = isFood
             ? isDiscountActive(a.best_active_menu_item_discount_percent, null)
             : isDiscountActive(a.discount_percent, a.discount_expires_at);
@@ -274,46 +345,13 @@ export default function LandingPage({
             ? isDiscountActive(b.best_active_menu_item_discount_percent, null)
             : isDiscountActive(b.discount_percent, b.discount_expires_at);
           if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
-          if (Boolean(a.is_vip) !== Boolean(b.is_vip)) {
-            return a.is_vip ? -1 : 1;
-          }
           return (
             new Date(b.created_at ?? 0).getTime() -
             new Date(a.created_at ?? 0).getTime()
           );
         })
         .slice(0, 4)
-        .map((s) => ({
-          id: s.id,
-          title: s.title,
-          category: s.category,
-          location: s.location,
-          photos: s.photos ?? [],
-          price: s.price ? Number(s.price) : null,
-          priceUnit: s.price_unit,
-          discountPercent: isFood
-            ? (s.best_active_menu_item_discount_percent ?? 0)
-            : (s.discount_percent ?? 0),
-          discountExpiresAt: isFood ? null : (s.discount_expires_at ?? null),
-          createdAt: s.created_at,
-          isVip: s.is_vip ?? false,
-          schedule: s.schedule,
-          operatingHours: s.operating_hours,
-          phone: null,
-          hasWhatsapp: s.has_whatsapp ?? false,
-          providerName: null,
-          experienceYears: null,
-          availabilityStatus: null,
-          ...(isTransport
-            ? {
-                vehicleCapacity: s.vehicle_capacity,
-                transportType: s.transport_type,
-                vehicleMake: s.vehicle_make,
-                route: s.route,
-                routes: s.routes,
-              }
-            : {}),
-        }));
+        .map(toLandingServiceCard);
     }
     return [];
   };
@@ -340,6 +378,7 @@ export default function LandingPage({
         mode={mode}
         onModeChange={setMode}
         saleProperties={serverSaleProperties}
+        superVipProperties={superVipSaleProperties}
         pricePerSqmByZone={pricePerSqmByZone}
         zones={zones}
         bannerCreatives={bannerCreatives}
@@ -487,6 +526,50 @@ export default function LandingPage({
       />
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
+
+      {/* ═══ 2.5 SUPER VIP — main-page section (2026 price list §2.3) ═══ */}
+      {(superVipPropertyCards.length > 0 ||
+        superVipServiceCards.length > 0) && (
+        <section className="mx-auto w-full max-w-[1160px] px-4 pt-[52px] sm:pt-8 lg:pt-10">
+          <ScrollReveal>
+            <div className="mb-6 min-w-0">
+              <h2
+                data-testid="homepage-super-vip-heading"
+                className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"
+              >
+                {t("superVipTitle")}
+              </h2>
+              <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
+                {t("superVipSubtitle")}
+              </p>
+            </div>
+          </ScrollReveal>
+          {superVipPropertyCards.length > 0 && (
+            <ScrollReveal>
+              <HotOffersCarousel properties={superVipPropertyCards} />
+            </ScrollReveal>
+          )}
+          {superVipServiceCards.length > 0 && (
+            <div className={superVipPropertyCards.length > 0 ? "mt-6" : ""}>
+              <MobileRail
+                desktopClassName="lg:gap-6 lg:pb-0"
+                desktopItemClassName="lg:w-[340px]"
+                desktopArrows
+              >
+                {superVipServiceCards.map((card, i) => (
+                  <ScrollReveal
+                    key={card.id}
+                    delay={i * 0.08}
+                    className="h-full"
+                  >
+                    <ServiceCard {...card} />
+                  </ScrollReveal>
+                ))}
+              </MobileRail>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ═══ 3. Hot Offers — VIP / Super VIP Carousel ═══ */}
       {vipPropertyCards.length > 0 && (
@@ -806,6 +889,7 @@ function ServiceSection({
     discountExpiresAt: string | null;
     createdAt: string | null;
     isVip: boolean;
+    isSuperVip?: boolean;
     schedule?: string | null;
     operatingHours?: string | null;
     phone?: string | null;

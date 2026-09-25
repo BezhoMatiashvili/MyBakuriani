@@ -67,8 +67,9 @@ async function fetchLandingServices(
         .from("public_services")
         .select("*")
         .eq("category", category)
-        .order("has_active_discount", { ascending: false })
+        .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
+        .order("has_active_discount", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(4),
     ),
@@ -93,6 +94,7 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   }
 
   const supabase = createPublicClient();
+  const nowIso = new Date().toISOString();
 
   const criticalQueries = withLandingTimeout(
     Promise.all([
@@ -108,19 +110,29 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
         .from("public_properties")
         .select("*")
         .eq("type", "hotel")
+        .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
         .limit(4),
       supabase
         .from("public_properties")
         .select("*")
         .eq("is_for_sale", true)
+        .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
         .limit(4),
       supabase
         .from("public_properties")
         .select("*")
         .eq("is_for_sale", false)
-        .or("is_vip.eq.true,is_super_vip.eq.true")
+        // VIP tiers plus listings with an active discount badge (2026 price
+        // list: the badge places a listing in the special-offers section).
+        // The timestamp is quoted — ISO strings contain PostgREST-reserved
+        // characters.
+        .or(
+          `is_vip.eq.true,is_super_vip.eq.true,and(discount_percent.gt.0,or(discount_expires_at.is.null,discount_expires_at.gt."${nowIso}"))`,
+        )
+        .order("is_super_vip", { ascending: false })
+        .order("is_vip", { ascending: false })
         .order("price_per_night", { ascending: true, nullsFirst: false })
         .limit(12),
       fetchLandingServices(supabase),
@@ -141,6 +153,30 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     "blog_posts",
   ).catch((error: unknown) => {
     logOptionalLandingError("blog_posts", error);
+    return null;
+  });
+
+  // Main-page SUPER VIP section (2026 price list §2.3). Optional like the
+  // blog: a failure hides the section instead of failing the landing render.
+  // The public views already drop expired SUPER VIP flags.
+  const superVipQuery = withLandingTimeout(
+    Promise.all([
+      supabase
+        .from("public_properties")
+        .select("*")
+        .eq("is_super_vip", true)
+        .order("created_at", { ascending: false })
+        .limit(12),
+      supabase
+        .from("public_services")
+        .select("*")
+        .eq("is_super_vip", true)
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]),
+    "super_vip",
+  ).catch((error: unknown) => {
+    logOptionalLandingError("super_vip", error);
     return null;
   });
 
@@ -177,11 +213,20 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   const vipProperties = requireLandingData("vip_properties", vipResult);
   const services = requireLandingData("services", servicesResult);
 
-  const [blogResult, aggregateResult] = await Promise.all([
+  const [blogResult, aggregateResult, superVipResults] = await Promise.all([
     blogQuery,
     aggregateQuery,
+    superVipQuery,
   ]);
   const blogPosts = optionalLandingData("blog_posts", blogResult);
+  const superVipProperties = optionalLandingData(
+    "super_vip_properties",
+    superVipResults?.[0] ?? null,
+  );
+  const superVipServices = optionalLandingData(
+    "super_vip_services",
+    superVipResults?.[1] ?? null,
+  );
   const saleAggregateRows = optionalLandingData(
     "sale_price_aggregate",
     aggregateResult,
@@ -194,6 +239,8 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     vipProperties,
     services,
     blogPosts,
+    superVipProperties,
+    superVipServices,
     pricePerSqmByZone: aggregateResult
       ? aggregatePricePerSqm(zones, saleAggregateRows)
       : emptyAggregate(zones),
@@ -379,6 +426,8 @@ async function LandingWithData() {
       hotels={props.hotels}
       saleProperties={props.saleProperties}
       vipProperties={props.vipProperties}
+      superVipProperties={props.superVipProperties}
+      superVipServices={props.superVipServices}
       services={props.services}
       blogPosts={props.blogPosts}
       bannerCreatives={bannerCreatives}

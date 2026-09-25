@@ -36,10 +36,11 @@ export default async function EntertainmentPage() {
     // Only the columns the cards + filters use — keeps the prerendered RSC
     // payload small. Keep in sync with PublicService in EntertainmentPageClient.
     .select(
-      "id, title, category, activity_category, location, photos, price, price_unit, discount_percent, discount_expires_at, is_vip, has_whatsapp, created_at",
+      "id, title, category, activity_category, location, photos, price, price_unit, discount_percent, discount_expires_at, is_vip, is_super_vip, has_whatsapp, created_at",
       { count: "exact" },
     )
     .eq("category", "entertainment")
+    .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(MAX_LISTINGS);

@@ -29,6 +29,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { sortByPromotion } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
 import {
   RENT_PRICE_MAX,
@@ -308,8 +309,10 @@ export default function SearchPageClient({
             services?: ServiceRow[];
             blog?: BlogRow[];
           };
-          setKwProperties(data?.properties ?? []);
-          setKwServices(data?.services ?? []);
+          // global_search ranks by text similarity only; paid tiers get the
+          // promised priority placement within those results.
+          setKwProperties(sortByPromotion(data?.properties ?? []));
+          setKwServices(sortByPromotion(data?.services ?? []));
           setKwBlog(data?.blog ?? []);
           setProperties([]);
           setTotalCount(0);
@@ -334,7 +337,7 @@ export default function SearchPageClient({
           currentMode,
         );
         if (search.keyword.trim()) {
-          setKwProperties(filtered);
+          setKwProperties(sortByPromotion(filtered));
           setKwServices([]);
           setKwBlog([]);
           setProperties([]);
@@ -990,6 +993,7 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
               s.category === "food" ? null : s.discount_expires_at
             }
             isVip={s.is_vip ?? false}
+            isSuperVip={s.is_super_vip ?? false}
             schedule={s.schedule}
             operatingHours={s.operating_hours}
             phone={null}

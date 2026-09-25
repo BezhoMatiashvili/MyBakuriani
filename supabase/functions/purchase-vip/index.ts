@@ -7,16 +7,6 @@ import {
   requireUser,
 } from "../_shared/guards.ts";
 
-type PurchaseType =
-  "vip_boost" | "super_vip" | "sms_package" | "discount_badge";
-
-const VALID_TYPES: readonly PurchaseType[] = [
-  "vip_boost",
-  "super_vip",
-  "sms_package",
-  "discount_badge",
-];
-
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -185,33 +175,11 @@ serve(async (req) => {
       return jsonResponse({ data }, 200, cors);
     }
 
-    // Legacy path: fall back to the original hardcoded-type RPC so any
-    // unmigrated callers keep working during rollout.
-    const purchase_type = body.purchase_type as string | undefined;
-    const days = Number.isFinite(Number(body.days)) ? Number(body.days) : 1;
-
-    if (
-      !purchase_type ||
-      !VALID_TYPES.includes(purchase_type as PurchaseType)
-    ) {
-      throw new Error("არასწორი შეძენის ტიპი");
-    }
-
-    if (!Number.isInteger(days) || days < 1 || days > 365) {
-      throw new Error("არასწორი დღეების რაოდენობა");
-    }
-
-    const { data, error } = await supabase.rpc("purchase_vip", {
-      p_user_id: user.id,
-      p_purchase_type: purchase_type,
-      p_property_id: property_id ?? null,
-      p_days: days,
-      p_service_id: service_id ?? null,
-    });
-
-    if (error) throw userSafePurchaseError(error);
-
-    return jsonResponse({ data }, 200, cors);
+    // The legacy `purchase_type` path (purchase_vip RPC) is retired: it used
+    // hardcoded prices that ignored admin pricing/is_enabled, and its discount
+    // branch never set discount_expires_at, so a 1 ₾ badge never expired. Every
+    // client sends package_id.
+    throw new ApiError("არასწორი შეძენის ტიპი", 400, "BAD_REQUEST");
   } catch (err) {
     // Best-effort failure notification. Skipped when auth itself failed
     // (no user/client). Swallow any insert error so the real error surfaces.

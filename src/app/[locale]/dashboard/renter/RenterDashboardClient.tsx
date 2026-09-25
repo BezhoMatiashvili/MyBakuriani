@@ -34,6 +34,7 @@ import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicke
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import { isSuperVipActive } from "@/lib/utils/pricing";
+import { windowsOverlap } from "@/lib/membership/plans";
 import type { Tables } from "@/lib/types/database";
 import {
   loadRenterOverview,
@@ -115,8 +116,28 @@ export default function RenterDashboardClient({
   const [membershipPendingExpiresAt, setMembershipPendingExpiresAt] = useState(
     initial.membershipPendingExpiresAt,
   );
+  const [membershipPendingStartsAt, setMembershipPendingStartsAt] = useState(
+    initial.membershipPendingStartsAt,
+  );
+  const [membershipUpcoming, setMembershipUpcoming] = useState(
+    initial.membershipUpcoming,
+  );
+  const [membershipCovered, setMembershipCovered] = useState(
+    initial.membershipCovered,
+  );
   const [membershipPlans, setMembershipPlans] = useState(
     initial.membershipPlans,
+  );
+  // Another season can still be bought while one is active (e.g. winter during
+  // summer); a plan overlapping an already-paid window is not sold.
+  const canBuyMembership = membershipPlans.some(
+    (plan) =>
+      !membershipCovered.some((window) =>
+        windowsOverlap(window, {
+          startsAt: plan.window_start,
+          expiresAt: plan.window_end,
+        }),
+      ),
   );
   // Seeded from the server render, same as everything else above — avoids a
   // client round trip (and a flash of 0) purely to re-fetch a number the page
@@ -153,6 +174,9 @@ export default function RenterDashboardClient({
       setMembershipExpiresAt(data.membershipExpiresAt);
       setMembershipPending(data.membershipPending);
       setMembershipPendingExpiresAt(data.membershipPendingExpiresAt);
+      setMembershipPendingStartsAt(data.membershipPendingStartsAt);
+      setMembershipUpcoming(data.membershipUpcoming);
+      setMembershipCovered(data.membershipCovered);
       setMembershipPlans(data.membershipPlans);
       void refreshMatches();
     }
@@ -238,7 +262,7 @@ export default function RenterDashboardClient({
               ? t("membershipPending", {
                   date: membershipPendingExpiresAt
                     ? formatDate(membershipPendingExpiresAt, locale)
-                    : t("seasonEndDate"),
+                    : "—",
                 })
               : t("membershipPrompt")}
         </p>
@@ -263,22 +287,42 @@ export default function RenterDashboardClient({
                 ? t("membershipPending", {
                     date: membershipPendingExpiresAt
                       ? formatDate(membershipPendingExpiresAt, locale)
-                      : t("seasonEndDate"),
+                      : "—",
                   })
                 : t("membershipPrompt")}
           </p>
+          {membershipUpcoming && (
+            <p className="mt-1 text-sm font-semibold text-[#15803D]">
+              {t("membershipUpcoming", {
+                start: formatDate(membershipUpcoming.startsAt, locale),
+                end: formatDate(membershipUpcoming.expiresAt, locale),
+              })}
+            </p>
+          )}
+          {membershipPending &&
+            membershipPendingStartsAt &&
+            membershipPendingExpiresAt && (
+              <p className="mt-1 text-sm font-semibold text-[#B45309]">
+                {t("membershipPendingPeriod", {
+                  start: formatDate(membershipPendingStartsAt, locale),
+                  end: formatDate(membershipPendingExpiresAt, locale),
+                })}
+              </p>
+            )}
         </div>
         <button
           type="button"
           onClick={() => setPaymentModalOpen(true)}
-          disabled={membershipPending || Boolean(membershipExpiresAt)}
+          disabled={membershipPending || !canBuyMembership}
           className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:bg-[#94A3B8] sm:w-auto"
         >
           <CreditCard className="h-4 w-4" />
-          {membershipExpiresAt
-            ? t("seasonMembershipActive")
-            : membershipPending
-              ? t("awaitingApproval")
+          {membershipPending
+            ? t("awaitingApproval")
+            : membershipExpiresAt
+              ? canBuyMembership
+                ? t("buyNextSeason")
+                : t("seasonMembershipActive")
               : t("activateMembership")}
         </button>
       </section>
@@ -426,7 +470,9 @@ export default function RenterDashboardClient({
         onClose={() => setPaymentModalOpen(false)}
         membershipExpiresAt={membershipExpiresAt}
         membershipPending={membershipPending}
+        membershipPendingStartsAt={membershipPendingStartsAt}
         membershipPendingExpiresAt={membershipPendingExpiresAt}
+        membershipCovered={membershipCovered}
         walletBalance={walletBalance}
         plans={membershipPlans}
         onPurchased={async () => {
@@ -438,6 +484,9 @@ export default function RenterDashboardClient({
           setMembershipExpiresAt(data.membershipExpiresAt);
           setMembershipPending(data.membershipPending);
           setMembershipPendingExpiresAt(data.membershipPendingExpiresAt);
+          setMembershipPendingStartsAt(data.membershipPendingStartsAt);
+          setMembershipUpcoming(data.membershipUpcoming);
+          setMembershipCovered(data.membershipCovered);
           setMembershipPlans(data.membershipPlans);
         }}
       />

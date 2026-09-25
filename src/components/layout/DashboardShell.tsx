@@ -29,6 +29,7 @@ import {
 } from "@/lib/dashboard/orgScope";
 import {
   dashboardScopeForPath,
+  dashboardScopeFromRoute,
   type DashboardScope,
   type DashboardUnreadCounts,
 } from "@/lib/notifications/scopes";
@@ -484,11 +485,20 @@ export function DashboardShell({
     // /dashboard/sms is the renter cabinet's SMS Center — always show the renter
     // sidebar (the link only exists there and the page is renter-gated), so
     // multi-cabinet users don't get bounced to their primary-role sidebar.
-    return cabinet === "sms" ? "renter" : cabinet;
+    if (cabinet === "sms") return "renter";
+    // /dashboard/account (sign-in methods + notification channels) belongs to
+    // the whole account, not one cabinet, so it renders inside the user's own
+    // cabinet shell. Falling through to the generic DashboardSidebar showed a
+    // raw i18n key and guest-only links on desktop, and no header on mobile.
+    if (cabinet === "account") return null;
+    return cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;
   const normalizedPath = pathname.replace(/^\/(ka|en|ru)(?=\/|$)/, "") || "/";
-  const activeScope = dashboardScopeForPath(pathname) ?? "guest";
+  const activeScope =
+    dashboardScopeForPath(pathname) ??
+    dashboardScopeFromRoute(activeRole) ??
+    "guest";
   const notificationCount = unreadCounts[activeScope] ?? 0;
   // Shared with DashboardNotificationsFeedProvider below (guest/cleaner/admin
   // only) so useNotifications() can reuse this state instead of duplicating it.

@@ -1892,20 +1892,128 @@ export type Database = {
           },
         ];
       };
+      payment_refunds: {
+        Row: {
+          amount: number;
+          created_at: string;
+          id: string;
+          last_error: string | null;
+          payment_id: string;
+          provider_status: string | null;
+          reason: string | null;
+          requested_by: string | null;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          payment_id: string;
+          provider_status?: string | null;
+          reason?: string | null;
+          requested_by?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          status?: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          payment_id?: string;
+          provider_status?: string | null;
+          reason?: string | null;
+          requested_by?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_refunds_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_refunds_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_refunds_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_refunds_resolved_by_fkey";
+            columns: ["resolved_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_refunds_resolved_by_fkey";
+            columns: ["resolved_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_refunds_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_refunds_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payments: {
         Row: {
           amount: number;
           card_brand: string | null;
           card_last4: string | null;
+          checkout_url: string | null;
           completed_at: string | null;
           created_at: string;
+          credited_at: string | null;
           currency: string;
           id: string;
+          last_checked_at: string | null;
           last_error: string | null;
           metadata: Json | null;
+          provider: string;
+          provider_status: string | null;
+          provider_transaction_id: string | null;
           purpose: string;
           reference_id: string | null;
+          refunded_amount: number;
+          resume: Json | null;
+          resume_claimed_at: string | null;
           return_path: string | null;
+          review_flag: string | null;
           status: string;
           user_id: string;
         };
@@ -1913,15 +2021,25 @@ export type Database = {
           amount: number;
           card_brand?: string | null;
           card_last4?: string | null;
+          checkout_url?: string | null;
           completed_at?: string | null;
           created_at?: string;
+          credited_at?: string | null;
           currency?: string;
           id?: string;
+          last_checked_at?: string | null;
           last_error?: string | null;
           metadata?: Json | null;
+          provider?: string;
+          provider_status?: string | null;
+          provider_transaction_id?: string | null;
           purpose?: string;
           reference_id?: string | null;
+          refunded_amount?: number;
+          resume?: Json | null;
+          resume_claimed_at?: string | null;
           return_path?: string | null;
+          review_flag?: string | null;
           status?: string;
           user_id: string;
         };
@@ -1929,15 +2047,25 @@ export type Database = {
           amount?: number;
           card_brand?: string | null;
           card_last4?: string | null;
+          checkout_url?: string | null;
           completed_at?: string | null;
           created_at?: string;
+          credited_at?: string | null;
           currency?: string;
           id?: string;
+          last_checked_at?: string | null;
           last_error?: string | null;
           metadata?: Json | null;
+          provider?: string;
+          provider_status?: string | null;
+          provider_transaction_id?: string | null;
           purpose?: string;
           reference_id?: string | null;
+          refunded_amount?: number;
+          resume?: Json | null;
+          resume_claimed_at?: string | null;
           return_path?: string | null;
+          review_flag?: string | null;
           status?: string;
           user_id?: string;
         };
@@ -4941,6 +5069,52 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      keepz_apply_payment_status: {
+        Args: {
+          p_payment_id: string;
+          p_provider_status: string;
+          p_transaction_id?: string;
+        };
+        Returns: Json;
+      };
+      keepz_begin_refund: {
+        Args: {
+          p_admin_id: string;
+          p_amount: number;
+          p_payment_id: string;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
+      keepz_open_payment: {
+        Args: {
+          p_amount: number;
+          p_payment_id: string;
+          p_resume?: Json;
+          p_return_path: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      keepz_resolve_refund: {
+        Args: {
+          p_actor_id?: string;
+          p_error?: string;
+          p_outcome: string;
+          p_provider_status?: string;
+          p_refund_id: string;
+        };
+        Returns: Json;
+      };
+      keepz_update_refund: {
+        Args: {
+          p_error?: string;
+          p_provider_status?: string;
+          p_refund_id: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
       listing_analytics: {
         Args: { p_days?: number; p_listing_id: string; p_listing_type: string };
         Returns: Json;
@@ -5023,9 +5197,33 @@ export type Database = {
         Args: { p_booking_id: string };
         Returns: number;
       };
-      renter_membership_season_end: {
-        Args: { p_at?: string; p_end_day?: number; p_end_month?: number };
-        Returns: string;
+      renter_membership_plans: {
+        Args: never;
+        Returns: {
+          amount_gel: number;
+          code: string;
+          id: string;
+          label: string;
+          name: string;
+          price_tier: string;
+          season: string;
+          sort_order: number;
+          window_end: string;
+          window_start: string;
+        }[];
+      };
+      renter_membership_season_window: {
+        Args: {
+          p_at: string;
+          p_end_day: number;
+          p_end_month: number;
+          p_start_day: number;
+          p_start_month: number;
+        };
+        Returns: {
+          window_end: string;
+          window_start: string;
+        }[];
       };
       request_organization_membership: {
         Args: { p_org_id: string };
@@ -5394,6 +5592,7 @@ export type Database = {
           p_amount: number;
           p_dashboard_scope?: string;
           p_description?: string;
+          p_reference_id?: string;
           p_user_id: string;
         };
         Returns: number;
@@ -5522,7 +5721,8 @@ export type Database = {
         | "withdrawal"
         | "commission"
         | "sms_send"
-        | "membership_refund";
+        | "membership_refund"
+        | "card_refund";
       user_role:
         | "guest"
         | "renter"
@@ -5733,6 +5933,7 @@ export const Constants = {
         "commission",
         "sms_send",
         "membership_refund",
+        "card_refund",
       ],
       user_role: [
         "guest",

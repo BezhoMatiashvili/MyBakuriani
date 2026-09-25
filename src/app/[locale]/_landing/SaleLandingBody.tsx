@@ -41,6 +41,7 @@ interface SaleLandingBodyProps {
   mode: "rent" | "sale";
   onModeChange: (mode: "rent" | "sale") => void;
   saleProperties?: Tables<"properties">[];
+  superVipProperties?: Tables<"properties">[];
   pricePerSqmByZone?: Record<string, number | null>;
   zones: Zone[];
   bannerCreatives?: BannerCreative[];
@@ -82,12 +83,37 @@ function estimatedRoi(id: string): number {
   return 9 + (hash % 9); // 9–17%
 }
 
+/** SalePropertyCard props from a public_properties sale row. */
+function toSaleCard(p: Tables<"properties">) {
+  return {
+    id: p.id,
+    title: p.title,
+    location: p.location,
+    photos: Array.isArray(p.photos) ? (p.photos as string[]) : [],
+    priceUsd: toUsd(p.sale_price ? Number(p.sale_price) : null),
+    type: p.type,
+    area: p.area_sqm ?? null,
+    rooms: p.rooms,
+    // estimatedRoi is synthetic (derived from the id), so nulling
+    // roi_percent in the DB does not suppress it — a bare plot has no
+    // rental yield, so skip it here.
+    roi: p.type === "land" ? undefined : estimatedRoi(p.id),
+    constructionStatus: p.construction_status ?? null,
+    constructionProgressPercent: p.construction_progress_percent ?? null,
+    discountPercent: p.discount_percent ?? 0,
+    discountExpiresAt: p.discount_expires_at ?? null,
+    createdAt: p.created_at,
+    paymentOptions: readPaymentOptions(p.house_rules),
+  };
+}
+
 // ─── Component ──────────────────────────────────────────────────────────
 
 export default function SaleLandingBody({
   mode,
   onModeChange,
   saleProperties,
+  superVipProperties,
   pricePerSqmByZone,
   zones,
   bannerCreatives = [],
@@ -135,31 +161,15 @@ export default function SaleLandingBody({
   );
 
   // Build card data — prefer DB, fall back to mocks.
-  const saleCards = useMemo(() => {
-    if (saleProperties && saleProperties.length > 0) {
-      return saleProperties.map((p) => ({
-        id: p.id,
-        title: p.title,
-        location: p.location,
-        photos: Array.isArray(p.photos) ? (p.photos as string[]) : [],
-        priceUsd: toUsd(p.sale_price ? Number(p.sale_price) : null),
-        type: p.type,
-        area: p.area_sqm ?? null,
-        rooms: p.rooms,
-        // estimatedRoi is synthetic (derived from the id), so nulling
-        // roi_percent in the DB does not suppress it — a bare plot has no
-        // rental yield, so skip it here.
-        roi: p.type === "land" ? undefined : estimatedRoi(p.id),
-        constructionStatus: p.construction_status ?? null,
-        constructionProgressPercent: p.construction_progress_percent ?? null,
-        discountPercent: p.discount_percent ?? 0,
-        discountExpiresAt: p.discount_expires_at ?? null,
-        createdAt: p.created_at,
-        paymentOptions: readPaymentOptions(p.house_rules),
-      }));
-    }
-    return [];
-  }, [saleProperties]);
+  const saleCards = useMemo(
+    () => (saleProperties ?? []).map(toSaleCard),
+    [saleProperties],
+  );
+  // Main-page SUPER VIP section (2026 price list §2.3) — sale listings.
+  const superVipCards = useMemo(
+    () => (superVipProperties ?? []).map(toSaleCard),
+    [superVipProperties],
+  );
 
   const gridCards = useMemo(
     () =>
@@ -318,6 +328,37 @@ export default function SaleLandingBody({
       <BannerSlotView placement="home_top_strip" creatives={bannerCreatives} />
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
+
+      {/* ═══ SUPER VIP — main-page section (2026 price list §2.3) ═══ */}
+      {superVipCards.length > 0 && (
+        <section className="px-4 py-12 lg:py-16">
+          <div className="mx-auto max-w-[1180px]">
+            <ScrollReveal>
+              <div className="mb-8">
+                <h2
+                  data-testid="homepage-super-vip-heading"
+                  className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"
+                >
+                  {t("superVipTitle")}
+                </h2>
+                <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
+                  {t("superVipSubtitle")}
+                </p>
+              </div>
+            </ScrollReveal>
+            <MobileRail
+              desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:items-stretch lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
+              desktopItemClassName="lg:h-full lg:w-auto lg:snap-none"
+            >
+              {superVipCards.map((card) => (
+                <ScrollReveal key={card.id} className="h-full">
+                  <SalePropertyCard {...card} />
+                </ScrollReveal>
+              ))}
+            </MobileRail>
+          </div>
+        </section>
+      )}
 
       {/* ═══ Sales grid ═══ */}
       <section className="bg-[#F8FAFC] px-4 py-12 lg:py-16">

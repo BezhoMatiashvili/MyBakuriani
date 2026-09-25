@@ -63,7 +63,7 @@ export function NotificationPreferences({
   }
 
   return (
-    <section className="rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:p-6">
+    <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-6">
       <h2 className="text-[16px] font-black tracking-[-0.3px] text-[#0F172A]">
         {t("title")}
       </h2>
@@ -108,7 +108,9 @@ export function NotificationPreferences({
         />
       </div>
 
-      <div className="mt-5 flex items-center justify-end gap-3">
+      {/* Phones: full-width save with the status line under it, matching the
+          other settings forms' mobile buttons. */}
+      <div className="mt-5 flex flex-col-reverse items-stretch gap-2 text-center sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:text-left">
         {status === "saved" ? (
           <span className="text-[12px] font-semibold text-emerald-600">
             {t("saved")}
@@ -123,7 +125,7 @@ export function NotificationPreferences({
           type="button"
           onClick={save}
           disabled={saving}
-          className="inline-flex h-11 min-w-[140px] items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60 sm:w-auto sm:min-w-[140px]"
         >
           {saving ? <Loader2 className="size-4 animate-spin" /> : null}
           {t("save")}
@@ -148,25 +150,30 @@ function Row({
   disabled?: boolean;
   onChange: (value: boolean) => void;
 }) {
+  // Phones: label + switch share the first line and the help text spans the
+  // full row below them, instead of being squeezed into the column beside the
+  // switch (this card is nested inside other cards on the profile pages).
+  // From sm up the switch spans both lines, i.e. the original desktop layout.
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-2 text-[13px] font-bold text-[#0F172A]">
-          {label}
-          {badge ? (
-            <span className="rounded-full bg-[#E2E8F0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[#64748B]">
-              {badge}
-            </span>
-          ) : null}
-        </p>
-        <p className="mt-1 text-[12px] leading-[18px] text-[#64748B]">{help}</p>
-      </div>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 sm:gap-x-4 sm:p-4">
+      <p className="flex flex-wrap items-center gap-2 text-[13px] font-bold text-[#0F172A]">
+        {label}
+        {badge ? (
+          <span className="rounded-full bg-[#E2E8F0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[#64748B]">
+            {badge}
+          </span>
+        ) : null}
+      </p>
       <Switch
         checked={checked}
         onCheckedChange={onChange}
         disabled={disabled}
         aria-label={label}
+        className="sm:row-span-2"
       />
+      <p className="col-span-2 text-[12px] leading-[18px] text-[#64748B] sm:col-span-1">
+        {help}
+      </p>
     </div>
   );
 }

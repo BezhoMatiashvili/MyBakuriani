@@ -46,6 +46,7 @@ type TransportService = Pick<
   | "discount_percent"
   | "discount_expires_at"
   | "is_vip"
+  | "is_super_vip"
   | "has_whatsapp"
   | "profile_is_verified"
   | "transport_type"
@@ -249,6 +250,7 @@ export default function TransportPageClient({ services }: Props) {
                     discountPercent={s.discount_percent ?? 0}
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
+                    isSuperVip={s.is_super_vip ?? false}
                     isVerified={s.profile_is_verified ?? false}
                     phone={null}
                     hasWhatsapp={s.has_whatsapp ?? false}

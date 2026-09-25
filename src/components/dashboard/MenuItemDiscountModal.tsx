@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchPricingPackages,
   getPackageDisplay,
+  packageDurationHours,
   packageForPromotionTier,
   type PricingPackage,
 } from "@/lib/pricing-packages";
@@ -203,6 +204,20 @@ export default function MenuItemDiscountModal({
                 </div>
               ) : (
                 <Skeleton className="h-11 rounded-xl" />
+              )}
+
+              {pkg && (
+                <div className="space-y-1 text-[11px] leading-4 text-[#64748B]">
+                  <p>
+                    <span className="font-bold text-[#0F172A]">
+                      {tShared("confirmPayment.validity")}:
+                    </span>{" "}
+                    {tShared("purchaseTerms.hours", {
+                      hours: packageDurationHours(pkg) * quantity,
+                    })}
+                  </p>
+                  <p>{tShared("purchaseTerms.startsNow")}</p>
+                </div>
               )}
 
               {error && (

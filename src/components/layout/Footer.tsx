@@ -1,8 +1,15 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { ChevronDown } from "lucide-react";
 import { CONSENT_OPEN_EVENT } from "@/lib/consent/cookies";
+
+// Bottom-bar legal links: 44px-tall centred grid cells on phones, inline in
+// one wrapping row from sm up. On phones the letter-spacing drops, as it does
+// for the whole bottom bar: at 1px a long single word ("კონფიდენციალურობის",
+// "КОНФИДЕНЦИАЛЬНОСТИ") outgrows its half-width cell. The explicit class also
+// overrides the cookie button's own tracking.
+const LEGAL_LINK_CLASS =
+  "flex min-h-11 items-center justify-center text-center leading-[14px] transition-colors hover:text-white max-sm:tracking-normal sm:min-h-0 sm:whitespace-nowrap";
 
 export function Footer() {
   const t = useTranslations("Footer");
@@ -11,7 +18,7 @@ export function Footer() {
     { label: t("allListings"), href: "/apartments" },
     { label: t("howItWorks"), href: "/faq" },
     { label: t("verification"), href: "/faq" },
-    { label: t("pricing"), href: "/apartments" },
+    { label: t("pricing"), href: "/pricing" },
   ];
 
   const serviceLinks = [
@@ -33,25 +40,24 @@ export function Footer() {
   return (
     <footer className="border-t border-white/[0.05] bg-[#0B1C2D] text-white">
       <div className="mx-auto max-w-[1160px] px-4 py-10 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
-        <div className="sm:hidden">
-          <FooterBrand description={t("brandDescription")} />
-          <div className="mt-8 divide-y divide-white/10 border-y border-white/10">
-            <FooterDetails title={t("platform")} links={platformLinks} />
-            <FooterDetails title={t("services")} links={serviceLinks} />
-            <FooterDetails title={t("help")} links={helpLinks} />
-          </div>
-        </div>
-
-        <div className="hidden gap-10 sm:grid sm:grid-cols-2 sm:gap-x-20 sm:gap-y-12 lg:grid-cols-4">
+        {/* One layout for every width, so phones list exactly the desktop
+            links (they used to be collapsed behind accordions). Phones: the
+            brand spans both columns, Platform and Help stack on the left and
+            Services spans both rows on the right, which keeps the reading
+            order Platform → Services → Help. */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:gap-x-20 sm:gap-y-12 lg:grid-cols-4">
           {/* Brand column */}
-          <FooterBrand description={t("brandDescription")} />
+          <FooterBrand
+            description={t("brandDescription")}
+            className="col-span-2 sm:col-span-1"
+          />
 
           {/* Platform */}
           <div>
-            <h3 className="mb-6 text-base font-bold text-white">
+            <h3 className="mb-2 text-base font-bold text-white sm:mb-6">
               {t("platform")}
             </h3>
-            <ul className="flex flex-col gap-[16px]">
+            <ul className="flex flex-col sm:gap-[16px]">
               {platformLinks.map((link) => (
                 <li key={link.label}>
                   <Link
@@ -67,11 +73,11 @@ export function Footer() {
           </div>
 
           {/* Services */}
-          <div>
-            <h3 className="mb-6 text-base font-bold text-white">
+          <div className="row-span-2 sm:row-span-1">
+            <h3 className="mb-2 text-base font-bold text-white sm:mb-6">
               {t("services")}
             </h3>
-            <ul className="flex flex-col gap-[16px]">
+            <ul className="flex flex-col sm:gap-[16px]">
               {serviceLinks.map((link) => (
                 <li key={link.label}>
                   <Link
@@ -88,8 +94,10 @@ export function Footer() {
 
           {/* Help */}
           <div>
-            <h3 className="mb-6 text-base font-bold text-white">{t("help")}</h3>
-            <ul className="flex flex-col gap-[16px]">
+            <h3 className="mb-2 text-base font-bold text-white sm:mb-6">
+              {t("help")}
+            </h3>
+            <ul className="flex flex-col sm:gap-[16px]">
               {helpLinks.map((link) => (
                 <li key={link.label}>
                   <Link
@@ -106,32 +114,28 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-7 text-center text-[10px] font-bold uppercase tracking-[1px] text-white/60 sm:mt-16 lg:mt-20 lg:pt-8">
+        <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-7 text-center text-[10px] font-bold uppercase tracking-[1px] text-white/60 max-sm:tracking-normal sm:mt-16 lg:mt-20 lg:pt-8">
           <span>{t("copyright", { year: new Date().getFullYear() })}</span>
           {/* prefetch={false}: the footer sits on every page, so these two
               prefetched a full RSC payload (~30 KB each) on every page view for
               routes almost nobody opens. Suppressing it frees the connection
               during the window the user is actually clicking something else.
               The links themselves are unchanged. */}
-          <div className="flex gap-6">
-            <Link
-              href="/privacy"
-              prefetch={false}
-              className="transition-colors hover:text-white"
-            >
+          {/* Phones: a centred 2x2 grid of full-height tap targets. A single
+              row does not fit — in Georgian the four labels are ~650px wide at
+              this tracking, so the old no-wrap row ran off both screen edges
+              and split words mid-label. From sm up: one row that wraps. */}
+          <div className="grid w-full max-w-[400px] grid-cols-2 gap-x-4 sm:flex sm:w-auto sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-x-6 sm:gap-y-2">
+            <Link href="/privacy" prefetch={false} className={LEGAL_LINK_CLASS}>
               {t("privacyPolicy")}
             </Link>
-            <Link
-              href="/terms"
-              prefetch={false}
-              className="transition-colors hover:text-white"
-            >
+            <Link href="/terms" prefetch={false} className={LEGAL_LINK_CLASS}>
               {t("termsOfService")}
             </Link>
             <Link
               href="/marketing-policy"
               prefetch={false}
-              className="transition-colors hover:text-white"
+              className={LEGAL_LINK_CLASS}
             >
               {t("marketingPolicy")}
             </Link>
@@ -144,7 +148,7 @@ export function Footer() {
               onClick={() =>
                 window.dispatchEvent(new Event(CONSENT_OPEN_EVENT))
               }
-              className="uppercase tracking-[1px] transition-colors hover:text-white"
+              className={`${LEGAL_LINK_CLASS} uppercase tracking-[1px]`}
             >
               {t("cookieSettings")}
             </button>
@@ -205,9 +209,15 @@ export function Footer() {
   );
 }
 
-function FooterBrand({ description }: { description: string }) {
+function FooterBrand({
+  description,
+  className = "",
+}: {
+  description: string;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col gap-5 lg:gap-[23px]">
+    <div className={`flex flex-col gap-5 lg:gap-[23px] ${className}`}>
       <Link
         href="/"
         aria-label="MyBakuriani"
@@ -253,34 +263,5 @@ function SocialLink({
         {children}
       </svg>
     </a>
-  );
-}
-
-function FooterDetails({
-  title,
-  links,
-}: {
-  title: string;
-  links: Array<{ label: string; href: string }>;
-}) {
-  return (
-    <details className="group">
-      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between text-sm font-bold text-white marker:content-none">
-        {title}
-        <ChevronDown className="size-4 text-white/60 transition-transform group-open:rotate-180" />
-      </summary>
-      <ul className="space-y-1 pb-4">
-        {links.map((link) => (
-          <li key={link.label}>
-            <Link
-              href={link.href}
-              className="flex min-h-11 items-center text-sm text-white/60 transition-colors hover:text-white"
-            >
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </details>
   );
 }

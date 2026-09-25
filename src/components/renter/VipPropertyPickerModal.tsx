@@ -27,14 +27,17 @@ export interface PickerProperty {
   standardVipDisabled?: boolean;
 }
 
+// Prices come only from pricing_packages (the `pkg` prop). The hardcoded
+// per-tier fallback prices that used to live here went stale with every
+// price-list change (e.g. the discount badge showed 1.00 ₾ while loading).
 const TIER_KEYS: Record<
   VipInfoTier,
-  { titleKey: "superVip" | "vip" | "discount" | "sms"; price: string }
+  { titleKey: "superVip" | "vip" | "discount" | "sms" }
 > = {
-  "super-vip": { titleKey: "superVip", price: "5.00 ₾" },
-  vip: { titleKey: "vip", price: "1.50 ₾" },
-  discount: { titleKey: "discount", price: "1.00 ₾" },
-  sms: { titleKey: "sms", price: "10.00 ₾" },
+  "super-vip": { titleKey: "superVip" },
+  vip: { titleKey: "vip" },
+  discount: { titleKey: "discount" },
+  sms: { titleKey: "sms" },
 };
 
 interface VipPropertyPickerModalProps {
@@ -218,19 +221,31 @@ export default function VipPropertyPickerModal({
         ? "SUPER VIP"
         : tInfo(`${tierMeta.titleKey}.title`);
 
-  const meta = useMemo(
-    () => ({
-      title,
-      price: tierMeta.price,
-      unit: t(`units.${tierMeta.titleKey}`),
-    }),
-    [title, tierMeta.price, tierMeta.titleKey, t],
-  );
+  const meta = useMemo(() => ({ title }), [title]);
 
   const totalPrice = useMemo(
     () => (pkg ? (pkg.amountGel * quantity).toFixed(2) : null),
     [pkg, quantity],
   );
+
+  // Shown in the confirm dialog before payment (pricing rules §6: price,
+  // validity and main conditions).
+  const purchaseConditions =
+    tier === "sms"
+      ? [tShared("purchaseTerms.smsConsent")]
+      : [
+          tInfo(`${tierMeta.titleKey}.what`),
+          tShared("purchaseTerms.startsNow"),
+          ...(tier === "super-vip"
+            ? [tShared("purchaseTerms.superReplacesVip")]
+            : []),
+          tShared("purchaseTerms.notPublication"),
+        ];
+  const purchaseValidity = pkg
+    ? tier === "sms"
+      ? tShared("purchaseTerms.smsNoExpiry")
+      : tShared("purchaseTerms.hours", { hours: pkg.durationHours * quantity })
+    : undefined;
 
   const submitForReview = async () => {
     if (!hasValidSelection || reviewSubmitting) return;
@@ -514,12 +529,10 @@ export default function VipPropertyPickerModal({
                           </span>
                         </>
                       ) : (
-                        <>
-                          {meta.price}
-                          <span className="ml-1 text-[12px] font-bold text-[#94A3B8]">
-                            {meta.unit}
-                          </span>
-                        </>
+                        <span
+                          aria-hidden
+                          className="inline-block h-6 w-20 animate-pulse rounded-lg bg-[#E2E8F0] align-middle"
+                        />
                       )}
                     </p>
                   </div>
@@ -561,9 +574,11 @@ export default function VipPropertyPickerModal({
         priceLabel={
           pkg
             ? `${totalPrice} ₾ ${t("daysCount", { count: quantity })}`
-            : `${meta.price} ${meta.unit}`
+            : "—"
         }
         description={properties.find((p) => p.id === selectedId)?.title}
+        validity={purchaseValidity}
+        conditions={purchaseConditions}
         lockScroll={false}
       />}
     </>

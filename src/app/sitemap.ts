@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/employment",
   "/blog",
   "/faq",
+  "/pricing",
   "/contact",
   "/terms",
   "/privacy",

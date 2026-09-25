@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import {
+  MEMBERSHIP_PRICE_TIERS,
+  MEMBERSHIP_SEASONS,
+  SEASON_BOUNDS,
+  type MembershipPriceTier,
+  type MembershipSeason,
+} from "@/lib/membership/plans";
 import { toast } from "sonner";
 import DateField from "@/components/shared/DateField";
 import Modal from "@/components/shared/Modal";
@@ -71,6 +78,9 @@ export default function CreatePackageModal({
   const [vipTier, setVipTier] = useState<string>("standard");
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
+  const [season, setSeason] = useState<MembershipSeason>("summer");
+  const [priceTier, setPriceTier] =
+    useState<MembershipPriceTier>("standard");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -102,6 +112,10 @@ export default function CreatePackageModal({
       setValidTo(
         typeof meta.valid_to === "string" ? (meta.valid_to as string) : "",
       );
+      setSeason(meta.season === "winter" ? "winter" : "summer");
+      setPriceTier(
+        meta.price_tier === "fb_group_vip" ? "fb_group_vip" : "standard",
+      );
     } else {
       setName("");
       setLabel("");
@@ -112,6 +126,8 @@ export default function CreatePackageModal({
       setVipTier("standard");
       setValidFrom("");
       setValidTo("");
+      setSeason("summer");
+      setPriceTier("standard");
     }
   }, [isOpen, editPackage]);
 
@@ -162,10 +178,17 @@ export default function CreatePackageModal({
       meta.duration_hours = Number(durationHours);
       meta.tier = vipTier;
     } else if (effectiveCategory === "subscription" && isRenterMembership) {
+      // 2026 price list: summer Apr 1 – Oct 31 / winter Nov 1 – Mar 31, and a
+      // Facebook-group VIP rate vs the standard one (lib/membership/plans).
+      const bounds = SEASON_BOUNDS[season];
       meta.subscription_scope = "renter";
       meta.billing_period = "seasonal";
-      meta.season_end_month = 3;
-      meta.season_end_day = 15;
+      meta.season = season;
+      meta.price_tier = priceTier;
+      meta.season_start_month = bounds.start[0];
+      meta.season_start_day = bounds.start[1];
+      meta.season_end_month = bounds.end[0];
+      meta.season_end_day = bounds.end[1];
       delete meta.duration_months;
       delete meta.valid_from;
       delete meta.valid_to;
@@ -305,10 +328,51 @@ export default function CreatePackageModal({
 
         {effectiveCategory === "subscription" &&
         (editPackage?.meta?.subscription_scope === "renter" || !editPackage) ? (
-          <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-[#0F172A]">
-              {t("membershipDuration")}
-            </label>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="membership-season"
+                  className="text-[12px] font-bold text-[#0F172A]"
+                >
+                  {t("membershipSeason")}
+                </label>
+                <select
+                  id="membership-season"
+                  value={season}
+                  onChange={(e) => setSeason(e.target.value as MembershipSeason)}
+                  className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none"
+                >
+                  {MEMBERSHIP_SEASONS.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`membershipSeasons.${value}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="membership-tier"
+                  className="text-[12px] font-bold text-[#0F172A]"
+                >
+                  {t("membershipTier")}
+                </label>
+                <select
+                  id="membership-tier"
+                  value={priceTier}
+                  onChange={(e) =>
+                    setPriceTier(e.target.value as MembershipPriceTier)
+                  }
+                  className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none"
+                >
+                  {MEMBERSHIP_PRICE_TIERS.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`membershipTiers.${value}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <p className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5 text-sm font-semibold text-[#1D4ED8]">
               {t("seasonalMembership")}
             </p>

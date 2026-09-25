@@ -72,6 +72,36 @@ export function applyDiscount(
   return price * (1 - (discountPercent as number) / 100);
 }
 
+type PromotedRow = {
+  is_vip?: boolean | null;
+  is_super_vip?: boolean | null;
+};
+
+function promotionRank(row: PromotedRow): number {
+  if (row.is_super_vip) return 0;
+  if (row.is_vip) return 1;
+  return 2;
+}
+
+/**
+ * Stable re-sort: SUPER VIP first, then VIP, keeping the incoming order (e.g.
+ * keyword relevance) inside each tier. The 2026 price list promises paid tiers
+ * priority placement in search results, while global_search itself ranks by
+ * text similarity only. Rows come from the public views, whose flags are
+ * already expiry-aware.
+ */
+export function sortByPromotion<T extends PromotedRow>(
+  rows: readonly T[],
+): T[] {
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort(
+      (a, b) =>
+        promotionRank(a.row) - promotionRank(b.row) || a.index - b.index,
+    )
+    .map(({ row }) => row);
+}
+
 // Whole days left, rounded up (23h left still reads as "1 day" — never round
 // down a badge that's about to go stale). Null means nothing to show: no
 // expiry, or already expired. Callers still gate the surrounding badge on
@@ -83,4 +113,12 @@ export function daysRemaining(
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (ms <= 0) return null;
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+// Package prices exactly as the price list prints them: whole lari without
+// decimals ("5 ₾"), anything else with two ("1.50 ₾"). formatPrice rounds to
+// whole lari, which would turn the 1.50 ₾ VIP price into "2 ₾".
+export function formatGelAmount(amount: number): string {
+  const value = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+  return `${value} ₾`;
 }

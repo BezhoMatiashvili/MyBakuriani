@@ -14,6 +14,10 @@ interface ConfirmPaymentModalProps {
   priceLabel: string;
   balance?: number | null;
   lockScroll?: boolean;
+  /** Validity period shown before payment (pricing rules §6). Omitted → not rendered. */
+  validity?: string;
+  /** Main conditions of the service, one per line. Omitted/empty → not rendered. */
+  conditions?: string[];
 }
 
 export default function ConfirmPaymentModal({
@@ -25,6 +29,8 @@ export default function ConfirmPaymentModal({
   priceLabel,
   balance,
   lockScroll = true,
+  validity,
+  conditions,
 }: ConfirmPaymentModalProps) {
   const t = useTranslations("DashboardShared");
   const [loading, setLoading] = useState(false);
@@ -73,6 +79,30 @@ export default function ConfirmPaymentModal({
             </p>
           )}
         </div>
+        {(validity || (conditions && conditions.length > 0)) && (
+          <div className="space-y-2 text-[12px] leading-[18px] text-[#475569]">
+            {validity && (
+              <p>
+                <span className="font-bold text-[#0F172A]">
+                  {t("confirmPayment.validity")}:
+                </span>{" "}
+                {validity}
+              </p>
+            )}
+            {conditions && conditions.length > 0 && (
+              <div>
+                <p className="font-bold text-[#0F172A]">
+                  {t("confirmPayment.conditions")}
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {conditions.map((condition) => (
+                    <li key={condition}>{condition}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
         {error && (
           <div className="flex items-start gap-2 rounded-xl bg-[#FEF2F2] p-3 text-[13px] font-medium text-[#DC2626]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />

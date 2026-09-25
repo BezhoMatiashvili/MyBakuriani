@@ -6,7 +6,16 @@ import { TEST_IDS } from "../helpers/seed";
 
 const RENTER_MEMBERSHIP_PACKAGE_IDS = {
   season: "aae2ff00-e101-4000-a000-000000000001",
+  winter: "aae2ff00-e101-4000-a000-000000000002",
 } as const;
+
+/** Month-day of an instant on the Tbilisi calendar, e.g. "10-31". */
+const tbilisiMonthDay = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tbilisi",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
 
 const RENTER_BLACKLIST_CASES = {
   newPhone: "+995599800101",
@@ -736,26 +745,55 @@ test.describe("Renter membership", () => {
 
   test.beforeAll(async () => {
     await clearMemberships();
-    await supabaseAdmin.from("pricing_packages").upsert({
-      id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
-      category: "subscription",
-      code: "e2e-renter-membership-season",
-      name: "E2E renter membership — season",
-      label: "Season",
-      amount_gel: 30,
-      is_enabled: true,
-      sort_order: 990,
-      meta: {
-        subscription_scope: "renter",
-        billing_period: "seasonal",
-        season_end_month: 3,
-        season_end_day: 15,
+    // 2026 price list: summer runs Apr 1 – Oct 31, winter Nov 1 – Mar 31, and the
+    // Facebook-group VIP rate is 30 ₾ (see lib/membership/plans SEASON_BOUNDS).
+    await supabaseAdmin.from("pricing_packages").upsert([
+      {
+        id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+        category: "subscription",
+        code: "e2e-renter-membership-season",
+        name: "E2E renter membership — season",
+        label: "Season",
+        amount_gel: 30,
+        is_enabled: true,
+        sort_order: 990,
+        meta: {
+          subscription_scope: "renter",
+          billing_period: "seasonal",
+          season: "summer",
+          price_tier: "fb_group_vip",
+          season_start_month: 4,
+          season_start_day: 1,
+          season_end_month: 10,
+          season_end_day: 31,
+        },
       },
-    });
+      {
+        id: RENTER_MEMBERSHIP_PACKAGE_IDS.winter,
+        category: "subscription",
+        code: "e2e-renter-membership-winter",
+        name: "E2E renter membership — winter",
+        label: "Winter",
+        amount_gel: 60,
+        is_enabled: true,
+        sort_order: 991,
+        meta: {
+          subscription_scope: "renter",
+          billing_period: "seasonal",
+          season: "winter",
+          price_tier: "standard",
+          season_start_month: 11,
+          season_start_day: 1,
+          season_end_month: 3,
+          season_end_day: 31,
+        },
+      },
+    ]);
+    // upsert, not update: the seed does not create a balance row, so the suite
+    // must not depend on an earlier spec having created one.
     await supabaseAdmin
       .from("balances")
-      .update({ amount: 500 })
-      .eq("user_id", TEST_IDS.renter);
+      .upsert({ user_id: TEST_IDS.renter, amount: 500 });
   });
 
   test.afterAll(async () => {
@@ -782,6 +820,41 @@ test.describe("Renter membership", () => {
     await expect(
       renterPage.getByText("აქტიური წევრობა არ გაქვთ"),
     ).toBeVisible();
+  });
+
+  test("the membership dialog lists both seasons and requires the Facebook-group declaration", async ({
+    renterPage,
+  }) => {
+    await clearMemberships();
+    await supabaseAdmin.from("balances").update({ amount: 500 }).eq("user_id", TEST_IDS.renter);
+    await renterPage.goto("/dashboard/renter");
+    if (!(await assertDashboard(renterPage, "/dashboard/renter"))) return;
+    await expect(
+      renterPage.getByText("გაააქტიურეთ გამქირავებლის წევრობა"),
+    ).toBeVisible();
+
+    const dialog = renterPage.getByRole("dialog");
+    // The button is server-rendered; retry until hydration wires up the click.
+    await expect(async () => {
+      await renterPage.getByRole("button", { name: "წევრობის გააქტიურება" }).click();
+      await expect(dialog).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+    await expect(dialog.getByTestId("membership-season-summer")).toBeVisible();
+    await expect(dialog.getByTestId("membership-season-winter")).toBeVisible();
+
+    const pay = dialog.getByRole("button", {
+      name: "გადახდა და დასადასტურებლად გაგზავნა",
+    });
+    await dialog.getByTestId("membership-plan-e2e-renter-membership-season").click();
+    const declaration = dialog.getByTestId("membership-fb-declaration");
+    await expect(declaration).toBeVisible();
+    await expect(pay).toBeDisabled();
+    await declaration.check();
+    await expect(pay).toBeEnabled();
+
+    await dialog.getByTestId("membership-plan-e2e-renter-membership-winter").click();
+    await expect(declaration).toBeHidden();
+    await expect(pay).toBeEnabled();
   });
 
   test("only a current active subscription is shown as valid", async ({ renterPage }) => {
@@ -853,8 +926,10 @@ test.describe("Renter membership", () => {
       .single();
     expect(subscription?.status).toBe("pending_approval");
     expect(Number(subscription?.amount_paid)).toBe(30);
-    expect(new Date(subscription!.expires_at).getMonth()).toBe(2);
-    expect(new Date(subscription!.expires_at).getDate()).toBe(15);
+    expect(tbilisiMonthDay(subscription!.expires_at)).toBe("10-31");
+    expect(Date.parse(subscription!.starts_at)).toBeLessThan(
+      Date.parse(subscription!.expires_at),
+    );
 
     const duplicate = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
@@ -910,8 +985,50 @@ test.describe("Renter membership", () => {
     expect(activated?.status).toBe("active");
     expect(activated?.reviewed_by).toBe(TEST_IDS.admin);
     expect(activated?.reviewed_at).toBeTruthy();
-    expect(new Date(activated!.expires_at).getMonth()).toBe(2);
-    expect(new Date(activated!.expires_at).getDate()).toBe(15);
+    expect(tbilisiMonthDay(activated!.expires_at)).toBe("10-31");
+  });
+
+  test("an approved season allows pre-buying the other season but not the same one", async () => {
+    await clearMemberships();
+    await supabaseAdmin.from("balances").update({ amount: 500 }).eq("user_id", TEST_IDS.renter);
+    const summer = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+    });
+    expect(summer.error).toBeNull();
+    const approval = await supabaseAdmin.rpc("review_renter_membership", {
+      p_subscription_id: (summer.data as { subscription_id: string }).subscription_id,
+      p_admin_id: TEST_IDS.admin,
+      p_action: "approve",
+    });
+    expect(approval.error).toBeNull();
+
+    const sameSeason = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+    });
+    expect(sameSeason.error?.message).toContain("MEMBERSHIP_ALREADY_ACTIVE");
+
+    const winter = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.winter,
+    });
+    expect(winter.error).toBeNull();
+    const { data: pending } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("status, starts_at, expires_at, amount_paid")
+      .eq("id", (winter.data as { subscription_id: string }).subscription_id)
+      .single();
+    expect(pending?.status).toBe("pending_approval");
+    expect(Number(pending?.amount_paid)).toBe(60);
+    expect(tbilisiMonthDay(pending!.expires_at)).toBe("03-31");
+
+    const { data: balance } = await supabaseAdmin
+      .from("balances")
+      .select("amount")
+      .eq("user_id", TEST_IDS.renter)
+      .single();
+    expect(Number(balance?.amount)).toBe(410);
   });
 
   test("admin rejection refunds exactly once", async () => {

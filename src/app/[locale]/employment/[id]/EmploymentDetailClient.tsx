@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   optionKeyFor,
@@ -37,7 +38,7 @@ import { revalidatePublicService } from "@/app/actions/revalidateListing";
 import { shareListing } from "@/lib/share";
 import type { Tables } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
-import { formatDate } from "@/lib/utils/format";
+import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import DateField, { toISODate } from "@/components/shared/DateField";
@@ -177,6 +178,7 @@ export default function EmploymentDetailClient({
 }: Props) {
   const router = useRouter();
   const t = useTranslations("EmploymentDetail");
+  const tShared = useTranslations("Shared");
   const tShare = useTranslations("ShareListing");
   const locale = useLocale();
   const owner = service.profiles;
@@ -195,6 +197,33 @@ export default function EmploymentDetailClient({
     return key ? tOpts(`${group}.${key}`) : value;
   };
   const scheduleRaw = service.work_schedule ?? service.employment_schedule;
+
+  // "Additional conditions" renders twice: a compact card under the stat tiles
+  // below `lg` (where the aside would otherwise stack under the whole form)
+  // and the sticky sidebar card from `lg`. Both read these rows.
+  const conditionRows = [
+    {
+      label: t("sidebar.salaryModel"),
+      value: salaryModelLabel(service.salary_type),
+    },
+    ...(service.accommodation
+      ? [
+          {
+            label: t("sidebar.accommodation"),
+            value: optLabel("accommodationOptions", service.accommodation),
+          },
+        ]
+      : []),
+    ...(service.meals
+      ? [
+          {
+            label: t("sidebar.meals"),
+            value: optLabel("mealsOptions", service.meals),
+          },
+        ]
+      : []),
+  ];
+  const conditionLanguages = service.languages ?? [];
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -347,16 +376,20 @@ export default function EmploymentDetailClient({
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
-      <div className="mb-6 flex items-center justify-between">
+      {/* One line on phones: an icon-only share button and a compact date
+          ("24 სექ 2026") keep back + share + date within 360px; from `sm` the
+          full pill and "გამოქვეყნდა: …" text fit, as before. Screen readers
+          get the full published text at every width. */}
+      <div className="mb-6 flex items-center justify-between gap-2">
         <motion.button
           {...fadeIn}
           onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+          className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-[#64748B] transition-colors hover:text-[#1E293B] sm:min-h-0"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t("backToSearch")}
+          {tShared("back")}
         </motion.button>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() =>
@@ -366,26 +399,33 @@ export default function EmploymentDetailClient({
               })
             }
             aria-label={tShare("label")}
-            className="flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+            className="flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC] sm:size-auto sm:px-3.5 sm:py-2"
           >
             <Share2 className="h-4 w-4" />
-            {tShare("label")}
+            <span className="hidden sm:inline">{tShare("label")}</span>
           </button>
           {service.created_at && (
             <motion.div
               {...fadeIn}
-              className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
+              className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
             >
-              <ClockIcon className="h-3.5 w-3.5" />
-              {t("publishedAt", {
-                date: formatDate(service.created_at, locale),
-              })}
+              <ClockIcon className="h-3.5 w-3.5 shrink-0" />
+              <span aria-hidden className="min-w-0 truncate sm:hidden">
+                {format(new Date(service.created_at), "d MMM yyyy", {
+                  locale: getDateFnsLocale(locale),
+                })}
+              </span>
+              <span className="sr-only sm:not-sr-only">
+                {t("publishedAt", {
+                  date: formatDate(service.created_at, locale),
+                })}
+              </span>
             </motion.div>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] lg:gap-8">
         <div>
           <motion.div
             {...fadeIn}
@@ -470,6 +510,45 @@ export default function EmploymentDetailClient({
                   : t("stats.preferred")
               }
             />
+          </motion.div>
+
+          <motion.div
+            {...fadeIn}
+            transition={{ duration: 0.4, delay: 0.28 }}
+            className="mt-3 rounded-[16px] border border-[#E2E8F0] bg-white p-4 lg:hidden"
+          >
+            <h2 className="mb-3 text-[15px] font-black text-[#0F172A]">
+              {t("sidebar.title")}
+            </h2>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+              {conditionRows.map((row) => (
+                <div key={row.label} className="min-w-0">
+                  <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                    {row.label}
+                  </dt>
+                  <dd className="mt-1 text-[14px] font-black leading-[18px] text-[#0F172A]">
+                    {row.value}
+                  </dd>
+                </div>
+              ))}
+              {conditionLanguages.length > 0 && (
+                <div className="min-w-0">
+                  <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                    {t("sidebar.preferredLanguages")}
+                  </dt>
+                  <dd className="mt-1.5 flex flex-wrap gap-1">
+                    {conditionLanguages.map((lang) => (
+                      <span
+                        key={lang}
+                        className="rounded-[6px] border border-[#E2E8F0] bg-white px-2 py-0.5 text-[11px] font-bold text-[#475569]"
+                      >
+                        {optLabel("languages", lang)}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              )}
+            </dl>
           </motion.div>
 
           {service.description && (
@@ -900,37 +979,25 @@ export default function EmploymentDetailClient({
           transition={{ duration: 0.4, delay: 0.2 }}
           className="space-y-4"
         >
-          <div className="sticky top-24 rounded-[20px] border border-[#E2E8F0] bg-white p-6">
+          <div className="sticky top-24 hidden rounded-[20px] border border-[#E2E8F0] bg-white p-6 lg:block">
             <h3 className="mb-5 text-[18px] font-black text-[#0F172A]">
               {t("sidebar.title")}
             </h3>
             <dl className="divide-y divide-[#E2E8F0]">
-              <SidebarRow
-                label={t("sidebar.salaryModel")}
-                value={salaryModelLabel(service.salary_type)}
-              />
-              {service.accommodation && (
+              {conditionRows.map((row) => (
                 <SidebarRow
-                  label={t("sidebar.accommodation")}
-                  value={optLabel(
-                    "accommodationOptions",
-                    service.accommodation,
-                  )}
+                  key={row.label}
+                  label={row.label}
+                  value={row.value}
                 />
-              )}
-              {service.meals && (
-                <SidebarRow
-                  label={t("sidebar.meals")}
-                  value={optLabel("mealsOptions", service.meals)}
-                />
-              )}
-              {service.languages?.length ? (
+              ))}
+              {conditionLanguages.length > 0 ? (
                 <div className="pt-4">
                   <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
                     {t("sidebar.preferredLanguages")}
                   </dt>
                   <dd className="mt-2 flex flex-wrap gap-2">
-                    {service.languages.map((lang) => (
+                    {conditionLanguages.map((lang) => (
                       <span
                         key={lang}
                         className="rounded-[8px] border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-bold text-[#475569]"
@@ -943,7 +1010,10 @@ export default function EmploymentDetailClient({
               ) : null}
             </dl>
           </div>
-          <BannerSlot placement="detail_sidebar" />
+          {/* Below lg the conditions card above is hidden, so this banner is
+              the aside's only content; its own margin (not the grid gap)
+              separates it from the form, leaving no gap when no banner runs. */}
+          <BannerSlot placement="detail_sidebar" className="mt-8 lg:mt-0" />
         </motion.aside>
       </div>
 

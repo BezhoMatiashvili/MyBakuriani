@@ -36,10 +36,11 @@ export default async function ServicesPage() {
     // Only the columns the service cards + filters use — keeps the prerendered
     // RSC payload small. Keep in sync with PublicService in ServicesPageClient.
     .select(
-      "id, title, category, position, location, photos, price, price_unit, discount_percent, discount_expires_at, schedule, operating_hours, is_vip, has_whatsapp, created_at",
+      "id, title, category, position, location, photos, price, price_unit, discount_percent, discount_expires_at, schedule, operating_hours, is_vip, is_super_vip, has_whatsapp, created_at",
       { count: "exact" },
     )
     .in("category", ["handyman", "cleaning"])
+    .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(MAX_LISTINGS);

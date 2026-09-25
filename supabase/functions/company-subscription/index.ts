@@ -7,13 +7,19 @@ import {
   requireUser,
 } from "../_shared/guards.ts";
 
-// Activate a company subscription package (ENTRY / PRO / PREMIUM). The price and
+// Activate a company subscription package (START / PRO / PREMIUM / PREMIUM+ —
+// tier codes entry / pro / premium / premium_plus). The price and
 // apartment cap are resolved server-side from pricing_packages by the RPC, and
 // the owner's personal balance is debited atomically. Mirrors purchase-vip:
 // requireUser validates the JWT, and user.id (never client input) is passed as
 // the payer so a caller cannot charge someone else's balance.
-type Tier = "entry" | "pro" | "premium";
-const VALID_TIERS: readonly Tier[] = ["entry", "pro", "premium"];
+type Tier = "entry" | "pro" | "premium" | "premium_plus";
+const VALID_TIERS: readonly Tier[] = [
+  "entry",
+  "pro",
+  "premium",
+  "premium_plus",
+];
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

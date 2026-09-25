@@ -47,6 +47,7 @@ type EmploymentListing = Pick<
   | "discount_percent"
   | "discount_expires_at"
   | "is_vip"
+  | "is_super_vip"
   | "created_at"
 >;
 
@@ -56,7 +57,7 @@ interface Props {
 }
 
 function deriveBadge(s: EmploymentListing): "urgent" | "vip" | null {
-  if (s.is_vip) return "vip";
+  if (s.is_super_vip || s.is_vip) return "vip";
   if (s.discount_percent && s.discount_percent > 0) return "urgent";
   return null;
 }
@@ -271,7 +272,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                     description={s.description}
                     badge={deriveBadge(s)}
                     applicationsCount={cvCounts[s.id] ?? 0}
-                    highlighted={s.is_vip ?? false}
+                    highlighted={Boolean(s.is_super_vip || s.is_vip)}
                   />
                 </ScrollReveal>
               ))}

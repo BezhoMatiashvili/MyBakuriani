@@ -159,6 +159,15 @@ visibility. `useCadastralTaken`'s duplicate check also queries the raw table
 and is correspondingly unaffected: it must catch a duplicate regardless of
 either row's visibility.
 
+**Search gap closed 2026-09-25 (`20260925121000_global_search_respect_cadastral_visibility.sql`):**
+the sentence above was not true for `global_search`, the SECURITY DEFINER RPC
+behind the `search` edge function's keyword path. It reads the raw
+`properties` table and matched `q` against `cadastral_code` (ILIKE) and ranked
+by similarity to it regardless of `cadastral_code_public`, so whether a listing
+appeared in anonymous keyword results revealed a hidden code one prefix at a
+time. Both terms are now gated on `p.cadastral_code_public`. Any new read path
+that matches or ranks on the raw column must apply the same gate.
+
 **Verified 2026-07-25:** every hand-edit above was probed against the live schema
 (column types, nullability, defaults, and `pg_get_functiondef` for each RPC) and
 matches. The file is truthful for everything C17/C18 touch; it remains stale for
@@ -321,6 +330,12 @@ Mapbox link alongside the OSM/ODbL one, not folded into it.
 
 **Breaks silently when:** a body field is renamed on one side only → runtime 400 /
 missing field, no compile error.
+
+**2026-09-25 (staging only):** `company-subscription` was redeployed to staging
+as v4 with `VALID_TIERS` += `premium_plus` (**C11**, **C31**);
+`scripts/check-contracts.mjs` now compares that array with
+`src/lib/org-tiers.ts:COMPANY_TIERS`. Prod still runs the 3-tier bundle, so the
+prod rollout must redeploy it together with `20260925133000`.
 
 ---
 
@@ -665,7 +680,7 @@ Participating symbols:
 
 - `supabase/migrations/20260721110000_purchase_package_service_targets.sql:purchase_package` — CURRENT body: 6-arg signature with `p_service_id`; drops both prior overloads first (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement; same trap the earlier `20260719095704_discount_percent_choice_drop_old_overload.sql` existed for). `discount` tier branch validates `p_discount_percent` is `[1,90]` and sets `discount_percent`/`discount_expires_at` on the targeted table (supersedes the property-only version in `20260719095438_discount_percent_choice.sql`). **Security fix, `supabase/migrations/20260905121000_purchase_package_subscription_scope_default_deny.sql` (2026-09-05):** the `category='subscription'` branch's "legacy fixed-date package" `ELSE` (any `subscription_scope` other than `'organization'` — rejected — or `'renter'` — routed to its own reviewed activation) used to insert a `user_subscriptions` row with no `status` given, which defaults to `'active'`. This let any authenticated user buy an _unrelated_ enabled subscription-category package (live-verified: `pricing_packages` code `developer-pro`, `meta={}`) and get an instantly-active membership row indistinguishable from an admin-approved one via `purchase_renter_membership` (see `20260819121000_seasonal_renter_membership_approval.sql`), fully bypassing that admin-review workflow. The `ELSE` now unconditionally `RAISE EXCEPTION`s — only an explicit `subscription_scope='renter'` can activate through this RPC. `purchase_package` is `service_role`-only (`EXECUTE` revoked from `anon`/`authenticated`) and its sole caller is `supabase/functions/purchase-vip/index.ts`, which already routes `subscription_scope='renter'` packages to `purchase_renter_membership` instead — so this RPC's own `'renter'` branch is presently unreachable dead code, kept rather than removed since deleting it wasn't part of the fix. The `developer-pro` (and disabled `seller-basic`) `pricing_packages` rows are very likely leftover/test data with no real `subscription_scope` — flagged to the project owner, not deleted here (a data decision outside this fix's scope)
 - `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role (current trigger BODY now lives in `20260719140000_org_auto_link_sale_listings.sql`, which re-declares it verbatim + an owner org-attach exception — see **C11**; discount-field guarding is unchanged)
-- `supabase/functions/purchase-vip/index.ts:serve` — validates `discount_percent` from the request body ([1,90] or null) and forwards it as `p_discount_percent`
+- `supabase/functions/purchase-vip/index.ts:serve` — validates `discount_percent` from the request body ([1,90] or null) and forwards it as `p_discount_percent`. **Since 2026-09-25 a request without `package_id` is rejected (400)**: the legacy `purchase_type` fallback to the `purchase_vip` RPC was removed because it charged hardcoded prices (ignoring `pricing_packages.amount_gel`/`is_enabled`) and its `discount_badge` branch set `discount_percent = 10` without `discount_expires_at`, i.e. a permanent 1 ₾ badge (`isDiscountActive` treats NULL expiry as active and `clearExpiredDiscounts` skips it). All 8 clients already sent `package_id`. The `purchase_vip` RPC itself is kept (service_role-only, used directly by `e2e/dashboards/renter.spec.ts`) — do not re-wire it to a client path without fixing that branch
 - `src/components/renter/VipPropertyPickerModal.tsx:VipPropertyPickerModal` — renders the percent stepper (only when `tier === "discount"`) and passes the chosen value through `onConfirm`; the percent can also be derived from a typed target price (second, synced "ახალი ფასი" field — shown only when the caller supplies `PickerProperty.price`, i.e. `is_for_sale ? sale_price : price_per_night`; rounds to nearest whole percent and snaps the price on blur). Client-side sugar only — the wire contract still carries just the integer percent
 - `src/components/balance/PropertyBalanceClient.tsx:handleConfirmPurchase` — forwards `discountPercent` into the `purchase-vip` invoke body
 - `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — per-table sweep over `properties` AND `services`: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
@@ -718,6 +733,16 @@ own explicitly-handled branch rather than falling through; or `create_booking`'s
 `v_days > 365` cap is loosened/removed — reopens the unbounded-range
 `calendar_blocks` lockout (2026-09-05 fix) on a still-deployed, still
 JWT-reachable edge function that no `src/` code calls today.
+
+**2026-09-25 (staging, 2026 price list — see C31):** the `vip/discount` package
+is 2.50 ₾ per 24 h (`20260925130000`), and `20260925131000` zeroed every legacy
+_permanent_ discount (`discount_percent > 0 AND discount_expires_at IS NULL`,
+left by the retired `purchase_vip` path) on both listing tables.
+`isDiscountActive` keeps its fail-open NULL rule — nothing writes a NULL expiry
+any more. Separately, `public_properties` / `public_services` now mask
+`is_vip` / `is_super_vip` as false once `vip_expires_at` has passed
+(`20260925132000`), so an expired VIP stops being promoted within the page
+cache window instead of waiting for the daily `vip-lifecycle` sweep.
 
 ---
 
@@ -773,6 +798,16 @@ auto-linked and the edit picker is sale-only); or a new personal-scope dashboard
 query filters only `owner_id` (org listings leak back into the personal view);
 or a new `organizations`/`organization_members` policy reintroduces the inline
 cross-subquery (42P17 on every read).
+
+**Four company tiers since `20260925133000` (staging):** `entry` (displayed
+START) · `pro` · `premium` · `premium_plus` (PREMIUM+, unlimited). The code list
+is a string coupling across the `organization_subscriptions.tier` CHECK, both
+rank `CASE` lists in `purchase_company_subscription`, the `company-<tier>`
+package codes, `supabase/functions/company-subscription/index.ts:VALID_TIERS`
+and `src/lib/org-tiers.ts:COMPANY_TIERS`; `check-contracts` (edge vs TS) and
+`check-db-contracts` (CHECK vs TS, package codes vs TS) compare all of them.
+Transaction and notification texts now use the package name, not
+`upper(p_tier)`.
 
 ---
 
@@ -1469,7 +1504,10 @@ Participating symbols:
 - `supabase/migrations/20260727130000_scoped_dashboard_notifications.sql:assign_notification_dashboard_scope`
   — BEFORE INSERT safety net; **since 20260727160000 it covers ONLY the seller branch**
 - `src/lib/hooks/useNotifications.ts:useNotifications` — scoped bell/feed reader; also owns `markAllRead`
-- `src/components/layout/DashboardShell.tsx:recountUnread` — live per-cabinet badge recount
+- `src/components/layout/DashboardShell.tsx:recountUnread` — live per-cabinet badge recount.
+  The badge shown is `unreadCounts[activeScope]`, where `activeScope` is the
+  URL's scope or, for a cabinet-less route (`/dashboard/account`), the scope of
+  the cabinet shell it renders in — never a silent `guest` fallback there
 - `src/app/[locale]/dashboard/layout.tsx:LayoutData` — reads the `unread_counts` jsonb key
 
 **There is no longer ANY fallback for `payment_success`.** `20260727160000` deleted the trigger's
@@ -1565,6 +1603,21 @@ may therefore enqueue fresh future automation without resending a retired messag
 Legacy `DELETE` audit events remain visible as `legacy_deleted` but are never restorable because the
 source row and its foreign-key state no longer exist. There is no cancellation reason, restore expiry,
 or team permission expansion in this contract.
+
+**Manual-booking reviews are moderated (2026-09-25,
+`20260925120000_manual_reviews_require_moderation.sql`).** The review link from
+`/api/renter/manual-bookings/[id]/review-link` is returned to the HOST to
+forward, so the host can always submit it. `submit_manual_booking_review` runs
+as `service_role`, which `enforce_review_lifecycle` skips, and it used to insert
+without a status — the column default `'approved'` published a host's
+self-review instantly. It now inserts `status = 'pending'`; approval goes through
+the existing admin reviews queue (`/api/admin/reviews/moderate`). The rating
+trigger (`on_review_rating_change` → `update_property_rating`, replacing
+`on_review_insert`) now averages **only approved** reviews into the owner's
+`profiles.rating` and re-runs on INSERT, DELETE and UPDATE of
+`status`/`rating`/`property_id`, so approve/hide/remove is reflected. Never let a
+service-role review writer rely on the column default, and never compute a
+public rating from non-approved rows.
 
 ---
 
@@ -1694,6 +1747,12 @@ or a new menu-item write path bypasses the `self_service_*` RPCs (the protective
 direct writes to the discount columns from a non-`service_role` session, but any other column would
 write through unvalidated).
 
+**Price source (2026-09-25, staging):** `self_service_activate_menu_item_discount`
+prices a dish discount from the same `vip/discount` package the listing discount
+badge uses, so the 2026 price list's 2.50 ₾ / 24 h (`20260925130000`) also
+applies per dish per 24 h. A separate food price needs its own package row, not
+a change to that one.
+
 ---
 
 ## C22 — Per-listing analytics: only three metrics, all event-backed
@@ -1796,6 +1855,13 @@ the shared expiry predicate (expired listings stay disabled); a picker caller om
 `standardVipDisabled` (the row looks selectable but fails at payment); a purchase
 writer bypasses both RPCs (the table trigger still protects flags, but its error
 mapping is lost); or the migration and edge function deploy out of order.
+
+**Ranking consequence (2026-09-25, see C31):** because activating SUPER VIP
+clears `is_vip`, any ordering that sorts `is_vip` first sinks SUPER VIP listings
+below standard VIP. Every public grid, landing row, `/food`, hot offers and the
+keyword-search re-sort therefore order `is_super_vip` → `is_vip` → active
+discount → newest (`src/lib/utils/pricing.ts:sortByPromotion` for client-side
+re-sorts), and `ServiceCard` takes an explicit `isSuperVip` prop for its badge.
 
 ---
 
@@ -2296,6 +2362,20 @@ write" rule from **C7**). `check-db-contracts` keeps `KNOWN_DEAD = []`: a NEW
 subscription on an unpublished table fails the check, and an entry that goes
 stale fails it too.
 
+**Added 2026-09-25 (C11, C31):** `check-contracts` compares the
+`company-subscription` edge `VALID_TIERS` with `COMPANY_TIERS`, and the rental
+posting gate's SQL `HINT` (newest migration defining
+`enforce_private_rental_membership`) with `RENTAL_MEMBERSHIP_REQUIRED_HINT`;
+`check-db-contracts` compares the `organization_subscriptions.tier` CHECK with
+`COMPANY_TIERS`, requires every enabled organization package code to name a
+tier, and validates every enabled renter package's season meta with
+`validateRenterMembershipMeta` (at most one enabled per season/price tier; an
+empty slot is a warning). Each new check was shown to fail on a mutated copy.
+**Not checked:** that the `properties_require_rental_membership` trigger exists
+— `schema_contract_snapshot` has no trigger list (the same gap leaves **C30**'s
+derivation trigger unchecked); its behaviour is covered by the SQL matrix
+recorded in **C31**.
+
 **Deliberately not checked (yet):** `property_type` fan-out into the sale form,
 `SaleSearchBox`, `FilterPanel` and `listing-options.ts` (**C13**'s other silent
 participants) — a grep for `"land"` in those files would be satisfied by a
@@ -2384,6 +2464,14 @@ Participating symbols:
   mounted on `/dashboard/account` and `/dashboard/guest/profile`. It sends
   EVERY channel on every save, so both pages must SELECT every consent column
   — a missing one is silently recorded as `false` (declined)
+- `src/components/layout/MobileBottomNav.tsx:accountItem` — the ONLY phone
+  route to `/dashboard/account` (desktop reaches it from the `CabinetSwitcher`
+  dropdown inside the cabinet sidebars, which are `hidden lg:flex`). Added 2026-09-24:
+  before it, a renter/seller/cleaner/food/services user on a phone had no way
+  to reach the marketing-channel switches, i.e. no way to withdraw consent,
+  which policy v2 §4 requires to be as easy as giving it. The page renders in
+  the user's own cabinet shell (`DashboardShell:cabinetFromPath` returns null
+  for `account`), not the legacy generic sidebar
 - `src/components/consent/ConsentChoices.tsx:submitConsentChoices` — the shared
   first-answer checkboxes (terms, privacy, four unchecked marketing channels)
   used by `ConsentForm` (gate + `/consent-required`) AND the registration
@@ -2424,3 +2512,103 @@ marketing sender reads a consent column directly instead of calling
 built is exactly where this will be tempting); or `ConsentGate`'s re-check is
 narrowed back to `[userId]` (the gate stops appearing after registration until a
 reload).
+
+---
+
+## C31 — Paid services: 2026 price list, seasonal membership & the rental posting gate
+
+**Invariant (2026-09-25, staging only — prod has none of this yet):** the owner's
+price list "MyBakuriani ფასების ცხრილი და განმარტებები 2026" is enforced by
+package data plus code, and every paid entry point shows price, validity and main
+conditions before payment. Posting a rental (hotels included) requires an
+**active, started** seasonal renter membership; the database is the authority.
+
+Participating symbols:
+
+- `supabase/migrations/20260925130000_pricing_2026_package_rows.sql` — absolute
+  package values: VIP 1.50 ₾ / discount badge 2.50 ₾ / SUPER VIP 5 ₾ per 24 h;
+  SMS 100/10 "SMS პაკეტი", 200/20 "Standard SMS", 250/25 "Pro SMS"; company
+  START/PRO/PREMIUM; disables `sms/starter` and `subscription/developer-pro`.
+  Package codes are stable (e2e and `packageForPromotionTier` use `boost`,
+  `vip24`, `discount`). Change package data by migration only — editing a
+  subscription package in admin settings notifies every renter and seller
+- `supabase/migrations/20260925134000_seasonal_renter_membership_windows.sql:renter_membership_season_window`
+  — the ONLY place a season instance is computed (Asia/Tbilisi; winter wraps the
+  year; summer Apr 1 – Oct 31, winter Nov 1 – Mar 31, both to 23:59:59.999999)
+- `…:renter_membership_plans` — SECURITY INVOKER read model the renter
+  dashboard and `PaymentModal` use (enabled seasonal renter packages + window)
+- `…:purchase_renter_membership` — stores the window on the pending row
+  (`starts_at = greatest(now(), season start)`); `MEMBERSHIP_ALREADY_ACTIVE`
+  means "overlaps an active or pending remaining window", so pre-buying the
+  other season is allowed
+- `…:review_renter_membership` — approval keeps the stored window
+  (`starts_at = greatest(now(), stored)`); `MEMBERSHIP_SEASON_ENDED` once the
+  stored expiry has passed (reject → the existing automatic refund)
+- `src/lib/membership/plans.ts:validateRenterMembershipMeta` / `:SEASON_BOUNDS`
+  — the package meta shape (`subscription_scope`, `billing_period: 'seasonal'`,
+  `season`, `price_tier` ∈ `fb_group_vip | standard`, start/end month/day). Used
+  by `src/app/api/admin/pricing-packages/route.ts` (one enabled package per
+  season/price tier), `CreatePackageModal` and `check-db-contracts`
+- `src/lib/membership/plans.ts:isMembershipActiveAt` / `:deriveMembershipState`
+  / `:rentalPostingGate` — the TS twin of the gate predicate
+  (`status = 'active' AND starts_at <= now() AND expires_at > now()`)
+- `supabase/migrations/20260925135000_private_rental_membership_gate.sql:enforce_private_rental_membership`
+  — trigger `properties_require_rental_membership`, BEFORE INSERT OR UPDATE OF
+  `is_for_sale`; **current body in
+  `20260925136000_rental_gate_covers_approved_flips.sql`**. Raises `42501` with
+  HINT `RENTAL_MEMBERSHIP_REQUIRED` for a rental insert (`is_for_sale` false
+  **or NULL**) by a non-member, and for **every** sale→rental flip whose owner
+  has no active membership — whoever writes it. Only writes without a JWT
+  (migrations, SQL editor, pg_cron) are fully exempt; `service_role` and admins
+  are exempt for INSERT only. The flip is gated for them because
+  `approve_content_change_request` applies an owner-submitted `is_for_sale`
+  change under `service_role` (and `is_for_sale` is reviewable, **C14**): the
+  first version exempted that path and a sale → approved flip produced a rental
+  without a membership (found in review, reproduced, fixed 2026-09-25). Sales
+  pass; edits of existing rentals are never gated. SECURITY DEFINER because
+  `user_subscriptions` RLS only exposes the caller's own rows
+- `src/app/[locale]/create/rental/page.tsx` — create-mode pre-check (banner +
+  CTA to `/dashboard/renter` + `/pricing`; step 0 blocks) and a catch that maps
+  the HINT via `isRentalMembershipRequiredError`
+- `src/components/renter/PaymentModal.tsx` — both seasons with dates; the
+  Facebook-group VIP rate (30 ₾) needs a self-declaration checkbox and is
+  verified by an admin (`AdminMemberships.fbTierBadge`); a false claim is
+  rejected and refunded
+- `src/components/shared/ConfirmPaymentModal.tsx` — optional `validity` /
+  `conditions`, passed by the VIP picker, every SMS confirm and the company-tier
+  confirm; `MenuItemDiscountModal` and the membership `PaymentModal` render
+  their own validity and conditions
+- `src/lib/utils/pricing.ts:formatGelAmount` — package prices as printed
+  ("1.50 ₾", "5 ₾"); never `formatPrice`, which rounds 1.50 to "2 ₾"
+- `src/app/[locale]/pricing/page.tsx` — public ISR page (`revalidate = 60`,
+  cookie-free `createPublicClient`, server-only `Pricing` namespace) reading
+  enabled `pricing_packages`; linked from the footer "ფასები" and the sitemap
+
+**Verification recipe (the trigger itself is not script-checked, see C29):** the
+14-case DO-block matrix in the pricing session log — non-member rental / hotel /
+NULL `is_for_sale` / sale→rental flip, future-only, pending and expired members
+→ `42501/RENTAL_MEMBERSHIP_REQUIRED`; sale insert, existing-rental updates,
+`service_role`/admin inserts, active member, member flip → allowed; flips by
+`service_role`, by an admin and through `approve_content_change_request` for a
+non-member owner → blocked; a flip without a JWT → allowed. Wire shape:
+`POST /rest/v1/properties` as a non-member returns 403
+`{"code":"42501","hint":"RENTAL_MEMBERSHIP_REQUIRED",…}`.
+
+**Also check:** a first-time owner (zero properties) must still be able to buy a
+membership — neither `purchase-vip`'s renter branch nor
+`purchase_renter_membership` may require an owned rental, or the gate becomes a
+deadlock. The deployed staging web app runs committed code, so until this
+change ships the old create form shows a generic error for a blocked insert.
+`vip-lifecycle`'s 48 h expiry warning predates 24 h packages and fires on every
+purchase (known follow-up).
+
+**Breaks silently when:** a renter package is enabled without
+`season_start_*` meta (purchase raises `MEMBERSHIP_PACKAGE_NOT_SEASONAL` —
+`check-db-contracts` catches it); the gate trigger is dropped (posting is
+ungated, no error anywhere, no automated check); the HINT literal changes on
+one side only (the form falls back to a generic error — `check-contracts`
+catches it); the flip exemption is widened back to `service_role` or admins
+(content-change approval silently converts a non-member's sale into a rental
+again); a new paid dialog passes a price but no validity/conditions; a query
+orders `is_vip` before `is_super_vip` (**C23**); or package prices are
+formatted with `formatPrice`.
