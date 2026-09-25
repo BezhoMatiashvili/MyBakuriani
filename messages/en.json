@@ -230,7 +230,8 @@
       "myOrganizations": "My Organizations",
       "myCompany": "My Company",
       "companies": "Companies",
-      "memberships": "Membership approvals"
+      "memberships": "Membership approvals",
+      "payments": "Card payments"
     },
     "notifications": "{count} notifications",
     "logout": "Log out",
@@ -1272,7 +1273,11 @@
   "ShareListing": {
     "label": "Share",
     "copied": "Link copied — paste it into any social network",
-    "error": "Sharing failed"
+    "error": "Sharing failed",
+    "copyLink": "Copy link",
+    "facebook": "Share on Facebook",
+    "whatsapp": "Share on WhatsApp",
+    "print": "Print"
   },
   "Calendar": {
     "day1": "Mon",
@@ -3023,44 +3028,6 @@
     "lastUpdate": "Latest update",
     "updateProgress": "Update progress / status"
   },
-  "Checkout": {
-    "brand": "MyBakuriani Pay",
-    "secure": "Secure test payment",
-    "purpose": {
-      "topup": "Balance top-up"
-    },
-    "cardNumber": "Card number",
-    "cardholder": "Cardholder name",
-    "cardholderPlaceholder": "NAME SURNAME",
-    "expiry": "Expiry (MM/YY)",
-    "cvc": "CVC",
-    "pay": "Pay {amount}",
-    "cancel": "Cancel",
-    "processing": "Processing payment…",
-    "successTitle": "Payment successful",
-    "successSubtitle": "Taking you back…",
-    "testCards": {
-      "toggle": "Test cards",
-      "hint": "This is a sandbox — use a test card. No real charge is made.",
-      "fill": "Use",
-      "approved": "Approved",
-      "declined": "Declined",
-      "insufficient": "Insufficient funds"
-    },
-    "errors": {
-      "notFound": "Payment session not found.",
-      "notPending": "This payment can no longer be completed.",
-      "alreadyPaid": "This payment has already been completed.",
-      "declined": "Your card was declined.",
-      "invalidCard": "Enter valid card details.",
-      "expiredCard": "This card has expired.",
-      "insufficient": "This test card has insufficient funds.",
-      "testCardRequired": "Use one of the listed test cards.",
-      "paymentsUnavailable": "Test payments are temporarily unavailable.",
-      "generic": "Something went wrong. Please try again.",
-      "backToDashboard": "Back to dashboard"
-    }
-  },
   "DashboardAccount": {
     "title": "Sign-in methods",
     "subtitle": "Add another sign-in method to your account — signing in a different way will never create a separate, new account again.",
@@ -3160,10 +3127,7 @@
       "title": "Top up balance",
       "subtitle": "Choose an amount to add to your balance.",
       "customAmount": "Custom amount",
-      "continue": "Continue • {amount}",
-      "success": "Balance topped up successfully.",
-      "createError": "Couldn't start the payment. Please try again.",
-      "unavailable": "Test payments are temporarily unavailable."
+      "continue": "Continue • {amount}"
     },
     "txHistory": "Transaction history",
     "noTransactions": "No transactions yet",
@@ -3175,7 +3139,8 @@
       "sms_package": "SMS package",
       "discount_badge": "Discount badge",
       "withdrawal": "Withdrawal",
-      "commission": "Commission"
+      "commission": "Commission",
+      "card_refund": "Card refund"
     },
     "notifTitle": "Notifications",
     "notifSubtitleSystem": "System notifications and important updates.",
@@ -5046,5 +5011,117 @@
         "7": "Promotional SMS are sent only when the corresponding marketing consent exists."
       }
     }
+  },
+  "Payments": {
+    "cardButton": "Pay by card • {amount}",
+    "cardHint": "Your balance is {balance}. You'll pay only the missing {amount} by card, then the purchase completes automatically.",
+    "cardOverCap": "A single card payment is limited to {max}. Top up your balance in parts first.",
+    "redirecting": "Redirecting to Keepz…",
+    "secureNote": "You enter your card details on Keepz's secure page.",
+    "errors": {
+      "payments_unavailable": "Card payments are temporarily unavailable.",
+      "rate_limited": "Too many attempts. Please try again in a few minutes.",
+      "too_many_open_orders": "You have several unfinished payments. Finish one or try again in 30 minutes.",
+      "invalid_amount": "The amount must be between 1 and 2000 ₾.",
+      "request_conflict": "This payment has already been started. Refresh the page and try again.",
+      "provider_rejected": "Keepz could not accept the payment. Please try again later.",
+      "provider_unavailable": "Keepz is temporarily unavailable. Please try again in a few minutes.",
+      "network": "Connection error. Check your internet and try again.",
+      "failed": "Couldn't start the payment. Please try again."
+    },
+    "result": {
+      "checking": "Checking your payment…",
+      "pending": "Waiting for payment confirmation",
+      "pendingHint": "This can take a few seconds. Please keep this page open.",
+      "slow": "Keepz is still confirming the payment. The amount is added to your balance automatically as soon as it's confirmed — you can close this page.",
+      "succeeded": "Payment successful",
+      "credited": "{amount} has been added to your balance.",
+      "resumeRunning": "Completing your purchase…",
+      "resumeDone": "Your purchase is complete.",
+      "resumeFailed": "Your balance was topped up by {amount}, but the purchase couldn't be completed: {reason} The money is on your balance — you can retry the purchase from your balance.",
+      "insufficient": "Not enough balance.",
+      "declined": "Payment failed",
+      "declinedHint": "The payment was not completed. You can try again.",
+      "cancelled": "Payment cancelled",
+      "expired": "Payment expired",
+      "missing": "No recent payment found",
+      "continuePayment": "Continue payment",
+      "back": "Go back",
+      "tryAgain": "Try again",
+      "resumeInterrupted": "We couldn't complete the purchase because of a connection problem. Try again — the money is already on your balance.",
+      "resumeLost": "We couldn't confirm whether the purchase went through. The money is on your balance — check your listing and, if needed, buy again from your balance."
+    }
+  },
+  "AdminPayments": {
+    "title": "Card payments",
+    "subtitle": "Keepz balance top-ups, their verified status, and refunds to cards.",
+    "views": {
+      "all": "All",
+      "review": "Needs review",
+      "refunds": "Refunds in progress"
+    },
+    "empty": "No payments.",
+    "loadError": "Couldn't load payments.",
+    "statuses": {
+      "pending": "Pending",
+      "succeeded": "Paid",
+      "declined": "Declined",
+      "cancelled": "Cancelled",
+      "expired": "Expired"
+    },
+    "refunded": "{amount} refunded",
+    "flags": {
+      "external_refund": "Keepz or an operator made a refund we did not request here. Check the Keepz portal and adjust the user's balance if needed.",
+      "unexpected_refund_status": "Keepz reports a refund status that doesn't match our records. Check the Keepz portal.",
+      "refunded_before_credit": "The payment was refunded before it was credited. The balance was not changed — check the Keepz portal if needed.",
+      "unverified_order": "Keepz reports a payment for an order we never finished creating. The balance was not credited automatically — check the amount in the Keepz portal and credit it manually if appropriate."
+    },
+    "refundLine": "Refund {amount} — {status}",
+    "refundStatuses": {
+      "requested": "Requested",
+      "submitted": "Processing at Keepz",
+      "succeeded": "Refunded",
+      "failed": "Failed (balance restored)",
+      "unknown": "Unknown — needs review"
+    },
+    "recheck": "Re-check with Keepz",
+    "recheckDone": "Status updated.",
+    "refund": "Refund to card",
+    "refundTitle": "Refund to card",
+    "refundExplainer": "Up to {max} (user balance: {wallet}). The amount is first taken off the user's balance, then sent to Keepz. If Keepz rejects the refund, the balance is restored automatically.",
+    "refundAmount": "Amount (₾)",
+    "refundReason": "Reason (optional)",
+    "refundConfirm": "Refund • {amount}",
+    "refundResult": {
+      "requested": "Refund of {amount} recorded.",
+      "submitted": "Refund of {amount} sent to Keepz.",
+      "succeeded": "{amount} refunded to the card.",
+      "failed": "The refund failed; the balance was restored.",
+      "unknown": "Keepz did not confirm. Check the Keepz portal, then mark the outcome."
+    },
+    "errors": {
+      "not_found": "Payment not found.",
+      "payment_not_refundable": "This payment can't be refunded.",
+      "refund_in_flight": "A refund is already in progress for this payment.",
+      "refund_exceeds_payment": "The amount exceeds what is left to refund.",
+      "insufficient_wallet_balance": "The user's balance no longer covers this amount.",
+      "invalid_amount": "Invalid amount.",
+      "provider_rejected": "Keepz rejected the refund; the balance was restored.",
+      "provider_unavailable": "Keepz is temporarily unavailable.",
+      "payments_unavailable": "Card payments are not configured.",
+      "rate_limited": "Too many requests. Try again later.",
+      "failed": "The action failed.",
+      "refund_already_made": "This payment already has a refund. Make any further refund in the Keepz portal.",
+      "not_resolvable": "Keepz is still processing this refund — its outcome updates automatically.",
+      "already_resolved": "This refund is already resolved."
+    },
+    "markRefunded": "Mark refunded",
+    "markFailed": "Mark failed — restore balance",
+    "resolveTitle": "Refund outcome",
+    "resolveSucceededWarning": "Only mark this if the Keepz portal shows that {amount} was actually refunded to the card.",
+    "resolveFailedWarning": "Only mark this if the Keepz portal shows the refund did not happen. {amount} will be returned to the user's balance.",
+    "resolveDone": "Outcome saved.",
+    "prev": "Previous",
+    "next": "Next"
   }
 }

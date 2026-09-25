@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, Share2, Heart } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 
@@ -25,7 +25,6 @@ interface PhotoGalleryProps {
 
 export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
   const t = useTranslations("PhotoGallery");
-  const tShare = useTranslations("ShareListing");
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -99,19 +98,12 @@ export function PhotoGallery({ photos, title, propertyId }: PhotoGalleryProps) {
     <>
       {/* Share / Favorite actions above gallery */}
       <div className="mb-3 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() =>
-            shareListing(title, {
-              copied: tShare("copied"),
-              error: tShare("error"),
-            })
-          }
+        <ShareMenu
           className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] lg:h-10 lg:w-10"
-          aria-label={t("share")}
+          label={t("share")}
         >
           <Share2 className="h-[18px] w-[18px]" />
-        </button>
+        </ShareMenu>
         <button
           type="button"
           onClick={toggleFavorite}

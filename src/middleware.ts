@@ -4,6 +4,7 @@ import { routing } from "./i18n/routing";
 import { hasSupabaseAuthCookie } from "@/lib/supabase/auth-cookies";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isAllowedMutationOrigin } from "@/lib/security";
+import { KEEPZ_ORIGINLESS_POST_PATHS } from "@/lib/payments/keepz/server-paths";
 
 const intlMiddleware = createIntlMiddleware(routing);
 const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
@@ -118,9 +119,15 @@ export async function middleware(request: NextRequest) {
   const unsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method);
   if (isApi) {
     // API routes use Supabase cookies. Reject cross-site writes before route code
-    // can read a body or invoke a privileged service client.
+    // can read a body or invoke a privileged service client. The Keepz callback
+    // and reconcile routes are server to server (no Origin) and cookie-free, so
+    // exactly those paths are exempt (C32).
+    const originlessPost =
+      request.method === "POST" &&
+      KEEPZ_ORIGINLESS_POST_PATHS.includes(request.nextUrl.pathname);
     if (
       unsafeMethod &&
+      !originlessPost &&
       !isAllowedMutationOrigin(request.headers.get("origin"))
     ) {
       return applyBaselineSecurityHeaders(

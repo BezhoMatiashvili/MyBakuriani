@@ -2,7 +2,7 @@ import type { LegalDoc } from "./types";
 
 export const termsEn: LegalDoc = {
   title: "Terms of Use",
-  lastUpdated: "Document version: 5.0 | Last updated: 09-09-2026",
+  lastUpdated: "Document version: 5.0 | Last updated: 25-09-2026",
   sections: [
     {
       id: "general",
@@ -73,7 +73,7 @@ export const termsEn: LegalDoc = {
     {
       id: "wallet",
       title: "12. Wallet, Credits, and Payments",
-      body: "12.1. MyBakuriani may offer users the use of the Wallet to purchase paid services.\n\n12.2. The Wallet may be topped up using the payment methods available on the Platform.\n\n12.3. The Wallet is solely an internal balance intended for the use of Platform services and does not constitute a bank account.\n\n12.4. Credits are the Platform's internal conventional units and do not constitute a bank account, deposit, or electronic money, except where otherwise regulated by law.\n\n12.5. Transferring credits to another user or exchanging them for a monetary unit is not permitted unless otherwise provided by the terms of the service or by law.\n\n12.6. The terms of an already-purchased package will not be changed to the user's detriment solely due to the publication of a new rate, except as otherwise provided by law or the terms of the specific service.",
+      body: "12.1. MyBakuriani may offer users the use of the Wallet to purchase paid services.\n\n12.2. The Wallet may be topped up using the payment methods available on the Platform.\n\n12.3. The Wallet is solely an internal balance intended for the use of Platform services and does not constitute a bank account.\n\n12.4. Credits are the Platform's internal conventional units and do not constitute a bank account, deposit, or electronic money, except where otherwise regulated by law.\n\n12.5. Transferring credits to another user or exchanging them for a monetary unit is not permitted unless otherwise provided by the terms of the service or by law.\n\n12.6. The terms of an already-purchased package will not be changed to the user's detriment solely due to the publication of a new rate, except as otherwise provided by law or the terms of the specific service.\n\n12.7. Card payments on the Platform (Wallet top-ups, including a top-up of the missing amount while purchasing a service) are processed by the payment service provider Keepz (keepz.me). The user enters card details on Keepz's secure payment page; MyBakuriani does not receive or store card numbers or other card data.\n\n12.8. The Wallet is credited with the amount actually paid, and only after Keepz confirms the payment.\n\n12.9. A refund of a card payment is made through Keepz to the card used for the payment, and the refunded amount is deducted from the Wallet. Refund terms are set out in Section 13.",
     },
     {
       id: "refunds",

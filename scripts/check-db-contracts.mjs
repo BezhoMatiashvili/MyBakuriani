@@ -70,6 +70,7 @@ const { REVIEWABLE_FIELDS, CLEANER_PROFILE_FIELDS } = await import("../src/lib/c
 const { CONSENT_KINDS, CONSENT_SOURCES } = await import("../src/lib/consent/channels.ts");
 const { Constants } = await import("../src/lib/types/database.generated.ts");
 const { COMPANY_TIERS } = await import("../src/lib/org-tiers.ts");
+const { PAYMENT_STATUSES, REFUND_STATUSES } = await import("../src/lib/payments/keepz/status.ts");
 const { MEMBERSHIP_SEASONS, MEMBERSHIP_PRICE_TIERS, validateRenterMembershipMeta } = await import(
   "../src/lib/membership/plans.ts"
 );
@@ -222,6 +223,17 @@ for (const table of ["ads", "landing_banners"]) {
     (slot) => !slots.has(slot),
   );
   if (empty.length) warn(`C31: no enabled renter package for ${empty.join(", ")} — /pricing shows "—" there`);
+}
+
+// C32 — Keepz payment and refund states: the table CHECKs against the lists
+// the routes and the admin UI are written against.
+for (const [table, values, name] of [
+  ["payments", PAYMENT_STATUSES, "PAYMENT_STATUSES"],
+  ["payment_refunds", REFUND_STATUSES, "REFUND_STATUSES"],
+]) {
+  const db = checkList(table, "status");
+  if (!db) fail(`C32: ${table}.status CHECK not found`);
+  else compareSets(`C32 ${table}.status`, db, [...values], "CHECK constraint", name);
 }
 
 // C4 — scheduled jobs. Infra state rather than code, so a warning.

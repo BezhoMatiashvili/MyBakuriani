@@ -2,7 +2,7 @@ import type { LegalDoc } from "./types";
 
 export const privacyEn: LegalDoc = {
   title: "Privacy Policy",
-  lastUpdated: "Last updated: 09-09-2026",
+  lastUpdated: "Last updated: 25-09-2026",
   intro:
     "This Privacy Policy describes how MyBakuriani collects, uses, stores, processes, and protects users' personal data. The Policy applies to the MyBakuriani platform, including the domains mybakuriani.ge, mybakuriani.com.ge, and mybakuriani.com, as well as the digital services connected to the Platform, to the extent personal data is processed within those services.",
   sections: [
@@ -125,7 +125,7 @@ export const privacyEn: LegalDoc = {
       title: "6. Data Sharing and Authorized Processors",
       body: "MyBakuriani does not sell users' personal data. Access to data may be given only to those persons and service providers whose involvement is necessary to provide the relevant service or function, maintain security, or fulfill an obligation imposed by law.",
       bullets: [
-        "Payment and financial service providers — for the relevant payment/refund operation;",
+        "Payment and financial service providers, including Keepz (keepz.me), which processes card payments and refunds — for the relevant payment/refund operation; card details are entered directly on the provider's page and are not received or stored by MyBakuriani;",
         "Hosting and IT infrastructure providers — for the technical operation of the Platform;",
         "SMS, email, and communication providers — for sending the relevant notifications;",
         "Analytics and technology service providers — when using the relevant function;",

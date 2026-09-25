@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "@/i18n/navigation";
+import CardPayButton from "@/components/payments/CardPayButton";
+import { cardShortfallTetri } from "@/lib/payments/keepz/amount";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice } from "@/lib/utils/format";
 import type { RenterMembershipPlan } from "@/app/[locale]/dashboard/renter/loadOverview";
@@ -87,7 +89,14 @@ export default function PaymentModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  // CardPayButton re-reads the wallet before charging; a changed balance
+  // lands here so the dialog re-decides between wallet and card.
+  const [liveWallet, setLiveWallet] = useState(walletBalance);
   const isActive = Boolean(membershipExpiresAt);
+
+  useEffect(() => {
+    setLiveWallet(walletBalance);
+  }, [walletBalance, isOpen]);
 
   const isCovered = (plan: RenterMembershipPlan) =>
     membershipCovered.some((window) =>
@@ -154,6 +163,12 @@ export default function PaymentModal({
     !membershipPending &&
     !(selectedPlan && isCovered(selectedPlan)) &&
     (!needsDeclaration || declared);
+  // A short wallet pays the missing part by card, then the same purchase is
+  // completed after the top-up (C32).
+  const payByCard =
+    canPay &&
+    !!selectedPlan &&
+    cardShortfallTetri(Number(selectedPlan.amount_gel), liveWallet) > 0;
 
   async function purchase() {
     if (!selectedPlan || !canPay) return;
@@ -229,7 +244,7 @@ export default function PaymentModal({
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-lg font-black text-[#0F172A]">
                   <Wallet className="h-4 w-4 text-[#2563EB]" />
-                  {formatPrice(walletBalance)}
+                  {formatPrice(liveWallet)}
                 </span>
               </div>
               <div className="mt-3 flex items-center justify-between gap-4 border-t border-[#EEF1F4] pt-3">
@@ -365,19 +380,31 @@ export default function PaymentModal({
             ) : null}
 
             <div className="px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
-              <button
-                type="button"
-                onClick={purchase}
-                disabled={!canPay}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3.5 text-sm font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCard className="h-4 w-4" />
-                )}
-                {membershipPending ? t("awaitingApproval") : t("payButton")}
-              </button>
+              {payByCard && selectedPlan ? (
+                <CardPayButton
+                  total={Number(selectedPlan.amount_gel)}
+                  balance={liveWallet}
+                  resume={{
+                    kind: "purchase-vip",
+                    body: { package_id: selectedPlan.id, quantity: 1 },
+                  }}
+                  onBalanceChange={setLiveWallet}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={purchase}
+                  disabled={!canPay}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3.5 text-sm font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors hover:bg-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="h-4 w-4" />
+                  )}
+                  {membershipPending ? t("awaitingApproval") : t("payButton")}
+                </button>
+              )}
             </div>
           </motion.section>
         </div>

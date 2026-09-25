@@ -331,6 +331,10 @@ Mapbox link alongside the OSM/ODbL one, not folded into it.
 **Breaks silently when:** a body field is renamed on one side only → runtime 400 /
 missing field, no compile error.
 
+**2026-09-25:** `payment-create` / `payment-process` are 410 tombstones (sandbox
+retired, **C32**); their directories and `verify_jwt` entries stay so
+`check-contracts` keeps passing. Deploying the tombstones needs approval.
+
 **2026-09-25 (staging only):** `company-subscription` was redeployed to staging
 as v4 with `VALID_TIERS` += `premium_plus` (**C11**, **C31**);
 `scripts/check-contracts.mjs` now compares that array with
@@ -2256,6 +2260,28 @@ Participating symbols:
   requests on the 8 detail shapes + `/blog/[id]` (excluding preview), which is
   safe precisely BECAUSE the pages are cookie-free — the HTML is identical for
   every viewer. Cloudflare serves the dominant unprefixed traffic from the edge
+- `next.config.ts:htmlLimitedBots` — `/.*/`: Next's streaming metadata is OFF
+  for every user agent (2026-09-25). The edge-cached HTML above is shared by all
+  user agents (Cloudflare does not vary on User-Agent), but by default Next
+  renders it per UA: browsers get the `og:*` tags streamed ~93 KB into `<body>`,
+  known bots get them in `<head>`. Measured on staging: a browser visit followed
+  2s later by a `WhatsApp/2.x` fetch of the same URL was a `cf-cache-status: HIT`
+  with `og:image` in `<body>`, so whoever missed first decided what every
+  link-preview fetcher got. The option only moves metadata; Suspense streaming
+  for browsers keys off Next's built-in `isBot` list, not this setting
+- `src/app/api/og/listing/[kind]/[id]/route.tsx:asJpeg` — the composed card is
+  the FIRST `og:image`, the only one WhatsApp reads, so it must stay small: as
+  PNG it was 1.3 MB; it is re-encoded to JPEG (PNG fallback only if `sharp`
+  cannot load). `src/lib/seo.ts:buildListingMetadata` declares it as
+  `image/jpeg` 1200×630, and `src/lib/utils/listingUrls.ts:OG_CARD_VERSION` must
+  be bumped whenever the card's bytes change — Facebook, WhatsApp and the edge
+  cache `og:image` by URL. It carries the `same-site` CORP that middleware
+  stamps on every `/api` response (neither `next.config.ts` nor the route's own
+  headers can override it, verified). Expected harmless — Facebook, Telegram
+  and the WhatsApp mobile apps fetch it outside a browser page — but
+  unverified for WhatsApp Web; if that shows no image, the fix is an `/api/og`
+  exemption in middleware's API branch. Share targets are built from
+  `src/lib/share.ts:shareableUrl` (origin + path, so `?preview=1` never leaks)
 - `src/lib/utils/listingUrls.ts:propertyViewUrl/serviceViewUrl` — `{ preview:
 true }` option; all dashboard/admin "guest view" links pass it (6 dashboard
   clients + admin listings + AdminTopbar). Moderation-notification links to
@@ -2285,7 +2311,10 @@ override is removed (default-locale detail pages silently revert to `no-store`
 — BYPASS at Cloudflare — while prefixed locales keep working, so it looks fine
 in /en testing); or a personalized element is rendered server-side on a detail
 page (every viewer gets the first viewer's HTML for 60s — personalization must
-stay client-side, like PriceDropAlertButton).
+stay client-side, like PriceDropAlertButton); or `htmlLimitedBots` is removed
+or narrowed back to a bot list (Facebook/WhatsApp previews then depend on which
+user agent happened to fill the edge cache — nothing errors, and a cache-busted
+`curl -A WhatsApp` still looks correct).
 
 ---
 
@@ -2375,6 +2404,10 @@ empty slot is a warning). Each new check was shown to fail on a mutated copy.
 — `schema_contract_snapshot` has no trigger list (the same gap leaves **C30**'s
 derivation trigger unchecked); its behaviour is covered by the SQL matrix
 recorded in **C31**.
+
+**Added 2026-09-25 (C32):** origin-less Keepz routes vs the middleware
+exemption, sandbox tombstones, Keepz status list vs the apply function, and
+the `payments` / `payment_refunds` status CHECKs.
 
 **Deliberately not checked (yet):** `property_type` fan-out into the sale form,
 `SaleSearchBox`, `FilterPanel` and `listing-options.ts` (**C13**'s other silent
@@ -2612,3 +2645,125 @@ catches it); the flip exemption is widened back to `service_role` or admins
 again); a new paid dialog passes a price but no validity/conditions; a query
 orders `is_vip` before `is_super_vip` (**C23**); or package prices are
 formatted with `formatPrice`.
+
+---
+
+## C32 — Keepz card payments (the only real-money path)
+
+**Invariant (2026-09-25, staging only):** real money enters MyBakuriani only
+through Keepz (developers.keepz.me), and only as **wallet credit**: a verified
+Keepz payment credits `balances` 1:1 with what the card paid, and every purchase
+stays a wallet debit through the unchanged purchase RPCs at database prices.
+**The only authority on money is a Keepz status response we requested
+ourselves** (TLS to the fixed gateway, `redirect: "error"`, response encrypted
+to our key, echoed order id matched). Callback bodies, the return URL and the
+browser are never trusted.
+
+Participating symbols:
+
+- `supabase/migrations/20260925150100_keepz_payments.sql:keepz_apply_payment_status`
+  — the ONE place a Keepz status becomes money: `FOR UPDATE` on the payment,
+  credits the STORED amount to the STORED user once (`credited_at IS NULL`),
+  through `topup_balance(…, p_reference_id)`. A verified SUCCESS credits from
+  any not-yet-credited state (a real payment is never stranded). Resolves an
+  in-flight refund; flags refund states nobody here requested
+  (`review_flag` + `_notify_admins('admin_payment_review')`), never debits on
+  its own. Raises on an undocumented status.
+- `…:keepz_open_payment` — bounds 1–2000 ₾ (≤2 decimals), return path must be
+  `/dashboard…`, ≤5 open orders per 30 min, the client `requestId` (UUID v4) is
+  the payment id = Keepz `integratorOrderId`; exact replay returns the stored
+  checkout URL, any other reuse is the same `payment_id_conflict` (no oracle).
+- `…:keepz_begin_refund` / `keepz_update_refund` / `keepz_resolve_refund` — a
+  refund debits the wallet and records itself BEFORE Keepz is called; one in
+  flight per payment (`payment_refunds_one_in_flight`); capped at
+  min(unrefunded, wallet). Definitive Keepz refusal → `failed` + wallet
+  restored (positive `card_refund` tx); no clear answer → `unknown`, resolved
+  only by an admin after checking the Keepz portal — never auto-retried
+  (a retry could refund twice).
+- `supabase/migrations/20260925150000_keepz_card_refund_transaction_type.sql`
+  — `transaction_type` += `card_refund`; outside `platform_revenue()` (C26).
+- `src/lib/payments/keepz/crypto.ts` — AES-256-CBC + RSA-OAEP(SHA-256/MGF1-SHA-256),
+  byte-compatible with Keepz's Node example (two-way unit test).
+- `src/lib/payments/keepz/config.ts` — `KEEPZ_ENV` picks a FIXED base URL (no
+  URL variable); missing/invalid `KEEPZ_*` → routes 503 (fail closed). Not in
+  `check-production-config.mjs` on purpose (C16).
+- `src/lib/payments/keepz/client.ts` — `createOrder`, `getOrderStatus`,
+  `refundOrder`; `isDefinitiveRejection` = groups 1/2/3/5 or 6009–6014 (Keepz
+  did nothing); everything else is "unknown outcome". Checkout host allow-list
+  `*.keepz.me`.
+- `src/lib/payments/keepz/settle.ts:syncPaymentWithKeepz` — every money path
+  (callback, return-page poll, sweeper, admin re-check) goes through it.
+- `src/lib/payments/keepz/server-paths.ts:KEEPZ_ORIGINLESS_POST_PATHS` — the
+  callback and reconcile routes are server to server (no Origin), so
+  `src/middleware.ts` exempts exactly these paths from the cookie-mutation
+  Origin check. Neither reads cookies. Keepz must register the callback URL
+  byte-for-byte, **no trailing slash**.
+- Routes: `src/app/api/payments/keepz/{checkout,callback,reconcile}`,
+  `…/orders/{latest,[id],[id]/resume}`, `src/app/api/admin/payments/**`.
+- `src/lib/payments/keepz/intent.ts` + `…/orders/[id]/resume` — "pay by card":
+  the dialog's purchase is stored on `payments.resume` (shape-validated, ≤2 KB)
+  and handed to its owner ONCE (single conditional UPDATE), then replayed
+  through the unchanged purchase endpoints with the user's own session.
+  **Settlement never executes an intent** — which is why a client-chosen card
+  amount is safe (it only buys wallet credit). If settlement or the sweeper
+  ever starts running purchases server-side, revisit that.
+- UI: `src/components/payments/{CardPayButton,CardTopUpLauncher,TopUpModal}.tsx`,
+  `ConfirmPaymentModal` (`amount` + `cardPayment`), `PaymentModal`,
+  `MenuItemDiscountModal`; result page `src/app/[locale]/dashboard/payments/result`
+  (static Keepz return URL — arriving there proves nothing); admin page
+  `src/app/[locale]/dashboard/admin/payments`.
+- `supabase/migrations/20260925150200_keepz_reconcile_schedule.sql` —
+  `keepz-reconcile-10min`, Vault-guarded (`app.keepz_reconcile_url`,
+  `app.keepz_reconcile_secret`); the app holds only the SHA-256 of the secret
+  (`KEEPZ_RECONCILE_SECRET_SHA256`). Applied to STAGING 2026-09-25 ahead of
+  the route deploy (runs 404/403 until then); not on prod.
+
+**Retired:** the sandbox (`payment-create` / `payment-process` →
+410 tombstones, `CheckoutClient` card form, `SandboxTopUpLauncher`,
+`test-cards.ts`, the `/checkout` page and the `Checkout` public namespace).
+`settle_payment` is left in the database, unreachable. `BalancePackageCard`
+no longer disables "buy" on a short wallet — the confirm dialog offers the
+card for the missing amount instead.
+
+**Cross-contract notes:** C4 (two tombstones, redeploy with approval), C16
+(new rate-limit keys `keepz-checkout|status|resume|callback|admin-recheck|refund:*`),
+C19 (`payment_success` scope comes from `payments.return_path`; refund
+notifications are account-level NULL scope; admins get `admin_payment_review`),
+C26 (`card_refund` and `topup` are not revenue), C27 (the callback lives under
+`/api`, so the prod site lock does not block it), C29 (checks below).
+`payments` grants were narrowed: `anon` has none, `authenticated` only SELECT
+(own rows via RLS); `payment_refunds` has no browser access at all.
+
+**Open setup items** (Keepz URL registration, refund permission, test
+cards, reconcile cron, prod credentials) are tracked in
+`src/lib/payments/keepz/PENDING.md`.
+
+**Checked by:** `check-contracts` C32 (origin-less routes exist + middleware
+uses the exact list; tombstones stay tombstones; TS status list == the
+apply function's list) and `check-db-contracts` C32 (`payments.status` and
+`payment_refunds.status` CHECKs == `PAYMENT_STATUSES` / `REFUND_STATUSES`).
+
+**Breaks silently when:** a route credits from callback data or skips
+`syncPaymentWithKeepz`; the middleware exemption is widened to a prefix; the
+status CHECK and the TS lists drift; a new purchase dialog forgets
+`cardPayment` (a short wallet dead-ends again); the reconcile cron is not
+scheduled (missed callbacks wait for the payer's next visit); or Keepz is
+given a callback URL with a trailing slash (403 before the route runs).
+
+**Hardening, same day (`20260925150300_keepz_payments_hardening.sql`, from an
+independent security review):** (1) the sandbox `settle_payment` had no
+provider filter and the still-deployed sandbox `payment-process` passes it a
+client-chosen id, so it could settle a Keepz row for free and a later real
+SUCCESS would credit again — EXECUTE is now revoked from every role incl.
+`service_role`; (2) only an order WE finished creating (stored `checkout_url`)
+can be credited — a SUCCESS for any other row is `unverified_order`, never
+credited, because Keepz's status carries no amount and whoever creates an
+order id chooses its amount (the checkout route therefore never hands out a
+URL it failed to store); (3) admins resolve only `requested` / `unknown`
+refunds (`refund_not_resolvable`), never one Keepz is processing; (4) one
+refund Keepz has registered per payment (`refund_already_made`; retry only
+after an outright `provider_rejected:*` failure) — order-level refund statuses
+cannot tell a second refund from the first; (5) owners read `payments` through
+column grants that omit `resume`, `review_flag`, `provider_status`,
+`checkout_url`, `last_error`. The callback also skips its Keepz re-check when
+the order was checked <3 s ago.

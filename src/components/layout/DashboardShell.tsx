@@ -491,6 +491,9 @@ export function DashboardShell({
     // cabinet shell. Falling through to the generic DashboardSidebar showed a
     // raw i18n key and guest-only links on desktop, and no header on mobile.
     if (cabinet === "account") return null;
+    // /dashboard/payments/result is where Keepz sends a payer back from any
+    // cabinet, so it renders in the user's own shell too (C32).
+    if (cabinet === "payments") return null;
     return cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;

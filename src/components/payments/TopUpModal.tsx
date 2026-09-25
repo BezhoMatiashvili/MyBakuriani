@@ -2,13 +2,19 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import NumberField from "@/components/shared/NumberField";
 import { formatPrice } from "@/lib/utils/format";
+import {
+  MAX_CARD_TOPUP_TETRI,
+  MIN_CARD_TOPUP_TETRI,
+} from "@/lib/payments/keepz/amount";
 
 const PRESETS = [20, 50, 100, 200];
-const MAX_AMOUNT = 999999;
+// Same bounds the checkout route and payments_keepz_amount_check enforce (C32).
+const MIN_AMOUNT = MIN_CARD_TOPUP_TETRI / 100;
+const MAX_AMOUNT = MAX_CARD_TOPUP_TETRI / 100;
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -24,11 +30,12 @@ export default function TopUpModal({
   loading,
 }: TopUpModalProps) {
   const t = useTranslations("DashboardShared");
+  const tPayments = useTranslations("Payments");
   const [amount, setAmount] = useState("100");
 
   const numeric = Number(amount);
   const valid =
-    Number.isFinite(numeric) && numeric >= 1 && numeric <= MAX_AMOUNT;
+    Number.isFinite(numeric) && numeric >= MIN_AMOUNT && numeric <= MAX_AMOUNT;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t("topUp.title")}>
@@ -59,7 +66,7 @@ export default function TopUpModal({
           <NumberField
             value={amount}
             onChange={setAmount}
-            min={1}
+            min={MIN_AMOUNT}
             max={MAX_AMOUNT}
             integer
             suffix="₾"
@@ -78,6 +85,10 @@ export default function TopUpModal({
             t("topUp.continue", { amount: formatPrice(valid ? numeric : 0) })
           )}
         </button>
+        <p className="flex items-center justify-center gap-1.5 text-[11px] text-[#64748B]">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          {tPayments("secureNote")}
+        </p>
       </div>
     </Modal>
   );

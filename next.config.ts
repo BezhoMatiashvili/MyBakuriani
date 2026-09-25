@@ -46,6 +46,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Metadata (og:* tags) always in <head>, for every user agent. By default
+  // Next streams it into <body> for browsers and blocks it into <head> only
+  // for known bots — but the 8 detail pages are edge-cached (C28) and
+  // Cloudflare does not vary on User-Agent, so a browser's visit decided what
+  // WhatsApp was served: the og:* tags ~93 KB into <body> instead of <head>
+  // (measured on staging 2026-09-25). Only the metadata placement changes;
+  // browsers still get streamed Suspense, which keys off Next's own bot list.
+  htmlLimitedBots: /.*/,
   images: {
     // WebP only, deliberately no AVIF: the optimizer runs on this app's own
     // small DO instance (not a managed edge optimizer), and AVIF encodes are

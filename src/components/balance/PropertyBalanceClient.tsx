@@ -22,7 +22,7 @@ import {
 import { formatDate } from "@/lib/utils/format";
 import { isSuperVipActive } from "@/lib/utils/pricing";
 import { promotionPurchaseError } from "@/lib/promotion-purchase";
-import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
+import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
@@ -49,6 +49,7 @@ const transactionTypeKeys = [
   "discount_badge",
   "withdrawal",
   "commission",
+  "card_refund",
 ] as const;
 
 /**
@@ -257,7 +258,7 @@ export default function PropertyBalanceClient() {
             </p>
           )}
         </div>
-        <SandboxTopUpLauncher />
+        <CardTopUpLauncher />
       </motion.div>
 
       <motion.section
@@ -294,7 +295,6 @@ export default function PropertyBalanceClient() {
                 price={pkg.amount_gel}
                 unit={display.unit}
                 ctaColor={display.ctaColor}
-                canAfford={(balance?.amount ?? 0) >= pkg.amount_gel}
                 available={standardVipAvailable}
                 disabledReason={
                   standardVipAvailable ? undefined : t("noVipEligibleListings")
@@ -404,6 +404,18 @@ export default function PropertyBalanceClient() {
           durationHours: durationHoursFromMeta(pickerPkg?.meta ?? null),
         }}
         onConfirm={handleConfirmPurchase}
+        balance={loading ? undefined : (balance?.amount ?? 0)}
+        buildCardIntent={(propertyId, quantity, discountPercent) => ({
+          kind: "purchase-vip",
+          body: {
+            package_id: pickerModal.packageId,
+            property_id: propertyId,
+            quantity,
+            ...(discountPercent !== undefined && {
+              discount_percent: discountPercent,
+            }),
+          },
+        })}
       />
 
       <ConfirmPaymentModal
@@ -415,7 +427,18 @@ export default function PropertyBalanceClient() {
         title={confirmPkg?.name ?? ""}
         description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
         priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
-        balance={balance?.amount}
+        balance={loading ? undefined : (balance?.amount ?? 0)}
+        amount={confirmPkg?.amount_gel}
+        cardPayment={
+          confirmPkg
+            ? {
+                resume: {
+                  kind: "purchase-vip",
+                  body: { package_id: confirmPkg.id, quantity: 1 },
+                },
+              }
+            : undefined
+        }
         validity={
           confirmPkg?.category === "sms"
             ? t("purchaseTerms.smsNoExpiry")

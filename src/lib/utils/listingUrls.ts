@@ -144,6 +144,13 @@ export function ogCardTargetForPath(
   return { kind, id };
 }
 
+/**
+ * Bump whenever the card's bytes change shape. Facebook, WhatsApp and the
+ * Cloudflare edge all cache og:image by URL, so without a new URL they keep
+ * serving the old card (v2: PNG -> JPEG, 2026-09-25).
+ */
+const OG_CARD_VERSION = "2";
+
 /** Absolute URL of the composed Open Graph card for a public detail path. */
 export function ogCardUrlForPath(
   path: string,
@@ -151,6 +158,6 @@ export function ogCardUrlForPath(
 ): string | null {
   const target = ogCardTargetForPath(path);
   if (!target) return null;
-  const suffix = format === "story" ? "?format=story" : "";
-  return `/api/og/listing/${target.kind}/${target.id}${suffix}`;
+  const story = format === "story" ? "&format=story" : "";
+  return `/api/og/listing/${target.kind}/${target.id}?v=${OG_CARD_VERSION}${story}`;
 }

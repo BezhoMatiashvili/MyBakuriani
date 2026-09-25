@@ -10,7 +10,7 @@ import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
@@ -48,7 +48,6 @@ export default function FoodDetailClient({
   const t = useTranslations("FoodDetail");
   const tShared = useTranslations("Shared");
   const tGallery = useTranslations("PhotoGallery");
-  const tShare = useTranslations("ShareListing");
   const tOpts = useTranslations("ListingOptions");
   const {
     isFavorited,
@@ -133,19 +132,12 @@ export default function FoodDetailClient({
           {tShared("back")}
         </button>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              shareListing(service.title, {
-                copied: tShare("copied"),
-                error: tShare("error"),
-              })
-            }
+          <ShareMenu
             className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] lg:h-10 lg:w-10"
-            aria-label={tGallery("share")}
+            label={tGallery("share")}
           >
             <Share2 className="h-[18px] w-[18px]" />
-          </button>
+          </ShareMenu>
           <button
             type="button"
             onClick={toggleFavorite}

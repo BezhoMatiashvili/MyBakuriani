@@ -81,6 +81,42 @@ function cacheHeaders(seconds: number) {
   };
 }
 
+/** Comfortably under the ~300 KB past which WhatsApp drops the preview image. */
+const MAX_CARD_BYTES = 280_000;
+
+/**
+ * WhatsApp shows no preview image once og:image is much over ~300 KB, and this
+ * card rendered as PNG weighs ~1.3 MB (measured on staging 2026-09-25) — so the
+ * first og:image, the only one WhatsApp reads, never showed. As JPEG it is a
+ * fraction of that; a busy photo can still approach the limit at q80 (a sale
+ * listing measured 233 KB), so the quality steps down until it fits. sharp is
+ * loaded lazily: if it cannot load, the card still ships as PNG rather than
+ * failing every share with a 500.
+ */
+async function asJpeg(png: ImageResponse, seconds: number): Promise<Response> {
+  const pngBytes = Buffer.from(await png.arrayBuffer());
+  let body: Buffer = pngBytes;
+  let type = "image/png";
+  try {
+    const { default: sharp } = await import("sharp");
+    for (const quality of [80, 70, 60, 50]) {
+      body = await sharp(pngBytes).jpeg({ quality }).toBuffer();
+      if (body.byteLength <= MAX_CARD_BYTES) break;
+    }
+    type = "image/jpeg";
+  } catch (err) {
+    body = pngBytes;
+    console.warn("[og-card] JPEG encode unavailable, serving PNG:", err);
+  }
+  return new Response(new Uint8Array(body), {
+    headers: {
+      "Content-Type": type,
+      "Content-Length": String(body.byteLength),
+      ...cacheHeaders(seconds),
+    },
+  });
+}
+
 export async function GET(
   request: Request,
   ctx: { params: Promise<{ kind: string; id: string }> },
@@ -143,7 +179,7 @@ export async function GET(
   // image in the owner's own preview, and the short TTL lets the real card
   // appear as soon as the listing is approved.
   if (!card) {
-    return new ImageResponse(
+    const png = new ImageResponse(
       (
         <div
           style={{
@@ -165,14 +201,15 @@ export async function GET(
           </div>
         </div>
       ),
-      { ...size, fonts, headers: cacheHeaders(300) },
+      { ...size, fonts },
     );
+    return asJpeg(png, 300);
   }
 
   const titleSize = story ? 72 : 58;
   const metaSize = story ? 44 : 34;
 
-  return new ImageResponse(
+  const png = new ImageResponse(
     (
       <div
         style={{
@@ -195,7 +232,12 @@ export async function GET(
             height={size.height}
             style={{
               position: "absolute",
-              inset: 0,
+              // satori ignores the `inset` shorthand (verified): spell it out, or the
+              // scrim below never paints and the title sits on the raw photo.
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               width: "100%",
               height: "100%",
               objectFit: "cover",
@@ -207,7 +249,10 @@ export async function GET(
         <div
           style={{
             position: "absolute",
-            inset: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             display: "flex",
             background:
               "linear-gradient(to bottom, rgba(2,6,23,0.10) 0%, rgba(2,6,23,0.35) 45%, rgba(2,6,23,0.92) 100%)",
@@ -295,6 +340,7 @@ export async function GET(
         </div>
       </div>
     ),
-    { ...size, fonts, headers: cacheHeaders(3600) },
+    { ...size, fonts },
   );
+  return asJpeg(png, 3600);
 }

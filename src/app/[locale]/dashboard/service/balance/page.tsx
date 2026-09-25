@@ -22,7 +22,7 @@ import {
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import { formatDate } from "@/lib/utils/format";
-import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
+import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 import { isSuperVipActive } from "@/lib/utils/pricing";
 
@@ -38,6 +38,7 @@ const TX_TYPES = [
   "discount_badge",
   "withdrawal",
   "commission",
+  "card_refund",
 ] as const;
 
 export default function ServiceBalancePage() {
@@ -169,7 +170,7 @@ export default function ServiceBalancePage() {
             </p>
           )}
         </div>
-        <SandboxTopUpLauncher />
+        <CardTopUpLauncher />
       </motion.div>
 
       <motion.section
@@ -202,7 +203,6 @@ export default function ServiceBalancePage() {
               price={price}
               unit={display.unit}
               ctaColor={display.ctaColor}
-              canAfford={(balance?.amount ?? 0) >= price}
               available={standardVipAvailable}
               disabledReason={
                 standardVipAvailable
@@ -335,7 +335,18 @@ export default function ServiceBalancePage() {
         priceLabel={
           confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""
         }
-        balance={balance?.amount}
+        balance={loading ? undefined : (balance?.amount ?? 0)}
+        amount={confirmPkg?.amount_gel}
+        cardPayment={
+          confirmPkg
+            ? {
+                resume: {
+                  kind: "purchase-vip",
+                  body: { package_id: confirmPkg.id, quantity: 1 },
+                },
+              }
+            : undefined
+        }
         validity={
           confirmPkg?.category === "sms"
             ? tShared("purchaseTerms.smsNoExpiry")

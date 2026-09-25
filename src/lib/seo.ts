@@ -87,7 +87,7 @@ export function buildListingMetadata(
           width: OG_CARD_WIDTH,
           height: OG_CARD_HEIGHT,
           alt: opts.title,
-          type: "image/png",
+          type: "image/jpeg",
         },
         ...photoEntries,
       ]

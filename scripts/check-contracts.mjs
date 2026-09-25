@@ -194,6 +194,45 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else fail(`C31: gate migration ${gateFile} raises HINT '${sqlHint}' but plans.ts matches '${hint}'`);
 }
 
+// ---------------------------------------------------------------------------
+// C32 — Keepz payments. (a) The origin-less POST routes (callback, reconcile)
+// exist, and the middleware exempts exactly the shared list — not a copy that
+// could drift or widen. (b) The retired sandbox payment functions stay 410
+// tombstones, so no bulk deploy can bring free wallet credit back. (c) The Keepz
+// status list the routes accept equals the one keepz_apply_payment_status
+// accepts in its newest migration.
+// ---------------------------------------------------------------------------
+{
+  const paths = read("src/lib/payments/keepz/server-paths.ts");
+  const routes = [...paths.matchAll(/export const KEEPZ_\w+_PATH = "(\/api\/[^"]+)"/g)].map((m) => m[1]);
+  const missing = routes.filter((p) => !existsSync(join(root, "src/app", p, "route.ts")));
+  const exemptsList = /KEEPZ_ORIGINLESS_POST_PATHS\.includes\(request\.nextUrl\.pathname\)/.test(read("src/middleware.ts"));
+  if (routes.length !== 2) fail(`C32: expected 2 origin-less Keepz paths in server-paths.ts, found ${routes.length}`);
+  else if (missing.length) fail(`C32: origin-less Keepz path with no route file: ${missing.join(", ")}`);
+  else if (!exemptsList) fail("C32: src/middleware.ts must exempt KEEPZ_ORIGINLESS_POST_PATHS by exact pathname");
+  else ok(`C32: ${routes.length} origin-less Keepz routes exist and the middleware exempts exactly them`);
+
+  const revived = ["payment-create", "payment-process"].filter(
+    (fn) => !/code: "GONE"[\s\S]*\b410\b/.test(read(`supabase/functions/${fn}/index.ts`)),
+  );
+  if (revived.length) fail(`C32: sandbox payment functions must stay 410 tombstones: ${revived.join(", ")}`);
+  else ok("C32: payment-create and payment-process are 410 tombstones");
+
+  const listIn = (text, re, item) => new Set([...((text.match(re)?.[1] ?? "").matchAll(item))].map((m) => m[1]));
+  const tsStatuses = listIn(read("src/lib/payments/keepz/status.ts"), /KEEPZ_ORDER_STATUSES = \[([\s\S]*?)\]/, /"([A-Z_]+)"/g);
+  const applyFile = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /FUNCTION public\.keepz_apply_payment_status\(/.test(read(join("supabase/migrations", f))))
+    .at(-1);
+  const sqlStatuses = applyFile
+    ? listIn(read(join("supabase/migrations", applyFile)), /p_provider_status NOT IN \(([\s\S]*?)\)/, /'([A-Z_]+)'/g)
+    : new Set();
+  if (!tsStatuses.size || !sqlStatuses.size) fail("C32: could not read KEEPZ_ORDER_STATUSES or keepz_apply_payment_status's status list");
+  else if (setEq(tsStatuses, sqlStatuses)) ok(`C32: ${applyFile} accepts the ${tsStatuses.size} Keepz statuses status.ts knows`);
+  else describeSetMismatch("C32 Keepz statuses", tsStatuses, "status.ts", sqlStatuses, applyFile);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Home, CreditCard, ClipboardCheck } from "lucide-react";
 import type { VipInfoTier } from "./VipInfoModal";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
+import type { PurchaseIntent } from "@/lib/payments/keepz/intent";
 import NumberField from "@/components/shared/NumberField";
 import { clampNumber, parseNumeric } from "@/lib/utils/number";
 
@@ -62,6 +63,14 @@ interface VipPropertyPickerModalProps {
   flat?: boolean;
   /** Submit an admin-review request instead of opening the payment dialog. */
   reviewMode?: boolean;
+  /** Wallet balance; with buildCardIntent a short wallet can pay by card (C32). */
+  balance?: number | null;
+  /** The purchase-vip request this confirmation sends, replayed after a card top-up. */
+  buildCardIntent?: (
+    propertyId: string,
+    quantity: number,
+    discountPercent?: number,
+  ) => PurchaseIntent;
 }
 
 const BADGE_COLOR: Record<string, string> = {
@@ -80,6 +89,8 @@ export default function VipPropertyPickerModal({
   loading,
   flat,
   reviewMode = false,
+  balance,
+  buildCardIntent,
 }: VipPropertyPickerModalProps) {
   const t = useTranslations("RenterDashboard.modals.vipPicker");
   const tInfo = useTranslations("RenterDashboard.modals.vipInfo.tiers");
@@ -580,6 +591,19 @@ export default function VipPropertyPickerModal({
         validity={purchaseValidity}
         conditions={purchaseConditions}
         lockScroll={false}
+        balance={balance}
+        amount={totalPrice !== null ? Number(totalPrice) : undefined}
+        cardPayment={
+          buildCardIntent && selectedId
+            ? {
+                resume: buildCardIntent(
+                  selectedId,
+                  quantity,
+                  tier === "discount" ? Number(discountPercent) : undefined,
+                ),
+              }
+            : undefined
+        }
       />}
     </>
   );

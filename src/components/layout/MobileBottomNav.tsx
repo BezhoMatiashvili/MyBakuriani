@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Ellipsis,
   ClipboardList,
+  CreditCard,
   FileText,
   Home,
   IdCard,
@@ -141,6 +142,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "finances",
             href: "/dashboard/admin/finances",
             icon: Wallet,
+          },
+          {
+            labelKey: "payments",
+            href: "/dashboard/admin/payments",
+            icon: CreditCard,
           },
           {
             labelKey: "ads",

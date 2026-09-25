@@ -35,7 +35,7 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { revalidatePublicService } from "@/app/actions/revalidateListing";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
@@ -390,20 +390,10 @@ export default function EmploymentDetailClient({
           {tShared("back")}
         </motion.button>
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              shareListing(service.title, {
-                copied: tShare("copied"),
-                error: tShare("error"),
-              })
-            }
-            aria-label={tShare("label")}
-            className="flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC] sm:size-auto sm:px-3.5 sm:py-2"
-          >
+          <ShareMenu className="flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC] sm:size-auto sm:px-3.5 sm:py-2">
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">{tShare("label")}</span>
-          </button>
+          </ShareMenu>
           {service.created_at && (
             <motion.div
               {...fadeIn}

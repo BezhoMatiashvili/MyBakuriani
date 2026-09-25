@@ -5,6 +5,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Percent, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import CardPayButton from "@/components/payments/CardPayButton";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { cardShortfallTetri } from "@/lib/payments/keepz/amount";
+import { createClient } from "@/lib/supabase/client";
 import {
   fetchPricingPackages,
   getPackageDisplay,
@@ -44,11 +48,24 @@ export default function MenuItemDiscountModal({
   const [quantity, setQuantity] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     void fetchPricingPackages(["vip"]).then(setPackages);
   }, [isOpen]);
+
+  // Wallet balance decides between paying from it and paying by card (C32).
+  useEffect(() => {
+    if (!isOpen || !user) return;
+    void createClient()
+      .from("balances")
+      .select("amount")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => setWalletBalance(Number(data?.amount ?? 0)));
+  }, [isOpen, user]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -82,6 +99,10 @@ export default function MenuItemDiscountModal({
     quantity >= 1 &&
     quantity <= 365 &&
     !submitting;
+  const payByCard =
+    canSubmit &&
+    walletBalance !== null &&
+    cardShortfallTetri(totalAmount, walletBalance) > 0;
 
   async function handleSubmit() {
     if (!item || !pkg || submitting) return;
@@ -226,14 +247,31 @@ export default function MenuItemDiscountModal({
                 </p>
               )}
 
-              <button
-                type="button"
-                disabled={!canSubmit}
-                onClick={handleSubmit}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#16A34A] px-5 py-3 text-[13px] font-bold text-white hover:bg-[#15803D] disabled:opacity-50"
-              >
-                {t("itemDiscountSubmit")}
-              </button>
+              {payByCard && pkg && walletBalance !== null ? (
+                <CardPayButton
+                  total={totalAmount}
+                  balance={walletBalance}
+                  resume={{
+                    kind: "menu-item-discount",
+                    body: {
+                      menuItemId: item.id,
+                      packageId: pkg.id,
+                      discountPercent: percent,
+                      quantity,
+                    },
+                  }}
+                  onBalanceChange={setWalletBalance}
+                />
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canSubmit}
+                  onClick={handleSubmit}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#16A34A] px-5 py-3 text-[13px] font-bold text-white hover:bg-[#15803D] disabled:opacity-50"
+                >
+                  {t("itemDiscountSubmit")}
+                </button>
+              )}
             </div>
           </motion.div>
         </div>

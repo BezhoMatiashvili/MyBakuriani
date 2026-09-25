@@ -30,7 +30,7 @@ import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { useFavorite } from "@/lib/hooks/useFavorite";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables, Database } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -184,7 +184,6 @@ export default function SaleDetailClient({
   const t = useTranslations("SaleDetail");
   const tDetail = useTranslations("PropertyDetail");
   const tShared = useTranslations("Shared");
-  const tShare = useTranslations("ShareListing");
   const tOpts = useTranslations("ListingOptions");
   const tMonths = useTranslations("DateRangeFilter.months");
   const locale = useLocale();
@@ -391,12 +390,6 @@ export default function SaleDetailClient({
 
   const shortId = property.id.replace(/-/g, "").slice(0, 8).toUpperCase();
 
-  const handleShare = () =>
-    shareListing(property.title, {
-      copied: tShare("copied"),
-      error: tShare("error"),
-    });
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
@@ -423,17 +416,15 @@ export default function SaleDetailClient({
                 mode={priceAlertMode}
               />
             )}
-          <button
-            type="button"
-            onClick={handleShare}
+          <ShareMenu
             className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-[#1E293B]"
-            aria-label={t("share")}
+            label={t("share")}
           >
             <Share2 className="h-[15px] w-[15px]" />
             <span className="underline-offset-2 hover:underline">
               {t("share")}
             </span>
-          </button>
+          </ShareMenu>
           <button
             type="button"
             onClick={toggleFavorite}

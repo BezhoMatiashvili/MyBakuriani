@@ -53,6 +53,8 @@ export function SmsCenterClient({
   const { user } = useAuth();
   const supabase = createClient();
   const [smsRemaining, setSmsRemaining] = useState(initialSmsRemaining);
+  // Wallet ₾, for the confirm dialog's pay-by-card fallback (C32).
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [smsPackages, setSmsPackages] = useState<PricingPackage[]>([]);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
@@ -73,11 +75,16 @@ export function SmsCenterClient({
     if (!user) return;
     const { data } = await supabase
       .from("balances")
-      .select("sms_remaining")
+      .select("sms_remaining, amount")
       .eq("user_id", user.id)
       .maybeSingle();
     setSmsRemaining(Number(data?.sms_remaining ?? 0));
+    setWalletBalance(Number(data?.amount ?? 0));
   }, [user, supabase]);
+
+  useEffect(() => {
+    void reloadBalance();
+  }, [reloadBalance]);
 
   const reloadHistory = useCallback(async () => {
     const response = await fetch("/api/sms/history", { cache: "no-store" });
@@ -206,6 +213,18 @@ export function SmsCenterClient({
         title={confirmPkg?.name ?? ""}
         description={confirmPkg ? `${smsCount(confirmPkg)} SMS` : undefined}
         priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
+        balance={walletBalance ?? undefined}
+        amount={confirmPkg?.amount_gel}
+        cardPayment={
+          confirmPkg
+            ? {
+                resume: {
+                  kind: "purchase-vip",
+                  body: { package_id: confirmPkg.id, quantity: 1 },
+                },
+              }
+            : undefined
+        }
         validity={confirmPkg ? tShared("purchaseTerms.smsNoExpiry") : undefined}
         conditions={
           confirmPkg ? [tShared("purchaseTerms.smsConsent")] : undefined

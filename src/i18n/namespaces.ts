@@ -22,7 +22,6 @@ export const PUBLIC_NAMESPACES = [
   "BookingSidebar",
   "BulkActionBar",
   "Calendar",
-  "Checkout",
   "ConsentGate",
   "ContactReveal",
   "CookieConsent",

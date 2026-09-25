@@ -17,7 +17,7 @@ import {
 import { useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -59,7 +59,6 @@ export default function EntertainmentDetailClient({
   const router = useRouter();
   const t = useTranslations("EntertainmentDetail");
   const tShared = useTranslations("Shared");
-  const tShare = useTranslations("ShareListing");
   const tCard = useTranslations("ServiceCard");
   const tOpts = useTranslations("ListingOptions");
   // Translates a stored DB option value; falls through to the raw value for
@@ -118,19 +117,9 @@ export default function EntertainmentDetailClient({
           <ArrowLeft className="h-4 w-4" />
           {tShared("back")}
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            shareListing(service.title, {
-              copied: tShare("copied"),
-              error: tShare("error"),
-            })
-          }
-          aria-label={tShare("label")}
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
-        >
+        <ShareMenu className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white">
           <Share2 className="h-[18px] w-[18px]" />
-        </button>
+        </ShareMenu>
         {photos.length > 0 && (
           <button
             type="button"

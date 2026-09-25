@@ -531,7 +531,18 @@ export default function OrganizationCabinetPage() {
         priceLabel={
           selectedPkg ? `${selectedPkg.amount_gel} ₾ ${t("perMonth")}` : ""
         }
-        balance={balance ?? undefined}
+        balance={balance ?? 0}
+        amount={selectedPkg?.amount_gel}
+        cardPayment={
+          selectedTier && isOwner
+            ? {
+                resume: {
+                  kind: "company-subscription",
+                  body: { org_id: orgId, tier: selectedTier },
+                },
+              }
+            : undefined
+        }
         validity={selectedPkg ? t("termValidity") : undefined}
         conditions={
           selectedPkg
