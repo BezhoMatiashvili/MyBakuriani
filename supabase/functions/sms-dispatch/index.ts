@@ -14,9 +14,12 @@
 // per-sender ranking, leases, and FIFO ordering. DO NOT re-implement those in TypeScript, and
 // do not add a "broke senders" Set - the RPC already excludes those rows.
 //
-// The provider is not yet decided. `sendSms()` is the SINGLE integration point: until a
-// provider is wired it SKIPS every row and releases its claim, leaving it 'approved'.
+// Provider: uBill.ge (api.ubill.dev). `sendSms()` is the SINGLE send integration point.
+// Delivery reports arrive at the sms-delivery-report function (webhook); the
+// reconcileSubmitted() poll below settles any row whose webhook never came.
 // SMS_DELIVERY_ENABLED is an independent fail-closed switch checked before claiming.
+// SMS_TEST_RECIPIENTS (comma-separated numbers), when set, restricts sending to those
+// numbers and fails every other row — staging keeps it set permanently.
 //
 // Auth: shared secret in SMS_DISPATCH_SECRET (Bearer header). The cron job and
 // any manual invocations must present this token.
@@ -53,46 +56,170 @@ type SendResult = {
   status: "skipped" | "submitted" | "failed";
   providerMessageId?: string;
   providerResponse: unknown;
+  // Account-level problem (no credit, brand not approved, bad key, outage):
+  // release this row and every remaining row in the batch, and stop sending.
+  haltBatch?: boolean;
 };
 
-// --- Provider adapter — the only place to wire a real SMS gateway. ----------
+const UBILL_SMS_API = "https://api.ubill.dev/v1/sms";
+const PROVIDER_TIMEOUT_MS = 10_000;
+const RECONCILE_BATCH = 25;
+
+// uBill send statusIDs. 0 = accepted. Everything else is an error; only the
+// "no valid number" family is the row's fault.
+const UBILL_ROW_ERRORS = new Set([20, 50]);
+
+// Same rule as sms_canonical_ge_phone: exactly a 9-digit mobile, optionally
+// prefixed by 995. Never truncate extra digits.
+function toUbillNumber(phone: string): string | null {
+  const digits = phone.replace(/\D/g, "");
+  if (/^5\d{8}$/.test(digits)) return `995${digits}`;
+  if (/^9955\d{8}$/.test(digits)) return digits;
+  return null;
+}
+
+function testRecipients(): Set<string> | null {
+  const raw = Deno.env.get("SMS_TEST_RECIPIENTS")?.trim();
+  if (!raw) return null;
+  return new Set(
+    raw
+      .split(",")
+      .map((n) => toUbillNumber(n))
+      .filter((n): n is string => !!n),
+  );
+}
+
+// --- Provider adapter — the only place that sends through the gateway. -------
+// uBill has no idempotency key. At-least-once risk is limited to a crash between
+// an accepted send and sms_mark_claim_submitted; a network error or timeout is
+// treated as 'failed' (not retried) so an ambiguous send is never repeated.
 async function sendSms(
-  smsId: string,
+  _smsId: string,
   phone: string,
   message: string,
+  key: string,
+  brandId: number,
+  allowlist: Set<string> | null,
 ): Promise<SendResult> {
-  const key = Deno.env.get("SMS_PROVIDER_API_KEY");
-  if (!key) {
+  const number = toUbillNumber(phone);
+  if (!number) {
+    return { status: "failed", providerResponse: { error: "invalid_number" } };
+  }
+  if (allowlist && !allowlist.has(number)) {
     return {
-      status: "skipped",
-      providerResponse: { skipped: "no_provider_key" },
+      status: "failed",
+      providerResponse: { cancelled: "recipient_not_allowlisted" },
     };
   }
 
-  // TODO(B1 - provider): implement this and NOTHING ELSE in this file.
-  //   Contract:
-  //     - return { status: 'submitted', providerMessageId, providerResponse }
-  //       on a 2xx/accepted gateway reply
-  //     - return { status: 'failed', providerResponse } on any provider or network error
-  //     - return { status: 'skipped', providerResponse } ONLY while unimplemented
-  //   providerResponse MUST carry the gateway's message id (for reconciliation) and must
-  //   NOT contain the API key.
-  //   Billing: the caller charges exactly 1 credit per 'sent' row (D6) even though a
-  //   Georgian UCS-2 message of 150-250 chars is 3-4 real segments. Do not "fix" that here.
-  //   At-least-once: if the gateway succeeds and this function dies before sms_mark_sent,
-  //   the row is re-sent next run. Use a provider idempotency key derived from sms_outbound.id.
-  //
-  //   NOTE for B1: the `if (!key) return skipped` guard above is DEAD as a gate, because
-  //   this block returns unconditionally. Fix it when wiring the provider (sms.md B1).
-  return {
-    status: "skipped",
-    providerResponse: {
-      skipped: "provider_not_implemented",
-      idempotency_key: smsId,
-      to: phone,
-      len: message.length,
-    },
+  let res: Response;
+  try {
+    res = await fetch(`${UBILL_SMS_API}/send`, {
+      method: "POST",
+      headers: { key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        brandID: brandId,
+        numbers: [Number(number)],
+        text: message,
+        stopList: true,
+      }),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    });
+  } catch (err) {
+    return {
+      status: "failed",
+      providerResponse: { error: "network", detail: String(err).slice(0, 200) },
+    };
+  }
+
+  const body = (await res.json().catch(() => null)) as {
+    statusID?: number;
+    smsID?: number | string;
+    message?: string;
+  } | null;
+  const statusId = Number(body?.statusID);
+  const providerResponse = {
+    provider: "ubill",
+    http: res.status,
+    statusID: body?.statusID ?? null,
+    smsID: body?.smsID ?? null,
+    message: body?.message ?? null,
   };
+
+  if (res.ok && statusId === 0 && body?.smsID != null) {
+    return {
+      status: "submitted",
+      providerMessageId: String(body.smsID),
+      providerResponse,
+    };
+  }
+  if (res.ok && UBILL_ROW_ERRORS.has(statusId)) {
+    return { status: "failed", providerResponse };
+  }
+  console.error("sms-dispatch: provider refused batch", providerResponse);
+  return { status: "skipped", providerResponse, haltBatch: true };
+}
+
+// Settle submitted rows whose delivery webhook never arrived. uBill report
+// statusIDs: 0 sent, 1 received, 2 not delivered, 3 awaiting, 4 error.
+async function reconcileSubmitted(
+  db: ReturnType<typeof createServiceClient>,
+  key: string,
+) {
+  const { data: rows, error } = await db
+    .from("sms_outbound")
+    .select("provider_message_id, submitted_at")
+    .eq("status", "submitted")
+    .lt("submitted_at", new Date(Date.now() - 15 * 60_000).toISOString())
+    .order("submitted_at", { ascending: true })
+    .limit(RECONCILE_BATCH);
+  if (error) throw error;
+
+  let delivered = 0;
+  let undelivered = 0;
+  for (const row of rows ?? []) {
+    const pid = row.provider_message_id as string;
+    let report: {
+      statusID?: number;
+      result?: { statusID?: string | number }[];
+    } | null;
+    try {
+      const res = await fetch(
+        `${UBILL_SMS_API}/report/${encodeURIComponent(pid)}`,
+        {
+          headers: { key },
+          signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+        },
+      );
+      report = await res.json().catch(() => null);
+    } catch {
+      continue;
+    }
+    if (Number(report?.statusID) !== 0) continue;
+    const status = Number(report?.result?.[0]?.statusID);
+    const staleDays =
+      (Date.now() - new Date(row.submitted_at as string).getTime()) /
+      86_400_000;
+    const payload = { provider: "ubill", report_status: status, via: "poll" };
+
+    if (status === 1) {
+      const { error: e } = await db.rpc("sms_mark_provider_delivered", {
+        p_provider_message_id: pid,
+        p_provider_response: payload,
+      });
+      if (!e) delivered++;
+    } else if (status === 2 || status === 4 || staleDays > 3) {
+      const { error: e } = await db.rpc("sms_mark_provider_undelivered", {
+        p_provider_message_id: pid,
+        p_provider_response:
+          staleDays > 3 && status !== 2 && status !== 4
+            ? { ...payload, expired: "no_final_report" }
+            : payload,
+      });
+      if (!e) undelivered++;
+    }
+  }
+  return { checked: rows?.length ?? 0, delivered, undelivered };
 }
 // ---------------------------------------------------------------------------
 
@@ -108,23 +235,33 @@ serve(async (req) => {
     const db = createServiceClient();
 
     let priceDropMaterialization: unknown = null;
-    const priceDropMode = (Deno.env.get("SMS_PRICE_DROP_MODE") ?? "off").toLowerCase();
+    const priceDropMode = (
+      Deno.env.get("SMS_PRICE_DROP_MODE") ?? "off"
+    ).toLowerCase();
     if (priceDropMode !== "off") {
       if (priceDropMode !== "on" && priceDropMode !== "qa") {
         throw new ApiError("Invalid SMS_PRICE_DROP_MODE", 500, "ENV_INVALID");
       }
       const siteUrl = Deno.env.get("SITE_URL");
       if (!siteUrl || !/^https?:\/\//.test(siteUrl)) {
-        throw new ApiError("SITE_URL is required for price-drop links", 500, "ENV_MISSING");
+        throw new ApiError(
+          "SITE_URL is required for price-drop links",
+          500,
+          "ENV_MISSING",
+        );
       }
       const { data, error: materializeError } = await db.rpc(
         "sms_materialize_due_price_drop_events",
         {
           p_site_url: siteUrl.replace(/\/+$/, ""),
           p_limit: 20,
-          p_allowed_payers: priceDropMode === "qa"
-            ? (Deno.env.get("SMS_QA_USER_IDS") ?? "").split(",").map((id) => id.trim()).filter(Boolean)
-            : null,
+          p_allowed_payers:
+            priceDropMode === "qa"
+              ? (Deno.env.get("SMS_QA_USER_IDS") ?? "")
+                  .split(",")
+                  .map((id) => id.trim())
+                  .filter(Boolean)
+              : null,
         },
       );
       if (materializeError) throw materializeError;
@@ -150,19 +287,32 @@ serve(async (req) => {
     );
     if (cancelErr) throw cancelErr;
     const cancelled = Number(cancelledRaw ?? 0);
-    const { data: cancelledPriceRaw, error: cancelledPriceError } = await db.rpc(
-      "sms_cancel_ineligible_price_drop",
-    );
+    const { data: cancelledPriceRaw, error: cancelledPriceError } =
+      await db.rpc("sms_cancel_ineligible_price_drop");
     if (cancelledPriceError) throw cancelledPriceError;
     const cancelledPriceDrop = Number(cancelledPriceRaw ?? 0);
 
-    // Queue generation is live before a provider is selected. Fail closed and
-    // do not claim rows until delivery is deliberately enabled.
-    if (Deno.env.get("SMS_DELIVERY_ENABLED") !== "true") {
+    // Settle already-submitted rows even while sending is switched off, so a
+    // disabled pipeline never strands a delivered message unbilled.
+    const providerKey = Deno.env.get("SMS_PROVIDER_API_KEY");
+    const reconciled = providerKey
+      ? await reconcileSubmitted(db, providerKey)
+      : null;
+
+    // Fail closed: do not claim rows until delivery is deliberately enabled
+    // and the provider is fully configured.
+    const brandId = Number(Deno.env.get("SMS_PROVIDER_BRAND_ID"));
+    if (
+      Deno.env.get("SMS_DELIVERY_ENABLED") !== "true" ||
+      !providerKey ||
+      !Number.isInteger(brandId) ||
+      brandId <= 0
+    ) {
       return jsonResponse(
         {
           ok: true,
           delivery_enabled: false,
+          reconciled,
           price_drop: priceDropMaterialization,
           expired,
           cancelled,
@@ -200,8 +350,21 @@ serve(async (req) => {
     let charged = 0;
     let uncharged = 0;
 
+    const allowlist = testRecipients();
+    let halted = false;
+
     for (const row of rows) {
-      const result = await sendSms(row.id, row.recipient_phone, row.message);
+      const result = halted
+        ? ({ status: "skipped", providerResponse: {} } as SendResult)
+        : await sendSms(
+            row.id,
+            row.recipient_phone,
+            row.message,
+            providerKey,
+            brandId,
+            allowlist,
+          );
+      if (result.haltBatch) halted = true;
 
       if (result.status === "skipped") {
         const { error: releaseErr } = await db.rpc(
@@ -217,15 +380,12 @@ serve(async (req) => {
         if (!result.providerMessageId) {
           throw new Error(`Provider accepted ${row.id} without a message id`);
         }
-        const { error: markErr } = await db.rpc(
-          "sms_mark_claim_submitted",
-          {
-            p_sms_id: row.id,
-            p_claim_token: claimToken,
-            p_provider_message_id: result.providerMessageId,
-            p_provider_response: result.providerResponse ?? {},
-          },
-        );
+        const { error: markErr } = await db.rpc("sms_mark_claim_submitted", {
+          p_sms_id: row.id,
+          p_claim_token: claimToken,
+          p_provider_message_id: result.providerMessageId,
+          p_provider_response: result.providerResponse ?? {},
+        });
         if (markErr) {
           console.error("sms-dispatch: sms_mark_sent failed", {
             id: row.id,
@@ -256,6 +416,8 @@ serve(async (req) => {
     return jsonResponse(
       {
         ok: true,
+        reconciled,
+        halted,
         price_drop: priceDropMaterialization,
         expired,
         cancelled,

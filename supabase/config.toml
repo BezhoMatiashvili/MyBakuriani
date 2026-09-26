@@ -107,5 +107,9 @@ verify_jwt = false
 [functions.sms-dispatch]
 verify_jwt = false
 
+# uBill delivery-report webhook: no JWT; authenticated by the callback key (C18).
+[functions.sms-delivery-report]
+verify_jwt = false
+
 [functions.vip-lifecycle]
 verify_jwt = false
