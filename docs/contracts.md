@@ -2873,3 +2873,14 @@ back a payment); a retry path is added that re-sends without the idempotency key
 (double send); a Broadcast is sent to an audience the app does not sync
 (bypasses consent); or the webhook's "still opted in" check is removed (every
 in-app opt-out also logs a bogus `email_unsubscribe` row).
+---
+
+## C34 — Explicit grants; public_* views are read-only
+
+**Invariant:** anon/authenticated may only SELECT the six `public_*` views (they are owned by postgres, which bypasses RLS, so a write grant on an auto-updatable one writes straight into `profiles`/`organizations`). Default privileges for `postgres` grant anon/authenticated nothing in `public`, and new functions get no PUBLIC EXECUTE — every new table/view/sequence/function states its GRANTs in its own migration.
+
+**Symbols:** `supabase/migrations/20260926170000_s0_revoke_public_view_writes_default_privileges.sql`, `public.security_posture_snapshot()` (`20260926170100`), `scripts/check-db-contracts.mjs` (C34 block, allow-list `ANON_DEFINER_ALLOW`).
+
+**Key:** new RPC → `REVOKE ALL … FROM PUBLIC, anon` + `GRANT EXECUTE … TO authenticated` (anon only if public). New table → GRANTs matching its RLS policies. `supabase_admin`-owned objects keep Supabase's defaults (postgres cannot alter them). Extensions installed by postgres need explicit grants for the API roles.
+
+**Breaks:** a migration creates a table/RPC without GRANTs (client gets 42501 permission denied, not an empty RLS result); someone re-grants ALL on a view (anon DELETE through it); a SECURITY DEFINER fn executable by anon/PUBLIC outside the allow-list.

@@ -5442,6 +5442,7 @@ export type Database = {
         Returns: Json;
       };
       schema_contract_snapshot: { Args: never; Returns: Json };
+      security_posture_snapshot: { Args: never; Returns: Json };
       self_service_activate_menu_item_discount: {
         Args: {
           p_actor_id: string;

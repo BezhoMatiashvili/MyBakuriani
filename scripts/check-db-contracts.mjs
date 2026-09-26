@@ -245,5 +245,29 @@ for (const [table, values, name] of [
   else ok("C4: all 5 expected pg_cron jobs are active");
 }
 
+// C34 — privilege posture: public_* views are read-only for the API roles, no SECURITY
+// DEFINER function is reachable by anon/PUBLIC outside the allow-list, every public table has
+// RLS on, and postgres' default privileges grant the API roles nothing.
+{
+  const posture = await rpc("security_posture_snapshot");
+  const ANON_DEFINER_ALLOW = ["is_admin_user()"];
+  if (posture.writable_views.length) fail(`C34: anon/authenticated can write through views: ${posture.writable_views}`);
+  else ok("C34: no view is writable by anon/authenticated");
+  const anonExtra = onlyIn(posture.anon_definer_functions, ANON_DEFINER_ALLOW);
+  if (anonExtra.length) fail(`C34: SECURITY DEFINER functions executable by anon: ${anonExtra.join(", ")}`);
+  else ok(`C34: anon reaches only the allow-listed definer function(s): ${ANON_DEFINER_ALLOW}`);
+  if (posture.public_definer_functions.length)
+    fail(`C34: SECURITY DEFINER functions executable by PUBLIC: ${posture.public_definer_functions.join(", ")}`);
+  else ok("C34: no definer function is executable by PUBLIC");
+  if (posture.rls_disabled_tables.length) fail(`C34: public tables with RLS disabled: ${posture.rls_disabled_tables}`);
+  else ok("C34: RLS is on for every public table");
+  const leaky = posture.default_acl.filter((d) => /(^|[{,])(anon|authenticated)=/.test(d.acl));
+  const globalFns = posture.default_acl.find((d) => d.schema === "*" && d.objtype === "f");
+  const publicExec = !globalFns || /(^|[{,])=X/.test(globalFns.acl);
+  if (leaky.length) fail(`C34: default privileges still grant API roles: ${leaky.map((d) => `${d.schema}/${d.objtype}`)}`);
+  if (publicExec) fail("C34: new functions still get PUBLIC EXECUTE by default");
+  if (!leaky.length && !publicExec) ok("C34: postgres default privileges grant nothing to anon/authenticated/PUBLIC");
+}
+
 console.log(`\n${failures} failure(s), ${warnings} warning(s) against ${new URL(url).host}`);
 process.exit(failures ? 1 : 0);
