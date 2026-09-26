@@ -925,6 +925,134 @@ export type Database = {
           },
         ];
       };
+      email_marketing_sync: {
+        Row: {
+          attempts: number;
+          claim_token: string | null;
+          claimed_at: string | null;
+          email: string | null;
+          last_error: string | null;
+          requested_at: string;
+          subscribed: boolean;
+          synced_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          attempts?: number;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          email?: string | null;
+          last_error?: string | null;
+          requested_at?: string;
+          subscribed: boolean;
+          synced_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          attempts?: number;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          email?: string | null;
+          last_error?: string | null;
+          requested_at?: string;
+          subscribed?: boolean;
+          synced_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      email_outbound: {
+        Row: {
+          action_url: string | null;
+          attempts: number;
+          body: string | null;
+          claim_token: string | null;
+          claimed_at: string | null;
+          created_at: string;
+          id: string;
+          last_error: string | null;
+          next_attempt_at: string;
+          notification_id: string | null;
+          notification_type: string;
+          provider_message_id: string | null;
+          sent_at: string | null;
+          status: string;
+          subject: string;
+          to_email: string;
+          user_id: string;
+        };
+        Insert: {
+          action_url?: string | null;
+          attempts?: number;
+          body?: string | null;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          notification_id?: string | null;
+          notification_type: string;
+          provider_message_id?: string | null;
+          sent_at?: string | null;
+          status?: string;
+          subject: string;
+          to_email: string;
+          user_id: string;
+        };
+        Update: {
+          action_url?: string | null;
+          attempts?: number;
+          body?: string | null;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          notification_id?: string | null;
+          notification_type?: string;
+          provider_message_id?: string | null;
+          sent_at?: string | null;
+          status?: string;
+          subject?: string;
+          to_email?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_outbound_notification_id_fkey";
+            columns: ["notification_id"];
+            isOneToOne: true;
+            referencedRelation: "notifications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_suppressions: {
+        Row: {
+          created_at: string;
+          detail: Json | null;
+          email: string;
+          provider: string | null;
+          reason: string;
+        };
+        Insert: {
+          created_at?: string;
+          detail?: Json | null;
+          email: string;
+          provider?: string | null;
+          reason: string;
+        };
+        Update: {
+          created_at?: string;
+          detail?: Json | null;
+          email?: string;
+          provider?: string | null;
+          reason?: string;
+        };
+        Relationships: [];
+      };
       favorites: {
         Row: {
           created_at: string;
@@ -4965,6 +5093,33 @@ export type Database = {
         Returns: string;
       };
       dashboard_scope_for_path: { Args: { p_path: string }; Returns: string };
+      email_claim_batch: {
+        Args: { p_claim_token: string; p_limit: number };
+        Returns: {
+          action_url: string;
+          attempts: number;
+          body: string;
+          id: string;
+          notification_type: string;
+          subject: string;
+          to_email: string;
+        }[];
+      };
+      email_marketing_claim: {
+        Args: { p_claim_token: string; p_limit: number };
+        Returns: {
+          attempts: number;
+          display_name: string;
+          email: string;
+          subscribed: boolean;
+          user_id: string;
+        }[];
+      };
+      email_notification_types: { Args: never; Returns: string[] };
+      email_user_ids_for_address: {
+        Args: { p_email: string };
+        Returns: string[];
+      };
       ensure_renter_guest: {
         Args: {
           p_name: string;

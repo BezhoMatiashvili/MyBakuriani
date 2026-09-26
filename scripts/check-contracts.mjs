@@ -233,6 +233,39 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else describeSetMismatch("C32 Keepz statuses", tsStatuses, "status.ts", sqlStatuses, applyFile);
 }
 
+// ---------------------------------------------------------------------------
+// C33 — email notifications. (a) The origin-less email routes (dispatcher and
+// the Resend webhook) exist, and the middleware exempts exactly the
+// shared list. (b) EMAIL_NOTIFICATION_TYPES equals the array returned by
+// public.email_notification_types() in the newest migration defining it.
+// ---------------------------------------------------------------------------
+{
+  const paths = read("src/lib/email/server-paths.ts");
+  const routes = [...paths.matchAll(/export const EMAIL_\w+_PATH = "(\/api\/[^"]+)"/g)].map((m) => m[1]);
+  const missing = routes.filter((p) => !existsSync(join(root, "src/app", p, "route.ts")));
+  const exemptsList = /EMAIL_ORIGINLESS_POST_PATHS\.includes\(request\.nextUrl\.pathname\)/.test(read("src/middleware.ts"));
+  if (routes.length !== 2) fail(`C33: expected 2 origin-less email paths in server-paths.ts, found ${routes.length}`);
+  else if (missing.length) fail(`C33: origin-less email path with no route file: ${missing.join(", ")}`);
+  else if (!exemptsList) fail("C33: src/middleware.ts must exempt EMAIL_ORIGINLESS_POST_PATHS by exact pathname");
+  else ok(`C33: ${routes.length} origin-less email routes exist and the middleware exempts exactly them`);
+
+  const tsTypes = new Set(
+    [...(read("src/lib/email/types.ts").match(/EMAIL_NOTIFICATION_TYPES = \[([\s\S]*?)\]/)?.[1] ?? "").matchAll(/"([a-z_]+)"/g)].map((m) => m[1]),
+  );
+  const typesFile = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /FUNCTION public\.email_notification_types\(/i.test(read(join("supabase/migrations", f))))
+    .at(-1);
+  const sqlBody = typesFile
+    ? (read(join("supabase/migrations", typesFile)).match(/function public\.email_notification_types\(\)[\s\S]*?select array\[([\s\S]*?)\]::text\[\]/i)?.[1] ?? "")
+    : "";
+  const sqlTypes = new Set([...sqlBody.replace(/--[^\n]*/g, "").matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
+  if (!tsTypes.size || !sqlTypes.size) fail("C33: could not read EMAIL_NOTIFICATION_TYPES or email_notification_types()");
+  else if (setEq(tsTypes, sqlTypes)) ok(`C33: ${typesFile} emails the ${tsTypes.size} notification types types.ts lists`);
+  else describeSetMismatch("C33 email notification types", tsTypes, "types.ts", sqlTypes, typesFile);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

@@ -39,6 +39,15 @@ export async function POST(request: Request) {
   if (!isObject(values) || Object.keys(values).length === 0) {
     return Response.json({ error: "invalid_consent_payload" }, { status: 400 });
   }
+  // A user may only stamp the two UI sources on their own writes;
+  // 'email_unsubscribe' belongs to the Resend webhook (C33).
+  if (
+    values.source !== undefined &&
+    values.source !== "registration_gate" &&
+    values.source !== "account_settings"
+  ) {
+    return Response.json({ error: "invalid_consent_source" }, { status: 400 });
+  }
   for (const key of Object.keys(values)) {
     if (!ALLOWED_KEYS.has(key)) {
       return Response.json(

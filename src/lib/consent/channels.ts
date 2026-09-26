@@ -7,7 +7,9 @@
 //           derived mirror of marketing_sms_consent, and the SMS pipeline
 //           (sms-automation-run's reachable(), sms_cancel_ineligible_automation,
 //           the price-drop joins) already reads that mirror.
-//   email - NO sender exists anywhere in this project.
+//   email - enforced since C33: only users with marketing_email_consent = true
+//           are subscribed Resend contacts (email_marketing_sync), and a
+//           Broadcast unsubscribe writes the withdrawal back here.
 //   whatsapp - NO WhatsApp marketing sender exists anywhere in this project.
 //              (Unrelated to profiles.whatsapp_enabled, a contact-display flag.)
 //   push  - NO web-push infrastructure exists anywhere in this project.
@@ -33,7 +35,12 @@ export const CONSENT_KINDS = [
 ] as const;
 export type ConsentKind = (typeof CONSENT_KINDS)[number];
 
-export const CONSENT_SOURCES = ["registration_gate", "account_settings"] as const;
+export const CONSENT_SOURCES = [
+  "registration_gate",
+  "account_settings",
+  // Written only by /api/email/resend-webhook (C33); /api/consent refuses it.
+  "email_unsubscribe",
+] as const;
 export type ConsentSource = (typeof CONSENT_SOURCES)[number];
 
 /**
@@ -57,7 +64,10 @@ export const MARKETING_POLICY_VERSION = "2026-09-23";
 export type MarketingChannel = "sms" | "email" | "whatsapp" | "push";
 
 /** Only the channels whose senders actually exist today. */
-export const LIVE_MARKETING_CHANNELS: readonly MarketingChannel[] = ["sms"];
+export const LIVE_MARKETING_CHANNELS: readonly MarketingChannel[] = [
+  "sms",
+  "email",
+];
 
 export type ConsentFields = {
   marketing_sms_consent?: boolean | null;

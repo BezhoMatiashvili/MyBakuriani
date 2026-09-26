@@ -21,8 +21,9 @@ export type NotificationPreferenceValues = {
  * Marketing Policy (v2) section 6.2 requires retaining status, channel, time and
  * source for each consent change, not just the latest value.
  *
- * DELIVERY HONESTY: the SMS row genuinely gates sending today. Email, WhatsApp
- * and push have no sender anywhere in this project; their rows persist the preference
+ * DELIVERY HONESTY: the SMS and email rows genuinely gate sending today (email:
+ * Resend Broadcast contacts, C33). WhatsApp and push have no sender anywhere in
+ * this project; their rows persist the preference
  * and are gated by marketingChannelAllowed(), and are labelled as not yet
  * active so the control does not pretend to do something it cannot.
  */
@@ -88,7 +89,6 @@ export function NotificationPreferences({
         <Row
           label={t("marketingEmail")}
           help={t("marketingEmailHelp")}
-          badge={t("notActiveYet")}
           checked={email}
           onChange={setEmail}
         />

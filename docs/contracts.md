@@ -2545,7 +2545,7 @@ Participating symbols:
   staging only):** `profiles.marketing_whatsapp_consent` + consent kind
   `marketing_whatsapp`. It is NOT `profiles.whatsapp_enabled` — that older
   column is a contact-display flag written by `self_service_update_profile`.
-  No WhatsApp sender exists; `LIVE_MARKETING_CHANNELS` stays `["sms"]`
+  No WhatsApp sender exists; `LIVE_MARKETING_CHANNELS` is `["sms", "email"]` since **C33**
 
 **The gate must re-check on navigation while unresolved.** `ConsentGate` keys
 its profile read on `[userId, pathname, settled]`, not `[userId]` alone. The
@@ -2797,3 +2797,79 @@ cannot tell a second refund from the first; (5) owners read `payments` through
 column grants that omit `resume`, `review_flag`, `provider_status`,
 `checkout_url`, `last_error`. The callback also skips its Keepz re-check when
 the order was checked <3 s ago.
+
+---
+
+## C33 — Email: everything through Resend
+
+**Invariant (2026-09-26, staging only):** all email goes through **Resend**, one
+team ("MyBakuriani") and one domain (`mybakuriani.ge`, region eu-west-1). It sends
+a copy of selected in-app notifications, it is the Supabase Auth SMTP, and its
+**Broadcasts** carry marketing. The app never sends marketing itself: it only
+keeps each Resend contact's `unsubscribed` flag equal to
+`profiles.marketing_email_consent` (**C30**). Bounces and complaints land on one
+suppression list that the sender honours.
+
+Participating symbols:
+
+- `supabase/migrations/20260925160000_email_notifications.sql:email_notification_types`
+  — the transactional allow-list, mirrored by
+  `src/lib/email/types.ts:EMAIL_NOTIFICATION_TYPES` (`check-contracts` compares
+  them). Absent on purpose: `listing_pending`, `broadcast`,
+  `content_change_superseded`. A NEW notification type gets no email until it is
+  added to both
+- `…:email_enqueue_notification` — AFTER INSERT on `notifications`; copies
+  title/message/`action_url`, only for a CONFIRMED `auth.users.email`. It
+  swallows every error into a WARNING, because `_notify` runs inside payment and
+  moderation transactions (**C19**) — an email problem must never roll those back
+- `…:email_marketing_consent_changed` — trigger on `profiles` (insert, update of
+  `marketing_email_consent`, delete) that queues a contact (un)subscribe. It
+  clears the row's claim so an in-flight dispatcher run cannot mark the OLD
+  intent synced
+- `…:email_claim_batch` / `:email_marketing_claim` — lease claims (10 min),
+  3-day expiry of unsent notification mail, re-check of suppressions
+- `src/app/api/email/dispatch/route.ts` — pg_cron every 5 min
+  (`20260925160100_email_dispatch_schedule.sql`, Vault-guarded like **C32**'s
+  sweeper; Bearer compared by SHA-256 against `EMAIL_DISPATCH_SECRET_SHA256`).
+  Fails closed without `EMAIL_DELIVERY_ENABLED=true`, and sends and claims
+  NOTHING unless `EMAIL_ALLOWED_RECIPIENTS` is set (a list, or `*` for everyone)
+  — staging holds a restored copy of real users. `EMAIL_DAILY_CAP` (default 80)
+  keeps notification mail below Resend's free 100/day so Auth mail still goes
+  out. Every write back matches the claim token
+- `src/lib/email/resend.ts:classifyResendResponse` — `Idempotency-Key` = the
+  `email_outbound.id`, so only a definitive 4xx is final; timeouts/5xx/409 retry
+  (max 6), a spent quota parks the whole batch, 401/403 stop the run
+- `src/lib/email/resend-contacts.ts:syncResendContact` — PATCH
+  `/contacts/{email}`, POST on 404 when subscribing. Needs a FULL-ACCESS key
+- `src/lib/email/render.ts` — everything user-written is HTML-escaped, subjects
+  lose CR/LF; the button link is `SITE_URL` + a `safeInternalPath` path only
+- `src/app/api/email/resend-webhook/route.ts` — Svix-verified
+  (`src/lib/email/svix.ts`). Permanent bounce / complaint → `email_suppressions`;
+  `contact.updated` with `unsubscribed: true` → `self_service_record_consent`
+  with source `email_unsubscribe` (the only writer, **C30**), but ONLY for a
+  user still opted in, because our own sync's PATCH is echoed back as the same
+  event. `/api/consent` refuses that source, so a user cannot stamp it themselves
+- `src/lib/email/server-paths.ts:EMAIL_ORIGINLESS_POST_PATHS` — the two routes
+  above are server to server; `src/middleware.ts` exempts exactly them from the
+  Origin check (`check-contracts` verifies)
+- `src/lib/consent/channels.ts:CONSENT_SOURCES` — includes `email_unsubscribe`
+  (the `user_consents.source` CHECK and the function's `v_source` list agree;
+  `check-db-contracts` compares)
+
+**DNS (DigitalOcean):** `resend._domainkey` TXT (DKIM), `send` and `rsend` CNAMEs
+to `*.forge.rmta.net` (return-path/SPF lives there, not on the root), `_dmarc`
+TXT `v=DMARC1; p=none;`. There is no root SPF record; if one is ever added for
+another sender it must be ONE record.
+
+**Known gaps:** staging and prod share the one free Resend team, so their
+contacts share one contact list (staging only ever syncs allow-listed
+addresses); a changed account email is not propagated to an existing contact;
+notification mail is Georgian only (so is the notification text itself); the
+`email-dispatch-5min` job is not in `check-db-contracts`' expected cron list.
+
+**Breaks silently when:** a notification writer uses a new type string (no email,
+no error); the enqueue trigger stops swallowing errors (an email hiccup rolls
+back a payment); a retry path is added that re-sends without the idempotency key
+(double send); a Broadcast is sent to an audience the app does not sync
+(bypasses consent); or the webhook's "still opted in" check is removed (every
+in-app opt-out also logs a bogus `email_unsubscribe` row).

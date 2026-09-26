@@ -4907,7 +4907,7 @@
     "marketingSms": "Offers and discounts by SMS",
     "marketingSmsHelp": "Promotions, discounts and other marketing messages. You can turn this off at any time.",
     "marketingEmail": "Offers by email",
-    "marketingEmailHelp": "Email sending is not live yet — your choice is saved and will take effect as soon as it launches.",
+    "marketingEmailHelp": "Offers, discounts and news by email. Every email has an unsubscribe link, and you can also switch this off here at any time.",
     "marketingWhatsapp": "Offers by WhatsApp",
     "marketingWhatsappHelp": "WhatsApp sending is not live yet — your choice is saved and will take effect as soon as it launches.",
     "push": "Push notifications",
