@@ -32,11 +32,11 @@ test("GEL amounts become integer tetri; more than 2 decimals is rejected", () =>
   assert.equal(gelToTetri(null), null);
 });
 
-test("card top-ups are bounded to 1–2000 GEL, and 365 days of SUPER VIP fits", () => {
-  assert.equal(MIN_CARD_TOPUP_TETRI, 100);
+test("card top-ups are bounded to 0.10–2000 GEL, and 365 days of SUPER VIP fits", () => {
+  assert.equal(MIN_CARD_TOPUP_TETRI, 10);
   assert.equal(MAX_CARD_TOPUP_TETRI, 200_000);
-  assert.equal(isValidCardTopupTetri(100), true);
-  assert.equal(isValidCardTopupTetri(99), false);
+  assert.equal(isValidCardTopupTetri(10), true);
+  assert.equal(isValidCardTopupTetri(9), false);
   assert.equal(isValidCardTopupTetri(200_000), true);
   assert.equal(isValidCardTopupTetri(200_001), false);
   assert.equal(isValidCardTopupTetri(150.5), false);
@@ -51,13 +51,14 @@ test("amounts sent to Keepz never carry more than 2 decimals", () => {
   }
 });
 
-test("card shortfall covers the missing part, never below 1 GEL", () => {
+test("card shortfall covers the missing part, never below 0.10 GEL", () => {
   assert.equal(cardShortfallTetri(5, 10), 0); // wallet covers it
   assert.equal(cardShortfallTetri(10, 10), 0);
   assert.equal(cardShortfallTetri(12.5, 10), 250);
-  assert.equal(cardShortfallTetri(10.3, 10), 100); // 0.30 rounds up to 1 ₾
+  assert.equal(cardShortfallTetri(10.3, 10), 30); // 0.30 is paid as-is
+  assert.equal(cardShortfallTetri(10.05, 10), 10); // 0.05 rounds up to 0.10 ₾
   assert.equal(cardShortfallTetri(1825, 17.5), 180_750);
-  assert.equal(cardShortfallTetri(0.1 + 0.2, 0), 100);
+  assert.equal(cardShortfallTetri(0.1 + 0.2, 0), 30);
 });
 
 test("request ids must be UUID v4 (Keepz integratorOrderId format)", () => {

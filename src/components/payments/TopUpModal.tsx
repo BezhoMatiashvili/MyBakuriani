@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Loader2, ShieldCheck } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import NumberField from "@/components/shared/NumberField";
-import { formatPrice } from "@/lib/utils/format";
+import { formatGelAmount } from "@/lib/utils/pricing";
 import {
   MAX_CARD_TOPUP_TETRI,
   MIN_CARD_TOPUP_TETRI,
@@ -68,7 +68,7 @@ export default function TopUpModal({
             onChange={setAmount}
             min={MIN_AMOUNT}
             max={MAX_AMOUNT}
-            integer
+            decimals={2}
             suffix="₾"
           />
         </div>
@@ -82,7 +82,9 @@ export default function TopUpModal({
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            t("topUp.continue", { amount: formatPrice(valid ? numeric : 0) })
+            t("topUp.continue", {
+              amount: formatGelAmount(valid ? numeric : 0),
+            })
           )}
         </button>
         <p className="flex items-center justify-center gap-1.5 text-[11px] text-[#64748B]">

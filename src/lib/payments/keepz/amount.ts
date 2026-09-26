@@ -9,8 +9,11 @@
  * Pure module (no imports) so scripts/unit can load it.
  */
 
-/** 1 ₾ — the smallest card payment; smaller shortfalls round up to it. */
-export const MIN_CARD_TOPUP_TETRI = 100;
+/**
+ * 0.10 ₾ — the smallest card payment; smaller shortfalls round up to it. The
+ * Keepz dev gateway accepts 0.10 ₾ and rejects 0.01 ₾ (6026).
+ */
+export const MIN_CARD_TOPUP_TETRI = 10;
 /** 2000 ₾ — covers the largest single purchase (365 days of SUPER VIP = 1825 ₾). */
 export const MAX_CARD_TOPUP_TETRI = 200_000;
 
@@ -38,7 +41,7 @@ export function tetriToGel(tetri: number): number {
 
 /**
  * Card amount for a purchase the wallet cannot cover: the missing part, never
- * below the 1 ₾ minimum. 0 means the wallet already covers the purchase.
+ * below the 0.10 ₾ minimum. 0 means the wallet already covers the purchase.
  * Both inputs are 2-decimal GEL amounts (NUMERIC(10,2) columns).
  */
 export function cardShortfallTetri(

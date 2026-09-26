@@ -370,8 +370,8 @@ test("[core] short wallet offers card top-up instead of a failing wallet payment
   const p = await openPicker(page, ids.poorRental, "vip", KA);
   const c = await payAndConfirm(page, p, KA);
   await expect(c.getByRole("button", { name: KA.agree })).toHaveCount(0);
-  // 0.50 ₾ short → the 1 ₾ card minimum (MIN_CARD_TOPUP_TETRI).
-  await expect(c).toContainText("1.00 ₾");
+  // 0.50 ₾ short → paid by card as-is (above the 0.10 ₾ MIN_CARD_TOPUP_TETRI).
+  await expect(c).toContainText("0.50 ₾");
   expect(await getBalance(ids.poor)).toBeCloseTo(1, 2);
 });
 
