@@ -160,6 +160,45 @@ async function sendSms(
   return { status: "skipped", providerResponse, haltBatch: true };
 }
 
+// Sender name: SMS_PROVIDER_BRAND_NAME (e.g. "MyBakuriani") is used as soon as
+// uBill has authorized it; until then SMS_PROVIDER_BRAND_ID is the fallback.
+async function resolveBrand(
+  key: string,
+): Promise<{ id: number; source: string }> {
+  const fallback = Number(Deno.env.get("SMS_PROVIDER_BRAND_ID"));
+  const name = Deno.env.get("SMS_PROVIDER_BRAND_NAME")?.trim();
+  if (!name) return { id: fallback, source: "fallback" };
+  try {
+    // Reply shape (observed 2026-09-26; the docs say `data`, the API says `brands`):
+    // {"statusID":0,"brands":[{"id":1,"name":"MyBakuriani","authorized":0,...}]}
+    const res = await fetch(`${UBILL_SMS_API}/brandNames`, {
+      headers: { key },
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    });
+    const body = (await res.json().catch(() => null)) as {
+      brands?: {
+        id?: string | number;
+        name?: string;
+        authorized?: string | number;
+      }[];
+    } | null;
+    if (!Array.isArray(body?.brands)) {
+      console.warn("sms-dispatch: unexpected brandNames reply", {
+        http: res.status,
+        body: JSON.stringify(body).slice(0, 300),
+      });
+      return { id: fallback, source: "fallback_lookup_failed" };
+    }
+    const hit = body.brands.find((b) => b.name === name);
+    if (hit && String(hit.authorized) === "1" && Number(hit.id) > 0) {
+      return { id: Number(hit.id), source: "named" };
+    }
+    return { id: fallback, source: hit ? "fallback_pending_approval" : "fallback_not_found" };
+  } catch {
+    return { id: fallback, source: "fallback_lookup_failed" };
+  }
+}
+
 // Settle submitted rows whose delivery webhook never arrived. uBill report
 // statusIDs: 0 sent, 1 received, 2 not delivered, 3 awaiting, 4 error.
 async function reconcileSubmitted(
@@ -301,13 +340,13 @@ serve(async (req) => {
 
     // Fail closed: do not claim rows until delivery is deliberately enabled
     // and the provider is fully configured.
-    const brandId = Number(Deno.env.get("SMS_PROVIDER_BRAND_ID"));
-    if (
-      Deno.env.get("SMS_DELIVERY_ENABLED") !== "true" ||
-      !providerKey ||
-      !Number.isInteger(brandId) ||
-      brandId <= 0
-    ) {
+    const enabled =
+      Deno.env.get("SMS_DELIVERY_ENABLED") === "true" && !!providerKey;
+    const brand = enabled
+      ? await resolveBrand(providerKey!)
+      : { id: 0, source: "disabled" };
+    const brandId = brand.id;
+    if (!enabled || !Number.isInteger(brandId) || brandId <= 0) {
       return jsonResponse(
         {
           ok: true,
@@ -360,7 +399,7 @@ serve(async (req) => {
             row.id,
             row.recipient_phone,
             row.message,
-            providerKey,
+            providerKey!,
             brandId,
             allowlist,
           );
@@ -416,6 +455,7 @@ serve(async (req) => {
     return jsonResponse(
       {
         ok: true,
+        brand,
         reconciled,
         halted,
         price_drop: priceDropMaterialization,
