@@ -45,7 +45,7 @@ export async function POST(
     return Response.json({ counted: false, reason: "self", views });
   }
   // History is recency, not a metric: refresh it on EVERY signed-in view,
-  // before the 24h dedup, or a same-day revisit never re-sorts (C34).
+  // before the 24h dedup, or a same-day revisit never re-sorts (C35).
   // Best-effort, but awaited: an un-awaited Supabase builder never fires.
   if (userId) {
     const viewedAt = new Date().toISOString();

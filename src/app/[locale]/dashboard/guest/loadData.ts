@@ -40,7 +40,7 @@ function requestShortId(id: string) {
 }
 
 /**
- * The viewer's own recently viewed listings, newest first (C34). History rows
+ * The viewer's own recently viewed listings, newest first (C35). History rows
  * are written by the view beacon route; listings that are no longer public are
  * dropped here.
  */

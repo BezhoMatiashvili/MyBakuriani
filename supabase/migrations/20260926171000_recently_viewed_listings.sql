@@ -1,5 +1,5 @@
 -- Per-user "recently viewed" history for the guest dashboard section
--- "ბოლოს ნანახი განცხადებები" (contract C34). Written ONLY by the view beacon
+-- "ბოლოს ნანახი განცხადებები" (contract C35). Written ONLY by the view beacon
 -- route (POST /api/listings/[kind]/[id]/view) through the service role, for
 -- signed-in viewers who do not own the listing; read ONLY by the viewer's own
 -- dashboard under RLS. Not a metric source: views_count / listing_view_events
