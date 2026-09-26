@@ -1224,7 +1224,8 @@
     "tryChangeFilters": "სცადეთ ფილტრების შეცვლა",
     "bannerValidFrom": "დაწყება",
     "bannerValidUntil": "დასრულება",
-    "bannerExpand": "ვიდეოს გახსნა"
+    "bannerExpand": "ვიდეოს გახსნა",
+    "views": "{count} ნახვა"
   },
   "StatusCards": {
     "weather": "ამინდი",
@@ -2747,6 +2748,7 @@
     "review": "შეფასება",
     "recentTitle": "ბოლოს ნანახი განცხადებები",
     "recentSubtitle": "გააგრძელე სადაც გაჩერდი.",
+    "recentEmpty": "ჯერ არ გინახავთ განცხადებები. რასაც გახსნით, აქ გამოჩნდება.",
     "viewAll": "ყველას ნახვა",
     "showLess": "ნაკლების ჩვენება",
     "views": "{count} ნახვა",

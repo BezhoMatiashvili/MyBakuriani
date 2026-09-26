@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -9,6 +8,7 @@ import {
   Clock,
   BadgeCheck,
   ChevronRight,
+  Eye,
   Languages,
   MapPin,
   Share2,
@@ -19,6 +19,7 @@ import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
@@ -96,11 +97,12 @@ export default function ServiceDetailClient({
     ? tCard(`categories.${service.category}`)
     : service.category;
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
@@ -167,6 +169,10 @@ export default function ServiceDetailClient({
               {optionLabel("serviceSpheres", service.service_field)}
             </span>
           )}
+          <span className="flex items-center gap-1.5 font-medium">
+            <Eye className="h-4 w-4" />
+            {tShared("views", { count: views })}
+          </span>
         </div>
       </motion.div>
 

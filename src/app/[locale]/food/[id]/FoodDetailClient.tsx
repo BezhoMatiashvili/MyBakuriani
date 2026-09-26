@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Heart, Share2 } from "lucide-react";
+import { ArrowLeft, Eye, Heart, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
@@ -12,6 +11,7 @@ import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { useFavorite } from "@/lib/hooks/useFavorite";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
@@ -63,11 +63,12 @@ export default function FoodDetailClient({
     return hours;
   };
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   const categoryKey = optionKeyFor("serviceCategories", service.category);
   const categoryLabel = categoryKey
@@ -172,15 +173,20 @@ export default function FoodDetailClient({
             <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
               {service.title}
             </h1>
-            {(subtitleZone || subtitleHours) && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[#64748B]">
-                {subtitleZone && <span>{subtitleZone}</span>}
-                {subtitleZone && subtitleHours && (
-                  <span className="text-[#CBD5E1]">•</span>
-                )}
-                {subtitleHours && <span>{subtitleHours}</span>}
-              </div>
-            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[#64748B]">
+              {subtitleZone && <span>{subtitleZone}</span>}
+              {subtitleZone && subtitleHours && (
+                <span className="text-[#CBD5E1]">•</span>
+              )}
+              {subtitleHours && <span>{subtitleHours}</span>}
+              {(subtitleZone || subtitleHours) && (
+                <span className="text-[#CBD5E1]">•</span>
+              )}
+              <span className="flex items-center gap-1.5 font-medium">
+                <Eye className="h-4 w-4" />
+                {tShared("views", { count: views })}
+              </span>
+            </div>
           </motion.div>
 
           {service.description && (

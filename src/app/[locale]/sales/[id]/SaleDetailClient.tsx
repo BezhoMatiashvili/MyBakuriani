@@ -30,6 +30,7 @@ import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { useFavorite } from "@/lib/hooks/useFavorite";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables, Database } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
@@ -194,11 +195,11 @@ export default function SaleDetailClient({
   } = useFavorite({ propertyId: property.id });
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
 
-  useEffect(() => {
-    void fetch(`/api/listings/property/${property.id}/view`, {
-      method: "POST",
-    });
-  }, [property.id]);
+  const views = useListingViewCount(
+    "property",
+    property.id,
+    property.views_count,
+  );
 
   useEffect(() => {
     if (!isConstructionModalOpen) return;
@@ -474,12 +475,10 @@ export default function SaleDetailClient({
               {avgRating.toFixed(1)}
             </span>
           )}
-          {property.views_count != null && (
-            <span className="flex items-center gap-1.5 font-medium">
-              <Eye className="h-4 w-4" />
-              {property.views_count}
-            </span>
-          )}
+          <span className="flex items-center gap-1.5 font-medium">
+            <Eye className="h-4 w-4" />
+            {tDetail("views", { count: views })}
+          </span>
         </div>
       </motion.div>
 

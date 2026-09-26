@@ -19,6 +19,7 @@ import {
   Building2,
   Upload,
   CheckCircle2,
+  Eye,
   FileText,
   Leaf,
   Users,
@@ -39,6 +40,7 @@ import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import DateField, { toISODate } from "@/components/shared/DateField";
@@ -247,10 +249,12 @@ export default function EmploymentDetailClient({
     setDisplayedApplicationsCount(applicationsCount);
   }, [applicationsCount]);
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -492,6 +496,11 @@ export default function EmploymentDetailClient({
             <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
               <Users className="h-4 w-4" />
               {t("applications", { count: displayedApplicationsCount })}
+            </span>
+            <span className="text-[#CBD5E1]">·</span>
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
+              <Eye className="h-4 w-4" />
+              {tShared("views", { count: views })}
             </span>
           </motion.div>
 
