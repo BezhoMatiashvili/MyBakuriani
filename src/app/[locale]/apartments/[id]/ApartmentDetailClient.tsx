@@ -27,6 +27,7 @@ import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { formatPricePerNight } from "@/lib/utils/format";
 import { applyDiscount } from "@/lib/utils/pricing";
+import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
   ssr: false,
@@ -83,13 +84,6 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
-// Reviews are temporarily removed from the public detail page at the tester's
-// request (PDF "ბაკურიანი - ხარვეზები", 2026-09-19). Flip this to false to
-// restore every review surface at once: the header rating chip, the reviews
-// section, and the rating shown in the booking sidebar all derive from it.
-// Kept as a flag rather than deleted because the ask was explicitly temporary.
-const REVIEWS_TEMPORARILY_HIDDEN = true;
-
 export default function ApartmentDetailClient({
   property,
   isPending = false,
@@ -140,7 +134,7 @@ export default function ApartmentDetailClient({
   const showHouseRules =
     smokingRule !== null || petsRule !== null || extraHouseRules.length > 0;
   const avgRating =
-    !REVIEWS_TEMPORARILY_HIDDEN && reviews.length > 0
+    !RENTAL_REVIEWS_HIDDEN && reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
@@ -399,7 +393,7 @@ export default function ApartmentDetailClient({
           {/* Reviews — hidden entirely while empty (no submission flow reaches
               real, offline-booked stays yet), rather than showing a
               permanent "no reviews" placeholder. */}
-          {!REVIEWS_TEMPORARILY_HIDDEN && reviews.length > 0 && (
+          {!RENTAL_REVIEWS_HIDDEN && reviews.length > 0 && (
             <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
               <div className="mb-4 flex items-center gap-3">
                 <span className="flex shrink-0 items-center gap-1 rounded-[12px] bg-[#0F172A] px-3 py-2 text-[14px] font-black text-white">

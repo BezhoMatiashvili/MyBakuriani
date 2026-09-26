@@ -2,10 +2,8 @@
 import { useState, useMemo } from "react";
 import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import {
-  optionKeyFor,
-  priceUnitPathFor,
-} from "@/lib/constants/listing-options";
+import { optionKeyFor } from "@/lib/constants/listing-options";
+import { describeSalary } from "@/lib/employment/salary";
 import type { Tables } from "@/lib/types/database";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
@@ -37,7 +35,8 @@ type EmploymentListing = Pick<
   | "location"
   | "description"
   | "price"
-  | "price_unit"
+  | "salary_type"
+  | "salary_range"
   | "salary_daily"
   | "salary_min"
   | "salary_max"
@@ -66,20 +65,6 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
   const t = useTranslations("EmploymentPage");
   const tShared = useTranslations("Shared");
   const tOpts = useTranslations("ListingOptions");
-
-  const salaryLabel = (s: EmploymentListing): string | null => {
-    if (s.salary_daily != null)
-      return t("salaryDaily", { amount: s.salary_daily });
-    if (s.salary_min != null && s.salary_max != null) {
-      return `${s.salary_min} - ${s.salary_max} ₾`;
-    }
-    if (s.price != null) {
-      const unitPath = priceUnitPathFor(s.price_unit);
-      const unit = unitPath ? tOpts(unitPath) : s.price_unit;
-      return `${s.price} ₾${unit ? ` / ${unit}` : ""}`;
-    }
-    return null;
-  };
 
   // Rows store Georgian enum labels (e.g. "მოქნილი"); resolve to the
   // ListingOptions translation, passing unknown free-text through raw.
@@ -267,7 +252,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                     title={s.position ?? s.title}
                     employer={s.title}
                     location={s.location}
-                    salaryLabel={salaryLabel(s)}
+                    salary={describeSalary(s)}
                     scheduleLabel={scheduleLabel(s)}
                     description={s.description}
                     badge={deriveBadge(s)}

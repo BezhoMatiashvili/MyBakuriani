@@ -23,7 +23,7 @@ import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicke
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
-import { isSuperVipActive } from "@/lib/utils/pricing";
+import { formatGelAmount, isSuperVipActive } from "@/lib/utils/pricing";
 import { loadSellerData, type SellerData } from "./loadData";
 
 const ListingAnalyticsPanel = dynamic(
@@ -80,6 +80,8 @@ export default function SellerDashboardClient({
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
+    /** Listing whose row button opened the picker (preselected). */
+    listingId?: string;
   }>({ open: false, tier: "super-vip" });
   const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
 
@@ -206,7 +208,7 @@ export default function SellerDashboardClient({
           />
           <MetricCard
             label={tStats("stats.spent")}
-            value={formatPrice(Number(stats?.spent ?? 0))}
+            value={formatGelAmount(Number(stats?.spent ?? 0))}
             loading={statsLoading}
           />
           <MetricCard
@@ -346,7 +348,9 @@ export default function SellerDashboardClient({
                 <ListingActions
                   viewUrl={propertyViewUrl(property, { preview: true })}
                   editUrl={propertyEditUrl(property)}
-                  onPromote={(tier) => setPickerModal({ open: true, tier })}
+                  onPromote={(tier) =>
+                    setPickerModal({ open: true, tier, listingId: property.id })
+                  }
                   standardVipDisabled={isSuperVipActive(
                     property.is_super_vip,
                     property.vip_expires_at,
@@ -395,6 +399,7 @@ export default function SellerDashboardClient({
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
+        selectedListingId={pickerModal.listingId}
         listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
@@ -406,6 +411,7 @@ export default function SellerDashboardClient({
             p.is_super_vip,
             p.vip_expires_at,
           ),
+          notLive: p.status !== "active",
         }))}
         target="property"
         onPurchased={async () => {

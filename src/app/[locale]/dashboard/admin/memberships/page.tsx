@@ -119,7 +119,9 @@ export default function AdminMembershipsPage() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center px-5 py-16 text-center">
             <Check className="size-10 text-[#10B981]" />
-            <p className="mt-3 text-sm font-bold text-[#475569]">{t("empty")}</p>
+            <p className="mt-3 text-sm font-bold text-[#475569]">
+              {t("empty")}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-[#EEF2F7]">
@@ -144,6 +146,16 @@ export default function AdminMembershipsPage() {
                           {t("fbTierBadge")}
                         </span>
                       )}
+                      {item.fb_profile_url?.startsWith("https://") && (
+                        <a
+                          href={item.fb_profile_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-bold text-[#2563EB] underline"
+                        >
+                          {t("fbProfileLink")}
+                        </a>
+                      )}
                       <Link
                         href={`/dashboard/admin/clients/${item.user_id}`}
                         className="text-[11px] font-bold text-[#2563EB] underline"
@@ -152,16 +164,25 @@ export default function AdminMembershipsPage() {
                       </Link>
                     </div>
                     <p className="mt-1 text-xs font-medium text-[#64748B]">
-                      {item.profile?.phone ? formatPhone(item.profile.phone) : t("noPhone")}
+                      {item.profile?.phone
+                        ? formatPhone(item.profile.phone)
+                        : t("noPhone")}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-semibold text-[#475569]">
                       <span>{item.package?.name ?? t("seasonPlan")}</span>
                       <span>{formatPrice(Number(item.amount_paid ?? 0))}</span>
                       <span className="inline-flex items-center gap-1">
                         <Clock3 className="size-3.5" />
-                        {t("paidAt", { date: formatDate(item.created_at, locale) })}
+                        {t("paidAt", {
+                          date: formatDate(item.created_at, locale),
+                        })}
                       </span>
-                      <span>{t("period", { start: formatDate(item.starts_at, locale), end: formatDate(item.expires_at, locale) })}</span>
+                      <span>
+                        {t("period", {
+                          start: formatDate(item.starts_at, locale),
+                          end: formatDate(item.expires_at, locale),
+                        })}
+                      </span>
                     </div>
                   </div>
 
@@ -172,7 +193,11 @@ export default function AdminMembershipsPage() {
                       onClick={() => void review(item, "reject")}
                       className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 text-sm font-bold text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-50 lg:flex-none"
                     >
-                      {isBusy ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+                      {isBusy ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <X className="size-4" />
+                      )}
                       {t("reject")}
                     </button>
                     <button
@@ -181,7 +206,11 @@ export default function AdminMembershipsPage() {
                       onClick={() => void review(item, "approve")}
                       className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#16A34A] px-4 text-sm font-bold text-white hover:bg-[#15803D] disabled:opacity-50 lg:flex-none"
                     >
-                      {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                      {isBusy ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Check className="size-4" />
+                      )}
                       {t("approve")}
                     </button>
                   </div>

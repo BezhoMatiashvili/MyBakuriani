@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { isValidGePhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 
 const ExactLocationPicker = dynamic(
   () => import("@/components/maps/ExactLocationPicker"),
@@ -33,18 +34,23 @@ function Field({
   hint,
   required,
   error,
+  fieldKey,
   children,
 }: {
   label: string;
   hint?: string;
   required?: boolean;
   error?: boolean;
+  /** Scroll anchor for scrollToFirstInvalid (matches the validate() key). */
+  fieldKey?: string;
   children: ReactNode;
 }) {
   return (
     <div
+      data-field={fieldKey}
       className={cn(
         "space-y-2",
+        fieldKey && "scroll-mt-24",
         error &&
           "[&_input]:border-[#EF4444] [&_button]:border-[#EF4444] [&_input]:ring-2 [&_input]:ring-[#FEE2E2]",
       )}
@@ -124,6 +130,7 @@ export default function OrganizationNewPage() {
     if (errs.length) {
       setInvalid(new Set(errs));
       setError("შეავსეთ სავალდებულო ველები სწორად");
+      scrollToFirstInvalid(errs);
       return;
     }
     setInvalid(new Set());
@@ -200,6 +207,7 @@ export default function OrganizationNewPage() {
               hint={t("legalNameHint")}
               required
               error={invalid.has("legalName")}
+              fieldKey="legalName"
             >
               <input
                 className={inputClass}
@@ -213,6 +221,7 @@ export default function OrganizationNewPage() {
               hint={t("idCodeHint")}
               required
               error={invalid.has("idCode")}
+              fieldKey="idCode"
             >
               <input
                 className={inputClass}
@@ -229,6 +238,7 @@ export default function OrganizationNewPage() {
               hint={t("brandNameHint")}
               required
               error={invalid.has("brandName")}
+              fieldKey="brandName"
             >
               <input
                 className={inputClass}
@@ -279,7 +289,12 @@ export default function OrganizationNewPage() {
 
         <WizardInnerCard number={3} title={t("sectionContact")} accent="green">
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label={t("phone")} required error={invalid.has("phone")}>
+            <Field
+              label={t("phone")}
+              required
+              error={invalid.has("phone")}
+              fieldKey="phone"
+            >
               <PhoneInput
                 value={phone}
                 onChange={setPhone}
@@ -294,7 +309,12 @@ export default function OrganizationNewPage() {
                 placeholder={t("websitePlaceholder")}
               />
             </Field>
-            <Field label={t("city")} required error={invalid.has("city")}>
+            <Field
+              label={t("city")}
+              required
+              error={invalid.has("city")}
+              fieldKey="city"
+            >
               <SearchableSelect
                 value={city}
                 onValueChange={setCity}
@@ -303,7 +323,12 @@ export default function OrganizationNewPage() {
                 accent="green"
               />
             </Field>
-            <Field label={t("address")} required error={invalid.has("address")}>
+            <Field
+              label={t("address")}
+              required
+              error={invalid.has("address")}
+              fieldKey="address"
+            >
               <input
                 className={inputClass}
                 value={address}

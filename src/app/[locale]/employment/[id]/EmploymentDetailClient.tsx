@@ -45,6 +45,14 @@ import DateField, { toISODate } from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { useSalaryText } from "@/components/cards/EmploymentCard";
+import {
+  describeSalary,
+  salaryModelOf,
+  type SalaryModel,
+} from "@/lib/employment/salary";
+import { MAX_CV_BYTES } from "@/lib/employment/cv-file";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -111,12 +119,12 @@ function SidebarRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// DB `salary_type` values mapped to translation keys.
-const SALARY_MODEL_KEYS: Record<string, string> = {
-  ფიქსირებული: "fixed",
-  "ფიქსირებული + ბონუსი/Tips": "fixedBonus",
-  "გამომუშავებით (%)": "commission",
-  შეთანხმებით: "negotiable",
+// Salary model → EmploymentDetail.salaryModels key.
+const SALARY_MODEL_KEYS: Record<SalaryModel, string> = {
+  fixed: "fixed",
+  fixed_bonus: "fixedBonus",
+  commission: "commission",
+  negotiable: "negotiable",
 };
 
 const fadeIn = {
@@ -136,7 +144,6 @@ const LANGUAGE_OPTIONS = [
   { value: "ინგლისური", key: "english" },
   { value: "რუსული", key: "russian" },
 ] as const;
-const MAX_CV_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_CV_MIME = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -184,8 +191,10 @@ export default function EmploymentDetailClient({
   const owner = service.profiles;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const salaryText = useSalaryText();
+
   const salaryModelLabel = (salaryType: string | null): string => {
-    const key = SALARY_MODEL_KEYS[salaryType?.trim() ?? ""] ?? "fixed";
+    const key = SALARY_MODEL_KEYS[salaryModelOf(salaryType) ?? "fixed"];
     return t(`salaryModels.${key}`);
   };
 
@@ -266,7 +275,12 @@ export default function EmploymentDetailClient({
   function handleCvChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ACCEPTED_CV_MIME.includes(file.type)) {
+    // Android pickers often report "" or application/octet-stream for a
+    // .docx, so the extension also counts; the server checks the bytes.
+    if (
+      !ACCEPTED_CV_MIME.includes(file.type) &&
+      !/\.(pdf|docx)$/i.test(file.name)
+    ) {
       toast.error(t("errors.cvFormat"));
       e.target.value = "";
       return;
@@ -284,7 +298,8 @@ export default function EmploymentDetailClient({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function validate(): boolean {
+  /** Sets the field errors and returns the keys of the invalid fields. */
+  function validate(): string[] {
     const next: Record<string, string> = {};
     // Name + phone are always required: NOT NULL in the DB and the only way an
     // employer can contact the applicant.
@@ -299,13 +314,15 @@ export default function EmploymentDetailClient({
       if (!form.desired_salary.trim()) next.desired_salary = t("errors.salary");
     }
     setErrors(next);
-    return Object.keys(next).length === 0;
+    return Object.keys(next);
   }
 
   async function handleSubmit() {
     if (submitting) return;
-    if (!validate()) {
+    const invalid = validate();
+    if (invalid.length > 0) {
       toast.error(t("errors.fillRequired"));
+      scrollToFirstInvalid(invalid);
       return;
     }
     if (isMock) {
@@ -316,13 +333,6 @@ export default function EmploymentDetailClient({
     }
 
     setSubmitting(true);
-    // CV binaries are deliberately disabled until an asynchronous malware
-    // scanner is deployed. Structured applications remain available.
-    if (cvFile) {
-      setSubmitting(false);
-      toast.error(t("errors.cvUpload"));
-      return;
-    }
     const payload = {
       service_id: service.id,
       full_name: form.full_name.trim(),
@@ -338,16 +348,46 @@ export default function EmploymentDetailClient({
       desired_salary: form.desired_salary ? Number(form.desired_salary) : null,
     };
 
-    const response = await fetch("/api/job-applications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    // With a CV the same payload travels as one multipart part next to the
+    // file (the browser sets the multipart boundary itself).
+    let body: BodyInit = JSON.stringify(payload);
+    if (cvFile) {
+      body = new FormData();
+      body.append("payload", JSON.stringify(payload));
+      body.append("cv", cvFile);
+    }
+
+    let response: Response;
+    try {
+      response = await fetch("/api/job-applications", {
+        method: "POST",
+        headers: cvFile ? undefined : { "Content-Type": "application/json" },
+        body,
+      });
+    } catch {
+      setSubmitting(false);
+      toast.error(t("errors.submitFailed"));
+      return;
+    }
 
     setSubmitting(false);
 
     if (!response.ok) {
-      toast.error(t("errors.submitFailed"));
+      // A proxy's 413 may not be JSON, so the status counts on its own too.
+      const code = (
+        (await response.json().catch(() => null)) as { error?: string } | null
+      )?.error;
+      toast.error(
+        t(
+          response.status === 413 || code === "cv_too_large"
+            ? "errors.cvSize"
+            : code === "invalid_cv"
+              ? "errors.cvFormat"
+              : code === "cv_upload_failed"
+                ? "errors.cvUpload"
+                : "errors.submitFailed",
+        ),
+      );
       return;
     }
 
@@ -363,15 +403,10 @@ export default function EmploymentDetailClient({
   const inputClass = (key: keyof FormState) =>
     `${inputBase} ${errors[key as string] ? "border-[#EF4444]" : "border-[#E2E8F0]"}`;
 
-  const salaryDisplay =
-    service.salary_range ??
-    (service.salary_min != null && service.salary_max != null
-      ? `${service.salary_min} - ${service.salary_max} ₾`
-      : service.salary_min != null
-        ? `${service.salary_min} ₾`
-        : service.salary_daily != null
-          ? t("salaryDaily", { amount: service.salary_daily })
-          : null);
+  // Same text as the vacancy's card: commission/negotiable show the type even
+  // when stale min/max are still stored.
+  const salary = describeSalary(service);
+  const salaryDisplay = salaryText(salary);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
@@ -479,7 +514,7 @@ export default function EmploymentDetailClient({
             <StatCard
               icon={<Banknote />}
               label={t("stats.salary")}
-              value={salaryDisplay ?? t("stats.negotiable")}
+              value={salaryDisplay}
               accent
             />
             <StatCard
@@ -676,7 +711,7 @@ export default function EmploymentDetailClient({
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
+              <div data-field="full_name">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.fullName")} <span className="text-[#EF4444]">*</span>
                 </label>
@@ -694,7 +729,7 @@ export default function EmploymentDetailClient({
                 )}
               </div>
 
-              <div>
+              <div data-field="phone">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.phone")} <span className="text-[#EF4444]">*</span>
                 </label>
@@ -705,7 +740,7 @@ export default function EmploymentDetailClient({
                 />
               </div>
 
-              <div>
+              <div data-field="birth_date">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.birthDate")}{" "}
                   {!detailsOptional && (
@@ -727,7 +762,7 @@ export default function EmploymentDetailClient({
                 )}
               </div>
 
-              <div>
+              <div data-field="current_location">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.currentLocation")}{" "}
                   {!detailsOptional && (
@@ -753,7 +788,7 @@ export default function EmploymentDetailClient({
                 )}
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2" data-field="housing_choice">
                 <div className="mb-2 text-[13px] font-bold text-[#1E293B]">
                   {t("form.housing")}{" "}
                   {!detailsOptional && (
@@ -923,7 +958,10 @@ export default function EmploymentDetailClient({
                 </div>
               )}
 
-              <div className={form.has_experience ? "" : "sm:col-span-2"}>
+              <div
+                className={form.has_experience ? "" : "sm:col-span-2"}
+                data-field="desired_salary"
+              >
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.desiredSalary")}{" "}
                   <span className="text-[12px] font-medium text-[#94A3B8]">
@@ -1008,7 +1046,7 @@ export default function EmploymentDetailClient({
       </div>
 
       <MobileStickyCTA
-        primary={salaryDisplay ?? service.title}
+        primary={salary.kind === "model" ? service.title : salaryDisplay}
         secondary={service.location ?? undefined}
         ctaLabel={t("apply")}
         onClick={() =>

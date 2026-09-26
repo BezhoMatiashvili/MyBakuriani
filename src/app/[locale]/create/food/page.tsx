@@ -221,11 +221,18 @@ function CreateFoodPageInner() {
     if (!file) return;
     if (file.type !== "application/pdf") {
       setError(t("menuMustBePdf"));
+      setInvalidFields((prev) => new Set(prev).add("menuUrl"));
+      scrollToField("menuUrl");
       return;
     }
     setMenuFile(file);
     setMenuUrlInput("");
     setError(null);
+    setInvalidFields((prev) => {
+      const next = new Set(prev);
+      next.delete("menuUrl");
+      return next;
+    });
   }
 
   async function uploadMenuPdf(): Promise<string | null> {

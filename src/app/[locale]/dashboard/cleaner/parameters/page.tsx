@@ -27,6 +27,7 @@ import {
   updateCleanerWorkingHours,
   updateSelfServiceProfile,
 } from "@/lib/self-service/client";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 
 type FormValues = {
   firstName: string;
@@ -284,8 +285,14 @@ export default function CleanerParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    if (form.phone && !isValidGePhone(form.phone)) return;
-    if (form.whatsapp && !isValidGePhone(form.whatsapp)) return;
+    const invalid = [
+      ...(form.phone && !isValidGePhone(form.phone) ? ["phone"] : []),
+      ...(form.whatsapp && !isValidGePhone(form.whatsapp) ? ["whatsapp"] : []),
+    ];
+    if (invalid.length) {
+      scrollToFirstInvalid(invalid);
+      return;
+    }
     setSaving(true);
     setSaved(false);
     setReviewError("");
@@ -483,6 +490,7 @@ export default function CleanerParametersPage() {
 
             <ParameterField
               label={t("phone")}
+              fieldKey="phone"
               icon={<Phone className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
               error={
@@ -508,6 +516,7 @@ export default function CleanerParametersPage() {
 
             <ParameterField
               label={t("whatsapp")}
+              fieldKey="whatsapp"
               icon={<MessageCircle className="h-4 w-4 text-[#22C55E]" />}
               loading={loading}
               error={
@@ -748,6 +757,7 @@ function ParameterField({
   loading,
   children,
   error,
+  fieldKey,
 }: {
   label: string;
   labelExtra?: React.ReactNode;
@@ -755,9 +765,11 @@ function ParameterField({
   loading: boolean;
   children: React.ReactNode;
   error?: string | null;
+  /** Scroll anchor for scrollToFirstInvalid. */
+  fieldKey?: string;
 }) {
   return (
-    <div>
+    <div data-field={fieldKey} className="scroll-mt-24">
       <label className="mb-1.5 flex items-center gap-2 text-[12px] font-bold text-[#475569]">
         {label}
         {labelExtra}

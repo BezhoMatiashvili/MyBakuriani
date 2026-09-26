@@ -23,13 +23,6 @@ interface FunnelStage {
   textColor: string;
 }
 
-interface SourceRow {
-  label: string;
-  value: number;
-  percent: number;
-  color: string;
-}
-
 export default function SellerAnalyticsPage() {
   const t = useTranslations("SellerAnalytics");
   const { user } = useAuth();
@@ -172,12 +165,6 @@ export default function SellerAnalyticsPage() {
 
   const maxValue = Math.max(1, ...funnel.map((s) => s.value));
 
-  const sources: SourceRow[] = [
-    { label: t("sourceDirect"), value: 0, percent: 0, color: "bg-[#10B981]" },
-    { label: t("sourceReferral"), value: 0, percent: 0, color: "bg-[#F59E0B]" },
-    { label: t("sourceOther"), value: 0, percent: 0, color: "bg-[#94A3B8]" },
-  ];
-
   const metrics: { label: string; value: string; sub: string }[] = [
     {
       label: t("metricAvgViews"),
@@ -278,63 +265,32 @@ export default function SellerAnalyticsPage() {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-        >
-          <h3 className="text-[14px] font-black text-[#0F172A]">
-            {t("leadSources")}
-          </h3>
-          <div className="mt-5 space-y-4">
-            {sources.map((s) => (
-              <div key={s.label}>
-                <div className="flex items-center justify-between text-[12px] font-bold">
-                  <span className="text-[#0F172A]">{s.label}</span>
-                  <span className="text-[#64748B]">
-                    {s.value} ({s.percent}%)
-                  </span>
-                </div>
-                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
-                  <div
-                    className={`h-full ${s.color}`}
-                    style={{ width: `${s.percent}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
-        >
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#94A3B8]">
-            {t("metricsTitle")}
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            {metrics.map((m) => (
-              <div
-                key={m.label}
-                className="rounded-2xl border border-[#EEF1F4] bg-[#F8FAFC] p-4"
-              >
-                <p className="text-[11px] font-semibold text-[#64748B]">
-                  {m.label}
-                </p>
-                <p className="mt-2 text-[22px] font-black leading-none text-[#0F172A]">
-                  {m.value}
-                </p>
-                <p className="mt-1.5 text-[10px] text-[#94A3B8]">{m.sub}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]"
+      >
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#94A3B8]">
+          {t("metricsTitle")}
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {metrics.map((m) => (
+            <div
+              key={m.label}
+              className="rounded-2xl border border-[#EEF1F4] bg-[#F8FAFC] p-4"
+            >
+              <p className="text-[11px] font-semibold text-[#64748B]">
+                {m.label}
+              </p>
+              <p className="mt-2 text-[22px] font-black leading-none text-[#0F172A]">
+                {m.value}
+              </p>
+              <p className="mt-1.5 text-[10px] text-[#94A3B8]">{m.sub}</p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Heart, MapPin, Tag } from "lucide-react";
+import { Heart, MapPin, Star, Tag } from "lucide-react";
 import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
@@ -52,6 +52,8 @@ interface InvestmentCardProps {
   paymentOptions?: string[];
   discountPercent: number;
   discountExpiresAt: string | null;
+  isVip?: boolean;
+  isSuperVip?: boolean;
   mobilePresentation?: "default" | "compact-grid";
   createdAt: string | null;
 }
@@ -70,6 +72,8 @@ export default function InvestmentCard({
   paymentOptions,
   discountPercent,
   discountExpiresAt,
+  isVip = false,
+  isSuperVip = false,
   mobilePresentation = "default",
   createdAt,
 }: InvestmentCardProps) {
@@ -178,6 +182,20 @@ export default function InvestmentCard({
               <Tag className="h-3 w-3" />
               {t("forSale")}
             </span>
+
+            {(isSuperVip || isVip) && (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full bg-creation font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]",
+                  compactGrid
+                    ? "gap-1 px-2 py-1 text-[9px] sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px]"
+                    : "gap-1.5 px-3 py-1.5 text-[12px]",
+                )}
+              >
+                <Star className="size-3 fill-current" />
+                {isSuperVip ? "SUPER VIP" : "VIP"}
+              </span>
+            )}
 
             {discountActive && salePrice != null && (
               <span className="inline-flex items-center rounded-full bg-[#F97316] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">

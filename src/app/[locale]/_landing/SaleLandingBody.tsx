@@ -102,6 +102,9 @@ function toSaleCard(p: Tables<"properties">) {
     constructionProgressPercent: p.construction_progress_percent ?? null,
     discountPercent: p.discount_percent ?? 0,
     discountExpiresAt: p.discount_expires_at ?? null,
+    // public_properties already masks an expired VIP as false.
+    isVip: p.is_vip ?? false,
+    isSuperVip: p.is_super_vip ?? false,
     createdAt: p.created_at,
     paymentOptions: readPaymentOptions(p.house_rules),
   };

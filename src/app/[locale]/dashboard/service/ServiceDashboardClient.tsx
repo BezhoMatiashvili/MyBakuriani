@@ -68,6 +68,8 @@ export default function ServiceDashboardClient({
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
+    /** Listing whose row button opened the picker (preselected). */
+    listingId?: string;
   }>({ open: false, tier: "super-vip" });
 
   function applyData(data: ServiceData) {
@@ -296,11 +298,14 @@ export default function ServiceDashboardClient({
                 <ListingActions
                   viewUrl={serviceViewUrl(s, { preview: true })}
                   editUrl={serviceEditUrl(s)}
-                  onPromote={(tier) => setPickerModal({ open: true, tier })}
+                  onPromote={(tier) =>
+                    setPickerModal({ open: true, tier, listingId: s.id })
+                  }
                   standardVipDisabled={isSuperVipActive(
                     s.is_super_vip,
                     s.vip_expires_at,
                   )}
+                  hideDiscount={category === "employment"}
                   className="border-t border-[#F1F5F9] pt-4"
                 >
                   <button
@@ -321,6 +326,7 @@ export default function ServiceDashboardClient({
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
+        selectedListingId={pickerModal.listingId}
         flat
         listings={services.map((s) => ({
           id: s.id,
@@ -336,6 +342,7 @@ export default function ServiceDashboardClient({
             s.is_super_vip,
             s.vip_expires_at,
           ),
+          notLive: s.status !== "active",
         }))}
         target="service"
         onPurchased={() =>

@@ -612,32 +612,36 @@ function PropertyForm({
             max={50000}
           />
         </Grid2>
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+        {/* No fixed height: the picker (search row, 240px map, lat/lng inputs,
+            hints) is ~460px tall and a fixed-height box let it spill over the
+            Specification section below, which then swallowed clicks. */}
+        <div
+          data-audit="exact-location"
+          className="rounded-2xl border border-[#E2E8F0] bg-white p-4"
+        >
           <p className="mb-2 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
             <MapPin className="h-4 w-4" />
             {t("exactLocation")}
           </p>
-          <div className="h-[280px] w-full">
-            <ExactLocationPicker
-              value={
-                effective<number | null>("location_lat", null) != null &&
-                effective<number | null>("location_lng", null) != null
-                  ? {
-                      lat: effective<number>("location_lat", 0),
-                      lng: effective<number>("location_lng", 0),
-                    }
-                  : null
-              }
-              onChange={(coords) => {
-                setField("location_lat", coords.lat);
-                setField("location_lng", coords.lng);
-              }}
-            />
-          </div>
+          <ExactLocationPicker
+            value={
+              effective<number | null>("location_lat", null) != null &&
+              effective<number | null>("location_lng", null) != null
+                ? {
+                    lat: effective<number>("location_lat", 0),
+                    lng: effective<number>("location_lng", 0),
+                  }
+                : null
+            }
+            onChange={(coords) => {
+              setField("location_lat", coords.lat);
+              setField("location_lng", coords.lng);
+            }}
+          />
         </div>
       </Section>
 
-      <Section title={t("specification")} defaultOpen>
+      <Section title={t("specification")} defaultOpen dataAudit="specification">
         <Grid3>
           <NumberField
             label={t("rooms")}
@@ -655,42 +659,48 @@ function PropertyForm({
             max={30}
             integer
           />
-          <NumberField
-            label={t("capacity")}
-            value={effective<number | null>("capacity", null)}
-            onChange={(v) => setField("capacity", v)}
-            min={1}
-            max={200}
-            integer
-          />
-          <SelectField
-            label={t("roomType")}
-            value={effective<string | null>("room_type", null) ?? ""}
-            onChange={(v) => setField("room_type", v || null)}
-            options={[
-              { value: "", label: "—" },
-              ...ROOM_TYPE_VALUES.map((value) => ({
-                value,
-                label: t(`roomTypes.${value}`),
-              })),
-            ]}
-          />
-          <NumberField
-            label={t("hotelStars")}
-            value={effective<number | null>("hotel_stars", null)}
-            onChange={(v) => setField("hotel_stars", v)}
-            step="0.5"
-            min={0}
-            max={5}
-          />
-          <NumberField
-            label={t("minNights")}
-            value={effective<number | null>("min_booking_days", null)}
-            onChange={(v) => setField("min_booking_days", v)}
-            min={0}
-            max={365}
-            integer
-          />
+          {/* Rental-only: the sale form never writes these. Hidden fields are
+              never put in the draft, so saving cannot overwrite their values. */}
+          {!isForSale && (
+            <>
+              <NumberField
+                label={t("capacity")}
+                value={effective<number | null>("capacity", null)}
+                onChange={(v) => setField("capacity", v)}
+                min={1}
+                max={200}
+                integer
+              />
+              <SelectField
+                label={t("roomType")}
+                value={effective<string | null>("room_type", null) ?? ""}
+                onChange={(v) => setField("room_type", v || null)}
+                options={[
+                  { value: "", label: "—" },
+                  ...ROOM_TYPE_VALUES.map((value) => ({
+                    value,
+                    label: t(`roomTypes.${value}`),
+                  })),
+                ]}
+              />
+              <NumberField
+                label={t("hotelStars")}
+                value={effective<number | null>("hotel_stars", null)}
+                onChange={(v) => setField("hotel_stars", v)}
+                step="0.5"
+                min={0}
+                max={5}
+              />
+              <NumberField
+                label={t("minNights")}
+                value={effective<number | null>("min_booking_days", null)}
+                onChange={(v) => setField("min_booking_days", v)}
+                min={0}
+                max={365}
+                integer
+              />
+            </>
+          )}
         </Grid3>
       </Section>
 
@@ -729,14 +739,16 @@ function PropertyForm({
             min={0}
             max={100}
           />
-          <NumberField
-            label={t("cleaningFee")}
-            value={effective<number | null>("cleaning_fee", null)}
-            onChange={(v) => setField("cleaning_fee", v)}
-            step="0.01"
-            min={0}
-            max={10000}
-          />
+          {!isForSale && (
+            <NumberField
+              label={t("cleaningFee")}
+              value={effective<number | null>("cleaning_fee", null)}
+              onChange={(v) => setField("cleaning_fee", v)}
+              step="0.01"
+              min={0}
+              max={10000}
+            />
+          )}
           <NumberField
             label={t("roiPercent")}
             value={effective<number | null>("roi_percent", null)}
@@ -748,52 +760,56 @@ function PropertyForm({
         </Grid3>
       </Section>
 
-      <Section title={t("amenitiesRules")}>
-        <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
-          {t("amenities")}
-        </p>
-        <AmenityChips
-          selected={effective<string[]>("amenities", []) as string[]}
-          onChange={(next) => setField("amenities", next)}
-        />
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <div>
-            <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
-              {t("hostLanguages")}
-            </p>
-            <ChipsField
-              group="hostingLangs"
-              options={HOSTING_LANGS.map((lang) => ({
-                key: lang.key,
-                label: tOpts(`hostingLangs.${lang.key}`),
-              }))}
-              selected={hostingLangs}
-              onChange={(next) =>
-                updateRule({
-                  hosting_langs: next,
-                })
-              }
-            />
-          </div>
-          <div>
-            <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
-              {t("houseRules")}
-            </p>
-            <div className="flex flex-col gap-2">
-              <TriState
-                label={t("smokingAllowed")}
-                value={smoking}
-                onChange={(v) => updateRule({ smoking: v })}
-              />
-              <TriState
-                label={t("petsAllowed")}
-                value={pets}
-                onChange={(v) => updateRule({ pets: v })}
+      {/* Amenities, host languages and house rules are rental-only: the sale
+          form writes none of them (its house_rules keys are sale terms). */}
+      {!isForSale && (
+        <Section title={t("amenitiesRules")}>
+          <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
+            {t("amenities")}
+          </p>
+          <AmenityChips
+            selected={effective<string[]>("amenities", []) as string[]}
+            onChange={(next) => setField("amenities", next)}
+          />
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
+                {t("hostLanguages")}
+              </p>
+              <ChipsField
+                group="hostingLangs"
+                options={HOSTING_LANGS.map((lang) => ({
+                  key: lang.key,
+                  label: tOpts(`hostingLangs.${lang.key}`),
+                }))}
+                selected={hostingLangs}
+                onChange={(next) =>
+                  updateRule({
+                    hosting_langs: next,
+                  })
+                }
               />
             </div>
+            <div>
+              <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.6px] text-[#475569]">
+                {t("houseRules")}
+              </p>
+              <div className="flex flex-col gap-2">
+                <TriState
+                  label={t("smokingAllowed")}
+                  value={smoking}
+                  onChange={(v) => updateRule({ smoking: v })}
+                />
+                <TriState
+                  label={t("petsAllowed")}
+                  value={pets}
+                  onChange={(v) => updateRule({ pets: v })}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </Section>
+        </Section>
+      )}
 
       <Section title={t("photos")}>
         <PhotoUploader
@@ -1300,15 +1316,18 @@ function ActionBar({
 function Section({
   title,
   defaultOpen = false,
+  dataAudit,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  dataAudit?: string;
   children: React.ReactNode;
 }) {
   return (
     <details
       open={defaultOpen}
+      data-audit={dataAudit}
       className="group rounded-2xl border border-[#E2E8F0] bg-white"
     >
       <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[14px] font-extrabold uppercase tracking-[0.6px] text-[#0F172A]">

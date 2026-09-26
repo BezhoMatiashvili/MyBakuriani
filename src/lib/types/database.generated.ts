@@ -4291,6 +4291,7 @@ export type Database = {
           amount_paid: number | null;
           created_at: string;
           expires_at: string;
+          fb_profile_url: string | null;
           id: string;
           package_id: string | null;
           payment_transaction_id: string | null;
@@ -4305,6 +4306,7 @@ export type Database = {
           amount_paid?: number | null;
           created_at?: string;
           expires_at: string;
+          fb_profile_url?: string | null;
           id?: string;
           package_id?: string | null;
           payment_transaction_id?: string | null;
@@ -4319,6 +4321,7 @@ export type Database = {
           amount_paid?: number | null;
           created_at?: string;
           expires_at?: string;
+          fb_profile_url?: string | null;
           id?: string;
           package_id?: string | null;
           payment_transaction_id?: string | null;
@@ -5317,7 +5320,11 @@ export type Database = {
         Returns: Json;
       };
       purchase_renter_membership: {
-        Args: { p_package_id: string; p_user_id: string };
+        Args: {
+          p_fb_profile_url?: string;
+          p_package_id: string;
+          p_user_id: string;
+        };
         Returns: Json;
       };
       purchase_vip: {
@@ -5624,6 +5631,10 @@ export type Database = {
         Returns: undefined;
       };
       sms_mark_provider_delivered: {
+        Args: { p_provider_message_id: string; p_provider_response?: Json };
+        Returns: Json;
+      };
+      sms_mark_provider_undelivered: {
         Args: { p_provider_message_id: string; p_provider_response?: Json };
         Returns: Json;
       };

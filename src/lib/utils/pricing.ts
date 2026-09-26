@@ -119,6 +119,12 @@ export function daysRemaining(
 // decimals ("5 ₾"), anything else with two ("1.50 ₾"). formatPrice rounds to
 // whole lari, which would turn the 1.50 ₾ VIP price into "2 ₾".
 export function formatGelAmount(amount: number): string {
-  const value = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
-  return `${value} ₾`;
+  // Round in whole tetri first so float noise (4.999999) can't print "5.00".
+  const tetri = Math.round(amount * 100);
+  const whole = Math.trunc(Math.abs(tetri) / 100)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const fraction = Math.abs(tetri) % 100;
+  const sign = tetri < 0 ? "-" : "";
+  return `${sign}${whole}${fraction ? `.${String(fraction).padStart(2, "0")}` : ""} ₾`;
 }

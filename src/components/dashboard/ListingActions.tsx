@@ -28,6 +28,8 @@ interface ListingActionsProps {
   className?: string;
   /** Opt-in phone layout used by the compact seller-overview cards. */
   mobilePresentation?: "default" | "seller-overview";
+  /** Hides the discount tier (vacancies are promoted with VIP only). */
+  hideDiscount?: boolean;
 }
 
 /**
@@ -42,6 +44,7 @@ export default function ListingActions({
   children,
   className,
   mobilePresentation = "default",
+  hideDiscount = false,
 }: ListingActionsProps) {
   const t = useTranslations("ListingActions");
   const tShared = useTranslations("DashboardShared");
@@ -55,7 +58,7 @@ export default function ListingActions({
           {onPromote && (
             <div
               data-testid="seller-mobile-promotions"
-              className="grid grid-cols-3 gap-2 border-t border-[#F1F5F9] pt-3"
+              className={`grid ${hideDiscount ? "grid-cols-2" : "grid-cols-3"} gap-2 border-t border-[#F1F5F9] pt-3`}
             >
               <button
                 type="button"
@@ -76,14 +79,16 @@ export default function ListingActions({
                 <Star className="size-3 shrink-0" />
                 VIP
               </button>
-              <button
-                type="button"
-                onClick={() => onPromote("discount")}
-                className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-1.5 text-[10px] font-black text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
-              >
-                <Percent className="size-3 shrink-0" />
-                <span className="truncate">{t("discount")}</span>
-              </button>
+              {!hideDiscount && (
+                <button
+                  type="button"
+                  onClick={() => onPromote("discount")}
+                  className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-1.5 text-[10px] font-black text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
+                >
+                  <Percent className="size-3 shrink-0" />
+                  <span className="truncate">{t("discount")}</span>
+                </button>
+              )}
             </div>
           )}
           <div
@@ -135,9 +140,11 @@ export default function ListingActions({
         {onPromote && (
           <div
             data-testid="listing-promotions"
-            className="mt-3 grid grid-cols-3 gap-2 border-t border-[#F1F5F9] pt-3 sm:flex sm:flex-wrap sm:items-center"
+            className={`mt-3 grid ${hideDiscount ? "grid-cols-2" : "grid-cols-3"} gap-2 border-t border-[#F1F5F9] pt-3 sm:flex sm:flex-wrap sm:items-center`}
           >
-            <span className="col-span-3 w-full text-[12px] font-semibold text-[#64748B] sm:mr-auto sm:w-auto">
+            <span
+              className={`${hideDiscount ? "col-span-2" : "col-span-3"} w-full text-[12px] font-semibold text-[#64748B] sm:mr-auto sm:w-auto`}
+            >
               {t("promote")}
             </span>
             <button
@@ -159,14 +166,16 @@ export default function ListingActions({
               <Ticket className="size-3 shrink-0" />
               VIP
             </button>
-            <button
-              type="button"
-              onClick={() => onPromote("discount")}
-              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-1.5 text-[10px] font-black tracking-tight text-[#15803D] transition-colors hover:bg-[#BBF7D0] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
-            >
-              <Percent className="size-3 shrink-0" />
-              <span className="truncate">{t("discount")}</span>
-            </button>
+            {!hideDiscount && (
+              <button
+                type="button"
+                onClick={() => onPromote("discount")}
+                className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-1.5 text-[10px] font-black tracking-tight text-[#15803D] transition-colors hover:bg-[#BBF7D0] sm:min-h-0 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-wide"
+              >
+                <Percent className="size-3 shrink-0" />
+                <span className="truncate">{t("discount")}</span>
+              </button>
+            )}
           </div>
         )}
       </div>

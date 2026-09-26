@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
@@ -10,6 +10,7 @@ import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import type { PurchaseIntent } from "@/lib/payments/keepz/intent";
 import NumberField from "@/components/shared/NumberField";
 import { clampNumber, parseNumeric } from "@/lib/utils/number";
+import { formatGelAmount } from "@/lib/utils/pricing";
 
 export interface PickerProperty {
   id: string;
@@ -26,6 +27,8 @@ export interface PickerProperty {
   badgeColor?: "blue" | "orange" | "green";
   /** Standard VIP cannot target a listing with active SUPER VIP. */
   standardVipDisabled?: boolean;
+  /** Pending, draft or blocked: purchasable, but the paid time runs unseen. */
+  notLive?: boolean;
 }
 
 // Prices come only from pricing_packages (the `pkg` prop). The hardcoded
@@ -71,6 +74,11 @@ interface VipPropertyPickerModalProps {
     quantity: number,
     discountPercent?: number,
   ) => PurchaseIntent;
+  /** The listing whose row button opened the picker — selected on every open. */
+  initialSelectedId?: string;
+  /** Package prices failed to load; shows an alert instead of a silent spinner. */
+  packagesError?: boolean;
+  onRetryPackages?: () => void;
 }
 
 const BADGE_COLOR: Record<string, string> = {
@@ -91,6 +99,9 @@ export default function VipPropertyPickerModal({
   reviewMode = false,
   balance,
   buildCardIntent,
+  initialSelectedId,
+  packagesError = false,
+  onRetryPackages,
 }: VipPropertyPickerModalProps) {
   const t = useTranslations("RenterDashboard.modals.vipPicker");
   const tInfo = useTranslations("RenterDashboard.modals.vipInfo.tiers");
@@ -104,6 +115,7 @@ export default function VipPropertyPickerModal({
   const [targetPrice, setTargetPrice] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const isEligible = (p: PickerProperty) =>
     tier !== "vip" || !p.standardVipDisabled;
@@ -112,6 +124,12 @@ export default function VipPropertyPickerModal({
   const hasValidSelection = Boolean(
     selectedProperty && isEligible(selectedProperty),
   );
+  const percentValue = Number(discountPercent);
+  const discountValid =
+    tier !== "discount" ||
+    (/^\d+$/.test(discountPercent.trim()) &&
+      percentValue >= 1 &&
+      percentValue <= 90);
 
   const listingPrice = (p: PickerProperty | undefined) =>
     typeof p?.price === "number" && p.price > 0 ? p.price : null;
@@ -191,15 +209,35 @@ export default function VipPropertyPickerModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eligibility is fully represented by these inputs
   }, [isOpen, properties, tier]);
 
+  // The row button that opened the picker names its listing. Applied once per
+  // open (callers rebuild `properties` every render), so a listing the user
+  // then picks by hand is not overridden.
+  useEffect(() => {
+    if (!isOpen || !initialSelectedId) return;
+    const requested = properties.find((p) => p.id === initialSelectedId);
+    if (!requested || !isEligible(requested)) return;
+    setSelectedId(requested.id);
+    // The list scrolls (max 320 px); a preselected row below the fold would
+    // otherwise be chosen without the owner being able to see it.
+    const frame = requestAnimationFrame(() => {
+      listRef.current
+        ?.querySelector<HTMLElement>(`[data-picker-listing="${requested.id}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apply once per open
+  }, [isOpen, initialSelectedId]);
+
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
       setDiscountPercent("10");
       setReviewError(false);
+      const openedFor = initialSelectedId ?? selectedId;
       const base =
         tier === "discount"
           ? listingPrice(
-              properties.find((p) => p.id === selectedId) ?? properties[0],
+              properties.find((p) => p.id === openedFor) ?? properties[0],
             )
           : null;
       setTargetPrice(base ? priceAtPercent(base, 10) : "");
@@ -219,10 +257,11 @@ export default function VipPropertyPickerModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const h = (e: KeyboardEvent) =>
+      e.key === "Escape" && !confirmOpen && onClose();
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, confirmOpen]);
 
   const tierMeta = TIER_KEYS[tier];
   const title =
@@ -234,10 +273,12 @@ export default function VipPropertyPickerModal({
 
   const meta = useMemo(() => ({ title }), [title]);
 
-  const totalPrice = useMemo(
-    () => (pkg ? (pkg.amountGel * quantity).toFixed(2) : null),
+  // Whole tetri, so 1.50 × 3 is exactly 4.5.
+  const totalAmount = useMemo(
+    () => (pkg ? Math.round(pkg.amountGel * quantity * 100) / 100 : null),
     [pkg, quantity],
   );
+  const totalPrice = totalAmount !== null ? formatGelAmount(totalAmount) : null;
 
   // Shown in the confirm dialog before payment (pricing rules §6: price,
   // validity and main conditions).
@@ -246,7 +287,7 @@ export default function VipPropertyPickerModal({
       ? [tShared("purchaseTerms.smsConsent")]
       : [
           tInfo(`${tierMeta.titleKey}.what`),
-          tShared("purchaseTerms.startsNow"),
+          tShared("purchaseTerms.extendsSameTier"),
           ...(tier === "super-vip"
             ? [tShared("purchaseTerms.superReplacesVip")]
             : []),
@@ -259,7 +300,7 @@ export default function VipPropertyPickerModal({
     : undefined;
 
   const submitForReview = async () => {
-    if (!hasValidSelection || reviewSubmitting) return;
+    if (!hasValidSelection || !discountValid || reviewSubmitting) return;
     setReviewSubmitting(true);
     setReviewError(false);
     try {
@@ -286,7 +327,7 @@ export default function VipPropertyPickerModal({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-              onClick={onClose}
+              onClick={() => !confirmOpen && onClose()}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
@@ -314,7 +355,10 @@ export default function VipPropertyPickerModal({
                 </button>
               </div>
 
-              <div className="mt-5 max-h-[320px] space-y-2 overflow-y-auto pr-1">
+              <div
+                ref={listRef}
+                className="mt-5 max-h-[320px] space-y-2 overflow-y-auto pr-1"
+              >
                 {properties.length === 0 && (
                   <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#FAFBFC] px-4 py-6 text-center text-[13px] text-[#94A3B8]">
                     {tShared("noActiveProperty")}
@@ -331,6 +375,7 @@ export default function VipPropertyPickerModal({
                       <button
                         key={p.id}
                         type="button"
+                        data-picker-listing={p.id}
                         disabled={disabled}
                         onClick={() => selectProperty(p)}
                         title={disabled ? tShared("superVipBlocksVip") : undefined}
@@ -391,6 +436,11 @@ export default function VipPropertyPickerModal({
                           {disabled && (
                             <p className="mt-0.5 text-[10px] font-bold text-[#B45309]">
                               {tShared("superVipActive")}
+                            </p>
+                          )}
+                          {p.notLive && (
+                            <p className="mt-0.5 text-[10px] font-bold text-[#B45309]">
+                              {tShared("notLiveHint")}
                             </p>
                           )}
                         </div>
@@ -493,7 +543,7 @@ export default function VipPropertyPickerModal({
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                         disabled={quantity <= 1}
                         aria-label="-"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#E2E8F0] text-[13px] font-black text-[#0F172A] hover:bg-[#F1F5F9] disabled:opacity-40"
+                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[#E2E8F0] text-[13px] font-black text-[#0F172A] hover:bg-[#F1F5F9] disabled:opacity-40 sm:h-7 sm:w-7"
                       >
                         −
                       </button>
@@ -505,7 +555,7 @@ export default function VipPropertyPickerModal({
                         onClick={() => setQuantity((q) => Math.min(365, q + 1))}
                         disabled={quantity >= 365}
                         aria-label="+"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#E2E8F0] text-[13px] font-black text-[#0F172A] hover:bg-[#F1F5F9] disabled:opacity-40"
+                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[#E2E8F0] text-[13px] font-black text-[#0F172A] hover:bg-[#F1F5F9] disabled:opacity-40 sm:h-7 sm:w-7"
                       >
                         +
                       </button>
@@ -517,6 +567,23 @@ export default function VipPropertyPickerModal({
                   <p className="mt-4 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5 text-[11px] font-semibold leading-4 text-[#1E40AF]">
                     {t("reviewNotice")}
                   </p>
+                )}
+                {packagesError && (
+                  <div
+                    role="alert"
+                    className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-[#FEF2F2] px-3 py-2.5 text-[12px] font-bold text-[#B91C1C]"
+                  >
+                    <span>{tShared("packagesUnavailable")}</span>
+                    {onRetryPackages && (
+                      <button
+                        type="button"
+                        onClick={onRetryPackages}
+                        className="min-h-11 shrink-0 px-2 underline sm:min-h-0"
+                      >
+                        {tShared("packagesRetry")}
+                      </button>
+                    )}
+                  </div>
                 )}
                 {reviewError && (
                   <p role="alert" className="mt-3 text-[11px] font-bold text-[#B91C1C]">
@@ -534,7 +601,7 @@ export default function VipPropertyPickerModal({
                     <p className="mt-1 text-[20px] font-black text-[#0F172A]">
                       {pkg ? (
                         <>
-                          {totalPrice} ₾
+                          {totalPrice}
                           <span className="ml-1 text-[12px] font-bold text-[#94A3B8]">
                             {t("daysCount", { count: quantity })}
                           </span>
@@ -549,7 +616,12 @@ export default function VipPropertyPickerModal({
                   </div>
                   <button
                     type="button"
-                    disabled={!hasValidSelection || loading || reviewSubmitting}
+                    disabled={
+                      !hasValidSelection ||
+                      !discountValid ||
+                      loading ||
+                      reviewSubmitting
+                    }
                     onClick={() =>
                       reviewMode
                         ? void submitForReview()
@@ -584,7 +656,7 @@ export default function VipPropertyPickerModal({
         title={meta.title}
         priceLabel={
           pkg
-            ? `${totalPrice} ₾ ${t("daysCount", { count: quantity })}`
+            ? `${totalPrice} ${t("daysCount", { count: quantity })}`
             : "—"
         }
         description={properties.find((p) => p.id === selectedId)?.title}
@@ -592,7 +664,10 @@ export default function VipPropertyPickerModal({
         conditions={purchaseConditions}
         lockScroll={false}
         balance={balance}
-        amount={totalPrice !== null ? Number(totalPrice) : undefined}
+        amount={totalAmount ?? undefined}
+        warning={
+          selectedProperty?.notLive ? tShared("purchaseTerms.notLive") : undefined
+        }
         cardPayment={
           buildCardIntent && selectedId
             ? {

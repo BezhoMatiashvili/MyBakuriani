@@ -42,6 +42,8 @@ export default function SellerListingsPage() {
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
+    /** Listing whose row button opened the picker (preselected). */
+    listingId?: string;
   }>({ open: false, tier: "super-vip" });
 
   // Live sale listings — status / progress / VIP changes arrive without refresh.
@@ -283,7 +285,9 @@ export default function SellerListingsPage() {
                     className="mt-4"
                     viewUrl={propertyViewUrl(property, { preview: true })}
                     editUrl={propertyEditUrl(property)}
-                    onPromote={(tier) => setPickerModal({ open: true, tier })}
+                    onPromote={(tier) =>
+                    setPickerModal({ open: true, tier, listingId: property.id })
+                  }
                     standardVipDisabled={isSuperVipActive(
                       property.is_super_vip,
                       property.vip_expires_at,
@@ -319,6 +323,7 @@ export default function SellerListingsPage() {
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
+        selectedListingId={pickerModal.listingId}
         listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
@@ -330,6 +335,7 @@ export default function SellerListingsPage() {
             p.is_super_vip,
             p.vip_expires_at,
           ),
+          notLive: p.status !== "active",
         }))}
         target="property"
         onPurchased={async () => {

@@ -29,6 +29,8 @@ export interface PurchaseVipBody {
   service_id?: string;
   quantity?: number;
   discount_percent?: number;
+  /** Self-declared FB-group-VIP membership tier only (purchase-vip re-validates). */
+  fb_profile_url?: string;
 }
 
 export interface CompanySubscriptionBody {
@@ -86,6 +88,7 @@ function parsePurchaseVip(
     "service_id",
     "quantity",
     "discount_percent",
+    "fb_profile_url",
   ] as const;
   if (!hasOnlyKeys(body, keys) || !isUuid(body.package_id)) return null;
   // purchase_package targets one listing at most (22023 for both).
@@ -103,6 +106,16 @@ function parsePurchaseVip(
   ) {
     return null;
   }
+  // Same https-only, 300-char guard as purchase-vip and the DB CHECK
+  // constraint — keep the three in sync.
+  if (
+    body.fb_profile_url !== undefined &&
+    (typeof body.fb_profile_url !== "string" ||
+      body.fb_profile_url.length > 300 ||
+      !/^https:\/\//i.test(body.fb_profile_url))
+  ) {
+    return null;
+  }
   return {
     package_id: body.package_id,
     ...(body.property_id !== undefined && {
@@ -114,6 +127,9 @@ function parsePurchaseVip(
     ...(body.quantity !== undefined && { quantity: body.quantity as number }),
     ...(body.discount_percent !== undefined && {
       discount_percent: body.discount_percent as number,
+    }),
+    ...(body.fb_profile_url !== undefined && {
+      fb_profile_url: body.fb_profile_url as string,
     }),
   };
 }

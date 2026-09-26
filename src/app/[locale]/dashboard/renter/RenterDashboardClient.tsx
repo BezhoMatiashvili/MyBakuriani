@@ -33,7 +33,7 @@ import VipInfoModal, {
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
-import { isSuperVipActive } from "@/lib/utils/pricing";
+import { formatGelAmount, isSuperVipActive } from "@/lib/utils/pricing";
 import { windowsOverlap } from "@/lib/membership/plans";
 import type { Tables } from "@/lib/types/database";
 import {
@@ -152,6 +152,8 @@ export default function RenterDashboardClient({
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
+    /** Listing whose row button opened the picker (preselected). */
+    listingId?: string;
   }>({ open: false, tier: "super-vip" });
 
   useEffect(() => {
@@ -362,7 +364,7 @@ export default function RenterDashboardClient({
           />
           <StatCard
             label={tShared("stats.spent")}
-            value={formatPrice(Number(stats?.spent ?? 0))}
+            value={formatGelAmount(Number(stats?.spent ?? 0))}
             change={null}
             loading={loading}
             valueColor="warning"
@@ -442,7 +444,9 @@ export default function RenterDashboardClient({
                   hasMembership={Boolean(membershipExpiresAt)}
                   membershipPending={membershipPending}
                   onMembership={() => setPaymentModalOpen(true)}
-                  onOpenTier={(tier) => setPickerModal({ open: true, tier })}
+                  onOpenTier={(tier) =>
+                    setPickerModal({ open: true, tier, listingId: property.id })
+                  }
                 />
               );
             })}
@@ -501,6 +505,7 @@ export default function RenterDashboardClient({
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
+        selectedListingId={pickerModal.listingId}
         listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
@@ -512,6 +517,7 @@ export default function RenterDashboardClient({
             p.is_super_vip,
             p.vip_expires_at,
           ),
+          notLive: p.status !== "active",
         }))}
         target="property"
         onPurchased={async () => {
@@ -519,6 +525,8 @@ export default function RenterDashboardClient({
           setProfile(data.profile);
           setProperties(data.properties);
           setStats(data.stats);
+          // The membership dialog reads this; it stayed at the pre-purchase amount.
+          setWalletBalance(data.walletBalance);
         }}
       />
     </div>

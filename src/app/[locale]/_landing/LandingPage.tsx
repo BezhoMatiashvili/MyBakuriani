@@ -42,6 +42,7 @@ import EmploymentCard from "@/components/cards/EmploymentCard";
 import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
+import { describeSalary, type SalaryDescriptor } from "@/lib/employment/salary";
 import type { Tables } from "@/lib/types/database";
 import BannerSlotView from "@/components/banners/BannerSlotView";
 import type { BannerCreative } from "@/lib/banner-creative";
@@ -114,6 +115,7 @@ function toLandingServiceCard(s: PublicService) {
   // categories' cards stay unchanged.
   const isTransport = s.category === "transport";
   const isFood = s.category === "food";
+  const isEmployment = s.category === "employment";
   return {
     id: s.id,
     title: s.title,
@@ -145,6 +147,9 @@ function toLandingServiceCard(s: PublicService) {
           routes: s.routes,
         }
       : {}),
+    // Employment-only, like the transport extras: the vacancy card shows the
+    // salary (or the salary type) instead of a second copy of the location.
+    ...(isEmployment ? { salary: describeSalary(s) } : {}),
   };
 }
 
@@ -1021,8 +1026,7 @@ function EmploymentSection({
     id: string;
     title: string;
     location: string | null;
-    price: number | null;
-    priceUnit: string | null;
+    salary?: SalaryDescriptor;
     createdAt: string | null;
   }>;
   href: string;
@@ -1080,12 +1084,8 @@ function EmploymentSection({
                 id={card.id}
                 title={card.title}
                 employer={card.location}
-                location={card.location}
-                salaryLabel={
-                  card.price != null
-                    ? `${card.price} ₾${card.priceUnit ? ` / ${card.priceUnit}` : ""}`
-                    : null
-                }
+                location={null}
+                salary={card.salary}
                 scheduleLabel={availabilities[i % availabilities.length]}
                 badge={i === 0 ? "vip" : null}
                 createdAt={card.createdAt}

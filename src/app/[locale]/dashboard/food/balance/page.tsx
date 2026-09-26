@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { promotionPurchaseError } from "@/lib/promotion-purchase";
+import {
+  promotionPurchaseError,
+  purchaseReasonMessages,
+} from "@/lib/promotion-purchase";
 import { motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -19,9 +21,9 @@ import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
+import TransactionList from "@/components/balance/TransactionList";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
-import { formatDate } from "@/lib/utils/format";
 import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 import { isSuperVipActive } from "@/lib/utils/pricing";
@@ -29,17 +31,6 @@ import { isSuperVipActive } from "@/lib/utils/pricing";
 type Transaction = Tables<"transactions">;
 type Balance = Tables<"balances">;
 type Service = Tables<"services">;
-
-const TX_TYPES = [
-  "topup",
-  "vip_boost",
-  "super_vip",
-  "sms_package",
-  "discount_badge",
-  "withdrawal",
-  "commission",
-  "card_refund",
-] as const;
 
 export default function FoodBalancePage() {
   const tShared = useTranslations("DashboardShared");
@@ -100,7 +91,7 @@ export default function FoodBalancePage() {
   }, [user]);
 
   async function handlePurchase(pkg: PricingPackage) {
-    if (!user || !balance) return;
+    if (!user) throw new Error(tShared("genericRetry"));
     setPurchasing(pkg.id);
     try {
       const { error } = await supabase.functions.invoke("purchase-vip", {
@@ -111,10 +102,15 @@ export default function FoodBalancePage() {
           vipConflict: tShared("superVipBlocksVip"),
           network: tShared("purchaseNetworkError"),
           generic: tShared("genericRetry"),
+          reasons: purchaseReasonMessages(tShared),
         });
       }
       const [balRes, txRes] = await Promise.all([
-        supabase.from("balances").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase
+          .from("balances")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle(),
         supabase
           .from("transactions")
           .select("*")
@@ -233,63 +229,13 @@ export default function FoodBalancePage() {
         <h2 className="text-[16px] font-black text-[#0F172A]">
           {tShared("txHistory")}
         </h2>
-        <div className="mt-3 space-y-2">
-          {loading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 rounded-xl" />
-            ))
-          ) : transactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
-              <History className="h-10 w-10 text-[#94A3B8]" />
-              <p className="mt-2 text-[13px] text-[#94A3B8]">
-                {tShared("noTransactions")}
-              </p>
-            </div>
-          ) : (
-            transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between rounded-xl border border-[#EEF1F4] bg-white px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                      tx.amount >= 0
-                        ? "bg-[#DCFCE7] text-[#16A34A]"
-                        : "bg-[#FEE2E2] text-[#DC2626]"
-                    }`}
-                  >
-                    {tx.amount >= 0 ? (
-                      <ArrowDownLeft className="h-4 w-4" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-bold text-[#0F172A]">
-                      {TX_TYPES.includes(tx.type as (typeof TX_TYPES)[number])
-                        ? tShared(
-                            `txTypes.${tx.type as (typeof TX_TYPES)[number]}`,
-                          )
-                        : tx.type}
-                    </p>
-                    <p className="text-[11px] text-[#94A3B8]">
-                      {formatDate(tx.created_at)}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`text-[13px] font-extrabold ${
-                    tx.amount >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"
-                  }`}
-                >
-                  {tx.amount >= 0 ? "+" : ""}
-                  {tx.amount.toFixed(2)} ₾
-                </span>
-              </div>
-            ))
-          )}
-        </div>
+        <TransactionList
+          transactions={transactions}
+          loading={loading}
+          listingTitles={
+            restaurant ? { [restaurant.id]: restaurant.title } : {}
+          }
+        />
       </motion.section>
 
       <VipInfoModal
@@ -331,6 +277,22 @@ export default function FoodBalancePage() {
             .eq("id", restaurant.id)
             .maybeSingle();
           if (data) setRestaurant(data);
+          // The wallet header and history stayed at the pre-purchase state.
+          const [balRes, txRes] = await Promise.all([
+            supabase
+              .from("balances")
+              .select("*")
+              .eq("user_id", user.id)
+              .maybeSingle(),
+            supabase
+              .from("transactions")
+              .select("*")
+              .eq("user_id", user.id)
+              .order("created_at", { ascending: false })
+              .limit(10),
+          ]);
+          if (balRes.data) setBalance(balRes.data);
+          if (txRes.data) setTransactions(txRes.data);
         }}
       />
 

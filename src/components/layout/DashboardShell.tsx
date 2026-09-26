@@ -555,7 +555,6 @@ export function DashboardShell({
             currentPath={pathname}
             userRole="admin"
             onSignOut={handleSignOut}
-            notificationCount={notificationCount}
             availableCabinets={availableCabinets}
           />
         </div>
@@ -580,7 +579,11 @@ export function DashboardShell({
           canUseSms={canUseSms}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <RenterTopbar balance={balance} smsRemaining={smsRemaining} />
+          <RenterTopbar
+            balance={balance}
+            smsRemaining={smsRemaining}
+            notificationCount={notificationCount}
+          />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             {normalizedPath === "/dashboard/renter" && (
               <div className="border-b border-[#E2E8F0] bg-white px-4 lg:hidden">
@@ -621,7 +624,6 @@ export function DashboardShell({
           currentPath={pathname}
           userRole={activeRole}
           onSignOut={handleSignOut}
-          notificationCount={notificationCount}
           canUseSms={canUseSms}
           availableCabinets={availableCabinets}
         />
@@ -658,7 +660,11 @@ export function DashboardShell({
             canUseSellerSms={canUseSellerSms}
           />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <SellerTopbar balance={balance} smsRemaining={smsRemaining} />
+            <SellerTopbar
+              balance={balance}
+              smsRemaining={smsRemaining}
+              notificationCount={notificationCount}
+            />
             <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               <div
                 className={
@@ -675,7 +681,6 @@ export function DashboardShell({
             currentPath={pathname}
             userRole={activeRole}
             onSignOut={handleSignOut}
-            notificationCount={notificationCount}
             leadsCount={leadsCount}
             canUseSms={canUseSellerSms}
             availableCabinets={availableCabinets}
@@ -713,7 +718,6 @@ export function DashboardShell({
             currentPath={pathname}
             userRole={activeRole}
             onSignOut={handleSignOut}
-            notificationCount={notificationCount}
             availableCabinets={availableCabinets}
           />
         </div>
@@ -751,7 +755,6 @@ export function DashboardShell({
             currentPath={pathname}
             userRole={activeRole}
             onSignOut={handleSignOut}
-            notificationCount={notificationCount}
             availableCabinets={availableCabinets}
           />
         </div>
@@ -770,7 +773,11 @@ export function DashboardShell({
           onSignOut={handleSignOut}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <FoodTopbar balance={balance} smsRemaining={smsRemaining} />
+          <FoodTopbar
+            balance={balance}
+            smsRemaining={smsRemaining}
+            notificationCount={notificationCount}
+          />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
           </main>
@@ -779,7 +786,6 @@ export function DashboardShell({
           currentPath={pathname}
           userRole={activeRole}
           onSignOut={handleSignOut}
-          notificationCount={notificationCount}
           availableCabinets={availableCabinets}
         />
       </div>
@@ -806,6 +812,7 @@ export function DashboardShell({
           <ServiceTopbar
             balance={balance}
             smsRemaining={smsRemaining}
+            notificationCount={notificationCount}
             basePath={serviceBasePath}
           />
           <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
@@ -816,7 +823,6 @@ export function DashboardShell({
           currentPath={pathname}
           userRole={activeRole}
           onSignOut={handleSignOut}
-          notificationCount={notificationCount}
           availableCabinets={availableCabinets}
         />
       </div>
@@ -841,7 +847,6 @@ export function DashboardShell({
         currentPath={pathname}
         userRole={activeRole}
         onSignOut={handleSignOut}
-        notificationCount={notificationCount}
         availableCabinets={availableCabinets}
       />
     </div>

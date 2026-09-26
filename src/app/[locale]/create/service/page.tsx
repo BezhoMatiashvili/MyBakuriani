@@ -307,6 +307,7 @@ function CreateServicePageInner() {
         if (conflict) {
           setExisting247Service({ id: conflict.id, title: conflict.title });
           setError(t("existing247Conflict"));
+          scrollToField("mode247");
           setLoading(false);
           submittingRef.current = false;
           return;
@@ -354,16 +355,19 @@ function CreateServicePageInner() {
         );
       }
     } catch (err) {
-      setError(
+      const is247Conflict =
         typeof err === "object" &&
-          err !== null &&
-          "code" in err &&
-          err.code === "23505"
+        err !== null &&
+        "code" in err &&
+        err.code === "23505";
+      setError(
+        is247Conflict
           ? t("existing247Conflict")
           : isContentChangeError(err)
             ? tShared(contentChangeErrorKey(err))
             : formatSupabaseError(err, tShared("genericError")),
       );
+      if (is247Conflict) scrollToField("mode247");
       submittingRef.current = false;
       setLoading(false);
     }
@@ -544,7 +548,7 @@ function CreateServicePageInner() {
                 />
               </Field>
 
-              <div className="flex items-end">
+              <div data-field="mode247" className="flex scroll-mt-24 items-end">
                 <button
                   type="button"
                   onClick={() => {

@@ -241,7 +241,6 @@
     "collapse": "ჩაკეცვა",
     "serviceSwitcher": "სერვისის შეცვლა",
     "menu": "მენიუ",
-    "newCount": "{count} ახალი",
     "switcher": {
       "rentalsRent": "ბინები (გაქირავება)",
       "employment": "დასაქმება",
@@ -884,6 +883,9 @@
     "validity": "მოქმედებს: {start} – {end}",
     "planCovered": "ამ პერიოდზე წევრობა უკვე გაქვთ",
     "fbDeclaration": "ვადასტურებ, რომ ვარ MyBakuriani-ის Facebook ჯგუფის VIP წევრი. ადმინისტრაცია ამას დადასტურებამდე გადაამოწმებს; არასწორი მითითების შემთხვევაში მოთხოვნა უარყოფილი იქნება და თანხა დაგიბრუნდებათ ბალანსზე.",
+    "fbProfileLabel": "თქვენი Facebook პროფილის ბმული",
+    "fbProfilePlaceholder": "facebook.com/username",
+    "fbProfileInvalid": "მიუთითეთ სწორი Facebook პროფილის ბმული",
     "processTitle": "აქტივაციის პროცესი:",
     "processSteps": {
       "1": "მომხმარებელი ირჩევს სეზონურ წევრობას და იხდის შესაბამის საფასურს.",
@@ -895,7 +897,8 @@
     "errors": {
       "alreadyPending": "საწევროს გადახდა უკვე ადმინის დადასტურებას ელოდება.",
       "alreadyActive": "ამ სეზონზე წევრობა უკვე გაქვთ.",
-      "unavailable": "ეს საწევრო პაკეტი ამჟამად მიუწვდომელია."
+      "unavailable": "ეს საწევრო პაკეტი ამჟამად მიუწვდომელია.",
+      "fbProfileRequired": "ამ ტარიფისთვის Facebook პროფილის ბმულის მითითება სავალდებულოა."
     }
   },
   "SmartMatchModal": {
@@ -1434,7 +1437,7 @@
     "typeApartment": "აპარტამენტი",
     "typeCottage": "კოტეჯი",
     "typeHotel": "სასტუმრო",
-    "typeStudio": "სტუდია",
+    "typeStudio": "სტუდიო",
     "typeVilla": "ვილა",
     "typeLand": "მიწის ნაკვეთი",
     "typeFallback": "ქონება",
@@ -1734,7 +1737,6 @@
     "scheduleLabel": "გრაფიკი:",
     "vacancies": "ვაკანსიები ({count})",
     "noVacancies": "ვაკანსიები ვერ მოიძებნა",
-    "salaryDaily": "{amount} ₾ / დღეში",
     "positions": {
       "all": "ყველა",
       "cleaner": "დამლაგებელი",
@@ -1762,13 +1764,22 @@
     "urgent": "სასწრაფო",
     "applications": "{count} გამოხმაურება",
     "details": "დეტალები",
-    "favoriteAria": "რჩეულებში დამატება"
+    "favoriteAria": "რჩეულებში დამატება",
+    "salaryRange": "{min}–{max} ₾",
+    "salaryFrom": "{amount} ₾-დან",
+    "salaryUpTo": "{amount} ₾-მდე",
+    "salaryDaily": "{amount} ₾ / დღეში",
+    "salaryModels": {
+      "fixed": "ფიქსირებული",
+      "fixed_bonus": "ფიქსირებული + ბონუსი/Tips",
+      "commission": "გამომუშავებით (%)",
+      "negotiable": "შეთანხმებით"
+    }
   },
   "EmploymentDetail": {
     "publishedAt": "გამოქვეყნდა: {date}",
     "urgent": "სასწრაფო",
     "applications": "{count} გამოხმაურება",
-    "salaryDaily": "{amount} ₾ / დღეში",
     "jobDescription": "სამუშაოს აღწერა",
     "requirements": "მოთხოვნები და კომპეტენციები",
     "verifiedEmployer": "ვერიფიცირებული დამსაქმებელი",
@@ -1788,7 +1799,6 @@
       "location": "ლოკაცია",
       "locationFallback": "დიდველი",
       "salary": "ანაზღაურება",
-      "negotiable": "შეთანხმებით",
       "schedule": "გრაფიკი",
       "flexible": "მოქნილი",
       "experience": "გამოცდილება",
@@ -1796,7 +1806,7 @@
     },
     "errors": {
       "cvFormat": "მხოლოდ PDF ან DOCX ფორმატია დაშვებული",
-      "cvSize": "ფაილის ზომა არ უნდა აღემატებოდეს 5 MB-ს",
+      "cvSize": "ფაილის ზომა არ უნდა აღემატებოდეს 10 MB-ს",
       "cvUpload": "CV-ის ატვირთვა ვერ მოხერხდა",
       "fullName": "შეავსე სახელი და გვარი",
       "phone": "შეიყვანე ვალიდური ნომერი",
@@ -2205,7 +2215,6 @@
     "uploadMinOnePhoto": "ატვირთეთ მინიმუმ ერთი ფოტო",
     "eg": "მაგ: {value}",
     "sqm": "კვ.მ",
-    "or": "ან",
     "notSpecified": "არ არის მითითებული",
     "onlyUnderConstruction": "მხოლოდ მშენებარეზე"
   },
@@ -2619,8 +2628,13 @@
     "enterEmployer": "მიუთითეთ დამსაქმებელი",
     "chooseLocation": "აირჩიეთ ლოკაცია",
     "enterPosition": "მიუთითეთ პოზიცია",
-    "enterSalary": "მიუთითეთ ანაზღაურება",
-    "enterJobDescription": "შეავსეთ სამუშაოს აღწერა"
+    "enterJobDescription": "შეავსეთ სამუშაოს აღწერა",
+    "salaryPeriod": "ანაზღაურების პერიოდი",
+    "salaryModeMonthly": "თვიური",
+    "salaryModeDaily": "დღიური",
+    "salaryLockedHint": "ამ ანაზღაურების ტიპისთვის თანხა არ მიეთითება",
+    "salaryMinGtMax": "მინიმალური ანაზღაურება არ უნდა აღემატებოდეს მაქსიმალურს",
+    "positionTooLong": "პოზიცია არ უნდა აღემატებოდეს {max} სიმბოლოს"
   },
   "CreateSale": {
     "pageTitle": "ყიდვა / გაყიდვა",
@@ -2669,8 +2683,13 @@
     "postAsOwnerSuffix": "მფლობელი",
     "postAsAgentSuffix": "აგენტი",
     "postAsRegisterHint": "დაარეგისტრირეთ კომპანია",
-    "postAsNeedsPackageError": "კომპანიას სჭირდება აქტიური პაკეტი. გაააქტიურეთ პაკეტი კომპანიის გვერდზე.",
-    "continue": "გაგრძელება"
+    "postAsNeedsPackageError": "კომპანიას სჭირდება აქტიური პაკეტი. გააქტიურეთ პაკეტი კომპანიის გვერდზე.",
+    "continue": "გაგრძელება",
+    "postAsCompany": "კომპანია",
+    "postAsCompanySubtitle": "სააგენტო ან სამშენებლო კომპანია",
+    "postAsCompanyExplainer": "კომპანიის სახელით განცხადების განსათავსებლად ჯერ დაარეგისტრირეთ კომპანია. გამოქვეყნებისთვის კომპანიას აქტიური პაკეტი დასჭირდება.",
+    "postAsContinueAsPerson": "ჯერჯერობით ფიზიკური პირის სახელით გაგრძელება",
+    "postAsRegisterFirst": "კომპანიის სახელით განცხადების განსათავსებლად ჯერ დაარეგისტრირეთ კომპანია ან გააგრძელეთ ფიზიკური პირის სახელით."
   },
   "DateRangeFilter": {
     "presets": {
@@ -3108,6 +3127,17 @@
     "superVipActive": "SUPER VIP აქტიურია",
     "superVipBlocksVip": "სტანდარტული VIP მიუწვდომელია, სანამ SUPER VIP აქტიურია",
     "purchaseNetworkError": "გადახდა ვერ დასრულდა — ქსელის შეცდომა. შეამოწმეთ ბალანსი და საჭიროების შემთხვევაში სცადეთ თავიდან.",
+    "purchaseErrors": {
+      "insufficient_balance": "ბალანსზე საკმარისი თანხა არ არის. შეავსეთ ბალანსი და სცადეთ თავიდან.",
+      "not_owner": "ეს განცხადება თქვენს ანგარიშს არ ეკუთვნის.",
+      "invalid_discount_percent": "ფასდაკლება უნდა იყოს 1-დან 90%-მდე.",
+      "invalid_quantity": "დღეების რაოდენობა უნდა იყოს 1-დან 365-მდე.",
+      "package_unavailable": "ეს პაკეტი ამჟამად მიუწვდომელია.",
+      "invalid_target": "აირჩიეთ ერთი განცხადება."
+    },
+    "packagesUnavailable": "ფასები ვერ ჩაიტვირთა.",
+    "packagesRetry": "თავიდან ცდა",
+    "notLiveHint": "ჯერ არ ჩანს საიტზე",
     "noVipEligibleListings": "სტანდარტული VIP-ისთვის ხელმისაწვდომი განცხადება არ არის",
     "phoneBlacklistedWarning": "ეს ნომერი შავ სიაშია — გადაამოწმეთ სანამ გააგრძელებთ",
     "periodWeek": "კვირა",
@@ -3140,7 +3170,13 @@
       "discount_badge": "ფასდაკლების ბეჯი",
       "withdrawal": "გამოტანა",
       "commission": "საკომისიო",
+      "sms_send": "SMS გაგზავნა",
+      "membership_refund": "საწევროს დაბრუნება",
       "card_refund": "ბარათზე დაბრუნება"
+    },
+    "txDetails": {
+      "listing": "განცხადება",
+      "dateTime": "თარიღი და დრო"
     },
     "notifTitle": "შეტყობინებები",
     "notifSubtitleSystem": "სისტემური შეტყობინებები და მნიშვნელოვანი სიახლეები.",
@@ -3160,9 +3196,6 @@
     "settingsSubtitle": "პროფილის დეტალები და ნოტიფიკაციების კონტროლი.",
     "profileTypeAndDetails": "პროფილის ტიპი და დეტალები",
     "profileDetails": "პროფილის დეტალები",
-    "profileType": "პროფილის ტიპი",
-    "personalProfile": "ფიზიკური პირი",
-    "companyProfile": "იურიდიული პირი",
     "nameOrCompany": "სახელი / კომპანია",
     "publicPhone": "საკონტაქტო ნომერი (საჯარო)",
     "personalId": "პირადი ნომერი",
@@ -3232,6 +3265,8 @@
     "purchaseTerms": {
       "hours": "{hours} საათი",
       "startsNow": "მოქმედება იწყება გადახდისთანავე. ხელახალი შეძენისას ვადა აითვლება შეძენის მომენტიდან — დარჩენილი დრო არ ემატება.",
+      "extendsSameTier": "მოქმედება იწყება გადახდისთანავე. თუ იგივე სტატუსი უკვე აქტიურია, ახალი დრო ემატება დარჩენილს.",
+      "notLive": "ეს განცხადება ჯერ არ ჩანს საიტზე (მოდერაციაშია ან გამორთულია). შეძენილი დრო ახლავე იწყება და მიმდინარეობს მაშინაც, როცა განცხადება არ ჩანს.",
       "superReplacesVip": "SUPER VIP მაშინვე ცვლის აქტიურ VIP სტატუსს; VIP-ის დარჩენილი დრო არ ინახება.",
       "notPublication": "გადახდა და მომსახურების აქტივაცია არ ნიშნავს განცხადების ავტომატურ გამოქვეყნებას. განცხადებები ექვემდებარება MyBakuriani-ის წესებით გათვალისწინებულ ადმინისტრაციულ შემოწმებას.",
       "smsNoExpiry": "ვადა შეუზღუდავია — SMS-ები ემატება თქვენს SMS ბალანსს.",
@@ -3764,7 +3799,6 @@
   },
   "RenterProfile": {
     "subtitle": "პროფილის დეტალები და ნოტიფიკაციების კონტროლი.",
-    "profileTypeDetails": "პროფილის ტიპი და დეტალები",
     "namePlaceholder": "გიორგი მახარაძე",
     "whatsappLabel": "WHATSAPP ნომერი",
     "saving": "ინახება...",
@@ -3781,10 +3815,6 @@
     "funnelContact": "ნომრის ნახვები",
     "funnelRealContact": "რეალური კონტაქტი",
     "funnelClosed": "გაყიდვა / გაფორმდა",
-    "leadSources": "ლიდების წყაროები",
-    "sourceDirect": "პირდაპირი ძიება",
-    "sourceReferral": "რეკომენდაცია",
-    "sourceOther": "სხვა",
     "metricsTitle": "ეფექტურობის მაჩვენებლები",
     "metricAvgViews": "საშ. ნახვა / ობიექტი",
     "metricConversion": "კონვერსია (ნახვა → კონტაქტი)",
@@ -4523,6 +4553,7 @@
     "reviewFailed": "საწევროს განხილვა ვერ მოხერხდა",
     "period": "მოქმედების პერიოდი: {start} – {end}",
     "fbTierBadge": "FB ჯგუფის VIP ტარიფი — გადაამოწმეთ ჯგუფის წევრობა",
+    "fbProfileLink": "Facebook პროფილი",
     "openClient": "კლიენტის პროფილი",
     "errors": {
       "MEMBERSHIP_SEASON_ENDED": "სეზონი უკვე დასრულდა — უარყავით მოთხოვნა, თანხა ავტომატურად დაბრუნდება.",

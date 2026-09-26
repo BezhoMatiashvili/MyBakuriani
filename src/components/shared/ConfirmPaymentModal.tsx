@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, AlertTriangle } from "lucide-react";
 import Modal from "@/components/shared/Modal";
@@ -29,6 +29,8 @@ interface ConfirmPaymentModalProps {
    * of a wallet payment that would fail.
    */
   cardPayment?: { resume: PurchaseIntent; returnPath?: string };
+  /** Highlighted caveat shown above the conditions (e.g. the listing is hidden). */
+  warning?: string;
 }
 
 export default function ConfirmPaymentModal({
@@ -44,6 +46,7 @@ export default function ConfirmPaymentModal({
   conditions,
   amount,
   cardPayment,
+  warning,
 }: ConfirmPaymentModalProps) {
   const t = useTranslations("DashboardShared");
   const [loading, setLoading] = useState(false);
@@ -51,13 +54,21 @@ export default function ConfirmPaymentModal({
   // CardPayButton re-reads the wallet before charging; a different balance
   // lands here so the dialog re-decides between wallet and card.
   const [liveBalance, setLiveBalance] = useState(balance);
+  const loadingRef = useRef(false);
+  loadingRef.current = loading;
 
+  // Reset only when the dialog opens. Callers refetch the wallet as part of
+  // onConfirm, so a `balance` change can land mid-payment; resetting `loading`
+  // then re-enabled Escape/close and "agree" before the purchase finished.
   useEffect(() => {
     if (isOpen) {
       setError(null);
       setLoading(false);
-      setLiveBalance(balance);
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && !loadingRef.current) setLiveBalance(balance);
   }, [isOpen, balance]);
 
   const payByCard =
@@ -79,10 +90,16 @@ export default function ConfirmPaymentModal({
     }
   }
 
+  // Escape, the backdrop and the X all close through here: never mid-payment,
+  // or the outcome (and any error) of the in-flight purchase is lost.
+  const closeUnlessPaying = () => {
+    if (!loading) onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={closeUnlessPaying}
       title={t("confirmPayment.title")}
       size="sm"
       lockScroll={lockScroll}
@@ -102,6 +119,15 @@ export default function ConfirmPaymentModal({
             </p>
           )}
         </div>
+        {warning && (
+          <div
+            data-testid="confirm-payment-warning"
+            className="flex items-start gap-2 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12px] font-semibold leading-[18px] text-[#92400E]"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{warning}</span>
+          </div>
+        )}
         {(validity || (conditions && conditions.length > 0)) && (
           <div className="space-y-2 text-[12px] leading-[18px] text-[#475569]">
             {validity && (

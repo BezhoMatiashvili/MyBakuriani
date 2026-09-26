@@ -71,3 +71,13 @@ test("formatGelAmount prints package prices like the 2026 price list", () => {
   assert.equal(formatGelAmount(Number("1.50")), "1.50 ₾");
   assert.equal(formatGelAmount(0.1 + 0.2), "0.30 ₾");
 });
+
+test("formatGelAmount keeps tetri, groups thousands and survives float noise", () => {
+  assert.equal(formatGelAmount(1.5 * 3), "4.50 ₾");
+  assert.equal(formatGelAmount(198.5), "198.50 ₾");
+  assert.equal(formatGelAmount(4.999999), "5 ₾");
+  assert.equal(formatGelAmount(1825), "1 825 ₾");
+  assert.equal(formatGelAmount(12345.05), "12 345.05 ₾");
+  assert.equal(formatGelAmount(0), "0 ₾");
+  assert.equal(formatGelAmount(-1.5), "-1.50 ₾");
+});

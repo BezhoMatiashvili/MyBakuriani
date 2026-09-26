@@ -54,6 +54,34 @@ export default defineConfig({
       testMatch: /global-teardown\.ts/,
     },
 
+    // VIP / SUPER VIP / discount purchase flows against the real purchase-vip
+    // edge function. vip-seed runs first (paired with vip-teardown, like
+    // setup/teardown above); each viewport project owns its own users
+    // (e2e/vip/vip-fixtures.ts), so the two can run side by side.
+    {
+      name: "vip-seed",
+      testMatch: /vip\/vip\.setup\.ts/,
+      teardown: "vip-teardown",
+    },
+    { name: "vip-teardown", testMatch: /vip\/vip\.teardown\.ts/ },
+    {
+      name: "vip-desktop",
+      testMatch: /vip\/.+\.spec\.ts/,
+      dependencies: ["vip-seed"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "vip-mobile",
+      testMatch: /vip\/.+\.spec\.ts/,
+      dependencies: ["vip-seed"],
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+
     // Card geometry — listing cards must stay the same size regardless of how
     // much content each one carries. Sets its own viewports per test.
     {

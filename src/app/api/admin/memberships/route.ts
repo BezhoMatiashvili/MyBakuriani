@@ -12,6 +12,8 @@ export type PendingMembership = {
   created_at: string;
   starts_at: string;
   expires_at: string;
+  /** Set only for the self-declared fb_group_vip tier (https-only, verified by the admin). */
+  fb_profile_url: string | null;
   profile: {
     display_name: string | null;
     phone: string | null;
@@ -33,7 +35,7 @@ export async function GET() {
   const { data, error } = await db
     .from("user_subscriptions")
     .select(
-      "id, user_id, package_id, amount_paid, created_at, starts_at, expires_at, profile:profiles!user_subscriptions_user_id_fkey(display_name, phone, role), package:pricing_packages!user_subscriptions_package_id_fkey(name, label, meta)",
+      "id, user_id, package_id, amount_paid, created_at, starts_at, expires_at, fb_profile_url, profile:profiles!user_subscriptions_user_id_fkey(display_name, phone, role), package:pricing_packages!user_subscriptions_package_id_fkey(name, label, meta)",
     )
     .eq("status", "pending_approval")
     .order("created_at", { ascending: true });
@@ -56,7 +58,9 @@ export async function GET() {
             meta: record
               ? {
                   season:
-                    typeof record.season === "string" ? record.season : undefined,
+                    typeof record.season === "string"
+                      ? record.season
+                      : undefined,
                   price_tier:
                     typeof record.price_tier === "string"
                       ? record.price_tier
@@ -79,8 +83,15 @@ export async function POST(req: NextRequest) {
     action?: "approve" | "reject";
     note?: string;
   } | null;
-  if (!body?.id || !body.action || !["approve", "reject"].includes(body.action)) {
-    return Response.json({ error: "id + valid action required" }, { status: 400 });
+  if (
+    !body?.id ||
+    !body.action ||
+    !["approve", "reject"].includes(body.action)
+  ) {
+    return Response.json(
+      { error: "id + valid action required" },
+      { status: 400 },
+    );
   }
 
   const db = createServiceClient(guard.admin.userId);

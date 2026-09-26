@@ -32,12 +32,12 @@ import { cn } from "@/lib/utils";
 import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 import BottomSheet from "@/components/shared/BottomSheet";
+import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 interface MobileBottomNavProps {
   currentPath: string;
   userRole?: string;
   onSignOut?: () => void;
-  notificationCount?: number;
   leadsCount?: number;
   canUseSms?: boolean;
   availableCabinets?: string[];
@@ -49,7 +49,7 @@ interface NavItem {
   labelKey: string;
   href: string;
   icon: LucideIcon;
-  badge?: "notifications" | "leads";
+  badge?: "leads";
   /** Already-translated label, for an entry outside DashboardSidebar.nav. */
   label?: string;
 }
@@ -71,12 +71,6 @@ const serviceItems = (role: string): RoleNavigation => {
       { labelKey: "balanceAndVip", href: `${base}/balance`, icon: Wallet },
     ],
     more: [
-      {
-        labelKey: "notificationsItem",
-        href: `${base}/notifications`,
-        icon: Bell,
-        badge: "notifications",
-      },
       { labelKey: "settings", href: `${base}/parameters`, icon: Settings },
     ],
   };
@@ -210,12 +204,6 @@ function getNavigation(role: string): RoleNavigation {
             icon: Sparkles,
           },
           {
-            labelKey: "notificationsItem",
-            href: "/dashboard/renter/notifications",
-            icon: Bell,
-            badge: "notifications",
-          },
-          {
             labelKey: "settings",
             href: "/dashboard/renter/profile",
             icon: Settings,
@@ -260,12 +248,6 @@ function getNavigation(role: string): RoleNavigation {
             icon: Bell,
           },
           {
-            labelKey: "notificationsItem",
-            href: "/dashboard/seller/notifications",
-            icon: Bell,
-            badge: "notifications",
-          },
-          {
             labelKey: "settings",
             href: "/dashboard/seller/settings",
             icon: Settings,
@@ -306,12 +288,6 @@ function getNavigation(role: string): RoleNavigation {
           },
         ],
         more: [
-          {
-            labelKey: "notificationsItem",
-            href: "/dashboard/food/notifications",
-            icon: Bell,
-            badge: "notifications",
-          },
           {
             labelKey: "settings",
             href: "/dashboard/food/parameters",
@@ -374,7 +350,6 @@ export function MobileBottomNav({
   currentPath,
   userRole = "guest",
   onSignOut,
-  notificationCount = 0,
   leadsCount = 0,
   canUseSms = false,
   availableCabinets = [],
@@ -404,12 +379,16 @@ export function MobileBottomNav({
     href: "/dashboard/account",
     icon: KeyRound,
   };
+  // Notifications are not listed here for renter/seller/food/services: those
+  // cabinets reach them from the bell in their mobile top header.
   const more = [
     ...navigation.more.filter(
       (item) =>
-        (item.href !== "/dashboard/sms" &&
+        ((item.href !== "/dashboard/sms" &&
           item.href !== "/dashboard/seller/sms") ||
-        canUseSms,
+          canUseSms) &&
+        // Rental reviews are temporarily hidden (see RENTAL_REVIEWS_HIDDEN).
+        (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
     ),
     ...(showCabinets ? [accountItem] : []),
   ];
@@ -427,7 +406,7 @@ export function MobileBottomNav({
     labelKey: string;
     label?: string;
     href: string;
-    detail?: "balance" | "notifications";
+    detail?: "balance";
     active?: (path: string) => boolean;
   }> = [
     {
@@ -474,11 +453,6 @@ export function MobileBottomNav({
     ...(canUseSms
       ? [{ labelKey: "priceDropSms", href: "/dashboard/seller/sms" }]
       : []),
-    {
-      labelKey: "notificationsItem",
-      href: "/dashboard/seller/notifications",
-      detail: "notifications" as const,
-    },
     { labelKey: "settings", href: "/dashboard/seller/settings" },
     {
       labelKey: accountItem.labelKey,
@@ -494,12 +468,7 @@ export function MobileBottomNav({
     },
   ];
 
-  const badgeFor = (item: NavItem) =>
-    item.badge === "leads"
-      ? leadsCount
-      : item.badge === "notifications"
-        ? notificationCount
-        : 0;
+  const badgeFor = (item: NavItem) => (item.badge === "leads" ? leadsCount : 0);
 
   return (
     <>
@@ -617,17 +586,6 @@ export function MobileBottomNav({
                         {balance.toFixed(2)} ₾
                       </span>
                     )}
-                    {item.detail === "notifications" &&
-                      notificationCount > 0 && (
-                        <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-1 text-[10px] font-extrabold text-[#EA580C]">
-                          {tSidebar("newCount", {
-                            count:
-                              notificationCount > 99
-                                ? "99+"
-                                : notificationCount,
-                          })}
-                        </span>
-                      )}
                     <ChevronRight
                       className={cn(
                         "size-4 shrink-0",

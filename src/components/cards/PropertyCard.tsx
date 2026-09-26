@@ -151,6 +151,7 @@ export default function PropertyCard(props: PropertyCardProps) {
   const showHotelDiscount = isHotel && active;
   const showHotelStars =
     isHotel && !showHotelDiscount && hotelStars != null && hotelStars > 0;
+  const topLeftTaken = isHotel ? showHotelDiscount || showHotelStars : active;
 
   return (
     <div className="group h-full animate-in fade-in slide-in-from-bottom-4 duration-300 transition-transform hover:scale-[1.02]">
@@ -229,14 +230,21 @@ export default function PropertyCard(props: PropertyCardProps) {
             </ListingBadge>
           )}
 
-          {!isHotel && !active && (isSuperVip || isVip) && (
+          {/* VIP and the discount are separate paid badges (2026 price list
+              §2.1/§2.2): when the top-left slot already holds the discount or
+              a hotel's stars, VIP drops to a second row instead of vanishing. */}
+          {(isSuperVip || isVip) && (
             <ListingBadge
               variant="vip"
               className={cn(
                 "absolute",
                 compactGrid
-                  ? "left-2 top-2 max-w-[calc(100%-3.5rem)] truncate px-2 text-[9px] sm:left-4 sm:top-4 sm:max-w-none sm:px-2.5 sm:text-[10px]"
-                  : "left-4 top-4",
+                  ? topLeftTaken
+                    ? "left-2 top-8 max-w-[calc(100%-3.5rem)] truncate px-2 text-[9px] sm:left-4 sm:top-12 sm:max-w-none sm:px-2.5 sm:text-[10px]"
+                    : "left-2 top-2 max-w-[calc(100%-3.5rem)] truncate px-2 text-[9px] sm:left-4 sm:top-4 sm:max-w-none sm:px-2.5 sm:text-[10px]"
+                  : topLeftTaken
+                    ? "left-4 top-12"
+                    : "left-4 top-4",
               )}
             >
               {isSuperVip ? "SUPER VIP" : "VIP"}

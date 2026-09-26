@@ -22,7 +22,7 @@ export type MyRequest = {
 
 export type GuestData = {
   profile: Tables<"profiles"> | null;
-  recent: Tables<"properties">[];
+  recent: Tables<"public_properties">[];
   offers: GuestOffer[];
   reviewRequests: Tables<"notifications">[];
   requests: MyRequest[];
@@ -45,9 +45,8 @@ export async function loadGuestData(
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).single(),
       supabase
-        .from("properties")
+        .from("public_properties")
         .select("*")
-        .eq("status", "active")
         .order("views_count", { ascending: false })
         .limit(RECENT_LIMIT),
       supabase

@@ -241,7 +241,6 @@
     "collapse": "Collapse",
     "serviceSwitcher": "Switch service",
     "menu": "Menu",
-    "newCount": "{count} new",
     "switcher": {
       "rentalsRent": "Rentals (Rent)",
       "employment": "Employment",
@@ -884,6 +883,9 @@
     "validity": "Valid: {start} – {end}",
     "planCovered": "You already have a membership for this period",
     "fbDeclaration": "I confirm that I am a VIP member of the MyBakuriani Facebook group. The administration verifies this before approval; if it cannot be confirmed, the request is rejected and the payment is returned to your balance.",
+    "fbProfileLabel": "Your Facebook profile link",
+    "fbProfilePlaceholder": "facebook.com/username",
+    "fbProfileInvalid": "Enter a valid Facebook profile link",
     "processTitle": "Activation process:",
     "processSteps": {
       "1": "You choose a seasonal membership and pay the fee.",
@@ -895,7 +897,8 @@
     "errors": {
       "alreadyPending": "Your membership payment is already awaiting admin approval.",
       "alreadyActive": "You already have a membership for this season.",
-      "unavailable": "This membership package is not available right now."
+      "unavailable": "This membership package is not available right now.",
+      "fbProfileRequired": "A Facebook profile link is required for this tier."
     }
   },
   "SmartMatchModal": {
@@ -1734,7 +1737,6 @@
     "scheduleLabel": "Schedule:",
     "vacancies": "Vacancies ({count})",
     "noVacancies": "No vacancies found",
-    "salaryDaily": "{amount} ₾ / day",
     "positions": {
       "all": "All",
       "cleaner": "Housekeeper",
@@ -1762,13 +1764,22 @@
     "urgent": "Urgent",
     "applications": "{count, plural, one {# application} other {# applications}}",
     "details": "Details",
-    "favoriteAria": "Add to favorites"
+    "favoriteAria": "Add to favorites",
+    "salaryRange": "{min}–{max} ₾",
+    "salaryFrom": "From {amount} ₾",
+    "salaryUpTo": "Up to {amount} ₾",
+    "salaryDaily": "{amount} ₾ / day",
+    "salaryModels": {
+      "fixed": "Fixed",
+      "fixed_bonus": "Fixed + bonus/tips",
+      "commission": "Commission-based (%)",
+      "negotiable": "Negotiable"
+    }
   },
   "EmploymentDetail": {
     "publishedAt": "Published: {date}",
     "urgent": "Urgent",
     "applications": "{count, plural, one {# application} other {# applications}}",
-    "salaryDaily": "{amount} ₾ / day",
     "jobDescription": "Job description",
     "requirements": "Requirements & competencies",
     "verifiedEmployer": "Verified employer",
@@ -1788,7 +1799,6 @@
       "location": "Location",
       "locationFallback": "Didveli",
       "salary": "Salary",
-      "negotiable": "Negotiable",
       "schedule": "Schedule",
       "flexible": "Flexible",
       "experience": "Experience",
@@ -1796,7 +1806,7 @@
     },
     "errors": {
       "cvFormat": "Only PDF or DOCX format is allowed",
-      "cvSize": "File size must not exceed 5 MB",
+      "cvSize": "File size must not exceed 10 MB",
       "cvUpload": "Failed to upload CV",
       "fullName": "Enter your first and last name",
       "phone": "Enter a valid phone number",
@@ -2205,7 +2215,6 @@
     "uploadMinOnePhoto": "Upload at least one photo",
     "eg": "e.g. {value}",
     "sqm": "sq.m",
-    "or": "or",
     "notSpecified": "Not specified",
     "onlyUnderConstruction": "Under construction only"
   },
@@ -2619,8 +2628,13 @@
     "enterEmployer": "Enter the employer",
     "chooseLocation": "Choose a location",
     "enterPosition": "Enter the position",
-    "enterSalary": "Enter the salary",
-    "enterJobDescription": "Fill in the job description"
+    "enterJobDescription": "Fill in the job description",
+    "salaryPeriod": "Pay period",
+    "salaryModeMonthly": "Monthly",
+    "salaryModeDaily": "Daily",
+    "salaryLockedHint": "No amount is specified for this compensation type",
+    "salaryMinGtMax": "The minimum salary must not exceed the maximum",
+    "positionTooLong": "Position must be at most {max} characters"
   },
   "CreateSale": {
     "pageTitle": "Buy / Sell",
@@ -2662,15 +2676,20 @@
     "priceRequiredOneOf": "Enter the total price or the price per m²",
     "orFillPerSqm": "or fill in the price per m²",
     "postAsSection": "განცხადების განთავსება",
-    "postAsLabel": "განცხადების განთავსება როგორც",
-    "postAsPerson": "ფიზიკური პირი",
-    "postAsCompanyHint": "საჭიროა პაკეტის შექმნა",
-    "postAsSelectCompany": "აირჩიეთ კომპანია",
-    "postAsOwnerSuffix": "მფლობელი",
-    "postAsAgentSuffix": "აგენტი",
-    "postAsRegisterHint": "დაარეგისტრირეთ კომპანია",
-    "postAsNeedsPackageError": "კომპანიას სჭირდება აქტიური პაკეტი. გაააქტიურეთ პაკეტი კომპანიის გვერდზე.",
-    "continue": "Continue"
+    "postAsLabel": "Post the listing as",
+    "postAsPerson": "Individual",
+    "postAsCompanyHint": "Package required",
+    "postAsSelectCompany": "Select a company",
+    "postAsOwnerSuffix": "Owner",
+    "postAsAgentSuffix": "Agent",
+    "postAsRegisterHint": "Register a company",
+    "postAsNeedsPackageError": "The company needs an active package. Activate a package on the company page.",
+    "continue": "Continue",
+    "postAsCompany": "Company",
+    "postAsCompanySubtitle": "Agency or construction company",
+    "postAsCompanyExplainer": "To post on behalf of a company, register the company first. It will need an active package before it can publish listings.",
+    "postAsContinueAsPerson": "Continue as an individual for now",
+    "postAsRegisterFirst": "To post as a company, register it first or continue as an individual."
   },
   "DateRangeFilter": {
     "presets": {
@@ -3108,6 +3127,17 @@
     "superVipActive": "SUPER VIP is active",
     "superVipBlocksVip": "Standard VIP is unavailable while SUPER VIP is active",
     "purchaseNetworkError": "The payment could not be completed — network error. Check your balance before trying again.",
+    "purchaseErrors": {
+      "insufficient_balance": "Your balance is too low for this purchase. Top up and try again.",
+      "not_owner": "This listing does not belong to your account.",
+      "invalid_discount_percent": "The discount must be between 1% and 90%.",
+      "invalid_quantity": "The number of days must be between 1 and 365.",
+      "package_unavailable": "This package is not available right now.",
+      "invalid_target": "Select one listing."
+    },
+    "packagesUnavailable": "Prices could not be loaded.",
+    "packagesRetry": "Try again",
+    "notLiveHint": "Not visible on the site yet",
     "noVipEligibleListings": "No listings are currently eligible for standard VIP",
     "phoneBlacklistedWarning": "This number is on the blacklist — double-check before proceeding",
     "periodWeek": "Week",
@@ -3140,7 +3170,13 @@
       "discount_badge": "Discount badge",
       "withdrawal": "Withdrawal",
       "commission": "Commission",
+      "sms_send": "SMS sent",
+      "membership_refund": "Membership refund",
       "card_refund": "Card refund"
+    },
+    "txDetails": {
+      "listing": "Listing",
+      "dateTime": "Date and time"
     },
     "notifTitle": "Notifications",
     "notifSubtitleSystem": "System notifications and important updates.",
@@ -3160,9 +3196,6 @@
     "settingsSubtitle": "Profile details and notification controls.",
     "profileTypeAndDetails": "Profile type & details",
     "profileDetails": "Profile details",
-    "profileType": "Profile type",
-    "personalProfile": "Individual",
-    "companyProfile": "Company",
     "nameOrCompany": "Name / company",
     "publicPhone": "Public contact number",
     "personalId": "Personal ID",
@@ -3232,6 +3265,8 @@
     "purchaseTerms": {
       "hours": "{hours} hours",
       "startsNow": "Starts immediately after payment. Buying again restarts the period from the moment of purchase — remaining time is not added.",
+      "extendsSameTier": "Starts immediately after payment. If the same status is already active, the new time is added to what is left.",
+      "notLive": "This listing is not visible on the site yet (under review or turned off). The paid time starts now and keeps running while it is hidden.",
       "superReplacesVip": "SUPER VIP immediately replaces an active VIP status; the remaining VIP time is not kept.",
       "notPublication": "Payment and service activation do not mean the listing is published automatically. Listings are subject to administrative review under MyBakuriani's rules.",
       "smsNoExpiry": "No expiry — the SMS are added to your SMS balance.",
@@ -3764,7 +3799,6 @@
   },
   "RenterProfile": {
     "subtitle": "Profile details and notification controls.",
-    "profileTypeDetails": "Profile type & details",
     "namePlaceholder": "Giorgi Makharauli",
     "whatsappLabel": "WHATSAPP number",
     "saving": "Saving...",
@@ -3781,10 +3815,6 @@
     "funnelContact": "Phone / WA views",
     "funnelRealContact": "Real contact",
     "funnelClosed": "Sale / closed",
-    "leadSources": "Lead sources",
-    "sourceDirect": "Direct search",
-    "sourceReferral": "Referral",
-    "sourceOther": "Other",
     "metricsTitle": "Performance metrics",
     "metricAvgViews": "Avg. views / property",
     "metricConversion": "Conversion (view → contact)",
@@ -4523,6 +4553,7 @@
     "reviewFailed": "Could not review this membership",
     "period": "Period: {start} – {end}",
     "fbTierBadge": "Facebook-group VIP rate — verify group membership",
+    "fbProfileLink": "Facebook profile",
     "openClient": "Client profile",
     "errors": {
       "MEMBERSHIP_SEASON_ENDED": "The season has already ended — reject the request; the payment is refunded automatically.",

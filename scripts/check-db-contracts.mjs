@@ -238,7 +238,7 @@ for (const [table, values, name] of [
 
 // C4 — scheduled jobs. Infra state rather than code, so a warning.
 {
-  const expected = ["rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-daily"];
+  const expected = ["rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly"];
   const present = snapshot.cron_jobs.filter((j) => j.active).map((j) => j.name);
   const missing = onlyIn(expected, present);
   if (missing.length) warn(`C4: pg_cron jobs missing or inactive on ${new URL(url).host}: ${missing.join(", ")}`);

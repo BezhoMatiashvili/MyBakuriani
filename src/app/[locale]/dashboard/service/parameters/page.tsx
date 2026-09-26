@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 
 interface NotifPrefs {
   newInquiry: boolean;
@@ -74,8 +75,14 @@ export default function ServiceParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    if (phone && !isValidGePhone(phone)) return;
-    if (whatsapp && !isValidGePhone(whatsapp)) return;
+    const invalid = [
+      ...(phone && !isValidGePhone(phone) ? ["phone"] : []),
+      ...(whatsapp && !isValidGePhone(whatsapp) ? ["whatsapp"] : []),
+    ];
+    if (invalid.length) {
+      scrollToFirstInvalid(invalid);
+      return;
+    }
     setSaving(true);
     setSaved(false);
     setReviewError("");
@@ -235,7 +242,7 @@ export default function ServiceParametersPage() {
               />
             </div>
 
-            <div>
+            <div data-field="phone" className="scroll-mt-24">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                 {tShared("phoneNumber")}
               </label>
@@ -272,7 +279,7 @@ export default function ServiceParametersPage() {
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div data-field="whatsapp" className="scroll-mt-24 sm:col-span-2">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                 {tShared("whatsappNumber")}
               </label>

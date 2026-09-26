@@ -110,6 +110,12 @@ const nextConfig: NextConfig = {
     // bypass this cache, so nothing needing immediacy changes. `static` is left
     // at Next's own default of 300 — lowering it would be a regression.
     staleTimes: { dynamic: 30, static: 300 },
+    // Middleware runs on /api/*, so Next clones every request body for it and
+    // cuts the clone AND the body the route handler receives at this size
+    // (default exactly 10 MiB, with only a console warning). A job
+    // application may carry a 10 MiB CV plus multipart overhead
+    // (/api/job-applications allows up to 10 MiB + 256 KiB), so leave room.
+    middlewareClientMaxBodySize: "11mb",
   },
 };
 

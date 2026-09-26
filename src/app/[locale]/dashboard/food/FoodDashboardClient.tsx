@@ -53,6 +53,8 @@ export default function FoodDashboardClient({
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
+    /** Listing whose row button opened the picker (preselected). */
+    listingId?: string;
   }>({ open: false, tier: "super-vip" });
   const [stats, setStats] = useState(initial.stats);
   const [kpis, setKpis] = useState<OwnerStats | null>(initial.kpis);
@@ -311,7 +313,7 @@ export default function FoodDashboardClient({
                 router.push("/dashboard/food/orders");
                 return;
               }
-              setPickerModal({ open: true, tier });
+              setPickerModal({ open: true, tier, listingId: restaurant.id });
             }}
             standardVipDisabled={isSuperVipActive(
               restaurant.is_super_vip,
@@ -325,6 +327,7 @@ export default function FoodDashboardClient({
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
+        selectedListingId={pickerModal.listingId}
         flat
         listings={
           restaurant
@@ -340,6 +343,7 @@ export default function FoodDashboardClient({
                     restaurant.is_super_vip,
                     restaurant.vip_expires_at,
                   ),
+                  notLive: restaurant.status !== "active",
                 },
               ]
             : []

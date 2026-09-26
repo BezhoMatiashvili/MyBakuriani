@@ -3,6 +3,8 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { cn } from "@/lib/utils";
+import { formatNumber, formatPrice } from "@/lib/utils/format";
+import type { SalaryDescriptor } from "@/lib/employment/salary";
 import {
   ListingAgeBadge,
   NewlyAddedBadge,
@@ -13,7 +15,8 @@ export interface EmploymentCardProps {
   title: string;
   employer?: string | null;
   location?: string | null;
-  salaryLabel?: string | null;
+  /** From describeSalary(); null/omitted renders "negotiable". */
+  salary?: SalaryDescriptor | null;
   scheduleLabel?: string | null;
   description?: string | null;
   applicationsCount?: number;
@@ -23,12 +26,42 @@ export interface EmploymentCardProps {
   mobilePresentation?: "default" | "compact-grid";
 }
 
+const NEGOTIABLE: SalaryDescriptor = { kind: "model", model: "negotiable" };
+
+/**
+ * Formats a vacancy's salary with the EmploymentCard keys. The detail page uses
+ * it too, so a card and the page behind it always say the same thing.
+ */
+export function useSalaryText() {
+  const t = useTranslations("EmploymentCard");
+  return (salary: SalaryDescriptor | null | undefined): string => {
+    const s = salary ?? NEGOTIABLE;
+    switch (s.kind) {
+      case "range":
+        return s.min === s.max
+          ? formatPrice(s.min)
+          : t("salaryRange", {
+              min: formatNumber(s.min),
+              max: formatNumber(s.max),
+            });
+      case "from":
+        return t("salaryFrom", { amount: formatNumber(s.min) });
+      case "upTo":
+        return t("salaryUpTo", { amount: formatNumber(s.max) });
+      case "daily":
+        return t("salaryDaily", { amount: formatNumber(s.amount) });
+      case "model":
+        return t(`salaryModels.${s.model}`);
+    }
+  };
+}
+
 export default function EmploymentCard({
   id,
   title,
   employer,
   location,
-  salaryLabel,
+  salary,
   scheduleLabel,
   description,
   applicationsCount,
@@ -39,6 +72,7 @@ export default function EmploymentCard({
 }: EmploymentCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const t = useTranslations("EmploymentCard");
+  const salaryText = useSalaryText();
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -113,12 +147,15 @@ export default function EmploymentCard({
             {location}
           </span>
         )}
-        {salaryLabel && (
-          <span className="inline-flex items-center gap-1 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1.5 text-[12px] font-bold text-[#166534]">
-            <Banknote className="h-3.5 w-3.5" />
-            {salaryLabel}
-          </span>
-        )}
+        {/* Always rendered — an amount, or the salary type chosen at upload —
+            so every card in a row has the same lines. */}
+        <span
+          data-employment-salary
+          className="inline-flex items-center gap-1 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1.5 text-[12px] font-bold text-[#166534]"
+        >
+          <Banknote className="h-3.5 w-3.5" />
+          {salaryText(salary)}
+        </span>
       </div>
 
       {scheduleLabel && (

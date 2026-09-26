@@ -182,14 +182,6 @@ export function ServiceOrdersView({
     );
   }
 
-  async function downloadCv(path: string) {
-    const { data, error } = await supabase.storage
-      .from("cv-documents")
-      .createSignedUrl(path, 60);
-    if (error || !data) return;
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-  }
-
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <h1 className="text-[36px] font-black leading-[44px] text-[#0F172A]">
@@ -291,7 +283,6 @@ export function ServiceOrdersView({
           rows={filteredApplications}
           activeTab={activeTab}
           onSelect={setSelectedApplication}
-          onDownloadCv={downloadCv}
         />
       )}
 
@@ -391,7 +382,6 @@ export function ServiceOrdersView({
                 });
               }}
               onClose={() => setSelectedApplication(null)}
-              onDownloadCv={downloadCv}
             />
           </Modal>
         )}
@@ -518,12 +508,10 @@ function ApplicationsList({
   rows,
   activeTab,
   onSelect,
-  onDownloadCv,
 }: {
   rows: ApplicationRow[];
   activeTab: StatusTab;
   onSelect: (a: ApplicationRow) => void;
-  onDownloadCv: (path: string) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -575,17 +563,19 @@ function ApplicationsList({
                 </td>
                 <td className="px-4 py-3">
                   {app.cv_path ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDownloadCv(app.cv_path!);
-                      }}
+                    // The route checks the vacancy owner and redirects to a
+                    // 60 s signed download (the bucket has no browser access).
+                    <a
+                      href={`/api/job-applications/${app.id}/cv`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-cv-download
+                      onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 rounded-md bg-[#DBEAFE] px-2 py-1 text-xs font-bold text-[#2563EB] hover:bg-[#BFDBFE]"
                     >
                       <Download className="h-3 w-3" />
                       ჩამოტვირთვა
-                    </button>
+                    </a>
                   ) : (
                     <span className="text-xs text-[#94A3B8]">—</span>
                   )}
@@ -650,12 +640,10 @@ function ApplicationDetail({
   app,
   onMarkProcessed,
   onClose,
-  onDownloadCv,
 }: {
   app: ApplicationRow;
   onMarkProcessed: () => void;
   onClose: () => void;
-  onDownloadCv: (path: string) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -719,15 +707,17 @@ function ApplicationDetail({
       )}
 
       {app.cv_path && (
-        <button
-          type="button"
-          onClick={() => onDownloadCv(app.cv_path!)}
+        <a
+          href={`/api/job-applications/${app.id}/cv`}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-cv-download
           className="inline-flex items-center gap-2 rounded-xl border border-[#DBEAFE] bg-[#F0F7FF] px-4 py-2.5 text-sm font-bold text-[#2563EB] transition-colors hover:bg-[#DBEAFE]"
         >
           <FileText className="h-4 w-4" />
           ნახე CV
           <Download className="h-3.5 w-3.5" />
-        </button>
+        </a>
       )}
 
       <div className="flex items-center gap-2 text-sm text-[#94A3B8]">

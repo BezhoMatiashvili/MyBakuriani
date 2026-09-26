@@ -28,7 +28,10 @@ import {
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { AvailabilityStatus, buildNext30Days } from "@/lib/utils/availability";
-import { scrollToField } from "@/lib/forms/scroll-to-error";
+import {
+  scrollToField,
+  scrollToFirstInvalid,
+} from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
 import {
   contentChangeErrorKey,
@@ -111,6 +114,10 @@ function CreateRentalPageInner() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const submittingRef = useRef(false);
+  // Field to scroll to once step 0 is back on screen after a server error. The
+  // step content is in AnimatePresence mode="wait", so step 0 mounts only after
+  // the current step's exit animation — flushed from onExitComplete below.
+  const pendingScrollRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -580,10 +587,12 @@ function CreateRentalPageInner() {
         setStep(0);
         setPosting({ gate: "missing", startsAt: null });
         setError(t("membershipGate.error"));
+        pendingScrollRef.current = "membership";
       } else if (isCadastralDuplicateError(err)) {
         setStep(0);
         setInvalidFields(new Set(["cadastralCode"]));
         setError(tShared("cadastralAlreadyUsed"));
+        pendingScrollRef.current = "cadastralCode";
       } else {
         setError(
           isContentChangeError(err)
@@ -650,7 +659,17 @@ function CreateRentalPageInner() {
           <SkierLoader variant="inline" />
         </div>
       ) : (
-        <AnimatePresence mode="wait">
+        <AnimatePresence
+          mode="wait"
+          onExitComplete={() => {
+            const key = pendingScrollRef.current;
+            if (!key) return;
+            pendingScrollRef.current = null;
+            // Called just before React renders the entering step; a task
+            // later it is committed, and the helper then waits one frame.
+            window.setTimeout(() => scrollToFirstInvalid([key]), 0);
+          }}
+        >
           <motion.div
             key={step}
             initial={{ opacity: 0, x: 18 }}

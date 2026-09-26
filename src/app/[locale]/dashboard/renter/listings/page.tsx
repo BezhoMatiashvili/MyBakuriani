@@ -52,6 +52,8 @@ export default function RenterListingsPage() {
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
+    /** Listing whose row button opened the picker (preselected). */
+    listingId?: string;
   }>({ open: false, tier: "super-vip" });
 
   const {
@@ -300,9 +302,13 @@ export default function RenterListingsPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setPickerModal({ open: true, tier: "super-vip" })
+                    setPickerModal({
+                      open: true,
+                      tier: "super-vip",
+                      listingId: property.id,
+                    })
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#EA580C] transition-colors hover:bg-[#FFEDD5]"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg sm:min-h-0 border border-[#FED7AA] bg-[#FFF7ED] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#EA580C] transition-colors hover:bg-[#FFEDD5]"
                 >
                   <Rocket className="h-3 w-3" />
                   SUPER VIP
@@ -313,7 +319,13 @@ export default function RenterListingsPage() {
                     property.is_super_vip,
                     property.vip_expires_at,
                   )}
-                  onClick={() => setPickerModal({ open: true, tier: "vip" })}
+                  onClick={() =>
+                    setPickerModal({
+                      open: true,
+                      tier: "vip",
+                      listingId: property.id,
+                    })
+                  }
                   title={
                     isSuperVipActive(
                       property.is_super_vip,
@@ -330,7 +342,7 @@ export default function RenterListingsPage() {
                       ? `VIP — ${tShared("superVipBlocksVip")}`
                       : "VIP"
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#FBCFE8] bg-[#FCE7F3] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#BE185D] transition-colors hover:bg-[#FBCFE8] disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg sm:min-h-0 border border-[#FBCFE8] bg-[#FCE7F3] px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#BE185D] transition-colors hover:bg-[#FBCFE8] disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0"
                 >
                   <Ticket className="h-3 w-3" />
                   VIP
@@ -338,9 +350,13 @@ export default function RenterListingsPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setPickerModal({ open: true, tier: "discount" })
+                    setPickerModal({
+                      open: true,
+                      tier: "discount",
+                      listingId: property.id,
+                    })
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#86EFAC] bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-black tracking-wide text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg sm:min-h-0 border border-[#86EFAC] bg-[#DCFCE7] px-3 py-1.5 text-[11px] font-black tracking-wide text-[#15803D] transition-colors hover:bg-[#BBF7D0]"
                 >
                   <Percent className="h-3 w-3" />
                   {tDash("discount")}
@@ -355,6 +371,7 @@ export default function RenterListingsPage() {
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
+        selectedListingId={pickerModal.listingId}
         listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
@@ -366,6 +383,7 @@ export default function RenterListingsPage() {
             p.is_super_vip,
             p.vip_expires_at,
           ),
+          notLive: p.status !== "active",
         }))}
         target="property"
         onPurchased={async () => {

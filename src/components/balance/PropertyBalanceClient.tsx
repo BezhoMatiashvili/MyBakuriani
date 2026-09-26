@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,15 +12,18 @@ import VipInfoModal, {
 } from "@/components/renter/VipInfoModal";
 import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
+import TransactionList from "@/components/balance/TransactionList";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import {
   fetchPricingPackages,
   getPackageDisplay,
   type PricingPackage,
 } from "@/lib/pricing-packages";
-import { formatDate } from "@/lib/utils/format";
 import { isSuperVipActive } from "@/lib/utils/pricing";
-import { promotionPurchaseError } from "@/lib/promotion-purchase";
+import {
+  promotionPurchaseError,
+  purchaseReasonMessages,
+} from "@/lib/promotion-purchase";
 import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 
@@ -40,17 +42,6 @@ function durationHoursFromMeta(meta: Record<string, unknown> | null): number {
   }
   return 24;
 }
-
-const transactionTypeKeys = [
-  "topup",
-  "vip_boost",
-  "super_vip",
-  "sms_package",
-  "discount_badge",
-  "withdrawal",
-  "commission",
-  "card_refund",
-] as const;
 
 /**
  * Balance & VIP page body shared by the renter and seller dashboards. Both own
@@ -80,8 +71,19 @@ export default function PropertyBalanceClient() {
   }>({ open: false, tier: "super-vip", packageId: "" });
   const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
 
+  // fetchPricingPackages answers [] on failure; there is always at least one
+  // enabled package, so an empty list is shown as a retryable load failure.
+  const [packagesLoaded, setPackagesLoaded] = useState(false);
+  const loadPackages = () => {
+    setPackagesLoaded(false);
+    void fetchPricingPackages(["vip", "sms"]).then((rows) => {
+      setPackages(rows);
+      setPackagesLoaded(true);
+    });
+  };
+
   useEffect(() => {
-    fetchPricingPackages(["vip", "sms"]).then(setPackages);
+    loadPackages();
   }, []);
 
   useEffect(() => {
@@ -142,7 +144,7 @@ export default function PropertyBalanceClient() {
   };
 
   const purchaseSmsPackage = async (pkg: PricingPackage) => {
-    if (!user || !balance) return;
+    if (!user) throw new Error(t("genericRetry"));
     setPurchasing(pkg.id);
     try {
       const { error } = await supabase.functions.invoke("purchase-vip", {
@@ -153,10 +155,15 @@ export default function PropertyBalanceClient() {
           vipConflict: t("superVipBlocksVip"),
           network: t("purchaseNetworkError"),
           generic: t("genericRetry"),
+          reasons: purchaseReasonMessages(t),
         });
       }
       const [balRes, txRes] = await Promise.all([
-        supabase.from("balances").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase
+          .from("balances")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle(),
         supabase
           .from("transactions")
           .select("*")
@@ -176,7 +183,7 @@ export default function PropertyBalanceClient() {
     quantity: number,
     discountPercent?: number,
   ) => {
-    if (!user || !balance) return;
+    if (!user) throw new Error(t("genericRetry"));
     const packageId = pickerModal.packageId;
     setPurchasing(packageId);
 
@@ -196,11 +203,16 @@ export default function PropertyBalanceClient() {
           vipConflict: t("superVipBlocksVip"),
           network: t("purchaseNetworkError"),
           generic: t("genericRetry"),
+          reasons: purchaseReasonMessages(t),
         });
       }
 
       const [balRes, txRes] = await Promise.all([
-        supabase.from("balances").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase
+          .from("balances")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle(),
         supabase
           .from("transactions")
           .select("*")
@@ -267,45 +279,59 @@ export default function PropertyBalanceClient() {
         transition={{ delay: 0.2 }}
         className="grid grid-cols-2 gap-3 sm:gap-4"
       >
-        {sortedPackages.length === 0 ? (
-          <p className="col-span-full text-center text-sm text-[#94A3B8]">
-            {t("noPackages")}
-          </p>
-        ) : (
-          sortedPackages.map((pkg) => {
-            const display = getPackageDisplay(pkg, locale);
-            const tier = inferVipInfoTier(pkg);
-            const standardVipAvailable =
-              tier !== "vip" ||
-              properties.some(
-                (property) =>
-                  !isSuperVipActive(
-                    property.is_super_vip,
-                    property.vip_expires_at,
-                  ),
+        {sortedPackages.length === 0
+          ? packagesLoaded && (
+              <div
+                role="alert"
+                className="col-span-full flex items-center justify-center gap-3 text-sm text-[#94A3B8]"
+              >
+                <span>{t("packagesUnavailable")}</span>
+                <button
+                  type="button"
+                  onClick={loadPackages}
+                  className="min-h-11 px-2 font-bold text-[#2563EB] underline"
+                >
+                  {t("packagesRetry")}
+                </button>
+              </div>
+            )
+          : sortedPackages.map((pkg) => {
+              const display = getPackageDisplay(pkg, locale);
+              const tier = inferVipInfoTier(pkg);
+              const standardVipAvailable =
+                tier !== "vip" ||
+                properties.some(
+                  (property) =>
+                    !isSuperVipActive(
+                      property.is_super_vip,
+                      property.vip_expires_at,
+                    ),
+                );
+              return (
+                <BalancePackageCard
+                  key={pkg.id}
+                  icon={display.icon}
+                  iconBg={display.iconBg}
+                  iconColor={display.iconColor}
+                  title={pkg.name}
+                  description={pkg.description ?? pkg.label ?? ""}
+                  price={pkg.amount_gel}
+                  unit={display.unit}
+                  ctaColor={display.ctaColor}
+                  available={
+                    !(loading && pkg.category === "vip") && standardVipAvailable
+                  }
+                  disabledReason={
+                    loading || standardVipAvailable
+                      ? undefined
+                      : t("noVipEligibleListings")
+                  }
+                  purchasing={purchasing === pkg.id}
+                  onHowItWorks={() => setVipModal({ open: true, tier })}
+                  onActivate={() => handlePurchaseClick(pkg)}
+                />
               );
-            return (
-              <BalancePackageCard
-                key={pkg.id}
-                icon={display.icon}
-                iconBg={display.iconBg}
-                iconColor={display.iconColor}
-                title={pkg.name}
-                description={pkg.description ?? pkg.label ?? ""}
-                price={pkg.amount_gel}
-                unit={display.unit}
-                ctaColor={display.ctaColor}
-                available={standardVipAvailable}
-                disabledReason={
-                  standardVipAvailable ? undefined : t("noVipEligibleListings")
-                }
-                purchasing={purchasing === pkg.id}
-                onHowItWorks={() => setVipModal({ open: true, tier })}
-                onActivate={() => handlePurchaseClick(pkg)}
-              />
-            );
-          })
-        )}
+            })}
       </motion.section>
 
       <motion.section
@@ -316,65 +342,13 @@ export default function PropertyBalanceClient() {
         <h2 className="text-[18px] font-black text-[#0F172A]">
           {t("transactionsTitle")}
         </h2>
-        <div className="mt-3 space-y-2">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-xl" />
-            ))
-          ) : transactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
-              <History className="h-10 w-10 text-[#94A3B8]" />
-              <p className="mt-2 text-sm text-[#94A3B8]">
-                {t("noTransactions")}
-              </p>
-            </div>
-          ) : (
-            transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between rounded-xl border border-[#EEF1F4] bg-white px-4 py-3 shadow-[0px_1px_2px_rgba(15,23,42,0.03)]"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                      tx.amount >= 0
-                        ? "bg-[#DCFCE7] text-[#16A34A]"
-                        : "bg-[#FEE2E2] text-[#DC2626]"
-                    }`}
-                  >
-                    {tx.amount >= 0 ? (
-                      <ArrowDownLeft className="h-4 w-4" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#0F172A]">
-                      {transactionTypeKeys.includes(
-                        tx.type as (typeof transactionTypeKeys)[number],
-                      )
-                        ? t(
-                            `txTypes.${tx.type as (typeof transactionTypeKeys)[number]}`,
-                          )
-                        : tx.type}
-                    </p>
-                    <p className="text-[11px] text-[#94A3B8]">
-                      {formatDate(tx.created_at)}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`text-sm font-extrabold ${
-                    tx.amount >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"
-                  }`}
-                >
-                  {tx.amount >= 0 ? "+" : ""}
-                  {tx.amount.toFixed(2)} ₾
-                </span>
-              </div>
-            ))
+        <TransactionList
+          transactions={transactions}
+          loading={loading}
+          listingTitles={Object.fromEntries(
+            properties.map((p) => [p.id, p.title]),
           )}
-        </div>
+        />
       </motion.section>
 
       <VipInfoModal
@@ -398,6 +372,7 @@ export default function PropertyBalanceClient() {
             p.is_super_vip,
             p.vip_expires_at,
           ),
+          notLive: p.status !== "active",
         }))}
         pkg={{
           amountGel: pickerPkg?.amount_gel ?? 0,

@@ -33,6 +33,8 @@ export type SaleListing = Pick<
   | "house_rules"
   | "discount_percent"
   | "discount_expires_at"
+  | "is_vip"
+  | "is_super_vip"
   | "created_at"
 >;
 
@@ -186,6 +188,8 @@ export default function SalesPageClient({ properties }: Props) {
                     paymentOptions={readPaymentOptions(p.house_rules)}
                     discountPercent={p.discount_percent ?? 0}
                     discountExpiresAt={p.discount_expires_at}
+                    isVip={p.is_vip ?? false}
+                    isSuperVip={p.is_super_vip ?? false}
                   />
                 </ScrollReveal>
               );

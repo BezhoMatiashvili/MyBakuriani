@@ -29,6 +29,7 @@ interface SalePropertyCardProps {
   area?: number | null;
   rooms?: number | null;
   isVip?: boolean;
+  isSuperVip?: boolean;
   roi?: number;
   constructionStatus?: string | null;
   constructionProgressPercent?: number | null;
@@ -53,6 +54,7 @@ export default function SalePropertyCard({
   area,
   rooms,
   isVip,
+  isSuperVip,
   roi,
   constructionStatus,
   constructionProgressPercent,
@@ -126,16 +128,16 @@ export default function SalePropertyCard({
             {t("forSale")}
           </ListingBadge>
 
-          {isVip && (
+          {(isSuperVip || isVip) && (
             <ListingBadge variant="vip" className="absolute left-3 top-12">
-              VIP
+              {isSuperVip ? "SUPER VIP" : "VIP"}
             </ListingBadge>
           )}
 
           {discountActive && (
             <ListingBadge
               variant="discount"
-              className={`absolute left-3 ${isVip ? "top-20" : "top-12"}`}
+              className={`absolute left-3 ${isVip || isSuperVip ? "top-20" : "top-12"}`}
             >
               -{discountPercent}%
             </ListingBadge>

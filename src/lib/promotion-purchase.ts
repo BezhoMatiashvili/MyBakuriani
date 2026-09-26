@@ -1,3 +1,22 @@
+/** Reason tokens purchase-vip returns (purchase_package HINTs, C10). */
+export const PURCHASE_REASONS = [
+  "insufficient_balance",
+  "not_owner",
+  "invalid_discount_percent",
+  "invalid_quantity",
+  "package_unavailable",
+  "invalid_target",
+] as const;
+
+/** Localized copy for each reason, for promotionPurchaseError's `reasons`. */
+export function purchaseReasonMessages(
+  t: (key: `purchaseErrors.${(typeof PURCHASE_REASONS)[number]}`) => string,
+): Record<string, string> {
+  return Object.fromEntries(
+    PURCHASE_REASONS.map((reason) => [reason, t(`purchaseErrors.${reason}`)]),
+  );
+}
+
 /**
  * Turn an edge-function invoke failure into a message worth showing a user.
  *
@@ -24,6 +43,12 @@ export async function promotionPurchaseError(
     network: string;
     /** Shown when the function answered but said nothing we can render. */
     generic: string;
+    /**
+     * Localized copy per `reason` token (purchase-vip maps the purchase_package
+     * HINTs, e.g. insufficient_balance / not_owner). Preferred over the
+     * function's Georgian `error` text, which en/ru users cannot read.
+     */
+    reasons?: Partial<Record<string, string>>;
   },
 ): Promise<Error> {
   const context = (error as { context?: Response } | null)?.context;
@@ -37,11 +62,17 @@ export async function promotionPurchaseError(
   try {
     const payload = (await context.clone().json()) as {
       error?: unknown;
+      reason?: unknown;
       correlation_id?: unknown;
     };
     if (payload.error === "vip_tier_conflict") {
       return new Error(messages.vipConflict);
     }
+    const localized =
+      typeof payload.reason === "string"
+        ? messages.reasons?.[payload.reason]
+        : undefined;
+    if (localized) return new Error(localized);
     // Otherwise surface the function's own curated message — e.g. the Georgian
     // insufficient-balance text it authors itself. `correlation_id` is the tell
     // that this is NOT one of those: `errorResponse` in

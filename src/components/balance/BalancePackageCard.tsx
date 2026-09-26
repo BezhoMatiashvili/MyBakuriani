@@ -41,7 +41,10 @@ export default function BalancePackageCard({
   const t = useTranslations("DashboardShared");
 
   return (
-    <div className="flex flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
+    <div
+      data-balance-package-card
+      className="flex h-full flex-col rounded-[20px] border border-[#EEF1F4] bg-white p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.04)] sm:p-6"
+    >
       <div
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconBg}`}
       >
@@ -51,7 +54,9 @@ export default function BalancePackageCard({
       <h3 className="mt-4 text-[15px] font-black text-[#0F172A] sm:text-[18px]">
         {title}
       </h3>
-      <p className="mt-1.5 text-[12px] leading-[17px] text-[#64748B] sm:text-[13px] sm:leading-[19px]">
+      {/* Phones skip the description: it repeats the "how it works" dialog
+          and made the two-column cards tall and uneven. */}
+      <p className="mt-1.5 hidden text-[12px] leading-[17px] text-[#64748B] sm:text-[13px] sm:leading-[19px] md:block">
         {description}
       </p>
       {!available && disabledReason && (
@@ -68,7 +73,9 @@ export default function BalancePackageCard({
         {t("howItWorks")}
       </button>
 
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+      {/* mt-auto pins price + button to the card bottom so buttons line up
+          across a grid row; below md the button stacks under the price. */}
+      <div className="mt-auto flex flex-col gap-3 pt-4 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-x-3 md:gap-y-2 md:pt-6">
         <div className="min-w-0">
           <p className="text-[22px] font-black leading-[26px] text-[#0F172A] sm:text-[28px] sm:leading-[32px]">
             {price.toFixed(2)}
@@ -82,7 +89,7 @@ export default function BalancePackageCard({
           disabled={!available || purchasing}
           title={!available ? disabledReason : undefined}
           onClick={onActivate}
-          className={`inline-flex shrink-0 items-center rounded-xl px-3 py-2.5 text-[12px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0 sm:px-5 sm:py-3 sm:text-[13px] ${ctaColor}`}
+          className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-xl px-3 py-2.5 text-[12px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-0 sm:px-5 sm:py-3 sm:text-[13px] md:min-h-0 md:w-auto ${ctaColor}`}
         >
           {purchasing ? "..." : t("activate")}
         </button>

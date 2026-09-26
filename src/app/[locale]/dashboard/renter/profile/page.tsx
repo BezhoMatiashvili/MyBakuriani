@@ -3,14 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { Settings as SettingsIcon, ChevronDown } from "lucide-react";
+import { Settings as SettingsIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
-
-type ProfileType = "personal" | "company";
 
 export default function RenterSettingsPage() {
   const t = useTranslations("RenterProfile");
@@ -23,7 +21,6 @@ export default function RenterSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [profileType, setProfileType] = useState<ProfileType>("personal");
   const [displayName, setDisplayName] = useState("");
   const [phone, setPhone] = useState("+995 599 00 00 00");
   const [personalId, setPersonalId] = useState("");
@@ -50,7 +47,6 @@ export default function RenterSettingsPage() {
         setProfile(data);
         setDisplayName(data.display_name);
         if (data.phone) setPhone(data.phone);
-        setProfileType(data.profile_type === "company" ? "company" : "personal");
         setPersonalId(data.personal_id ?? "");
         setWhatsapp(data.whatsapp_enabled ?? true);
         const prefs = data.notification_prefs as Record<string, unknown> | null;
@@ -82,7 +78,6 @@ export default function RenterSettingsPage() {
       await updateSelfServiceProfile({
         display_name: displayName,
         phone: normalizedPhone,
-        profile_type: profileType,
         personal_id: personalId || null,
         whatsapp_enabled: whatsapp,
       });
@@ -99,7 +94,7 @@ export default function RenterSettingsPage() {
     }
     setSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, displayName, phone, profileType, personalId, whatsapp, tShared, tCreate]);
+  }, [user, displayName, phone, personalId, whatsapp, tShared, tCreate]);
 
   const savePreference = useCallback(async (key: "new_request" | "add_favorite" | "monthly_report", value: boolean) => {
     const setters = {
@@ -153,26 +148,10 @@ export default function RenterSettingsPage() {
           className="rounded-[20px] border border-[#EEF1F4] bg-white p-6 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
         >
           <h2 className="text-[16px] font-black text-[#0F172A]">
-            {t("profileTypeDetails")}
+            {tShared("profileDetails")}
           </h2>
 
           <div className="mt-5 space-y-4">
-            <Field label={tShared("profileType")}>
-              <div className="relative">
-                <select
-                  value={profileType}
-                  onChange={(e) =>
-                    setProfileType(e.target.value as ProfileType)
-                  }
-                  className="w-full appearance-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 pr-10 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                >
-                  <option value="personal">{tShared("personalProfile")}</option>
-                  <option value="company">{tShared("companyProfile")}</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-              </div>
-            </Field>
-
             <Field label={tShared("nameOrCompany")}>
               <input
                 type="text"

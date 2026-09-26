@@ -241,7 +241,6 @@
     "collapse": "Свернуть",
     "serviceSwitcher": "Переключить сервис",
     "menu": "Меню",
-    "newCount": "{count} новых",
     "switcher": {
       "rentalsRent": "Квартиры (аренда)",
       "employment": "Занятость",
@@ -884,6 +883,9 @@
     "validity": "Действует: {start} – {end}",
     "planCovered": "На этот период у вас уже есть членство",
     "fbDeclaration": "Подтверждаю, что я VIP-участник группы MyBakuriani в Facebook. Администрация проверит это до подтверждения; если это не подтвердится, заявка будет отклонена, а оплата вернётся на баланс.",
+    "fbProfileLabel": "Ссылка на ваш профиль Facebook",
+    "fbProfilePlaceholder": "facebook.com/username",
+    "fbProfileInvalid": "Укажите действительную ссылку на профиль Facebook",
     "processTitle": "Процесс активации:",
     "processSteps": {
       "1": "Вы выбираете сезонное членство и оплачиваете взнос.",
@@ -895,7 +897,8 @@
     "errors": {
       "alreadyPending": "Оплата членства уже ожидает подтверждения администратора.",
       "alreadyActive": "На этот сезон у вас уже есть членство.",
-      "unavailable": "Этот пакет членства сейчас недоступен."
+      "unavailable": "Этот пакет членства сейчас недоступен.",
+      "fbProfileRequired": "Для этого тарифа обязательна ссылка на профиль Facebook."
     }
   },
   "SmartMatchModal": {
@@ -1734,7 +1737,6 @@
     "scheduleLabel": "График:",
     "vacancies": "Вакансии ({count})",
     "noVacancies": "Вакансии не найдены",
-    "salaryDaily": "{amount} ₾ / день",
     "positions": {
       "all": "Все",
       "cleaner": "Горничная",
@@ -1762,13 +1764,22 @@
     "urgent": "Срочно",
     "applications": "{count, plural, one {# отклик} few {# отклика} many {# откликов} other {# отклика}}",
     "details": "Подробнее",
-    "favoriteAria": "Добавить в избранное"
+    "favoriteAria": "Добавить в избранное",
+    "salaryRange": "{min}–{max} ₾",
+    "salaryFrom": "от {amount} ₾",
+    "salaryUpTo": "до {amount} ₾",
+    "salaryDaily": "{amount} ₾ / день",
+    "salaryModels": {
+      "fixed": "Фиксированная",
+      "fixed_bonus": "Фиксированная + бонус/чаевые",
+      "commission": "Сдельная (%)",
+      "negotiable": "По договорённости"
+    }
   },
   "EmploymentDetail": {
     "publishedAt": "Опубликовано: {date}",
     "urgent": "Срочно",
     "applications": "{count, plural, one {# отклик} few {# отклика} many {# откликов} other {# отклика}}",
-    "salaryDaily": "{amount} ₾ / день",
     "jobDescription": "Описание работы",
     "requirements": "Требования и компетенции",
     "verifiedEmployer": "Проверенный работодатель",
@@ -1788,7 +1799,6 @@
       "location": "Локация",
       "locationFallback": "Дидвели",
       "salary": "Оплата",
-      "negotiable": "По договорённости",
       "schedule": "График",
       "flexible": "Гибкий",
       "experience": "Опыт",
@@ -1796,7 +1806,7 @@
     },
     "errors": {
       "cvFormat": "Допускается только формат PDF или DOCX",
-      "cvSize": "Размер файла не должен превышать 5 МБ",
+      "cvSize": "Размер файла не должен превышать 10 МБ",
       "cvUpload": "Не удалось загрузить CV",
       "fullName": "Укажите имя и фамилию",
       "phone": "Введите корректный номер",
@@ -2205,7 +2215,6 @@
     "uploadMinOnePhoto": "Загрузите хотя бы одно фото",
     "eg": "напр. {value}",
     "sqm": "кв.м",
-    "or": "или",
     "notSpecified": "Не указано",
     "onlyUnderConstruction": "Только строящиеся"
   },
@@ -2619,8 +2628,13 @@
     "enterEmployer": "Укажите работодателя",
     "chooseLocation": "Выберите локацию",
     "enterPosition": "Укажите должность",
-    "enterSalary": "Укажите оплату",
-    "enterJobDescription": "Заполните описание работы"
+    "enterJobDescription": "Заполните описание работы",
+    "salaryPeriod": "Период оплаты",
+    "salaryModeMonthly": "В месяц",
+    "salaryModeDaily": "В день",
+    "salaryLockedHint": "Для этого типа оплаты сумма не указывается",
+    "salaryMinGtMax": "Минимальная оплата не должна превышать максимальную",
+    "positionTooLong": "Должность не должна превышать {max} символов"
   },
   "CreateSale": {
     "pageTitle": "Покупка / продажа",
@@ -2662,15 +2676,20 @@
     "priceRequiredOneOf": "Укажите общую цену или цену за м²",
     "orFillPerSqm": "или укажите цену за м²",
     "postAsSection": "განცხადების განთავსება",
-    "postAsLabel": "განცხადების განთავსება როგორც",
-    "postAsPerson": "ფიზიკური პირი",
-    "postAsCompanyHint": "საჭიროა პაკეტის შექმნა",
-    "postAsSelectCompany": "აირჩიეთ კომპანია",
-    "postAsOwnerSuffix": "მფლობელი",
-    "postAsAgentSuffix": "აგენტი",
-    "postAsRegisterHint": "დაარეგისტრირეთ კომპანია",
-    "postAsNeedsPackageError": "კომპანიას სჭირდება აქტიური პაკეტი. გაააქტიურეთ პაკეტი კომპანიის გვერდზე.",
-    "continue": "Продолжить"
+    "postAsLabel": "Разместить объявление как",
+    "postAsPerson": "Физическое лицо",
+    "postAsCompanyHint": "Требуется пакет",
+    "postAsSelectCompany": "Выберите компанию",
+    "postAsOwnerSuffix": "Владелец",
+    "postAsAgentSuffix": "Агент",
+    "postAsRegisterHint": "Зарегистрировать компанию",
+    "postAsNeedsPackageError": "Компании нужен активный пакет. Активируйте пакет на странице компании.",
+    "continue": "Продолжить",
+    "postAsCompany": "Компания",
+    "postAsCompanySubtitle": "Агентство или строительная компания",
+    "postAsCompanyExplainer": "Чтобы размещать объявления от имени компании, сначала зарегистрируйте её. Для публикации компании понадобится активный пакет.",
+    "postAsContinueAsPerson": "Пока продолжить как физическое лицо",
+    "postAsRegisterFirst": "Чтобы разместить объявление от имени компании, сначала зарегистрируйте её или продолжите как физическое лицо."
   },
   "DateRangeFilter": {
     "presets": {
@@ -3108,6 +3127,17 @@
     "superVipActive": "SUPER VIP активен",
     "superVipBlocksVip": "Обычный VIP недоступен, пока активен SUPER VIP",
     "purchaseNetworkError": "Платёж не завершён — ошибка сети. Проверьте баланс, прежде чем повторять.",
+    "purchaseErrors": {
+      "insufficient_balance": "Недостаточно средств на балансе. Пополните баланс и попробуйте снова.",
+      "not_owner": "Это объявление не принадлежит вашему аккаунту.",
+      "invalid_discount_percent": "Скидка должна быть от 1% до 90%.",
+      "invalid_quantity": "Количество дней должно быть от 1 до 365.",
+      "package_unavailable": "Этот пакет сейчас недоступен.",
+      "invalid_target": "Выберите одно объявление."
+    },
+    "packagesUnavailable": "Не удалось загрузить цены.",
+    "packagesRetry": "Повторить",
+    "notLiveHint": "Пока не отображается на сайте",
     "noVipEligibleListings": "Нет объявлений, доступных для обычного VIP",
     "phoneBlacklistedWarning": "Этот номер в чёрном списке — проверьте перед тем как продолжить",
     "periodWeek": "Неделя",
@@ -3140,7 +3170,13 @@
       "discount_badge": "Значок скидки",
       "withdrawal": "Вывод",
       "commission": "Комиссия",
+      "sms_send": "SMS отправлено",
+      "membership_refund": "Возврат членского взноса",
       "card_refund": "Возврат на карту"
+    },
+    "txDetails": {
+      "listing": "Объявление",
+      "dateTime": "Дата и время"
     },
     "notifTitle": "Уведомления",
     "notifSubtitleSystem": "Системные уведомления и важные новости.",
@@ -3160,9 +3196,6 @@
     "settingsSubtitle": "Данные профиля и управление уведомлениями.",
     "profileTypeAndDetails": "Тип профиля и данные",
     "profileDetails": "Данные профиля",
-    "profileType": "Тип профиля",
-    "personalProfile": "Физическое лицо",
-    "companyProfile": "Юридическое лицо",
     "nameOrCompany": "Имя / компания",
     "publicPhone": "Публичный номер",
     "personalId": "Личный номер",
@@ -3232,6 +3265,8 @@
     "purchaseTerms": {
       "hours": "{hours} ч",
       "startsNow": "Действует сразу после оплаты. При повторной покупке срок отсчитывается заново с момента покупки — оставшееся время не добавляется.",
+      "extendsSameTier": "Действует сразу после оплаты. Если тот же статус уже активен, новое время добавляется к оставшемуся.",
+      "notLive": "Это объявление пока не отображается на сайте (на модерации или выключено). Оплаченное время начинается сразу и идёт, пока объявление скрыто.",
       "superReplacesVip": "SUPER VIP сразу заменяет активный статус VIP; оставшееся время VIP не сохраняется.",
       "notPublication": "Оплата и активация услуги не означают автоматической публикации объявления. Объявления проходят административную проверку согласно правилам MyBakuriani.",
       "smsNoExpiry": "Без срока действия — SMS добавляются на ваш SMS-баланс.",
@@ -3764,7 +3799,6 @@
   },
   "RenterProfile": {
     "subtitle": "Данные профиля и управление уведомлениями.",
-    "profileTypeDetails": "Тип профиля и данные",
     "namePlaceholder": "Гиорги Махараули",
     "whatsappLabel": "Номер WHATSAPP",
     "saving": "Сохранение...",
@@ -3781,10 +3815,6 @@
     "funnelContact": "Просмотры номера / WA",
     "funnelRealContact": "Реальный контакт",
     "funnelClosed": "Продажа / закрыто",
-    "leadSources": "Источники лидов",
-    "sourceDirect": "Прямой поиск",
-    "sourceReferral": "Рекомендация",
-    "sourceOther": "Другое",
     "metricsTitle": "Показатели эффективности",
     "metricAvgViews": "Ср. просмотров / объект",
     "metricConversion": "Конверсия (просмотр → контакт)",
@@ -4523,6 +4553,7 @@
     "reviewFailed": "Не удалось обработать членство",
     "period": "Период: {start} – {end}",
     "fbTierBadge": "Тариф VIP-участника группы Facebook — проверьте членство",
+    "fbProfileLink": "Профиль Facebook",
     "openClient": "Профиль клиента",
     "errors": {
       "MEMBERSHIP_SEASON_ENDED": "Сезон уже закончился — отклоните заявку, оплата вернётся автоматически.",

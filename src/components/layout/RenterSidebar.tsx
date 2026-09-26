@@ -20,6 +20,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
+import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 interface RenterSidebarProps {
   userName: string;
@@ -119,9 +120,12 @@ export function RenterSidebar({
     .slice(0, 2);
 
   // A renter cabinet can exist from the profile role alone; SMS additionally
-  // requires an actual rental listing.
+  // requires an actual rental listing. Rental reviews are temporarily hidden
+  // (see RENTAL_REVIEWS_HIDDEN).
   const navItems = NAV_ITEMS.filter(
-    (item) => item.href !== "/dashboard/sms" || canUseSms,
+    (item) =>
+      (item.href !== "/dashboard/sms" || canUseSms) &&
+      (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
   );
 
   return (

@@ -13,7 +13,10 @@ import {
   packageForPromotionTier,
   type PricingPackage,
 } from "@/lib/pricing-packages";
-import { promotionPurchaseError } from "@/lib/promotion-purchase";
+import {
+  promotionPurchaseError,
+  purchaseReasonMessages,
+} from "@/lib/promotion-purchase";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { PurchaseVipBody } from "@/lib/payments/keepz/intent";
 
@@ -26,6 +29,8 @@ interface PackagePromotionPickerProps {
   flat?: boolean;
   /** Pins a package when a Balance page card initiated the flow. */
   packageId?: string;
+  /** The listing whose row button opened the flow; preselected in the picker. */
+  selectedListingId?: string;
   onPurchased?: () => Promise<void> | void;
 }
 
@@ -42,17 +47,29 @@ export default function PackagePromotionPicker({
   target,
   flat,
   packageId,
+  selectedListingId,
   onPurchased,
 }: PackagePromotionPickerProps) {
   const t = useTranslations("DashboardShared");
   const supabase = createClient();
   const [packages, setPackages] = useState<PricingPackage[]>([]);
+  const [packagesError, setPackagesError] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const { user } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
 
+  // fetchPricingPackages answers [] on failure; without this the Pay button
+  // stayed disabled behind a price skeleton forever, with no explanation.
+  const loadPackages = () => {
+    setPackagesError(false);
+    void fetchPricingPackages(["vip", "sms"]).then((rows) => {
+      setPackages(rows);
+      setPackagesError(rows.length === 0);
+    });
+  };
+
   useEffect(() => {
-    void fetchPricingPackages(["vip", "sms"]).then(setPackages);
+    loadPackages();
   }, []);
 
   // Wallet balance for the confirm dialog's pay-by-card fallback (C32).
@@ -99,6 +116,9 @@ export default function PackagePromotionPicker({
       onClose={onClose}
       tier={tier}
       properties={listings}
+      initialSelectedId={selectedListingId}
+      packagesError={packagesError || (packages.length > 0 && !pkg)}
+      onRetryPackages={loadPackages}
       flat={flat}
       loading={purchasing || !pkg}
       pkg={
@@ -127,6 +147,7 @@ export default function PackagePromotionPicker({
               vipConflict: t("superVipBlocksVip"),
               network: t("purchaseNetworkError"),
               generic: t("genericRetry"),
+              reasons: purchaseReasonMessages(t),
             });
           }
           await onPurchased?.();

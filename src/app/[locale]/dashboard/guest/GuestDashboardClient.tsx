@@ -21,7 +21,7 @@ import { safeInternalPath } from "@/lib/security";
 import MyRequestCard from "@/components/guest/MyRequestCard";
 import { loadGuestData, type GuestData, type MyRequest } from "./loadData";
 
-type Property = Tables<"properties">;
+type Property = Tables<"public_properties">;
 
 /** How many "recently viewed" cards show before the user expands the section. */
 const COLLAPSED_COUNT = 3;
@@ -433,12 +433,20 @@ export default function GuestDashboardClient({
                       {t("views", { count: p.views_count ?? 0 })}
                     </p>
                     <div className="mt-auto flex items-baseline gap-1 pt-2">
-                      <span className="text-[16px] font-black text-[#0F172A]">
-                        {formatPrice(Number(p.price_per_night ?? 0))}
-                      </span>
-                      <span className="text-[11px] font-medium text-[#94A3B8]">
-                        {t("perNight")}
-                      </span>
+                      {p.is_for_sale ? (
+                        <span className="text-[16px] font-black text-[#0F172A]">
+                          {formatPrice(Number(p.sale_price ?? 0))}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-[16px] font-black text-[#0F172A]">
+                            {formatPrice(Number(p.price_per_night ?? 0))}
+                          </span>
+                          <span className="text-[11px] font-medium text-[#94A3B8]">
+                            {t("perNight")}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </Link>

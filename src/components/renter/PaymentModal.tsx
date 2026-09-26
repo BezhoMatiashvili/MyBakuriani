@@ -15,7 +15,8 @@ import { Link } from "@/i18n/navigation";
 import CardPayButton from "@/components/payments/CardPayButton";
 import { cardShortfallTetri } from "@/lib/payments/keepz/amount";
 import { createClient } from "@/lib/supabase/client";
-import { formatDate, formatPrice } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
+import { formatGelAmount } from "@/lib/utils/pricing";
 import type { RenterMembershipPlan } from "@/app/[locale]/dashboard/renter/loadOverview";
 import {
   MEMBERSHIP_SEASONS,
@@ -53,12 +54,38 @@ function planWindow(
 // purchase-vip answers membership conflicts with fixed English strings.
 const EDGE_ERROR_KEYS: Record<
   string,
-  "alreadyPending" | "alreadyActive" | "unavailable"
+  "alreadyPending" | "alreadyActive" | "unavailable" | "fbProfileRequired"
 > = {
   "Membership payment is already awaiting admin approval.": "alreadyPending",
   "A seasonal membership is already active.": "alreadyActive",
   "This seasonal membership package is not available.": "unavailable",
+  "A Facebook profile link is required for this membership tier.":
+    "fbProfileRequired",
 };
+
+// Same https-only, 300-char guard as purchase-vip and the DB CHECK constraint
+// on user_subscriptions.fb_profile_url — keep the three in sync.
+const FB_PROFILE_URL_RE = /^https:\/\/.+/i;
+
+function normalizeFbProfileUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^http:\/\//i.test(trimmed)) return `https://${trimmed.slice(7)}`;
+  return /^https:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+// UX-only: a stricter Facebook-host check than the backend enforces, so the
+// dialog can catch an obviously-wrong paste before it ever reaches an admin.
+const FB_PROFILE_HOST_RE = /^https:\/\/([\w-]+\.)?(facebook|fb)\.com\/.+/i;
+
+function isValidFbProfileUrl(raw: string): boolean {
+  const normalized = normalizeFbProfileUrl(raw);
+  return (
+    normalized.length <= 300 &&
+    FB_PROFILE_URL_RE.test(normalized) &&
+    FB_PROFILE_HOST_RE.test(normalized)
+  );
+}
 
 const PROCESS_STEPS = ["1", "2", "3", "4"] as const;
 
@@ -86,6 +113,7 @@ export default function PaymentModal({
   const supabase = createClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [declared, setDeclared] = useState(false);
+  const [fbProfileUrl, setFbProfileUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -106,6 +134,7 @@ export default function PaymentModal({
   useEffect(() => {
     if (!isOpen) return;
     setDeclared(false);
+    setFbProfileUrl("");
     setError(null);
     document.body.style.overflow = "hidden";
     return () => {
@@ -135,6 +164,7 @@ export default function PaymentModal({
   // The Facebook-group declaration belongs to one plan choice.
   useEffect(() => {
     setDeclared(false);
+    setFbProfileUrl("");
   }, [selectedId]);
 
   useEffect(() => {
@@ -157,12 +187,14 @@ export default function PaymentModal({
 
   const selectedPlan = plans.find((plan) => plan.id === selectedId) ?? null;
   const needsDeclaration = selectedPlan?.price_tier === "fb_group_vip";
+  const fbProfileReady =
+    !needsDeclaration || (declared && isValidFbProfileUrl(fbProfileUrl));
   const canPay =
     Boolean(selectedPlan) &&
     !submitting &&
     !membershipPending &&
     !(selectedPlan && isCovered(selectedPlan)) &&
-    (!needsDeclaration || declared);
+    fbProfileReady;
   // A short wallet pays the missing part by card, then the same purchase is
   // completed after the top-up (C32).
   const payByCard =
@@ -177,7 +209,13 @@ export default function PaymentModal({
     const { error: invokeError } = await supabase.functions.invoke(
       "purchase-vip",
       {
-        body: { package_id: selectedPlan.id, quantity: 1 },
+        body: {
+          package_id: selectedPlan.id,
+          quantity: 1,
+          ...(needsDeclaration && {
+            fb_profile_url: normalizeFbProfileUrl(fbProfileUrl),
+          }),
+        },
       },
     );
     if (invokeError) {
@@ -244,7 +282,7 @@ export default function PaymentModal({
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-lg font-black text-[#0F172A]">
                   <Wallet className="h-4 w-4 text-[#2563EB]" />
-                  {formatPrice(liveWallet)}
+                  {formatGelAmount(liveWallet)}
                 </span>
               </div>
               <div className="mt-3 flex items-center justify-between gap-4 border-t border-[#EEF1F4] pt-3">
@@ -320,7 +358,7 @@ export default function PaymentModal({
                                   : t("tiers.standard")}
                               </span>
                               <span className="mt-2 block text-xl font-black text-[#2563EB]">
-                                {formatPrice(Number(plan.amount_gel))}
+                                {formatGelAmount(Number(plan.amount_gel))}
                               </span>
                               {covered && (
                                 <span className="mt-1 block text-[11px] font-semibold text-[#059669]">
@@ -342,16 +380,45 @@ export default function PaymentModal({
             )}
 
             {needsDeclaration && (
-              <label className="mx-6 mt-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12px] font-medium leading-[18px] text-[#92400E]">
-                <input
-                  type="checkbox"
-                  checked={declared}
-                  onChange={(event) => setDeclared(event.target.checked)}
-                  data-testid="membership-fb-declaration"
-                  className="mt-0.5 size-4 shrink-0 accent-[#2563EB]"
-                />
-                <span>{t("fbDeclaration")}</span>
-              </label>
+              <div className="mx-6 mt-4 space-y-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-[12px] font-medium leading-[18px] text-[#92400E]">
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={declared}
+                    onChange={(event) => setDeclared(event.target.checked)}
+                    data-testid="membership-fb-declaration"
+                    className="mt-0.5 size-4 shrink-0 accent-[#2563EB]"
+                  />
+                  <span>{t("fbDeclaration")}</span>
+                </label>
+                {declared && (
+                  <div>
+                    <label
+                      htmlFor="membership-fb-profile-url"
+                      className="mb-1 block text-[11px] font-bold"
+                    >
+                      {t("fbProfileLabel")}
+                    </label>
+                    <input
+                      id="membership-fb-profile-url"
+                      type="text"
+                      inputMode="url"
+                      autoComplete="url"
+                      value={fbProfileUrl}
+                      onChange={(event) => setFbProfileUrl(event.target.value)}
+                      placeholder={t("fbProfilePlaceholder")}
+                      data-testid="membership-fb-profile-url"
+                      className="w-full rounded-lg border border-[#FDE68A] bg-white px-3 py-2 text-[13px] font-medium text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                    />
+                    {fbProfileUrl.length > 0 &&
+                      !isValidFbProfileUrl(fbProfileUrl) && (
+                        <p className="mt-1 text-[11px] font-semibold text-[#B91C1C]">
+                          {t("fbProfileInvalid")}
+                        </p>
+                      )}
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="mx-6 mt-4 rounded-xl border border-[#EEF1F4] bg-[#FAFBFC] p-3.5 text-[12px] leading-[18px] text-[#475569]">
@@ -386,7 +453,13 @@ export default function PaymentModal({
                   balance={liveWallet}
                   resume={{
                     kind: "purchase-vip",
-                    body: { package_id: selectedPlan.id, quantity: 1 },
+                    body: {
+                      package_id: selectedPlan.id,
+                      quantity: 1,
+                      ...(needsDeclaration && {
+                        fb_profile_url: normalizeFbProfileUrl(fbProfileUrl),
+                      }),
+                    },
                   }}
                   onBalanceChange={setLiveWallet}
                 />

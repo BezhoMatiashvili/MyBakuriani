@@ -37,7 +37,7 @@ export default async function EmploymentPage() {
     // Only the columns the vacancy cards + filters use — keeps the prerendered
     // RSC payload small. Keep in sync with EmploymentListing.
     .select(
-      "id, title, position, location, description, price, price_unit, salary_daily, salary_min, salary_max, work_schedule, employment_schedule, employment_type, discount_percent, discount_expires_at, is_vip, is_super_vip, created_at",
+      "id, title, position, location, description, price, salary_type, salary_range, salary_daily, salary_min, salary_max, work_schedule, employment_schedule, employment_type, discount_percent, discount_expires_at, is_vip, is_super_vip, created_at",
       { count: "exact" },
     )
     .eq("category", "employment")
