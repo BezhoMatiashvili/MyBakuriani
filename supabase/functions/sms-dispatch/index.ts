@@ -15,8 +15,8 @@
 // do not add a "broke senders" Set - the RPC already excludes those rows.
 //
 // Provider: uBill.ge (api.ubill.dev). `sendSms()` is the SINGLE send integration point.
-// Delivery reports arrive at the sms-delivery-report function (webhook); the
-// reconcileSubmitted() poll below settles any row whose webhook never came.
+// uBill's delivery webhook (sms-delivery-report) only prompts a status check; both
+// it and the reconcileSubmitted() poll below settle rows from uBill's report API.
 // SMS_DELIVERY_ENABLED is an independent fail-closed switch checked before claiming.
 // SMS_TEST_RECIPIENTS (comma-separated numbers), when set, restricts sending to those
 // numbers and fails every other row — staging keeps it set permanently.
@@ -34,6 +34,11 @@ import {
   jsonResponse,
 } from "../_shared/guards.ts";
 import { secretsEqual } from "../_shared/secrets.ts";
+import {
+  fetchUbillReportStatus,
+  UBILL_SMS_API,
+  UBILL_TIMEOUT_MS,
+} from "../_shared/ubill.ts";
 
 const BATCH_SIZE = 25;
 
@@ -61,8 +66,6 @@ type SendResult = {
   haltBatch?: boolean;
 };
 
-const UBILL_SMS_API = "https://api.ubill.dev/v1/sms";
-const PROVIDER_TIMEOUT_MS = 10_000;
 const RECONCILE_BATCH = 25;
 
 // uBill send statusIDs. 0 = accepted. Everything else is an error; only the
@@ -123,7 +126,7 @@ async function sendSms(
         text: message,
         stopList: true,
       }),
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      signal: AbortSignal.timeout(UBILL_TIMEOUT_MS),
     });
   } catch (err) {
     return {
@@ -173,7 +176,7 @@ async function resolveBrand(
     // {"statusID":0,"brands":[{"id":1,"name":"MyBakuriani","authorized":0,...}]}
     const res = await fetch(`${UBILL_SMS_API}/brandNames`, {
       headers: { key },
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      signal: AbortSignal.timeout(UBILL_TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => null)) as {
       brands?: {
@@ -218,24 +221,8 @@ async function reconcileSubmitted(
   let undelivered = 0;
   for (const row of rows ?? []) {
     const pid = row.provider_message_id as string;
-    let report: {
-      statusID?: number;
-      result?: { statusID?: string | number }[];
-    } | null;
-    try {
-      const res = await fetch(
-        `${UBILL_SMS_API}/report/${encodeURIComponent(pid)}`,
-        {
-          headers: { key },
-          signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-        },
-      );
-      report = await res.json().catch(() => null);
-    } catch {
-      continue;
-    }
-    if (Number(report?.statusID) !== 0) continue;
-    const status = Number(report?.result?.[0]?.statusID);
+    const status = await fetchUbillReportStatus(key, pid);
+    if (status === null) continue;
     const staleDays =
       (Date.now() - new Date(row.submitted_at as string).getTime()) /
       86_400_000;
