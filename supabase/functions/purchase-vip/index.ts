@@ -6,6 +6,7 @@ import {
   jsonResponse,
   requireUser,
 } from "../_shared/guards.ts";
+import { isPaymentFailure } from "../_shared/payment-failure.ts";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -97,6 +98,8 @@ serve(async (req) => {
   // Hoisted so the catch block can notify the user of a failed payment.
   let ctx: UserCtx | undefined;
   let dashboardScope: string | null = null;
+  // Set only when a charge RPC reports a real payment failure.
+  let paymentFailed = false;
 
   try {
     ctx = await requireUser(req);
@@ -225,7 +228,10 @@ serve(async (req) => {
             p_fb_profile_url: fb_profile_url || null,
           },
         );
-        if (error) throw userSafePurchaseError(error);
+        if (error) {
+          paymentFailed = isPaymentFailure(error);
+          throw userSafePurchaseError(error);
+        }
         return jsonResponse({ data }, 200, cors);
       }
 
@@ -237,7 +243,10 @@ serve(async (req) => {
         p_quantity: quantity,
         p_discount_percent: discount_percent,
       });
-      if (error) throw userSafePurchaseError(error);
+      if (error) {
+        paymentFailed = isPaymentFailure(error);
+        throw userSafePurchaseError(error);
+      }
       return jsonResponse({ data }, 200, cors);
     }
 
@@ -247,9 +256,11 @@ serve(async (req) => {
     // client sends package_id.
     throw new ApiError("არასწორი შეძენის ტიპი", 400, "BAD_REQUEST");
   } catch (err) {
-    // Best-effort failure notification. Skipped when auth itself failed
-    // (no user/client). Swallow any insert error so the real error surfaces.
-    if (ctx?.user?.id) {
+    // Best-effort failure notification, only for a charge that really failed:
+    // payment_failed is also emailed, so validation, auth and not-found errors
+    // get the HTTP response alone. Swallow any insert error so the real error
+    // surfaces.
+    if (ctx?.user?.id && paymentFailed) {
       try {
         await ctx.supabase.from("notifications").insert({
           user_id: ctx.user.id,

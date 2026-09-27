@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,6 +28,15 @@ function safeNextPath(raw: string | null): string | null {
   return safeInternalPath(raw);
 }
 
+// Confirmation links return to /auth/confirm on the canonical origin (inlined
+// at build), never on whatever host served this page.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+const CONFIRM_REDIRECT_URL = SITE_URL ? `${SITE_URL}/auth/confirm` : undefined;
+
+// GoTrue sends one email per address per minute; waiting that long here keeps
+// the resend button from running into its 429.
+const RESEND_COOLDOWN_SECONDS = 60;
+
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
   renter: "/dashboard/renter",
@@ -46,7 +55,7 @@ export default function LoginPage() {
   const t = useTranslations("AuthLogin");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signUp, signInWithPassword } = useAuth();
+  const { signInWithPassword } = useAuth();
 
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -57,6 +66,29 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  // The address still waiting for its confirmation link (after sign-up, or a
+  // sign-in refused as email_not_confirmed); it enables the resend action.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+
+  useEffect(() => {
+    // /auth/confirm and /auth/callback land an expired or used email link here.
+    if (searchParams.get("error") === "invalid_link") {
+      setError(t("errors.linkExpired"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   async function redirectAfterAuth(userId: string) {
     const supabase = createClient();
@@ -111,15 +143,24 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError(null);
+    setPendingEmail(null);
+    setResendNotice(null);
     try {
       const data = await signInWithPassword(submittedEmail, submittedPassword);
       if (data?.user) await redirectAfterAuth(data.user.id);
     } catch (err) {
-      setError(
-        isTransientAuthError(err)
-          ? t("errors.timeout")
-          : t("errors.wrongCredentials"),
-      );
+      if (isAuthApiError(err) && err.code === "email_not_confirmed") {
+        // GoTrue only says this after the password matched, so naming it
+        // tells nothing to someone guessing addresses.
+        setPendingEmail(submittedEmail);
+        setError(t("errors.emailNotConfirmed"));
+      } else {
+        setError(
+          isTransientAuthError(err)
+            ? t("errors.timeout")
+            : t("errors.wrongCredentials"),
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -151,22 +192,38 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await signUp(submittedEmail, submittedPassword);
+      // Called directly rather than through useAuth().signUp, which takes no
+      // options: the confirmation link must come back to /auth/confirm.
+      const supabase = createClient();
+      const { data, error: signUpError } = await withRetry(
+        () =>
+          supabase.auth.signUp({
+            email: submittedEmail,
+            password: submittedPassword,
+            options: { emailRedirectTo: CONFIRM_REDIRECT_URL },
+          }),
+        isRetryableAuthError,
+      );
+      if (signUpError) throw signUpError;
       if (data?.user && !data.user.identities?.length) {
         // Supabase deliberately returns an obfuscated user for an existing
         // address. Preserve that protection instead of turning it into an
         // account-enumeration oracle.
-        setSuccessMessage(t("confirmationLinkSent"));
+        showConfirmationSent(submittedEmail);
         return;
       }
       if (data?.session && data.user) await redirectAfterAuth(data.user.id);
-      else if (!data?.session) setSuccessMessage(t("confirmationLinkSent"));
+      else if (!data?.session) showConfirmationSent(submittedEmail);
     } catch (err) {
       if (isAuthApiError(err) && err.code === "user_already_exists") {
         // Only reachable when "Confirm email" is disabled — with it enabled,
         // Supabase returns the obfuscated-user branch above instead of an
         // error, to avoid an account-enumeration oracle.
         setError(t("errors.emailTaken"));
+      } else if (isAuthApiError(err) && err.status === 429) {
+        // An unconfirmed address signing up again within GoTrue's
+        // one-email-a-minute window.
+        setError(t("errors.tooManyRequests"));
       } else if (isTransientAuthError(err)) {
         setError(t("errors.timeout"));
       } else {
@@ -177,13 +234,76 @@ export default function LoginPage() {
     }
   }
 
+  // One "check your email" state for a new address and for the obfuscated
+  // existing one. GoTrue has just sent a link, so resend starts cooling down.
+  function showConfirmationSent(address: string) {
+    setPendingEmail(address);
+    setResendNotice(null);
+    setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    setSuccessMessage(t("confirmationLinkSent"));
+  }
+
+  async function resendConfirmation() {
+    if (!pendingEmail || resending || resendCooldown > 0) return;
+    setResending(true);
+    setResendNotice(null);
+    try {
+      const { error: resendError } = await createClient().auth.resend({
+        type: "signup",
+        email: pendingEmail,
+        options: { emailRedirectTo: CONFIRM_REDIRECT_URL },
+      });
+      // Like forgot-password: only a rate limit or a transient failure is
+      // reported. Anything else reads as sent, so the button cannot tell
+      // which addresses exist or are already confirmed.
+      if (isAuthApiError(resendError) && resendError.status === 429) {
+        setResendNotice({ ok: false, text: t("errors.tooManyRequests") });
+      } else if (resendError && isTransientAuthError(resendError)) {
+        setResendNotice({ ok: false, text: t("errors.timeout") });
+        return;
+      } else {
+        setResendNotice({ ok: true, text: t("confirmationResent") });
+      }
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } finally {
+      setResending(false);
+    }
+  }
+
   function switchMode(m: AuthMode) {
     setAuthMode(m);
     setError(null);
     setSuccessMessage(null);
+    setPendingEmail(null);
+    setResendNotice(null);
     setPassword("");
     setConfirmPassword("");
   }
+
+  const resendControl = pendingEmail ? (
+    <div className="space-y-1 text-center">
+      <p className="text-xs text-[#94A3B8]">{t("confirmationNotReceived")}</p>
+      <button
+        type="button"
+        onClick={() => void resendConfirmation()}
+        disabled={resending || resendCooldown > 0}
+        className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-brand-accent hover:underline disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:no-underline lg:min-h-0"
+      >
+        {resending && <Loader2 className="size-3 animate-spin" />}
+        {resendCooldown > 0
+          ? t("resendConfirmationIn", { seconds: resendCooldown })
+          : t("resendConfirmation")}
+      </button>
+      {resendNotice && (
+        <p
+          role="status"
+          className={`text-xs ${resendNotice.ok ? "text-green-700" : "text-[#EF4444]"}`}
+        >
+          {resendNotice.text}
+        </p>
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className="flex min-h-[calc(100dvh-160px)] items-center justify-center px-4 py-12">
@@ -231,8 +351,11 @@ export default function LoginPage() {
                 </button>
               </div>
               {successMessage ? (
-                <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
-                  {successMessage}
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
+                    {successMessage}
+                  </div>
+                  {resendControl}
                 </div>
               ) : (
                 <>
@@ -335,6 +458,7 @@ export default function LoginPage() {
                       </div>
                     )}
                     {error && <p className="text-xs text-[#EF4444]">{error}</p>}
+                    {resendControl}
                     <Button
                       type="submit"
                       disabled={loading}

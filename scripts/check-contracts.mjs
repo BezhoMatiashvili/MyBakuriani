@@ -300,6 +300,51 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else describeSetMismatch("C33 email notification types", tsTypes, "types.ts", sqlTypes, typesFile);
 }
 
+// ---------------------------------------------------------------------------
+// C36 — sign-up confirmation link. /auth/confirm is a client page (no route.ts
+// in that segment) that verifies only when its button is clicked: a mail
+// scanner's prefetch GET must not confirm an address, and /verify must count
+// against the user's own IP, not the app server's. It accepts only the
+// email|signup link types, and the login page sends signUp and resend back to
+// /auth/confirm. (The hosted "Confirm signup" template is outside the repo.)
+// ---------------------------------------------------------------------------
+{
+  const dir = "src/app/[locale]/auth/confirm";
+  const pageFile = join(dir, "page.tsx");
+  const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
+  // The text of a call from its "(" to the matching ")".
+  const callText = (text, open) => {
+    let depth = 0;
+    for (let i = open; i < text.length; i += 1) {
+      if (text[i] === "(") depth += 1;
+      else if (text[i] === ")" && --depth === 0) return text.slice(open, i + 1);
+    }
+    return text.slice(open);
+  };
+  if (existsSync(join(root, dir, "route.ts"))) fail(`C36: ${dir}/route.ts must not exist (a GET handler verifies on a mail scanner's prefetch)`);
+  else if (!existsSync(join(root, pageFile))) fail(`C36: ${pageFile} is missing`);
+  else {
+    const raw = read(pageFile);
+    const page = stripComments(raw);
+    const effects = [...page.matchAll(/\buse(?:Layout)?Effect\s*\(/g)].map((m) => callText(page, m.index + m[0].length - 1));
+    const types = new Set([...(page.match(/CONFIRM_OTP_TYPES = \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([a-z_]+)"/g)].map((m) => m[1]));
+    const expected = new Set(["email", "signup"]);
+    const otherTypes = [...page.matchAll(/["'](recovery|invite|magiclink|email_change)["']/g)].map((m) => m[1]);
+    if (!/^\s*["']use client["']/.test(raw)) fail(`C36: ${pageFile} must be a client page ("use client")`);
+    else if (!/\.verifyOtp\(/.test(page) || !/\bonClick=/.test(page)) fail(`C36: ${pageFile} must call verifyOtp from a button's click handler`);
+    else if (effects.some((body) => /verifyOtp|exchangeCodeForSession/.test(body))) fail(`C36: ${pageFile} verifies inside an effect (on load); verify only on click`);
+    else if (!setEq(types, expected)) describeSetMismatch("C36 confirm link types", types, "CONFIRM_OTP_TYPES", expected, "email|signup");
+    else if (otherTypes.length) fail(`C36: ${pageFile} mentions other email-link types: ${otherTypes.join(", ")}`);
+    else ok(`C36: ${pageFile} verifies on click only, for the ${[...types].join("|")} link types`);
+  }
+
+  const login = read("src/app/[locale]/auth/login/page.tsx");
+  const redirects = [...login.matchAll(/emailRedirectTo:\s*([^,}\n]+?)\s*[,}\n]/g)].map((m) => m[1]);
+  if (!/const CONFIRM_REDIRECT_URL = [^;]*\/auth\/confirm`/.test(login)) fail("C36: login/page.tsx must build CONFIRM_REDIRECT_URL on /auth/confirm");
+  else if (redirects.length < 2 || redirects.some((r) => r !== "CONFIRM_REDIRECT_URL")) fail(`C36: every emailRedirectTo in login/page.tsx (signUp and resend) must be CONFIRM_REDIRECT_URL, found [${redirects.join(", ")}]`);
+  else ok(`C36: login/page.tsx sends signUp and resend back to /auth/confirm (${redirects.length} emailRedirectTo)`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

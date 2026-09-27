@@ -10,6 +10,10 @@ export const TEMPLATES = {
     "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link]",
   win_back_fallback:
     "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის: [Property_Direct_Link]",
+  // Sent by the platform when an owner asks for a manual-booking guest's
+  // marketing consent (the owner never sees the link). No owner-typed text.
+  consent_request:
+    "MyBakuriani.ge: თქვენი მასპინძელი გთხოვთ თანხმობას მარკეტინგული SMS-ების მისაღებად. დაადასტურეთ ან უარი თქვით: [Consent_Link]",
 } as const;
 
 const GUEST_NAME_FALLBACK = "ძვირფასო სტუმარო";
@@ -137,4 +141,9 @@ export function buildWinBack(
     .replace("[Discount_Value]", value)
     .replace("[Discount_Period]", period)
     .replace("[Property_Direct_Link]", link);
+}
+
+/** The consent-request SMS; `consentLink` is the guest's /sms-consent/<token> URL. */
+export function buildConsentRequest(consentLink: string): string {
+  return TEMPLATES.consent_request.replace("[Consent_Link]", consentLink);
 }

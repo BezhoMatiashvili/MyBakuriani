@@ -193,6 +193,8 @@ required columns / changed arg lists surface as errors at call sites.
 list but `database.ts` is stale → TS compiles against a schema that no longer
 exists; failures surface only at query time.
 
+**S2/S3 (2026-09-27, staging):** after `20260927091000` the generated types lose `properties_photos_backup` / `services_photos_backup`; `payments.user_id`, `payment_refunds.user_id`, `listing_view_events.client_ip` and `contact_reveal_events.client_ip` become nullable; `apply_pii_retention` appears. Regenerate before code reads them.
+
 ---
 
 ## C4 — Client ↔ Edge Function wire contract
@@ -341,6 +343,8 @@ as v4 with `VALID_TIERS` += `premium_plus` (**C11**, **C31**);
 `src/lib/org-tiers.ts:COMPANY_TIERS`. Prod still runs the 3-tier bundle, so the
 prod rollout must redeploy it together with `20260925133000`.
 
+**S2/S3 (2026-09-27, staging):** every pg_cron HTTP job passes an explicit `timeout_milliseconds` (30 s; 60 s for `sms-dispatch-frequent`). `20260927090300` rebuilt the four older commands from their live text, so a new HTTP job must set its own. `check-db-contracts` C4 expects 9 active jobs (adds `keepz-reconcile-10min`, `email-dispatch-5min`, `cron-history-gc`, `pii-retention-daily`) and a missing one now FAILS. `purchase-vip` and `company-subscription` insert `payment_failed` only when `_shared/payment-failure.ts:isPaymentFailure` says the charge really failed (insufficient balance, `vip_tier_conflict`, server or network error), never on 22/23/42/P0/PGRST validation errors. **Breaks:** a schedule added without the C4 list (never checked); an HTTP job without a timeout (every run over 5 s logged as timed out); a `payment_failed` insert on a validation path (a retry loop floods the email queue).
+
 ---
 
 ## C5 — Storage bucket names
@@ -367,6 +371,8 @@ host, and RLS on `storage.objects` must scope the new bucket.
 **Breaks silently when:** a bucket is renamed in code but not in the
 migration/RLS/remotePatterns → upload 403, or `<Image>` blocked, or CSP violation —
 each surfaces independently at runtime.
+
+**S2 (2026-09-27, `20260927090200`):** `property-photos` client INSERT only at `<auth.uid()>/<file>` (exactly one folder level). There is no client UPDATE policy: uploads stay `upsert:false` and never move, copy-overwrite or `update()`. DELETE is owner-only; service-role writers bypass RLS. **Breaks:** an uploader writes into a subfolder or a listing-id folder (42501, shown as `uploadFailed`); an upsert/move/update call without a new UPDATE policy pinned to folder AND bucket (UPDATE policies OR across buckets, so a loose one re-opens cross-bucket moves).
 
 ---
 
@@ -1155,6 +1161,8 @@ Match surface counts requests without the
 rises but never falls); or someone re-derives the badge from `notifications`
 again, which cannot express either "answered" or "expired".
 
+**S2 (2026-09-27, `20260927090000`):** trigger `enforce_smart_match_request_rules` copies this predicate word for word (`status='active' AND (check_out IS NULL OR check_out >= UTC today)`) to cap a guest at 5 open requests and 10 creations per rolling 24 h. Client rows must be created `active`, may only move to `cancelled`, and take `zone` only as NULL or an existing `zones.name_ka` (NewRequestModal via /api/zones, `src/lib/zones/types.ts:FALLBACK_ZONES`). Errors are 22023; service_role is exempt. **Breaks:** the predicate changes here but not in the trigger; a zone renamed (stale clients get 22023).
+
 ---
 
 ## C16 — Rate-limit backend & fail-open contract
@@ -1514,6 +1522,10 @@ never text real users. The same migration gives the three system kinds
 queued notices (some from August) that would all have been sent the moment
 delivery was enabled (retired by hand as `pre_provider_backlog`).
 
+**S2 (2026-09-27, `20260927090000`):** `sms_mark_provider_delivered` writes the delivery-charge description `SMS მიწოდებულია (price_drop)` without the recipient's number for price_drop (the owner's own-contact kinds keep `: <phone>`). Every later redefinition must keep that case.
+
+**S3 / S07 (2026-09-27, `20260927091100`, staging):** the manual-booking consent link reaches the guest only by a platform SMS. `request_manual_booking_sms_consent` (service_role only; called by `src/app/api/renter/manual-bookings/[id]/sms-consent-link/route.ts` for the signed-in owner) is the only path that issues a `manual-sms-v2` token. It checks that the link token in the message hashes to `p_token_hash`, and refuses before any write: cancelled booking, invalid phone, already accepted, `consent_declined` (the guest declined or withdrew for this booking and number), one SMS per number per 24 h (any sender), 20 per owner per 24 h, no free credit. A repeat within 24 h is idempotent, and it never returns the token, link or message. `consent_request` is a CHARGED kind: the list must be identical in `sms_claim_dispatch_batch` (twice), `sms_mark_provider_delivered`, the RPC's credit check and `sms_expire_stale_automation` (2-day window). `update_manual_booking` keeps a queued consent request unless the canonical phone changes (same comparison as the phone-invalidation trigger). The text is `supabase/functions/sms-automation-run/domain.ts:TEMPLATES.consent_request`, imported by `src/lib/sms/manual-booking-consent.ts`, so domain.ts must stay Node- and Deno-safe. v1 (owner-shared) tokens were revoked and their acceptances withdrawn. The route's GET `guestDeclined` mirrors the RPC's `consent_declined` predicate. **Breaks:** the route or RPC returns or logs the token, link or message (owner-forged consent is back); `/api/sms/history` lists `consent_request` without masking `/sms-consent/` links; a charged kind added to only one list; app code calls `issue_manual_booking_sms_consent` directly again; the GET mirror and the RPC predicate drift.
+
 ---
 
 ## C19 — Notification `dashboard_scope` (one string, five layers)
@@ -1658,6 +1670,8 @@ trigger (`on_review_rating_change` → `update_property_rating`, replacing
 `status`/`rating`/`property_id`, so approve/hide/remove is reflected. Never let a
 service-role review writer rely on the column default, and never compute a
 public rating from non-approved rows.
+
+**S2 (2026-09-27, `20260927090000`):** `cancel_manual_booking`, `restore_manual_booking` and `update_manual_booking` check ownership lock-free (same P0002 `ჯავშანი ვერ მოიძებნა`) before taking the `sms_dispatch_claim` lock, so a stranger's id cannot stall the dispatcher; the lock order after that is unchanged. `manual_bookings` has no table-level client writes (owner RPCs only, C34).
 
 ---
 
@@ -1858,6 +1872,8 @@ authenticated user could read any listing's stats); or `record_listing_view` is 
 re-adding a parameter to `increment_views`/`increment_service_views` (creates a silently-ambiguous
 overload rather than a clean replacement, the exact trap C19 and others document elsewhere in this file).
 
+**S3 (2026-09-27, C37):** after 90 days `listing_view_events.client_ip` and `contact_reveal_events.{client_ip, device_id, account_id}` are set to NULL. Rows stay, because `listing_analytics`, `seller_dashboard_stats` and lifetime reveals count rows. The 24 h view dedup lives in `rate_limit_counters` and is unaffected.
+
 ---
 
 ## C23 — Standard VIP and SUPER VIP are mutually exclusive
@@ -1973,6 +1989,8 @@ cabinet (**C19**). Returning direct task-card contact fields for `pending`,
 `declined`, or `cancelled` rows would also bypass that card's acceptance-based
 disclosure rule; this does not replace the platform's separate, rate-limited
 listing contact-reveal flow.
+
+**S2 (2026-09-27, `20260927090300`):** `cleaning_tasks.status` is NOT NULL and `cleaning_tasks_status_check` is VALIDATED. Adding a status value means replacing the CHECK, which now validates every row.
 
 ---
 
@@ -2153,6 +2171,8 @@ error — the table has RLS and a schema, it's just never written to), or a new
 revenue card sums `transactions.amount` directly instead of calling
 `platform_revenue()` (silently includes `topup` as revenue, exactly as
 `src/app/api/admin/finances/summary/route.ts` did before this pass).
+
+**S3 (2026-09-27, C37):** `page_views.user_id` is set to NULL after 90 days, so `registered_visitors` counts signed-in visitors seen in the last 90 days. Total, unique and 7-day visits are unchanged (`visitor_id` is kept).
 
 ---
 
@@ -2474,6 +2494,8 @@ credentials in CI before `20260921120000` is applied there (HTTP 404 on the RPC 
 hard failure, which is correct but will look like a bug); or a pure helper gains a
 runtime `@/` import and its unit test starts failing with `ERR_MODULE_NOT_FOUND`
 — fix the import, don't delete the test.
+
+**S2/S3 (2026-09-27):** `check-db-contracts` reports a missing `schema_contract_snapshot` / `content_review_gate_column_drift` / `security_posture_snapshot` RPC as a failure naming the migration that adds it, and skips the checks that need it (a verdict, not a crash, against a project behind the batch). C4 expects 9 jobs; C34 covers seven client tables. `check-contracts` gains C36 (the confirm page verifies on click only, for email|signup; login's signUp and resend redirect to /auth/confirm).
 
 ---
 
@@ -2819,6 +2841,8 @@ column grants that omit `resume`, `review_flag`, `provider_status`,
 `checkout_url`, `last_error`. The callback also skips its Keepz re-check when
 the order was checked <3 s ago.
 
+**S2/S3 (2026-09-27, staging; `20260927090300`, `20260927091000`):** UNIQUE `transactions(reference_id) WHERE type='topup' AND reference_id IS NOT NULL`, so a second credit for one Keepz payment is a 23505, not a silent double credit. There is no unique key on `payments.provider_transaction_id` (Keepz returns ids, possibly a shared "0", for declined orders). `balances.amount` / `sms_remaining` are NOT NULL DEFAULT 0 with CHECK >= 0: every debit locks the row and refuses below cost before subtracting. `payments.user_id` / `payment_refunds.user_id` are nullable with ON DELETE SET NULL under the load-bearing names `payments_user_id_fkey` / `payment_refunds_user_id_fkey` (`/api/admin/payments` embeds `profiles!payments_user_id_fkey`). A payment whose payer was deleted is never credited (SUCCESS becomes cancelled + review flag `unverified_order` + `last_error='payer_account_deleted'` + admin notice); `keepz_open_payment` matches the payer NULL-safely. **Breaks:** FK back to CASCADE (deleting a profile erases the money trail); FK renamed (admin payments embed fails); code assuming a non-null payer; a new credit path reusing a payment id as a topup reference (23505); a debit RPC without the balance guard (23514 instead of a clean refusal); redefining `keepz_apply_payment_status` from anything but the live body (drops the orphan branch).
+
 ---
 
 ## C33 — Email: everything through Resend
@@ -2894,6 +2918,9 @@ back a payment); a retry path is added that re-sends without the idempotency key
 (double send); a Broadcast is sent to an audience the app does not sync
 (bypasses consent); or the webhook's "still opted in" check is removed (every
 in-app opt-out also logs a bogus `email_unsubscribe` row).
+
+**S2 (2026-09-27, `20260927090100`):** `email_notification_priority(text)` classes every emailed type. Class 1: payment_success, payment_refund, company_subscription, membership_pending/approved/rejected, admin_payment_review. Class 3 (anyone can trigger at will): payment_failed, job_application, smart_match_request/offer, org_membership_request/response, cleaning_task_new/status/cancelled/cancellation_requested, admin_listing_pending, admin_content_change_pending, admin_company_pending, admin_sms_pending. Class 2: the rest. `email_claim_batch(p_limit, p_claim_token, p_shared_limit)` claims class 1, then 2, then 3 (oldest first within a class) and at most `p_shared_limit` rows of classes 2-3; the dispatcher (`src/lib/email/budget.ts:claimRoom`) keeps the last ceil(cap/4) of `EMAIL_DAILY_CAP` for class 1. Enqueue sends at most 3 class-3 emails per (recipient, type) per rolling 24 h; the in-app notification always lands. Final-state `email_outbound` rows older than 90 days are deleted (C37). **Breaks:** a new emailed type left unclassified (class 2, uncapped); a user-triggerable type put in class 1 (spends the reserve); the dispatcher deployed before the migration (`claim_failed`, nothing sent).
+
 ---
 
 ## C34 — Explicit grants; public_* views are read-only
@@ -2917,3 +2944,23 @@ active↔draft and active→blocked. **Breaks:** a new key in a create-form / re
 GRANT migration (the form fails with 401/403 42501 — add the column to the GRANT and to
 `EXPECTED_CLIENT_WRITES` in the same change); a table-level `GRANT INSERT/UPDATE` (re-opens trust,
 billing and counter columns); redefining that trigger from anything but the live definition. Staging ledger version `20260926185555`. Apply after `20260926171100` (the trigger body embeds its counters guard). DELETE stays table-level (RLS). "Admins full access bookings" is SELECT-only in effect — admin writes go through the service role. An invoker function/trigger that writes these tables in its own statement 42501s — make it DEFINER; BEFORE-trigger `NEW.col :=` is fine. `client_write_grants` reports direct and PUBLIC grants only. A 42501 test must not include unrelated ungranted columns (e.g. `id` on services).
+
+**S2/S23 (2026-09-27, `20260927090000`, `20260927092000`):** `smart_match_requests`: authenticated INSERT (guest_id, check_in, check_out, guests_count, budget_min, budget_max, zone, status) and UPDATE (status), no DELETE. `manual_bookings`: no table writes for anon or authenticated (owner RPCs only). `reviews`: authenticated INSERT/UPDATE (table-level, RLS-scoped), anon none, nobody DELETE/TRUNCATE. `security_posture_snapshot()->client_write_grants` now reports all seven tables and `EXPECTED_CLIENT_WRITES` asserts them. The new definer `apply_pii_retention(integer)` is service_role/pg_cron only. **Breaks:** a new key in the smart-match request payload without a GRANT (42501).
+
+---
+
+## C36 — Sign-up email confirmation link
+
+**Invariant (staging code; hosted switch pending):** four places agree on one path and link type. (1) The hosted "Confirm signup" template links to `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`. (2) `src/app/[locale]/auth/confirm/page.tsx` is a client page (no `route.ts` in the segment) that accepts only `CONFIRM_OTP_TYPES` = email|signup (plus a PKCE `?code` fallback) and verifies **only on a button click** (`verifyOtp` in the browser): a mail scanner's prefetch must not confirm an address, and `/verify` must count against the user's IP. (3) `src/app/[locale]/auth/login/page.tsx:CONFIRM_REDIRECT_URL` (`${NEXT_PUBLIC_SITE_URL}/auth/confirm`) is the `emailRedirectTo` of signUp and resend. (4) `?error=invalid_link` on /auth/login is the shared expired-link flag.
+
+**Key:** landing after the session is set lives only in `src/app/[locale]/auth/post-auth-redirect.ts:postAuthRedirectPath` (callback and confirm); no profile → /auth/register (the wizard is the only profiles INSERT). The resend cooldown (60 s) mirrors `smtp_max_frequency`. Order: deploy → template → `mailer_autoconfirm=false`. Auto-confirm lets anyone register someone else's address and have it auto-linked later (S18). `check-contracts` C36 enforces the repo side; the hosted template is outside the repo.
+
+**Breaks:** template path or type renamed on one side (every confirmation → invalid_link); an effect verifies on load (scanners confirm addresses); confirmation switched on before the page ships (404); default template kept (fragment tokens the page never sees); wrong `site_url` (links to the wrong host); prod switched on with the built-in SMTP (only team members receive mail).
+
+---
+
+## C37 — Personal-data retention and cron history
+
+**Invariant (staging):** `public.apply_pii_retention(p_days default 90)` (`20260927091000`, SECURITY DEFINER, service_role/pg_cron only) is the only retention path; job `pii-retention-daily` (41 2 * * *) runs it. After p_days: `listing_view_events.client_ip`, `contact_reveal_events.{client_ip, device_id, account_id}` and `page_views.user_id` are NULL (rows kept: C22/C26 count rows); `audit_logs` values are dropped (UPDATE rows keep which fields changed, as `[omitted]`) except for manual_bookings, balances, transactions, payment_refunds, pricing_packages and promocodes; final-state `email_outbound` rows are deleted (queued/sending never). Notifications are kept (users see their whole inbox). `cron-history-gc` (17 3 * * *) keeps 14 days of `cron.job_run_details`. Both jobs are SQL-only (no Vault, no HTTP).
+
+**Breaks:** a new PII column in these tables not added to the function; a PII table added to the audit exempt list; a reader that needs raw IPs or user ids older than 90 days; scrubbing switched to deleting where analytics count rows; EXECUTE granted to anon/authenticated; the migration applied to a project without C33's `email_outbound` (apply the Resend batch first).

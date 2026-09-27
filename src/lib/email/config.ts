@@ -13,7 +13,9 @@ import "server-only";
  *                              never mail real users by accident.
  *   EMAIL_DAILY_CAP            notification emails per UTC day (default 80),
  *                              leaving headroom in Resend's free 100/day for
- *                              Supabase Auth mail (signup, password reset)
+ *                              Supabase Auth mail (signup, password reset).
+ *                              Its last quarter is kept for class-1 mail
+ *                              (payments, membership decisions): budget.ts
  *   RESEND_API_KEY             FULL-ACCESS key: sends notifications and
  *                              manages marketing contacts (Broadcasts)
  *   EMAIL_FROM                 default "MyBakuriani <no-reply@mybakuriani.ge>"

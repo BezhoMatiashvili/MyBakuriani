@@ -1,4 +1,5 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { claimRoom } from "@/lib/email/budget";
 import { getEmailConfig } from "@/lib/email/config";
 import { renderNotificationEmail } from "@/lib/email/render";
 import { sendWithResend } from "@/lib/email/resend";
@@ -94,7 +95,9 @@ async function dispatchTransactional(
   if (!config.resendApiKey) return { ...counts, skipped: "no_resend_key" };
 
   // Daily cap: Supabase Auth mail shares the Resend allowance, so notification
-  // mail stops short of it. Counted from our own log, per UTC day.
+  // mail stops short of it. Counted from our own log, per UTC day. Its last
+  // quarter is kept for class-1 mail (payments, membership decisions), which is
+  // also claimed ahead of every other class (src/lib/email/budget.ts).
   const dayStart = new Date();
   dayStart.setUTCHours(0, 0, 0, 0);
   const { count: sentToday, error: countError } = await db
@@ -105,13 +108,14 @@ async function dispatchTransactional(
     console.error("[email] daily count failed", countError.code);
     return { ...counts, error: "count_failed" };
   }
-  const room = Math.min(BATCH, config.dailyCap - (sentToday ?? 0));
-  if (room <= 0) return { ...counts, skipped: "daily_cap" };
+  const room = claimRoom(config.dailyCap, sentToday ?? 0, BATCH);
+  if (room.total <= 0) return { ...counts, skipped: "daily_cap" };
 
   const token = randomUUID();
   const { data, error } = await db.rpc("email_claim_batch", {
-    p_limit: room,
+    p_limit: room.total,
     p_claim_token: token,
+    p_shared_limit: room.shared,
   });
   if (error) {
     console.error("[email] claim failed", error.code);

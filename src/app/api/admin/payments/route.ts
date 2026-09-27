@@ -65,7 +65,11 @@ export async function GET(request: Request) {
   if (error) return noStore({ error: "load_failed" }, 500);
   const rows = payments ?? [];
   const paymentIds = rows.map((row) => row.id);
-  const userIds = [...new Set(rows.map((row) => row.user_id))];
+  // user_id is NULL once the payer's profile is deleted (ON DELETE SET NULL,
+  // R17): the payment stays, with no wallet behind it.
+  const userIds = [
+    ...new Set(rows.flatMap((row) => (row.user_id ? [row.user_id] : []))),
+  ];
 
   const [refunds, balances] = await Promise.all([
     paymentIds.length
@@ -113,7 +117,7 @@ export async function GET(request: Request) {
             (r.last_error ?? "").startsWith("provider_rejected:")
           ),
       );
-      const wallet = walletByUser.get(row.user_id) ?? 0;
+      const wallet = row.user_id ? (walletByUser.get(row.user_id) ?? 0) : 0;
       const remaining = Number(row.amount) - Number(row.refunded_amount);
       // Mirrors keepz_begin_refund's own checks; the RPC stays the authority.
       const maxRefund =

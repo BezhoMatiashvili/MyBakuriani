@@ -61,7 +61,27 @@ async function rpc(name) {
   return res.json();
 }
 
-const [snapshot, drift] = await Promise.all([rpc("schema_contract_snapshot"), rpc("content_review_gate_column_drift")]);
+// A project that has not had a migration yet (prod before the batch) lacks the RPC: report a
+// failure and skip the checks that need it, instead of dying at a top-level await with no verdict.
+async function tryRpc(name, migration) {
+  try {
+    return await rpc(name);
+  } catch (error) {
+    fail(`${name}() failed — added by migration ${migration}: ${error.message}`);
+    return null;
+  }
+}
+
+function finish() {
+  console.log(`\n${failures} failure(s), ${warnings} warning(s) against ${new URL(url).host}`);
+  process.exit(failures ? 1 : 0);
+}
+
+const [snapshot, drift] = await Promise.all([
+  tryRpc("schema_contract_snapshot", "20260921120000"),
+  tryRpc("content_review_gate_column_drift", "20260914120000"),
+]);
+if (!snapshot) finish(); // every check below reads the snapshot
 
 // TypeScript twins, loaded straight from source (type-only imports are erased).
 const { DASHBOARD_SCOPES } = await import("../src/lib/notifications/scopes.ts");
@@ -146,9 +166,11 @@ for (const table of ["ads", "landing_banners"]) {
     else if (!ts) warn(`C14: REVIEWABLE_FIELDS has no entry for ${table} (trigger gates ${gate[table].length} columns) — no submitting surface yet`);
     else compareSets(`C14 ${table}`, gate[table], [...ts], "trigger v_reviewable", "REVIEWABLE_FIELDS");
   }
-  const hard = drift.filter((r) => r.issue !== "not_in_reviewable_list");
-  if (hard.length) fail(`C14: content_review_gate_column_drift reports ${hard.length} issue(s): ${JSON.stringify(hard)}`);
-  else ok("C14: trigger and approve_content_change_request arrays agree, every reviewable column exists");
+  if (drift) {
+    const hard = drift.filter((r) => r.issue !== "not_in_reviewable_list");
+    if (hard.length) fail(`C14: content_review_gate_column_drift reports ${hard.length} issue(s): ${JSON.stringify(hard)}`);
+    else ok("C14: trigger and approve_content_change_request arrays agree, every reviewable column exists");
+  }
 }
 
 // C7 — every literal postgres_changes subscription targets a published table.
@@ -236,20 +258,27 @@ for (const [table, values, name] of [
   else compareSets(`C32 ${table}.status`, db, [...values], "CHECK constraint", name);
 }
 
-// C4 — scheduled jobs. Infra state rather than code, so a warning.
+// C4 — scheduled jobs. A missing or inactive job fails: the Keepz sweeper and the email
+// dispatcher are scheduled separately, once their Vault entries exist (20260925150200,
+// 20260925160100), and without them lost Keepz callbacks are never credited (C32) and queued
+// email is cancelled (C33) while every other check still passes. The two retention jobs
+// (20260927091000, C37) prune cron run history and strip personal data after 90 days.
 {
-  const expected = ["rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly"];
+  const expected = [
+    "rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly",
+    "keepz-reconcile-10min", "email-dispatch-5min", "cron-history-gc", "pii-retention-daily",
+  ];
   const present = snapshot.cron_jobs.filter((j) => j.active).map((j) => j.name);
   const missing = onlyIn(expected, present);
-  if (missing.length) warn(`C4: pg_cron jobs missing or inactive on ${new URL(url).host}: ${missing.join(", ")}`);
-  else ok("C4: all 5 expected pg_cron jobs are active");
+  if (missing.length) fail(`C4: pg_cron jobs missing or inactive on ${new URL(url).host}: ${missing.join(", ")}`);
+  else ok(`C4: all ${expected.length} expected pg_cron jobs are active`);
 }
 
 // C34 — privilege posture: public_* views are read-only for the API roles, no SECURITY
 // DEFINER function is reachable by anon/PUBLIC outside the allow-list, every public table has
 // RLS on, and postgres' default privileges grant the API roles nothing.
-{
-  const posture = await rpc("security_posture_snapshot");
+const posture = await tryRpc("security_posture_snapshot", "20260926170100");
+if (posture) {
   const ANON_DEFINER_ALLOW = ["is_admin_user()"];
   if (posture.writable_views.length) fail(`C34: anon/authenticated can write through views: ${posture.writable_views}`);
   else ok("C34: no view is writable by anon/authenticated");
@@ -308,6 +337,19 @@ for (const [table, values, name] of [
       ),
     },
     bookings: { anon: noWrites, authenticated: noWrites },
+    // S2/S23 (*_s2_smart_match_sms_privacy_booking_lock.sql, *_s23_grant_hygiene_posture.sql):
+    // guests insert the request form's keys and only cancel (status); manual bookings are written
+    // through the owner RPCs only; reviews keep table-level INSERT/UPDATE under RLS, no deletes.
+    smart_match_requests: {
+      anon: noWrites,
+      authenticated: {
+        ...noWrites,
+        insert_columns: ["budget_max", "budget_min", "check_in", "check_out", "guest_id", "guests_count", "status", "zone"],
+        update_columns: ["status"],
+      },
+    },
+    manual_bookings: { anon: noWrites, authenticated: noWrites },
+    reviews: { anon: noWrites, authenticated: { ...noWrites, insert: true, update: true } },
   };
   const grants = posture.client_write_grants;
   if (!grants) fail("C34: security_posture_snapshot() has no client_write_grants — apply the S1 client write grants migration");
@@ -326,9 +368,8 @@ for (const [table, values, name] of [
           if (extra.length || missing.length) drift.push(`${table}.${role}.${key} extra [${extra}] missing [${missing}]`);
         }
     if (drift.length) fail(`C34: client write grants differ from EXPECTED_CLIENT_WRITES: ${drift.join("; ")}`);
-    else ok("C34: anon writes none of the four client tables, authenticated only the payload columns, bookings nothing");
+    else ok("C34: anon writes none of the client tables, authenticated only the payload columns, bookings and manual_bookings nothing");
   }
 }
 
-console.log(`\n${failures} failure(s), ${warnings} warning(s) against ${new URL(url).host}`);
-process.exit(failures ? 1 : 0);
+finish();

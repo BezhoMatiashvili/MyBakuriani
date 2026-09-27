@@ -5,6 +5,7 @@ import {
 } from "https://deno.land/std@0.177.0/testing/asserts.ts";
 import {
   buildCheckIn,
+  buildConsentRequest,
   buildReviewRequest,
   buildWinBack,
   type Candidate,
@@ -103,4 +104,12 @@ Deno.test("win-back falls back when either owner field is empty", () => {
   assertStringIncludes(message, "სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის");
   assertFalse(message.includes("[Discount_Value]"));
   assertFalse(message.includes("[Discount_Period]"));
+});
+
+Deno.test("consent request carries the guest link and nothing else variable", () => {
+  const link = `https://staging.mybakuriani.ge/sms-consent/${"A".repeat(43)}`;
+  const message = buildConsentRequest(link);
+  assertStringIncludes(message, link);
+  assertFalse(/\[[A-Za-z_]+\]/.test(message));
+  assertEquals(message.length <= 320, true);
 });

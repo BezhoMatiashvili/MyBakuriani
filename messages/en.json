@@ -773,7 +773,24 @@
           "shareText": "Please record your SMS messaging choice.",
           "phoneRequired": "A valid guest phone number is required to create a link.",
           "loadError": "Could not load consent status.",
-          "generateError": "Could not create the link. Please try again."
+          "generateError": "Could not create the link. Please try again.",
+          "smsHelp": "MyBakuriani texts the guest a secure link, and the guest accepts or declines on their own. You never see the link. One SMS credit is charged only after delivery.",
+          "notRequested": "No SMS sent yet",
+          "smsStatuses": {
+            "queued": "SMS is being sent",
+            "sent": "SMS delivered",
+            "failed": "The SMS could not be sent"
+          },
+          "send": "Send consent SMS",
+          "resend": "Send the SMS again",
+          "resendConfirm": "The previous link will stop working and the guest will get a new SMS. Continue?",
+          "cooldown": "A consent SMS can go to the same number only once every 24 hours.",
+          "smsPhoneRequired": "A valid Georgian mobile number for the guest is required to send the SMS.",
+          "noCredit": "You have no SMS credits available. Buy an SMS package and try again.",
+          "phoneLimited": "A consent SMS can't be sent to this number right now. Please try again later.",
+          "dailyLimit": "You've reached the 24-hour limit for consent SMS. Please try again later.",
+          "sendError": "Could not request the SMS. Please try again.",
+          "guestDeclined": "The guest declined or withdrew consent, so no new consent SMS can be sent to this number for this booking."
         },
         "saveToContacts": "Save guest to contacts",
         "editTitle": "Edit booking",
@@ -1967,6 +1984,15 @@
     "continueWithGoogle": "Continue with Google",
     "or": "or",
     "confirmationLinkSent": "A confirmation link has been sent to your email.",
+    "confirmationNotReceived": "Didn't get the email? Check your spam folder or request a new link.",
+    "resendConfirmation": "Resend link",
+    "resendConfirmationIn": "Resend in {seconds}s",
+    "confirmationResent": "A new link has been sent to your email.",
+    "confirmEmail": {
+      "title": "Confirm your email",
+      "description": "To finish signing up, press the button below.",
+      "button": "Confirm email"
+    },
     "agreePrefix": "By signing in you agree to the",
     "termsOfService": "Terms of Service",
     "and": "and",
@@ -1979,7 +2005,10 @@
       "emailTaken": "This email is already registered.",
       "generic": "Error. Please try again.",
       "error": "Error.",
-      "timeout": "Server is taking too long to respond. Please try again."
+      "timeout": "Server is taking too long to respond. Please try again.",
+      "emailNotConfirmed": "Your email isn't confirmed yet. Open our email and click the confirmation link.",
+      "linkExpired": "This link has expired or was already used. Try signing in — if your email isn't confirmed yet, you can request a new link here.",
+      "tooManyRequests": "Too many requests. Please try again later."
     }
   },
   "AuthForgotPassword": {

@@ -132,20 +132,20 @@ export type Database = {
       };
       balances: {
         Row: {
-          amount: number | null;
-          sms_remaining: number | null;
+          amount: number;
+          sms_remaining: number;
           updated_at: string | null;
           user_id: string;
         };
         Insert: {
-          amount?: number | null;
-          sms_remaining?: number | null;
+          amount?: number;
+          sms_remaining?: number;
           updated_at?: string | null;
           user_id: string;
         };
         Update: {
-          amount?: number | null;
-          sms_remaining?: number | null;
+          amount?: number;
+          sms_remaining?: number;
           updated_at?: string | null;
           user_id?: string;
         };
@@ -565,7 +565,7 @@ export type Database = {
           scheduled_at: string;
           service_title: string | null;
           started_at: string | null;
-          status: string | null;
+          status: string;
         };
         Insert: {
           address?: string | null;
@@ -583,7 +583,7 @@ export type Database = {
           scheduled_at: string;
           service_title?: string | null;
           started_at?: string | null;
-          status?: string | null;
+          status?: string;
         };
         Update: {
           address?: string | null;
@@ -601,7 +601,7 @@ export type Database = {
           scheduled_at?: string;
           service_title?: string | null;
           started_at?: string | null;
-          status?: string | null;
+          status?: string;
         };
         Relationships: [
           {
@@ -761,7 +761,7 @@ export type Database = {
       contact_reveal_events: {
         Row: {
           account_id: string | null;
-          client_ip: string;
+          client_ip: string | null;
           created_at: string;
           device_id: string | null;
           id: string;
@@ -770,7 +770,7 @@ export type Database = {
         };
         Insert: {
           account_id?: string | null;
-          client_ip: string;
+          client_ip?: string | null;
           created_at?: string;
           device_id?: string | null;
           id?: string;
@@ -779,7 +779,7 @@ export type Database = {
         };
         Update: {
           account_id?: string | null;
-          client_ip?: string;
+          client_ip?: string | null;
           created_at?: string;
           device_id?: string | null;
           id?: string;
@@ -1381,21 +1381,21 @@ export type Database = {
       };
       listing_view_events: {
         Row: {
-          client_ip: string;
+          client_ip: string | null;
           created_at: string;
           id: string;
           listing_id: string;
           listing_type: string;
         };
         Insert: {
-          client_ip: string;
+          client_ip?: string | null;
           created_at?: string;
           id?: string;
           listing_id: string;
           listing_type: string;
         };
         Update: {
-          client_ip?: string;
+          client_ip?: string | null;
           created_at?: string;
           id?: string;
           listing_id?: string;
@@ -2034,7 +2034,7 @@ export type Database = {
           resolved_by: string | null;
           status: string;
           updated_at: string;
-          user_id: string;
+          user_id: string | null;
         };
         Insert: {
           amount: number;
@@ -2049,7 +2049,7 @@ export type Database = {
           resolved_by?: string | null;
           status?: string;
           updated_at?: string;
-          user_id: string;
+          user_id?: string | null;
         };
         Update: {
           amount?: number;
@@ -2064,7 +2064,7 @@ export type Database = {
           resolved_by?: string | null;
           status?: string;
           updated_at?: string;
-          user_id?: string;
+          user_id?: string | null;
         };
         Relationships: [
           {
@@ -2143,7 +2143,7 @@ export type Database = {
           return_path: string | null;
           review_flag: string | null;
           status: string;
-          user_id: string;
+          user_id: string | null;
         };
         Insert: {
           amount: number;
@@ -2169,7 +2169,7 @@ export type Database = {
           return_path?: string | null;
           review_flag?: string | null;
           status?: string;
-          user_id: string;
+          user_id?: string | null;
         };
         Update: {
           amount?: number;
@@ -2195,7 +2195,7 @@ export type Database = {
           return_path?: string | null;
           review_flag?: string | null;
           status?: string;
-          user_id?: string;
+          user_id?: string | null;
         };
         Relationships: [
           {
@@ -2745,24 +2745,6 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
-      };
-      properties_photos_backup: {
-        Row: {
-          backed_up_at: string | null;
-          id: string | null;
-          photos: string[] | null;
-        };
-        Insert: {
-          backed_up_at?: string | null;
-          id?: string | null;
-          photos?: string[] | null;
-        };
-        Update: {
-          backed_up_at?: string | null;
-          id?: string | null;
-          photos?: string[] | null;
-        };
-        Relationships: [];
       };
       property_admin_notes: {
         Row: {
@@ -3640,24 +3622,6 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
-      };
-      services_photos_backup: {
-        Row: {
-          backed_up_at: string | null;
-          id: string | null;
-          photos: string[] | null;
-        };
-        Insert: {
-          backed_up_at?: string | null;
-          id?: string | null;
-          photos?: string[] | null;
-        };
-        Update: {
-          backed_up_at?: string | null;
-          id?: string | null;
-          photos?: string[] | null;
-        };
-        Relationships: [];
       };
       site_settings: {
         Row: {
@@ -4849,6 +4813,7 @@ export type Database = {
           skipped_booked_dates: string[];
         }[];
       };
+      apply_pii_retention: { Args: { p_days?: number }; Returns: Json };
       approve_content_change_request: {
         Args: { p_admin_id: string; p_request_id: string };
         Returns: Json;
@@ -4966,7 +4931,7 @@ export type Database = {
           scheduled_at: string;
           service_title: string | null;
           started_at: string | null;
-          status: string | null;
+          status: string;
         };
         SetofOptions: {
           from: "*";
@@ -5097,7 +5062,11 @@ export type Database = {
       };
       dashboard_scope_for_path: { Args: { p_path: string }; Returns: string };
       email_claim_batch: {
-        Args: { p_claim_token: string; p_limit: number };
+        Args: {
+          p_claim_token: string;
+          p_limit: number;
+          p_shared_limit?: number;
+        };
         Returns: {
           action_url: string;
           attempts: number;
@@ -5117,6 +5086,10 @@ export type Database = {
           subscribed: boolean;
           user_id: string;
         }[];
+      };
+      email_notification_priority: {
+        Args: { p_type: string };
+        Returns: number;
       };
       email_notification_types: { Args: never; Returns: string[] };
       email_user_ids_for_address: {
@@ -5386,6 +5359,16 @@ export type Database = {
           window_end: string;
           window_start: string;
         }[];
+      };
+      request_manual_booking_sms_consent: {
+        Args: {
+          p_consent_version: string;
+          p_manual_booking_id: string;
+          p_message: string;
+          p_owner_id: string;
+          p_token_hash: string;
+        };
+        Returns: Json;
       };
       request_organization_membership: {
         Args: { p_org_id: string };
@@ -5782,7 +5765,7 @@ export type Database = {
           scheduled_at: string;
           service_title: string | null;
           started_at: string | null;
-          status: string | null;
+          status: string;
         };
         SetofOptions: {
           from: "*";
