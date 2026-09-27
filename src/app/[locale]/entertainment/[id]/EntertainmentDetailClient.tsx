@@ -2,7 +2,6 @@
 
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Clock,
@@ -19,6 +18,7 @@ import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
+import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -45,12 +45,6 @@ interface Props {
   isMock?: boolean;
   isPending?: boolean;
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function EntertainmentDetailClient({
   service,
@@ -97,8 +91,8 @@ export default function EntertainmentDetailClient({
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
       {/* Hero photo with floating back button */}
-      <motion.div
-        {...fadeIn}
+      <div
+        style={enterUp()}
         className="relative aspect-[16/9] w-full overflow-hidden rounded-[24px] bg-[#F8FAFC]"
       >
         {mainPhoto && (
@@ -131,14 +125,10 @@ export default function EntertainmentDetailClient({
             {t("photoGallery", { count: photos.length })}
           </button>
         )}
-      </motion.div>
+      </div>
 
       {/* Category + title */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.15 }}
-        className="mt-6"
-      >
+      <div style={enterUp(0.15)} className="mt-6">
         <div className="mb-2 text-[12px] font-bold uppercase tracking-[1px] text-[#2563EB]">
           {[
             optionLabel("entertainmentTypes", service.activity_type),
@@ -171,28 +161,23 @@ export default function EntertainmentDetailClient({
             {tShared("views", { count: views })}
           </span>
         </div>
-      </motion.div>
+      </div>
 
       {/* What to expect / description */}
       {service.description && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="mt-8"
-        >
+        <div style={enterUp(0.2)} className="mt-8">
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
             {t("whatWeOffer")}
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
           </p>
-        </motion.div>
+        </div>
       )}
 
       {/* Stats grid — four separate cards */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.25 }}
+      <div
+        style={enterUp(0.25)}
         className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4"
       >
         {service.duration && (
@@ -239,13 +224,12 @@ export default function EntertainmentDetailClient({
             </span>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Safety & conditions */}
       {service.safety_notes && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.3 }}
+        <div
+          style={enterUp(0.3)}
           className="mt-6 flex items-start gap-3 rounded-[16px] border border-[#DBEAFE] bg-[#EFF6FF] p-5"
         >
           <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB]">
@@ -259,14 +243,13 @@ export default function EntertainmentDetailClient({
               {service.safety_notes}
             </p>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Price + CTA row */}
-      <motion.div
+      <div
+        style={enterUp(0.35)}
         id="contact-sidebar"
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.35 }}
         className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center"
       >
         <div>
@@ -302,7 +285,7 @@ export default function EntertainmentDetailClient({
             serviceId={service.id}
           />
         </div>
-      </motion.div>
+      </div>
 
       {service.price != null && (
         <MobileStickyCTA

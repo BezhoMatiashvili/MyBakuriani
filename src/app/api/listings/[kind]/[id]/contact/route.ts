@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
@@ -18,6 +18,33 @@ export async function POST(
   if (!isUuid(id) || (kind !== "property" && kind !== "service")) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
+  // The listing lookup does not depend on who is asking, so it starts now and
+  // runs while the auth check and both rate-limit round trips are awaited
+  // (each a Singapore->Tokyo hop) instead of after them. The .catch only marks
+  // the promise handled for the early 429/403 returns; awaiting it below still
+  // throws exactly as the inline query used to.
+  const db = createServiceClient();
+  type ContactRow = {
+    phone: string | null;
+    whatsapp: string | null;
+    profiles: { phone: string | null } | null;
+  };
+  const lookup = Promise.resolve(
+    kind === "property"
+      ? db
+          .from("properties")
+          .select("phone, whatsapp, profiles!properties_owner_id_fkey(phone)")
+          .eq("id", id)
+          .eq("status", "active")
+          .maybeSingle()
+      : db
+          .from("services")
+          .select("phone, whatsapp, profiles!services_owner_id_fkey(phone)")
+          .eq("id", id)
+          .eq("status", "active")
+          .maybeSingle(),
+  );
+  lookup.catch(() => {});
   const body = (await req.json().catch(() => null)) as ContactRequest | null;
   const ip = getClientIp(req);
   const user = await getCurrentUser();
@@ -60,34 +87,9 @@ export async function POST(
   ) {
     return Response.json({ error: "verification_required" }, { status: 403 });
   }
-  const db = createServiceClient();
-  type ContactRow = {
-    phone: string | null;
-    whatsapp: string | null;
-    profiles: { phone: string | null } | null;
-  };
-  let row: ContactRow | null = null;
-  let lookupError: { code?: string; message?: string } | null = null;
-
-  if (kind === "property") {
-    const { data, error } = await db
-      .from("properties")
-      .select("phone, whatsapp, profiles!properties_owner_id_fkey(phone)")
-      .eq("id", id)
-      .eq("status", "active")
-      .maybeSingle();
-    row = data as ContactRow | null;
-    lookupError = error;
-  } else {
-    const { data, error } = await db
-      .from("services")
-      .select("phone, whatsapp, profiles!services_owner_id_fkey(phone)")
-      .eq("id", id)
-      .eq("status", "active")
-      .maybeSingle();
-    row = data as ContactRow | null;
-    lookupError = error;
-  }
+  const { data, error } = await lookup;
+  const row = data as ContactRow | null;
+  const lookupError: { code?: string; message?: string } | null = error;
 
   if (lookupError) {
     console.error("Listing contact lookup failed", {
@@ -100,16 +102,21 @@ export async function POST(
   if (!row) return Response.json({ error: "not_found" }, { status: 404 });
   // This table is intentionally service-write-only.  It records the reveal,
   // not the revealed value, and makes rate-limit/audit investigations possible.
-  await (
-    db.from as unknown as (table: "contact_reveal_events") => {
-      insert(value: Record<string, unknown>): PromiseLike<unknown>;
-    }
-  )("contact_reveal_events").insert({
-    listing_id: id,
-    listing_type: kind,
-    account_id: user?.id ?? null,
-    device_id: user ? null : device,
-    client_ip: ip,
+  // Its result was never checked, so it runs after the response is sent
+  // rather than holding the number back for another round trip (C22: reveal
+  // counts in listing analytics become eventual by a few milliseconds).
+  after(async () => {
+    await (
+      db.from as unknown as (table: "contact_reveal_events") => {
+        insert(value: Record<string, unknown>): PromiseLike<unknown>;
+      }
+    )("contact_reveal_events").insert({
+      listing_id: id,
+      listing_type: kind,
+      account_id: user?.id ?? null,
+      device_id: user ? null : device,
+      client_ip: ip,
+    });
   });
   // This is the only public contact representation: a deliberate detail
   // lookup, individually rate-limited and never part of list/search payloads.

@@ -1,40 +1,27 @@
-// Message namespaces used by CLIENT components reachable from PUBLIC routes.
+// Message namespaces used by CLIENT components under each next-intl provider.
 //
-// The root `[locale]/layout.tsx` provider ships ONLY these namespaces to the
-// browser, which cuts ~24KB gzip from every public page's hydration payload
-// (the full ka bundle is ~46KB gz). The dashboard layout ships the full bundle
-// in a nested provider (auth-gated, lower traffic), so dashboards are unchanged.
+// The root `[locale]/layout.tsx` provider ships ONLY PUBLIC_NAMESPACES to the
+// browser, in every HTML document and every static RSC payload. Route trees
+// whose namespaces nobody else needs re-provide them in a nested provider
+// instead: /create, /auth, /faq, /review/[token], /sms-consent/[token] and
+// /dashboard (see the constants below). A nested NextIntlClientProvider
+// REPLACES the messages above it rather than merging, so each constant lists
+// every namespace reachable under its provider, shell components included.
 //
-// This list is the single source of truth and is verified on every build by
-// `scripts/i18n-scope.mjs --check` (wired as `prebuild`), which re-derives the
-// set via import-graph traversal and fails the build if a newly client-reachable
-// namespace is missing here. To regenerate: `node scripts/i18n-scope.mjs`.
+// These lists are verified on every build by `scripts/i18n-scope.mjs --check`
+// (wired as `prebuild`), which re-derives each scope's set via import-graph
+// traversal and fails the build if a client-reachable namespace is missing.
+// To regenerate: `node scripts/i18n-scope.mjs`.
 export const PUBLIC_NAMESPACES = [
   "ApartmentDetail",
   "ApartmentsPage",
-  "AuthForgotPassword",
-  "AuthLogin",
-  "AuthRegister",
-  "AuthResetPassword",
-  "AvailabilityWizard",
   "BakurianiMap",
   "BlogPage",
   "BookingSidebar",
-  "BulkActionBar",
   "Calendar",
   "ConsentGate",
   "ContactReveal",
   "CookieConsent",
-  "CreateEmployment",
-  "CreateEntertainment",
-  "CreateFood",
-  "CreateHeader",
-  "CreateHub",
-  "CreateRental",
-  "CreateSale",
-  "CreateService",
-  "CreateShared",
-  "CreateTransport",
   "CriticalNotification",
   "DashboardShared",
   "DateRangeFilter",
@@ -44,8 +31,6 @@ export const PUBLIC_NAMESPACES = [
   "EntertainmentDetail",
   "EntertainmentPage",
   "Error",
-  "ExactLocationPicker",
-  "FAQ",
   "Favorites",
   "FilterPanel",
   "FoodDetail",
@@ -60,13 +45,11 @@ export const PUBLIC_NAMESPACES = [
   "LanguageSelector",
   "ListingOptions",
   "ListingPreview",
-  "ManualReview",
   "Navbar",
   "PhotoGallery",
-  "PhotoUploader",
+  "PriceDropSms",
   "PropertyCard",
   "PropertyDetail",
-  "PriceDropSms",
   "RentBuyToggle",
   "SaleDetail",
   "SalePagination",
@@ -81,14 +64,131 @@ export const PUBLIC_NAMESPACES = [
   "ServicesPage",
   "ShareListing",
   "Shared",
-  "SmsConsent",
   "StatusCards",
   "TransportDetail",
   "TransportPage",
-  "UISelect",
-  "Wizard",
   "ZoneLocationLink",
   "Zones",
+] as const;
+
+// Re-provided by src/app/[locale]/create/layout.tsx for the whole /create tree
+// (CreateHeader, the forms, loading/error). A nested provider REPLACES the root
+// messages, so this lists every namespace reachable under that layout.
+export const CREATE_NAMESPACES = [
+  "AvailabilityWizard",
+  "BulkActionBar",
+  "Calendar",
+  "CreateEmployment",
+  "CreateEntertainment",
+  "CreateFood",
+  "CreateHeader",
+  "CreateHub",
+  "CreateRental",
+  "CreateSale",
+  "CreateService",
+  "CreateShared",
+  "CreateTransport",
+  "DateRangeFilter",
+  "Error",
+  "ExactLocationPicker",
+  "LanguageSelector",
+  "ListingOptions",
+  "PhotoUploader",
+  "Shared",
+  "UISelect",
+  "Wizard",
+] as const;
+
+// Re-provided by src/app/[locale]/auth/layout.tsx for /auth/*.
+export const AUTH_NAMESPACES = [
+  "AuthForgotPassword",
+  "AuthLogin",
+  "AuthRegister",
+  "AuthResetPassword",
+  "ConsentGate",
+  "Error",
+  "LanguageSelector",
+  "Shared",
+] as const;
+
+// Re-provided by src/app/[locale]/faq/page.tsx (the page only: faq/loading.tsx
+// and faq/error.tsx render outside it, under the root provider).
+export const FAQ_NAMESPACES = ["FAQ"] as const;
+
+// Re-provided by src/app/[locale]/review/[token]/page.tsx.
+export const MANUAL_REVIEW_NAMESPACES = ["ManualReview"] as const;
+
+// Re-provided by src/app/[locale]/sms-consent/[token]/page.tsx.
+export const SMS_CONSENT_NAMESPACES = ["SmsConsent"] as const;
+
+// Re-provided by src/app/[locale]/dashboard/layout.tsx for /dashboard/**
+// (previously the full catalog).
+export const DASHBOARD_NAMESPACES = [
+  "AdminBanners",
+  "AdminClientDetail",
+  "AdminClients",
+  "AdminDashboard",
+  "AdminFinances",
+  "AdminListings",
+  "AdminLogs",
+  "AdminMemberships",
+  "AdminModeration",
+  "AdminPayments",
+  "AdminPromocodes",
+  "AdminShared",
+  "AdminStatusCards",
+  "Calendar",
+  "CleanerDashboard",
+  "CleanerParameters",
+  "CleanerSchedule",
+  "ContactReveal",
+  "CreateShared",
+  "DashboardAccount",
+  "DashboardLayout",
+  "DashboardShared",
+  "DashboardSidebar",
+  "DateRangeFilter",
+  "Error",
+  "ExactLocationPicker",
+  "FoodDashboard",
+  "FoodOrders",
+  "GuestBookings",
+  "GuestDashboard",
+  "GuestFavorites",
+  "GuestProfile",
+  "GuestRate",
+  "GuestReviews",
+  "LanguageSelector",
+  "ListingActions",
+  "ListingOptions",
+  "ListingScopeSelect",
+  "MediaUploader",
+  "Navbar",
+  "NotificationSettings",
+  "Organizations",
+  "PaymentModal",
+  "Payments",
+  "PhotoUploader",
+  "PriceDropSms",
+  "RenterCalendar",
+  "RenterCleaners",
+  "RenterDashboard",
+  "RenterGuests",
+  "RenterListings",
+  "RenterProfile",
+  "RenterReviews",
+  "RenterSmartMatch",
+  "SMSCenter",
+  "SellerAnalytics",
+  "SellerDashboard",
+  "ServiceDashboard",
+  "ServiceParameters",
+  "Shared",
+  "SmartMatchCard",
+  "SmartMatchModal",
+  "StatusBadge",
+  "UISelect",
+  "Wizard",
 ] as const;
 
 /** Returns a shallow copy of `messages` containing only the listed namespaces. */

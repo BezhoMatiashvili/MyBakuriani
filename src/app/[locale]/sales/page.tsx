@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import SalesPageClient from "./SalesPageClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 // Public listing data changes rarely; serve from the ISR cache instead of a
 // per-request DB round-trip. createPublicClient reads no cookies, so the page
@@ -56,5 +57,5 @@ export default async function SalesPage() {
     );
   }
 
-  return <SalesPageClient properties={properties ?? []} />;
+  return <SalesPageClient properties={(properties ?? []).map(firstPhotoOnly)} />;
 }

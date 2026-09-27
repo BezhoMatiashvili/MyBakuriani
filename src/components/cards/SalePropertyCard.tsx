@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { formatNumber } from "@/lib/utils/format";
+import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
@@ -99,8 +100,7 @@ export default function SalePropertyCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      style={cardEnter}
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       className="group h-full"

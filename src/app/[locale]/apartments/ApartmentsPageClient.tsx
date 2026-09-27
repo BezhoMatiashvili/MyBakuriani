@@ -32,14 +32,20 @@ import StatusCards from "@/components/landing/StatusCards";
 import type { StatusCard } from "@/lib/status-cards/types";
 import BannerSlot from "@/components/banners/BannerSlot";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 
 const ITEMS_PER_PAGE = 9;
 
@@ -93,6 +99,118 @@ function ApartmentsHeading({
   );
 }
 
+// Owns the search dropdown state (and the zone list only it renders), so
+// opening a dropdown re-renders the hero alone, not the listing grid.
+function ApartmentsHero({
+  mode,
+  onModeChange,
+  onSearch,
+  isPending,
+  mapProperties,
+  statusCards,
+}: {
+  mode: "rent" | "sale";
+  onModeChange: (next: "rent" | "sale") => void;
+  onSearch: (sf: SearchFilters) => void;
+  isPending: boolean;
+  mapProperties: MapProperty[];
+  statusCards: StatusCard[];
+}) {
+  const tLanding = useTranslations("Landing");
+  const router = useRouter();
+  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
+  const dropdownPortalRef = useRef<HTMLDivElement>(null);
+  const filtersPortalRef = useRef<HTMLDivElement>(null);
+  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
+  const { zones } = useActiveZones();
+
+  return (
+    <section
+      data-testid="listing-hero"
+      className={cn(
+        "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
+        activeDropdown ? "overflow-visible" : "overflow-hidden",
+      )}
+      style={{
+        background:
+          "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+      }}
+    >
+      {/* Subtle texture overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
+          backgroundSize: "cover",
+          backgroundPosition: "center bottom",
+          mixBlendMode: "overlay",
+        }}
+      />
+      <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
+        <ScrollReveal>
+          <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
+            {tLanding("trustedGuide")}{" "}
+            <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
+          </h1>
+        </ScrollReveal>
+
+        <div className="mt-6 flex justify-center">
+          <RentBuyToggle value={mode} onChange={onModeChange} />
+        </div>
+
+        <div className="relative mt-6" data-testid="search-overlay-container">
+          <SearchBox
+            onSearch={onSearch}
+            isPending={isPending}
+            className="shadow-[var(--shadow-search)]"
+            dropdownPortalRef={dropdownPortalRef}
+            filtersPortalRef={filtersPortalRef}
+            filtersBoundaryRef={filtersBoundaryRef}
+            onActiveDropdownChange={setActiveDropdown}
+            zones={zones}
+          />
+
+          {/* Desktop panels float over the status cards and following section.
+              The filters boundary stays permanently mounted (visibility toggled
+              via CSS) so its portal target already exists the instant the panel
+              opens — otherwise SearchBox briefly renders a narrower fallback
+              without the map before this box appears. */}
+          <div
+            ref={filtersBoundaryRef}
+            onMouseDown={(e) => e.stopPropagation()}
+            className={cn(
+              "absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+              activeDropdown === "filters"
+                ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
+                : "hidden",
+            )}
+          >
+            <div ref={filtersPortalRef} className="min-w-0 flex-1" />
+            {activeDropdown === "filters" && (
+              <BakurianiMap
+                className="min-h-[400px] w-[280px] shrink-0 self-stretch"
+                embedded
+                expandable
+                properties={mapProperties}
+                onPropertyClick={(id) => router.push(`/apartments/${id}`)}
+              />
+            )}
+          </div>
+          {activeDropdown === "calendar" ? (
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden lg:block">
+              <div ref={dropdownPortalRef} className="min-w-0" />
+            </div>
+          ) : null}
+        </div>
+
+        {/* Status Cards Row */}
+        <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
+      </div>
+    </section>
+  );
+}
+
 export default function ApartmentsPageClient({
   properties,
   statusCards,
@@ -101,15 +219,10 @@ export default function ApartmentsPageClient({
   const tLanding = useTranslations("Landing");
   const tShared = useTranslations("Shared");
   const [mode, setMode] = useState<"rent" | "sale">("rent");
-  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [onlyAvailable, setOnlyAvailable] = useState(false);
-  const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const filtersPortalRef = useRef<HTMLDivElement>(null);
-  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const { zones } = useActiveZones();
 
   const handleModeChange = useCallback(
     (next: "rent" | "sale") => {
@@ -199,89 +312,14 @@ export default function ApartmentsPageClient({
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       {/* ═══ Hero Section ═══ */}
-      <section
-        data-testid="listing-hero"
-        className={cn(
-          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
-          activeDropdown ? "overflow-visible" : "overflow-hidden",
-        )}
-        style={{
-          background:
-            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
-        }}
-      >
-        {/* Subtle texture overlay */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-            backgroundSize: "cover",
-            backgroundPosition: "center bottom",
-            mixBlendMode: "overlay",
-          }}
-        />
-        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
-          <ScrollReveal>
-            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
-              {tLanding("trustedGuide")}{" "}
-              <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
-            </h1>
-          </ScrollReveal>
-
-          <div className="mt-6 flex justify-center">
-            <RentBuyToggle value={mode} onChange={handleModeChange} />
-          </div>
-
-          <div className="relative mt-6" data-testid="search-overlay-container">
-            <SearchBox
-              onSearch={handleSearch}
-              isPending={isPending}
-              className="shadow-[var(--shadow-search)]"
-              dropdownPortalRef={dropdownPortalRef}
-              filtersPortalRef={filtersPortalRef}
-              filtersBoundaryRef={filtersBoundaryRef}
-              onActiveDropdownChange={setActiveDropdown}
-              zones={zones}
-            />
-
-            {/* Desktop panels float over the status cards and following section.
-                The filters boundary stays permanently mounted (visibility toggled
-                via CSS) so its portal target already exists the instant the panel
-                opens — otherwise SearchBox briefly renders a narrower fallback
-                without the map before this box appears. */}
-            <div
-              ref={filtersBoundaryRef}
-              onMouseDown={(e) => e.stopPropagation()}
-              className={cn(
-                "absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-                activeDropdown === "filters"
-                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
-                  : "hidden",
-              )}
-            >
-              <div ref={filtersPortalRef} className="min-w-0 flex-1" />
-              {activeDropdown === "filters" && (
-                <BakurianiMap
-                  className="min-h-[400px] w-[280px] shrink-0 self-stretch"
-                  embedded
-                  expandable
-                  properties={mapProperties}
-                  onPropertyClick={(id) => router.push(`/apartments/${id}`)}
-                />
-              )}
-            </div>
-            {activeDropdown === "calendar" ? (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden lg:block">
-                <div ref={dropdownPortalRef} className="min-w-0" />
-              </div>
-            ) : null}
-          </div>
-
-          {/* Status Cards Row */}
-          <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
-        </div>
-      </section>
+      <ApartmentsHero
+        mode={mode}
+        onModeChange={handleModeChange}
+        onSearch={handleSearch}
+        isPending={isPending}
+        mapProperties={mapProperties}
+        statusCards={statusCards}
+      />
 
       {/* ═══ Listings Section ═══ */}
       <section

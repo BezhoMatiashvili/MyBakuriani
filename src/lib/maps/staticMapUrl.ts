@@ -30,7 +30,7 @@ export interface StaticMapOptions {
   view?: StaticMapView;
 }
 
-const STYLE = "mapbox/light-v11"; // BakurianiMap's MAPBOX_STYLE
+const STYLE = "mapbox/light-v11"; // MapboxCanvas's MAPBOX_STYLE
 const MAX_SIDE = 1280; // API limit per side (before @2x)
 const MAX_PINS = 80; // keeps the URL well under the API's 8192-char cap
 // Same as the interactive map's fitBounds({ padding: 40, maxZoom: 15 }),

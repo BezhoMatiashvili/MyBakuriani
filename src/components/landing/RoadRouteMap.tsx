@@ -16,9 +16,13 @@ import {
 } from "@/lib/road-condition/shared";
 import type { RouteDisplay } from "@/components/maps/BakurianiMap";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  { ssr: false },
+);
 
 // The road card's expanded map + route, mounted only while the card is open
 // (StatusCards.tsx special-cases card.id === "road", mirroring how it already

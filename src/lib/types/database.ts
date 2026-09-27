@@ -35,7 +35,10 @@ type Row<T extends keyof GenPublic["Tables"]> = GenPublic["Tables"][T]["Row"];
 // ---------------------------------------------------------------------------
 type PublicViews = {
   public_properties: {
-    Row: Row<"properties"> & { has_whatsapp: boolean };
+    Row: Row<"properties"> & {
+      has_whatsapp: boolean;
+      profile_is_verified: boolean | null;
+    };
     Relationships: [];
   };
   public_services: {

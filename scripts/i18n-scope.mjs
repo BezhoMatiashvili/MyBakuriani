@@ -1,8 +1,9 @@
 // Import-graph-aware i18n namespace analyzer + build guard.
 //
-// Determines which message namespaces are needed by CLIENT components reachable
-// from public routes vs dashboard-only routes, by traversing the import graph
-// from each route entry and crossing "use client" boundaries. A component picks
+// Determines which message namespaces are needed by CLIENT components under each
+// NextIntlClientProvider scope (the root [locale] provider plus the nested
+// providers in SCOPES below), by traversing the import graph from each route
+// entry and crossing "use client" boundaries. A component picks
 // up a client namespace requirement only when it (or an importer) is a client
 // module — this correctly catches components without a "use client" directive
 // that become client via import (e.g. Footer lazy-imported by LocaleShell).
@@ -12,7 +13,8 @@
 // useMessages, unresolved dynamic) makes the script abort the split.
 //
 // Modes:
-//   node scripts/i18n-scope.mjs           -> print PUBLIC / DASHBOARD-ONLY sets
+//   node scripts/i18n-scope.mjs           -> print the namespace set of every scope
+//   node scripts/i18n-scope.mjs --json     -> same, as JSON
 //   node scripts/i18n-scope.mjs --check    -> exit 1 if src/i18n/namespaces.ts is stale/unsafe
 
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
@@ -64,6 +66,7 @@ function parse(file) {
       imports: [],
       ns: [],
       noArg: false,
+      nonLiteral: false,
       useMessages: false,
     };
     cache.set(file, v);
@@ -83,9 +86,10 @@ function parse(file) {
   const reNs = /useTranslations\(\s*["'`]([^"'`]+)["'`]/g;
   while ((m = reNs.exec(src))) ns.add(m[1].split(".")[0]);
   const noArg = /useTranslations\(\s*\)/.test(src);
+  const nonLiteral = /useTranslations\(\s*[^"'`)\s]/.test(src);
   const useMessages = /\buseMessages\(/.test(src);
 
-  const v = { isClient, imports, ns: [...ns], noArg, useMessages };
+  const v = { isClient, imports, ns: [...ns], noArg, nonLiteral, useMessages };
   cache.set(file, v);
   return v;
 }
@@ -124,6 +128,10 @@ function collect(entry) {
         problems.push(
           `${file}: useTranslations() with no namespace (cannot safely split)`,
         );
+      if (info.nonLiteral)
+        problems.push(
+          `${file}: useTranslations() with a non-literal namespace (cannot safely split)`,
+        );
       if (info.useMessages)
         problems.push(
           `${file}: useMessages() pulls all namespaces (cannot safely split)`,
@@ -138,30 +146,70 @@ function collect(entry) {
   return found;
 }
 
+// Provider scopes. A nested NextIntlClientProvider REPLACES the messages of the
+// provider above it (it does not merge), so every client component rendered
+// inside a scope must find its namespace in that scope's constant. `covers`
+// maps a route entry (path relative to src/app/[locale]) to the scope whose
+// provider renders it; everything else renders under the root [locale]
+// provider and is checked against PUBLIC_NAMESPACES. A layout-level provider
+// covers its whole directory (the layout itself, loading/error, every page); a
+// page-level provider covers only that page, so the directory's loading.tsx
+// and error.tsx stay under the root provider.
+const SCOPES = [
+  {
+    constant: "DASHBOARD_NAMESPACES",
+    provider: "dashboard/layout.tsx",
+    covers: (rel) => rel.startsWith("dashboard/"),
+  },
+  {
+    constant: "CREATE_NAMESPACES",
+    provider: "create/layout.tsx",
+    covers: (rel) => rel.startsWith("create/"),
+  },
+  {
+    constant: "AUTH_NAMESPACES",
+    provider: "auth/layout.tsx",
+    covers: (rel) => rel.startsWith("auth/"),
+  },
+  {
+    constant: "FAQ_NAMESPACES",
+    provider: "faq/page.tsx",
+    covers: (rel) => rel === "faq/page.tsx",
+  },
+  {
+    constant: "MANUAL_REVIEW_NAMESPACES",
+    provider: "review/[token]/page.tsx",
+    covers: (rel) => rel === "review/[token]/page.tsx",
+  },
+  {
+    constant: "SMS_CONSENT_NAMESPACES",
+    provider: "sms-consent/[token]/page.tsx",
+    covers: (rel) => rel === "sms-consent/[token]/page.tsx",
+  },
+];
+const ROOT_SCOPE = "PUBLIC_NAMESPACES";
+
 const routeEntries = listFiles(APP).filter((f) =>
   /(page|layout|template|loading|error|not-found)\.(tsx|ts)$/.test(f),
 );
-const publicEntries = routeEntries.filter(
-  (f) => !f.includes(`${APP}/dashboard`) && !f.includes("/dashboard/"),
+const sets = new Map([
+  [ROOT_SCOPE, new Set()],
+  ...SCOPES.map((sc) => [sc.constant, new Set()]),
+]);
+for (const entry of routeEntries) {
+  const rel = entry
+    .slice(APP.length + 1)
+    .split("\\")
+    .join("/");
+  const scope = SCOPES.find((sc) => sc.covers(rel))?.constant ?? ROOT_SCOPE;
+  for (const n of collect(entry)) sets.get(scope).add(n);
+}
+const sorted = Object.fromEntries(
+  [...sets].map(([k, v]) => [k, [...v].sort()]),
 );
-const dashEntries = routeEntries.filter((f) => f.includes("/dashboard/"));
-
-const pub = new Set();
-const dash = new Set();
-for (const e of publicEntries) for (const n of collect(e)) pub.add(n);
-for (const e of dashEntries) for (const n of collect(e)) dash.add(n);
-
-const dashOnly = [...dash].filter((n) => !pub.has(n)).sort();
-const publicArr = [...pub].sort();
 
 if (process.argv.includes("--json")) {
-  console.log(
-    JSON.stringify(
-      { public: publicArr, dashboardOnly: dashOnly, problems },
-      null,
-      2,
-    ),
-  );
+  console.log(JSON.stringify({ ...sorted, problems }, null, 2));
 } else if (process.argv.includes("--check")) {
   const nsFile = join(SRC, "i18n", "namespaces.ts");
   if (!existsSync(nsFile)) {
@@ -171,37 +219,52 @@ if (process.argv.includes("--json")) {
   const txt = readFileSync(nsFile, "utf8");
   const grab = (name) => {
     const m = txt.match(new RegExp(name + "\\s*=\\s*\\[([^\\]]*)\\]", "s"));
-    if (!m) return [];
+    if (!m) return null;
     return [...m[1].matchAll(/["']([^"']+)["']/g)].map((x) => x[1]);
   };
-  // Only the PUBLIC set is risk-bearing: the root [locale] provider ships exactly
-  // these namespaces, so any public-reachable client namespace MUST be listed.
-  // The dashboard layout ships the full bundle, so it needs no enforcement.
-  const declaredPublic = new Set(grab("PUBLIC_NAMESPACES"));
-  const missingPublic = publicArr.filter((n) => !declaredPublic.has(n));
   let bad = false;
   if (problems.length) {
     console.error("[i18n-scope] ambiguous usages:\n  " + problems.join("\n  "));
     bad = true;
   }
-  if (missingPublic.length) {
-    console.error(
-      "[i18n-scope] PUBLIC_NAMESPACES is missing client-reachable namespaces " +
-        "(public pages would break). Add to src/i18n/namespaces.ts:\n  " +
-        missingPublic.join(", "),
-    );
-    bad = true;
+  for (const [constant, needed] of Object.entries(sorted)) {
+    const declared = grab(constant);
+    if (!declared) {
+      console.error(
+        `[i18n-scope] ${constant} is not declared in src/i18n/namespaces.ts`,
+      );
+      bad = true;
+      continue;
+    }
+    const missing = needed.filter((n) => !declared.includes(n));
+    if (missing.length) {
+      console.error(
+        `[i18n-scope] ${constant} is missing client-reachable namespaces ` +
+          "(those strings would render as raw keys). Add to src/i18n/namespaces.ts:\n  " +
+          missing.join(", "),
+      );
+      bad = true;
+    }
+  }
+  for (const sc of SCOPES) {
+    const file = join(APP, sc.provider);
+    const src = existsSync(file) ? readFileSync(file, "utf8") : "";
+    if (!src.includes("NextIntlClientProvider") || !src.includes(sc.constant)) {
+      console.error(
+        `[i18n-scope] ${sc.provider} must render a NextIntlClientProvider with ${sc.constant}`,
+      );
+      bad = true;
+    }
   }
   if (bad) process.exit(1);
   console.log(
-    "[i18n-scope] OK — PUBLIC_NAMESPACES covers all public client usages.",
+    `[i18n-scope] OK — ${[ROOT_SCOPE, ...SCOPES.map((sc) => sc.constant)].join(", ")} cover all client usages.`,
   );
 } else {
-  console.log("PUBLIC (" + publicArr.length + "):\n" + publicArr.join(", "));
+  for (const [constant, list] of Object.entries(sorted)) {
+    console.log(`${constant} (${list.length}):\n${list.join(", ")}\n`);
+  }
   console.log(
-    "\nDASHBOARD-ONLY (" + dashOnly.length + "):\n" + dashOnly.join(", "),
-  );
-  console.log(
-    "\nPROBLEMS (" + problems.length + "):\n" + (problems.join("\n") || "none"),
+    "PROBLEMS (" + problems.length + "):\n" + (problems.join("\n") || "none"),
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import {
@@ -67,6 +67,10 @@ interface BookingSidebarProps {
   discountExpiresAt?: string | null;
 }
 
+function localDayKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
 /* ── Inline mini-calendar (rendered inside the sidebar dropdown) ── */
 const MINI_CAL_DAY_KEYS = [
   "mon",
@@ -101,8 +105,18 @@ function MiniCalendar({
     (monthDate.getFullYear() === today.getFullYear() &&
       monthDate.getMonth() > today.getMonth());
 
-  const getStatus = (day: Date) =>
-    calendarDates.find((d) => isSameDay(d.date, day))?.status ?? null;
+  // One pass over the rows instead of an isSameDay scan of every row for each
+  // rendered day. Keyed by LOCAL calendar day, as isSameDay compares; the first
+  // row for a day wins, as with find().
+  const statusByDay = useMemo(() => {
+    const map = new Map<string, BlockedDate["status"]>();
+    for (const d of calendarDates) {
+      const key = localDayKey(d.date);
+      if (!map.has(key)) map.set(key, d.status);
+    }
+    return map;
+  }, [calendarDates]);
+  const getStatus = (day: Date) => statusByDay.get(localDayKey(day)) ?? null;
 
   const isPast = (day: Date) => {
     const d = new Date(day.getFullYear(), day.getMonth(), day.getDate());

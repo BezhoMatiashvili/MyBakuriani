@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +27,7 @@ import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
+import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { useFavorite } from "@/lib/hooks/useFavorite";
@@ -45,14 +46,20 @@ import {
   previewContactWhatsapp,
 } from "@/lib/utils/preview-contact";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-[20px] bg-[#F8FAFC]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-[20px] bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
@@ -89,12 +96,6 @@ interface Props {
    */
   priceAlertMode?: "off" | "qa" | "on";
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 const CONSTRUCTION_MILESTONES: Array<{
   labelKey: string;
@@ -194,6 +195,25 @@ export default function SaleDetailClient({
     toggle: toggleFavorite,
   } = useFavorite({ propertyId: property.id });
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
+  // Stable across re-renders (a favourite toggle, the construction modal): the
+  // map rebuilds every marker whenever this array's identity changes.
+  const mapMarkers = useMemo(
+    () => [
+      {
+        id: property.id,
+        title: property.title,
+        price: Number(property.sale_price ?? 0),
+        lat: Number(property.location_lat),
+        lng: Number(property.location_lng),
+        isVip: property.is_vip ?? false,
+        isSuperVip: property.is_super_vip ?? false,
+        photo: Array.isArray(property.photos)
+          ? (property.photos[0] as string)
+          : undefined,
+      },
+    ],
+    [property],
+  );
 
   const views = useListingViewCount(
     "property",
@@ -395,10 +415,7 @@ export default function SaleDetailClient({
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
       {/* Top action row: back + share/heart */}
-      <motion.div
-        {...fadeIn}
-        className="mb-6 flex items-center justify-between"
-      >
+      <div style={enterUp()} className="mb-6 flex items-center justify-between">
         <Link
           href="/sales"
           className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
@@ -444,14 +461,10 @@ export default function SaleDetailClient({
             </span>
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Title block (above gallery) */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.08 }}
-        className="mb-6"
-      >
+      <div style={enterUp(0.08)} className="mb-6">
         <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
           {property.title}
         </h1>
@@ -480,25 +493,20 @@ export default function SaleDetailClient({
             {tDetail("views", { count: views })}
           </span>
         </div>
-      </motion.div>
+      </div>
 
       {/* Photo gallery */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.12 }}
-        className="[&>div:first-child]:hidden"
-      >
+      <div style={enterUp(0.12)} className="[&>div:first-child]:hidden">
         <PhotoGallery
           photos={property.photos ?? []}
           title={property.title}
           propertyId={property.id}
         />
-      </motion.div>
+      </div>
 
       {/* 3-stat row + ID */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.16 }}
+      <div
+        style={enterUp(0.16)}
         className="mt-6 flex flex-wrap items-center gap-3"
       >
         {property.area_sqm != null && (
@@ -547,12 +555,12 @@ export default function SaleDetailClient({
         <span className="ms-auto rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-[11px] font-bold tracking-[0.5px] text-[#64748B]">
           ID: {shortId}
         </span>
-      </motion.div>
+      </div>
 
       <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="space-y-10 lg:col-span-2">
           {/* Investment metrics box */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.18 }}>
+          <div style={enterUp(0.18)}>
             <h2 className="mb-3 hidden text-[20px] font-black leading-[30px] text-[#0F172A] sm:block">
               {t("investmentMetrics")}
             </h2>
@@ -587,13 +595,12 @@ export default function SaleDetailClient({
                 ))}
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Description */}
           {property.description && (
-            <motion.div
-              {...fadeIn}
-              transition={{ duration: 0.4, delay: 0.2 }}
+            <div
+              style={enterUp(0.2)}
               className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent"
             >
               <h2 className="border-b border-[#E9EBF3] px-5 py-4 text-[18px] font-black leading-[24px] text-[#0F172A] sm:mb-3 sm:border-0 sm:px-0 sm:py-0 sm:text-[20px] sm:leading-[30px]">
@@ -602,12 +609,12 @@ export default function SaleDetailClient({
               <p className="whitespace-pre-line px-5 py-4 text-[15px] font-medium leading-[27px] text-[#475569] sm:p-0">
                 {property.description}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {/* Construction process card */}
           {showConstructionSection && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
+            <div style={enterUp(0.25)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("constructionProcess")}
               </h2>
@@ -669,11 +676,11 @@ export default function SaleDetailClient({
                   </button>
                 </div>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* Map */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.32 }}>
+          <div style={enterUp(0.32)}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               {tDetail("exactLocation")}
             </h2>
@@ -686,20 +693,7 @@ export default function SaleDetailClient({
                 <BakurianiMap
                   className="h-[320px] w-full"
                   embedded
-                  properties={[
-                    {
-                      id: property.id,
-                      title: property.title,
-                      price: Number(property.sale_price ?? 0),
-                      lat: Number(property.location_lat),
-                      lng: Number(property.location_lng),
-                      isVip: property.is_vip ?? false,
-                      isSuperVip: property.is_super_vip ?? false,
-                      photo: Array.isArray(property.photos)
-                        ? (property.photos[0] as string)
-                        : undefined,
-                    },
-                  ]}
+                  properties={mapMarkers}
                   isForSale
                   showRouteButton
                 />
@@ -709,10 +703,10 @@ export default function SaleDetailClient({
                 {t("noCoordinates")}
               </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Disclaimer */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.36 }}>
+          <div style={enterUp(0.36)}>
             <div className="flex items-start gap-2.5 rounded-[16px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" />
               <div>
@@ -724,11 +718,11 @@ export default function SaleDetailClient({
                 </p>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Reviews */}
           {reviews.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
+            <div style={enterUp(0.4)}>
               <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("reviewsTitle")} ({reviews.length})
               </h2>
@@ -745,16 +739,14 @@ export default function SaleDetailClient({
                   />
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 
         {/* Sidebar */}
-        <motion.div
+        <div
+          style={enterLeft(0.2)}
           id="seller-sidebar"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
           className="lg:sticky lg:top-[calc(91px+12px)] lg:self-start"
         >
           <div className="space-y-4">
@@ -894,7 +886,7 @@ export default function SaleDetailClient({
             </div>
           </div>
           <BannerSlot placement="detail_sidebar" />
-        </motion.div>
+        </div>
       </div>
 
       {/* Construction milestones modal */}

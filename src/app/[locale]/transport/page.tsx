@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import TransportPageClient from "./TransportPageClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 export const revalidate = 60;
 
@@ -53,5 +54,5 @@ export default async function TransportPage() {
     );
   }
 
-  return <TransportPageClient services={services ?? []} />;
+  return <TransportPageClient services={(services ?? []).map(firstPhotoOnly)} />;
 }

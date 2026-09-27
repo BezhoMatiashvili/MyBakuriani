@@ -13,25 +13,55 @@ Anchor grammar: `` `‹relpath›.‹ext›:‹symbol›` `` (a real one looks l
 ## C1 — i18n key parity & namespace scoping
 
 **Invariant:** the three catalogs `messages/ka.json`, `messages/en.json`,
-`messages/ru.json` must have identical key sets, and every message namespace
-reachable from a **public client component** must be listed in
-`PUBLIC_NAMESPACES`.
+`messages/ru.json` must have identical key sets, and every message namespace a
+client component uses must be in the constant of the **provider it renders
+under**: `PUBLIC_NAMESPACES` for the root `[locale]` provider, or the constant of
+a nested provider (`CREATE_NAMESPACES`, `AUTH_NAMESPACES`, `FAQ_NAMESPACES`,
+`MANUAL_REVIEW_NAMESPACES`, `SMS_CONSENT_NAMESPACES`, `DASHBOARD_NAMESPACES`).
 
 Participating symbols:
 
-- `src/i18n/namespaces.ts:PUBLIC_NAMESPACES` — the allow-list shipped to public browsers
-- `src/i18n/namespaces.ts:pickMessages` — trims the bundle to that list
+- `src/i18n/namespaces.ts:PUBLIC_NAMESPACES` — the root provider's set, shipped in every HTML document and static RSC payload
+- `src/i18n/namespaces.ts:CREATE_NAMESPACES` (and the five sibling constants) — re-provided by `create/layout.tsx`, `auth/layout.tsx`, `faq/page.tsx`, `review/[token]/page.tsx`, `sms-consent/[token]/page.tsx` and `dashboard/layout.tsx`
+- `src/i18n/namespaces.ts:pickMessages` — trims the bundle to a list
 - `messages/ka.json:Navbar` — default-locale catalog (top-level keys are namespaces)
-- `scripts/i18n-scope.mjs:PUBLIC_NAMESPACES` — build guard (`--check`, wired as `prebuild`)
+- `scripts/i18n-scope.mjs:SCOPES` — build guard (`--check`, wired as `prebuild`): maps every route entry to the provider that renders it, re-derives each scope's namespace set from the client import graph, and fails if a constant misses one or a provider file stops rendering `NextIntlClientProvider` with its constant
 - `scripts/check-message-parity.mjs:flatten` — key-parity check across the 3 files
 
-**Also check:** `src/app/[locale]/layout.tsx` (public provider) and any
-`dashboard/**/layout.tsx` (full-bundle provider); a new user-facing string needs a
-key in **all three** catalogs.
+**Nested providers REPLACE, they do not merge (2026-09-27).** Until then the root
+provider shipped 79 namespaces to every page, including 23 used only by /create,
+/auth, /faq and the two token pages (~10 KB gz per document in ka), and the
+dashboard layout re-provided the whole catalog. Each nested scope now carries
+every namespace reachable under it, shell pieces such as `Shared` (SkierLoader),
+`Error` (the layout's own error.tsx renders inside it), `LanguageSelector` and
+`CreateHeader` included. A layout-level provider covers its whole directory; a
+page-level provider covers only that page, so e.g. `faq/loading.tsx` and
+`faq/error.tsx` stay under the root provider. Every nested provider gets the
+locale explicitly, and one on a static route (`/faq`) calls
+`setRequestLocale(locale)` first: next-intl's server provider otherwise resolves
+timeZone/formats by reading `headers()`, which turns the route dynamic. `/auth/*`
+is the opposite case. It was always rendered per request, but only implicitly
+(its layout's `Link` read the locale from `headers()` before the root layout had
+set it), and a static prerender would bail the login/register forms out to
+client rendering because they read search params. Its layout now says
+`dynamic = "force-dynamic"`. The build table shows ● for these routes either
+way; `.next/prerender-manifest.json` is the ground truth. The signed-in
+`/create` prefetch (AddListingButton, default prefetch) now carries
+`CREATE_NAMESPACES`; those bytes moved off every HTML document into that
+background request.
+
+**Also check:** `src/app/[locale]/layout.tsx` (root provider) and the six nested
+provider files; a new user-facing string needs a key in **all three** catalogs.
+A new route tree that should get its own provider needs a `SCOPES` entry.
 
 **Breaks silently when:** you add a key to `ka.json` only (other locales render the
-key name), or a public client component starts using a namespace not in
-`PUBLIC_NAMESPACES` (missing translations in prod; `prebuild` catches it locally).
+key name), or a client component starts using a namespace missing from its
+scope's constant (raw keys in prod; `prebuild` catches it locally), or a nested
+provider is rendered without `setRequestLocale` on a static route (the route
+flips to dynamic with no error; the build table keeps showing ●, only
+`.next/prerender-manifest.json` or `next build --debug` reveals it). The reverse
+also happens silently: reordering what a layout awaits can make a route that
+relied on an implicit `headers()` read static.
 
 ---
 
@@ -92,6 +122,8 @@ Participating symbols:
 - `src/lib/types/database.generated.ts:user_role` — the role enum mirrored in TS (guest…admin)
 - `src/lib/supabase/server.ts:createClient` / `src/lib/supabase/client.ts:createClient` — `createClient<Database>()`
 - `src/lib/supabase/admin.ts:createServiceClient` — service-role client
+
+**Explicit view column lists (2026-09-27).** The landing, `/blog`, `/search` and `/sales/all` now `select()` explicit column lists from the `public_*` views instead of `*`, and `PublicViews.public_properties.Row` gained the real view-only `profile_is_verified` (read by `/search`). The typed select parser checks those lists against this layer, which types a view as its base table plus the listed extras, so a column the VIEW lacks still compiles and only fails at runtime (PostgREST 400). Probe any new list against staging with `?select=…&limit=1`, and use only columns present in the prod-era view definitions.
 
 **Since 2026-09-21 the generated file is regenerable again and hand edits are
 banned.** The `supabase gen types` output for the staging project
@@ -421,6 +453,26 @@ attribution control to stay enabled for any rendered map (checked/enforced in
 both components — do not pass `attributionControl: false` or hide
 `.mapboxgl-ctrl-attrib`/`.mapboxgl-ctrl-logo` via CSS).
 
+**2026-09-27: mapbox-gl loads on demand.** `BakurianiMap.tsx` no longer imports
+mapbox-gl or its stylesheet; the interactive map (`MapboxMapView`, the
+`light-v11` style, the default attribution control) lives in
+`src/components/maps/MapboxCanvas.tsx`, loaded through
+`src/components/maps/loadMapboxCanvas.ts:loadMapboxCanvas`, which retries a
+failed chunk load once. Wider than 767px, `BakurianiMap.tsx:canvasReady` starts
+that load as soon as the component's module loads, and every `dynamic()` import
+of BakurianiMap waits for it with
+`import("@/components/maps/BakurianiMap").then((mod) => mod.canvasReady.then(() => mod))`,
+as when both shared a chunk, so a second failure there rejects the import and
+reaches the error boundary exactly as before the split. The `import()` must stay
+inline in the `dynamic()` call: that is what lets Next drop the `ssr: false`
+import from the server build (a named loader function kept mapbox-gl, ~1.8 MB, in
+`.next/server`). Phones get the component and its static preview first, fetch
+mapbox-gl after `load` + idle or on pointerdown of the preview, and show the
+map's "unavailable" state if it cannot load. The phone preview's
+`src/lib/maps/staticMapUrl.ts:STYLE` must stay equal to
+`MapboxCanvas.tsx:MAPBOX_STYLE`. A new BakurianiMap call site without the
+`canvasReady` wait renders a placeholder on desktop until mapbox-gl arrives.
+
 **Also check:** put the host in the directive it's actually used from — `img-src`
 for images, `connect-src` for fetch/websocket, `media-src` for video/audio,
 `font-src` for web fonts, `frame-src` for embedded iframes — and (images only)
@@ -644,7 +696,7 @@ neighbor migrations).
 Participating symbols:
 
 - `supabase/migrations/20260424120000_favorites.sql:favorites_exactly_one_ref` — the check constraint
-- `src/lib/hooks/useFavorite.ts:useFavorite` — takes `{ propertyId }` or `{ serviceId }`, branches the column name once and reuses it for select/insert/delete
+- `src/lib/hooks/useFavorite.ts:useFavorite` — takes `{ propertyId }` or `{ serviceId }`, branches the column name once and reuses it for select/insert/delete. Since 2026-09-27 it gets the signed-in user from `src/lib/auth/session-store.ts:subscribeAuthUser` (one shared `getSession()` + `onAuthStateChange()` for every card, instead of one of each per card, each behind GoTrue's Web Lock). Each card still starts with no user and receives it asynchronously, so the mount-time `clearFavorites()` path is unchanged
 - `src/lib/favorites/store.ts:ensureFavoritesLoaded` — shared per-user store; selects both `property_id, service_id` and merges them into one id `Set` (properties and services generate independent UUIDs, so no collision risk)
 - `src/app/[locale]/dashboard/guest/favorites/page.tsx` — reference consumer that already splits results into property vs. service favorites correctly
 - `supabase/migrations/20260614000000_owner_dashboard_stats.sql` — DB-side reference for the same branching pattern (counts favorites via `f.property_id in (...) or f.service_id in (...)`)
@@ -1190,7 +1242,7 @@ Participating symbols:
 - `src/lib/rateLimit.ts:checkRateLimit` — Upstash when both env vars exist, else Postgres, else in-memory (dev) / **allow** (prod, logged). Because it imports `createServiceClient`, this module is **server-only** — importing it from a client component would pull the service-role client into the browser bundle. All 10 importers today are route handlers (`runtime = "nodejs"`) or the one `"use server"` action `src/app/actions/revalidateListing.ts`
 - `supabase/functions/_shared/guards.ts:checkRateLimit` — the Deno twin of the above, same fallback order, same fail-open rule. Calls the same RPC through `createServiceClient()`
 - `src/lib/rateLimit.ts:getClientIp` — trusts `x-forwarded-for`, taking the **last** comma-separated value. Now load-bearing: the contact limit is keyed on the IP **alone**, so this is only safe if the trusted edge's own hop is the one being read. **Resolved 2026-09-08, and the resolution went the opposite way from the standing assumption**: DigitalOcean App Platform's edge APPENDS the true client IP rather than overwriting the header, so the old `.split(",")[0]` (first value) was attacker-controlled — confirmed live against `https://mybakuriani.ge/api/geocode` (20/60s limit): 25 requests each carrying a distinct spoofed `X-Forwarded-For` all returned 200 (bypassed), while an unmodified control correctly 429'd starting at request 21. This affected every caller of `getClientIp` (contact reveal, geocode, view/analytics beacons, job applications, photo-upload intents, banner tracking, and the C27 site-lock unlock endpoint that surfaced it), not just one route. Fixed by switching to the **last** hop, which is the one this single trusted proxy actually appended; a client can prepend arbitrarily many fake hops but cannot control what appears after its own request leaves it. The Vercel-era "overwrites, trust the first value" assumption was correct for Vercel and is exactly backwards for DO — don't restore first-value parsing when reasoning from the old Vercel note
-- `src/app/api/listings/[kind]/[id]/contact/route.ts` — **two** buckets per call, both keyed on `subject` = `user:<id>` when signed in, else `ip:<addr>`: `listing-contact:<subject>:<kind>:<id>` at 8/h and `listing-contact-all:<subject>` at 30/h. The per-listing bucket alone bounds nothing — with ~49 active listings a scraper stays inside it while taking the whole catalogue — so the cross-listing bucket is the one doing the work. Keying signed-in users on their own id is what stops anonymous traffic from a carrier NAT starving an authenticated user on the same egress. `device_id` is NOT in either key (client-supplied: rotating it minted a fresh budget per request, so the limit bound only honest clients) but is still written to `contact_reveal_events` for audit. This is friction, not prevention: only Turnstile stops a distributed scrape, and its secret is unset. Its listing lookup uses the explicit `properties_owner_id_fkey` / `services_owner_id_fkey` profile embeds; a lookup error is a `500 lookup_failed`, while only a successful lookup with no active row is `404`. Collapsing an ambiguous-relationship or database error into `404` hides outages as missing listings and breaks contact reveals silently
+- `src/app/api/listings/[kind]/[id]/contact/route.ts` — **two** buckets per call, both keyed on `subject` = `user:<id>` when signed in, else `ip:<addr>`: `listing-contact:<subject>:<kind>:<id>` at 8/h and `listing-contact-all:<subject>` at 30/h. The per-listing bucket alone bounds nothing — with ~49 active listings a scraper stays inside it while taking the whole catalogue — so the cross-listing bucket is the one doing the work. Keying signed-in users on their own id is what stops anonymous traffic from a carrier NAT starving an authenticated user on the same egress. `device_id` is NOT in either key (client-supplied: rotating it minted a fresh budget per request, so the limit bound only honest clients) but is still written to `contact_reveal_events` for audit. This is friction, not prevention: only Turnstile stops a distributed scrape, and its secret is unset. Its listing lookup uses the explicit `properties_owner_id_fkey` / `services_owner_id_fkey` profile embeds; a lookup error is a `500 lookup_failed`, while only a successful lookup with no active row is `404`. Collapsing an ambiguous-relationship or database error into `404` hides outages as missing listings and breaks contact reveals silently. Since 2026-09-27 the lookup starts right after parameter validation and runs while the auth check and both limiter RPCs are awaited (it is awaited at the same point, so 429 > 403 > 500 > 404 precedence is unchanged; a limited or unverified request now also runs one discarded primary-key read), and the `contact_reveal_events` insert — whose result was never checked — runs in `after()`, after the response. The two limiter calls stay sequential: the `&&` short-circuit is intentional
 - `src/lib/turnstile.ts:isTurnstileConfigured` — call-site gate. `verifyTurnstile` must keep returning `false` without a secret; the _caller_ skips it. Making the helper itself return `true` when unconfigured would silently disarm bot protection for every future caller
 - `src/app/api/banner-slots/track/route.ts` — its `limiterConfigured` workaround is **gone**; the limit now applies unconditionally, which is only correct because the limiter fails open
 - `src/app/api/track/view/route.ts:POST` — validates and stores public-page views, applies the shared limiter, and keeps the anonymous `mb_vid` cookie server-issued
@@ -1603,7 +1655,10 @@ in the DB or `src/` reads the old key.
 **Realtime must stay filtered on `user_id`, never on `dashboard_scope`.** Realtime supports one filter;
 swapping it for `dashboard_scope=eq.<scope>` drops the per-user predicate, and the "Admins full access
 notifications" RLS policy then delivers _other users'_ notifications into an admin's own feed. The scope
-is applied client-side in the payload handler instead.
+is applied client-side in the payload handler instead. `dashboard/renter/notifications/page.tsx`
+used a `dashboard_scope=eq.renter` filter until 2026-09-27 (it only triggered refetches, which filter by
+user, so nothing leaked); it now filters on `user_id`, checks the scope in the handler, and coalesces
+refetches to one in flight plus one trailing.
 
 **Also check:** `src/lib/types/database.ts` must carry `dashboard_scope` on `notifications` (**C3**), and
 the migration ends with `notify pgrst, 'reload schema'`.
@@ -1867,6 +1922,8 @@ specifically to make this honest rather than let it read as a bug.
 as hand-edits (C3) — `contact_reveal_events` itself is still absent from that file (a pre-existing gap
 this feature did not create or fix). Not added to `supabase_realtime` (C7) — deliberately fetch-on-expand
 only, no live updates.
+
+**Reveal events are written after the response (2026-09-27).** The contact route inserts `contact_reveal_events` in `after()` (C16), so a reveal appears in `listing_analytics` a few milliseconds after the number is shown, not before. Nothing reads the row synchronously.
 
 **Breaks silently when:** a future metric is added to the panel without a real per-event source behind it
 (reintroduces the fabricated-impressions problem this contract exists to prevent); the analytics route is
@@ -2362,6 +2419,8 @@ true }` option; all dashboard/admin "guest view" links pass it (6 dashboard
   `PriceDropAlertButton` decides owner/QA visibility client-side via `useAuth()`
   (the API route re-enforces everything server-side regardless)
 - `src/app/robots.ts` — disallows `/preview/`
+
+**Per-request dedupe (2026-09-27).** `getCachedPublicProperty` / `getCachedPublicService` are wrapped in React `cache()`, so `generateMetadata` and the page share one read per render (unstable_cache has no in-flight dedupe, and Supabase requests carry an AbortSignal, which opts them out of Next's fetch memoization). The inner `unstable_cache` keys and tags are unchanged and nothing reads cookies/headers. Within a request both callers now get the same object, so nothing may mutate the returned row.
 
 **Also check:** `revalidateTag(listingTag(...))` purges Next's data+route caches
 but NOT Cloudflare — moderation changes can lag ≤60s at the edge for anonymous
@@ -2989,7 +3048,7 @@ billing and counter columns); redefining that trigger from anything but the live
 
 ## C38 — Geolocation consent, personalized road card, in-page routing
 
-**Invariant:** `mb_cookie_consent` (`src/lib/consent/cookies.ts`) is `v2|analytics=<0|1>|location=<0|1>`; `location` is independent of `analytics` (neither write gates the other) and a legacy `v1|analytics=<0|1>` cookie still parses, with `location: null` ("never asked" — never treated as consent). The only code that calls `navigator.geolocation` is `src/lib/geolocation/useUserLocation.ts`; it never persists coordinates anywhere (not the cookie, not storage), only the yes/no outcome. `src/lib/road-condition/shared.ts` holds the plausibility-check/classification/formatting logic BOTH road-status paths use: `server.ts` (server-only, secret `MAPBOX_ACCESS_TOKEN`, fixed Tbilisi→Bakuriani, `withLiveRoad`) and `personalized.ts` (client, public `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, arbitrary visitor origin, `withPersonalizedRoad`) — but each keeps its OWN plausibility bounds (server.ts's 100 km/1 h minimums would wrongly reject a visitor already near Bakuriani). `src/lib/maps/directions.ts:fetchDrivingRoute` (client, Mapbox Directions `driving-traffic`, public token) is the one route-geometry fetch shared by the personalized road card's map (`RoadRouteMap.tsx`) and every listing map's "show me the route" button (`BakurianiMap.tsx`'s `showRouteButton`/`route` props). `src/lib/maps/googleMapsUrl.ts:googleMapsDirectionsUrl` builds the "open in Google Maps" deep link; without an `origin` it still works (Google Maps falls back to the device's own location), which is the fallback shown when a visitor declined. Reverse geocoding (coords → place name, for the personalized card's label) is an additive `lat`/`lng` branch on `/api/geocode` (Photon, same provider as that route's existing forward search) — unlike the forward path, NOT filtered to Georgia.
+**Invariant:** `mb_cookie_consent` (`src/lib/consent/cookies.ts`) is `v2|analytics=<0|1>|location=<0|1>`; `location` is independent of `analytics` (neither write gates the other) and a legacy `v1|analytics=<0|1>` cookie still parses, with `location: null` ("never asked" — never treated as consent). The only code that calls `navigator.geolocation` is `src/lib/geolocation/useUserLocation.ts`; it never persists coordinates anywhere (not the cookie, not storage), only the yes/no outcome. `src/lib/road-condition/shared.ts` holds the plausibility-check/classification/formatting logic BOTH road-status paths use: `server.ts` (server-only, secret `MAPBOX_ACCESS_TOKEN`, fixed Tbilisi→Bakuriani, `withLiveRoad`) and `personalized.ts` (client, public `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, arbitrary visitor origin, `withPersonalizedRoad`) — but each keeps its OWN plausibility bounds (server.ts's 100 km/1 h minimums would wrongly reject a visitor already near Bakuriani). `src/lib/maps/directions.ts:fetchDrivingRoute` (client, Mapbox Directions `driving-traffic`, public token) is the one route-geometry fetch shared by the personalized road card's map (`RoadRouteMap.tsx`) and every listing map's "show me the route" button (`BakurianiMap.tsx`'s `showRouteButton`/`route` props). The props stay on `BakurianiMap.tsx`, but since the 2026-09-27 mapbox-gl split (C6) the route line layer and its origin marker are drawn in `src/components/maps/MapboxCanvas.tsx`, and `RoadRouteMap.tsx` waits for `canvasReady` like every other `dynamic()` import of the map. `src/lib/maps/googleMapsUrl.ts:googleMapsDirectionsUrl` builds the "open in Google Maps" deep link; without an `origin` it still works (Google Maps falls back to the device's own location), which is the fallback shown when a visitor declined. Reverse geocoding (coords → place name, for the personalized card's label) is an additive `lat`/`lng` branch on `/api/geocode` (Photon, same provider as that route's existing forward search) — unlike the forward path, NOT filtered to Georgia.
 
 **Key:** `showRouteButton` only makes sense with a single known destination — `BakurianiMap.tsx` derives it from `center` OR (falling back) a sole `properties[0]` entry; wired on the 3 exact-location detail pages (apartments/hotels/sales `[id]`), never on multi-pin listing/zone maps. The personalized road card's title stays the fixed phrase `{ka: "გზა თქვენი მდებარეობიდან", ...}` rather than inflecting an arbitrary Georgian place name (e.g. "მცხეთიდან" is not simply "მცხეთა" + "-დან") — the resolved place name is its own item row instead. `useUserLocation()` listens for `CONSENT_CHANGE_EVENT` (dispatched by both the cookie banner's direct `requestUserLocation()` call and by its own `request()`) so a grant made elsewhere on an already-mounted page — e.g. the road card's own hook instance, separate from the banner's — updates without a reload. This can't loop only because `writeLocationConsent()` is a no-op (no cookie write, no dispatch) when the new value equals the already-stored one — a successful `request()` re-records the same `true` it already read as its trigger, which fires no further event; every mounted hook's own `request()` still runs once per genuine change, never per event it caused itself. `requestUserLocation()` records a decline (`location:false`) only on `GeolocationPositionError.PERMISSION_DENIED` — a transient TIMEOUT/POSITION_UNAVAILABLE leaves consent as `null` ("never asked") rather than looking like a year-long opt-out.
 

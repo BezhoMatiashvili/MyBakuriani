@@ -22,26 +22,32 @@ import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
 import { isDiscountActive } from "@/lib/utils/pricing";
-import type { Tables } from "@/lib/types/database";
+import type { LandingSaleProperty } from "./columns";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 import { MobileRail } from "@/components/shared/MobileRail";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 
 interface SaleLandingBodyProps {
   mode: "rent" | "sale";
   onModeChange: (mode: "rent" | "sale") => void;
-  saleProperties?: Tables<"properties">[];
-  superVipProperties?: Tables<"properties">[];
+  saleProperties?: LandingSaleProperty[];
+  superVipProperties?: LandingSaleProperty[];
   pricePerSqmByZone?: Record<string, number | null>;
   zones: Zone[];
   bannerCreatives?: BannerCreative[];
@@ -84,7 +90,7 @@ function estimatedRoi(id: string): number {
 }
 
 /** SalePropertyCard props from a public_properties sale row. */
-function toSaleCard(p: Tables<"properties">) {
+function toSaleCard(p: LandingSaleProperty) {
   return {
     id: p.id,
     title: p.title,
