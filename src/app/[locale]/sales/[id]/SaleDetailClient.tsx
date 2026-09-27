@@ -45,14 +45,20 @@ import {
   previewContactWhatsapp,
 } from "@/lib/utils/preview-contact";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-[20px] bg-[#F8FAFC]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-[20px] bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;

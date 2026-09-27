@@ -30,14 +30,20 @@ import { applyDiscount } from "@/lib/utils/pricing";
 import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-[300px] items-center justify-center rounded-2xl bg-[#F1F5F9]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[300px] items-center justify-center rounded-2xl bg-[#F1F5F9]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 import type { Tables } from "@/lib/types/database";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";

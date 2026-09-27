@@ -453,6 +453,26 @@ attribution control to stay enabled for any rendered map (checked/enforced in
 both components — do not pass `attributionControl: false` or hide
 `.mapboxgl-ctrl-attrib`/`.mapboxgl-ctrl-logo` via CSS).
 
+**2026-09-27: mapbox-gl loads on demand.** `BakurianiMap.tsx` no longer imports
+mapbox-gl or its stylesheet; the interactive map (`MapboxMapView`, the
+`light-v11` style, the default attribution control) lives in
+`src/components/maps/MapboxCanvas.tsx`, loaded through
+`src/components/maps/loadMapboxCanvas.ts:loadMapboxCanvas`, which retries a
+failed chunk load once. Wider than 767px, `BakurianiMap.tsx:canvasReady` starts
+that load as soon as the component's module loads, and every `dynamic()` import
+of BakurianiMap waits for it with
+`import("@/components/maps/BakurianiMap").then((mod) => mod.canvasReady.then(() => mod))`,
+as when both shared a chunk, so a second failure there rejects the import and
+reaches the error boundary exactly as before the split. The `import()` must stay
+inline in the `dynamic()` call: that is what lets Next drop the `ssr: false`
+import from the server build (a named loader function kept mapbox-gl, ~1.8 MB, in
+`.next/server`). Phones get the component and its static preview first, fetch
+mapbox-gl after `load` + idle or on pointerdown of the preview, and show the
+map's "unavailable" state if it cannot load. The phone preview's
+`src/lib/maps/staticMapUrl.ts:STYLE` must stay equal to
+`MapboxCanvas.tsx:MAPBOX_STYLE`. A new BakurianiMap call site without the
+`canvasReady` wait renders a placeholder on desktop until mapbox-gl arrives.
+
 **Also check:** put the host in the directive it's actually used from — `img-src`
 for images, `connect-src` for fetch/websocket, `media-src` for video/audio,
 `font-src` for web fonts, `frame-src` for embedded iframes — and (images only)

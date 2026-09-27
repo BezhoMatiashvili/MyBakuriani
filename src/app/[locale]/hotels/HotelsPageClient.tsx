@@ -38,14 +38,20 @@ import type { StatusCard } from "@/lib/status-cards/types";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 
 const ITEMS_PER_PAGE = 9;
 

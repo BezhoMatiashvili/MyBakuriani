@@ -24,14 +24,20 @@ import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-[300px] items-center justify-center rounded-2xl bg-[#F1F5F9]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[300px] items-center justify-center rounded-2xl bg-[#F1F5F9]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 import { type CalendarDate } from "@/components/booking/CalendarGrid";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import ReviewCard from "@/components/cards/ReviewCard";
