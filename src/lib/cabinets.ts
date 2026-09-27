@@ -46,6 +46,28 @@ export function roleToCabinetKey(role: string | null | undefined): CabinetKey {
   }
 }
 
+const ROLE_HOME_PATH: Record<string, string> = {
+  guest: "/dashboard/guest",
+  renter: "/dashboard/renter",
+  seller: "/dashboard/seller",
+  cleaner: "/dashboard/cleaner",
+  food: "/dashboard/food",
+  entertainment: "/dashboard/entertainment",
+  transport: "/dashboard/transport",
+  employment: "/dashboard/employment",
+  handyman: "/dashboard/services",
+  admin: "/dashboard/admin",
+};
+
+/**
+ * Where /dashboard sends a user of this role. The site navbars link there
+ * directly once the profile is loaded, skipping the redirect's extra server
+ * round trip (a full dashboard layout render).
+ */
+export function roleHomePath(role: string): string {
+  return ROLE_HOME_PATH[role] ?? "/dashboard/guest";
+}
+
 /**
  * Map a service listing category to its cabinet key. Each service category now
  * has its own cabinet; cleaning and food keep their dedicated dashboards.

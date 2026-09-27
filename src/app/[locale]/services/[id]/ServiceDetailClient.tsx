@@ -2,7 +2,6 @@
 
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Clock,
@@ -18,6 +17,7 @@ import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
+import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
@@ -44,12 +44,6 @@ interface Props {
   isMock?: boolean;
   isPending?: boolean;
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function ServiceDetailClient({
   service,
@@ -108,19 +102,16 @@ export default function ServiceDetailClient({
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
       {/* Breadcrumb */}
-      <motion.nav
-        {...fadeIn}
+      <nav
+        style={enterUp()}
         className="mb-4 flex items-center gap-1.5 text-[12px] text-[#94A3B8]"
       >
         <span>{t("breadcrumbRoot")}</span>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="text-[#64748B]">{categoryLabel}</span>
-      </motion.nav>
+      </nav>
 
-      <motion.div
-        {...fadeIn}
-        className="mb-6 flex items-center justify-between"
-      >
+      <div style={enterUp()} className="mb-6 flex items-center justify-between">
         <button
           type="button"
           onClick={() => router.back()}
@@ -133,10 +124,10 @@ export default function ServiceDetailClient({
           <Share2 className="h-4 w-4" />
           {tShare("label")}
         </ShareMenu>
-      </motion.div>
+      </div>
 
       {/* Title */}
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+      <div style={enterUp(0.15)}>
         <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[36px] sm:leading-[44px]">
           {service.title}
         </h1>
@@ -174,28 +165,23 @@ export default function ServiceDetailClient({
             {tShared("views", { count: views })}
           </span>
         </div>
-      </motion.div>
+      </div>
 
       {/* Description */}
       {service.description && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="mt-8"
-        >
+        <div style={enterUp(0.2)} className="mt-8">
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
             {t("about")}
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
           </p>
-        </motion.div>
+        </div>
       )}
 
       {/* Stats grid */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.25 }}
+      <div
+        style={enterUp(0.25)}
         className="mt-8 grid grid-cols-2 gap-4 rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] p-6 sm:grid-cols-4"
       >
         <div className="flex flex-col gap-1">
@@ -251,13 +237,12 @@ export default function ServiceDetailClient({
             </span>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Verified specialist callout */}
       {owner?.is_verified && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.3 }}
+        <div
+          style={enterUp(0.3)}
           className="mt-6 flex items-start gap-4 rounded-[20px] border border-[#DBEAFE] bg-[#F0F7FF] p-6"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-white">
@@ -271,14 +256,13 @@ export default function ServiceDetailClient({
               {t("verifiedBody")}
             </p>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Price + CTA row */}
-      <motion.div
+      <div
+        style={enterUp(0.35)}
         id="contact-sidebar"
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.35 }}
         className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center"
       >
         {service.price != null && (
@@ -312,7 +296,7 @@ export default function ServiceDetailClient({
             serviceId={service.id}
           />
         </div>
-      </motion.div>
+      </div>
 
       {service.price != null && (
         <MobileStickyCTA

@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AddListingButton } from "@/components/shared/AddListingButton";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { roleHomePath } from "@/lib/cabinets";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -72,6 +73,7 @@ export function Navbar() {
   const [profile, setProfile] = useState<{
     display_name: string;
     avatar_url: string | null;
+    role: string;
   } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
 
@@ -87,7 +89,7 @@ export function Navbar() {
       const [profileRes, balanceRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("display_name, avatar_url")
+          .select("display_name, avatar_url, role")
           .eq("id", user!.id)
           .single(),
         supabase
@@ -122,6 +124,10 @@ export function Navbar() {
       clearTimeout(timeoutId);
     };
   }, [user]);
+
+  // Straight to the user's cabinet once the role is known; /dashboard would
+  // only redirect there after a full dashboard layout render.
+  const dashboardHref = profile ? roleHomePath(profile.role) : "/dashboard";
 
   // The public bell is intentionally cross-cabinet, so it always opens the
   // aggregate inbox rather than whichever cabinet happens to be primary.
@@ -251,7 +257,7 @@ export function Navbar() {
               dashboard layout (auth + the dashboard_layout_data RPC) server-side
               on every public page view, for a link most visitors never click. */}
           {user && (
-            <Link href="/dashboard" prefetch={false}>
+            <Link href={dashboardHref} prefetch={false}>
               <Button
                 variant="outline"
                 className="gap-1.5 rounded-xl border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-bold leading-5 text-[#334155]"
@@ -292,7 +298,7 @@ export function Navbar() {
           )}
           {user && (
             <Link
-              href="/dashboard"
+              href={dashboardHref}
               prefetch={false}
               aria-label={t("profile")}
               className="flex size-11 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF] lg:size-10"
@@ -451,7 +457,7 @@ export function Navbar() {
                     </span>
                   </div>
                   <Link
-                    href="/dashboard"
+                    href={dashboardHref}
                     prefetch={false}
                     onClick={() => setMobileOpen(false)}
                   >

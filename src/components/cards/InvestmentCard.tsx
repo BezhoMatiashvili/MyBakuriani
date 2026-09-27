@@ -7,6 +7,7 @@ import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { FALLBACK_ZONES } from "@/lib/zones/types";
@@ -127,8 +128,7 @@ export default function InvestmentCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      style={cardEnter}
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       className="group h-full"

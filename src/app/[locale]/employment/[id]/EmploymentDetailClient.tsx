@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -40,6 +39,7 @@ import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
+import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
@@ -127,12 +127,6 @@ const SALARY_MODEL_KEYS: Record<SalaryModel, string> = {
   fixed_bonus: "fixedBonus",
   commission: "commission",
   negotiable: "negotiable",
-};
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
 };
 
 // `value` strings are stored in the DB and must stay Georgian; labels are translated.
@@ -420,22 +414,22 @@ export default function EmploymentDetailClient({
           full pill and "გამოქვეყნდა: …" text fit, as before. Screen readers
           get the full published text at every width. */}
       <div className="mb-6 flex items-center justify-between gap-2">
-        <motion.button
-          {...fadeIn}
+        <button
+          style={enterUp()}
           onClick={() => router.back()}
           className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-[#64748B] transition-colors hover:text-[#1E293B] sm:min-h-0"
         >
           <ArrowLeft className="h-4 w-4" />
           {tShared("back")}
-        </motion.button>
+        </button>
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <ShareMenu className="flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC] sm:size-auto sm:px-3.5 sm:py-2">
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">{tShare("label")}</span>
           </ShareMenu>
           {service.created_at && (
-            <motion.div
-              {...fadeIn}
+            <div
+              style={enterUp()}
               className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
             >
               <ClockIcon className="h-3.5 w-3.5 shrink-0" />
@@ -449,16 +443,15 @@ export default function EmploymentDetailClient({
                   date: formatDate(service.created_at, locale),
                 })}
               </span>
-            </motion.div>
+            </div>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] lg:gap-8">
         <div>
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.1 }}
+          <div
+            style={enterUp(0.1)}
             className="mb-4 flex flex-wrap items-center gap-2"
           >
             <span className="inline-flex items-center gap-1.5 rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[12px] font-black text-[#16A34A]">
@@ -470,19 +463,17 @@ export default function EmploymentDetailClient({
                 VIP
               </span>
             )}
-          </motion.div>
+          </div>
 
-          <motion.h1
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.15 }}
+          <h1
+            style={enterUp(0.15)}
             className="break-words text-[30px] font-black leading-[38px] text-[#0F172A] sm:text-[44px] sm:leading-[52px]"
           >
             {service.position ?? service.title}
-          </motion.h1>
+          </h1>
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.2 }}
+          <div
+            style={enterUp(0.2)}
             className="mt-5 flex flex-wrap items-center gap-3"
           >
             <span className="inline-flex items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-3 py-2 text-[14px] font-bold text-[#1E293B]">
@@ -502,11 +493,10 @@ export default function EmploymentDetailClient({
               <Eye className="h-4 w-4" />
               {tShared("views", { count: views })}
             </span>
-          </motion.div>
+          </div>
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.25 }}
+          <div
+            style={enterUp(0.25)}
             className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"
           >
             <StatCard
@@ -544,11 +534,10 @@ export default function EmploymentDetailClient({
                   : t("stats.preferred")
               }
             />
-          </motion.div>
+          </div>
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.28 }}
+          <div
+            style={enterUp(0.28)}
             className="mt-3 rounded-[16px] border border-[#E2E8F0] bg-white p-4 lg:hidden"
           >
             <h2 className="mb-3 text-[15px] font-black text-[#0F172A]">
@@ -583,29 +572,21 @@ export default function EmploymentDetailClient({
                 </div>
               )}
             </dl>
-          </motion.div>
+          </div>
 
           {service.description && (
-            <motion.div
-              {...fadeIn}
-              transition={{ duration: 0.4, delay: 0.3 }}
-              className="mt-8"
-            >
+            <div style={enterUp(0.3)} className="mt-8">
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("jobDescription")}
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {service.description}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {service.requirements?.trim() && (
-            <motion.div
-              {...fadeIn}
-              transition={{ duration: 0.4, delay: 0.35 }}
-              className="mt-8"
-            >
+            <div style={enterUp(0.35)} className="mt-8">
               <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("requirements")}
               </h2>
@@ -623,13 +604,12 @@ export default function EmploymentDetailClient({
                     </li>
                   ))}
               </ul>
-            </motion.div>
+            </div>
           )}
 
           {(owner?.is_verified ?? true) && (
-            <motion.div
-              {...fadeIn}
-              transition={{ duration: 0.4, delay: 0.4 }}
+            <div
+              style={enterUp(0.4)}
               className="mt-8 rounded-[16px] border border-[#A7F3D0] bg-[#ECFDF5] p-5"
             >
               <p className="mb-1 text-[15px] font-black text-[#0F766E]">
@@ -638,14 +618,13 @@ export default function EmploymentDetailClient({
               <p className="text-[13px] leading-[20px] text-[#475569]">
                 {t("verifiedEmployerBody")}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {/* Application form */}
-          <motion.div
+          <div
+            style={enterUp(0.45)}
             id="contact-sidebar"
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.45 }}
             className="mt-10 rounded-[24px] border border-[#E2E8F0] bg-gradient-to-b from-[#F8FAFC] to-white p-6 sm:p-8"
           >
             <h2 className="mb-2 text-center text-[28px] font-black text-[#1E293B] sm:text-[32px]">
@@ -1007,15 +986,10 @@ export default function EmploymentDetailClient({
               <Send className="h-4 w-4" />
               {submitting ? t("form.submitting") : t("form.submit")}
             </Button>
-          </motion.div>
+          </div>
         </div>
 
-        <motion.aside
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="space-y-4"
-        >
+        <aside style={enterLeft(0.2)} className="space-y-4">
           <div className="sticky top-24 hidden rounded-[20px] border border-[#E2E8F0] bg-white p-6 lg:block">
             <h3 className="mb-5 text-[18px] font-black text-[#0F172A]">
               {t("sidebar.title")}
@@ -1051,7 +1025,7 @@ export default function EmploymentDetailClient({
               the aside's only content; its own margin (not the grid gap)
               separates it from the form, leaving no gap when no banner runs. */}
           <BannerSlot placement="detail_sidebar" className="mt-8 lg:mt-0" />
-        </motion.aside>
+        </aside>
       </div>
 
       <MobileStickyCTA

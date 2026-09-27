@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "@/i18n/navigation";
-import { motion } from "framer-motion";
 import { ArrowLeft, Eye, Heart, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -9,6 +8,7 @@ import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import { formatPrice } from "@/lib/utils/format";
+import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
@@ -31,12 +31,6 @@ interface Props {
   isMock?: boolean;
   isPending?: boolean;
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function FoodDetailClient({
   service,
@@ -120,8 +114,8 @@ export default function FoodDetailClient({
       {/* Back, share and favourite on one row, instead of back alone above a
           separate share/favourite row. DetailSkeleton's "2col" variant
           mirrors this row. */}
-      <motion.div
-        {...fadeIn}
+      <div
+        style={enterUp()}
         className="mb-4 flex items-center justify-between gap-3"
       >
         <button
@@ -156,15 +150,15 @@ export default function FoodDetailClient({
             />
           </button>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
+      <div style={enterUp(0.1)}>
         <FoodPhotoGallery photos={service.photos ?? []} title={service.title} />
-      </motion.div>
+      </div>
 
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+          <div style={enterUp(0.15)}>
             {categoryLabel && (
               <span className="mb-3 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700">
                 {categoryLabel}
@@ -187,21 +181,21 @@ export default function FoodDetailClient({
                 {tShared("views", { count: views })}
               </span>
             </div>
-          </motion.div>
+          </div>
 
           {service.description && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
+            <div style={enterUp(0.2)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("description")}
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {service.description}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {amenityTags.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
+            <div style={enterUp(0.25)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("servicesAndDetails")}
               </h2>
@@ -215,11 +209,11 @@ export default function FoodDetailClient({
                   </span>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {menuItems.length > 0 ? (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
+            <div style={enterUp(0.3)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("menu")}
               </h2>
@@ -272,15 +266,13 @@ export default function FoodDetailClient({
                   );
                 })}
               </div>
-            </motion.div>
+            </div>
           ) : null}
         </div>
 
-        <motion.aside
+        <aside
+          style={enterLeft(0.2)}
           id="contact-sidebar"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
           className="lg:col-span-1"
         >
           <div className="sticky top-24 space-y-4">
@@ -308,7 +300,7 @@ export default function FoodDetailClient({
             />
             <BannerSlot placement="detail_sidebar" />
           </div>
-        </motion.aside>
+        </aside>
       </div>
 
       <MobileStickyCTA

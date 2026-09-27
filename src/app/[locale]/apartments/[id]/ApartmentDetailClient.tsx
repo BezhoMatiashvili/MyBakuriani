@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { parseISO } from "date-fns";
 import {
   ArrowLeft,
@@ -26,6 +25,7 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { formatPricePerNight } from "@/lib/utils/format";
+import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { applyDiscount } from "@/lib/utils/pricing";
 import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
@@ -84,12 +84,6 @@ interface Props {
   calendarBlocks: CalendarBlock[];
   priceOverrides?: PriceOverrideRow[];
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function ApartmentDetailClient({
   property,
@@ -197,20 +191,16 @@ export default function ApartmentDetailClient({
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
-      <motion.button
-        {...fadeIn}
+      <button
+        style={enterUp()}
         onClick={() => router.back()}
         className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
         {tShared("back")}
-      </motion.button>
+      </button>
 
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="mb-6"
-      >
+      <div style={enterUp(0.1)} className="mb-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
@@ -248,21 +238,17 @@ export default function ApartmentDetailClient({
             </span>
           )}
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+      <div style={enterUp(0.15)}>
         <PhotoGallery
           photos={property.photos ?? []}
           title={property.title}
           propertyId={property.id}
         />
-      </motion.div>
+      </div>
 
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.18 }}
-        className="mt-6 flex flex-wrap gap-2"
-      >
+      <div style={enterUp(0.18)} className="mt-6 flex flex-wrap gap-2">
         {property.rooms != null && (
           <span
             data-testid="property-quick-spec-rooms"
@@ -293,25 +279,25 @@ export default function ApartmentDetailClient({
             {tDetail("areaSqm", { area: property.area_sqm })}
           </span>
         )}
-      </motion.div>
+      </div>
 
       <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           {/* Description */}
           {property.description && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
+            <div style={enterUp(0.2)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {tDetail("description")}
               </h2>
               <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {property.description}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {/* Amenities */}
           {amenities.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
+            <div style={enterUp(0.25)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {tDetail("amenitiesTitle")}
               </h2>
@@ -321,13 +307,13 @@ export default function ApartmentDetailClient({
                 showAllLabel={t("showAll")}
                 showLessLabel={t("showLess")}
               />
-            </motion.div>
+            </div>
           )}
 
           <HostLanguages value={houseRulesObj.hosting_langs} />
 
           {/* Location with Map */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
+          <div style={enterUp(0.3)}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               {tDetail("exactLocation")}
             </h2>
@@ -353,11 +339,11 @@ export default function ApartmentDetailClient({
                 {tDetail("noCoordinates")}
               </div>
             )}
-          </motion.div>
+          </div>
 
           {/* House Rules */}
           {showHouseRules && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
+            <div style={enterUp(0.35)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("houseRulesTitle")}
               </h2>
@@ -392,11 +378,11 @@ export default function ApartmentDetailClient({
                   ))}
                 </ul>
               )}
-            </motion.div>
+            </div>
           )}
 
           {/* Available dates — inline calendar */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
+          <div style={enterUp(0.4)}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               {tDetail("freeDates")}
             </h2>
@@ -405,13 +391,13 @@ export default function ApartmentDetailClient({
               selectedRange={selectedRange}
               onDateClick={handleDateClick}
             />
-          </motion.div>
+          </div>
 
           {/* Reviews — hidden entirely while empty (no submission flow reaches
               real, offline-booked stays yet), rather than showing a
               permanent "no reviews" placeholder. */}
           {!RENTAL_REVIEWS_HIDDEN && reviews.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
+            <div style={enterUp(0.45)}>
               <div className="mb-4 flex items-center gap-3">
                 <span className="flex shrink-0 items-center gap-1 rounded-[12px] bg-[#0F172A] px-3 py-2 text-[14px] font-black text-white">
                   <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
@@ -450,15 +436,13 @@ export default function ApartmentDetailClient({
                   {t("viewAllReviews", { count: reviews.length })}
                 </button>
               )}
-            </motion.div>
+            </div>
           )}
         </div>
 
         {/* Right sidebar — lg top/max-h mirror Navbar primary (91px) + category rail (94px) */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+        <div
+          style={enterLeft(0.2)}
           id="booking-sidebar"
           className="lg:sticky lg:top-[calc(91px+94px+12px)] lg:self-start lg:max-h-[calc(100vh-(91px+94px)-24px)] lg:overflow-y-auto lg:pr-1"
         >
@@ -484,7 +468,7 @@ export default function ApartmentDetailClient({
               discountExpiresAt={property.discount_expires_at}
             />
           )}
-        </motion.div>
+        </div>
 
         <BannerSlot placement="detail_sidebar" className="lg:col-start-3" />
       </div>

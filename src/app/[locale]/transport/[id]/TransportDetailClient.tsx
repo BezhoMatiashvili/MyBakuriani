@@ -2,7 +2,6 @@
 
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -16,6 +15,7 @@ import {
 import { useTranslations } from "next-intl";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
+import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { TransportContactFooter } from "@/components/shared/TransportContactFooter";
@@ -43,12 +43,6 @@ interface Props {
   isMock?: boolean;
   isPending?: boolean;
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function TransportDetailClient({
   service,
@@ -120,8 +114,8 @@ export default function TransportDetailClient({
     <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:pt-8 lg:pb-[96px]">
       {isPending && <PendingReviewBanner />}
       {/* Hero photo with floating back button + status pill */}
-      <motion.div
-        {...fadeIn}
+      <div
+        style={enterUp()}
         className="relative aspect-[16/9] w-full overflow-hidden rounded-[20px] bg-gradient-to-br from-[#E2E8F0] to-[#CBD5E1]"
       >
         {mainPhoto ? (
@@ -161,12 +155,11 @@ export default function TransportDetailClient({
         <ShareMenu className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white">
           <Share2 className="h-[18px] w-[18px]" />
         </ShareMenu>
-      </motion.div>
+      </div>
 
       {/* Driver + vehicle header (avatar overlaps hero) */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.15 }}
+      <div
+        style={enterUp(0.15)}
         className="mt-4 flex flex-wrap items-end justify-between gap-4"
       >
         <div className="flex items-end gap-4">
@@ -209,12 +202,11 @@ export default function TransportDetailClient({
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Compact mobile spec tiles; flat four-column row on wider screens. */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.2 }}
+      <div
+        style={enterUp(0.2)}
         data-testid="transport-detail-stats"
         className="mt-6 grid grid-cols-2 gap-2 border-b border-[#E2E8F0] pb-6 md:mt-8 md:grid-cols-4 md:gap-6 md:border-t md:py-6"
       >
@@ -265,15 +257,11 @@ export default function TransportDetailClient({
             </span>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Services and features */}
       {service.equipment && service.equipment.length > 0 && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.25 }}
-          className="mt-5 md:mt-6"
-        >
+        <div style={enterUp(0.25)} className="mt-5 md:mt-6">
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:mb-4">
             {t("equipmentAndSafety")}
           </h2>
@@ -287,16 +275,12 @@ export default function TransportDetailClient({
               </span>
             ))}
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Comfort & services (features) */}
       {service.features && service.features.length > 0 && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.27 }}
-          className="mt-5 md:mt-6"
-        >
+        <div style={enterUp(0.27)} className="mt-5 md:mt-6">
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8] md:mb-4">
             {t("comfortAndServices")}
           </h2>
@@ -310,32 +294,24 @@ export default function TransportDetailClient({
               </span>
             ))}
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Description */}
       {service.description && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.3 }}
-          className="mt-6 md:mt-8"
-        >
+        <div style={enterUp(0.3)} className="mt-6 md:mt-8">
           <h2 className="mb-3 text-[15px] font-black leading-6 text-[#0F172A] md:text-[20px] md:leading-[30px]">
             {t("description")}
           </h2>
           <p className="whitespace-pre-line rounded-[14px] border border-[#E2E8F0] bg-white px-4 py-3 text-[14px] font-medium leading-6 text-[#475569] md:rounded-none md:border-0 md:bg-transparent md:p-0 md:text-[15px] md:leading-[27px]">
             {service.description}
           </p>
-        </motion.div>
+        </div>
       )}
 
       {/* Routes with price */}
       {routePricing.length > 0 ? (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.35 }}
-          className="mt-6 md:mt-8"
-        >
+        <div style={enterUp(0.35)} className="mt-6 md:mt-8">
           <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
             {t("routeAndPrice")}
           </h2>
@@ -368,14 +344,10 @@ export default function TransportDetailClient({
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       ) : (
         routes.length > 0 && (
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.35 }}
-            className="mt-6 md:mt-8"
-          >
+          <div style={enterUp(0.35)} className="mt-6 md:mt-8">
             <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
               {t("routeAndPrice")}
             </h2>
@@ -417,7 +389,7 @@ export default function TransportDetailClient({
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
         )
       )}
 
