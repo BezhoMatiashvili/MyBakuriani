@@ -676,7 +676,7 @@ neighbor migrations).
 Participating symbols:
 
 - `supabase/migrations/20260424120000_favorites.sql:favorites_exactly_one_ref` — the check constraint
-- `src/lib/hooks/useFavorite.ts:useFavorite` — takes `{ propertyId }` or `{ serviceId }`, branches the column name once and reuses it for select/insert/delete
+- `src/lib/hooks/useFavorite.ts:useFavorite` — takes `{ propertyId }` or `{ serviceId }`, branches the column name once and reuses it for select/insert/delete. Since 2026-09-27 it gets the signed-in user from `src/lib/auth/session-store.ts:subscribeAuthUser` (one shared `getSession()` + `onAuthStateChange()` for every card, instead of one of each per card, each behind GoTrue's Web Lock). Each card still starts with no user and receives it asynchronously, so the mount-time `clearFavorites()` path is unchanged
 - `src/lib/favorites/store.ts:ensureFavoritesLoaded` — shared per-user store; selects both `property_id, service_id` and merges them into one id `Set` (properties and services generate independent UUIDs, so no collision risk)
 - `src/app/[locale]/dashboard/guest/favorites/page.tsx` — reference consumer that already splits results into property vs. service favorites correctly
 - `supabase/migrations/20260614000000_owner_dashboard_stats.sql` — DB-side reference for the same branching pattern (counts favorites via `f.property_id in (...) or f.service_id in (...)`)

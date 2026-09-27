@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { parseISO } from "date-fns";
@@ -148,15 +148,38 @@ export default function HotelDetailClient({
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
-  const parsedCalendarDates = calendarBlocks.map((block) => ({
-    // Parse date-only strings (YYYY-MM-DD) as LOCAL midnight. `new Date(str)`
-    // would parse them as UTC midnight, which shifts the day back for viewers
-    // west of UTC and makes booked dates render as available in the local-time
-    // calendar grid (AvailabilityCalendar / BookingSidebar use isSameDay).
-    date: parseISO(block.date),
-    status: block.status as "available" | "booked" | "blocked",
-  }));
+  const parsedCalendarDates = useMemo(
+    () =>
+      calendarBlocks.map((block) => ({
+        // Parse date-only strings (YYYY-MM-DD) as LOCAL midnight. `new Date(str)`
+        // would parse them as UTC midnight, which shifts the day back for viewers
+        // west of UTC and makes booked dates render as available in the local-time
+        // calendar grid (AvailabilityCalendar / BookingSidebar match local days).
+        date: parseISO(block.date),
+        status: block.status as "available" | "booked" | "blocked",
+      })),
+    [calendarBlocks],
+  );
   const calendarDates: CalendarDate[] = parsedCalendarDates;
+  // Stable across re-renders (a date click, a lightbox open): the map rebuilds
+  // every marker whenever this array's identity changes.
+  const mapMarkers = useMemo(
+    () => [
+      {
+        id: property.id,
+        title: property.title,
+        price: Number(property.price_per_night ?? 0),
+        lat: Number(property.location_lat),
+        lng: Number(property.location_lng),
+        isVip: property.is_vip ?? false,
+        isSuperVip: property.is_super_vip ?? false,
+        photo: Array.isArray(property.photos)
+          ? (property.photos[0] as string)
+          : undefined,
+      },
+    ],
+    [property],
+  );
 
   const handleDateClick = (date: Date) => {
     if (!selectedRange.start || (selectedRange.start && selectedRange.end)) {
@@ -319,20 +342,7 @@ export default function HotelDetailClient({
                     lat: Number(property.location_lat),
                     lng: Number(property.location_lng),
                   }}
-                  properties={[
-                    {
-                      id: property.id,
-                      title: property.title,
-                      price: Number(property.price_per_night ?? 0),
-                      lat: Number(property.location_lat),
-                      lng: Number(property.location_lng),
-                      isVip: property.is_vip ?? false,
-                      isSuperVip: property.is_super_vip ?? false,
-                      photo: Array.isArray(property.photos)
-                        ? (property.photos[0] as string)
-                        : undefined,
-                    },
-                  ]}
+                  properties={mapMarkers}
                   zoom={15}
                 />
               </div>

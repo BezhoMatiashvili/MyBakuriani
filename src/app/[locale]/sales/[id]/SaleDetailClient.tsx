@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -194,6 +194,25 @@ export default function SaleDetailClient({
     toggle: toggleFavorite,
   } = useFavorite({ propertyId: property.id });
   const [isConstructionModalOpen, setConstructionModalOpen] = useState(false);
+  // Stable across re-renders (a favourite toggle, the construction modal): the
+  // map rebuilds every marker whenever this array's identity changes.
+  const mapMarkers = useMemo(
+    () => [
+      {
+        id: property.id,
+        title: property.title,
+        price: Number(property.sale_price ?? 0),
+        lat: Number(property.location_lat),
+        lng: Number(property.location_lng),
+        isVip: property.is_vip ?? false,
+        isSuperVip: property.is_super_vip ?? false,
+        photo: Array.isArray(property.photos)
+          ? (property.photos[0] as string)
+          : undefined,
+      },
+    ],
+    [property],
+  );
 
   const views = useListingViewCount(
     "property",
@@ -686,20 +705,7 @@ export default function SaleDetailClient({
                 <BakurianiMap
                   className="h-[320px] w-full"
                   embedded
-                  properties={[
-                    {
-                      id: property.id,
-                      title: property.title,
-                      price: Number(property.sale_price ?? 0),
-                      lat: Number(property.location_lat),
-                      lng: Number(property.location_lng),
-                      isVip: property.is_vip ?? false,
-                      isSuperVip: property.is_super_vip ?? false,
-                      photo: Array.isArray(property.photos)
-                        ? (property.photos[0] as string)
-                        : undefined,
-                    },
-                  ]}
+                  properties={mapMarkers}
                   isForSale
                 />
               </div>

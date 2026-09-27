@@ -190,14 +190,127 @@ function filterPropertiesLocally(
     ) {
       return false;
     }
-    if (
-      currentFilters.verifiedOnly &&
-      property.profile_is_verified !== true
-    ) {
+    if (currentFilters.verifiedOnly && property.profile_is_verified !== true) {
       return false;
     }
     return true;
   });
+}
+
+// Owns the search dropdown state (and the zone list only it renders), so
+// opening a dropdown re-renders the hero alone, not the results below it.
+function SearchHero({
+  hasKeyword,
+  mode,
+  onModeChange,
+  onSearch,
+  searchState,
+  advancedFilters,
+  statusCards,
+}: {
+  hasKeyword: boolean;
+  mode: "rent" | "sale";
+  onModeChange: (next: "rent" | "sale") => void;
+  onSearch: (sf: SearchFilters) => void;
+  searchState: SearchState;
+  advancedFilters: RentAdvancedFilters;
+  statusCards: StatusCard[];
+}) {
+  const tLanding = useTranslations("Landing");
+  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
+  const dropdownPortalRef = useRef<HTMLDivElement>(null);
+  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
+  const filtersPortalRef = useRef<HTMLDivElement>(null);
+  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
+  const { zones } = useActiveZones();
+
+  return (
+    <section
+      data-testid="listing-hero"
+      className={cn(
+        "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
+        activeDropdown ? "overflow-visible" : "overflow-hidden",
+      )}
+      style={{
+        background:
+          "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+      }}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
+          backgroundSize: "cover",
+          backgroundPosition: "center bottom",
+          mixBlendMode: "overlay",
+        }}
+      />
+
+      <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
+        <ScrollReveal>
+          <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
+            {tLanding("trustedGuide")}{" "}
+            <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
+          </h1>
+        </ScrollReveal>
+
+        {!hasKeyword && (
+          <div className="mt-6 flex justify-center">
+            <RentBuyToggle value={mode} onChange={onModeChange} />
+          </div>
+        )}
+
+        <div className="relative mt-6" data-testid="search-overlay-container">
+          <SearchBox
+            onSearch={onSearch}
+            className="shadow-[var(--shadow-search)]"
+            defaultLocation={searchState.location}
+            defaultGuests={searchState.guests}
+            defaultKeyword={searchState.keyword}
+            defaultCheckIn={searchState.checkIn}
+            defaultCheckOut={searchState.checkOut}
+            dropdownPortalRef={dropdownPortalRef}
+            dropdownBoundaryRef={dropdownBoundaryRef}
+            filtersPortalRef={filtersPortalRef}
+            filtersBoundaryRef={filtersBoundaryRef}
+            onActiveDropdownChange={setActiveDropdown}
+            zones={zones}
+            advancedFilters={advancedFilters}
+          />
+
+          {/* Permanently mounted (visibility toggled via CSS) so the portal
+              target exists the instant the panel opens, instead of flashing
+              a differently-styled fallback for a frame first. */}
+          <div
+            ref={filtersBoundaryRef}
+            onMouseDown={(event) => event.stopPropagation()}
+            className={cn(
+              "absolute left-0 top-full z-50 mt-2 w-[700px] max-w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+              activeDropdown === "filters"
+                ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:block"
+                : "hidden",
+            )}
+          >
+            <div ref={filtersPortalRef} className="min-w-0" />
+          </div>
+          {activeDropdown === "calendar" ? (
+            <div
+              ref={dropdownBoundaryRef}
+              onMouseDown={(event) => event.stopPropagation()}
+              className="absolute left-0 top-full z-50 mt-2 hidden w-[760px] max-w-full lg:block"
+            >
+              <div ref={dropdownPortalRef} className="min-w-0" />
+            </div>
+          ) : null}
+        </div>
+
+        <div data-testid="search-status-cards">
+          <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function SearchPageClient({
@@ -212,7 +325,6 @@ export default function SearchPageClient({
   initialFilters = DEFAULT_FILTERS,
 }: Props) {
   const t = useTranslations("SearchPage");
-  const tLanding = useTranslations("Landing");
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [searchState, setSearchState] = useState<SearchState>({
     location: initialLocation,
@@ -224,7 +336,6 @@ export default function SearchPageClient({
   const [mode, setMode] = useState<"rent" | "sale">(initialMode);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ActiveTab>("all");
-  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileFilterDraft, setMobileFilterDraft] = useState<Filters | null>(
     null,
@@ -246,14 +357,9 @@ export default function SearchPageClient({
   const hasObservedUrl = useRef(false);
   const skipNextUrlWrite = useRef(false);
   const lastWrittenQuery = useRef<string | null>(null);
-  const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
-  const filtersPortalRef = useRef<HTMLDivElement>(null);
-  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const urlSearchParams = useSearchParams();
   const urlQuery = urlSearchParams.toString();
-  const { zones } = useActiveZones();
 
   const hasKeyword = searchState.keyword.trim().length > 0;
 
@@ -509,91 +615,15 @@ export default function SearchPageClient({
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
-      <section
-        data-testid="listing-hero"
-        className={cn(
-          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
-          activeDropdown ? "overflow-visible" : "overflow-hidden",
-        )}
-        style={{
-          background:
-            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
-        }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-            backgroundSize: "cover",
-            backgroundPosition: "center bottom",
-            mixBlendMode: "overlay",
-          }}
-        />
-
-        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
-          <ScrollReveal>
-            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
-              {tLanding("trustedGuide")}{" "}
-              <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
-            </h1>
-          </ScrollReveal>
-
-          {!hasKeyword && (
-            <div className="mt-6 flex justify-center">
-              <RentBuyToggle value={mode} onChange={handleModeChange} />
-            </div>
-          )}
-
-          <div className="relative mt-6" data-testid="search-overlay-container">
-            <SearchBox
-              onSearch={handleSearch}
-              className="shadow-[var(--shadow-search)]"
-              defaultLocation={searchState.location}
-              defaultGuests={searchState.guests}
-              defaultKeyword={searchState.keyword}
-              defaultCheckIn={searchState.checkIn}
-              defaultCheckOut={searchState.checkOut}
-              dropdownPortalRef={dropdownPortalRef}
-              dropdownBoundaryRef={dropdownBoundaryRef}
-              filtersPortalRef={filtersPortalRef}
-              filtersBoundaryRef={filtersBoundaryRef}
-              onActiveDropdownChange={setActiveDropdown}
-              zones={zones}
-              advancedFilters={searchBoxAdvancedFilters}
-            />
-
-            {/* Permanently mounted (visibility toggled via CSS) so the portal
-                target exists the instant the panel opens, instead of flashing
-                a differently-styled fallback for a frame first. */}
-            <div
-              ref={filtersBoundaryRef}
-              onMouseDown={(event) => event.stopPropagation()}
-              className={cn(
-                "absolute left-0 top-full z-50 mt-2 w-[700px] max-w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-                activeDropdown === "filters"
-                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:block"
-                  : "hidden",
-              )}
-            >
-              <div ref={filtersPortalRef} className="min-w-0" />
-            </div>
-            {activeDropdown === "calendar" ? (
-              <div
-                ref={dropdownBoundaryRef}
-                onMouseDown={(event) => event.stopPropagation()}
-                className="absolute left-0 top-full z-50 mt-2 hidden w-[760px] max-w-full lg:block"
-              >
-                <div ref={dropdownPortalRef} className="min-w-0" />
-              </div>
-            ) : null}
-          </div>
-
-          <div data-testid="search-status-cards">
-            <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
-          </div>
-        </div>
-      </section>
+      <SearchHero
+        hasKeyword={hasKeyword}
+        mode={mode}
+        onModeChange={handleModeChange}
+        onSearch={handleSearch}
+        searchState={searchState}
+        advancedFilters={searchBoxAdvancedFilters}
+        statusCards={statusCards}
+      />
 
       <section
         data-testid="listing-results"

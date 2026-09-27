@@ -82,21 +82,156 @@ interface Props {
   statusCards: StatusCard[];
 }
 
-export default function HotelsPageClient({ properties, statusCards }: Props) {
-  const t = useTranslations("HotelsPage");
+// Owns the search dropdown state (and the zone list only it renders), so
+// opening a dropdown re-renders the hero alone, not the listing grid.
+function HotelsHero({
+  mode,
+  onModeChange,
+  onSearch,
+  isPending,
+  mapProperties,
+  statusCards,
+}: {
+  mode: "rent" | "sale";
+  onModeChange: (next: "rent" | "sale") => void;
+  onSearch: (sf: SearchFilters) => void;
+  isPending: boolean;
+  mapProperties: MapProperty[];
+  statusCards: StatusCard[];
+}) {
   const tLanding = useTranslations("Landing");
   const tStatus = useTranslations("StatusCards");
-  const tShared = useTranslations("Shared");
-  const [mode, setMode] = useState<"rent" | "sale">("rent");
+  const router = useRouter();
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const dropdownPortalRef = useRef<HTMLDivElement>(null);
   const filtersPortalRef = useRef<HTMLDivElement>(null);
   const filtersBoundaryRef = useRef<HTMLDivElement>(null);
+  const { zones } = useActiveZones();
+
+  return (
+    <section
+      data-testid="listing-hero"
+      className={cn(
+        "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
+        activeDropdown ? "overflow-visible" : "overflow-hidden",
+      )}
+      style={{
+        background:
+          "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+      }}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
+          backgroundSize: "cover",
+          backgroundPosition: "center bottom",
+          mixBlendMode: "overlay",
+        }}
+      />
+      <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
+        <ScrollReveal>
+          <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
+            {tLanding("trustedGuide")}{" "}
+            <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
+          </h1>
+        </ScrollReveal>
+
+        <div className="mt-6 flex justify-center">
+          <RentBuyToggle value={mode} onChange={onModeChange} />
+        </div>
+
+        <div className="relative mt-6" data-testid="search-overlay-container">
+          <SearchBox
+            onSearch={onSearch}
+            isPending={isPending}
+            className="shadow-[var(--shadow-search)]"
+            dropdownPortalRef={dropdownPortalRef}
+            filtersPortalRef={filtersPortalRef}
+            filtersBoundaryRef={filtersBoundaryRef}
+            onActiveDropdownChange={setActiveDropdown}
+            zones={zones}
+          />
+
+          {/* Permanently mounted (visibility toggled via CSS) so the portal
+              target exists the instant the panel opens — see ApartmentsPageClient
+              for why the conditional-mount version flashed a mapless fallback. */}
+          <div
+            ref={filtersBoundaryRef}
+            onMouseDown={(e) => e.stopPropagation()}
+            className={cn(
+              "absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+              activeDropdown === "filters"
+                ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
+                : "hidden",
+            )}
+          >
+            <div ref={filtersPortalRef} className="min-w-0 flex-1" />
+            {activeDropdown === "filters" && (
+              <BakurianiMap
+                className="min-h-[400px] w-[280px] shrink-0 self-stretch"
+                embedded
+                expandable
+                properties={mapProperties}
+                onPropertyClick={(id) => router.push(`/hotels/${id}`)}
+              />
+            )}
+          </div>
+          {activeDropdown === "calendar" ? (
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
+              <div ref={dropdownPortalRef} className="min-w-0" />
+              <div className="flex w-[240px] flex-col gap-3">
+                <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
+                  <div className="flex flex-col gap-1">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                      <span className="size-2 rounded-full bg-[#EF4444]" />
+                      {tStatus("cameras")}
+                    </span>
+                    <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
+                      {tStatus("camerasValue")}
+                      <Video className="size-[18px] text-[#CBD5E1]" />
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
+                >
+                  {tLanding("getCoupon")}
+                </button>
+                <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
+                  <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
+                    <Flame className="hidden h-3.5 w-3.5 sm:block" />
+                    <span className="hidden sm:inline">
+                      {tLanding("discountsOnly")}
+                    </span>
+                    <span className="text-[14px] font-black sm:hidden">%</span>
+                  </span>
+                  <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
+                    <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
+      </div>
+    </section>
+  );
+}
+
+export default function HotelsPageClient({ properties, statusCards }: Props) {
+  const t = useTranslations("HotelsPage");
+  const tLanding = useTranslations("Landing");
+  const tShared = useTranslations("Shared");
+  const [mode, setMode] = useState<"rent" | "sale">("rent");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const { zones } = useActiveZones();
 
   const handleSearch = useCallback(
     (sf: SearchFilters) => {
@@ -172,119 +307,14 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
-      <section
-        data-testid="listing-hero"
-        className={cn(
-          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
-          activeDropdown ? "overflow-visible" : "overflow-hidden",
-        )}
-        style={{
-          background:
-            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
-        }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-            backgroundSize: "cover",
-            backgroundPosition: "center bottom",
-            mixBlendMode: "overlay",
-          }}
-        />
-        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
-          <ScrollReveal>
-            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
-              {tLanding("trustedGuide")}{" "}
-              <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
-            </h1>
-          </ScrollReveal>
-
-          <div className="mt-6 flex justify-center">
-            <RentBuyToggle value={mode} onChange={setMode} />
-          </div>
-
-          <div className="relative mt-6" data-testid="search-overlay-container">
-            <SearchBox
-              onSearch={handleSearch}
-              isPending={isPending}
-              className="shadow-[var(--shadow-search)]"
-              dropdownPortalRef={dropdownPortalRef}
-              filtersPortalRef={filtersPortalRef}
-              filtersBoundaryRef={filtersBoundaryRef}
-              onActiveDropdownChange={setActiveDropdown}
-              zones={zones}
-            />
-
-            {/* Permanently mounted (visibility toggled via CSS) so the portal
-                target exists the instant the panel opens — see ApartmentsPageClient
-                for why the conditional-mount version flashed a mapless fallback. */}
-            <div
-              ref={filtersBoundaryRef}
-              onMouseDown={(e) => e.stopPropagation()}
-              className={cn(
-                "absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-                activeDropdown === "filters"
-                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
-                  : "hidden",
-              )}
-            >
-              <div ref={filtersPortalRef} className="min-w-0 flex-1" />
-              {activeDropdown === "filters" && (
-                <BakurianiMap
-                  className="min-h-[400px] w-[280px] shrink-0 self-stretch"
-                  embedded
-                  expandable
-                  properties={mapProperties}
-                  onPropertyClick={(id) => router.push(`/hotels/${id}`)}
-                />
-              )}
-            </div>
-            {activeDropdown === "calendar" ? (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
-                <div ref={dropdownPortalRef} className="min-w-0" />
-                <div className="flex w-[240px] flex-col gap-3">
-                  <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
-                    <div className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                        <span className="size-2 rounded-full bg-[#EF4444]" />
-                        {tStatus("cameras")}
-                      </span>
-                      <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                        {tStatus("camerasValue")}
-                        <Video className="size-[18px] text-[#CBD5E1]" />
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
-                  >
-                    {tLanding("getCoupon")}
-                  </button>
-                  <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
-                    <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                      <Flame className="hidden h-3.5 w-3.5 sm:block" />
-                      <span className="hidden sm:inline">
-                        {tLanding("discountsOnly")}
-                      </span>
-                      <span className="text-[14px] font-black sm:hidden">
-                        %
-                      </span>
-                    </span>
-                    <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                      <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
-        </div>
-      </section>
+      <HotelsHero
+        mode={mode}
+        onModeChange={setMode}
+        onSearch={handleSearch}
+        isPending={isPending}
+        mapProperties={mapProperties}
+        statusCards={statusCards}
+      />
 
       <section
         data-testid="listing-results"
