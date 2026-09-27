@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -41,7 +42,12 @@ export const PUBLIC_LISTING_REVALIDATE_S = 60;
 export const listingTag = (kind: "property" | "service", id: string): string =>
   `${kind}:${id}`;
 
-export function getCachedPublicProperty(
+// Wrapped in React cache() so generateMetadata and the page share one read per
+// request: unstable_cache has no in-flight dedupe, and Supabase requests carry
+// an AbortSignal (timeoutFetch), which opts them out of Next's fetch
+// memoization. The inner unstable_cache keys are unchanged. Callers must not
+// mutate the returned row: within a request it is now one shared object.
+export const getCachedPublicProperty = cache(function getCachedPublicProperty(
   id: string,
 ): Promise<PublicPropertyWithProfile | null> {
   if (!isUuid(id)) return Promise.resolve(null);
@@ -96,9 +102,10 @@ export function getCachedPublicProperty(
       revalidate: PUBLIC_LISTING_REVALIDATE_S,
     },
   )();
-}
+});
 
-export function getCachedPublicService(
+// cache(): see getCachedPublicProperty.
+export const getCachedPublicService = cache(function getCachedPublicService(
   id: string,
 ): Promise<PublicServiceWithFoodExtras | null> {
   if (!isUuid(id)) return Promise.resolve(null);
@@ -132,7 +139,7 @@ export function getCachedPublicService(
       revalidate: PUBLIC_LISTING_REVALIDATE_S,
     },
   )();
-}
+});
 
 export function getCachedPublicMenuItems(id: string) {
   // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
