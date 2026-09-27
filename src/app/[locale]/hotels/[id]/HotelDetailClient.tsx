@@ -334,6 +334,7 @@ export default function HotelDetailClient({
                     },
                   ]}
                   zoom={15}
+                  showRouteButton
                 />
               </div>
             ) : (

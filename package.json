@@ -29,6 +29,7 @@
     "security:audit": "npm audit --audit-level=high && npm audit --omit=dev --audit-level=high",
     "check:redirects": "node scripts/check-redirects.mjs",
     "check:redirects:staging": "node scripts/check-redirects.mjs --env=staging",
+    "check:lifts": "node --experimental-strip-types --no-warnings scripts/check-ski-lifts.mjs",
     "brand:assets": "python3 scripts/gen-brand-assets.py",
     "brand:assets:check": "python3 scripts/gen-brand-assets.py --check"
   },

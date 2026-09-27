@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { flushSync } from "react-dom";
 import {
   Search,
   ChevronDown,
@@ -189,7 +190,6 @@ const RENOVATION_OPTIONS: Array<{ value: string | null; labelKey: string }> = [
 const PRICE_MIN = 0;
 const PRICE_MAX = 1_000_000;
 const PRICE_STEP = 5_000;
-const DEFAULT_PRICE_MIN = 30_000;
 const DEFAULT_PRICE_MAX = 500_000;
 
 const AREA_MIN = 0;
@@ -397,13 +397,13 @@ export function SaleSearchBox({
     setActiveDropdown(null);
   }, [mobileFilterDraft]);
 
-  const priceMinNum = priceMin ? Number(priceMin) || DEFAULT_PRICE_MIN : 0;
+  const priceMinNum = priceMin ? Number(priceMin) : PRICE_MIN;
   const priceMaxNum = priceMax
     ? Number(priceMax) || DEFAULT_PRICE_MAX
     : PRICE_MAX;
   const mobileDraftPriceMin = mobileFilterDraft?.priceMin
-    ? Number(mobileFilterDraft.priceMin) || DEFAULT_PRICE_MIN
-    : 0;
+    ? Number(mobileFilterDraft.priceMin)
+    : PRICE_MIN;
   const mobileDraftPriceMax = mobileFilterDraft?.priceMax
     ? Number(mobileFilterDraft.priceMax) || DEFAULT_PRICE_MAX
     : PRICE_MAX;
@@ -1657,6 +1657,88 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 // ─── Advanced filters panel + range sliders ───────────────────────────
 
+// Min/max box under a range slider: shows the formatted value and edits the
+// raw number on focus. In-range values apply while typing (the thumb follows);
+// anything else is clamped to [min, max] on blur or Enter.
+function RangeBoundInput({
+  label,
+  value,
+  display,
+  min,
+  max,
+  side,
+  onChange,
+  focusClassName,
+  testId,
+}: {
+  label: string;
+  value: number;
+  display: string;
+  min: number;
+  max: number;
+  /** An emptied box falls back to its open end: `min` for "min", `max` for "max". */
+  side: "min" | "max";
+  onChange: (v: number) => void;
+  focusClassName: string;
+  testId: string;
+}) {
+  const id = useId();
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = () => {
+    if (draft === null) return;
+    const typed = draft === "" ? (side === "min" ? min : max) : Number(draft);
+    const next = Math.min(max, Math.max(min, typed));
+    // Focusing and leaving must not turn an unset bound into an active filter.
+    if (next !== value) onChange(next);
+    setDraft(null);
+  };
+
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        "flex h-[41px] min-w-0 flex-1 cursor-text items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 transition-colors",
+        focusClassName,
+      )}
+    >
+      <span className="shrink-0 text-[11px] font-bold text-[#94A3B8]">
+        {label}
+      </span>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        data-testid={testId}
+        value={draft ?? display}
+        onFocus={(e) => {
+          // Swap the formatted text for the raw number now, then select it,
+          // so whatever is typed next replaces the whole value.
+          flushSync(() => setDraft(String(value)));
+          e.currentTarget.select();
+        }}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/\D/g, "");
+          setDraft(raw);
+          const typed = Number(raw);
+          if (raw && typed >= min && typed <= max && typed !== value) {
+            onChange(typed);
+          }
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          // Apply the value instead of submitting the whole search form.
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-full min-w-0 bg-transparent text-right text-[13px] font-extrabold text-[#0F172A] outline-none"
+      />
+    </label>
+  );
+}
+
 function PriceRangePanel({
   priceMin,
   priceMax,
@@ -1706,22 +1788,28 @@ function PriceRangePanel({
         />
       </div>
       <div className="mt-5 flex gap-3">
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("minLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {formatUsd(priceMin)}
-          </span>
-        </div>
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("maxLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {formatUsd(priceMax)}
-          </span>
-        </div>
+        <RangeBoundInput
+          label={t("minLabel")}
+          value={priceMin}
+          display={formatUsd(priceMin)}
+          min={PRICE_MIN}
+          max={priceMax - 1}
+          side="min"
+          onChange={onChangeMin}
+          focusClassName="focus-within:border-[#16A34A]"
+          testId="sale-filter-price-min"
+        />
+        <RangeBoundInput
+          label={t("maxLabel")}
+          value={priceMax}
+          display={formatUsd(priceMax)}
+          min={priceMin + 1}
+          max={PRICE_MAX}
+          side="max"
+          onChange={onChangeMax}
+          focusClassName="focus-within:border-[#16A34A]"
+          testId="sale-filter-price-max"
+        />
       </div>
     </div>
   );
@@ -2128,24 +2216,32 @@ function AreaRangePanel({
         />
       </div>
       <div className="mt-5 flex gap-3">
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("minLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {t("sqmValue", { value: areaMin })}
-          </span>
-        </div>
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("maxLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {areaMax === AREA_MAX_SLIDER
+        <RangeBoundInput
+          label={t("minLabel")}
+          value={areaMin}
+          display={t("sqmValue", { value: areaMin })}
+          min={AREA_MIN}
+          max={areaMax - 1}
+          side="min"
+          onChange={onChangeMin}
+          focusClassName="focus-within:border-[#1E419A]"
+          testId="sale-filter-area-min"
+        />
+        <RangeBoundInput
+          label={t("maxLabel")}
+          value={areaMax}
+          display={
+            areaMax === AREA_MAX_SLIDER
               ? t("sqmValuePlus", { value: areaMax })
-              : t("sqmValue", { value: areaMax })}
-          </span>
-        </div>
+              : t("sqmValue", { value: areaMax })
+          }
+          min={areaMin + 1}
+          max={AREA_MAX_SLIDER}
+          side="max"
+          onChange={onChangeMax}
+          focusClassName="focus-within:border-[#1E419A]"
+          testId="sale-filter-area-max"
+        />
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ import {
   ChevronRight,
   LogOut,
   Wallet,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddListingButton } from "@/components/shared/AddListingButton";
@@ -74,11 +75,13 @@ export function Navbar() {
     avatar_url: string | null;
   } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [smsRemaining, setSmsRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) {
       setProfile(null);
       setBalance(null);
+      setSmsRemaining(null);
       return;
     }
     let cancelled = false;
@@ -92,13 +95,16 @@ export function Navbar() {
           .single(),
         supabase
           .from("balances")
-          .select("amount")
+          .select("amount, sms_remaining")
           .eq("user_id", user!.id)
           .single(),
       ]);
       if (cancelled) return;
       if (profileRes.data) setProfile(profileRes.data);
-      if (balanceRes.data) setBalance(Number(balanceRes.data.amount));
+      if (balanceRes.data) {
+        setBalance(Number(balanceRes.data.amount));
+        setSmsRemaining(Number(balanceRes.data.sms_remaining));
+      }
     }
 
     const deferFetch = () => {
@@ -262,6 +268,13 @@ export function Navbar() {
                 <ChevronRight className="size-4 text-[#94A3B8]" />
               </Button>
             </Link>
+          )}
+          {user && (
+            <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-[13px] font-bold leading-5 text-[#334155]">
+              <MessageSquare className="size-4" />
+              {smsRemaining !== null ? smsRemaining : "..."}
+              {t("smsSuffix")}
+            </div>
           )}
           {user && (
             <NotificationBell
@@ -448,6 +461,17 @@ export function Navbar() {
                     </span>
                     <span className={balance !== null ? "" : "text-[#94A3B8]"}>
                       {balance !== null ? `${balance.toFixed(2)} ₾` : "..."}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-bold leading-5 text-[#334155]">
+                    <span className="flex items-center gap-2">
+                      <MessageSquare className="size-4 text-[#64748B]" />
+                      {t("smsSuffix").trim()}
+                    </span>
+                    <span
+                      className={smsRemaining !== null ? "" : "text-[#94A3B8]"}
+                    >
+                      {smsRemaining !== null ? smsRemaining : "..."}
                     </span>
                   </div>
                   <Link

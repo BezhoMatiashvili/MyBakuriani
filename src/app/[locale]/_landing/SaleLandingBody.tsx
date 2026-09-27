@@ -67,7 +67,7 @@ function renderZoneIcon(icon: string, zoneSlug: string, isLast: boolean) {
 const GEL_TO_USD = 1 / 2.7;
 
 const ZONE_CARD_ROW_CLASS =
-  "scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0";
+  "scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:gap-4 sm:overflow-visible sm:px-0";
 
 function toUsd(gel: number | null | undefined): number {
   if (!gel) return 0;
@@ -206,11 +206,12 @@ export default function SaleLandingBody({
   const extraZones = zones.slice(4);
   const lastZoneId = zones[zones.length - 1]?.id;
 
-  const renderZoneCard = (zone: Zone) => {
+  const renderZoneCard = (zone: Zone, className?: string) => {
     const isLast = zone.id === lastZoneId;
     return (
       <StatCard
         key={zone.id}
+        className={className}
         label={
           TRANSLATED_ZONE_SLUGS.has(zone.slug)
             ? tZones(`${zone.slug}.name`)
@@ -230,8 +231,8 @@ export default function SaleLandingBody({
       <section
         data-testid="homepage-hero"
         className={cn(
-          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:pt-16",
-          showMap ? "lg:pb-16" : "lg:pb-0",
+          "relative flex items-start justify-center px-4 pt-10 lg:pt-16",
+          showMap ? "pb-14 lg:pb-16" : "pb-0 sm:pb-14 lg:pb-0",
         )}
         style={{
           background:
@@ -275,18 +276,27 @@ export default function SaleLandingBody({
             />
           </div>
 
-          {/* First 4 zone cards overhang the hero; extras render after this section. */}
+          {/* Phones: every zone in one scroll row that hangs 72px below the
+              hero, like the rent status cards (pb-3 keeps the shadow from
+              being clipped by the scroller). sm+: the first 4 overhang 42px
+              and extras render after this section. */}
           <div
             className={cn(
               ZONE_CARD_ROW_CLASS,
-              "mt-8",
-              !showMap && "sm:-mb-[42px]",
+              "mt-5 pb-3 sm:mt-8 sm:pb-0",
+              !showMap && "-mb-[84px] sm:-mb-[42px]",
             )}
           >
-            {heroZones.map(renderZoneCard)}
+            {heroZones.map((zone) => renderZoneCard(zone))}
+            {extraZones.map((zone) => renderZoneCard(zone, "sm:hidden"))}
           </div>
         </div>
       </section>
+
+      {/* Phones: reserve the 72px card overhang (+ gutter). */}
+      {!showMap && (
+        <div aria-hidden className="h-[calc(72px+1.5rem)] sm:hidden" />
+      )}
 
       {/* No extras row to absorb the hanging first row: reserve its 42px
           overhang (+ gutter) so banners below never sit underneath it. */}
@@ -295,7 +305,10 @@ export default function SaleLandingBody({
       )}
 
       {extraZones.length > 0 && (
-        <div data-testid="homepage-sale-extra-zone-cards" className="px-4">
+        <div
+          data-testid="homepage-sale-extra-zone-cards"
+          className="hidden px-4 sm:block"
+        >
           <div
             className={cn(
               "mx-auto w-full max-w-[1180px]",
@@ -305,7 +318,7 @@ export default function SaleLandingBody({
             )}
           >
             <div className={ZONE_CARD_ROW_CLASS}>
-              {extraZones.map(renderZoneCard)}
+              {extraZones.map((zone) => renderZoneCard(zone))}
             </div>
           </div>
         </div>
@@ -507,20 +520,24 @@ function StatCard({
   sublabel,
   icon,
   highlight,
+  className,
 }: {
   label: string;
   value: string;
   sublabel?: string;
   icon?: React.ReactNode;
   highlight?: boolean;
+  className?: string;
 }) {
   return (
     <div
+      data-zone-card
       className={cn(
-        "flex w-[min(260px,calc(100vw-64px))] shrink-0 snap-start flex-col justify-between rounded-[16px] px-5 py-4 text-left shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1)] sm:w-auto",
+        "flex w-max min-w-[140px] max-w-[260px] shrink-0 snap-start flex-col justify-between rounded-[16px] px-5 py-4 text-left shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1)] sm:w-auto sm:min-w-auto sm:max-w-none",
         highlight
           ? "border border-white/10 bg-[#0A1F2E] text-white"
           : "border border-[#E7EEE9] bg-white text-[#1E293B]",
+        className,
       )}
     >
       <div className="flex items-center gap-2">

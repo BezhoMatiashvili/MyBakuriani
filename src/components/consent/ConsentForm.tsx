@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import type { AppLocale } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 import {
   ConsentChoices,
@@ -29,11 +30,12 @@ export type ConsentLabels = ConsentChoiceLabels & {
 
 type Props = {
   labels: ConsentLabels;
+  locale?: AppLocale;
   source: "registration_gate" | "account_settings";
   onDone?: () => void;
 };
 
-export function ConsentForm({ labels, source, onDone }: Props) {
+export function ConsentForm({ labels, locale, source, onDone }: Props) {
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   // Deliberately starts UNCHECKED: the Direct Marketing Policy (v2 3.3) forbids
@@ -77,6 +79,7 @@ export function ConsentForm({ labels, source, onDone }: Props) {
       <div className="mt-6">
         <ConsentChoices
           labels={labels}
+          locale={locale}
           terms={terms}
           privacy={privacy}
           marketing={marketing}

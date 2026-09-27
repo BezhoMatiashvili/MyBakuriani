@@ -15,7 +15,7 @@ import {
   Check,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
@@ -73,6 +73,8 @@ type SellerOrg = {
 export default function RegisterPage() {
   const t = useTranslations("AuthRegister");
   const tc = useTranslations("ConsentGate");
+  const tShared = useTranslations("Shared");
+  const locale = useLocale();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
@@ -505,7 +507,9 @@ export default function RegisterPage() {
                       channelWhatsapp: tc("channelWhatsapp"),
                       channelPush: tc("channelPush"),
                       marketingNote: tc("marketingNote"),
+                      back: tShared("back"),
                     }}
+                    locale={locale}
                     terms={acceptTerms}
                     privacy={acceptPrivacy}
                     marketing={marketing}

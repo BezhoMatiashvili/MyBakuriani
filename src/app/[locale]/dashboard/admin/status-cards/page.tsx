@@ -509,6 +509,12 @@ export default function AdminStatusCardsPage() {
                                     <label className="flex flex-col gap-1">
                                       <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">
                                         {t("url")}
+                                        {card.id === "cameras" && (
+                                          <span className="text-[#DC2626]">
+                                            {" "}
+                                            *
+                                          </span>
+                                        )}
                                       </span>
                                       <input
                                         value={item.url ?? ""}

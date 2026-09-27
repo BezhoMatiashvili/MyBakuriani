@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
+import dynamic from "next/dynamic";
 import { ChevronDown, ExternalLink, PlayCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ICON_MAP } from "@/lib/status-cards/icons";
@@ -14,6 +15,11 @@ import {
 import BottomSheet from "@/components/shared/BottomSheet";
 import Modal from "@/components/shared/Modal";
 import { safeHttpsUrl } from "@/lib/security";
+
+const RoadRouteMap = dynamic(
+  () => import("@/components/landing/RoadRouteMap"),
+  { ssr: false },
+);
 
 const DOT_COLOR: Record<StatusKind, string | null> = {
   ok: "#22C55E",
@@ -246,6 +252,7 @@ export default function StatusCards({
                   {pickLocalized(expandedCard.value, locale)}
                 </span>
               </p>
+              {expandedCard.id === "road" && <RoadRouteMap />}
               <ul className="space-y-2.5">
                 {expandedCard.items.map((item) => (
                   <ItemRow
@@ -274,19 +281,22 @@ export default function StatusCards({
           }
         >
           {expandedCard && (
-            <ul className="space-y-3">
-              {expandedCard.items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  locale={locale}
-                  variant="light"
-                  onView={
-                    expandedCard.id === "cameras" ? setViewingItem : undefined
-                  }
-                />
-              ))}
-            </ul>
+            <>
+              {expandedCard.id === "road" && <RoadRouteMap />}
+              <ul className="space-y-3">
+                {expandedCard.items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    locale={locale}
+                    variant="light"
+                    onView={
+                      expandedCard.id === "cameras" ? setViewingItem : undefined
+                    }
+                  />
+                ))}
+              </ul>
+            </>
           )}
         </BottomSheet>
       </div>

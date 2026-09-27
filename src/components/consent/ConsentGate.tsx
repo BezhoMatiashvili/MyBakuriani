@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { routing } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 import { hasAcceptedRequiredPolicies } from "@/lib/consent/channels";
 import { ConsentForm } from "@/components/consent/ConsentForm";
+
+// The documents this gate asks the user to accept stay readable behind it.
+const POLICY_PAGE = new RegExp(
+  `^(/(${routing.locales.join("|")}))?/(terms|privacy|marketing-policy)/?$`,
+);
 
 /**
  * Blocking consent gate. Any signed-in user who has not accepted the Terms and
@@ -22,6 +28,8 @@ import { ConsentForm } from "@/components/consent/ConsentForm";
  */
 export function ConsentGate() {
   const t = useTranslations("ConsentGate");
+  const tShared = useTranslations("Shared");
+  const locale = useLocale();
   const pathname = usePathname();
   const [userId, setUserId] = useState<string | null>(null);
   const [needsConsent, setNeedsConsent] = useState(false);
@@ -99,10 +107,12 @@ export function ConsentGate() {
 
   // /auth/* owns its own flow (sign-in, registration wizard), and
   // /consent-required renders this same form full-page - showing the overlay on
-  // either would double-render or trap the user mid-sign-in.
+  // either would double-render or trap the user mid-sign-in. The policy pages
+  // are skipped so the user can read what they are asked to accept.
   const suppressed =
     /(^|\/)auth(\/|$)/.test(pathname) ||
-    /(^|\/)consent-required(\/|$)/.test(pathname);
+    /(^|\/)consent-required(\/|$)/.test(pathname) ||
+    POLICY_PAGE.test(pathname);
 
   if (!userId || !needsConsent || suppressed) return null;
 
@@ -119,6 +129,7 @@ export function ConsentGate() {
       >
         <ConsentForm
           source="registration_gate"
+          locale={locale}
           onDone={handleDone}
           labels={{
             title: t("title"),
@@ -137,6 +148,7 @@ export function ConsentGate() {
             submit: t("submit"),
             signOut: t("signOut"),
             error: t("error"),
+            back: tShared("back"),
           }}
         />
       </div>

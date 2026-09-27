@@ -22,6 +22,23 @@
 // (Georgia is a fixed UTC+4, no DST), NOT the server's timezone — the host is in
 // Singapore.
 
+// The three Bakuriani zone slugs on status.mta.ski. Fetched in both locales so the
+// card can show MTA's Georgian name (ka page) and English name (en page); Russian
+// falls back to English (MTA publishes no Russian). Shared by server.ts and
+// scripts/check-ski-lifts.mjs so the live check reads exactly what the card reads.
+export const LIFT_ZONES = ["didveli", "kokhta", "mitarbi"] as const;
+export const LIFT_LOCALES = ["ka", "en"] as const;
+
+export const MTA_BASE_URL = "https://status.mta.ski";
+// Courtesy: identify the app so the operator can see who's reading. Mirrors the
+// User-Agent expectation the road badge documents.
+export const MTA_USER_AGENT =
+  "MyBakuriani/1.0 (+https://mybakuriani.ge; lift status card)";
+
+export function zonePageUrl(zone: string, locale: string): string {
+  return `${MTA_BASE_URL}/${locale}/bakuriani/${zone}`;
+}
+
 export type RawLift = {
   id: string;
   type: string;
@@ -79,11 +96,19 @@ function joinFlightChunks(html: string): string {
 const LIFT_RE =
   /"\$L[0-9a-z]+","(\d+)",(\{"type":"[^"]*","liftsHoursColumn":.*?"closeDate":"[^"]*"\})/g;
 
-// Parses every lift row out of one zone page's HTML. Returns [] on anything
-// unexpected (shape change, empty page) rather than throwing, so the caller can
-// treat "no lifts" and "fetch failed" identically and fall back to the admin card.
-export function parseLiftsFromHtml(html: string): RawLift[] {
+// Every lift row carries exactly one "closeDate" key (checked against full
+// archived pages of all three zones), so this counts the rows the page HAS,
+// independent of whether LIFT_RE understood them.
+const CLOSE_DATE_KEY_RE = /"closeDate":/g;
+
+// The rows LIFT_RE could read, plus how many lift rows the page actually holds.
+// Exported for scripts/check-ski-lifts.mjs, which reports both numbers.
+export function parseLiftRows(html: string): {
+  lifts: RawLift[];
+  markers: number;
+} {
   const text = joinFlightChunks(html);
+  const markers = text.match(CLOSE_DATE_KEY_RE)?.length ?? 0;
   const lifts: RawLift[] = [];
   for (const match of text.matchAll(LIFT_RE)) {
     const id = match[1];
@@ -107,7 +132,17 @@ export function parseLiftsFromHtml(html: string): RawLift[] {
       closeDate: typeof obj.closeDate === "string" ? obj.closeDate : "",
     });
   }
-  return lifts;
+  return { lifts, markers };
+}
+
+// Parses every lift row out of one zone page's HTML. Returns [] on anything
+// unexpected (shape change, empty page) rather than throwing, so the caller can
+// treat "no lifts" and "fetch failed" identically and fall back to the admin card.
+// All-or-nothing per page: if even one row didn't parse (a new key order, a null
+// field), the page counts as unreadable instead of silently shrinking the total.
+export function parseLiftsFromHtml(html: string): RawLift[] {
+  const { lifts, markers } = parseLiftRows(html);
+  return lifts.length === markers ? lifts : [];
 }
 
 // "YYYY-MM-DD" -> 20260225, or null if malformed.
@@ -170,8 +205,9 @@ export function isLiftOpen(lift: RawLift, now: TbilisiNow): boolean {
 // Merges the per-zone, per-locale pages into one summary and applies the rule.
 // Pure so it can be unit-tested (the failure modes below are exactly where a
 // partial fetch would otherwise produce a confidently-wrong total):
-//   - ka pages give Georgian names + status/dates; en pages give English names.
-//     A lift missing from one locale falls back to the other by id.
+//   - ka pages give Georgian names + status/dates; en pages give English names,
+//     matched by id. If only one locale parsed, that one is used alone; if both
+//     parsed but list different ids, returns null.
 //   - Requires EVERY expected zone to yield at least one lift, else returns null
 //     (a dropped zone would silently shrink the "N/M open" total). null -> the
 //     caller keeps the admin-editable card.
@@ -188,6 +224,16 @@ export function summarize(
     const en = pages.find((p) => p.zone === zone && p.locale === "en");
     const kaById = new Map((ka?.lifts ?? []).map((l) => [l.id, l]));
     const enById = new Map((en?.lifts ?? []).map((l) => [l.id, l]));
+
+    // Both locales list the same rows under the same ids. If they don't, the
+    // pairing is unknown (a rebuild could key each locale by its own id, and
+    // merging would count every lift twice), so keep the admin card.
+    if (kaById.size > 0 && enById.size > 0) {
+      const sameIds =
+        kaById.size === enById.size &&
+        [...kaById.keys()].every((id) => enById.has(id));
+      if (!sameIds) return null;
+    }
 
     // Prefer ka rows (Georgian names) for the primary list; fall back to en.
     const primary = (ka?.lifts?.length ? ka.lifts : en?.lifts) ?? [];

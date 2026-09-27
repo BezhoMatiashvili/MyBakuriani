@@ -39,6 +39,7 @@ export default function ConsentRequiredPage() {
             submit: "გაგრძელება",
             signOut: "გასვლა",
             error: "ვერ მოხერხდა შენახვა. გთხოვთ, სცადოთ თავიდან.",
+            back: "უკან დაბრუნება",
           }}
         />
       </div>

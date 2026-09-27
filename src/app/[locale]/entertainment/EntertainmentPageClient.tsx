@@ -24,6 +24,7 @@ const SUB_CATEGORIES = [
   "snowmobiles",
   "quadbikes",
   "buggy",
+  "sportSchool",
   "other",
 ] as const;
 
@@ -91,23 +92,35 @@ function matchesType(s: PublicService, value: string): boolean {
   }
 }
 
+// activity_category holds the Georgian dbLabel the create form stores
+// (create/entertainment/page.tsx ACTIVITY_CATEGORIES); title keywords stay as
+// a fallback for listings saved without a category.
 function matchesSubCategory(s: PublicService, value: string): boolean {
   const title = s.title.toLowerCase();
   switch (value) {
     case "inventory":
       return (
+        s.activity_category === "ინვენტარი" ||
         title.includes("გაქირავება") ||
         title.includes("აღჭურვილ") ||
         title.includes("თხილამურ")
       );
     case "horses":
-      return title.includes("ცხენ") || title.includes("საცხენოს");
+      return (
+        s.activity_category === "ცხენები" ||
+        title.includes("ცხენ") ||
+        title.includes("საცხენოს")
+      );
     case "snowmobiles":
-      return title.includes("ბურან");
+      return s.activity_category === "ბურანები" || title.includes("ბურან");
     case "quadbikes":
-      return title.includes("კვადროცი");
+      return (
+        s.activity_category === "კვადროციკლები" || title.includes("კვადროცი")
+      );
     case "buggy":
       return title.includes("ბაგ") || s.activity_category === "ბაგი";
+    case "sportSchool":
+      return s.activity_category === "სპორტსკოლა";
     case "other":
       return true;
     default:

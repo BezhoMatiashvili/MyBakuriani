@@ -701,6 +701,7 @@ export default function SaleDetailClient({
                     },
                   ]}
                   isForSale
+                  showRouteButton
                 />
               </div>
             ) : (

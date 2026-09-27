@@ -53,9 +53,9 @@ Define success criteria. Loop until verified.
 - **Auth**: Supabase email + password and Google OAuth via `@supabase/ssr` 0.9 (phone OTP and Facebook were removed 2026-09-22; both providers are disabled on staging and prod)
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
-- **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Same provider as the Directions API used for the landing road badge. Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
+- **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
 - **Weather**: WeatherAPI.com (server-only key; free-tier attribution required — rendered in `Footer`)
-- **Routing**: FOSSGIS OSRM (`routing.openstreetmap.de/routed-car`, no API key) for the landing road badge, called server-side only. FOSSGIS terms require an app-identifying User-Agent plus ODbL attribution + a `fixthemap` link — both rendered in `Footer`
+- **Routing**: Mapbox Directions API, `driving-traffic` profile — replaced the keyless FOSSGIS OSRM fetch that ran here before 2026-09. Server-side (secret `MAPBOX_ACCESS_TOKEN`) for the landing road badge's fixed Tbilisi→Bakuriani estimate (`src/lib/road-condition/server.ts`). Client-side (public `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`) for the personalized, geolocation-based road card and every listing detail map's "show me the route" button (`src/lib/maps/directions.ts`)
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
 - **Deployment**: DigitalOcean App Platform (`mybakuriani-prod` on `main`, `mybakuriani-staging` on `staging`, both Singapore/SGP1) + Supabase Cloud

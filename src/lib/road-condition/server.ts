@@ -1,12 +1,18 @@
 import "server-only";
 import { cache } from "react";
 import { timeoutFetch } from "@/lib/with-timeout";
-import type {
-  LocalizedText,
-  StatusCard,
-  StatusCardItem,
-  StatusKind,
-} from "@/lib/status-cards/types";
+import type { StatusCard } from "@/lib/status-cards/types";
+import {
+  BAKURIANI_DESTINATION,
+  buildRoadConditionItems,
+  formatDuration,
+  parseMapboxRoute,
+  ROAD_CARD_ID,
+  ROAD_STATUS_LABEL,
+  TBILISI_ORIGIN,
+  type MapboxDirectionsResponse,
+  type RoadCondition,
+} from "@/lib/road-condition/shared";
 
 // Live Tbilisi -> Bakuriani drive estimate + real traffic status for the landing
 // "road" status card. Mirrors src/lib/weather/server.ts: one server-side provider
@@ -27,11 +33,9 @@ import type {
 // A genuinely closed road still cannot be detected here (Mapbox has no closure
 // feed for this corridor) — the admin-set redDot remains the only channel for that.
 
-const ROAD_CARD_ID = "road";
-
-// Coordinates are lon,lat — Mapbox uses the same order OSRM did. Pre-joined so the
-// pair cannot be transposed at a call site.
-const MAPBOX_COORDS = "44.8271,41.7151;43.5386,41.7497"; // Tbilisi centre -> Bakuriani centre
+// Mapbox coordinates are lon,lat (shared.ts's LatLng constants are lat,lng -
+// flipped once here rather than at every call site).
+const MAPBOX_COORDS = `${TBILISI_ORIGIN.lng},${TBILISI_ORIGIN.lat};${BAKURIANI_DESTINATION.lng},${BAKURIANI_DESTINATION.lat}`;
 
 const MAPBOX_DIRECTIONS_URL =
   `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${MAPBOX_COORDS}` +
@@ -49,83 +53,12 @@ const MIN_DURATION_SECONDS = 60 * 60;
 const MAX_DURATION_SECONDS = 8 * 60 * 60;
 const MIN_DISTANCE_METERS = 100_000;
 const MAX_DISTANCE_METERS = 500_000;
-
-// duration / duration_typical thresholds for classifying live traffic. Below the
-// first line is normal variance (Mapbox's own live estimate wobbles a few percent
-// run to run); above the second is a real, noticeable slowdown.
-const MODERATE_RATIO = 1.12;
-const HEAVY_RATIO = 1.35;
-
-export type RoadTrafficStatus = "clear" | "moderate" | "heavy" | "unknown";
-
-export type RoadCondition = {
-  durationSeconds: number;
-  distanceMeters: number;
-  durationTypicalSeconds: number | null;
-  trafficStatus: RoadTrafficStatus;
+const BOUNDS = {
+  minDurationSeconds: MIN_DURATION_SECONDS,
+  maxDurationSeconds: MAX_DURATION_SECONDS,
+  minDistanceMeters: MIN_DISTANCE_METERS,
+  maxDistanceMeters: MAX_DISTANCE_METERS,
 };
-
-type MapboxRoute = {
-  distance?: number;
-  duration?: number;
-  duration_typical?: number;
-};
-
-type MapboxDirectionsResponse = {
-  code?: string;
-  routes?: MapboxRoute[];
-};
-
-function inRange(value: unknown, min: number, max: number): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isFinite(value) &&
-    value >= min &&
-    value <= max
-  );
-}
-
-function classifyTraffic(
-  durationSeconds: number,
-  durationTypicalSeconds: number | null,
-): RoadTrafficStatus {
-  if (!durationTypicalSeconds || durationTypicalSeconds <= 0) return "unknown";
-  const ratio = durationSeconds / durationTypicalSeconds;
-  if (ratio >= HEAVY_RATIO) return "heavy";
-  if (ratio >= MODERATE_RATIO) return "moderate";
-  return "clear";
-}
-
-// Every field is checked before the payload is trusted, same rigor as
-// parseWeatherApiWeather. `duration_typical` is optional in Mapbox's response (it's
-// only populated when the corridor has enough historical traffic data) — its
-// absence degrades traffic status to "unknown" rather than failing the whole card.
-function parseMapboxRoute(
-  payload: MapboxDirectionsResponse | null,
-): RoadCondition | null {
-  if (!payload || payload.code !== "Ok") return null;
-  const route = payload.routes?.[0];
-  if (!route) return null;
-  if (!inRange(route.duration, MIN_DURATION_SECONDS, MAX_DURATION_SECONDS)) {
-    return null;
-  }
-  if (!inRange(route.distance, MIN_DISTANCE_METERS, MAX_DISTANCE_METERS)) {
-    return null;
-  }
-  const durationTypicalSeconds = inRange(
-    route.duration_typical,
-    MIN_DURATION_SECONDS,
-    MAX_DURATION_SECONDS,
-  )
-    ? route.duration_typical
-    : null;
-  return {
-    durationSeconds: route.duration,
-    distanceMeters: route.distance,
-    durationTypicalSeconds,
-    trafficStatus: classifyTraffic(route.duration, durationTypicalSeconds),
-  };
-}
 
 // Fetches the current live-traffic drive time. Returns null on any error (missing
 // token, network, timeout, bad shape, degenerate route) so the caller falls back to
@@ -152,104 +85,12 @@ export const getRoadCondition = cache(
         .json()
         .catch(() => null)) as MapboxDirectionsResponse | null;
 
-      return parseMapboxRoute(payload);
+      return parseMapboxRoute(payload, BOUNDS);
     } catch {
       return null;
     }
   },
 );
-
-const ROAD_STATUS_LABEL: Record<RoadTrafficStatus, LocalizedText> = {
-  clear: { ka: "თავისუფალი", en: "Clear", ru: "Свободна" },
-  moderate: {
-    ka: "საშუალო დატვირთვა",
-    en: "Moderate traffic",
-    ru: "Умеренное движение",
-  },
-  heavy: { ka: "დატვირთული", en: "Heavy traffic", ru: "Пробки" },
-  // Kept for the rare case Mapbox omits duration_typical for this corridor — same
-  // honest fallback the old free-flow-only card used.
-  unknown: { ka: "თავისუფალი", en: "Clear", ru: "Свободна" },
-};
-
-const ROAD_STATUS_DOT: Record<RoadTrafficStatus, StatusKind> = {
-  clear: "ok",
-  moderate: "warn",
-  heavy: "warn",
-  unknown: "none",
-};
-
-// Live duration -> "~3სთ 40წთ" (tilde signals an estimate).
-function formatDuration(seconds: number): LocalizedText {
-  const totalMin = Math.round(seconds / 60);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  const build = (hu: string, mu: string): string =>
-    h > 0 ? `~${h}${hu} ${m}${mu}` : `~${m}${mu}`;
-  return {
-    ka: build("სთ", "წთ"),
-    en: build("h", "m"),
-    ru: build("ч", "м"),
-  };
-}
-
-// Distance in metres -> whole kilometres: "185 კმ".
-function formatDistance(meters: number): LocalizedText {
-  const km = Math.round(meters / 1000);
-  return { ka: `${km} კმ`, en: `${km} km`, ru: `${km} км` };
-}
-
-// duration vs duration_typical -> "ჩვეულებრივზე +18 წთ" / "ჩვეულებრივი" — the real
-// traffic reading, replacing the old fixed "not accounted for" row.
-function formatTrafficDetail(condition: RoadCondition): LocalizedText {
-  if (
-    condition.trafficStatus === "unknown" ||
-    !condition.durationTypicalSeconds
-  ) {
-    return {
-      ka: "არ არის ხელმისაწვდომი",
-      en: "Not available",
-      ru: "Недоступно",
-    };
-  }
-  const deltaMin = Math.round(
-    (condition.durationSeconds - condition.durationTypicalSeconds) / 60,
-  );
-  if (deltaMin <= 2) {
-    return { ka: "ჩვეულებრივი", en: "Normal", ru: "Обычное" };
-  }
-  return {
-    ka: `ჩვეულებრივზე +${deltaMin} წთ`,
-    en: `+${deltaMin} min vs. usual`,
-    ru: `+${deltaMin} мин к обычному`,
-  };
-}
-
-function buildItems(condition: RoadCondition): StatusCardItem[] {
-  return [
-    {
-      id: "road-eta",
-      label: { ka: "დრო", en: "Time", ru: "Время" },
-      value: formatDuration(condition.durationSeconds),
-      status: "none",
-      url: null,
-    },
-    {
-      id: "road-distance",
-      label: { ka: "მანძილი", en: "Distance", ru: "Расстояние" },
-      value: formatDistance(condition.distanceMeters),
-      status: "none",
-      url: null,
-    },
-    {
-      id: "road-traffic",
-      label: { ka: "ტრაფიკი", en: "Traffic", ru: "Пробки" },
-      value: formatTrafficDetail(condition),
-      status: ROAD_STATUS_DOT[condition.trafficStatus],
-      url: null,
-    },
-  ];
-}
 
 // Overrides the road card's value/detail with the live route + real traffic status.
 // No-op when the route is unavailable (null), so the admin-editable default value
@@ -261,7 +102,7 @@ export function withLiveRoad(
   condition: RoadCondition | null,
 ): StatusCard[] {
   if (!condition) return cards;
-  const items = buildItems(condition);
+  const items = buildRoadConditionItems(condition);
   return cards.map((card) =>
     card.id === ROAD_CARD_ID
       ? {

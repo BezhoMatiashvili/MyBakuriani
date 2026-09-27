@@ -121,6 +121,7 @@
     "entertainment": "Развлечения",
     "addListing": "Добавить объявление",
     "balance": "Баланс",
+    "smsSuffix": " SMS",
     "login": "Войти",
     "profile": "Профиль",
     "bookings": "Бронирования",
@@ -1342,7 +1343,11 @@
     "expandMap": "Развернуть карту",
     "mapTitle": "Карта Бакуриани",
     "collapse": "Свернуть",
-    "mapUnavailable": "Карта временно недоступна"
+    "mapUnavailable": "Карта временно недоступна",
+    "showRoute": "Показать маршрут",
+    "locatingYou": "Определяем ваше местоположение...",
+    "routeUnavailable": "Не удалось построить маршрут",
+    "openInGoogleMaps": "Открыть в Google Maps"
   },
   "ZoneLocationLink": {
     "prefix": "Бакуриани, ",
@@ -1689,6 +1694,7 @@
       "snowmobiles": "Снегоходы",
       "quadbikes": "Квадроциклы",
       "buggy": "Багги",
+      "sportSchool": "Спортшкола",
       "other": "Другое"
     }
   },
@@ -4965,7 +4971,12 @@
     "description": "Необходимые файлы cookie обеспечивают работу сайта и авторизацию. Аналитические cookie помогают собирать статистику использования и применяются только с вашего согласия.",
     "learnMore": "Подробнее",
     "essentialOnly": "Только необходимые",
-    "acceptAll": "Принять все"
+    "acceptAll": "Принять все",
+    "locationTitle": "Поделиться местоположением",
+    "locationDescription": "Поделитесь местоположением, чтобы мы показали расстояние и состояние дороги до Бакуриани от вас.",
+    "enableLocation": "Включить",
+    "locationNotNow": "Не сейчас",
+    "locationPending": "Определяем..."
   },
   "NotificationSettings": {
     "title": "Настройки уведомлений",

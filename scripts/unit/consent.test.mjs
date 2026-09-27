@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   CONSENT_COOKIE_NAME,
   hasAnalyticsConsent,
+  hasLocationConsent,
   parseCookieConsent,
   readCookieValue,
   serializeCookieConsent,
@@ -12,11 +13,51 @@ import {
   marketingChannelAllowed,
 } from "../../src/lib/consent/channels.ts";
 
-test("cookie consent round-trips both answers", () => {
-  assert.equal(serializeCookieConsent({ analytics: true }), "v1|analytics=1");
-  assert.equal(serializeCookieConsent({ analytics: false }), "v1|analytics=0");
-  assert.deepEqual(parseCookieConsent("v1|analytics=1"), { analytics: true });
-  assert.deepEqual(parseCookieConsent("v1|analytics=0"), { analytics: false });
+test("cookie consent round-trips analytics + location", () => {
+  assert.equal(
+    serializeCookieConsent({ analytics: true, location: true }),
+    "v2|analytics=1|location=1",
+  );
+  assert.equal(
+    serializeCookieConsent({ analytics: false, location: false }),
+    "v2|analytics=0|location=0",
+  );
+  // location: null (never asked) omits the field entirely rather than
+  // writing a bogus value - the point of the tri-state.
+  assert.equal(
+    serializeCookieConsent({ analytics: true, location: null }),
+    "v2|analytics=1",
+  );
+  assert.deepEqual(parseCookieConsent("v2|analytics=1|location=1"), {
+    analytics: true,
+    location: true,
+  });
+  assert.deepEqual(parseCookieConsent("v2|analytics=0|location=0"), {
+    analytics: false,
+    location: false,
+  });
+  // Field order must not matter.
+  assert.deepEqual(parseCookieConsent("v2|location=1|analytics=0"), {
+    analytics: false,
+    location: true,
+  });
+});
+
+test("a legacy v1 cookie (pre-location) still parses, with location: null", () => {
+  assert.deepEqual(parseCookieConsent("v1|analytics=1"), {
+    analytics: true,
+    location: null,
+  });
+  assert.deepEqual(parseCookieConsent("v1|analytics=0"), {
+    analytics: false,
+    location: null,
+  });
+  // A v2 cookie that never got a location answer reads the same way.
+  assert.deepEqual(parseCookieConsent("v2|analytics=1"), {
+    analytics: true,
+    location: null,
+  });
+  assert.equal(hasLocationConsent("v1|analytics=1"), false);
 });
 
 test("an unanswered or unreadable cookie is never treated as consent", () => {
@@ -26,7 +67,7 @@ test("an unanswered or unreadable cookie is never treated as consent", () => {
     undefined,
     "",
     "garbage",
-    "v2|analytics=1", // future version this build cannot interpret
+    "v3|analytics=1", // future version this build cannot interpret
     "v1|analytics=yes",
     "v1|",
     "v1|other=1",
@@ -34,10 +75,13 @@ test("an unanswered or unreadable cookie is never treated as consent", () => {
   ]) {
     assert.equal(parseCookieConsent(raw), null, `raw=${raw}`);
     assert.equal(hasAnalyticsConsent(raw), false, `raw=${raw}`);
+    assert.equal(hasLocationConsent(raw), false, `raw=${raw}`);
   }
   // Declining is an answer, but still not consent.
   assert.equal(hasAnalyticsConsent("v1|analytics=0"), false);
   assert.equal(hasAnalyticsConsent("v1|analytics=1"), true);
+  assert.equal(hasLocationConsent("v2|analytics=1|location=0"), false);
+  assert.equal(hasLocationConsent("v2|analytics=1|location=1"), true);
 });
 
 test("readCookieValue picks the right cookie out of a jar", () => {
@@ -48,15 +92,27 @@ test("readCookieValue picks the right cookie out of a jar", () => {
   assert.equal(readCookieValue("", CONSENT_COOKIE_NAME), null);
   assert.equal(readCookieValue(null, CONSENT_COOKIE_NAME), null);
   // A name that is only a prefix of a present cookie must not match.
-  assert.equal(readCookieValue("mb_cookie_consent_x=1", CONSENT_COOKIE_NAME), null);
+  assert.equal(
+    readCookieValue("mb_cookie_consent_x=1", CONSENT_COOKIE_NAME),
+    null,
+  );
 });
 
 test("marketing consent is affirmative opt-in, not opt-out", () => {
   // This is the whole point of the tri-state: `null` (never answered) and
   // `false` (declined) both deny. Only an explicit true allows a send.
-  assert.equal(marketingChannelAllowed({ marketing_sms_consent: true }, "sms"), true);
-  assert.equal(marketingChannelAllowed({ marketing_sms_consent: false }, "sms"), false);
-  assert.equal(marketingChannelAllowed({ marketing_sms_consent: null }, "sms"), false);
+  assert.equal(
+    marketingChannelAllowed({ marketing_sms_consent: true }, "sms"),
+    true,
+  );
+  assert.equal(
+    marketingChannelAllowed({ marketing_sms_consent: false }, "sms"),
+    false,
+  );
+  assert.equal(
+    marketingChannelAllowed({ marketing_sms_consent: null }, "sms"),
+    false,
+  );
   assert.equal(marketingChannelAllowed({}, "sms"), false);
   assert.equal(marketingChannelAllowed(null, "sms"), false);
   assert.equal(marketingChannelAllowed(undefined, "sms"), false);
@@ -75,7 +131,10 @@ test("each channel reads its own column", () => {
   assert.equal(marketingChannelAllowed(profile, "push"), false);
   // Withdrawing one channel leaves the others as they were (policy v2 13.3).
   assert.equal(
-    marketingChannelAllowed({ ...profile, marketing_sms_consent: false }, "whatsapp"),
+    marketingChannelAllowed(
+      { ...profile, marketing_sms_consent: false },
+      "whatsapp",
+    ),
     true,
   );
 });
@@ -90,11 +149,17 @@ test("the blocking gate needs BOTH terms and privacy", () => {
     true,
   );
   assert.equal(
-    hasAcceptedRequiredPolicies({ terms_accepted_at: stamp, privacy_accepted_at: null }),
+    hasAcceptedRequiredPolicies({
+      terms_accepted_at: stamp,
+      privacy_accepted_at: null,
+    }),
     false,
   );
   assert.equal(
-    hasAcceptedRequiredPolicies({ terms_accepted_at: null, privacy_accepted_at: stamp }),
+    hasAcceptedRequiredPolicies({
+      terms_accepted_at: null,
+      privacy_accepted_at: stamp,
+    }),
     false,
   );
   assert.equal(hasAcceptedRequiredPolicies({}), false);

@@ -330,6 +330,7 @@ export default function ApartmentDetailClient({
                     },
                   ]}
                   zoom={15}
+                  showRouteButton
                 />
               </div>
             ) : (

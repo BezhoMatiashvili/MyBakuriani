@@ -7,6 +7,13 @@ import { useTranslations } from "next-intl";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { formatNumber } from "@/lib/utils/format";
 import { staticMapUrl } from "@/lib/maps/staticMapUrl";
+import {
+  fetchDrivingRoute,
+  type LatLng,
+  type RouteLineString,
+} from "@/lib/maps/directions";
+import { googleMapsDirectionsUrl } from "@/lib/maps/googleMapsUrl";
+import { requestUserLocation } from "@/lib/geolocation/useUserLocation";
 import Modal from "@/components/shared/Modal";
 
 const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
@@ -26,6 +33,14 @@ export interface MapProperty {
   isVip?: boolean;
   isSuperVip?: boolean;
   photo?: string;
+}
+
+/** A resolved route to draw: the visitor's origin, the destination, and the
+ * geometry between them. */
+export interface RouteDisplay {
+  origin: LatLng;
+  destination: LatLng;
+  geojson: RouteLineString;
 }
 
 interface BakurianiMapProps {
@@ -51,6 +66,20 @@ interface BakurianiMapProps {
   previewUntilExpanded?: boolean;
   /** Admin-managed zone list. Falls back to the 4 seeded zones if omitted. */
   zones?: Zone[];
+  /**
+   * Adds a "show me the route" control that, on click, asks for the
+   * visitor's location and draws the driving route from there to `center`.
+   * Only meaningful when `center` names a single known destination (a
+   * listing detail page) - not the multi-pin listing/zone maps.
+   */
+  showRouteButton?: boolean;
+  /**
+   * A pre-fetched route to draw instead of `showRouteButton`'s own internal
+   * fetch - e.g. the landing road card's visitor-or-Tbilisi -> Bakuriani
+   * route (RoadRouteMap.tsx), which already knows both endpoints and only
+   * needs this component to render the line.
+   */
+  route?: RouteDisplay | null;
 }
 
 // ── Price formatting ──
@@ -140,7 +169,11 @@ interface MapboxMapViewProps {
   boundsKey: string;
   singleZoom: number;
   onMapError?: () => void;
+  route?: RouteDisplay | null;
 }
+
+const ROUTE_SOURCE_ID = "mb-route";
+const ROUTE_LAYER_ID = "mb-route-line";
 
 // ── Imperative Mapbox GL canvas. Mirrors the previous react-leaflet tree:
 // price-pill / zone-pin markers, hover cards, click-to-select, fit-bounds,
@@ -162,11 +195,13 @@ function MapboxMapView({
   boundsKey,
   singleZoom,
   onMapError,
+  route,
 }: MapboxMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, MarkerEntry>>(new Map());
   const zoneMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const routeMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const selectedIdRef = useRef<string | null>(selectedId);
   // Kept fresh every render (not an effect dependency) so the marker-rebuild
   // effect below doesn't need onPropertyClick/onZoneClick in its deps — every
@@ -377,6 +412,73 @@ function MapboxMapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boundsKey, fitBoundsEnabled, hasProperties]);
 
+  // Draws (or clears) the "show me the route" line + a marker at its origin,
+  // and fits both endpoints into view. Declared after the map-creation effect
+  // above so mapRef.current is already set by the time this runs on mount.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const applyRoute = () => {
+      // The map-creation effect's cleanup (declared above this one) may have
+      // already called map.remove() and cleared mapRef by the time a queued
+      // "load" callback fires, or by the time this effect re-runs for a new
+      // `route` after that - touching a removed map's style throws inside
+      // Mapbox GL internals.
+      if (!mapRef.current) return;
+      if (map.getLayer(ROUTE_LAYER_ID)) map.removeLayer(ROUTE_LAYER_ID);
+      if (map.getSource(ROUTE_SOURCE_ID)) map.removeSource(ROUTE_SOURCE_ID);
+      routeMarkerRef.current?.remove();
+      routeMarkerRef.current = null;
+
+      if (!route) return;
+
+      map.addSource(ROUTE_SOURCE_ID, {
+        type: "geojson",
+        data: { type: "Feature", properties: {}, geometry: route.geojson },
+      });
+      map.addLayer({
+        id: ROUTE_LAYER_ID,
+        type: "line",
+        source: ROUTE_SOURCE_ID,
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#2563EB", "line-width": 4 },
+      });
+
+      const originEl = document.createElement("div");
+      originEl.className =
+        "size-4 rounded-full border-2 border-white bg-[#2563EB] shadow-[0_0_0_3px_rgba(37,99,235,0.35)]";
+      routeMarkerRef.current = new mapboxgl.Marker({
+        element: originEl,
+        anchor: "center",
+      })
+        .setLngLat([route.origin.lng, route.origin.lat])
+        .addTo(map);
+
+      const bounds = new mapboxgl.LngLatBounds();
+      bounds.extend([route.origin.lng, route.origin.lat]);
+      bounds.extend([route.destination.lng, route.destination.lat]);
+      map.fitBounds(bounds, { padding: 60, maxZoom: 14 });
+    };
+
+    if (map.isStyleLoaded()) {
+      applyRoute();
+    } else {
+      map.once("load", applyRoute);
+    }
+
+    return () => {
+      map.off("load", applyRoute);
+      // Same reasoning as inside applyRoute: on unmount, the map-creation
+      // effect's own cleanup may run first and already remove the map.
+      if (!mapRef.current) return;
+      if (map.getLayer(ROUTE_LAYER_ID)) map.removeLayer(ROUTE_LAYER_ID);
+      if (map.getSource(ROUTE_SOURCE_ID)) map.removeSource(ROUTE_SOURCE_ID);
+      routeMarkerRef.current?.remove();
+      routeMarkerRef.current = null;
+    };
+  }, [route]);
+
   return <div ref={containerRef} style={{ height: "100%", width: "100%" }} />;
 }
 
@@ -413,6 +515,8 @@ export default function BakurianiMap({
   expandable,
   previewUntilExpanded,
   zones = FALLBACK_ZONES,
+  showRouteButton,
+  route: routeProp,
 }: BakurianiMapProps) {
   const t = useTranslations("BakurianiMap");
 
@@ -426,7 +530,47 @@ export default function BakurianiMap({
     height: number;
   } | null>(null);
   const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+  const [internalRoute, setInternalRoute] = useState<RouteDisplay | null>(null);
+  const [routeStatus, setRouteStatus] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
   const mapFrameRef = useRef<HTMLDivElement>(null);
+
+  const route = routeProp ?? internalRoute;
+
+  // Falls back to the sole property's own coordinates when the caller passed
+  // `properties` but no explicit `center` (e.g. the sale detail page) - both
+  // name the same single, exact destination a "show me the route" button
+  // needs.
+  const singleDestination: LatLng | undefined =
+    center ??
+    (properties && properties.length === 1
+      ? { lat: properties[0].lat, lng: properties[0].lng }
+      : undefined);
+
+  const handleShowRoute = async () => {
+    if (!singleDestination) return;
+    setMapReady(true);
+    setExpanded(true);
+    setRouteStatus("loading");
+    const coords = await requestUserLocation();
+    if (!coords) {
+      setRouteStatus("error");
+      return;
+    }
+    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
+    const result = await fetchDrivingRoute(coords, singleDestination, token);
+    if (!result) {
+      setRouteStatus("error");
+      return;
+    }
+    setInternalRoute({
+      origin: coords,
+      destination: singleDestination,
+      geojson: result.geojson,
+    });
+    setRouteStatus("idle");
+  };
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)");
@@ -548,10 +692,11 @@ export default function BakurianiMap({
       setSelectedId={setSelectedId}
       onPropertyClick={onPropertyClick}
       onZoneClick={onZoneClick}
-      fitBoundsEnabled={!center}
+      fitBoundsEnabled={!center && !route}
       boundsKey={boundsKey}
       singleZoom={zoom ?? 14}
       onMapError={() => setMapError(true)}
+      route={route}
     />
   ) : (
     <div
@@ -627,6 +772,50 @@ export default function BakurianiMap({
             <ExpandIcon className="size-4 text-[#334155]" />
             <span className="lg:hidden">{t("expandMap")}</span>
           </button>
+        )}
+
+        {/* "Show me the route": always on the opposite side from the expand
+            button above (which is right-anchored), so the two never collide. */}
+        {showRouteButton && singleDestination && (
+          <div className="absolute bottom-3 left-3 z-10 flex flex-col items-start gap-1.5">
+            {internalRoute ? (
+              <a
+                href={googleMapsDirectionsUrl(
+                  internalRoute.destination,
+                  internalRoute.origin,
+                )}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9]"
+              >
+                {t("openInGoogleMaps")}
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleShowRoute()}
+                disabled={routeStatus === "loading"}
+                className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9] disabled:opacity-60"
+              >
+                {routeStatus === "loading" ? t("locatingYou") : t("showRoute")}
+              </button>
+            )}
+            {routeStatus === "error" && (
+              <>
+                <span className="rounded-md bg-white/90 px-2 py-1 text-[11px] font-semibold text-[#64748B] shadow-sm">
+                  {t("routeUnavailable")}
+                </span>
+                <a
+                  href={googleMapsDirectionsUrl(singleDestination)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-9 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#334155] shadow-sm transition-colors hover:bg-[#F1F5F9]"
+                >
+                  {t("openInGoogleMaps")}
+                </a>
+              </>
+            )}
+          </div>
         )}
       </div>
 

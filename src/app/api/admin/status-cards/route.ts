@@ -119,6 +119,21 @@ export async function PUT(req: NextRequest) {
     );
   }
 
+  for (const raw of body.cards) {
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    if (str(obj.id) !== "cameras" || !Array.isArray(obj.items)) continue;
+    for (const rawItem of obj.items) {
+      const itemObj = (rawItem ?? {}) as Record<string, unknown>;
+      const rawUrl = str(itemObj.url);
+      if (!rawUrl || !safeHttpsUrl(rawUrl)) {
+        return Response.json(
+          { error: "every camera needs a live stream URL (https)" },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
   const cards = body.cards
     .map(sanitizeCard)
     .filter((c): c is StatusCard => c !== null);

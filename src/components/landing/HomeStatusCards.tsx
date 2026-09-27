@@ -8,6 +8,9 @@ import {
   isForecastDate,
   type BakurianiWeather,
 } from "@/lib/weather/weatherapi";
+import { useUserLocation } from "@/lib/geolocation/useUserLocation";
+import { fetchPersonalizedRoad } from "@/lib/road-condition/personalized";
+import { withPersonalizedRoad } from "@/lib/road-condition/shared";
 
 const WEATHER_REFRESH_MS = 10 * 60 * 1000;
 
@@ -61,6 +64,24 @@ function isPublicWeatherPayload(value: unknown): value is PublicWeatherPayload {
 // their static status-card rendering and never start a weather polling loop.
 export default function HomeStatusCards({ cards }: { cards: StatusCard[] }) {
   const [displayedCards, setDisplayedCards] = useState(cards);
+  const { coords } = useUserLocation();
+
+  // Only fires once location consent was already granted (useUserLocation
+  // resolves coords silently in that case - see its own doc comment). Falls
+  // back to whatever the fixed Tbilisi card already shows on any failure, so
+  // a declined/unavailable/errored lookup never breaks the card.
+  useEffect(() => {
+    if (!coords) return;
+    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
+    let cancelled = false;
+    void fetchPersonalizedRoad(coords, token).then((result) => {
+      if (cancelled || !result) return;
+      setDisplayedCards((current) => withPersonalizedRoad(current, result));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [coords]);
 
   const refreshWeather = useCallback(async () => {
     try {

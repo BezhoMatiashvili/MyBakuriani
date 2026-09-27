@@ -7,9 +7,13 @@ import type {
   StatusCardItem,
 } from "@/lib/status-cards/types";
 import {
+  LIFT_LOCALES,
+  LIFT_ZONES,
+  MTA_USER_AGENT,
   parseLiftsFromHtml,
   summarize,
   tbilisiNow,
+  zonePageUrl,
   type LiftsSummary,
   type ZonePage,
 } from "./parse";
@@ -29,28 +33,18 @@ export type { LiftsSummary } from "./parse";
 // fetch is server-side only (Node), so this needs NO CSP connect-src / remotePatterns
 // entry — C6 governs browser + next/image hosts only, same as the road badge.
 //
-// NOTE (2026-09-23): status.mta.ski is currently returning 500 and its backend
-// (admin.status.mta.ski) returns Vercel DEPLOYMENT_NOT_FOUND — the site served 200s
-// as recently as June 2026, so this is NOT a seasonal idle; the backend deployment
-// was deleted (a migration or a retirement — unknown). This module is written and
-// unit-tested against archived captures but has NOT been verified against the live
-// site. Keep it behind SKI_LIFTS_ENABLED until a live fetch of the three zones is
-// confirmed to still parse (the $L marker/chunk format could change on redeploy).
-// If the site does not return, MTA/Lemondo API access (option 1) is the fallback.
+// NOTE (2026-09-28): status.mta.ski returns 500 for every resort. Its backend,
+// admin.status.mta.ski (a Directus CMS: images were served from /assets/<uuid>),
+// is a deleted Vercel deployment (DEPLOYMENT_NOT_FOUND). The site served 200s as
+// recently as June 2026, and MTA issued new certificates for admin.status.mta.ski
+// (2026-08-17) and preview.status.mta.ski (2026-09-07), so it looks like a rebuild
+// rather than a retirement. The parser matched every lift on full archived pages
+// of all three zones, and the open/closed rule was re-checked against MTA's April
+// 2026 JS, but a rebuilt site may change the page format. The parser fails closed
+// on any change (see parseLiftsFromHtml), so a mismatch shows the admin card, not
+// wrong numbers. `npm run check:lifts` reports what a live fetch parses.
 
 const LIFTS_CARD_ID = "lifts";
-
-// The three Bakuriani zone slugs on status.mta.ski. Fetched in both locales so the
-// card can show MTA's Georgian name (ka page) and English name (en page); Russian
-// falls back to English (MTA publishes no Russian).
-const ZONES = ["didveli", "kokhta", "mitarbi"] as const;
-const LOCALES = ["ka", "en"] as const;
-
-const BASE_URL = "https://status.mta.ski";
-// Courtesy: identify the app so the operator can see who's reading. Mirrors the
-// User-Agent expectation the road badge documents.
-const USER_AGENT =
-  "MyBakuriani/1.0 (+https://mybakuriani.ge; lift status card)";
 
 export const LIFTS_REVALIDATE_SECONDS = 5 * 60;
 const LIFTS_FETCH_TIMEOUT_MS = 5000;
@@ -61,9 +55,9 @@ async function fetchZonePage(
 ): Promise<string | null> {
   try {
     const res = await timeoutFetch(LIFTS_FETCH_TIMEOUT_MS)(
-      `${BASE_URL}/${locale}/bakuriani/${zone}`,
+      zonePageUrl(zone, locale),
       {
-        headers: { "user-agent": USER_AGENT },
+        headers: { "user-agent": MTA_USER_AGENT },
         next: { revalidate: LIFTS_REVALIDATE_SECONDS },
       },
     );
@@ -81,8 +75,8 @@ async function fetchZonePage(
 // fetch revalidate window bounds upstream volume (~12 requests / 5 min).
 export const getSkiLifts = cache(async (): Promise<LiftsSummary | null> => {
   const pages: ZonePage[] = await Promise.all(
-    ZONES.flatMap((zone) =>
-      LOCALES.map(async (locale) => ({
+    LIFT_ZONES.flatMap((zone) =>
+      LIFT_LOCALES.map(async (locale) => ({
         zone,
         locale,
         lifts: parseLiftsFromHtml((await fetchZonePage(zone, locale)) ?? ""),
@@ -92,7 +86,7 @@ export const getSkiLifts = cache(async (): Promise<LiftsSummary | null> => {
   // The merge/rule is pure and unit-tested in ./parse.ts. It returns null unless
   // every zone yielded lifts, so a partial fetch keeps the admin card rather than
   // showing a wrong "N/M open" total.
-  return summarize(pages, ZONES, tbilisiNow());
+  return summarize(pages, LIFT_ZONES, tbilisiNow());
 });
 
 function summaryValue(summary: LiftsSummary): LocalizedText {

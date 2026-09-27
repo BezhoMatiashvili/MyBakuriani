@@ -121,6 +121,7 @@
     "entertainment": "Entertainment",
     "addListing": "Add Listing",
     "balance": "Balance",
+    "smsSuffix": " SMS",
     "login": "Sign In",
     "profile": "Profile",
     "bookings": "Bookings",
@@ -1342,7 +1343,11 @@
     "expandMap": "Expand map",
     "mapTitle": "Map of Bakuriani",
     "collapse": "Collapse",
-    "mapUnavailable": "Map is temporarily unavailable"
+    "mapUnavailable": "Map is temporarily unavailable",
+    "showRoute": "Show me the route",
+    "locatingYou": "Locating you...",
+    "routeUnavailable": "Couldn't build the route",
+    "openInGoogleMaps": "Open in Google Maps"
   },
   "ZoneLocationLink": {
     "prefix": "Bakuriani, ",
@@ -1689,6 +1694,7 @@
       "snowmobiles": "Snowmobiles",
       "quadbikes": "Quad bikes",
       "buggy": "Buggy",
+      "sportSchool": "Sports school",
       "other": "Other"
     }
   },
@@ -4965,7 +4971,12 @@
     "description": "We use essential cookies to run the site and keep you signed in. Analytics cookies help us measure usage and are only used with your consent.",
     "learnMore": "Learn more",
     "essentialOnly": "Essential only",
-    "acceptAll": "Accept all"
+    "acceptAll": "Accept all",
+    "locationTitle": "Share your location",
+    "locationDescription": "Share your location so we can show the distance and road status to Bakuriani from where you are.",
+    "enableLocation": "Enable",
+    "locationNotNow": "Not now",
+    "locationPending": "Locating..."
   },
   "NotificationSettings": {
     "title": "Notification settings",

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
+  parseLiftRows,
   parseLiftsFromHtml,
   isLiftOpen,
   summarize,
@@ -73,6 +74,33 @@ test("parseLiftsFromHtml tolerates a renumbered $L component marker", () => {
   // The $L<n> number is per-build; a returning deployment will likely renumber it.
   const renumbered = didveliKa.replace(/\$L12/g, "$L7f");
   assert.equal(parseLiftsFromHtml(renumbered).length, 6);
+});
+
+test("parseLiftsFromHtml returns [] when any one row fails to parse", () => {
+  // A single row in a new shape (here a null type) must not shrink the zone to
+  // five lifts; the page counts as unreadable so the admin card shows instead.
+  const oneBadRow = didveliKa.replace(
+    '\\"type\\":\\"tbar\\"',
+    '\\"type\\":null',
+  );
+  assert.notEqual(oneBadRow, didveliKa);
+  const { lifts, markers } = parseLiftRows(oneBadRow);
+  assert.equal(markers, 6);
+  assert.equal(lifts.length, 5);
+  assert.deepEqual(parseLiftsFromHtml(oneBadRow), []);
+});
+
+test("parseLiftRows counts one marker per lift on every fixture", () => {
+  for (const [html, n] of [
+    [didveliKa, 6],
+    [didveliEn, 6],
+    [kokhtaEn, 2],
+    [mitarbiEn, 3],
+  ]) {
+    const { lifts, markers } = parseLiftRows(html);
+    assert.equal(markers, n);
+    assert.equal(lifts.length, n);
+  }
 });
 
 // --- open/closed rule -------------------------------------------------------
@@ -174,6 +202,24 @@ test("summarize falls back to the en page when the ka page is empty", () => {
   assert.equal(s.total, 11); // didveli still present via its en page
   const slalom = s.lifts.find((l) => l.id === "28");
   assert.equal(slalom.nameEn, "Slalom"); // en name survives; ka falls back to en
+});
+
+test("summarize returns null when a zone's ka and en pages list different ids", () => {
+  // Pairing is unknown: merging could double-count, trusting one could drop a lift.
+  const missingNodoOnKa = zonePages().map((p) =>
+    p.zone === "didveli" && p.locale === "ka"
+      ? { ...p, lifts: p.lifts.filter((l) => l.id !== "23") }
+      : p,
+  );
+  assert.equal(summarize(missingNodoOnKa, ZONES, inSeasonMidday), null);
+
+  // Same count, disjoint ids (e.g. each locale keyed by its own translation id).
+  const renumberedEn = zonePages().map((p) =>
+    p.zone === "didveli" && p.locale === "en"
+      ? { ...p, lifts: p.lifts.map((l) => ({ ...l, id: `en-${l.id}` })) }
+      : p,
+  );
+  assert.equal(summarize(renumberedEn, ZONES, inSeasonMidday), null);
 });
 
 test("tbilisiNow reports Tbilisi wall-clock independent of server TZ", () => {

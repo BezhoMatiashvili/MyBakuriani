@@ -1,10 +1,17 @@
 "use client";
 
+import { useCallback, useState } from "react";
+import type { AppLocale } from "@/i18n/routing";
 import {
   CONSENT_POLICY_VERSION,
   MARKETING_POLICY_VERSION,
 } from "@/lib/consent/channels";
 import { recordConsent } from "@/lib/self-service/client";
+import {
+  PolicyDocumentViewer,
+  policyHref,
+  type PolicyKey,
+} from "@/components/consent/PolicyDocumentViewer";
 
 /**
  * The consent checkboxes shared by every place a user first answers:
@@ -42,10 +49,13 @@ export type ConsentChoiceLabels = {
   channelWhatsapp: string;
   channelPush: string;
   marketingNote: string;
+  back: string;
 };
 
 type Props = {
   labels: ConsentChoiceLabels;
+  /** Which translation of the documents to show; /consent-required is ka only. */
+  locale?: AppLocale;
   terms: boolean;
   privacy: boolean;
   marketing: MarketingChoices;
@@ -69,6 +79,7 @@ const BOX =
 
 export function ConsentChoices({
   labels,
+  locale = "ka",
   terms,
   privacy,
   marketing,
@@ -76,6 +87,25 @@ export function ConsentChoices({
   onPrivacyChange,
   onMarketingChange,
 }: Props) {
+  const [openPolicy, setOpenPolicy] = useState<PolicyKey | null>(null);
+  const closePolicy = useCallback(() => setOpenPolicy(null), []);
+
+  function policyLink(policy: PolicyKey, text: string) {
+    return (
+      <PolicyLink
+        href={policyHref(policy, locale)}
+        onOpen={() => {
+          // Its own history entry, so the phone's back gesture closes the
+          // document instead of leaving this page (see PolicyDocumentViewer).
+          window.history.pushState(null, "");
+          setOpenPolicy(policy);
+        }}
+      >
+        {text}
+      </PolicyLink>
+    );
+  }
+
   return (
     <div className="space-y-4 text-left">
       <label className="flex cursor-pointer items-start gap-3 text-[13px] font-medium leading-5 text-slate-700">
@@ -86,8 +116,7 @@ export function ConsentChoices({
           className={BOX}
         />
         <span>
-          {labels.terms}{" "}
-          <PolicyLink href="/terms">{labels.termsLink}</PolicyLink>
+          {labels.terms} {policyLink("terms", labels.termsLink)}
         </span>
       </label>
 
@@ -99,8 +128,7 @@ export function ConsentChoices({
           className={BOX}
         />
         <span>
-          {labels.privacy}{" "}
-          <PolicyLink href="/privacy">{labels.privacyLink}</PolicyLink>
+          {labels.privacy} {policyLink("privacy", labels.privacyLink)}
         </span>
       </label>
 
@@ -108,9 +136,7 @@ export function ConsentChoices({
         <legend className="sr-only">{labels.marketingTitle}</legend>
         <p className="text-[13px] font-medium leading-5 text-slate-700">
           {labels.marketingTitle}{" "}
-          <PolicyLink href="/marketing-policy">
-            {labels.marketingPolicyLink}
-          </PolicyLink>
+          {policyLink("marketing", labels.marketingPolicyLink)}
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {CHANNELS.map(({ key, label }) => (
@@ -137,15 +163,35 @@ export function ConsentChoices({
           {labels.marketingNote}
         </p>
       </fieldset>
+
+      {openPolicy ? (
+        <PolicyDocumentViewer
+          policy={openPolicy}
+          locale={locale}
+          linkLabel={
+            openPolicy === "terms"
+              ? labels.termsLink
+              : openPolicy === "privacy"
+                ? labels.privacyLink
+                : labels.marketingPolicyLink
+          }
+          backLabel={labels.back}
+          onClose={closePolicy}
+        />
+      ) : null}
     </div>
   );
 }
 
+// Stays a real link (inline wrapping, a new tab before hydration or on
+// Ctrl/Cmd/Shift-click), but a plain click opens the document in place.
 function PolicyLink({
   href,
+  onOpen,
   children,
 }: {
   href: string;
+  onOpen: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -153,6 +199,12 @@ function PolicyLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      aria-haspopup="dialog"
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        onOpen();
+      }}
       className="font-bold text-[#2563EB] underline"
     >
       {children}
