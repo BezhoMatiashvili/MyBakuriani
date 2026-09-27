@@ -382,7 +382,11 @@ Participating symbols:
 - `src/middleware.ts:Content-Security-Policy` — the live CSP: `img-src` / `connect-src` / `media-src` / `font-src` / `frame-src` / `worker-src` directives. **The CSP now ships from the middleware, not `next.config.ts`** (moved when the nonce approach was abandoned); the old `next.config.ts:CSP` / `:securityHeaders` anchors no longer exist
 - `next.config.ts:remotePatterns` — Next image optimizer host allow-list
 
-Current external hosts: `*.supabase.co` (+ `wss://`), `images.unsplash.com` in
+Current external hosts: the Supabase hosts in `src/lib/media-hosts.ts:SUPABASE_MEDIA_HOSTS` — the
+configured project plus the prod media host `yuwyrmxccrpfjvidwhhg.supabase.co` (staging rows restored
+from prod still point at it), never a `*.supabase.co` wildcard (S1, 2026-09-26: the wildcard let
+`/_next/image` fetch and decode images from ANY Supabase project) (+ `wss://` for the configured
+project only), `images.unsplash.com` in
 `img-src`/`connect-src`/`media-src`; `frame-src` additionally allows
 `https://challenges.cloudflare.com` (Turnstile) and, since 2026-09-05,
 `https://rtsp.me` — the landing page's `StatusCards.tsx` cameras card embeds an
@@ -421,6 +425,8 @@ silently renders blank (no CSP violation is visible without opening devtools).
 **Breaks silently when:** you add a new image CDN, analytics endpoint, or tile
 provider and update only one of {CSP, remotePatterns} → images 404 through the
 optimizer or the fetch is CSP-blocked, visible only in the browser console.
+
+**S1 (2026-09-26):** Supabase hosts come from one list, `src/lib/media-hosts.ts:SUPABASE_MEDIA_HOSTS` (configured project + prod media host), used by middleware `img-src`/`media-src`/`connect-src` (https; `wss://` for the configured project only), `next.config.ts` `remotePatterns` (`/storage/v1/object/public/**`), and `src/lib/banner-creative.ts` (C12) — never `*.supabase.co`. `NEXT_PUBLIC_SUPABASE_URL` must be RUN_AND_BUILD_TIME: middleware inlines it at build, and `next start` re-reads next.config.ts at runtime (unset = prod host only). `images.qualities: [75]` (any other `<Image quality>` → 400) and `imgOptMaxInputPixels` 50 MP (larger sources served unoptimized) bound the optimizer. `check-contracts.mjs` C6 enforces the shared list (and fails on any other `supabase.co` host test under `src/`); `check-http-hardening.mjs` is a manual, localhost-only check. **Breaks:** a hard-coded or wildcard Supabase host; a new Supabase origin (custom domain, `<ref>.storage.supabase.co`) not added to media-hosts.ts; the URL env var scoped BUILD_TIME only (the optimizer 400s every photo).
 
 ---
 
@@ -835,7 +841,7 @@ Participating symbols:
 - `src/lib/banner-placements.ts:getPlacementSpec` — returns `null`, never throws, for an unmapped value. **Never replace with an index lookup** — that is exactly the shape that makes `BANNER_TONE_STYLES[tone]` crash on an off-union tone
 - `supabase/migrations/20260724140000_banner_placements.sql:landing_banners_placement_check` — the CHECK on both tables; backfilled from `kind` / `position` BEFORE constraining
 - `src/lib/banner-creative.ts:BannerCreative` — the normalized shape both tables adapt into (`landingBannerToCreative`, `adRowToCreative`)
-- `src/lib/banner-creative.ts:renderableImageUrl` — intersection of CSP `img-src` and `remotePatterns` (**C6**). Deliberately **not** `safeStorageImageUrl`, which accepts `/object/sign/` URLs that `next/image` rejects. `renderableVideoUrl` is strictly narrower still (no unsplash in `media-src`)
+- `src/lib/banner-creative.ts:renderableImageUrl` — intersection of CSP `img-src` and `remotePatterns` (**C6**); since S1 all three gates (`renderableImageUrl`/`renderableVideoUrl`/`isCreativeMediaUrl`) take Supabase hosts from `SUPABASE_MEDIA_HOSTS`, never an `endsWith(".supabase.co")` test. Deliberately **not** `safeStorageImageUrl`, which accepts `/object/sign/` URLs that `next/image` rejects. `renderableVideoUrl` is strictly narrower still (no unsplash in `media-src`)
 - `src/lib/banner-creative.ts:isCreativeMediaUrl` — write-boundary guard; rejects a page URL saved as a creative (the bug that broke 3 live ad rows)
 - `src/components/banners/BannerSlotView.tsx:BannerSlotView` — pure renderer, takes creatives as a prop, NEVER fetches
 - `src/components/banners/BannerSlotView.tsx:MediaCreative` — leaderboard/sidebar/in-grid all crop video with `object-cover`, so a video creative gets an **expand button** (sibling of `CreativeShell`, never a child: for a sponsored creative the shell is an `<a>`, and the title overlay is not `pointer-events-none`) that opens `BannerDetailModal`. That makes the modal reachable for `sponsored: true` creatives **for the first time** — it previously only ever saw editorial ones — which is why `BannerDetailModal` now renders the `sponsoredLabel` disclosure and hides the `startAt`/`endAt` row for ads (on an ad those are the campaign flight window, i.e. advertiser data). Expand deliberately does NOT call `reportClick`: the click counter is advertiser-facing. An expanded ad is a dead end by construction — `adRowToCreative` sets `ctaLabel: null`, so the modal has no click-through
@@ -2070,6 +2076,9 @@ active-listing-owner/reviewer/blog-author predicate this policy itself uses) —
 `GRANT` changes, so this specific failure mode is invisible to anyone auditing only
 column privileges.
 
+
+**Writes are column-level too (S1, 2026-09-26, `20260926190500`):** writes are column-level too — authenticated INSERT (id, phone, display_name, bio, avatar_url, role) / UPDATE (role only, for the register 23505 retry); anon none (C34). Every other profile write is service-role (`/api/self-service/profile`, `/api/consent`, admin routes). A browser PATCH of any other column returns 403 42501 even when the value is unchanged.
+
 ---
 
 ## C26 — Admin-facing numbers have exactly one source; `public.bookings` is never one of them
@@ -2252,6 +2261,9 @@ reads `SITE_LOCK_PASSWORD` with a `NEXT_PUBLIC_` prefix (ships the password in t
 client bundle); or the bypass-segment check stops using `stripLocalePrefix`
 (the shareable link silently stops working under `/en/` or `/ru/`).
 
+
+**Cookie hardening (S1, 2026-09-26):** Two writers of one cookie: the bypass link `/<password>` (middleware) and the `/site-locked` form → `POST /api/site-lock/unlock` (10/h/IP). `mb_gate` = password (not hashed), httpOnly, lax, path `/`, 30 days — both writers keep identical attributes. Constant-time compare (middleware `constantTimeEqual`, route `timingSafeEqual`). `secure` = request https OR `NEXT_PUBLIC_SITE_URL` https; Next honours `X-Forwarded-Proto`. Fail-closes without password. Password is in public git history — rotate.
+
 ---
 
 ## C28 — Public listing detail routes are ISR and must stay cookie-free
@@ -2281,7 +2293,9 @@ Participating symbols:
   gate; the `?preview=1` param (not a bare cookie check) is what makes this work
   behind Cloudflare: it forms a distinct cache key so the request always reaches
   middleware instead of being answered by an edge HIT
-- `src/middleware.ts` Cache-Control override — **load-bearing quirk fix**: an
+- `next.config.ts:headers()` `edgeCached` Cache-Control override (moved out of `src/middleware.ts` by S1,
+  2026-09-26 — a middleware header always beats a next.config one and would override the RSC rule
+  below) — **load-bearing quirk fix**: an
   on-demand-ISR route reached through next-intl's default-locale REWRITE
   (unprefixed URL → /ka/...) renders dynamically with `no-store` and never
   populates the ISR cache (verified locally AND matches prod /blog behavior;
@@ -2346,6 +2360,9 @@ or narrowed back to a bot list (Facebook/WhatsApp previews then depend on which
 user agent happened to fill the edge cache — nothing errors, and a cache-busted
 `curl -A WhatsApp` still looks correct).
 
+
+**Edge cache (S1):** `next.config.ts:headers()` owns page Cache-Control, in order: baseline → detail/blog `s-maxage=60, stale-while-revalidate=300` (8 kinds + `/blog/:slug`, any locale, `missing: preview`; also matches `/sales/all`, every method, case-insensitive) → **last:** an `rsc` header with no/empty `_rsc` → `private, no-store` (S01). Next 15.5.25 runs header rules before middleware, a later rule overwrites the same key, and middleware wins. Keep the key spelled exactly `Cache-Control` in every rule. Middleware can't see `rsc`/`_rsc`, so it sets Cache-Control only on the signed-in `/preview` rewrite, site-lock and consent responses. An empty query value counts as absent (anon bare `?preview` gets the edge header; bare/empty `?_rsc` counts as missing). `_rsc` is not validated, so `?_rsc=`-keyed Flight/5xx responses stay cacheable. Known gap: `/en|/ru` `?preview=1` never reaches the `/preview` route. Relies on Cloudflare honouring origin Cache-Control. **Breaks:** a middleware `Cache-Control` on page routes (overrides the RSC rule); moving the RSC rule off last place; mixed-case `cache-control` keys across rules (insertion order then decides, not rule order); `scripts/check-http-hardening.mjs` (a)/(b)/(c) catch the first two.
+
 ---
 
 ## C29 — Executable contract checks (the string keys now have tests)
@@ -2367,7 +2384,8 @@ Participating symbols:
   equal the `property_type` enum in the generated types (**C13**);
   `MediaUploader.ACCEPT_TYPES` image mimes equal the sign-upload route's
   `IMAGE_TYPES` (**C5**); nothing under `src/` imports `database.generated.ts`
-  directly (**C3**)
+  directly (**C3**); since S1 also that the CSP, `remotePatterns` and
+  `banner-creative.ts` take Supabase hosts from `src/lib/media-hosts.ts` (**C6**)
 - `scripts/check-db-contracts.mjs` — **needs a project**: reads
   `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (via
   `--env-file-if-exists=.env.local`), skips itself with exit 0 when they are
@@ -2381,7 +2399,10 @@ Participating symbols:
   column-existence directions of `content_review_gate_column_drift()` (**C14**);
   every literal `postgres_changes … table: "x"` subscription in `src/` against
   the `supabase_realtime` publication (**C7**); the five expected pg_cron jobs
-  (**C4**, warning only — infra state, not code)
+  (**C4**, warning only — infra state, not code); since S1 the client write
+  grants against `EXPECTED_CLIENT_WRITES` (**C34**)
+- `scripts/check-http-hardening.mjs` — a manual live check of a local build
+  (`--base=http://localhost:PORT`), not in `prebuild` or CI
 - `supabase/migrations/20260921120000_schema_contract_snapshot.sql:schema_contract_snapshot`
   — the read-only, `service_role`-only SECURITY DEFINER RPC that returns enums,
   every `col = ANY(ARRAY[...])` CHECK on a public table, the publication members,
@@ -2884,3 +2905,15 @@ in-app opt-out also logs a bogus `email_unsubscribe` row).
 **Key:** new RPC → `REVOKE ALL … FROM PUBLIC, anon` + `GRANT EXECUTE … TO authenticated` (anon only if public). New table → GRANTs matching its RLS policies. `supabase_admin`-owned objects keep Supabase's defaults (postgres cannot alter them). Extensions installed by postgres need explicit grants for the API roles.
 
 **Breaks:** a migration creates a table/RPC without GRANTs (client gets 42501 permission denied, not an empty RLS result); someone re-grants ALL on a view (anon DELETE through it); a SECURITY DEFINER fn executable by anon/PUBLIC outside the allow-list.
+
+**Client write grants (S1, 2026-09-26, `20260926190500`):** `authenticated` INSERT/UPDATE only the exact
+JSON keys the browser sends — profiles INSERT (6) / UPDATE `(role)`; properties INSERT (35) / UPDATE
+`(cadastral_code_public, organization_id)`; services INSERT (51) / UPDATE `(status)` — `anon` writes none
+of the four tables, and nobody but service_role writes `bookings` (no client writer exists; the two
+client write policies were dropped). `scripts/check-db-contracts.mjs:EXPECTED_CLIENT_WRITES` asserts it
+via `security_posture_snapshot()->client_write_grants`. `prevent_listing_protected_field_change()` also
+blocks a non-admin owner moving a SERVICE out of `blocked` (admin takedown, S06); owners keep
+active↔draft and active→blocked. **Breaks:** a new key in a create-form / register payload without a
+GRANT migration (the form fails with 401/403 42501 — add the column to the GRANT and to
+`EXPECTED_CLIENT_WRITES` in the same change); a table-level `GRANT INSERT/UPDATE` (re-opens trust,
+billing and counter columns); redefining that trigger from anything but the live definition. Staging ledger version `20260926185555`. Apply after `20260926171100` (the trigger body embeds its counters guard). DELETE stays table-level (RLS). "Admins full access bookings" is SELECT-only in effect — admin writes go through the service role. An invoker function/trigger that writes these tables in its own statement 42501s — make it DEFINER; BEFORE-trigger `NEW.col :=` is fine. `client_write_grants` reports direct and PUBLIC grants only. A 42501 test must not include unrelated ungranted columns (e.g. `id` on services).

@@ -580,8 +580,10 @@ test("[B1] an owner cannot create a service that is already SUPER VIP", async ()
   test.skip(!isDesktop(), "server-only checks run once");
   const e2e = configureIsolatedE2E();
   const { session } = await signIn(ids.svcOwner);
-  const rogueId = `5e1${lane}c7ff-0000-4000-8000-000000000000`;
-  await supabaseAdmin.from("services").delete().eq("id", rogueId);
+  const rogueTitle = `rogue super vip ${lane}`;
+  const removeRogue = () =>
+    supabaseAdmin.from("services").delete().eq("owner_id", ids.svcOwner).eq("title", rogueTitle);
+  await removeRogue();
   const res = await fetch(`${e2e.supabaseUrl}/rest/v1/services`, {
     method: "POST",
     headers: {
@@ -591,10 +593,9 @@ test("[B1] an owner cannot create a service that is already SUPER VIP", async ()
       Prefer: "return=minimal",
     },
     body: JSON.stringify({
-      id: rogueId,
       owner_id: ids.svcOwner,
       category: "transport",
-      title: "rogue super vip",
+      title: rogueTitle,
       description: "x",
       location: "ბაკურიანი",
       status: "active",
@@ -606,21 +607,21 @@ test("[B1] an owner cannot create a service that is already SUPER VIP", async ()
     }),
   });
   try {
-    expect(res.status, await res.text()).toBe(201);
+    // Column grants (C34): is_vip, is_super_vip, discount_* and vip_expires_at are not
+    // client-insertable, so PostgREST rejects the whole insert before any trigger runs.
+    // Every other key in the payload is granted, so the 42501 comes from those columns.
+    const body = await res.json();
+    expect([401, 403], JSON.stringify(body)).toContain(res.status);
+    expect(body.code).toBe("42501");
     const { data } = await supabaseAdmin
       .from("services")
-      .select(
-        "status, is_vip, is_super_vip, vip_expires_at, discount_percent, discount_expires_at",
-      )
-      .eq("id", rogueId)
-      .single();
-    expect(data?.status).toBe("pending");
-    expect(data?.is_vip).toBe(false);
-    expect(data?.is_super_vip, "is_super_vip must be forced false").toBe(false);
-    expect(data?.discount_percent).toBe(0);
-    expect(data?.discount_expires_at).toBeNull();
+      .select("id")
+      .eq("owner_id", ids.svcOwner)
+      .eq("title", rogueTitle)
+      .maybeSingle();
+    expect(data, "the rogue service must not exist").toBeNull();
   } finally {
-    await supabaseAdmin.from("services").delete().eq("id", rogueId);
+    await removeRogue();
   }
 });
 

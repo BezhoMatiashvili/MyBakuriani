@@ -267,6 +267,67 @@ for (const [table, values, name] of [
   if (leaky.length) fail(`C34: default privileges still grant API roles: ${leaky.map((d) => `${d.schema}/${d.objtype}`)}`);
   if (publicExec) fail("C34: new functions still get PUBLIC EXECUTE by default");
   if (!leaky.length && !publicExec) ok("C34: postgres default privileges grant nothing to anon/authenticated/PUBLIC");
+  // S1 (*_s1_client_write_column_grants.sql): writes on the four browser-written tables. authenticated writes exactly
+  // the columns its own payloads send (a new create-form key needs a GRANT migration, or the
+  // form fails with 42501), anon writes nothing, and only the service role writes bookings.
+  const noWrites = { insert: false, update: false, delete: false, truncate: false, insert_columns: [], update_columns: [] };
+  const ownerWrites = (insert_columns, update_columns) => ({ ...noWrites, delete: true, insert_columns, update_columns });
+  const EXPECTED_CLIENT_WRITES = {
+    profiles: {
+      anon: noWrites,
+      authenticated: ownerWrites(["avatar_url", "bio", "display_name", "id", "phone", "role"], ["role"]),
+    },
+    properties: {
+      anon: noWrites,
+      authenticated: ownerWrites(
+        [
+          "amenities", "area_sqm", "bathrooms", "cadastral_code", "cadastral_code_public", "capacity",
+          "completion_year", "construction_progress_percent", "construction_stages", "construction_status",
+          "description", "developer", "house_rules", "is_for_sale", "location", "location_lat", "location_lng",
+          "min_booking_days", "organization_id", "owner_id", "phone", "photos", "price_per_night",
+          "renovation_status", "roi_percent", "roi_percent_max", "rooms", "sale_price", "status", "title",
+          "type", "units_reserved", "units_sold", "units_total", "whatsapp"
+        ],
+        ["cadastral_code_public", "organization_id"],
+      ),
+    },
+    services: {
+      anon: noWrites,
+      authenticated: ownerWrites(
+        [
+          "accommodation", "activity_category", "activity_type", "age_min", "avg_check", "category", "coords",
+          "cuisine_type", "description", "driver_name", "duration", "employment_type", "equipment",
+          "experience_required", "features", "good_for", "has_delivery", "has_kids_area", "has_live_music",
+          "has_lounge", "languages", "location", "meals", "menu_url", "operating_hours", "owner_id", "phone",
+          "photos", "position", "price", "price_unit", "provider_name", "requirements", "restaurant_type",
+          "route_pricing", "routes", "safety_notes", "salary_daily", "salary_max", "salary_min", "salary_range",
+          "salary_type", "schedule", "service_field", "status", "title", "transport_type", "vehicle_capacity",
+          "vehicle_color", "vehicle_make", "whatsapp"
+        ],
+        ["status"],
+      ),
+    },
+    bookings: { anon: noWrites, authenticated: noWrites },
+  };
+  const grants = posture.client_write_grants;
+  if (!grants) fail("C34: security_posture_snapshot() has no client_write_grants — apply the S1 client write grants migration");
+  else {
+    const drift = [];
+    for (const [table, roles] of Object.entries(EXPECTED_CLIENT_WRITES))
+      for (const [role, want] of Object.entries(roles))
+        for (const [key, value] of Object.entries(want)) {
+          const got = grants[table]?.[role]?.[key];
+          if (!Array.isArray(value)) {
+            if (got !== value) drift.push(`${table}.${role}.${key}=${got} (expected ${value})`);
+            continue;
+          }
+          const extra = onlyIn(got ?? [], value);
+          const missing = onlyIn(value, got ?? []);
+          if (extra.length || missing.length) drift.push(`${table}.${role}.${key} extra [${extra}] missing [${missing}]`);
+        }
+    if (drift.length) fail(`C34: client write grants differ from EXPECTED_CLIENT_WRITES: ${drift.join("; ")}`);
+    else ok("C34: anon writes none of the four client tables, authenticated only the payload columns, bookings nothing");
+  }
 }
 
 console.log(`\n${failures} failure(s), ${warnings} warning(s) against ${new URL(url).host}`);

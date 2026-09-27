@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import withBundleAnalyzerInit from "@next/bundle-analyzer";
+import { SUPABASE_MEDIA_HOSTS } from "./src/lib/media-hosts";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -39,10 +40,54 @@ const nextConfig: NextConfig = {
           ]
         : []),
     ];
+    // Edge-cache the public listing detail pages (and blog posts) (C28).
+    // Verified quirk (matches prod /blog behavior): an on-demand-ISR route
+    // reached through the locale REWRITE (unprefixed URL → /ka/...) renders
+    // dynamically with `no-store` and never populates the ISR cache — only
+    // prefixed /en/... /ru/... requests do. Since these routes are cookie-free
+    // by contract (see the detail pages' ISR comments), the HTML is identical
+    // for every viewer, so overriding Cache-Control here is safe and lets
+    // Cloudflare serve the dominant unprefixed traffic from the edge. Any
+    // ?preview request keeps its own cache key and is left alone (middleware
+    // pins the signed-in preview rewrite as uncacheable). Mirrors the pages'
+    // revalidate = 60; kinds and locales mirror PREVIEW_DETAIL_RE in
+    // src/middleware.ts and routing.locales. This was set by middleware until
+    // 2026-09-26 — moved here because a middleware header always beats a
+    // next.config one, so the RSC rule below could not win on these routes.
+    const edgeCached = {
+      missing: [{ type: "query", key: "preview" }],
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "s-maxage=60, stale-while-revalidate=300",
+        },
+      ],
+    };
     return [
       {
         source: "/:path*",
         headers: baseline,
+      },
+      {
+        source:
+          "/:locale(ka|en|ru)?/:kind(apartments|hotels|sales|food|services|entertainment|transport|employment)/:id([^/.]+)",
+        ...edgeCached,
+      },
+      {
+        source: "/:locale(ka|en|ru)?/blog/:slug([^/.]+)",
+        ...edgeCached,
+      },
+      // An RSC request without the `_rsc` cache-busting param never comes from
+      // a real Next client (fetch-server-response always appends it). The CDN
+      // keys on the URL and ignores Vary, so with a public Cache-Control its
+      // Flight payload would replace the page's HTML at the edge. Keep this
+      // rule LAST so it overrides the ones above. It cannot live in middleware:
+      // Next strips the RSC header and `_rsc` from the request middleware sees.
+      {
+        source: "/:path*",
+        has: [{ type: "header", key: "rsc" }],
+        missing: [{ type: "query", key: "_rsc" }],
+        headers: [{ key: "Cache-Control", value: "private, no-store" }],
       },
     ];
   },
@@ -75,12 +120,17 @@ const nextConfig: NextConfig = {
     // filenames, never overwritten - see PhotoUploader.tsx upsert:false), so a
     // 1-year floor is safe.
     minimumCacheTTL: 31536000,
+    // No <Image> in src/ passes a `quality` prop, so every legit request uses
+    // Next's default q=75. Any other q is a 400 instead of a fresh transform.
+    qualities: [75],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
+      // Only our own Supabase projects, never any *.supabase.co host — the
+      // same list the middleware CSP allows (C6, src/lib/media-hosts.ts).
+      ...SUPABASE_MEDIA_HOSTS.map((hostname) => ({
+        protocol: "https" as const,
+        hostname,
         pathname: "/storage/v1/object/public/**",
-      },
+      })),
       {
         protocol: "https",
         hostname: "images.unsplash.com",
@@ -116,6 +166,11 @@ const nextConfig: NextConfig = {
     // application may carry a 10 MiB CV plus multipart overhead
     // (/api/job-applications allows up to 10 MiB + 256 KiB), so leave room.
     middlewareClientMaxBodySize: "11mb",
+    // Refuse to decode optimizer inputs above ~50 MP (Next's default is
+    // ~268 MP). Owner uploads are downscaled to <=2560px client-side and admin
+    // landing media is camera-sized (<=~45 MP); a larger source is served as
+    // the original instead of being decoded on the single-vCPU origin.
+    imgOptMaxInputPixels: 50_000_000,
   },
 };
 

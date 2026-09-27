@@ -74,28 +74,62 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
-// C6 — every external image host in the CSP img-src is also in
-// next.config.ts remotePatterns, and vice versa.
+// C6 — the CSP in src/middleware.ts and next.config.ts remotePatterns allow the
+// same external image hosts. Literal hosts (unsplash, mapbox) must match
+// one-for-one. Supabase hosts are never a wildcard or a literal on either side:
+// both files take them from src/lib/media-hosts.ts (the configured project +
+// the prod media host), and img-src, media-src and connect-src all carry them.
+// No other code under src/ may test for a Supabase host (banner-creative.ts
+// once kept its own endsWith(".supabase.co") check): comments are ignored.
 // ---------------------------------------------------------------------------
 {
   const mw = read("src/middleware.ts");
-  const imgSrc = mw.match(/"img-src ([^"]+)"/);
-  if (!imgSrc) fail("C6: could not find the img-src directive in src/middleware.ts");
+  const cfg = read("next.config.ts");
+  const hostsModule = read("src/lib/media-hosts.ts");
+  const directive = (name) => mw.match(new RegExp(`["\`]${name} ([^"\`]+)["\`]`))?.[1];
+  const [imgSrc, mediaSrc, connectSrc] = ["img-src", "media-src", "connect-src"].map(directive);
+  const block = cfg.match(/remotePatterns:\s*\[([\s\S]*?)\n\s*\],/);
+  if (!imgSrc || !mediaSrc || !connectSrc) fail("C6: could not find img-src, media-src and connect-src in src/middleware.ts");
+  else if (!block) fail("C6: could not find remotePatterns in next.config.ts");
   else {
+    const patterns = block[1].replace(/\/\/[^\n]*/g, "");
     const cspHosts = new Set(
-      imgSrc[1]
+      imgSrc
         .split(/\s+/)
         .filter((t) => t.startsWith("https://"))
         .map((t) => t.replace(/^https:\/\//, "")),
     );
-    const cfg = read("next.config.ts");
-    const block = cfg.match(/remotePatterns:\s*\[([\s\S]*?)\n\s*\],/);
-    if (!block) fail("C6: could not find remotePatterns in next.config.ts");
-    else {
-      const rpHosts = new Set([...block[1].matchAll(/hostname:\s*"([^"]+)"/g)].map((m) => m[1]));
-      if (setEq(cspHosts, rpHosts)) ok(`C6: CSP img-src and remotePatterns agree on ${cspHosts.size} hosts`);
-      else describeSetMismatch("C6 image hosts", cspHosts, "CSP img-src", rpHosts, "remotePatterns");
-    }
+    const rpHosts = new Set([...patterns.matchAll(/hostname:\s*"([^"]+)"/g)].map((m) => m[1]));
+    if (setEq(cspHosts, rpHosts)) ok(`C6: CSP img-src and remotePatterns agree on ${cspHosts.size} literal hosts`);
+    else describeSetMismatch("C6 image hosts", cspHosts, "CSP img-src", rpHosts, "remotePatterns");
+
+    const hardCoded = [imgSrc, mediaSrc, connectSrc, patterns].some((t) => /supabase\.co/.test(t));
+    const sharedInCsp =
+      /import \{[^}]*\bSUPABASE_MEDIA_HOSTS\b[^}]*\} from "@\/lib\/media-hosts"/.test(mw) &&
+      /const SUPABASE_ORIGINS = SUPABASE_MEDIA_HOSTS\.map\(/.test(mw) &&
+      [imgSrc, mediaSrc, connectSrc].every((t) => t.includes("${SUPABASE_ORIGINS}")) &&
+      connectSrc.includes("wss://${SUPABASE_PROJECT_HOST}");
+    const sharedInConfig =
+      /import \{[^}]*\bSUPABASE_MEDIA_HOSTS\b[^}]*\} from "\.\/src\/lib\/media-hosts"/.test(cfg) &&
+      /\.\.\.SUPABASE_MEDIA_HOSTS\.map\(/.test(patterns);
+    const prodHosts = [...hostsModule.matchAll(/"([a-z0-9]{20}\.supabase\.co)"/g)].map((m) => m[1]);
+    const derivesProject = /new URL\(process\.env\.NEXT_PUBLIC_SUPABASE_URL\)\.hostname/.test(hostsModule);
+    if (hardCoded) fail("C6: a Supabase host is hard-coded or wildcarded in the CSP or remotePatterns; take it from src/lib/media-hosts.ts");
+    else if (!sharedInCsp) fail("C6: img-src, media-src and connect-src (https + wss) must use SUPABASE_ORIGINS / SUPABASE_PROJECT_HOST from @/lib/media-hosts");
+    else if (!sharedInConfig) fail("C6: next.config.ts remotePatterns must spread SUPABASE_MEDIA_HOSTS from ./src/lib/media-hosts");
+    else if (prodHosts.length !== 1 || !derivesProject || /\*\.supabase\.co/.test(hostsModule))
+      fail("C6: src/lib/media-hosts.ts must derive the project host from NEXT_PUBLIC_SUPABASE_URL and pin exactly one literal prod host (no wildcard)");
+    else ok(`C6: CSP and remotePatterns share the Supabase hosts of media-hosts.ts (NEXT_PUBLIC_SUPABASE_URL + ${prodHosts[0]})`);
+
+    const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
+    const ownHostTests = [...walk("src", [".ts", ".tsx"])].filter(
+      (file) =>
+        file !== join("src", "lib", "media-hosts.ts") &&
+        !file.startsWith(join("src", "lib", "types")) &&
+        /supabase\.co\b/.test(stripComments(read(file))),
+    );
+    if (ownHostTests.length) fail(`C6: Supabase host literal outside src/lib/media-hosts.ts (use SUPABASE_MEDIA_HOSTS): ${ownHostTests.join(", ")}`);
+    else ok("C6: no code under src/ tests for a Supabase host except src/lib/media-hosts.ts");
   }
 }
 

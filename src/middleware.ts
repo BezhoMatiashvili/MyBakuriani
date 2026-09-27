@@ -6,6 +6,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { isAllowedMutationOrigin } from "@/lib/security";
 import { KEEPZ_ORIGINLESS_POST_PATHS } from "@/lib/payments/keepz/server-paths";
 import { EMAIL_ORIGINLESS_POST_PATHS } from "@/lib/email/server-paths";
+import { SUPABASE_MEDIA_HOSTS, SUPABASE_PROJECT_HOST } from "@/lib/media-hosts";
 
 const intlMiddleware = createIntlMiddleware(routing);
 const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
@@ -18,6 +19,25 @@ const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
 // stays rotatable via env var alone — no code change or redeploy to change it.
 const SITE_LOCK_COOKIE = "mb_gate";
 const SITE_LOCK_PATH = "/site-locked";
+// request.nextUrl follows X-Forwarded-Proto, so behind a proxy that sets it the
+// request already reads as https; the configured site origin (inlined at build)
+// keeps the cookie Secure when a proxy does not. Local http://localhost builds
+// keep a non-Secure cookie.
+const SITE_IS_HTTPS =
+  process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") ?? false;
+
+// Compares a request-supplied value with the site-lock password in time that
+// depends only on the password's length: no early exit at the first differing
+// character. The middleware runs on the edge runtime, where node:crypto's
+// timingSafeEqual is unavailable. Reads past the end of `value` are NaN, which
+// XOR treats as 0; the length term already fails such a compare.
+function constantTimeEqual(value: string, secret: string): boolean {
+  let diff = value.length ^ secret.length;
+  for (let i = 0; i < secret.length; i++) {
+    diff |= value.charCodeAt(i) ^ secret.charCodeAt(i);
+  }
+  return diff === 0;
+}
 
 // The consent backstop requireConsent() redirects into. Like SITE_LOCK_PATH it
 // lives outside src/app/[locale]/ and must bypass next-intl entirely, or the
@@ -43,6 +63,13 @@ function stripLocalePrefix(pathname: string): string {
   );
 }
 
+// The Supabase origins media and API calls may use (C6): the configured project
+// and the prod media host, from the same list next.config.ts gives the image
+// optimizer. Never a *.supabase.co wildcard, which admitted every project.
+const SUPABASE_ORIGINS = SUPABASE_MEDIA_HOSTS.map(
+  (host) => `https://${host}`,
+).join(" ");
+
 function applySecurityHeaders(response: Response, secureRequest: boolean) {
   // script-src/style-src keep 'unsafe-inline': next-themes and Next's bootstrap
   // inject inline scripts/styles without a nonce, and the nonce was never wired
@@ -55,10 +82,10 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
       `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com`,
       "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com",
+      `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com`,
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com",
-      "media-src 'self' https://*.supabase.co",
+      `connect-src 'self' ${SUPABASE_ORIGINS} wss://${SUPABASE_PROJECT_HOST} https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com`,
+      `media-src 'self' ${SUPABASE_ORIGINS}`,
       // Mapbox GL JS spins up its tile/render worker from a blob: URL. With no
       // worker-src directive, browsers fall back to script-src, which has no
       // blob: — the map silently fails to render without this.
@@ -155,12 +182,15 @@ export async function middleware(request: NextRequest) {
 
     // Visiting the shareable bypass link (the password itself, as a path
     // segment) unlocks this browser and sends it home.
-    if (password && stripLocalePrefix(pathname) === `/${password}`) {
+    if (
+      password &&
+      constantTimeEqual(stripLocalePrefix(pathname), `/${password}`)
+    ) {
       const response = NextResponse.redirect(new URL("/", request.url));
       response.headers.set("Cache-Control", "no-store");
       response.cookies.set(SITE_LOCK_COOKIE, password, {
         httpOnly: true,
-        secure: secureRequest,
+        secure: secureRequest || SITE_IS_HTTPS,
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 24 * 30,
@@ -169,7 +199,11 @@ export async function middleware(request: NextRequest) {
     }
 
     const unlocked =
-      !!password && request.cookies.get(SITE_LOCK_COOKIE)?.value === password;
+      !!password &&
+      constantTimeEqual(
+        request.cookies.get(SITE_LOCK_COOKIE)?.value ?? "",
+        password,
+      );
 
     if (!unlocked) {
       const target = new URL(SITE_LOCK_PATH, request.url);
@@ -221,28 +255,17 @@ export async function middleware(request: NextRequest) {
   // Run next-intl middleware first to handle locale routing
   const intlResponse = intlMiddleware(routedRequest);
 
-  // Edge-cache the public listing detail pages (and blog posts) for the
-  // DEFAULT locale. Verified quirk (matches prod /blog behavior): an
-  // on-demand-ISR route reached through the locale REWRITE (unprefixed URL →
-  // /ka/...) renders dynamically with `no-store` and never populates the ISR
-  // cache — only prefixed /en/... /ru/... requests do. Since these routes are
-  // cookie-free by contract (see the detail pages' ISR comments), the HTML is
-  // identical for every viewer, so overriding Cache-Control here is safe and
-  // lets Cloudflare serve the dominant unprefixed traffic from the edge.
-  // Preview rewrites are excluded above (previewPath) and any ?preview=1
-  // request keeps its own cache key. Mirrors the pages' revalidate = 60.
-  if (
-    !previewPath &&
-    request.method === "GET" &&
-    !request.nextUrl.searchParams.has("preview")
-  ) {
-    const bare = stripLocalePrefix(pathname);
-    if (PREVIEW_DETAIL_RE.test(bare) || /^\/blog\/[^/]+$/.test(bare)) {
-      intlResponse.headers.set(
-        "Cache-Control",
-        "s-maxage=60, stale-while-revalidate=300",
-      );
-    }
+  // The detail pages' edge-cache header comes from next.config.ts headers()
+  // (C28), not from here: a middleware header always beats a next.config one,
+  // so setting it here would override the no-store that next.config gives RSC
+  // requests without `_rsc`. That rule's `missing: preview` test treats a bare
+  // `?preview` as absent, so pin the signed-in preview render as uncacheable
+  // here, with the exact header Next gives the force-dynamic /preview routes.
+  if (previewPath) {
+    intlResponse.headers.set(
+      "Cache-Control",
+      "private, no-cache, no-store, max-age=0, must-revalidate",
+    );
   }
 
   // For protected routes, also run Supabase session check.

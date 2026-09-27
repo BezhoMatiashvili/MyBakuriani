@@ -8,6 +8,7 @@ import {
   legacyKindForPlacement,
   type BannerPlacement,
 } from "@/lib/banner-placements";
+import { SUPABASE_MEDIA_HOSTS } from "@/lib/media-hosts";
 import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
 
 /**
@@ -74,7 +75,7 @@ export function isCreativeMediaUrl(value: unknown): boolean {
   try {
     const url = new URL(safe);
     return (
-      url.hostname.endsWith(".supabase.co") &&
+      SUPABASE_MEDIA_HOSTS.includes(url.hostname) &&
       url.pathname.startsWith("/storage/v1/object/public/")
     );
   } catch {
@@ -87,8 +88,9 @@ export function isCreativeMediaUrl(value: unknown): boolean {
  *
  * This is the INTERSECTION of two independent allow-lists, and both must hold:
  *   - CSP `img-src` in src/middleware.ts:21 — 'self', data:, blob:,
- *     *.supabase.co, images.unsplash.com, *.basemaps.cartocdn.com
- *   - next/image `remotePatterns` in next.config.ts — *.supabase.co restricted
+ *     the Supabase hosts of @/lib/media-hosts (C6), images.unsplash.com,
+ *     *.basemaps.cartocdn.com
+ *   - next/image `remotePatterns` in next.config.ts — those Supabase hosts restricted
  *     to pathname /storage/v1/object/public/**, plus images.unsplash.com
  *
  * Note this is deliberately NOT `safeStorageImageUrl` from @/lib/security: that
@@ -103,7 +105,7 @@ export function renderableImageUrl(value: unknown): string | null {
     const url = new URL(safe);
     if (url.hostname === "images.unsplash.com") return safe;
     if (
-      url.hostname.endsWith(".supabase.co") &&
+      SUPABASE_MEDIA_HOSTS.includes(url.hostname) &&
       url.pathname.startsWith("/storage/v1/object/public/")
     ) {
       return safe;
@@ -116,14 +118,15 @@ export function renderableImageUrl(value: unknown): string | null {
 
 /**
  * Strictly narrower than renderableImageUrl: CSP `media-src` (middleware.ts:24)
- * is only 'self' + *.supabase.co — unsplash is NOT allowed for media.
+ * is only 'self' + the Supabase hosts of @/lib/media-hosts — unsplash is NOT
+ * allowed for media.
  */
 export function renderableVideoUrl(value: unknown): string | null {
   const safe = safeHttpsUrl(value);
   if (!safe) return null;
   try {
     const url = new URL(safe);
-    return url.hostname.endsWith(".supabase.co") &&
+    return SUPABASE_MEDIA_HOSTS.includes(url.hostname) &&
       url.pathname.startsWith("/storage/v1/object/public/")
       ? safe
       : null;
