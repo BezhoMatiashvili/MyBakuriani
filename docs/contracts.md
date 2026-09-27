@@ -93,6 +93,8 @@ Participating symbols:
 - `src/lib/supabase/server.ts:createClient` / `src/lib/supabase/client.ts:createClient` — `createClient<Database>()`
 - `src/lib/supabase/admin.ts:createServiceClient` — service-role client
 
+**Explicit view column lists (2026-09-27).** The landing, `/blog`, `/search` and `/sales/all` now `select()` explicit column lists from the `public_*` views instead of `*`, and `PublicViews.public_properties.Row` gained the real view-only `profile_is_verified` (read by `/search`). The typed select parser checks those lists against this layer, which types a view as its base table plus the listed extras, so a column the VIEW lacks still compiles and only fails at runtime (PostgREST 400). Probe any new list against staging with `?select=…&limit=1`, and use only columns present in the prod-era view definitions.
+
 **Since 2026-09-21 the generated file is regenerable again and hand edits are
 banned.** The `supabase gen types` output for the staging project
 (`laxwtegxpemuuyxluqsi`) was dropped in unmodified, the six view/RPC-arg lies the

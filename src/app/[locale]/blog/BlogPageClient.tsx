@@ -8,8 +8,13 @@ import type { Tables } from "@/lib/types/database";
 import { formatDate } from "@/lib/utils/format";
 import BannerSlot from "@/components/banners/BannerSlot";
 
+type BlogListPost = Pick<
+  Tables<"blog_posts">,
+  "id" | "title" | "excerpt" | "image_url" | "published_at" | "created_at"
+>;
+
 interface Props {
-  posts?: Tables<"blog_posts">[];
+  posts?: BlogListPost[];
 }
 
 export default function BlogPageClient({ posts: serverPosts }: Props) {

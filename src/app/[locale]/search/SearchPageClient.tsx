@@ -47,10 +47,38 @@ type ServiceRow = Tables<"services"> & {
   best_active_menu_item_discount_percent?: number | null;
 };
 type BlogRow = Tables<"blog_posts">;
+// The columns search/page.tsx selects: everything this client renders plus what
+// filterPropertiesLocally (the offline fallback) reads. Edge-function rows are
+// a superset.
+type SearchListing = Pick<
+  Tables<"public_properties">,
+  | "id"
+  | "created_at"
+  | "title"
+  | "description"
+  | "location"
+  | "cadastral_code"
+  | "photos"
+  | "price_per_night"
+  | "sale_price"
+  | "capacity"
+  | "rooms"
+  | "bathrooms"
+  | "area_sqm"
+  | "type"
+  | "amenities"
+  | "is_vip"
+  | "is_super_vip"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "is_for_sale"
+  | "house_rules"
+  | "profile_is_verified"
+>;
 type ActiveTab = "all" | "properties" | "services" | "blog";
 
 interface Props {
-  initialProperties: Tables<"properties">[];
+  initialProperties: SearchListing[];
   statusCards: StatusCard[];
   initialLocation?: string;
   initialCheckIn?: string;
@@ -70,7 +98,7 @@ interface SearchState {
 }
 
 function filterPropertiesLocally(
-  items: Tables<"properties">[],
+  items: SearchListing[],
   search: SearchState,
   currentFilters: Filters,
   currentMode: "rent" | "sale",
@@ -164,8 +192,7 @@ function filterPropertiesLocally(
     }
     if (
       currentFilters.verifiedOnly &&
-      (property as Tables<"properties"> & { profile_is_verified?: boolean })
-        .profile_is_verified !== true
+      property.profile_is_verified !== true
     ) {
       return false;
     }
@@ -205,11 +232,11 @@ export default function SearchPageClient({
 
   // Property-only path state (used when no keyword)
   const [properties, setProperties] =
-    useState<Tables<"properties">[]>(initialProperties);
+    useState<SearchListing[]>(initialProperties);
   const [totalCount, setTotalCount] = useState(initialProperties.length);
 
   // Keyword path state — three buckets returned by global_search
-  const [kwProperties, setKwProperties] = useState<Tables<"properties">[]>([]);
+  const [kwProperties, setKwProperties] = useState<SearchListing[]>([]);
   const [kwServices, setKwServices] = useState<ServiceRow[]>([]);
   const [kwBlog, setKwBlog] = useState<BlogRow[]>([]);
 
@@ -305,7 +332,7 @@ export default function SearchPageClient({
         if (keyword) {
           // Bucketed response from global_search RPC
           const data = result.data as {
-            properties?: Tables<"properties">[];
+            properties?: SearchListing[];
             services?: ServiceRow[];
             blog?: BlogRow[];
           };
@@ -317,7 +344,7 @@ export default function SearchPageClient({
           setProperties([]);
           setTotalCount(0);
         } else {
-          let data: Tables<"properties">[] = result.data || [];
+          let data: SearchListing[] = result.data || [];
           if (currentFilters.types.length > 1) {
             data = data.filter((p) => currentFilters.types.includes(p.type));
           }
@@ -857,7 +884,7 @@ function KeywordResults({
 }: {
   activeTab: ActiveTab;
   onTabChange: (t: ActiveTab) => void;
-  propertiesArr: Tables<"properties">[];
+  propertiesArr: SearchListing[];
   servicesArr: ServiceRow[];
   blogArr: BlogRow[];
 }) {
@@ -941,7 +968,7 @@ function Section({
   );
 }
 
-function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
+function PropertiesGrid({ items }: { items: SearchListing[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6 xl:grid-cols-3">
       {items.map((p, i) => (

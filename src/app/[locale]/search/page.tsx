@@ -5,6 +5,7 @@ import type { AppLocale } from "@/i18n/routing";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import { getStatusCards } from "@/lib/status-cards/server";
 import SearchPageClient from "./SearchPageClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 export async function generateMetadata({
   params,
@@ -79,7 +80,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   // (already dynamic), so there's no need for the cookie-bound client's auth cost.
   const supabase = createPublicClient();
 
-  let query = supabase.from("public_properties").select("*");
+  // Only the columns SearchPageClient reads, including those its offline
+  // fallback filter uses (keep in sync with SearchListing there).
+  let query = supabase
+    .from("public_properties")
+    .select(
+      "id, created_at, title, description, location, cadastral_code, photos, price_per_night, sale_price, capacity, rooms, bathrooms, area_sqm, type, amenities, is_vip, is_super_vip, discount_percent, discount_expires_at, is_for_sale, house_rules, profile_is_verified",
+    );
 
   // Apply mode filter server-side so initial data matches
   if (params.mode === "sale") {
@@ -134,7 +141,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <SearchPageClient
-      initialProperties={properties ?? []}
+      initialProperties={(properties ?? []).map(firstPhotoOnly)}
       statusCards={statusCards}
       initialLocation={params.location ?? ""}
       initialCheckIn={params.check_in ?? ""}

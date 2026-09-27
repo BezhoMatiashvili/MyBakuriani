@@ -2,6 +2,14 @@ import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
+import {
+  LANDING_BLOG_COLUMNS,
+  LANDING_HOTEL_COLUMNS,
+  LANDING_RENTAL_COLUMNS,
+  LANDING_SALE_COLUMNS,
+  LANDING_SERVICE_COLUMNS,
+} from "@/app/[locale]/_landing/columns";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { fetchSlotCreatives } from "@/lib/banner-slots-server";
 import {
@@ -65,7 +73,7 @@ async function fetchLandingServices(
     LANDING_SERVICE_CATEGORIES.map((category) =>
       supabase
         .from("public_services")
-        .select("*")
+        .select(LANDING_SERVICE_COLUMNS)
         .eq("category", category)
         .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
@@ -100,7 +108,7 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     Promise.all([
       supabase
         .from("public_properties")
-        .select("*")
+        .select(LANDING_RENTAL_COLUMNS)
         .eq("is_for_sale", false)
         .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
@@ -108,21 +116,21 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
         .limit(8),
       supabase
         .from("public_properties")
-        .select("*")
+        .select(LANDING_HOTEL_COLUMNS)
         .eq("type", "hotel")
         .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
         .limit(4),
       supabase
         .from("public_properties")
-        .select("*")
+        .select(LANDING_SALE_COLUMNS)
         .eq("is_for_sale", true)
         .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
         .limit(4),
       supabase
         .from("public_properties")
-        .select("*")
+        .select(LANDING_RENTAL_COLUMNS)
         .eq("is_for_sale", false)
         // VIP tiers plus listings with an active discount badge (2026 price
         // list: the badge places a listing in the special-offers section).
@@ -146,7 +154,7 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   const blogQuery = withLandingTimeout(
     supabase
       .from("blog_posts")
-      .select("*")
+      .select(LANDING_BLOG_COLUMNS)
       .eq("published", true)
       .order("published_at", { ascending: false })
       .limit(3),
@@ -163,13 +171,13 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     Promise.all([
       supabase
         .from("public_properties")
-        .select("*")
+        .select(LANDING_SALE_COLUMNS)
         .eq("is_super_vip", true)
         .order("created_at", { ascending: false })
         .limit(12),
       supabase
         .from("public_services")
-        .select("*")
+        .select(LANDING_SERVICE_COLUMNS)
         .eq("is_super_vip", true)
         .order("created_at", { ascending: false })
         .limit(8),
@@ -232,15 +240,16 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     aggregateResult,
   );
 
+  // Cards and map pins render photos[0] only (see firstPhotoOnly).
   return {
-    hotOffers,
-    hotels,
-    saleProperties,
-    vipProperties,
-    services,
+    hotOffers: hotOffers.map(firstPhotoOnly),
+    hotels: hotels.map(firstPhotoOnly),
+    saleProperties: saleProperties.map(firstPhotoOnly),
+    vipProperties: vipProperties.map(firstPhotoOnly),
+    services: services.map(firstPhotoOnly),
     blogPosts,
-    superVipProperties,
-    superVipServices,
+    superVipProperties: superVipProperties.map((row) => firstPhotoOnly(row)),
+    superVipServices: superVipServices.map((row) => firstPhotoOnly(row)),
     pricePerSqmByZone: aggregateResult
       ? aggregatePricePerSqm(zones, saleAggregateRows)
       : emptyAggregate(zones),

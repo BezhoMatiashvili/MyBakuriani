@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { getStatusCards } from "@/lib/status-cards/server";
 import ApartmentsPageClient from "./ApartmentsPageClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 // Cache the public (active) listings instead of paying an Auth round-trip +
 // fresh query on every visit. Owners review their own pending listings from the
@@ -47,7 +48,7 @@ export default async function ApartmentsPage() {
 
   return (
     <ApartmentsPageClient
-      properties={properties ?? []}
+      properties={(properties ?? []).map(firstPhotoOnly)}
       statusCards={statusCards}
     />
   );

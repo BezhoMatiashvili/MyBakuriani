@@ -84,3 +84,17 @@ export function sanitizePhotos(
   }
   return out;
 }
+
+/**
+ * Keeps only a row's first photo. Cards and map pins on the list pages, the
+ * landing and search render photos[0] and nothing else, so shipping the whole
+ * array in server→client props only inflates the HTML/RSC payload (each URL is
+ * ~170 bytes and uploads allow 10-20 photos). null and [] pass through
+ * unchanged so `photos ?? []` guards behave the same. Detail pages need every
+ * photo for the gallery and must not use this.
+ */
+export function firstPhotoOnly<T extends { photos: string[] | null }>(row: T): T {
+  return row.photos && row.photos.length > 1
+    ? { ...row, photos: row.photos.slice(0, 1) }
+    : row;
+}

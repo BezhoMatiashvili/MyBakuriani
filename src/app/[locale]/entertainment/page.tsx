@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import EntertainmentPageClient from "./EntertainmentPageClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 export const revalidate = 60;
 
@@ -53,5 +54,5 @@ export default async function EntertainmentPage() {
     );
   }
 
-  return <EntertainmentPageClient services={services ?? []} />;
+  return <EntertainmentPageClient services={(services ?? []).map(firstPhotoOnly)} />;
 }

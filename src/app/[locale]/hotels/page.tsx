@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { getStatusCards } from "@/lib/status-cards/server";
 import HotelsPageClient from "./HotelsPageClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 export const revalidate = 60;
 
@@ -43,6 +44,6 @@ export default async function HotelsPage() {
   if (error) throw error;
 
   return (
-    <HotelsPageClient properties={properties ?? []} statusCards={statusCards} />
+    <HotelsPageClient properties={(properties ?? []).map(firstPhotoOnly)} statusCards={statusCards} />
   );
 }

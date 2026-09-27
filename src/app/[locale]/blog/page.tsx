@@ -22,9 +22,11 @@ export async function generateMetadata({
 export default async function BlogPage() {
   const supabase = createPublicClient();
 
+  // Only what the grid renders: the article body (`content`) and the other
+  // columns never reach the client (up to 100 full posts otherwise).
   const { data: posts, error } = await supabase
     .from("blog_posts")
-    .select("*")
+    .select("id, title, excerpt, image_url, published_at, created_at")
     .eq("published", true)
     .order("published_at", { ascending: false })
     .limit(100);

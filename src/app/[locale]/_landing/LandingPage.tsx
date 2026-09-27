@@ -43,7 +43,13 @@ import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import { describeSalary, type SalaryDescriptor } from "@/lib/employment/salary";
-import type { Tables } from "@/lib/types/database";
+import type {
+  LandingBlogPost,
+  LandingHotel,
+  LandingProperty,
+  LandingSaleProperty,
+  LandingService,
+} from "./columns";
 import BannerSlotView from "@/components/banners/BannerSlotView";
 import type { BannerCreative } from "@/lib/banner-creative";
 import type { Zone } from "@/lib/zones/types";
@@ -52,22 +58,19 @@ import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
 import { MobileRail } from "@/components/shared/MobileRail";
 
-type PublicService = Tables<"services"> & {
-  has_whatsapp?: boolean;
-  best_active_menu_item_discount_percent?: number | null;
-};
+type PublicService = LandingService;
 
 interface LandingPageProps {
   zones: Zone[];
   statusCards: StatusCard[];
-  hotOffers?: Tables<"properties">[];
-  hotels?: Tables<"properties">[];
-  saleProperties?: Tables<"properties">[];
-  vipProperties?: Tables<"properties">[];
-  superVipProperties?: Tables<"properties">[];
+  hotOffers?: LandingProperty[];
+  hotels?: LandingHotel[];
+  saleProperties?: LandingSaleProperty[];
+  vipProperties?: LandingProperty[];
+  superVipProperties?: LandingSaleProperty[];
   services?: PublicService[];
   superVipServices?: PublicService[];
-  blogPosts?: Tables<"blog_posts">[];
+  blogPosts?: LandingBlogPost[];
   bannerCreatives?: BannerCreative[];
   pricePerSqmByZone?: Record<string, number | null>;
 }
@@ -88,7 +91,7 @@ const MONTH_KEYS = [
 ] as const;
 
 /** HotOffersCarousel card from a public_properties row. */
-function toCarouselCard(p: Tables<"properties">) {
+function toCarouselCard(p: LandingProperty) {
   return {
     id: p.id,
     title: p.title,
