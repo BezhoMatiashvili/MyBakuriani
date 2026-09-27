@@ -13,25 +13,55 @@ Anchor grammar: `` `‹relpath›.‹ext›:‹symbol›` `` (a real one looks l
 ## C1 — i18n key parity & namespace scoping
 
 **Invariant:** the three catalogs `messages/ka.json`, `messages/en.json`,
-`messages/ru.json` must have identical key sets, and every message namespace
-reachable from a **public client component** must be listed in
-`PUBLIC_NAMESPACES`.
+`messages/ru.json` must have identical key sets, and every message namespace a
+client component uses must be in the constant of the **provider it renders
+under**: `PUBLIC_NAMESPACES` for the root `[locale]` provider, or the constant of
+a nested provider (`CREATE_NAMESPACES`, `AUTH_NAMESPACES`, `FAQ_NAMESPACES`,
+`MANUAL_REVIEW_NAMESPACES`, `SMS_CONSENT_NAMESPACES`, `DASHBOARD_NAMESPACES`).
 
 Participating symbols:
 
-- `src/i18n/namespaces.ts:PUBLIC_NAMESPACES` — the allow-list shipped to public browsers
-- `src/i18n/namespaces.ts:pickMessages` — trims the bundle to that list
+- `src/i18n/namespaces.ts:PUBLIC_NAMESPACES` — the root provider's set, shipped in every HTML document and static RSC payload
+- `src/i18n/namespaces.ts:CREATE_NAMESPACES` (and the five sibling constants) — re-provided by `create/layout.tsx`, `auth/layout.tsx`, `faq/page.tsx`, `review/[token]/page.tsx`, `sms-consent/[token]/page.tsx` and `dashboard/layout.tsx`
+- `src/i18n/namespaces.ts:pickMessages` — trims the bundle to a list
 - `messages/ka.json:Navbar` — default-locale catalog (top-level keys are namespaces)
-- `scripts/i18n-scope.mjs:PUBLIC_NAMESPACES` — build guard (`--check`, wired as `prebuild`)
+- `scripts/i18n-scope.mjs:SCOPES` — build guard (`--check`, wired as `prebuild`): maps every route entry to the provider that renders it, re-derives each scope's namespace set from the client import graph, and fails if a constant misses one or a provider file stops rendering `NextIntlClientProvider` with its constant
 - `scripts/check-message-parity.mjs:flatten` — key-parity check across the 3 files
 
-**Also check:** `src/app/[locale]/layout.tsx` (public provider) and any
-`dashboard/**/layout.tsx` (full-bundle provider); a new user-facing string needs a
-key in **all three** catalogs.
+**Nested providers REPLACE, they do not merge (2026-09-27).** Until then the root
+provider shipped 79 namespaces to every page, including 23 used only by /create,
+/auth, /faq and the two token pages (~10 KB gz per document in ka), and the
+dashboard layout re-provided the whole catalog. Each nested scope now carries
+every namespace reachable under it, shell pieces such as `Shared` (SkierLoader),
+`Error` (the layout's own error.tsx renders inside it), `LanguageSelector` and
+`CreateHeader` included. A layout-level provider covers its whole directory; a
+page-level provider covers only that page, so e.g. `faq/loading.tsx` and
+`faq/error.tsx` stay under the root provider. Every nested provider gets the
+locale explicitly, and one on a static route (`/faq`) calls
+`setRequestLocale(locale)` first: next-intl's server provider otherwise resolves
+timeZone/formats by reading `headers()`, which turns the route dynamic. `/auth/*`
+is the opposite case. It was always rendered per request, but only implicitly
+(its layout's `Link` read the locale from `headers()` before the root layout had
+set it), and a static prerender would bail the login/register forms out to
+client rendering because they read search params. Its layout now says
+`dynamic = "force-dynamic"`. The build table shows ● for these routes either
+way; `.next/prerender-manifest.json` is the ground truth. The signed-in
+`/create` prefetch (AddListingButton, default prefetch) now carries
+`CREATE_NAMESPACES`; those bytes moved off every HTML document into that
+background request.
+
+**Also check:** `src/app/[locale]/layout.tsx` (root provider) and the six nested
+provider files; a new user-facing string needs a key in **all three** catalogs.
+A new route tree that should get its own provider needs a `SCOPES` entry.
 
 **Breaks silently when:** you add a key to `ka.json` only (other locales render the
-key name), or a public client component starts using a namespace not in
-`PUBLIC_NAMESPACES` (missing translations in prod; `prebuild` catches it locally).
+key name), or a client component starts using a namespace missing from its
+scope's constant (raw keys in prod; `prebuild` catches it locally), or a nested
+provider is rendered without `setRequestLocale` on a static route (the route
+flips to dynamic with no error; the build table keeps showing ●, only
+`.next/prerender-manifest.json` or `next build --debug` reveals it). The reverse
+also happens silently: reordering what a layout awaits can make a route that
+relied on an implicit `headers()` read static.
 
 ---
 
