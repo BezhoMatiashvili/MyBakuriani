@@ -81,6 +81,7 @@ export interface SaleSearchFilters {
 type SaleTab = "search" | "appraise";
 
 type SaleActiveDropdown =
+  | "location"
   | "type"
   | "rooms"
   | "filters"
@@ -224,6 +225,9 @@ export function SaleSearchBox({
   const [tab, setTab] = useState<SaleTab>("search");
 
   // Existing filter state
+  // Zone name_ka ("" = any) — the listing's address as stored in
+  // properties.location; /sales/all matches it with `?location=`.
+  const [location, setLocation] = useState("");
   const [propertyType, setPropertyType] = useState("");
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const [priceMin, setPriceMin] = useState<string>("");
@@ -501,7 +505,7 @@ export function SaleSearchBox({
     const resolvedAreaMax = areaBucket ? bucketRange.max : areaMax;
 
     onSearch({
-      location: "",
+      location,
       propertyType,
       propertyTypes,
       priceMin: priceMinNum,
@@ -518,6 +522,9 @@ export function SaleSearchBox({
     });
   };
 
+  const locationLabel = location
+    ? zoneDisplayName(zones, tZones, location)
+    : t("anyOption");
   const selectedType = PROPERTY_TYPES.find((o) => o.value === propertyType);
   const propertyTypeLabel = selectedType
     ? t(selectedType.labelKey)
@@ -600,6 +607,22 @@ export function SaleSearchBox({
         <>
           {/* ═══ Mobile: stacked ═══ */}
           <div className="grid grid-cols-1 gap-3 lg:hidden">
+            <MobileField
+              label={t("locationZone")}
+              value={locationLabel}
+              onClick={() => toggleDropdown("location")}
+              open={activeDropdown === "location"}
+            >
+              <ZoneList
+                value={location}
+                zones={zones}
+                onSelect={(v) => {
+                  setLocation(v);
+                  setActiveDropdown(null);
+                }}
+              />
+            </MobileField>
+
             <MobileField
               label={t("fieldType")}
               value={propertyTypeLabel}
@@ -866,7 +889,27 @@ export function SaleSearchBox({
 
           {/* ═══ Investment quick-filter row (ROI / Area / Status / Renovation) ═══ */}
           {showInvestmentFilters && (
-            <div className="mt-4 hidden grid-cols-4 gap-4 lg:grid">
+            // Location lives here on desktop, not in the pill: a fourth pill
+            // field squeezed the price inputs to ~18px at 1280px.
+            <div className="mt-4 hidden grid-cols-5 gap-4 lg:grid">
+              <QuickSelect
+                label={t("locationZone")}
+                value={locationLabel}
+                active={activeDropdown === "location"}
+                onToggle={() => toggleDropdown("location")}
+              >
+                <div className="p-1">
+                  <ZoneList
+                    value={location}
+                    zones={zones}
+                    onSelect={(v) => {
+                      setLocation(v);
+                      setActiveDropdown(null);
+                    }}
+                  />
+                </div>
+              </QuickSelect>
+
               <QuickSelect
                 label={t("quickRoi")}
                 value={roiLabel}
@@ -1371,6 +1414,45 @@ function TypeList({
             )}
           >
             {t(option.labelKey)}
+            {value === option.value && <Check className="size-4" />}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ZoneList({
+  value,
+  onSelect,
+  zones,
+}: {
+  value: string;
+  onSelect: (v: string) => void;
+  zones: Zone[];
+}) {
+  const t = useTranslations("SaleSearchBox");
+  const tZones = useTranslations("Zones");
+  const options = [
+    { value: "", label: t("anyOption") },
+    ...zones.map((z) => ({
+      value: z.name_ka,
+      label: zoneDisplayName(zones, tZones, z.name_ka),
+    })),
+  ];
+  return (
+    <ul className="flex max-h-[320px] flex-col overflow-y-auto">
+      {options.map((option) => (
+        <li key={option.value || "any"}>
+          <button
+            type="button"
+            onClick={() => onSelect(option.value)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-[14px] font-bold text-[#1E293B] hover:bg-[#F8FAFC]",
+              value === option.value && "bg-[#F0FDF4] text-[#16A34A]",
+            )}
+          >
+            {option.label}
             {value === option.value && <Check className="size-4" />}
           </button>
         </li>

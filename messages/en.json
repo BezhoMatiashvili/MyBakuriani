@@ -339,6 +339,11 @@
     "guest4": "4 Guests",
     "guest6": "6 Guests",
     "guest8plus": "8+ Guests",
+    "guests": "Guests",
+    "guestsAny": "Any",
+    "guestCount": "{count, plural, one {# guest} other {# guests}}",
+    "addGuest": "Add a guest",
+    "removeGuest": "Remove a guest",
     "verifiedOnly": "Verified Only",
     "trustedOwners": "Trusted owners",
     "basicComfort": "Basic Comfort",
@@ -678,7 +683,7 @@
     "viewsLabel": "Views:",
     "dateLabel": "Date:",
     "viewAll": "View All",
-    "views": "{count} views",
+    "views": "{count, plural, one {# view} other {# views}}",
     "statuses": {
       "active": "Active",
       "blocked": "Blocked",
@@ -1241,7 +1246,8 @@
     "tryChangeFilters": "Try changing the filters",
     "bannerValidFrom": "Starts",
     "bannerValidUntil": "Ends",
-    "bannerExpand": "Open video"
+    "bannerExpand": "Open video",
+    "views": "{count, plural, one {# view} other {# views}}"
   },
   "StatusCards": {
     "weather": "Weather",
@@ -2338,6 +2344,7 @@
       "buggies": "Snowmobiles",
       "quad_bikes": "Quad bikes",
       "buggy": "Buggy",
+      "sport_school": "Sports school",
       "other": "Other"
     },
     "durations": {
@@ -2776,9 +2783,10 @@
     "review": "Review",
     "recentTitle": "Recently viewed listings",
     "recentSubtitle": "Pick up where you left off.",
+    "recentEmpty": "You haven't viewed any listings yet. The ones you open will show up here.",
     "viewAll": "View all",
     "showLess": "Show less",
-    "views": "{count} views",
+    "views": "{count, plural, one {# view} other {# views}}",
     "perNight": "/night",
     "newRequestModal": {
       "subtitle": "Tell us your criteria to receive offers",
@@ -3150,7 +3158,7 @@
     "defaultGuest": "Guest",
     "defaultUser": "User",
     "notSpecified": "Not specified",
-    "views": "{count} views",
+    "views": "{count, plural, one {# view} other {# views}}",
     "totalCount": "{count} total",
     "daysRemaining": "{count, plural, =1 {# day left} other {# days left}}",
     "superVipActive": "SUPER VIP is active",
@@ -3991,7 +3999,7 @@
     "close": "Close",
     "perNight": "/night",
     "perNightSpaced": " / night",
-    "viewsMeta": "{meta} • {views} views • {location}",
+    "viewsMeta": "{meta} • {views, plural, one {# view} other {# views}} • {location}",
     "call": "Call",
     "all": "All",
     "new": "New",

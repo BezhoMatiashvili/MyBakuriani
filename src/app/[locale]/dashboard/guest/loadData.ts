@@ -2,9 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/types/database";
 import type { GuestOffer } from "@/components/guest/GuestOffersModal";
 
-/** Max listings loaded for the "recently viewed" section. The dashboard shows a
- *  few collapsed; the rest are revealed in-place by the expand toggle. */
+/** Max listings loaded for the "recently viewed" section: the viewer's own
+ *  history, newest first. The dashboard shows a few collapsed; the rest are
+ *  revealed in-place by the expand toggle. */
 const RECENT_LIMIT = 12;
+
+/** One "recently viewed" card: a property or a service (C9), read from its
+ *  public view. */
+export type RecentListing =
+  | { kind: "property"; listing: Tables<"public_properties"> }
+  | { kind: "service"; listing: Tables<"public_services"> };
 
 /** A Smart Match request the guest sent, shown back to them on the dashboard. */
 export type MyRequest = {
@@ -22,7 +29,7 @@ export type MyRequest = {
 
 export type GuestData = {
   profile: Tables<"profiles"> | null;
-  recent: Tables<"public_properties">[];
+  recent: RecentListing[];
   offers: GuestOffer[];
   reviewRequests: Tables<"notifications">[];
   requests: MyRequest[];
@@ -30,6 +37,59 @@ export type GuestData = {
 
 function requestShortId(id: string) {
   return id.replace(/-/g, "").slice(0, 4).toUpperCase();
+}
+
+/**
+ * The viewer's own recently viewed listings, newest first (C35). History rows
+ * are written by the view beacon route; listings that are no longer public are
+ * dropped here.
+ */
+async function loadRecentListings(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<RecentListing[]> {
+  // Over-fetch: history rows whose listing is no longer public are dropped below.
+  const { data: history } = await supabase
+    .from("recently_viewed_listings")
+    .select("property_id, service_id")
+    .eq("user_id", userId)
+    .order("viewed_at", { ascending: false })
+    .limit(RECENT_LIMIT * 2);
+  if (!history?.length) return [];
+
+  const propertyIds = history.flatMap((h) =>
+    h.property_id ? [h.property_id] : [],
+  );
+  const serviceIds = history.flatMap((h) =>
+    h.service_id ? [h.service_id] : [],
+  );
+
+  // Public views only: base tables are RLS-hidden from non-owners, and views
+  // carry no relationships to embed (favorites pattern).
+  const [propsRes, servicesRes] = await Promise.all([
+    propertyIds.length
+      ? supabase.from("public_properties").select("*").in("id", propertyIds)
+      : Promise.resolve({ data: [] as Tables<"public_properties">[] }),
+    serviceIds.length
+      ? supabase.from("public_services").select("*").in("id", serviceIds)
+      : Promise.resolve({ data: [] as Tables<"public_services">[] }),
+  ]);
+
+  const properties = new Map((propsRes.data ?? []).map((p) => [p.id, p]));
+  const services = new Map((servicesRes.data ?? []).map((s) => [s.id, s]));
+
+  // Merge in history order (newest first).
+  const recent: RecentListing[] = [];
+  for (const h of history) {
+    const property = h.property_id ? properties.get(h.property_id) : undefined;
+    if (property) {
+      recent.push({ kind: "property", listing: property });
+      continue;
+    }
+    const service = h.service_id ? services.get(h.service_id) : undefined;
+    if (service) recent.push({ kind: "service", listing: service });
+  }
+  return recent.slice(0, RECENT_LIMIT);
 }
 
 /**
@@ -41,14 +101,10 @@ export async function loadGuestData(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<GuestData> {
-  const [profileRes, propsRes, offersRes, reviewReqRes, requestsRes] =
+  const [profileRes, recent, offersRes, reviewReqRes, requestsRes] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).single(),
-      supabase
-        .from("public_properties")
-        .select("*")
-        .order("views_count", { ascending: false })
-        .limit(RECENT_LIMIT),
+      loadRecentListings(supabase, userId),
       supabase
         .from("smart_match_offers")
         .select(
@@ -155,7 +211,7 @@ export async function loadGuestData(
 
   return {
     profile: profileRes.data ?? null,
-    recent: propsRes.data ?? [],
+    recent,
     offers,
     reviewRequests: reviewReqRes.data ?? [],
     requests,

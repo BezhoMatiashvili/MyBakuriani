@@ -8,7 +8,10 @@ import { ArrowRight, ChevronDown, Eye, Plus, Star } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatNumber, formatPrice } from "@/lib/utils/format";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
+import { priceUnitPathFor } from "@/lib/constants/listing-options";
+import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import NewRequestModal, {
   type NewRequestPayload,
 } from "@/components/guest/NewRequestModal";
@@ -19,9 +22,12 @@ import type { Tables } from "@/lib/types/database";
 import { isStale } from "@/lib/smart-match/match";
 import { safeInternalPath } from "@/lib/security";
 import MyRequestCard from "@/components/guest/MyRequestCard";
-import { loadGuestData, type GuestData, type MyRequest } from "./loadData";
-
-type Property = Tables<"public_properties">;
+import {
+  loadGuestData,
+  type GuestData,
+  type MyRequest,
+  type RecentListing,
+} from "./loadData";
 
 /** How many "recently viewed" cards show before the user expands the section. */
 const COLLAPSED_COUNT = 3;
@@ -47,7 +53,7 @@ export default function GuestDashboardClient({
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(
     initial.profile,
   );
-  const [recent, setRecent] = useState<Property[]>(initial.recent);
+  const [recent, setRecent] = useState<RecentListing[]>(initial.recent);
   const [offers, setOffers] = useState<GuestOffer[]>(initial.offers);
   const [reviewRequests, setReviewRequests] = useState<
     Tables<"notifications">[]
@@ -391,67 +397,28 @@ export default function GuestDashboardClient({
           )}
         </div>
 
-        <div
-          className={`mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${
-            recentExpanded ? "max-h-[560px] overflow-y-auto pr-1" : ""
-          }`}
-        >
-          {loading
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-[260px] rounded-[20px]" />
-              ))
-            : visibleRecent.map((p) => (
-                <Link
-                  key={p.id}
-                  href={
-                    p.is_for_sale ? `/sales/${p.id}` : `/apartments/${p.id}`
-                  }
-                  className="group flex flex-col overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]"
-                >
-                  <div className="relative h-[150px] w-full overflow-hidden bg-[#F1F5F9]">
-                    {(p.photos ?? [])[0] && (
-                      <Image
-                        src={(p.photos ?? [])[0]}
-                        alt={p.title}
-                        fill
-                        sizes="400px"
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    )}
-                    {p.is_vip && (
-                      <span className="absolute left-3 top-3 rounded-md bg-[#F97316] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
-                        VIP
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1.5 p-4">
-                    <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
-                      {p.title}
-                    </h3>
-                    <p className="flex items-center gap-1 text-[12px] text-[#94A3B8]">
-                      <Eye className="h-3 w-3" />
-                      {t("views", { count: p.views_count ?? 0 })}
-                    </p>
-                    <div className="mt-auto flex items-baseline gap-1 pt-2">
-                      {p.is_for_sale ? (
-                        <span className="text-[16px] font-black text-[#0F172A]">
-                          {formatPrice(Number(p.sale_price ?? 0))}
-                        </span>
-                      ) : (
-                        <>
-                          <span className="text-[16px] font-black text-[#0F172A]">
-                            {formatPrice(Number(p.price_per_night ?? 0))}
-                          </span>
-                          <span className="text-[11px] font-medium text-[#94A3B8]">
-                            {t("perNight")}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-        </div>
+        {!loading && recent.length === 0 ? (
+          <p className="mt-4 rounded-[20px] border border-[#EEF1F4] bg-[#FAFBFC] px-5 py-8 text-center text-[13px] font-medium text-[#94A3B8]">
+            {t("recentEmpty")}
+          </p>
+        ) : (
+          <div
+            className={`mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${
+              recentExpanded ? "max-h-[560px] overflow-y-auto pr-1" : ""
+            }`}
+          >
+            {loading
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[260px] rounded-[20px]" />
+                ))
+              : visibleRecent.map((entry) => (
+                  <RecentListingCard
+                    key={`${entry.kind}:${entry.listing.id}`}
+                    entry={entry}
+                  />
+                ))}
+          </div>
+        )}
       </motion.section>
 
       <NewRequestModal
@@ -466,5 +433,106 @@ export default function GuestDashboardClient({
         onDecline={handleDeclineOffer}
       />
     </div>
+  );
+}
+
+function RecentListingCard({ entry }: { entry: RecentListing }) {
+  const t = useTranslations("GuestDashboard");
+  const tOpts = useTranslations("ListingOptions");
+  const l = entry.listing;
+  // Canonical detail routes: hotel → /hotels, sale → /sales, food → /food …
+  const href =
+    entry.kind === "property"
+      ? propertyViewUrl(entry.listing)
+      : serviceViewUrl(entry.listing);
+  const photo = (l.photos ?? [])[0];
+  const isSale =
+    entry.kind === "property" && Boolean(entry.listing.is_for_sale);
+  const base =
+    entry.kind === "property"
+      ? Number(
+          (isSale ? entry.listing.sale_price : entry.listing.price_per_night) ??
+            0,
+        )
+      : entry.listing.price != null
+        ? Number(entry.listing.price)
+        : null;
+  // C10 via the shared helpers (sales too, as SalePropertyCard does). C21: a
+  // food listing's own discount is never applied; food discounts live per
+  // menu item.
+  const discounted =
+    !(entry.kind === "service" && entry.listing.category === "food") &&
+    isDiscountActive(l.discount_percent, l.discount_expires_at);
+  const price =
+    base != null && discounted
+      ? applyDiscount(base, l.discount_percent, l.discount_expires_at)
+      : base;
+  // Sale prices are entered and stored in USD, so they render with "$" like
+  // the sale cards do.
+  const money = (n: number) =>
+    isSale ? `$${formatNumber(n)}` : formatPrice(n);
+  const unitPath =
+    entry.kind === "service"
+      ? priceUnitPathFor(entry.listing.price_unit)
+      : null;
+  const unit =
+    entry.kind === "property"
+      ? isSale
+        ? null
+        : t("perNight")
+      : entry.listing.price_unit
+        ? `/${unitPath ? tOpts(unitPath) : entry.listing.price_unit}`
+        : null;
+
+  return (
+    <Link
+      href={href}
+      data-testid="recent-listing"
+      className="group flex flex-col overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]"
+    >
+      <div className="relative h-[150px] w-full overflow-hidden bg-[#F1F5F9]">
+        {photo && (
+          <Image
+            src={photo}
+            alt={l.title}
+            fill
+            sizes="400px"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
+        {/* The public views' VIP flags are already expiry-aware. */}
+        {(l.is_super_vip || l.is_vip) && (
+          <span className="absolute left-3 top-3 rounded-md bg-[#F97316] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+            {l.is_super_vip ? "SUPER VIP" : "VIP"}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
+          {l.title}
+        </h3>
+        <p className="flex items-center gap-1 text-[12px] text-[#94A3B8]">
+          <Eye className="h-3 w-3" />
+          {t("views", { count: l.views_count ?? 0 })}
+        </p>
+        {price != null && (
+          <div className="mt-auto flex items-baseline gap-1 pt-2">
+            {discounted && base != null && (
+              <span className="text-[11px] font-medium text-[#94A3B8] line-through">
+                {money(base)}
+              </span>
+            )}
+            <span className="text-[16px] font-black text-[#0F172A]">
+              {money(price)}
+            </span>
+            {unit && (
+              <span className="text-[11px] font-medium text-[#94A3B8]">
+                {unit}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </Link>
   );
 }

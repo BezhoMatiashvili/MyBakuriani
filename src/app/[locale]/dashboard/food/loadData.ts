@@ -50,7 +50,14 @@ export async function loadFoodData(
       .select("*", { count: "exact", head: true })
       .eq("to_user_id", userId)
       .gte("created_at", startOfMonth.toISOString()),
-    supabase.rpc("owner_dashboard_stats", { p_scope: "food" }),
+    supabase.rpc("owner_dashboard_stats", {
+      p_scope: "food",
+      // The whole screen describes `restaurant` (newest food listing: header,
+      // hours, price, actions, one-item picker), so scope the tiles to it —
+      // its header count and the Views tile can no longer disagree for owners
+      // with several food listings.
+      p_listing_ids: restaurant ? [restaurant.id] : undefined,
+    }),
   ]);
 
   const unitPrice = restaurant?.price ?? 0;

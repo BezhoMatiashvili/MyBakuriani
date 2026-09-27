@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import StatusCards from "@/components/landing/StatusCards";
 import { isStatusIcon, type StatusCard } from "@/lib/status-cards/types";
 import { withWeatherCard } from "@/lib/weather/card";
-import type { BakurianiWeather } from "@/lib/weather/weatherapi";
+import {
+  isForecastDate,
+  type BakurianiWeather,
+} from "@/lib/weather/weatherapi";
 
 const WEATHER_REFRESH_MS = 10 * 60 * 1000;
 
@@ -22,6 +25,21 @@ function isFiniteNumber(value: unknown): boolean {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isForecastDay(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const day = value as Record<string, unknown>;
+  return (
+    isForecastDate(day.date) &&
+    isFiniteNumber(day.maxTempC) &&
+    isFiniteNumber(day.minTempC) &&
+    isLocalizedText(day.condition) &&
+    isStatusIcon(day.icon)
+  );
+}
+
+// A body without `forecast` (an /api/weather response cached from before the
+// forecast shipped) is rejected, so the server-rendered card and its
+// forecast stay up rather than collapsing.
 function isPublicWeatherPayload(value: unknown): value is PublicWeatherPayload {
   if (!value || typeof value !== "object") return false;
   const weather = value as Record<string, unknown>;
@@ -33,7 +51,9 @@ function isPublicWeatherPayload(value: unknown): value is PublicWeatherPayload {
     isLocalizedText(weather.condition) &&
     typeof weather.observedAt === "string" &&
     Number.isFinite(new Date(weather.observedAt).getTime()) &&
-    isStatusIcon(weather.icon)
+    isStatusIcon(weather.icon) &&
+    Array.isArray(weather.forecast) &&
+    weather.forecast.every(isForecastDay)
   );
 }
 

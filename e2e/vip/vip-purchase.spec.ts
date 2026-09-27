@@ -857,6 +857,63 @@ test("[B8] food balance page: VIP via package card, wallet updates", async ({ pa
 });
 
 // ---------------------------------------------------------------------------
+// SMS credits left, shown in the wallet card of every balance page
+// ---------------------------------------------------------------------------
+
+function smsCount(page: Page) {
+  return page.getByTestId("sms-balance").locator("p.font-black");
+}
+
+async function setSmsCredits(userId: string, count: number) {
+  const { error } = await supabaseAdmin
+    .from("balances")
+    .update({ sms_remaining: count })
+    .eq("user_id", userId);
+  if (error) throw new Error(`sms credits: ${error.message}`);
+}
+
+test("[SMS] renter balance page: SMS credits left, a package adds its SMS", async ({ page }) => {
+  // Price and size from the live row, so staging test prices don't break it.
+  const { data: pkg, error } = await supabaseAdmin
+    .from("pricing_packages")
+    .select("amount_gel, meta")
+    .eq("category", "sms")
+    .eq("name", "SMS პაკეტი")
+    .eq("is_enabled", true)
+    .single();
+  if (error || !pkg) throw new Error(`sms package: ${error?.message}`);
+  const added = Number((pkg.meta as { sms_count?: number } | null)?.sms_count);
+  const wallet = (200 - Number(pkg.amount_gel)).toFixed(2);
+  await loginPage(page, ids.owner);
+  await open(page, "/dashboard/renter/balance");
+  await expect(smsCount(page)).toHaveText("0 SMS");
+  // Whole stat on screen on the phone too, not pushed out of the card.
+  await expect(page.getByTestId("sms-balance")).toBeInViewport({ ratio: 1 });
+  await packageCard(page, "SMS პაკეტი").getByRole("button", { name: "გააქტიურება" }).click();
+  const c = confirmDialog(page, KA);
+  await expect(c).toBeVisible();
+  await agree(page, c, KA);
+  await expect(smsCount(page)).toHaveText(`${added} SMS`);
+  await expect(walletHeader(page)).toContainText(wallet);
+  const { data } = await supabaseAdmin
+    .from("balances")
+    .select("sms_remaining")
+    .eq("user_id", ids.owner)
+    .single();
+  expect(data?.sms_remaining).toBe(added);
+});
+
+test("[SMS] food and transport balance pages show SMS credits left", async ({ page }) => {
+  await setSmsCredits(ids.svcOwner, 37);
+  await loginPage(page, ids.svcOwner);
+  for (const path of ["/dashboard/food/balance", "/dashboard/transport/balance"]) {
+    await open(page, path);
+    await expect(smsCount(page)).toHaveText("37 SMS");
+    await expect(page.getByTestId("sms-balance")).toBeInViewport({ ratio: 1 });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Failure and expiry states
 // ---------------------------------------------------------------------------
 

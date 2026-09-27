@@ -2797,6 +2797,73 @@ export type Database = {
         };
         Relationships: [];
       };
+      recently_viewed_listings: {
+        Row: {
+          id: string;
+          property_id: string | null;
+          service_id: string | null;
+          user_id: string;
+          viewed_at: string;
+        };
+        Insert: {
+          id?: string;
+          property_id?: string | null;
+          service_id?: string | null;
+          user_id: string;
+          viewed_at?: string;
+        };
+        Update: {
+          id?: string;
+          property_id?: string | null;
+          service_id?: string | null;
+          user_id?: string;
+          viewed_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recently_viewed_listings_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recently_viewed_listings_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "public_properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recently_viewed_listings_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "public_services";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recently_viewed_listings_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recently_viewed_listings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recently_viewed_listings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       renter_cleaners: {
         Row: {
           available: boolean;

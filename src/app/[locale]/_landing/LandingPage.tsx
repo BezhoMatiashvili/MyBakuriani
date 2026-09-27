@@ -444,6 +444,7 @@ export default function LandingPage({
               filtersBoundaryRef={filtersBoundaryRef}
               onActiveDropdownChange={setActiveDropdown}
               phoneLayout="landing-compact"
+              showGuests
               zones={zones}
               filtersMapSlot={renderFiltersMap("sheet")}
             />

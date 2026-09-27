@@ -135,6 +135,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      // Only for C6 parity with CSP img-src: the phone map preview loads this
+      // with a plain <img>, never through /_next/image.
+      {
+        protocol: "https",
+        hostname: "api.mapbox.com",
+        pathname: "/styles/v1/mapbox/**",
+      },
     ],
   },
   experimental: {

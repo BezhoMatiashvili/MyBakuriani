@@ -334,11 +334,16 @@
     "pricePerNight": "ფასი (ღამე)",
     "bedrooms": "საძინებლები",
     "bathrooms": "სველი წერტილი",
-    "capacityGuests": "თევადობა (სტუმრები)",
+    "capacityGuests": "სტუმრების რაოდენობა",
     "guest2": "2 სტუმარი",
     "guest4": "4 სტუმარი",
     "guest6": "6 სტუმარი",
     "guest8plus": "8+ სტუმარი",
+    "guests": "სტუმრები",
+    "guestsAny": "ნებისმიერი",
+    "guestCount": "{count} სტუმარი",
+    "addGuest": "სტუმრის დამატება",
+    "removeGuest": "სტუმრის მოკლება",
     "verifiedOnly": "მხოლოდ ვერიფიცირებული",
     "trustedOwners": "სანდო მესაკუთრეები",
     "basicComfort": "საბაზისო კომფორტი",
@@ -1241,7 +1246,8 @@
     "tryChangeFilters": "სცადეთ ფილტრების შეცვლა",
     "bannerValidFrom": "დაწყება",
     "bannerValidUntil": "დასრულება",
-    "bannerExpand": "ვიდეოს გახსნა"
+    "bannerExpand": "ვიდეოს გახსნა",
+    "views": "{count} ნახვა"
   },
   "StatusCards": {
     "weather": "ამინდი",
@@ -2338,6 +2344,7 @@
       "buggies": "ბურანები",
       "quad_bikes": "კვადროციკლები",
       "buggy": "ბაგი",
+      "sport_school": "სპორტსკოლა",
       "other": "სხვა"
     },
     "durations": {
@@ -2776,6 +2783,7 @@
     "review": "შეფასება",
     "recentTitle": "ბოლოს ნანახი განცხადებები",
     "recentSubtitle": "გააგრძელე სადაც გაჩერდი.",
+    "recentEmpty": "ჯერ არ გინახავთ განცხადებები. რასაც გახსნით, აქ გამოჩნდება.",
     "viewAll": "ყველას ნახვა",
     "showLess": "ნაკლების ჩვენება",
     "views": "{count} ნახვა",

@@ -42,7 +42,9 @@ export const getBakurianiWeather = cache(
       const url = new URL(WEATHERAPI_URL);
       url.searchParams.set("key", apiKey);
       url.searchParams.set("q", `${BAKURIANI_LAT},${BAKURIANI_LNG}`);
-      url.searchParams.set("days", "1");
+      // A week for the card's expanded forecast. The free WeatherAPI plan
+      // answers with 3 days; a paid plan returns all 7 with no code change.
+      url.searchParams.set("days", "7");
       url.searchParams.set("aqi", "no");
       url.searchParams.set("alerts", "no");
 

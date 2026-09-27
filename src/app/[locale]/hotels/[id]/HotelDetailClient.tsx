@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { parseISO } from "date-fns";
@@ -40,6 +40,7 @@ import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { formatPricePerNight } from "@/lib/utils/format";
 import { applyDiscount } from "@/lib/utils/pricing";
 import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
@@ -104,11 +105,11 @@ export default function HotelDetailClient({
     end: Date | null;
   }>({ start: null, end: null });
 
-  useEffect(() => {
-    void fetch(`/api/listings/property/${property.id}/view`, {
-      method: "POST",
-    });
-  }, [property.id]);
+  const views = useListingViewCount(
+    "property",
+    property.id,
+    property.views_count,
+  );
 
   const owner = property.profiles;
   const amenities = (property.amenities ?? []) as string[];
@@ -230,7 +231,7 @@ export default function HotelDetailClient({
               )}
               <span className="flex items-center gap-1.5 font-medium">
                 <Eye className="h-4 w-4" />
-                {tDetail("views", { count: property.views_count ?? 0 })}
+                {tDetail("views", { count: views })}
               </span>
             </div>
           </div>

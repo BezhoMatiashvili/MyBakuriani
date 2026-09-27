@@ -61,6 +61,10 @@ export type StatusCardItem = {
   value?: LocalizedText | null;
   status: StatusKind;
   url?: string | null;
+  // Live-only, never stored (the admin API rebuilds items without them): the
+  // weather card's forecast rows carry the day's condition icon and wording.
+  icon?: StatusIcon;
+  detail?: LocalizedText | null;
 };
 
 export type StatusCard = {
@@ -109,7 +113,8 @@ export function pickLocalized(
 // Cards whose closed-card face should preview its item names (e.g. "დიდველი,
 // კოხტა…") instead of staying blank until expanded. Deliberately excludes
 // "road" (already sets its own live drive-time subValue via withLiveRoad) and
-// "weather" (has no items).
+// "weather" (its items are live forecast days, and its face already carries
+// the live reading).
 const ITEM_SUBTITLE_CARD_IDS = new Set(["lifts", "cameras"]);
 const ITEM_SUBTITLE_MAX_NAMES = 2;
 const ITEM_SUBTITLE_LOCALES: StatusLocale[] = ["ka", "en", "ru"];

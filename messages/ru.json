@@ -339,6 +339,11 @@
     "guest4": "4 гостя",
     "guest6": "6 гостей",
     "guest8plus": "8+ гостей",
+    "guests": "Гости",
+    "guestsAny": "Любое",
+    "guestCount": "{count, plural, one {# гость} few {# гостя} many {# гостей} other {# гостя}}",
+    "addGuest": "Добавить гостя",
+    "removeGuest": "Убрать гостя",
     "verifiedOnly": "Только верифицированные",
     "trustedOwners": "Надёжные владельцы",
     "basicComfort": "Базовый комфорт",
@@ -678,7 +683,7 @@
     "viewsLabel": "Просмотры:",
     "dateLabel": "Дата:",
     "viewAll": "Все",
-    "views": "{count} просмотров",
+    "views": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
     "statuses": {
       "active": "Активный",
       "blocked": "Заблокирован",
@@ -1241,7 +1246,8 @@
     "tryChangeFilters": "Попробуйте изменить фильтры",
     "bannerValidFrom": "Начало",
     "bannerValidUntil": "Окончание",
-    "bannerExpand": "Открыть видео"
+    "bannerExpand": "Открыть видео",
+    "views": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}"
   },
   "StatusCards": {
     "weather": "Погода",
@@ -2338,6 +2344,7 @@
       "buggies": "Снегоходы",
       "quad_bikes": "Квадроциклы",
       "buggy": "Багги",
+      "sport_school": "Спортшкола",
       "other": "Другое"
     },
     "durations": {
@@ -2776,9 +2783,10 @@
     "review": "Оценить",
     "recentTitle": "Недавно просмотренные объявления",
     "recentSubtitle": "Продолжите с того места, где остановились.",
+    "recentEmpty": "Вы ещё не просматривали объявления. Открытые вами объявления появятся здесь.",
     "viewAll": "Смотреть все",
     "showLess": "Показать меньше",
-    "views": "{count} просмотров",
+    "views": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
     "perNight": "/ночь",
     "newRequestModal": {
       "subtitle": "Сообщите ваши условия для получения предложений",
@@ -3150,7 +3158,7 @@
     "defaultGuest": "Гость",
     "defaultUser": "Пользователь",
     "notSpecified": "Не указано",
-    "views": "{count} просмотров",
+    "views": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
     "totalCount": "Всего: {count}",
     "daysRemaining": "{count, plural, one {# день остался} few {# дня осталось} many {# дней осталось} other {# дня осталось}}",
     "superVipActive": "SUPER VIP активен",
@@ -3991,7 +3999,7 @@
     "close": "Закрыть",
     "perNight": "/ночь",
     "perNightSpaced": " / ночь",
-    "viewsMeta": "{meta} • {views} просмотров • {location}",
+    "viewsMeta": "{meta} • {views, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}} • {location}",
     "call": "Звонок",
     "all": "Все",
     "new": "Новый",

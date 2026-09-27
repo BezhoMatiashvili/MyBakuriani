@@ -47,14 +47,35 @@ function ItemRow({
 }) {
   const label = pickLocalized(item.label, locale);
   const value = pickLocalized(item.value, locale);
+  const detail = pickLocalized(item.detail, locale);
+  const Icon = item.icon ? ICON_MAP[item.icon] : null;
   const labelColor = variant === "dark" ? "text-[#E2E8F0]" : "text-[#1E293B]";
   const valueColor = variant === "dark" ? "text-[#94A3B8]" : "text-[#64748B]";
   const href = safeHttpsUrl(item.url);
   return (
-    <li className="flex items-center justify-between gap-3 text-[14px]">
-      <span className={cn("flex items-center gap-2 font-medium", labelColor)}>
+    // A row with a detail (weather forecast day) keeps its day and
+    // temperatures on one line; only the detail shrinks, with an ellipsis.
+    <li
+      className={cn(
+        "flex items-center justify-between gap-3 text-[14px]",
+        detail && "whitespace-nowrap",
+      )}
+    >
+      <span
+        className={cn(
+          "flex items-center gap-2 font-medium",
+          labelColor,
+          detail && "min-w-0",
+        )}
+      >
         <StatusDot status={item.status} />
+        {Icon && <Icon className={cn("size-[18px] shrink-0", valueColor)} />}
         {label}
+        {detail && (
+          <span className={cn("truncate font-normal", valueColor)}>
+            {detail}
+          </span>
+        )}
       </span>
       {href && onView ? (
         <button

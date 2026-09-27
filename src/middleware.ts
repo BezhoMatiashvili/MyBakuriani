@@ -82,7 +82,8 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
       `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com`,
       "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com`,
+      // api.mapbox.com: BakurianiMap's phone preview (Static Images API).
+      `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com https://api.mapbox.com`,
       "font-src 'self' data:",
       `connect-src 'self' ${SUPABASE_ORIGINS} wss://${SUPABASE_PROJECT_HOST} https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com`,
       `media-src 'self' ${SUPABASE_ORIGINS}`,

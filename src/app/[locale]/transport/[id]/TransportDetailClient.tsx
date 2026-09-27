@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
   BadgeCheck,
+  Eye,
   Users,
   Gauge,
   Languages,
@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { TransportContactFooter } from "@/components/shared/TransportContactFooter";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
@@ -108,10 +109,12 @@ export default function TransportDetailClient({
       ),
     );
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:pt-8 lg:pb-[96px]">
@@ -200,6 +203,10 @@ export default function TransportDetailClient({
                 className="mt-1 text-[13px] font-medium text-[#64748B]"
               />
             )}
+            <p className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
+              <Eye className="h-4 w-4" />
+              {tShared("views", { count: views })}
+            </p>
           </div>
         </div>
       </motion.div>

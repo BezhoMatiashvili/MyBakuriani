@@ -165,11 +165,14 @@ export default function SellerAnalyticsPage() {
 
   const maxValue = Math.max(1, ...funnel.map((s) => s.value));
 
+  // per SALE listing in scope (the picker lists sale listings only), not per funnel stage
+  const listingCount = listingIds.length || listingOptions.length;
+
   const metrics: { label: string; value: string; sub: string }[] = [
     {
       label: t("metricAvgViews"),
       value: views
-        ? Math.round(views / Math.max(1, funnel.length)).toString()
+        ? Math.round(views / Math.max(1, listingCount)).toString()
         : "0",
       sub: label,
     },

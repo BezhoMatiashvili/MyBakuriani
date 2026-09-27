@@ -434,6 +434,8 @@ optimizer or the fetch is CSP-blocked, visible only in the browser console.
 
 **S1 (2026-09-26):** Supabase hosts come from one list, `src/lib/media-hosts.ts:SUPABASE_MEDIA_HOSTS` (configured project + prod media host), used by middleware `img-src`/`media-src`/`connect-src` (https; `wss://` for the configured project only), `next.config.ts` `remotePatterns` (`/storage/v1/object/public/**`), and `src/lib/banner-creative.ts` (C12) — never `*.supabase.co`. `NEXT_PUBLIC_SUPABASE_URL` must be RUN_AND_BUILD_TIME: middleware inlines it at build, and `next start` re-reads next.config.ts at runtime (unset = prod host only). `images.qualities: [75]` (any other `<Image quality>` → 400) and `imgOptMaxInputPixels` 50 MP (larger sources served unoptimized) bound the optimizer. `check-contracts.mjs` C6 enforces the shared list (and fails on any other `supabase.co` host test under `src/`); `check-http-hardening.mjs` is a manual, localhost-only check. **Breaks:** a hard-coded or wildcard Supabase host; a new Supabase origin (custom domain, `<ref>.storage.supabase.co`) not added to media-hosts.ts; the URL env var scoped BUILD_TIME only (the optimizer 400s every photo).
 
+**Home map preview (2026-09-26):** `api.mapbox.com` is also in `img-src` + `remotePatterns` (`/styles/v1/mapbox/**`) for `BakurianiMap`'s phone preview (`src/lib/maps/staticMapUrl.ts`, Static Images API), loaded by a plain `<img>`, never `/_next/image` (the token's URL restriction checks the browser Referer). Dropping the host silently reverts phones to the placeholder.
+
 ---
 
 ## C7 — Realtime publication coverage
@@ -1270,6 +1272,8 @@ untested — every prior test gated on `VERCEL_ENV`). Setting the real
 itself remains a separate, unapplied infra step — the guard stays dark in
 production until a human does that.
 
+**Cloudflare-aware client IP (2026-09-26):** client IP = `src/lib/client-ip.ts:getClientIp` (re-exported by `rateLimit.ts`, unit-tested in `scripts/unit/client-ip.test.mjs`). Peer = the **last** `X-Forwarded-For` hop (DO ingress appends it). App Platform's own edge is Cloudflare, so a peer inside `CLOUDFLARE_IPV4_RANGES`/`CLOUDFLARE_IPV6_RANGES` → `CF-Connecting-IP`, else the hop before the peer; any other peer is the client. Never the first hop, never `DO-Connecting-IP`. Ranges = cloudflare.com/ips-v4 + ips-v6 (re-sync on change). The Deno twin `_shared/guards.ts` still reads the first hop (D8). **Breaks:** keying on the raw last hop behind Cloudflare (one bucket per edge — the 2026-09-09→09-26 view undercount); a stale range list (a retired range trusts its next holder).
+
 ---
 
 ## C17 — A cleaner's work lives in TWO tables
@@ -1874,6 +1878,8 @@ overload rather than a clean replacement, the exact trap C19 and others document
 
 **S3 (2026-09-27, C37):** after 90 days `listing_view_events.client_ip` and `contact_reveal_events.{client_ip, device_id, account_id}` are set to NULL. Rows stay, because `listing_analytics`, `seller_dashboard_stats` and lifetime reveals count rows. The 24 h view dedup lives in `rate_limit_counters` and is unaffected.
 
+**View beacon (2026-09-26):** order: active check (404) → owner skip `{counted:false, reason:"self"}` (incl. `?preview=1`) → history upsert (C35) → dedup 1/24h per viewer (`listing-view:user:<id>:…` signed in, `listing-view:ip:<C16 ip>:…` anon) → `record_listing_view`. Every answer carries the live `views` (C28). `views_count`/`menu_views_count` are service_role/admin-only: `prevent_listing_protected_field_change` raises 42501 on user UPDATE and `force_listing_moderation_state` zeroes them on user INSERT (`20260926171100`; the audit ignores counters, so these triggers are the only guard). `seller_dashboard_stats`: sale listings only; `views_total` = events in `[p_from,p_to)` (the lifetime counter only when both bounds are NULL; events exist since 2026-08-08) (`20260926171200`). **Breaks:** dedup keyed on a shared edge IP (under-counts); owner views counted; counters writable by owners (fake popularity, no audit row); ranged funnel mixed with lifetime views.
+
 ---
 
 ## C23 — Standard VIP and SUPER VIP are mutually exclusive
@@ -2382,6 +2388,8 @@ user agent happened to fill the edge cache — nothing errors, and a cache-buste
 
 
 **Edge cache (S1):** `next.config.ts:headers()` owns page Cache-Control, in order: baseline → detail/blog `s-maxage=60, stale-while-revalidate=300` (8 kinds + `/blog/:slug`, any locale, `missing: preview`; also matches `/sales/all`, every method, case-insensitive) → **last:** an `rsc` header with no/empty `_rsc` → `private, no-store` (S01). Next 15.5.25 runs header rules before middleware, a later rule overwrites the same key, and middleware wins. Keep the key spelled exactly `Cache-Control` in every rule. Middleware can't see `rsc`/`_rsc`, so it sets Cache-Control only on the signed-in `/preview` rewrite, site-lock and consent responses. An empty query value counts as absent (anon bare `?preview` gets the edge header; bare/empty `?_rsc` counts as missing). `_rsc` is not validated, so `?_rsc=`-keyed Flight/5xx responses stay cacheable. Known gap: `/en|/ru` `?preview=1` never reaches the `/preview` route. Relies on Cloudflare honouring origin Cache-Control. **Breaks:** a middleware `Cache-Control` on page routes (overrides the RSC rule); moving the RSC rule off last place; mixed-case `cache-control` keys across rules (insertion order then decides, not rule order); `scripts/check-http-hardening.mjs` (a)/(b)/(c) catch the first two.
+
+**Live view count (2026-09-26):** detail clients take the live view count from the view beacon's `views` (`src/lib/hooks/useListingViewCount.ts`); per-user history is written by that POST route, never read by the page.
 
 ---
 
@@ -2946,6 +2954,18 @@ GRANT migration (the form fails with 401/403 42501 — add the column to the GRA
 billing and counter columns); redefining that trigger from anything but the live definition. Staging ledger version `20260926185555`. Apply after `20260926171100` (the trigger body embeds its counters guard). DELETE stays table-level (RLS). "Admins full access bookings" is SELECT-only in effect — admin writes go through the service role. An invoker function/trigger that writes these tables in its own statement 42501s — make it DEFINER; BEFORE-trigger `NEW.col :=` is fine. `client_write_grants` reports direct and PUBLIC grants only. A 42501 test must not include unrelated ungranted columns (e.g. `id` on services).
 
 **S2/S23 (2026-09-27, `20260927090000`, `20260927092000`):** `smart_match_requests`: authenticated INSERT (guest_id, check_in, check_out, guests_count, budget_min, budget_max, zone, status) and UPDATE (status), no DELETE. `manual_bookings`: no table writes for anon or authenticated (owner RPCs only). `reviews`: authenticated INSERT/UPDATE (table-level, RLS-scoped), anon none, nobody DELETE/TRUNCATE. `security_posture_snapshot()->client_write_grants` now reports all seven tables and `EXPECTED_CLIENT_WRITES` asserts them. The new definer `apply_pii_retention(integer)` is service_role/pg_cron only. **Breaks:** a new key in the smart-match request payload without a GRANT (42501).
+
+---
+
+## C35 — Recently viewed history (guest dashboard)
+
+**Invariant:** `public.recently_viewed_listings` (user_id → profiles CASCADE; property_id XOR service_id per C9, CASCADE) is written **only** by `POST /api/listings/[kind]/[id]/view` (service role, `viewed_at`=now, signed-in non-owners of ACTIVE listings, **before** the 24h view dedup) and read **only** by `loadGuestData` under the user's JWT (RLS own rows; authenticated = SELECT only), two-step `.in("id")` on `public_properties`/`public_services`.
+
+**Symbols:** `supabase/migrations/20260926171000_recently_viewed_listings.sql`, `src/app/api/listings/[kind]/[id]/view/route.ts`, `src/app/[locale]/dashboard/guest/loadData.ts:loadRecentListings`, `GuestDashboardClient.tsx:RecentListingCard`.
+
+**Key:** Non-partial `UNIQUE(user_id,property_id)`/`UNIQUE(user_id,service_id)` are load-bearing (PostgREST `onConflict` cannot target partial indexes). Explicit GRANTs (C34). No audit trigger, no realtime, no backfill (starts empty), no prune (bounded by distinct listings). Cards link via `propertyViewUrl`/`serviceViewUrl`.
+
+**Breaks:** upsert after the dedup gate (same-day revisits never re-sort); reading base tables or embedding views (RLS hides other owners' rows); partial unique index (upsert 42P10); client-side writes (no INSERT grant); hand-rolled hrefs (hotels open /apartments, food /services).
 
 ---
 

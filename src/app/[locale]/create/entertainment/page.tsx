@@ -57,6 +57,7 @@ const ACTIVITY_CATEGORIES = [
   { value: "buggies", dbLabel: "ბურანები" },
   { value: "quad_bikes", dbLabel: "კვადროციკლები" },
   { value: "buggy", dbLabel: "ბაგი" },
+  { value: "sport_school", dbLabel: "სპორტსკოლა" },
   { value: "other", dbLabel: "სხვა" },
 ] as const;
 

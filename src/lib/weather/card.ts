@@ -2,8 +2,10 @@ import {
   pickLocalized,
   type LocalizedText,
   type StatusCard,
+  type StatusCardItem,
 } from "@/lib/status-cards/types";
 import {
+  formatForecastDayLabel,
   formatSnowCm,
   formatWeatherTemperature,
   type BakurianiWeather,
@@ -46,24 +48,49 @@ export function buildWeatherSubValue(
   return subValue;
 }
 
-// THE single definition of what the weather card face says. Both the server
-// render (withLiveWeather) and the client's 10-minute refresh poll go through
-// this, so a refresh can never silently drop back to a bare temperature.
+// One expanded-panel row per forecast day: "ორშ 28", the day's condition
+// icon and wording, then "23°C / 6°C" (high / low).
+export function buildForecastItems(
+  weather: BakurianiWeather,
+): StatusCardItem[] {
+  return weather.forecast.map((day) => {
+    const temps = `${formatWeatherTemperature(day.maxTempC)} / ${formatWeatherTemperature(day.minTempC)}`;
+    return {
+      id: `forecast-${day.date}`,
+      label: formatForecastDayLabel(day.date),
+      value: { ka: temps, en: temps, ru: temps },
+      detail: day.condition,
+      icon: day.icon,
+      status: "none",
+      url: null,
+    };
+  });
+}
+
+// THE single definition of what the weather card says, face and expanded
+// forecast. Both the server render (withLiveWeather) and the client's
+// 10-minute refresh poll go through this, so a refresh can never silently
+// drop back to a bare temperature.
 //
 // Note this takes `subValue` on the weather card under LIVE ownership, where
 // previously only `value`/`icon` were live and `subValue` was admin-editable.
 // That is deliberate: the caption now carries real readings (condition +
 // snowfall), so it must not be overridable by stale hand-typed text. Unlike
 // withItemNameSubtitles, there is intentionally no `|| card.subValue` guard —
-// such a guard would let an admin silently blank the forecast. The weather
-// card's label and its presence/ordering remain admin-editable as before.
+// such a guard would let an admin silently blank the forecast. The same goes
+// for `items`/`expandable` whenever the provider sent forecast days; with
+// none, the card keeps whatever the admin set. The weather card's label and
+// its presence/ordering remain admin-editable as before.
 export function withWeatherCard(
   cards: StatusCard[],
   weather: BakurianiWeather,
 ): StatusCard[] {
   const value = buildWeatherValue(weather);
   const subValue = buildWeatherSubValue(weather);
-  return cards.map((card) =>
-    card.id === "weather" ? { ...card, value, subValue, icon: weather.icon } : card,
-  );
+  const items = buildForecastItems(weather);
+  return cards.map((card) => {
+    if (card.id !== "weather") return card;
+    const live = { ...card, value, subValue, icon: weather.icon };
+    return items.length > 0 ? { ...live, items, expandable: true } : live;
+  });
 }

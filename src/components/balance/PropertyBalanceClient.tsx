@@ -12,6 +12,7 @@ import VipInfoModal, {
 } from "@/components/renter/VipInfoModal";
 import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
+import SmsBalanceStat from "@/components/balance/SmsBalanceStat";
 import TransactionList from "@/components/balance/TransactionList";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import {
@@ -255,20 +256,26 @@ export default function PropertyBalanceClient() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="flex flex-col items-start justify-between gap-4 rounded-[20px] bg-[#0F172A] px-8 py-7 text-white shadow-[0px_10px_30px_-8px_rgba(15,23,42,0.25)] sm:flex-row sm:items-center"
+        className="flex flex-col items-start justify-between gap-4 rounded-[20px] bg-[#0F172A] px-8 py-7 text-white shadow-[0px_10px_30px_-8px_rgba(15,23,42,0.25)] sm:flex-row sm:flex-wrap sm:items-center"
       >
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
-            {t("currentBalance")}
-          </p>
-          {loading ? (
-            <Skeleton className="mt-2 h-10 w-32 bg-white/20" />
-          ) : (
-            <p className="mt-2 text-[36px] font-black leading-[44px]">
-              {(balance?.amount ?? 0).toFixed(2)}{" "}
-              <span className="text-[28px] text-white/60">₾</span>
+        <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:gap-8">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
+              {t("currentBalance")}
             </p>
-          )}
+            {loading ? (
+              <Skeleton className="mt-2 h-10 w-32 bg-white/20" />
+            ) : (
+              <p className="mt-2 text-[36px] font-black leading-[44px]">
+                {(balance?.amount ?? 0).toFixed(2)}{" "}
+                <span className="text-[28px] text-white/60">₾</span>
+              </p>
+            )}
+          </div>
+          <SmsBalanceStat
+            remaining={balance?.sms_remaining ?? 0}
+            loading={loading}
+          />
         </div>
         <CardTopUpLauncher />
       </motion.div>

@@ -6,6 +6,7 @@ import mapboxgl from "mapbox-gl";
 import { useTranslations } from "next-intl";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { formatNumber } from "@/lib/utils/format";
+import { staticMapUrl } from "@/lib/maps/staticMapUrl";
 import Modal from "@/components/shared/Modal";
 
 const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
@@ -420,6 +421,11 @@ export default function BakurianiMap({
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [isPhone, setIsPhone] = useState<boolean | null>(null);
+  const [previewSize, setPreviewSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
   const mapFrameRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -458,6 +464,28 @@ export default function BakurianiMap({
     return () => observer.disconnect();
   }, [mapReady, isPhone, expanded, showPreview]);
 
+  // The static preview image is requested at the frame's exact size, so its
+  // built-in Mapbox attribution is never cropped by object-cover.
+  useEffect(() => {
+    const frame = mapFrameRef.current;
+    if (!frame || !showPreview) return;
+    const measure = () => {
+      const width = Math.round(frame.clientWidth);
+      const height = Math.round(frame.clientHeight);
+      if (width < 1 || height < 1) return;
+      setPreviewSize((prev) =>
+        prev?.width === width && prev.height === height
+          ? prev
+          : { width, height },
+      );
+    };
+    measure();
+    if (!window.ResizeObserver) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [showPreview]);
+
   const hasProperties = !!properties && properties.length > 0;
 
   // Initial center: explicit center → average of properties → Bakuriani.
@@ -477,6 +505,32 @@ export default function BakurianiMap({
     () => (properties ?? []).map((p) => `${p.lat},${p.lng}`).join("|"),
     [properties],
   );
+
+  // Same pins and framing the interactive map opens with: price pins (or zone
+  // pins when there are none), fit-to-pins for 2+ properties, otherwise the
+  // explicit center/zoom.
+  const previewUrl =
+    showPreview && previewSize
+      ? staticMapUrl({
+          token: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "",
+          ...previewSize,
+          pins: hasProperties
+            ? properties!.map((p) => ({
+                lat: p.lat,
+                lng: p.lng,
+                highlight: p.isSuperVip || p.isVip,
+              }))
+            : zones.map((zone) => ({ lat: zone.lat, lng: zone.lng })),
+          view:
+            center || !hasProperties || properties!.length === 1
+              ? {
+                  lat: initialCenter[0],
+                  lng: initialCenter[1],
+                  zoom: initialZoom,
+                }
+              : undefined,
+        })
+      : null;
 
   const mapContent = mapError ? (
     <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC] p-4 text-center text-xs font-medium text-[#64748B]">
@@ -509,6 +563,11 @@ export default function BakurianiMap({
     </div>
   );
 
+  const openFullMap = () => {
+    setMapReady(true);
+    setExpanded(true);
+  };
+
   return (
     <>
       <div
@@ -522,27 +581,47 @@ export default function BakurianiMap({
         {expanded ? (
           <div className="h-full w-full bg-[#F1F5F9]" aria-hidden="true" />
         ) : showPreview ? (
-          <div
-            className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#DBEAFE,transparent_45%),linear-gradient(135deg,#F8FAFC,#E2E8F0)]"
+          // Tapping anywhere on the preview opens the full map. The labelled
+          // button below is the accessible control, so this one stays out of
+          // the tab order and the accessibility tree.
+          <button
+            type="button"
+            tabIndex={-1}
             aria-hidden="true"
+            onClick={openFullMap}
+            className="relative flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#DBEAFE,transparent_45%),linear-gradient(135deg,#F8FAFC,#E2E8F0)]"
           >
-            <div className="rounded-full border border-white/80 bg-white/80 px-4 py-2 text-[13px] font-bold text-[#334155] shadow-sm">
+            {/* Placeholder until the static map loads, and if it can't. */}
+            <span className="rounded-full border border-white/80 bg-white/80 px-4 py-2 text-[13px] font-bold text-[#334155] shadow-sm">
               {t("mapTitle")}
-            </div>
-          </div>
+            </span>
+            {previewUrl && previewUrl !== failedPreviewUrl && (
+              // Plain <img>, loaded straight from Mapbox: the browser's Referer
+              // is what satisfies the token's URL restrictions, and it keeps
+              // the token out of the /_next/image cache.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previewUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                onError={() => setFailedPreviewUrl(previewUrl)}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            )}
+          </button>
         ) : (
           mapContent
         )}
 
-        {/* Phone previews always expose a full-size interactive map. */}
+        {/* Phone previews always expose a full-size interactive map. On the
+            preview it sits top-right: the static image carries the Mapbox
+            attribution bottom-right, which must stay visible. */}
         {(expandable || isPhone) && (
           <button
             type="button"
-            onClick={() => {
-              setMapReady(true);
-              setExpanded(true);
-            }}
-            className="absolute bottom-3 right-3 z-10 flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9] lg:size-[36px] lg:px-0 lg:text-[0px]"
+            onClick={openFullMap}
+            className={`absolute right-3 z-10 flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9] lg:size-[36px] lg:px-0 lg:text-[0px] ${showPreview ? "top-3" : "bottom-3"}`}
             aria-label={t("expandMap")}
           >
             <ExpandIcon className="size-4 text-[#334155]" />

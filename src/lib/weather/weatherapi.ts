@@ -11,6 +11,18 @@ export type BakurianiWeather = {
   condition: LocalizedText;
   icon: StatusIcon;
   observedAt: string;
+  // Daily forecast, today first, for the card's expanded panel. As many days
+  // as the WeatherAPI plan returns: the free plan caps a days=7 request at 3.
+  forecast: WeatherForecastDay[];
+};
+
+export type WeatherForecastDay = {
+  // Bakuriani-local calendar date exactly as WeatherAPI sends it: YYYY-MM-DD.
+  date: string;
+  maxTempC: number;
+  minTempC: number;
+  condition: LocalizedText;
+  icon: StatusIcon;
 };
 
 export type WeatherApiResponse = {
@@ -22,10 +34,12 @@ export type WeatherApiResponse = {
   };
   forecast?: {
     forecastday?: Array<{
+      date?: string;
       day?: {
         maxtemp_c?: number;
         mintemp_c?: number;
         totalsnow_cm?: number;
+        condition?: { code?: number };
       };
     }>;
   };
@@ -206,6 +220,67 @@ export function parseWeatherApiWeather(
     condition: weatherApiCodeToCondition(conditionCode, isDay),
     icon: weatherApiCodeToStatusIcon(conditionCode, isDay),
     observedAt: observedAt.toISOString(),
+    forecast: parseForecastDays(payload),
+  };
+}
+
+export function isForecastDate(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+// A day missing its date, high/low or condition code is dropped rather than
+// shown half-empty.
+function parseForecastDays(payload: WeatherApiResponse): WeatherForecastDay[] {
+  const days: WeatherForecastDay[] = [];
+  for (const entry of payload.forecast?.forecastday ?? []) {
+    const maxTempC = entry.day?.maxtemp_c;
+    const minTempC = entry.day?.mintemp_c;
+    const code = entry.day?.condition?.code;
+    if (
+      !isForecastDate(entry.date) ||
+      typeof maxTempC !== "number" ||
+      !Number.isFinite(maxTempC) ||
+      typeof minTempC !== "number" ||
+      !Number.isFinite(minTempC) ||
+      typeof code !== "number" ||
+      !Number.isFinite(code)
+    ) {
+      continue;
+    }
+    // A daily condition has no is_day flag; it describes the daytime.
+    days.push({
+      date: entry.date,
+      maxTempC,
+      minTempC,
+      condition: weatherApiCodeToCondition(code, 1),
+      icon: weatherApiCodeToStatusIcon(code, 1),
+    });
+  }
+  return days;
+}
+
+// Sunday first, matching Date#getUTCDay. Same wording as the booking
+// calendars' Calendar.day1–day7 message keys.
+const WEEKDAY_SHORT: LocalizedText[] = [
+  { ka: "კვი", en: "Sun", ru: "Вс" },
+  { ka: "ორშ", en: "Mon", ru: "Пн" },
+  { ka: "სამ", en: "Tue", ru: "Вт" },
+  { ka: "ოთხ", en: "Wed", ru: "Ср" },
+  { ka: "ხუთ", en: "Thu", ru: "Чт" },
+  { ka: "პარ", en: "Fri", ru: "Пт" },
+  { ka: "შაბ", en: "Sat", ru: "Сб" },
+];
+
+// "ორშ 28" for a forecast date. The date is read in UTC so neither the server
+// nor the viewer's timezone can shift it onto the neighbouring weekday.
+export function formatForecastDayLabel(date: string): LocalizedText {
+  const [year, month, day] = date.split("-").map(Number);
+  const weekday =
+    WEEKDAY_SHORT[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  return {
+    ka: `${weekday.ka} ${day}`,
+    en: `${weekday.en} ${day}`,
+    ru: `${weekday.ru} ${day}`,
   };
 }
 

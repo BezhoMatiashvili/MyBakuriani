@@ -300,6 +300,7 @@ const DB_VALUE_KEYS = {
     ბურანები: "buggies",
     კვადროციკლები: "quad_bikes",
     ბაგი: "buggy",
+    სპორტსკოლა: "sport_school",
     სხვა: "other",
   },
   durations: {

@@ -9,8 +9,11 @@ import {
   Check,
   ChevronDown,
   MapPin,
+  Minus,
+  Plus,
   Search,
   SlidersHorizontal,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,7 +40,8 @@ export interface SearchFilters {
   advancedFilters: RentAdvancedFilters;
 }
 
-export type ActiveDropdown = "calendar" | "location" | "filters" | null;
+export type ActiveDropdown =
+  "calendar" | "location" | "guests" | "filters" | null;
 type DateRange = { from: Date | undefined; to?: Date };
 
 // Seeded zone slugs have display translations under Zones.<slug>; unknown
@@ -120,6 +124,12 @@ interface SearchBoxProps {
   onActiveDropdownChange?: (active: ActiveDropdown) => void;
   isPending?: boolean;
   phoneLayout?: "default" | "landing-compact";
+  /**
+   * Home page: a visible guest-count field (inline stepper on phones, a
+   * stepper popover in the desktop pill) instead of only the capacity chips
+   * inside the filters panel. Writes both `guests` and `filters.capacity`.
+   */
+  showGuests?: boolean;
   zones: Zone[];
   advancedFilters?: RentAdvancedFilters;
 }
@@ -132,6 +142,7 @@ const CAPACITY_OPTIONS = [
   { value: 6, labelKey: "guest6" },
   { value: 8, labelKey: "guest8plus" },
 ] as const;
+const MAX_GUESTS = 20;
 const BEDROOM_OPTIONS = [1, 2, 3, 4] as const;
 const BATHROOM_OPTIONS = [1, 2, 3] as const;
 const AMENITIES = [
@@ -214,6 +225,7 @@ export function SearchBox({
   onActiveDropdownChange,
   isPending = false,
   phoneLayout = "default",
+  showGuests = false,
   zones,
   advancedFilters,
 }: SearchBoxProps) {
@@ -237,6 +249,7 @@ export function SearchBox({
 
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const isMobile = useIsMobileSearchLayout();
+  const guestsLabelId = useId();
   const [filters, setFilters] = useState<FilterState>(() =>
     normalizeRentFilters(advancedFilters),
   );
@@ -424,6 +437,11 @@ export function SearchBox({
     });
   };
 
+  // Desktop pill segments split the width equally, except beside the guests
+  // segment: there they size to their content, so the longest value (the
+  // location) keeps a single line at >=1280px.
+  const segmentFlex = showGuests ? "flex-auto" : "flex-1";
+
   const dateLabel = dateRange?.from
     ? dateRange.to
       ? `${formatDisplayDate(dateRange.from, locale)} - ${formatDisplayDate(dateRange.to, locale)}`
@@ -444,6 +462,14 @@ export function SearchBox({
       keyword,
       advancedFilters: committed,
     });
+  };
+
+  // `guests` is what reaches the URL; `filters.capacity` is the same number as
+  // the filters panel shows it, and applyFilters copies capacity back into
+  // guests — so the stepper must write both or the next apply erases it.
+  const handleGuestsChange = (next: number | "") => {
+    setGuests(next);
+    setFilters((prev) => ({ ...prev, capacity: next === "" ? null : next }));
   };
 
   const handleApplyFilters = () => applyFilters(filters);
@@ -630,6 +656,40 @@ export function SearchBox({
           </button>
         </div>
 
+        {/* Guests — shares Filters' order slot; DOM order puts it first. */}
+        {showGuests && (
+          <div
+            className={cn(
+              "relative order-3",
+              isLandingCompact &&
+                "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+            )}
+          >
+            <span
+              id={`${guestsLabelId}-mobile`}
+              className={cn(
+                "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
+                isLandingCompact &&
+                  "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+              )}
+            >
+              {t("guests")}
+            </span>
+            <GuestStepper
+              value={guests}
+              onChange={handleGuestsChange}
+              labelledBy={`${guestsLabelId}-mobile`}
+              size="touch"
+              testId="search-mobile-guests"
+              className={cn(
+                "justify-between rounded-lg border border-[#E2E8F0] bg-white",
+                isLandingCompact &&
+                  "rounded-none border-0 bg-transparent sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white",
+              )}
+            />
+          </div>
+        )}
+
         {/* Filters */}
         <div
           className={cn(
@@ -673,7 +733,12 @@ export function SearchBox({
       {/* ═══ Desktop: horizontal pill layout ═══ */}
       <div className="hidden flex-1 items-center lg:flex">
         {/* Date field */}
-        <div className="relative flex h-[64px] flex-1 flex-col justify-center rounded-l-full px-6">
+        <div
+          className={cn(
+            "relative flex h-[64px] flex-col justify-center rounded-l-full px-6",
+            segmentFlex,
+          )}
+        >
           <span
             className={cn(
               "text-[10px] font-bold uppercase tracking-[1px]",
@@ -705,7 +770,12 @@ export function SearchBox({
         <div className="h-8 w-px bg-[#F1F5F9]" />
 
         {/* Location field */}
-        <div className="relative flex h-[64px] flex-1 flex-col justify-center px-6">
+        <div
+          className={cn(
+            "relative flex h-[64px] flex-col justify-center px-6",
+            segmentFlex,
+          )}
+        >
           <span
             className={cn(
               "text-[10px] font-bold uppercase tracking-[1px]",
@@ -750,11 +820,81 @@ export function SearchBox({
           )}
         </div>
 
+        {/* Guests field — too narrow at 1024px for an inline stepper, so the
+            stepper opens in a popover like the location list. */}
+        {showGuests && (
+          <>
+            <div className="h-8 w-px bg-[#F1F5F9]" />
+            <div className="relative flex h-[64px] w-[156px] shrink-0 flex-col justify-center px-4">
+              <span
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-[1px]",
+                  activeDropdown === "guests"
+                    ? "text-[#2563EB]"
+                    : "text-[#94A3B8]",
+                )}
+              >
+                {t("guests")}
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleDropdown("guests")}
+                aria-expanded={activeDropdown === "guests"}
+                data-testid="search-desktop-guests"
+                className={cn(
+                  "flex w-full items-center gap-1 text-left text-[15px] font-bold leading-[22px] outline-none",
+                  activeDropdown === "guests"
+                    ? "text-[#2563EB]"
+                    : guests !== ""
+                      ? "text-[#1E293B]"
+                      : "text-[#94A3B8]",
+                )}
+              >
+                <span className="truncate">
+                  {guests === ""
+                    ? t("guestsAny")
+                    : t("guestCount", { count: guests })}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "size-4 shrink-0",
+                    activeDropdown === "guests"
+                      ? "text-[#2563EB]"
+                      : "text-[#94A3B8]",
+                  )}
+                />
+              </button>
+              {activeDropdown === "guests" && !isMobile && (
+                <div className="absolute left-0 top-full z-50 mt-2 w-[260px] rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
+                  <span
+                    id={`${guestsLabelId}-desktop`}
+                    className="mb-3 block text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]"
+                  >
+                    {t("capacityGuests")}
+                  </span>
+                  <GuestStepper
+                    value={guests}
+                    onChange={handleGuestsChange}
+                    labelledBy={`${guestsLabelId}-desktop`}
+                    size="compact"
+                    className="justify-between"
+                  />
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Divider */}
         <div className="h-8 w-px bg-[#F1F5F9]" />
 
         {/* Filters field */}
-        <div className="relative flex h-[64px] flex-1 flex-col justify-center px-6">
+        <div
+          className={cn(
+            "relative flex h-[64px] flex-col justify-center px-6",
+            segmentFlex,
+          )}
+        >
           <span
             className={cn(
               "text-[10px] font-bold uppercase tracking-[1px]",
@@ -790,7 +930,13 @@ export function SearchBox({
 
         {/* Keyword field (site-wide fuzzy search) */}
         <div className="flex h-[61.5px] items-center justify-center px-2">
-          <div className="relative w-[180px] lg:w-[260px]">
+          <div
+            className={cn(
+              "relative w-[180px] lg:w-[260px]",
+              // Room for the guests segment without wrapping its neighbours.
+              showGuests && "lg:w-[200px]",
+            )}
+          >
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
             <input
               type="text"
@@ -892,7 +1038,8 @@ export function SearchBox({
 
           return (
             <BottomSheet
-              isOpen={activeDropdown !== null}
+              // "guests" is a desktop-only popover; phones step inline.
+              isOpen={activeDropdown !== null && activeDropdown !== "guests"}
               onClose={closeMobileSheet}
               title={
                 activeDropdown === "filters"
@@ -1028,6 +1175,71 @@ export function SearchBox({
         );
       })()}
     </form>
+  );
+}
+
+// ─── Guest Stepper ───────────────────────────────────────────────────
+// "" = any number of guests; stepping below 1 returns to it.
+function GuestStepper({
+  value,
+  onChange,
+  labelledBy,
+  size,
+  className,
+  testId,
+}: {
+  value: number | "";
+  onChange: (next: number | "") => void;
+  labelledBy: string;
+  size: "touch" | "compact";
+  className?: string;
+  testId?: string;
+}) {
+  const t = useTranslations("SearchBox");
+  const count = value === "" ? 0 : value;
+  const buttonClass = cn(
+    "flex shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#334155] transition-colors hover:bg-[#E2E8F0] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#CBD5E1]",
+    size === "touch" ? "size-11" : "size-9",
+  );
+
+  return (
+    <div
+      role="group"
+      aria-labelledby={labelledBy}
+      data-testid={testId}
+      className={cn("flex items-center gap-2", className)}
+    >
+      <button
+        type="button"
+        onClick={() => onChange(count <= 1 ? "" : count - 1)}
+        disabled={count === 0}
+        aria-label={t("removeGuest")}
+        className={buttonClass}
+      >
+        <Minus className="size-4" />
+      </button>
+      <span
+        aria-live="polite"
+        className={cn(
+          "flex min-w-0 items-center justify-center gap-2 text-[15px] font-bold",
+          value === "" ? "text-[#94A3B8]" : "text-[#1E293B]",
+        )}
+      >
+        <Users aria-hidden="true" className="size-4 shrink-0" />
+        <span className="truncate">
+          {value === "" ? t("guestsAny") : t("guestCount", { count: value })}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(MAX_GUESTS, count + 1))}
+        disabled={count >= MAX_GUESTS}
+        aria-label={t("addGuest")}
+        className={buttonClass}
+      >
+        <Plus className="size-4" />
+      </button>
+    </div>
   );
 }
 
