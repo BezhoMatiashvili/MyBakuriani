@@ -189,6 +189,32 @@ function CreateRentalPageInner() {
     let cancelled = false;
 
     (async () => {
+      // Availability and price overrides for the next-30-day window don't
+      // depend on the property row, so both reads start with it; they are
+      // still applied only after the row (the ownership check) has loaded.
+      // The .catch()es only mark them handled for the early returns.
+      const windowDates = buildNext30Days();
+      const startIso = windowDates[0];
+      const endIso = windowDates[windowDates.length - 1];
+      const blocksQuery = Promise.resolve(
+        supabase
+          .from("calendar_blocks")
+          .select("date, status")
+          .eq("property_id", editId)
+          .gte("date", startIso)
+          .lte("date", endIso),
+      );
+      blocksQuery.catch(() => {});
+      const overridesQuery = Promise.resolve(
+        supabase
+          .from("price_overrides")
+          .select("date, price")
+          .eq("property_id", editId)
+          .gte("date", startIso)
+          .lte("date", endIso),
+      );
+      overridesQuery.catch(() => {});
+
       const { data, error: fetchError } = await supabase
         .from("properties")
         .select("*")
@@ -254,15 +280,7 @@ function CreateRentalPageInner() {
       setPhotos(Array.isArray(data.photos) ? data.photos : []);
 
       // Hydrate availability for the next-30-day window from existing rows
-      const windowDates = buildNext30Days();
-      const startIso = windowDates[0];
-      const endIso = windowDates[windowDates.length - 1];
-      const { data: blocks } = await supabase
-        .from("calendar_blocks")
-        .select("date, status")
-        .eq("property_id", editId)
-        .gte("date", startIso)
-        .lte("date", endIso);
+      const { data: blocks } = await blocksQuery;
 
       if (cancelled) return;
 
@@ -284,12 +302,7 @@ function CreateRentalPageInner() {
       setBookedDates(booked);
 
       // Hydrate per-day price overrides for the same window
-      const { data: overrides } = await supabase
-        .from("price_overrides")
-        .select("date, price")
-        .eq("property_id", editId)
-        .gte("date", startIso)
-        .lte("date", endIso);
+      const { data: overrides } = await overridesQuery;
 
       if (cancelled) return;
 

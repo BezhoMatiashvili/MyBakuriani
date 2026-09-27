@@ -1655,7 +1655,10 @@ in the DB or `src/` reads the old key.
 **Realtime must stay filtered on `user_id`, never on `dashboard_scope`.** Realtime supports one filter;
 swapping it for `dashboard_scope=eq.<scope>` drops the per-user predicate, and the "Admins full access
 notifications" RLS policy then delivers _other users'_ notifications into an admin's own feed. The scope
-is applied client-side in the payload handler instead.
+is applied client-side in the payload handler instead. `dashboard/renter/notifications/page.tsx`
+used a `dashboard_scope=eq.renter` filter until 2026-09-27 (it only triggered refetches, which filter by
+user, so nothing leaked); it now filters on `user_id`, checks the scope in the handler, and coalesces
+refetches to one in flight plus one trailing.
 
 **Also check:** `src/lib/types/database.ts` must carry `dashboard_scope` on `notifications` (**C3**), and
 the migration ends with `notify pgrst, 'reload schema'`.

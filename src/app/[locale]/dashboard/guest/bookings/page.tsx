@@ -163,11 +163,15 @@ export default function GuestBookingsPage() {
       const pendingIds = rows
         .filter((o) => o.status === "pending")
         .map((o) => o.offerId);
+      // Only rows not yet marked: an UPDATE of an already-seen row still emits a
+      // realtime event, which the channel below answers with another
+      // fetchData() — so re-marking every pending offer looped forever.
       if (pendingIds.length > 0) {
         await supabase
           .from("smart_match_offers")
           .update({ guest_seen: true })
-          .in("id", pendingIds);
+          .in("id", pendingIds)
+          .eq("guest_seen", false);
       }
     }
     fetchData();

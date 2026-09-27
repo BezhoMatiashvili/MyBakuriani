@@ -176,6 +176,22 @@ export default function RenterCleanersPage() {
     setCleanersLoaded(false);
     setDetailsLoaded(false);
     setDetailsError(false);
+    // public_services holds every active cleaning service (the RPC's own
+    // filter), so the details read starts with the RPC instead of after it and
+    // is narrowed to the RPC's ids below. The .catch() only marks it handled
+    // for the early returns that never await it.
+    // The generated view type intentionally mirrors the legacy base-table shape,
+    // so the appended profile_* columns need this narrow runtime cast.
+    const detailsQuery = Promise.resolve(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from("public_services")
+        .select(
+          "id, title, description, price, price_unit, photos, location, schedule, operating_hours, experience_required, languages, service_field, profile_avatar_url, profile_is_verified",
+        )
+        .eq("category", "cleaning"),
+    );
+    detailsQuery.catch(() => {});
     const { data, error } = await supabase.rpc("get_platform_cleaners");
     if (error || !data) {
       setCleaners([]);
@@ -200,20 +216,17 @@ export default function RenterCleanersPage() {
 
     // public_services is the explicit safe read model: it contains profile and
     // capability data, but never raw phone/WhatsApp or private cleaner fields.
-    // The generated view type intentionally mirrors the legacy base-table shape,
-    // so the appended profile_* columns need this narrow runtime cast.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const detailsResult = await (supabase as any)
-      .from("public_services")
-      .select(
-        "id, title, description, price, price_unit, photos, location, schedule, operating_hours, experience_required, languages, service_field, profile_avatar_url, profile_is_verified",
-      )
-      .in("id", serviceIds);
+    const detailsResult = await detailsQuery;
     if (detailsResult.error) {
       setServiceDetails([]);
       setDetailsError(true);
     } else {
-      setServiceDetails((detailsResult.data ?? []) as PublicServiceDetail[]);
+      const listed = new Set(serviceIds);
+      setServiceDetails(
+        ((detailsResult.data ?? []) as PublicServiceDetail[]).filter(
+          (service) => listed.has(service.id),
+        ),
+      );
     }
     setDetailsLoaded(true);
   }, [supabase]);

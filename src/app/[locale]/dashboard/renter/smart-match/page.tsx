@@ -124,6 +124,27 @@ export default function RenterSmartMatchPage() {
       setLoadError(false);
       setNoActiveListings(false);
 
+      // The gate below needs the properties, but the requests and offers reads
+      // don't depend on them, so all three start together. The .catch()es only
+      // mark the two for the early returns that never await them.
+      const requestsQuery = Promise.resolve(
+        supabase
+          .from("smart_match_requests")
+          .select("*, profiles(display_name, phone, avatar_url)")
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(30),
+      );
+      requestsQuery.catch(() => {});
+      const offersQuery = Promise.resolve(
+        supabase
+          .from("smart_match_offers")
+          .select(SENT_OFFER_SELECT)
+          .eq("renter_id", user!.id)
+          .order("created_at", { ascending: false }),
+      );
+      offersQuery.catch(() => {});
+
       const { data: properties, error: propertiesError } = await supabase
         .from("properties")
         .select(
@@ -183,12 +204,7 @@ export default function RenterSmartMatchPage() {
       // Fetch active requests and keep the fresh ones. Zone mismatches are NOT
       // hidden: property zones are often coord-derived guesses (seeded coords),
       // so scoreRequest only ranks them lower instead.
-      const { data: reqData, error: reqError } = await supabase
-        .from("smart_match_requests")
-        .select("*, profiles(display_name, phone, avatar_url)")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(30);
+      const { data: reqData, error: reqError } = await requestsQuery;
 
       if (reqError) {
         setLoadError(true);
@@ -204,11 +220,7 @@ export default function RenterSmartMatchPage() {
       // set (below) and the sent-offers list. Unconditional: unlike `requests`
       // above (limited to currently-active ones), a sent offer stays visible
       // even after its target request goes stale/matched/cancelled.
-      const { data: offersData, error: offersError } = await supabase
-        .from("smart_match_offers")
-        .select(SENT_OFFER_SELECT)
-        .eq("renter_id", user!.id)
-        .order("created_at", { ascending: false });
+      const { data: offersData, error: offersError } = await offersQuery;
 
       if (offersError) {
         setLoadError(true);
@@ -363,7 +375,8 @@ export default function RenterSmartMatchPage() {
     if (!user) return false;
     // Look up the real DB id by short id
     const requestRow = modalRequests.find((r) => r.id === requestId) as
-      (SmartMatchRequestItem & { _dbId: string }) | undefined;
+      | (SmartMatchRequestItem & { _dbId: string })
+      | undefined;
     const realRequestId = requestRow?._dbId ?? requestId;
 
     const guestRequest = requests.find((r) => r.id === realRequestId);

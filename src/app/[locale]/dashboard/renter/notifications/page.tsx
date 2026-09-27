@@ -23,25 +23,45 @@ export default function RenterNotificationsPage() {
   useEffect(() => {
     if (!user) return;
     let active = true;
+    // One request at a time: an event that lands mid-fetch earns one trailing
+    // refetch instead of an overlapping request of its own (mark-all-read emits
+    // an UPDATE event per row).
+    let inFlight = false;
+    let dirty = false;
 
     async function fetchItems() {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user!.id)
-        .eq("dashboard_scope", "renter")
-        .order("created_at", { ascending: false })
-        .limit(30);
-      if (data && active) {
-        setItems(data);
-        setLoading(false);
-      } else if (active) {
-        setLoading(false);
+      if (inFlight) {
+        dirty = true;
+        return;
+      }
+      inFlight = true;
+      try {
+        do {
+          dirty = false;
+          const { data } = await supabase
+            .from("notifications")
+            .select("*")
+            .eq("user_id", user!.id)
+            .eq("dashboard_scope", "renter")
+            .order("created_at", { ascending: false })
+            .limit(30);
+          if (data && active) {
+            setItems(data);
+            setLoading(false);
+          } else if (active) {
+            setLoading(false);
+          }
+        } while (dirty && active);
+      } finally {
+        inFlight = false;
       }
     }
 
     fetchItems();
 
+    // Filtered on the viewer, per C19 (a dashboard_scope filter also streamed
+    // every other user's renter notifications to an admin viewer); the scope
+    // is checked here instead.
     const channel = supabase
       .channel("renter-notifications")
       .on(
@@ -50,10 +70,11 @@ export default function RenterNotificationsPage() {
           event: "*",
           schema: "public",
           table: "notifications",
-          filter: "dashboard_scope=eq.renter",
+          filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          fetchItems();
+        (payload) => {
+          const row = payload.new as { dashboard_scope?: string | null };
+          if (row?.dashboard_scope === "renter") fetchItems();
         },
       )
       .subscribe();
