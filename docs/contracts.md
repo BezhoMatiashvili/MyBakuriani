@@ -1548,35 +1548,38 @@ is set to a different value than its edge secret (the cron job reports SUCCESS w
 implemented without a provider idempotency key (the at-least-once retry duplicates a delivered
 message — `sms-f2`).
 
-**Provider wired 2026-09-26 (staging only): uBill.ge.** `sendSms()` in
+**Provider (staging, 2026-09-26 → 09-28): uBill.ge, sender "MyBakuriani".** `sendSms()` in
 `supabase/functions/sms-dispatch/index.ts` POSTs one number per request to
-`https://api.ubill.dev/v1/sms/send` (`key` header, `brandID` from
-`SMS_PROVIDER_BRAND_ID`, number normalised to `9955XXXXXXXX` by the same rule as
-`sms_canonical_ge_phone`, `stopList: true`). uBill answers HTTP 200 with a
-`statusID`: `0` → `submitted` with `smsID` as `provider_message_id`; `20`/`50`
-(no valid number) → `failed`; anything else (no credit `40`, brand not approved
-`10`, bad key, outage) releases the claim and **halts the batch**. A network
+`https://api.ubill.dev/v1/sms/send` (`key` header, number normalised to `9955XXXXXXXX`
+by the same rule as `sms_canonical_ge_phone`, `stopList: true`). `brandID` is resolved
+every run by `resolveBrand`: the id of `SMS_PROVIDER_BRAND_NAME` once uBill's
+`GET /v1/sms/brandNames` reports it `authorized: 1` (the reply key is `brands`, not the
+documented `data`), else `SMS_PROVIDER_BRAND_ID`; with neither usable nothing is
+claimed. Leave `SMS_PROVIDER_BRAND_ID` unset unless a temporary fallback sender is
+wanted — the owner does not want SMS from uBill's generic "info-ub". uBill answers
+HTTP 200 with a `statusID`: `0` → `submitted` with `smsID` as `provider_message_id`;
+`20`/`50` (no valid number) → `failed`; anything else (no credit `40`, brand not
+approved `10`, bad key, outage) releases the claim and **halts the batch**. A network
 error or timeout is `failed`, not retried — uBill has no idempotency key, so an
-ambiguous send is never repeated. Billing still happens only on delivery:
-`supabase/functions/sms-delivery-report/index.ts` (uBill's GET webhook,
-`verify_jwt=false`, authenticated by `key` = `SMS_PROVIDER_CALLBACK_KEY`, the
-value entered as "Callback key" in the uBill API settings) maps report status
-`1` → `sms_mark_provider_delivered` and `2`/`4` → the new
-`sms_mark_provider_undelivered` (`20260926120000_sms_ubill_delivery.sql`,
-`submitted` → `failed`, never charged). Because uBill documents no webhook
-retries, `sms-dispatch` also polls `/v1/sms/report/{smsID}` for rows `submitted`
-more than 15 min, and gives up (undelivered, `no_final_report`) after 3 days —
-a stranded `submitted` row would otherwise permanently eat one slot of the
-sender's credit headroom in `sms_claim_dispatch_batch`'s `active_claims`.
-Sending also requires `SMS_PROVIDER_API_KEY` and a positive integer
-`SMS_PROVIDER_BRAND_ID`, not just `SMS_DELIVERY_ENABLED=true`.
-`SMS_TEST_RECIPIENTS` (comma-separated), when set, fails every row whose number is
-not listed — staging keeps it set permanently so a restored prod dataset can
-never text real users. The same migration gives the three system kinds
-(`vip_activation`, `vip_expiry`, `subscription`) a 48 h expiry in
-`sms_expire_stale_automation`; before it they never expired, and staging held 41
-queued notices (some from August) that would all have been sent the moment
-delivery was enabled (retired by hand as `pre_provider_backlog`).
+ambiguous send is never repeated. Billing happens only on delivery. Nothing in uBill's
+delivery webhook is trusted: `supabase/functions/sms-delivery-report/index.ts`
+(`verify_jwt=false`; uBill's "Callback key" field truncates to 30 chars and cannot be
+edited, so it is not auth) only looks up a `submitted` row by `smsID`, then asks
+`/v1/sms/report/{smsID}` with `SMS_PROVIDER_API_KEY` (`_shared/ubill.ts:fetchUbillReportStatus`,
+shared with the poll) and maps `1` → `sms_mark_provider_delivered`, `2`/`4` →
+`sms_mark_provider_undelivered` (`20260926120000_sms_ubill_delivery.sql`, `submitted` →
+`failed`, never charged). `sms-dispatch` also polls rows `submitted` more than 15 min
+and gives up (undelivered, `no_final_report`) after 3 days — a stranded `submitted`
+row would otherwise permanently eat one slot of the sender's credit headroom in
+`sms_claim_dispatch_batch`'s `active_claims`. `SMS_TEST_RECIPIENTS` (comma-separated),
+when set, fails every row whose number is not listed; it is UNSET on staging since
+2026-09-28 by the owner's choice, so E2E/QA fixtures (made-up real-format numbers in
+`e2e/helpers/seed.ts`, `stress-fixtures.ts`) can text strangers and spend credit. Staging
+runs `SMS_RENTAL_MODE=on` (edge) and `SMS_PRICE_DROP_MODE=on` (edge AND the DO app).
+The same migration gives the three system kinds (`vip_activation`, `vip_expiry`,
+`subscription`) a 48 h expiry in `sms_expire_stale_automation`; before it they never
+expired, and staging held 41 queued notices (some from August) that would all have
+been sent the moment delivery was enabled (retired by hand as `pre_provider_backlog`).
 
 **S2 (2026-09-27, `20260927090000`):** `sms_mark_provider_delivered` writes the delivery-charge description `SMS მიწოდებულია (price_drop)` without the recipient's number for price_drop (the owner's own-contact kinds keep `: <phone>`). Every later redefinition must keep that case.
 
