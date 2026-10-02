@@ -62,7 +62,7 @@ const CLOSED_TITLE = "მესაკუთრეობის დადასტ
 const DATA_CHANGED = "მონაცემები შეიცვალა";
 const BADGE_FULL = "მესაკუთრეობა დადასტურებულია";
 const BADGE_EXPLANATION =
-  "მესაკუთრემ წარმოადგინა ამონაწერი საჯარო რეესტრიდან და პირადობის დამადასტურებელი დოკუმენტი, რომლებიც შემოწმებულია MyBakuriani-ს მიერ.";
+  "MyBakuriani-მ გადაამოწმა მესაკუთრის ვინაობა და მის მიერ წარმოდგენილი საჯარო რეესტრიდან ამონაწერი და პირადობის დამადასტურებელი დოკუმენტი.";
 const SUBMITTED = "მოთხოვნა გაიგზავნა. შედეგს შეგატყობინებთ.";
 const DESCRIPTION_BEFORE = "E2E ბინა მესაკუთრეობის შესამოწმებლად";
 const DESCRIPTION_AFTER = "E2E ბინა — აღწერა განახლდა, მისამართი იგივეა";
@@ -960,8 +960,13 @@ test.describe("Ownership verification", () => {
     const page = await anonContext.newPage();
     await expectDetailBadge(page, rentalUrl(), true);
     const badge = page.locator("[data-ownership-verified]");
-    await expect(badge).toContainText(BADGE_FULL);
+    await expect(badge.locator("summary")).toContainText(BADGE_FULL);
+    await expect(page.getByText(BADGE_EXPLANATION)).toBeHidden();
     await badge.locator("summary").click();
+    // The opened panel: the title, then the explanation.
+    await expect(
+      badge.locator("p").filter({ hasText: BADGE_FULL }),
+    ).toBeVisible();
     await expect(page.getByText(BADGE_EXPLANATION)).toBeVisible();
 
     await expectDetailBadge(page, siblingUrl(), false);
@@ -1007,6 +1012,19 @@ test.describe("Ownership verification", () => {
         badgeBox!.x + badgeBox!.width,
         `badge inside the card at ${width}px`,
       ).toBeLessThanOrEqual(cardBox!.x + cardBox!.width + 1);
+      // It stacks above the "new" chip on the same side, never a row up on
+      // the opposite one (the fixtures are minutes old, so the chip shows).
+      const chipBox = await card(listings.rental)
+        .locator("[data-newly-added]")
+        .boundingBox();
+      expect(
+        Math.abs(badgeBox!.x - chipBox!.x),
+        `badge aligned with the "new" chip at ${width}px`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        badgeBox!.y + badgeBox!.height,
+        `badge above the "new" chip at ${width}px`,
+      ).toBeLessThanOrEqual(chipBox!.y + 1);
     }
   });
 

@@ -155,19 +155,13 @@ export default function SalePropertyCard({
             className="absolute right-3 top-3"
           />
 
-          <NewlyAddedBadge
-            createdAt={createdAt}
-            className="absolute bottom-3 left-3"
-          />
-
-          {/* A phone-width card cannot fit the "new" chip and this badge on
-              one line, so a "new" chip rendered before it lifts it a row. */}
-          {isOwnershipVerified && (
-            <OwnershipVerifiedBadge
-              variant="card"
-              className="absolute bottom-3 right-3 [[data-newly-added]~&]:bottom-10"
-            />
-          )}
+          {/* A phone-width card cannot fit the "new" chip and the ownership
+              badge on one line, so the badge stacks above the chip on the
+              same side. */}
+          <div className="absolute bottom-3 left-3 flex flex-col items-start gap-1.5">
+            {isOwnershipVerified && <OwnershipVerifiedBadge variant="card" />}
+            <NewlyAddedBadge createdAt={createdAt} />
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col p-4 lg:p-5">

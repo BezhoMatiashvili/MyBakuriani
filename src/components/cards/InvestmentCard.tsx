@@ -229,33 +229,37 @@ export default function InvestmentCard({
             <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
           </button>
 
-          <NewlyAddedBadge
-            createdAt={createdAt}
+          {/* A full chip stack (for sale, VIP, discount and the long
+              "completed" chip) reaches y 160 px, so the pill, stacked above a
+              "new" chip on the same side, needs a photo of at least 219 px:
+              lg cards only just reach it (223 px at 1024), xl cards clear it.
+              Below xl the badge is an icon under the favourite button, where
+              no chip reaches. */}
+          {isOwnershipVerified && (
+            <OwnershipVerifiedBadge
+              variant="icon"
+              className="absolute right-[26px] top-[68px] xl:hidden"
+            />
+          )}
+          <div
             className={cn(
-              "absolute",
+              "absolute flex flex-col items-start gap-1.5",
               compactGrid
-                ? "bottom-2 left-2 px-2 text-[8px] sm:bottom-4 sm:left-4"
+                ? "bottom-2 left-2 sm:bottom-4 sm:left-4"
                 : "bottom-4 left-4",
             )}
-          />
-
-          {/* A full chip stack (for sale, VIP, discount and the long
-              "completed" chip) reaches y 160 px, so the bottom-right pill, lifted
-              a row by a "new" chip rendered before it, needs a photo of at
-              least 228 px: only xl cards are that tall. Below xl the badge is an
-              icon under the favourite button, where no chip reaches. */}
-          {isOwnershipVerified && (
-            <>
-              <OwnershipVerifiedBadge
-                variant="icon"
-                className="absolute right-[26px] top-[68px] xl:hidden"
-              />
+          >
+            {isOwnershipVerified && (
               <OwnershipVerifiedBadge
                 variant="card"
-                className="absolute bottom-4 right-4 hidden xl:inline-flex [[data-newly-added]~&]:bottom-12"
+                className="hidden xl:inline-flex"
               />
-            </>
-          )}
+            )}
+            <NewlyAddedBadge
+              createdAt={createdAt}
+              className={compactGrid ? "px-2 text-[8px]" : undefined}
+            />
+          </div>
         </div>
 
         <div

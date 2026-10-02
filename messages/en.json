@@ -1265,7 +1265,7 @@
     "ownershipVerified": {
       "short": "Verified owner",
       "full": "Ownership verified",
-      "explanation": "The owner provided an extract from the Public Registry and an identity document, both checked by MyBakuriani.",
+      "explanation": "MyBakuriani verified the owner's identity, as well as the Public Registry extract and identity document they submitted.",
       "more": "What does this mean?"
     }
   },

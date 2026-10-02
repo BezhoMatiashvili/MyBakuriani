@@ -575,9 +575,18 @@ export default function ServiceCard({
               compactGrid ? "bottom-2 left-2" : "bottom-3 left-3",
               compactGrid &&
                 isOwnershipVerified &&
-                "max-w-[calc(100%-2.75rem)]",
+                "max-w-[calc(100%-2.75rem)] sm:max-w-none",
             )}
           >
+            {/* The ownership badge tops this stack: a narrow card cannot fit
+                it beside the stack's chips. The 2-column food grid shows only
+                the icon on phones, bottom-right. */}
+            {isOwnershipVerified && (
+              <OwnershipVerifiedBadge
+                variant="card"
+                className={compactGrid ? "hidden sm:inline-flex" : undefined}
+              />
+            )}
             <NewlyAddedBadge
               createdAt={createdAt}
               className={
@@ -597,27 +606,10 @@ export default function ServiceCard({
               </Badge>
             )}
           </div>
-          {/* Bottom-right; the 2-column food grid shows only the icon on
-              phones. A narrow card cannot fit the full badge beside the
-              bottom-left stack, so it sits above the stack's chips: always
-              above the category chip, and above a "new" chip when one shows. */}
           {isOwnershipVerified && compactGrid && (
             <OwnershipVerifiedBadge
               variant="icon"
               className="absolute bottom-2 right-2 sm:hidden"
-            />
-          )}
-          {isOwnershipVerified && (
-            <OwnershipVerifiedBadge
-              variant="card"
-              className={cn(
-                "absolute",
-                compactGrid
-                  ? "bottom-2 right-2 hidden sm:inline-flex [:has([data-newly-added])~&]:bottom-9"
-                  : !isFood && !isTransport
-                    ? "bottom-11 right-3 [:has([data-newly-added])~&]:bottom-16"
-                    : "bottom-3 right-3 [:has([data-newly-added])~&]:bottom-10",
-              )}
             />
           )}
         </div>

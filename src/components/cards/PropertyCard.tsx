@@ -266,34 +266,40 @@ export default function PropertyCard(props: PropertyCardProps) {
             )}
           />
 
+          {/* A hotel's B2B chip holds the bottom-right corner, so there the
+              ownership badge stacks above that chip, on the same side. */}
           {isHotel && isB2BPartner && (
-            <span className={cn("absolute rounded-lg bg-[#F97316] font-bold uppercase text-white", compactGrid ? "bottom-2 right-2 px-2 py-1 text-[8px] sm:bottom-4 sm:right-4 sm:px-3 sm:text-[10px]" : "bottom-4 right-4 px-3 py-1 text-[10px]") }>
-              {t("b2bPartner")}
-            </span>
+            <div className={cn("absolute flex flex-col items-end gap-1.5", compactGrid ? "bottom-2 right-2 sm:bottom-4 sm:right-4" : "bottom-4 right-4")}>
+              {isOwnershipVerified && <OwnershipVerifiedBadge variant="card" />}
+              <span className={cn("rounded-lg bg-[#F97316] font-bold uppercase text-white", compactGrid ? "px-2 py-1 text-[8px] sm:px-3 sm:text-[10px]" : "px-3 py-1 text-[10px]") }>
+                {t("b2bPartner")}
+              </span>
+            </div>
           )}
 
-          <NewlyAddedBadge
-            createdAt={createdAt}
+          {/* Bottom-left column: a phone-width card cannot fit the "new" chip
+              and the ownership badge on one line, so the badge stacks above
+              the chip on the same side (on a B2B hotel, above the B2B chip). */}
+          <div
             className={cn(
-              "absolute",
+              "absolute flex flex-col items-start gap-1.5",
               compactGrid
-                ? "bottom-2 left-2 max-w-[calc(100%-1rem)] truncate px-2 text-[8px] sm:bottom-4 sm:left-4 sm:max-w-none sm:px-2.5 sm:text-[9px]"
+                ? "bottom-2 left-2 max-w-[calc(100%-1rem)] sm:bottom-4 sm:left-4 sm:max-w-none"
                 : "bottom-4 left-4",
             )}
-          />
-
-          {/* Bottom-right, moved up a row above a hotel's B2B chip, and above
-              a "new" chip rendered before it: a phone-width card cannot fit
-              that chip and this badge on one line. */}
-          {isOwnershipVerified && (
-            <OwnershipVerifiedBadge
-              variant="card"
-              className={cn(
-                "absolute right-4 [[data-newly-added]~&]:bottom-12",
-                isHotel && isB2BPartner ? "bottom-12" : "bottom-4",
-              )}
+          >
+            {isOwnershipVerified && !(isHotel && isB2BPartner) && (
+              <OwnershipVerifiedBadge variant="card" />
+            )}
+            <NewlyAddedBadge
+              createdAt={createdAt}
+              className={
+                compactGrid
+                  ? "max-w-full truncate px-2 text-[8px] sm:px-2.5 sm:text-[9px]"
+                  : undefined
+              }
             />
-          )}
+          </div>
         </div>
 
         <div

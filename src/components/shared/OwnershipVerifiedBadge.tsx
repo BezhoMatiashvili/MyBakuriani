@@ -68,9 +68,18 @@ export function OwnershipVerifiedBadge({
           {t("ownershipVerified.more")}
         </span>
       </summary>
-      <p className="mt-1 max-w-md text-[13px] leading-5 text-[#64748B]">
-        {t("ownershipVerified.explanation")}
-      </p>
+      <div className="mt-1 flex max-w-md items-start gap-2.5 rounded-[16px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+        <ShieldCheck
+          aria-hidden
+          className="mt-0.5 size-4 shrink-0 text-brand-primary"
+        />
+        <div className="text-[13px] leading-5">
+          <p className="font-bold text-[#1E293B]">{full}</p>
+          <p className="mt-1 text-[#64748B]">
+            {t("ownershipVerified.explanation")}
+          </p>
+        </div>
+      </div>
     </details>
   );
 }
