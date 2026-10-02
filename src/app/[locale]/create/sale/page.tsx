@@ -36,6 +36,7 @@ import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
+import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -759,7 +760,12 @@ function CreateSalePageInner() {
 
         if (insertError) throw insertError;
         if (!inserted) throw new Error(tShared("genericError"));
-        router.push("/dashboard/seller");
+        router.push(
+          ownershipVerificationUrl("property", inserted.id, {
+            created: true,
+            next: "/dashboard/seller",
+          }),
+        );
       }
     } catch (err) {
       if (isCadastralDuplicateError(err)) {

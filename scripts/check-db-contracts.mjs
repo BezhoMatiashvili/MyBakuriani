@@ -372,4 +372,111 @@ if (posture) {
   }
 }
 
+// C24 — a cleaner's view of a call-out comes only through get_my_cleaning_task_owner_details() (RLS hides
+// properties/profiles from a cleaner). A project that is behind migration 20261001093000 lacks the RPC or some
+// of its columns, and every cleaner card would say the details could not be loaded: fail here instead.
+// Called with the service role (auth.uid() is NULL, so it returns zero rows); PostgREST still resolves the
+// function and every selected column, so a missing function (404 PGRST202) or column (400 42703) is a failure.
+{
+  const tasksTs = readFileSync(join(root, "src/lib/cleaner/tasks.ts"), "utf8");
+  const columns = [...(tasksTs.match(/export interface CleaningTaskOwnerDetails\s*\{([\s\S]*?)\n\}/)?.[1] ?? "").matchAll(/^\s*([a-z_]+)\??:/gm)].map((m) => m[1]);
+  if (!columns.length) fail("C24: could not read CleaningTaskOwnerDetails from src/lib/cleaner/tasks.ts");
+  else {
+    const res = await fetch(`${url}/rest/v1/rpc/get_my_cleaning_task_owner_details?select=${columns.join(",")}`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (res.ok) ok(`C24: get_my_cleaning_task_owner_details() exists and exposes all ${columns.length} columns CleaningTaskOwnerDetails lists`);
+    else fail(`C24: get_my_cleaning_task_owner_details() with its ${columns.length} CleaningTaskOwnerDetails columns failed (HTTP ${res.status} ${(await res.text()).slice(0, 160)}) — apply migration 20261001093000 (cleaners would see no apartment or owner)`);
+  }
+}
+
+// C39 — ownership verification. ownership_contract_snapshot() (migration 20261001200000) reports the
+// private bucket, every storage.objects policy that names it or tests no bucket_id, the client grants on
+// both tables (direct, column-level and PUBLIC), RLS, the named CHECK constraints and the three triggers
+// (the two basis triggers keep `status` truthful, so a dropped or disabled one leaves stale badges).
+{
+  const own = await tryRpc("ownership_contract_snapshot", "20261001200000");
+  if (own) {
+    const docTs = readFileSync(join(root, "src/lib/ownership/document-file.ts"), "utf8");
+    const tsList = (name) =>
+      [...(docTs.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\]`))?.[1] ?? "").matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
+    const dbList = (constraint) => [...String(own.checks?.[constraint] ?? "").matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]);
+    compareSets("C39 document kinds", dbList("ownership_verification_documents_kind_check"), tsList("OWNERSHIP_DOCUMENT_KINDS"), "kind CHECK", "OWNERSHIP_DOCUMENT_KINDS");
+    compareSets("C39 statuses", dbList("ownership_verifications_status_check"), tsList("OWNERSHIP_VERIFICATION_STATUSES"), "status CHECK", "OWNERSHIP_VERIFICATION_STATUSES");
+
+    const grants = own.client_grants ?? [];
+    const hidden = ["reviewed_by", "identity_document_id", "registry_extract_document_id"];
+    const bad = grants.filter(
+      (g) =>
+        g.table === "ownership_verification_documents" ||
+        g.privilege !== "SELECT" ||
+        g.grantee !== "authenticated" ||
+        g.column === null ||
+        hidden.includes(g.column),
+    );
+    if (bad.length) fail(`C39: client grants beyond the owner's column-level SELECT: ${bad.map((g) => `${g.table}.${g.grantee}.${g.privilege}${g.column ? `(${g.column})` : ""}`).join(", ")}`);
+    else ok(`C39: no client role writes either table; authenticated reads ${grants.length} ownership_verifications columns (no reviewer, no document ids)`);
+
+    const rls = own.rls ?? {};
+    if (rls.ownership_verifications === true && rls.ownership_verification_documents === true) ok("C39: RLS is on for both tables");
+    else fail(`C39: RLS off on ${Object.entries(rls).filter(([, on]) => on !== true).map(([t]) => t).join(", ") || "a table"}`);
+
+    const mimes = [...(docTs.match(/OWNERSHIP_DOCUMENT_CONTENT_TYPES[\s\S]*?\{([\s\S]*?)\}/)?.[1] ?? "").matchAll(/"([a-z]+\/[a-z]+)"/g)].map((m) => m[1]);
+    const bucket = own.bucket;
+    if (!bucket) fail("C39: bucket ownership-documents is missing");
+    else {
+      if (bucket.public !== false) fail("C39: bucket ownership-documents is PUBLIC (ID cards would be world-readable)");
+      if (Number(bucket.file_size_limit) !== 10485760) fail(`C39: bucket file_size_limit ${bucket.file_size_limit} ≠ 10485760 (MAX_OWNERSHIP_DOCUMENT_BYTES)`);
+      compareSets("C39 bucket MIME list", bucket.allowed_mime_types ?? [], mimes, "bucket", "OWNERSHIP_DOCUMENT_CONTENT_TYPES");
+      if (bucket.public === false && Number(bucket.file_size_limit) === 10485760) ok("C39: bucket ownership-documents is private with a 10 MiB limit");
+    }
+    if ((own.policies_mentioning_bucket ?? []).length) fail(`C39: storage.objects policies name ownership-documents (browsers must never reach it): ${own.policies_mentioning_bucket.join(", ")}`);
+    else ok("C39: no storage.objects policy names ownership-documents");
+    if ((own.policies_without_bucket_test ?? []).length) fail(`C39: storage.objects policies without a bucket_id test (they would cover every bucket, ownership-documents included): ${own.policies_without_bucket_test.join(", ")}`);
+    else ok("C39: every storage.objects policy is scoped to a bucket");
+
+    const triggers = own.triggers ?? {};
+    const expectedTriggers = ["ownership_close_on_property_basis_change", "ownership_close_on_service_basis_change", "ownership_documents_enforce_limit"];
+    const off = expectedTriggers.filter((t) => !["O", "A"].includes(triggers[t]));
+    if (off.length) fail(`C39: triggers missing or disabled: ${off.join(", ")}`);
+    else ok("C39: basis triggers and the per-owner file cap are enabled");
+
+    // What each basis trigger watches (snapshot key from 20261001200150). A basis column missing from
+    // UPDATE OF or from the WHEN keeps the badge on a moved or re-registered listing; an extra column,
+    // or a WHEN that does not compare values, revokes it on ordinary edits (content-change approval and
+    // the admin editor rewrite every reviewable column).
+    const BASIS = {
+      ownership_close_on_property_basis_change: ["public.properties", "close_ownership_on_property_change", ["owner_id", "cadastral_code", "location", "location_lat", "location_lng"]],
+      ownership_close_on_service_basis_change: ["public.services", "close_ownership_on_service_change", ["owner_id", "title", "provider_name", "category"]],
+    };
+    const basisDefs = own.basis_trigger_defs;
+    if (!basisDefs) fail("C39: ownership_contract_snapshot() has no basis_trigger_defs — apply 20261001200150_ownership_review_separation.sql");
+    else {
+      const wrong = [];
+      for (const [name, [table, fn, columns]] of Object.entries(BASIS)) {
+        const def = String(basisDefs[name]?.def ?? "");
+        const head = def.match(/\bAFTER UPDATE OF (.+?) ON (\S+) FOR EACH ROW WHEN \((.*)\) EXECUTE FUNCTION (?:public\.)?([a-z_]+)\(\)$/);
+        if (!head) {
+          wrong.push(`${name}: ${def ? `unexpected definition: ${def}` : "missing"}`);
+          continue;
+        }
+        const [, updateOf, onTable, when, calls] = head;
+        if (onTable !== table || basisDefs[name].table !== table) wrong.push(`${name}: on ${onTable}, expected ${table}`);
+        if (calls !== fn) wrong.push(`${name}: calls ${calls}(), expected ${fn}()`);
+        const listed = updateOf.split(/,\s*/);
+        if ([...listed].sort().join() !== [...columns].sort().join()) wrong.push(`${name}: UPDATE OF ${listed.join(", ")}; expected ${columns.join(", ")}`);
+        const referenced = [...new Set([...when.matchAll(/\bold\.([a-z_]+)/g)].map((m) => m[1]))];
+        if ([...referenced].sort().join() !== [...columns].sort().join()) wrong.push(`${name}: WHEN reads old.${referenced.join(", old.")}; expected ${columns.join(", ")}`);
+        // Each column compared old-vs-new inside one OR branch.
+        const uncompared = columns.filter((c) => !new RegExp(`\\bold\\.${c}\\b(?:(?! OR ).)*? IS DISTINCT FROM (?:(?! OR ).)*?\\bnew\\.${c}\\b`).test(when));
+        if (uncompared.length) wrong.push(`${name}: WHEN does not compare ${uncompared.join(", ")} by value (IS DISTINCT FROM)`);
+      }
+      if (wrong.length) fail(`C39: basis triggers drifted — ${wrong.join("; ")}`);
+      else ok("C39: basis triggers watch exactly owner/cadastral code/address/pin and owner/title/provider/category, compared by value");
+    }
+  }
+}
+
 finish();

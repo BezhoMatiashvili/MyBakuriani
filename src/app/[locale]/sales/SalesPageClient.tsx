@@ -19,7 +19,7 @@ const ITEMS_PER_PAGE = 6;
 // The server query selects exactly these; widening usage here will surface as
 // a type error until the select in page.tsx is updated to match.
 export type SaleListing = Pick<
-  Tables<"properties">,
+  Tables<"public_properties">,
   | "id"
   | "title"
   | "location"
@@ -36,6 +36,7 @@ export type SaleListing = Pick<
   | "is_vip"
   | "is_super_vip"
   | "created_at"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -190,6 +191,7 @@ export default function SalesPageClient({ properties }: Props) {
                     discountExpiresAt={p.discount_expires_at}
                     isVip={p.is_vip ?? false}
                     isSuperVip={p.is_super_vip ?? false}
+                    isOwnershipVerified={p.ownership_verified ?? false}
                   />
                 </ScrollReveal>
               );

@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import {
+  insertNotificationsChunked,
+  loadAudienceUserIds,
+} from "@/lib/notifications/audience";
 import type { Database } from "@/lib/types/database";
 import { validateRenterMembershipMeta } from "@/lib/membership/plans";
 
@@ -70,11 +74,7 @@ async function notifySubscriptionAudience(
   includeSubscribers: boolean,
 ) {
   try {
-    const { data: roleUsers } = await db
-      .from("profiles")
-      .select("id")
-      .in("role", ["renter", "seller"]);
-    const recipients = new Set<string>((roleUsers ?? []).map((r) => r.id));
+    const recipients = await loadAudienceUserIds(db, ["renter", "seller"]);
 
     if (includeSubscribers) {
       // Cast: user_subscriptions is defined in migrations and not yet in the
@@ -103,8 +103,13 @@ async function notifySubscriptionAudience(
       title,
       message,
     }));
-    const { error } = await db.from("notifications").insert(rows);
-    if (error) console.error("subscription package notify failed", error);
+    const { delivered, error } = await insertNotificationsChunked(db, rows);
+    if (error) {
+      console.error(
+        `subscription package notify failed after ${delivered}/${rows.length}`,
+        error,
+      );
+    }
   } catch (error) {
     console.error("subscription package notify failed", error);
   }

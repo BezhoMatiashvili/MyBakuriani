@@ -10,7 +10,6 @@ import {
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  BadgeCheck,
   Briefcase,
   MapPin,
   Banknote,
@@ -42,6 +41,7 @@ import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import DateField, { toISODate } from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
@@ -58,6 +58,8 @@ import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface Props {
@@ -184,7 +186,6 @@ export default function EmploymentDetailClient({
   const tShared = useTranslations("Shared");
   const tShare = useTranslations("ShareListing");
   const locale = useLocale();
-  const owner = service.profiles;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const salaryText = useSalaryText();
@@ -479,9 +480,6 @@ export default function EmploymentDetailClient({
             <span className="inline-flex items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-3 py-2 text-[14px] font-bold text-[#1E293B]">
               <Building2 className="h-4 w-4 text-[#2563EB]" />
               {service.title ?? "Crystal Resort Management"}
-              {(owner?.is_verified ?? true) && (
-                <BadgeCheck className="h-4 w-4 fill-[#22C55E] text-white" />
-              )}
             </span>
             <span className="text-[#CBD5E1]">·</span>
             <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
@@ -494,6 +492,12 @@ export default function EmploymentDetailClient({
               {tShared("views", { count: views })}
             </span>
           </div>
+
+          {service.ownership_verified === true && (
+            <div style={enterUp(0.2)} className="mt-3">
+              <OwnershipVerifiedBadge variant="detail" />
+            </div>
+          )}
 
           <div
             style={enterUp(0.25)}
@@ -607,7 +611,7 @@ export default function EmploymentDetailClient({
             </div>
           )}
 
-          {(owner?.is_verified ?? true) && (
+          {service.ownership_verified === true && (
             <div
               style={enterUp(0.4)}
               className="mt-8 rounded-[16px] border border-[#A7F3D0] bg-[#ECFDF5] p-5"

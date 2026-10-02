@@ -56,6 +56,7 @@ type PublicService = Pick<
   | "is_super_vip"
   | "created_at"
   | "best_active_menu_item_discount_percent"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -300,6 +301,7 @@ export default function FoodPageClient({ services }: Props) {
                     discountExpiresAt={null}
                     isVip={s.is_vip ?? false}
                     isSuperVip={s.is_super_vip ?? false}
+                    isOwnershipVerified={s.ownership_verified ?? false}
                     variant="photo"
                     schedule={s.schedule}
                     operatingHours={s.operating_hours}

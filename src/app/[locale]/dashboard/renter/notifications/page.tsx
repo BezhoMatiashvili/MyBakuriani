@@ -101,7 +101,11 @@ export default function RenterNotificationsPage() {
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, is_read: true } : i)),
     );
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id)
+      .eq("user_id", user?.id ?? "");
   }
 
   return (

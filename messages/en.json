@@ -136,7 +136,20 @@
     "viewAll": "View all",
     "notificationsAria": "Notifications, {count} unread",
     "notificationTitle": "Notification",
-    "viewNotification": "View"
+    "viewNotification": "View",
+    "scopeLabels": {
+      "guest": "Guest",
+      "renter": "Apartments (rent)",
+      "seller": "Apartments (sale)",
+      "food": "Food",
+      "cleaner": "Cleaner",
+      "employment": "Employment",
+      "transport": "Transport",
+      "entertainment": "Entertainment",
+      "services": "Services",
+      "admin": "Admin",
+      "general": "General"
+    }
   },
   "Footer": {
     "brandDescription": "Bakuriani's digital platform — everything in one place",
@@ -345,7 +358,7 @@
     "guestCount": "{count, plural, one {# guest} other {# guests}}",
     "addGuest": "Add a guest",
     "removeGuest": "Remove a guest",
-    "verifiedOnly": "Verified Only",
+    "verifiedOnly": "Verified owners only",
     "trustedOwners": "Trusted owners",
     "basicComfort": "Basic Comfort",
     "amenities": {
@@ -1248,7 +1261,13 @@
     "bannerValidFrom": "Starts",
     "bannerValidUntil": "Ends",
     "bannerExpand": "Open video",
-    "views": "{count, plural, one {# view} other {# views}}"
+    "views": "{count, plural, one {# view} other {# views}}",
+    "ownershipVerified": {
+      "short": "Verified owner",
+      "full": "Ownership verified",
+      "explanation": "The owner provided an extract from the Public Registry and an identity document, both checked by MyBakuriani.",
+      "more": "What does this mean?"
+    }
   },
   "StatusCards": {
     "weather": "Weather",
@@ -2547,6 +2566,10 @@
     "objectPhotos": "Venue photos",
     "menuMustBePdf": "Menu must be a PDF file",
     "menuUploadFailed": "Menu upload failed: {message}",
+    "menuFileEmpty": "The selected file is empty. Open the PDF on your device, make sure the menu is visible, then select it again.",
+    "menuFileTooLarge": "The file is too large — the maximum size is 10 MB. Reduce the file size or enter a link to the menu instead.",
+    "menuFileIncomplete": "The PDF looks incomplete or damaged. Re-save or re-download it, then select it again.",
+    "menuFileUnreadable": "The file could not be read. Save it to your device and select it again.",
     "invalidMenuUrl": "Enter a valid link (https://...)",
     "enterTitle": "Enter venue name",
     "chooseLocation": "Choose location",
@@ -3112,6 +3135,78 @@
       "manualLinkingDisabled": "This feature is temporarily unavailable.",
       "alreadyLinked": "This method is already linked to another account.",
       "generic": "Couldn't link. Please try again."
+    },
+    "ownership": {
+      "title": "Ownership verification",
+      "intro": "Upload an extract from the Public Registry for each listing and your ID card or passport. Once verified, the listing shows the “Verified owner” badge.",
+      "privacy": "Only the administration sees your documents; they are deleted after review.",
+      "createdBanner": "Your listing was sent for review — you can verify ownership right now.",
+      "later": "Later",
+      "backToCabinet": "Back to my dashboard",
+      "emptyTitle": "You have no listings",
+      "emptyCta": "Add a listing",
+      "listTitle": "My listings",
+      "selectAll": "Select all",
+      "clearSelection": "Clear selection",
+      "selectedCount": "Selected: {count}",
+      "blocked": "A blocked listing cannot be verified",
+      "reason": "Reason: {reason}",
+      "verifyLink": "Verify ownership",
+      "status": {
+        "none": "Ownership: not verified",
+        "pending": "Ownership: under review",
+        "approved": "Ownership: verified",
+        "rejected": "Ownership: rejected",
+        "revoked": "Ownership: revoked"
+      },
+      "kinds": {
+        "rental": "Rental",
+        "sale": "For sale",
+        "hotel": "Hotel",
+        "food": "Food",
+        "cleaning": "Cleaning",
+        "handyman": "Handyman",
+        "transport": "Transport",
+        "entertainment": "Entertainment",
+        "employment": "Job"
+      },
+      "step1Title": "1. Identity document",
+      "step1Hint": "ID card or passport",
+      "step2Title": "2. Public Registry extract",
+      "extractHintProperty": "Extract from the Public Registry (napr.gov.ge)",
+      "extractHintService": "Extract from the Register of Entrepreneurs",
+      "sharedExtract": "One extract for all selected businesses",
+      "formats": "PDF, JPG, PNG, WebP or HEIC — up to 10 MB",
+      "chooseFile": "Choose file",
+      "replaceFile": "Replace",
+      "uploading": "Uploading…",
+      "uploaded": "Uploaded",
+      "waiting": "Queued",
+      "submit": "Send for verification",
+      "submitting": "Sending…",
+      "submitted": "Request sent. We will let you know the result.",
+      "selectFirst": "Select at least one listing",
+      "missingFiles": "Upload every required document",
+      "accountCardText": "Confirm that you own the place you advertise — verified listings get a badge.",
+      "accountCardCta": "Open",
+      "errors": {
+        "notAccepted": "This file is not accepted. Upload a PDF, JPG, PNG, WebP or HEIC.",
+        "tooLarge": "The file is larger than 10 MB.",
+        "empty": "The file is empty.",
+        "incomplete": "The PDF is damaged or was not fully downloaded.",
+        "unsupported": "This file type is not supported.",
+        "heic": "Could not convert the HEIC photo. Try a JPG.",
+        "busy": "Files upload one at a time — try again in a few seconds.",
+        "rateLimited": "Too many attempts. Please try again later.",
+        "documentLimit": "You have reached the upload limit. Try again in an hour.",
+        "uploadFailed": "Upload failed. Please try again.",
+        "documentInvalid": "One of the documents can no longer be used — please upload it again.",
+        "extractShared": "Each property needs its own extract.",
+        "requestExists": "A request for one of these listings is already open.",
+        "listingNotFound": "Listing not found.",
+        "loadFailed": "Could not load your listings.",
+        "generic": "Something went wrong. Please try again."
+      }
     }
   },
   "DashboardShared": {
@@ -3353,7 +3448,21 @@
     "markCompleted": "Mark as completed",
     "start": "Start",
     "today": "Today",
-    "tomorrow": "Tomorrow"
+    "tomorrow": "Tomorrow",
+    "directions": "Directions",
+    "call": "Call",
+    "whatsapp": "WhatsApp",
+    "ownerNote": "Owner's note",
+    "phoneMissing": "The owner has not provided a phone number",
+    "confirmHint": "After you confirm, this request moves to “Scheduled Work” (the details stay there), and the owner will see your phone number.",
+    "areaSqm": "{area} m²",
+    "rooms": "{count, plural, one {# room} other {# rooms}}",
+    "bathrooms": "{count, plural, one {# bathroom} other {# bathrooms}}",
+    "openListing": "View listing (opens in a new tab)",
+    "areaOnlyHint": "Only the zone is given. Call the owner for the exact address.",
+    "areaOnlyNoPhoneHint": "Only the zone is given, and the owner left no phone number.",
+    "detailsUnavailable": "Details could not be loaded. Refresh the page.",
+    "priceOnAgreement": "By agreement"
   },
   "CleanerSchedule": {
     "title": "My schedule",
@@ -3400,7 +3509,7 @@
     "emptyDayDesc": "Pick another day or wait for new requests.",
     "listingFallback": "Listing",
     "owner": "Owner",
-    "dueBy": "Finish by",
+    "dueBy": "Starts at",
     "atTime": "{time}",
     "dayParts": {
       "morning": "Morning",
@@ -3775,7 +3884,10 @@
       "sending": "Sending...",
       "submit": "Send call-out",
       "sendError": "Could not send the request, please try again",
-      "timeConflict": "This cleaner already has a job scheduled within 30 minutes of this time"
+      "timeConflict": "This cleaner already has a job scheduled within 30 minutes of this time",
+      "addressHint": "Give the exact address: street, building, floor, flat.",
+      "startTime": "Start time",
+      "sharedWithCleaner": "The cleaner sees the address, your note and your phone number or WhatsApp as soon as you send this, even if they decline. Share door codes by phone after they accept."
     },
     "addModal": {
       "title": "Add a cleaner",

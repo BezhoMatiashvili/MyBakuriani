@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import {
+  insertNotificationsChunked,
+  loadAudienceUserIds,
+} from "@/lib/notifications/audience";
 import { Constants, type Database } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -64,15 +68,20 @@ export async function POST(req: NextRequest) {
 
   const db = createServiceClient(guard.admin.userId);
 
-  // Resolve recipients: profiles.id where role in target_roles, UNION target_user_ids.
+  // Resolve recipients: users holding a target role (profile role OR the
+  // cabinet derived from owned data), UNION target_user_ids.
   const recipientIds = new Set<string>(targetUserIds);
   if (targetRoles.length > 0) {
-    const { data: roleUsers, error: rErr } = await db
-      .from("profiles")
-      .select("id")
-      .in("role", targetRoles);
-    if (rErr) return Response.json({ error: rErr.message }, { status: 500 });
-    for (const u of roleUsers ?? []) recipientIds.add(u.id);
+    try {
+      for (const id of await loadAudienceUserIds(db, targetRoles)) {
+        recipientIds.add(id);
+      }
+    } catch (e) {
+      return Response.json(
+        { error: e instanceof Error ? e.message : "audience lookup failed" },
+        { status: 500 },
+      );
+    }
   }
   if (!body.include_self) {
     recipientIds.delete(guard.admin.userId);
@@ -118,8 +127,21 @@ export async function POST(req: NextRequest) {
       severity: body.severity,
       broadcast_id: record.id,
     }));
-    const { error: nErr } = await db.from("notifications").insert(rows);
-    if (nErr) return Response.json({ error: nErr.message }, { status: 500 });
+    const { delivered, error: nErr } = await insertNotificationsChunked(
+      db,
+      rows,
+    );
+    if (nErr) {
+      // Keep the history row honest: record what was actually delivered.
+      await db
+        .from("broadcasts")
+        .update({ recipient_count: delivered })
+        .eq("id", record.id);
+      return Response.json(
+        { error: nErr, delivered, recipients: recipientIds.size },
+        { status: 500 },
+      );
+    }
   }
 
   return Response.json({ ok: true, broadcast: record });

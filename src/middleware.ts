@@ -6,6 +6,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { isAllowedMutationOrigin } from "@/lib/security";
 import { KEEPZ_ORIGINLESS_POST_PATHS } from "@/lib/payments/keepz/server-paths";
 import { EMAIL_ORIGINLESS_POST_PATHS } from "@/lib/email/server-paths";
+import { OWNERSHIP_ORIGINLESS_POST_PATHS } from "@/lib/ownership/server-paths";
 import { SUPABASE_MEDIA_HOSTS, SUPABASE_PROJECT_HOST } from "@/lib/media-hosts";
 
 const intlMiddleware = createIntlMiddleware(routing);
@@ -151,11 +152,12 @@ export async function middleware(request: NextRequest) {
     // can read a body or invoke a privileged service client. The Keepz callback
     // and reconcile routes are server to server (no Origin) and cookie-free, so
     // exactly those paths are exempt (C32); so are the email dispatcher and the
-    // Resend webhook (C33).
+    // Resend webhook (C33), and the ownership-document purge (C39).
     const originlessPost =
       request.method === "POST" &&
       (KEEPZ_ORIGINLESS_POST_PATHS.includes(request.nextUrl.pathname) ||
-        EMAIL_ORIGINLESS_POST_PATHS.includes(request.nextUrl.pathname));
+        EMAIL_ORIGINLESS_POST_PATHS.includes(request.nextUrl.pathname) ||
+        OWNERSHIP_ORIGINLESS_POST_PATHS.includes(request.nextUrl.pathname));
     if (
       unsafeMethod &&
       !originlessPost &&

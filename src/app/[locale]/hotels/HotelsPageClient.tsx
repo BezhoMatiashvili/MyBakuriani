@@ -59,7 +59,7 @@ const ITEMS_PER_PAGE = 9;
 // selects exactly these; using a wider field here surfaces as a type error
 // until the select in page.tsx is updated to match.
 export type HotelListing = Pick<
-  Tables<"properties">,
+  Tables<"public_properties">,
   | "id"
   | "title"
   | "location"
@@ -81,6 +81,7 @@ export type HotelListing = Pick<
   | "numeric_rating"
   | "room_type"
   | "is_b2b_partner"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -427,6 +428,7 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
                   rooms={p.rooms}
                   isVip={p.is_vip ?? false}
                   isSuperVip={p.is_super_vip ?? false}
+                  isOwnershipVerified={p.ownership_verified ?? false}
                   discountPercent={p.discount_percent ?? 0}
                   discountExpiresAt={p.discount_expires_at}
                   isForSale={p.is_for_sale ?? false}

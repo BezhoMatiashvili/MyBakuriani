@@ -22,6 +22,7 @@ export const EMAIL_NOTIFICATION_TYPES = [
   "content_change_approved",
   "content_change_rejected",
   "company_moderation",
+  "verification",
   // work requests
   "cleaning_task_new",
   "cleaning_task_status",

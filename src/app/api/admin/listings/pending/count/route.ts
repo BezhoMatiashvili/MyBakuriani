@@ -12,7 +12,7 @@ export async function GET() {
 
   const db = createServiceClient();
 
-  const [propertiesRes, servicesRes, changesRes, membershipsRes] = await Promise.all([
+  const [propertiesRes, servicesRes, changesRes, membershipsRes, ownershipRes] = await Promise.all([
     db
       .from("properties")
       .select("*", { count: "exact", head: true })
@@ -32,19 +32,25 @@ export async function GET() {
       .from("user_subscriptions")
       .select("*", { count: "exact", head: true })
       .eq("status", "pending_approval"),
+    db
+      .from("ownership_verifications")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
   ]);
 
   if (
     propertiesRes.error ||
     servicesRes.error ||
     changesRes.error ||
-    membershipsRes.error
+    membershipsRes.error ||
+    ownershipRes.error
   ) {
     const message =
       propertiesRes.error?.message ??
       servicesRes.error?.message ??
       changesRes.error?.message ??
       membershipsRes.error?.message ??
+      ownershipRes.error?.message ??
       "error";
     return Response.json({ error: message }, { status: 500 });
   }
@@ -54,9 +60,11 @@ export async function GET() {
       count:
         (propertiesRes.count ?? 0) +
         (servicesRes.count ?? 0) +
-        (changesRes.count ?? 0),
+        (changesRes.count ?? 0) +
+        (ownershipRes.count ?? 0),
       changes: changesRes.count ?? 0,
       memberships: membershipsRes.count ?? 0,
+      ownership: ownershipRes.count ?? 0,
     },
     // Short private cache: the badge refetches on every admin navigation,
     // so let rapid navigations reuse the response for 30s.

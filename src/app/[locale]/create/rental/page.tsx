@@ -40,6 +40,7 @@ import {
 } from "@/lib/content-change/client";
 import { Link } from "@/i18n/navigation";
 import { formatDate } from "@/lib/utils/format";
+import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   deriveMembershipState,
   isRentalMembershipRequiredError,
@@ -594,7 +595,14 @@ function CreateRentalPageInner() {
         await submitContentChange("property", editId, payload);
       }
 
-      router.push("/dashboard/renter");
+      router.push(
+        editId
+          ? "/dashboard/renter"
+          : ownershipVerificationUrl("property", propertyId, {
+              created: true,
+              next: "/dashboard/renter",
+            }),
+      );
     } catch (err) {
       if (isRentalMembershipRequiredError(err)) {
         setStep(0);

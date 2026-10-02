@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Calendar,
@@ -16,6 +16,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { isRetryableDbError, withRetry } from "@/lib/with-timeout";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -29,6 +30,17 @@ import ManualTaskModal, {
 } from "@/components/cleaner/ManualTaskModal";
 import CleanerMonthCalendar from "@/components/cleaner/CleanerMonthCalendar";
 import {
+  TaskAreaOnlyHint,
+  TaskContact,
+  TaskDirections,
+  TaskFacts,
+  TaskNotes,
+  TaskPriceUnit,
+  TaskTitle,
+} from "@/components/cleaner/CleanerTaskDetails";
+import {
+  keepLoadedDetails,
+  loadCleaningTaskOwnerDetails,
   mergeCleanerTasks,
   toLocalDateKey,
   transitionPlatformCleanerTask,
@@ -52,6 +64,7 @@ export default function CleanerSchedulePage() {
   const tManual = useTranslations("CleanerSchedule.manualTask");
   const tShared = useTranslations("DashboardShared");
   const tOpts = useTranslations("ListingOptions");
+  const tDash = useTranslations("CleanerDashboard");
   const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
@@ -69,18 +82,19 @@ export default function CleanerSchedulePage() {
   const [listFilter, setListFilter] = useState<
     "all" | "upcoming" | "completed"
   >("all");
+  // The selected day's section sits below the calendar; a tap on a list row
+  // changes the day, so bring that section into view.
+  const dayHeadingRef = useRef<HTMLDivElement>(null);
 
   const userId = user?.id;
 
   // Hoisted out of the effect so the modal and the row actions can refetch.
   const fetchData = useCallback(async () => {
     if (!userId) return;
-    const [platform, manual] = await Promise.all([
+    const [platform, manual, ownerDetails] = await Promise.all([
       supabase
         .from("cleaning_tasks")
-        .select(
-          "*, properties(title, location), profiles!cleaning_tasks_owner_id_fkey(display_name, phone)",
-        )
+        .select("*")
         .eq("cleaner_id", userId)
         .or(
           "status.is.null,status.in.(pending,accepted,cancellation_requested,in_progress,completed)",
@@ -91,12 +105,18 @@ export default function CleanerSchedulePage() {
         .select("*")
         .eq("cleaner_id", userId)
         .order("scheduled_at", { ascending: true }),
+      withRetry(() => loadCleaningTaskOwnerDetails(supabase), isRetryableDbError),
     ]);
 
     if (platform.error || manual.error) {
       toast.error(tShared("genericRetry"));
       setLoading(false);
       return;
+    }
+    // The tasks still render without apartment/owner details (e.g. a deploy
+    // that precedes its migration), so a failure here is logged, not fatal.
+    if (ownerDetails.error) {
+      console.error("cleaner_owner_details_failed", ownerDetails.error);
     }
 
     const platformRows = (platform.data ?? []) as PlatformTaskRow[];
@@ -113,12 +133,13 @@ export default function CleanerSchedulePage() {
         scheduledAt: row.scheduled_at,
       })),
     ]);
-    setTasks(
-      mergeCleanerTasks(
-        platformRows.filter((row) => (row.status ?? "pending") !== "pending"),
-        manualRows,
-      ),
+    const merged = mergeCleanerTasks(
+      platformRows.filter((row) => (row.status ?? "pending") !== "pending"),
+      manualRows,
+      ownerDetails.data ?? [],
     );
+    // A details lookup that failed on this refetch must not blank what is on screen.
+    setTasks((prev) => keepLoadedDetails(prev, merged));
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -307,7 +328,10 @@ export default function CleanerSchedulePage() {
         onVisibleMonthChange={setVisibleMonth}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div
+        ref={dayHeadingRef}
+        className="flex scroll-mt-4 flex-wrap items-center justify-between gap-2"
+      >
         <h2 className="text-[16px] font-black text-[#0F172A]">
           {t("selectedDayTitle", {
             date: formatDateShort(activeDate, locale),
@@ -356,8 +380,11 @@ export default function CleanerSchedulePage() {
             const d = new Date(task.scheduledAt);
             const isDone = task.status === "completed";
             const isLast = idx === tasksForDay.length - 1;
+            // A job already under way started on time: its start is no deadline to flag.
             const isUrgent =
-              !isDone && d.getTime() - Date.now() < 2 * 60 * 60 * 1000;
+              !isDone &&
+              task.status !== "in_progress" &&
+              d.getTime() - Date.now() < 2 * 60 * 60 * 1000;
             const isManual = task.source === "manual";
             const typeKey = optionKeyFor("cleaningTypes", task.cleaningType);
             const typeLabel = typeKey
@@ -365,9 +392,7 @@ export default function CleanerSchedulePage() {
               : task.cleaningType;
             const contactValue = isManual
               ? (task.contactPhone ?? "—")
-              : `${task.contactName ?? "—"}${
-                  task.contactPhone ? ` (${task.contactPhone})` : ""
-                }`;
+              : (task.contactName ?? "—");
 
             return (
               <motion.div
@@ -407,11 +432,17 @@ export default function CleanerSchedulePage() {
                 </div>
 
                 <div className="min-w-0 flex-1 rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                    <div className="min-w-0 flex-1 basis-[12rem]">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-[17px] font-black text-[#0F172A]">
-                          {task.title ?? t("listingFallback")}
+                        <h3
+                          data-testid="cleaner-task-title"
+                          className="min-w-0 break-words text-[17px] font-black text-[#0F172A]"
+                        >
+                          <TaskTitle
+                            task={task}
+                            fallback={t("listingFallback")}
+                          />
                         </h3>
                         {isManual && (
                           <span className="shrink-0 rounded-full bg-[#F1F5F9] px-2.5 py-0.5 text-[10px] font-bold text-[#64748B]">
@@ -419,10 +450,17 @@ export default function CleanerSchedulePage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{task.address ?? "—"}</span>
+                      <TaskFacts task={task} />
+                      <p className="mt-1 flex items-start gap-1.5 text-[13px] font-medium text-[#64748B]">
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span
+                          data-testid="cleaner-task-address"
+                          className="min-w-0 break-words"
+                        >
+                          {task.address ?? "—"}
+                        </span>
                       </p>
+                      <TaskAreaOnlyHint task={task} />
                     </div>
                     <span
                       className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold ${
@@ -444,7 +482,7 @@ export default function CleanerSchedulePage() {
                         <p className="text-[11px] font-medium text-[#94A3B8]">
                           {isManual ? tManual("client") : t("owner")}
                         </p>
-                        <p className="truncate text-[13px] font-bold text-[#0F172A]">
+                        <p className="break-words text-[13px] font-bold text-[#0F172A]">
                           {contactValue}
                         </p>
                       </div>
@@ -468,6 +506,16 @@ export default function CleanerSchedulePage() {
                     </div>
                   </div>
 
+                  {!isManual && (
+                    <>
+                      <div className="mt-3">
+                        <TaskContact task={task} />
+                      </div>
+                      <TaskDirections task={task} />
+                      <TaskNotes notes={task.notes} />
+                    </>
+                  )}
+
                   {isManual && task.notes && (
                     <p className="mt-3 text-[12px] font-medium leading-relaxed text-[#64748B]">
                       {task.notes}
@@ -481,9 +529,12 @@ export default function CleanerSchedulePage() {
                         <span className="text-[12px] font-bold text-[#94A3B8]">
                           ₾
                         </span>
+                        <TaskPriceUnit unit={task.priceUnit} />
                       </p>
                     ) : (
-                      <span />
+                      <p className="text-[14px] font-bold leading-none text-[#64748B]">
+                        {tDash("priceOnAgreement")}
+                      </p>
                     )}
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -609,11 +660,14 @@ export default function CleanerSchedulePage() {
           <ul className="mt-4 divide-y divide-[#EEF1F4]">
             {listedTasks.map((task) => {
               const scheduled = new Date(task.scheduledAt);
+              // A stored 'infinity' or year-290000 date must not take the whole page down.
+              const scheduledValid = !Number.isNaN(scheduled.getTime());
               return (
                 <li key={`list:${task.source}:${task.id}`}>
                   <button
                     type="button"
                     onClick={() => {
+                      if (!scheduledValid) return;
                       setActiveDate(scheduled);
                       setVisibleMonth(
                         new Date(
@@ -622,12 +676,22 @@ export default function CleanerSchedulePage() {
                           1,
                         ),
                       );
+                      requestAnimationFrame(() =>
+                        dayHeadingRef.current?.scrollIntoView({
+                          behavior: window.matchMedia(
+                            "(prefers-reduced-motion: reduce)",
+                          ).matches
+                            ? "auto"
+                            : "smooth",
+                          block: "start",
+                        }),
+                      );
                     }}
                     className="grid min-h-[72px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 text-left transition-colors hover:bg-[#F8FAFC]"
                   >
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-[13px] font-black text-[#0F172A]">
+                        <span className="min-w-0 break-words text-[13px] font-black text-[#0F172A]">
                           {task.title ?? t("listingFallback")}
                         </span>
                         {task.source === "manual" && (
@@ -636,9 +700,11 @@ export default function CleanerSchedulePage() {
                           </span>
                         )}
                       </span>
-                      <span className="mt-1 block truncate text-[11px] font-medium text-[#64748B]">
-                        {formatDateShort(scheduled, locale)} ·{" "}
-                        {formatTime(scheduled)} · {task.address ?? "—"}
+                      <span className="mt-1 line-clamp-2 break-words text-[11px] font-medium text-[#64748B]">
+                        {scheduledValid
+                          ? `${formatDateShort(scheduled, locale)} · ${formatTime(scheduled)}`
+                          : "—"}{" "}
+                        · <bdi>{task.address ?? "—"}</bdi>
                       </span>
                     </span>
                     <span

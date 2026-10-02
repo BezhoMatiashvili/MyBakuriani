@@ -177,6 +177,59 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C5 — restaurant-menus takes menu PDFs only through readMenuPdf. file.type comes
+// from the file extension, so an empty "menu.pdf" used to be stored as a 0-byte
+// object that /food/[id] then linked to ("Failed to load PDF document",
+// 2026-10-01). Every src upload to the bucket must store the bytes of a
+// src/lib/menu-pdf.ts readMenuPdf result: `const X = await readMenuPdf(...)`
+// within 700 characters before the upload and `X.bytes` among its arguments.
+// A pick-time readMenuPdf call (only early feedback) can't satisfy this, and
+// neither can uploading the live File. The size cap vs the bucket limit is
+// pinned in scripts/unit. Only literal .from("restaurant-menus").upload( call
+// sites are seen.
+// ---------------------------------------------------------------------------
+{
+  // Comments don't count ("// const X = await readMenuPdf(" must not satisfy
+  // the check) but strings do: an "image/*" literal must not open a comment.
+  const withoutComments = (text) => {
+    const kept = [];
+    let from = 0;
+    for (let i = 0; i < text.length; ) {
+      const c = text[i];
+      const block = c === "/" && text[i + 1] === "*";
+      if (block || (c === "/" && text[i + 1] === "/" && text[i - 1] !== ":")) {
+        kept.push(text.slice(from, i));
+        const end = text.indexOf(block ? "*/" : "\n", i + 2);
+        i = end < 0 ? text.length : block ? end + 2 : end;
+        from = i;
+      } else if (c === '"' || c === "'" || c === "`") {
+        for (i += 1; i < text.length && text[i] !== c && (c === "`" || text[i] !== "\n"); ) i += text[i] === "\\" ? 2 : 1;
+        i += 1;
+      } else {
+        i += c === "\\" ? 2 : 1; // an escaped "/" (as in /^https?:\/\//) can't open a comment
+      }
+    }
+    kept.push(text.slice(from));
+    return kept.join("");
+  };
+  const uploadRe = /\.from\(\s*["']restaurant-menus["']\s*\)\s*\.upload\(/g;
+  const bindingRe = /\b(?:const|let)\s+(\w+)\s*=\s*await\s+readMenuPdf\(/g;
+  const sites = srcFiles.flatMap((f) => {
+    if (!srcText.get(f).includes("restaurant-menus")) return [];
+    const text = withoutComments(srcText.get(f));
+    return [...text.matchAll(uploadRe)].map((m) => {
+      const args = m.index + m[0].length;
+      const bound = [...text.slice(Math.max(0, m.index - 700), m.index).matchAll(bindingRe)].pop();
+      return { f, gated: !!bound && new RegExp(`\\b${bound[1]}\\.bytes\\b`).test(text.slice(args, args + 300)) };
+    });
+  });
+  const ungated = [...new Set(sites.filter((s) => !s.gated).map((s) => s.f))];
+  if (!sites.length) fail('C5: no src file calls .from("restaurant-menus").upload( any more; update this check');
+  else if (ungated.length) fail(`C5: ${ungated.join(", ")} uploads to restaurant-menus without the bytes of a readMenuPdf result: expected "const X = await readMenuPdf(...)" in the 700 characters before the .upload( call and X.bytes written inside its arguments, not via a helper or a variable built beforehand (src/lib/menu-pdf.ts)`);
+  else ok(`C5: ${sites.length} restaurant-menus upload(s) store the bytes of a readMenuPdf check`);
+}
+
+// ---------------------------------------------------------------------------
 // C3 — database.generated.ts is generator output only. A hand edit shows up as
 // a diff against the next regen; here we just make sure nobody imports the
 // generated file directly (all consumers must go through database.ts so the
@@ -301,6 +354,46 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C18 — notification SMS mirror (free kind 'notification'). The allow-list in
+// the newest migration defining public.sms_notification_types() must be a
+// subset of the emailed types (C33), must never name smart_match_request, an
+// admin_* queue, broadcast or a vip_* type, and the newest
+// sms_outbound_automation_kind_check must still accept 'notification'.
+// ---------------------------------------------------------------------------
+{
+  const migDir = join(root, "supabase/migrations");
+  const newestWith = (re) =>
+    readdirSync(migDir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .filter((f) => re.test(read(join("supabase/migrations", f))))
+      .at(-1);
+  const smsFile = newestWith(/FUNCTION public\.sms_notification_types\(/i);
+  const emailFile = newestWith(/FUNCTION public\.email_notification_types\(/i);
+  const listOf = (file, fn) =>
+    new Set(
+      [
+        ...((file ? read(join("supabase/migrations", file)) : "").match(new RegExp(`function public\\.${fn}\\(\\)[\\s\\S]*?select array\\[([\\s\\S]*?)\\]::text\\[\\]`, "i"))?.[1] ?? "")
+          .replace(/--[^\n]*/g, "")
+          .matchAll(/'([a-z_]+)'/g),
+      ].map((m) => m[1]),
+    );
+  const smsTypes = listOf(smsFile, "sms_notification_types");
+  const emailTypes = listOf(emailFile, "email_notification_types");
+  const notEmailed = [...smsTypes].filter((t) => !emailTypes.has(t));
+  const forbidden = [...smsTypes].filter((t) => t === "smart_match_request" || t === "broadcast" || t.startsWith("admin_") || t.startsWith("vip_"));
+  const checkFile = newestWith(/sms_outbound_automation_kind_check\s*\n?\s*check/i);
+  const checkAccepts = checkFile
+    ? /sms_outbound_automation_kind_check\s*\n?\s*check[\s\S]*?\]\)\)/i.exec(read(join("supabase/migrations", checkFile)))?.[0].includes("'notification'")
+    : false;
+  if (!smsTypes.size || !emailTypes.size) fail("C18: could not read sms_notification_types() or email_notification_types()");
+  else if (notEmailed.length) fail(`C18: sms_notification_types() (${smsFile}) has types email_notification_types() does not: ${notEmailed.join(", ")}`);
+  else if (forbidden.length) fail(`C18: sms_notification_types() (${smsFile}) must not mirror: ${forbidden.join(", ")}`);
+  else if (!checkAccepts) fail(`C18: the newest sms_outbound_automation_kind_check (${checkFile ?? "none"}) must accept 'notification'`);
+  else ok(`C18: ${smsFile} mirrors ${smsTypes.size} emailed types by SMS (free kind 'notification', no fan-out/admin/vip types)`);
+}
+
+// ---------------------------------------------------------------------------
 // C36 — sign-up confirmation link. /auth/confirm is a client page (no route.ts
 // in that segment) that verifies only when its button is clicked: a mail
 // scanner's prefetch GET must not confirm an address, and /verify must count
@@ -343,6 +436,606 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/const CONFIRM_REDIRECT_URL = [^;]*\/auth\/confirm`/.test(login)) fail("C36: login/page.tsx must build CONFIRM_REDIRECT_URL on /auth/confirm");
   else if (redirects.length < 2 || redirects.some((r) => r !== "CONFIRM_REDIRECT_URL")) fail(`C36: every emailRedirectTo in login/page.tsx (signUp and resend) must be CONFIRM_REDIRECT_URL, found [${redirects.join(", ")}]`);
   else ok(`C36: login/page.tsx sends signUp and resend back to /auth/confirm (${redirects.length} emailRedirectTo)`);
+}
+
+// ---------------------------------------------------------------------------
+// C24 — a cleaner's view of a call-out. properties/profiles have no SELECT policy
+// for a cleaner, so a PostgREST embed of either in a cleaner's query is silently
+// null (the 2026-10-01 "I can't tell which apartment or who to call" report). The
+// cleaner reads the apartment and the owner only through the definer RPC
+// get_my_cleaning_task_owner_details(), which answers only for the caller's own
+// call-outs and withholds everything once one is declined or cancelled. Eight pieces
+// have to agree: (1) the RPC's live-status list equals the status CHECK minus the
+// statuses that end a call-out (WITHHELD below), (2) the RPC is keyed on auth.uid()
+// ONLY (the WHERE ends there, no set operation) and every column but task_id sits
+// behind the live gate, (3) the net EXECUTE after replaying every migration is
+// authenticated only, never PUBLIC/anon, and nothing later drops, renames or
+// SECURITY INVOKER-s it, (4) cleaner pages never embed properties/profiles and hand
+// the RPC rows to mergeCleanerTasks, (5) no browser code writes cleaning_tasks and the
+// net client DML grants (replayed over every migration) are none, (6) the cleaner's
+// bell text is formatted in Asia/Tbilisi, (7) hostile owner-typed text in it is
+// flattened to one line, (8) tasks.ts CleaningTaskOwnerDetails lists exactly the RPC's
+// columns. It is a static text check: it reads the SQL it can see (comments and COMMENT
+// ON strings dropped), not the live ACL (check-db-contracts and the e2e spec do).
+// ---------------------------------------------------------------------------
+{
+  const migDir = "supabase/migrations";
+  const migrations = readdirSync(join(root, migDir))
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+  // Statuses that end a call-out: the RPC answers with an empty row for them.
+  const WITHHELD = new Set(["declined", "cancelled"]);
+  const NAME_RPC = "get_my_cleaning_task_owner_details";
+  const NAME_TRIG = "notify_cleaner_of_new_task";
+
+  // SQL without its comments: a `--` or `/* */` comment or a COMMENT ON string may name any statement.
+  // Quoted strings are kept whole, so a `--` inside one is not a comment.
+  const stripSql = (sql) => {
+    let out = "";
+    let i = 0;
+    while (i < sql.length) {
+      const two = sql.slice(i, i + 2);
+      if (two === "--") {
+        while (i < sql.length && sql[i] !== "\n") i++;
+      } else if (two === "/*") {
+        const end = sql.indexOf("*/", i + 2);
+        i = end === -1 ? sql.length : end + 2;
+        out += " ";
+      } else if (sql[i] === "'") {
+        let j = i + 1;
+        while (j < sql.length && !(sql[j] === "'" && sql[j + 1] !== "'"))
+          j += sql[j] === "'" ? 2 : 1;
+        out += sql.slice(i, j + 1);
+        i = j + 1;
+      } else {
+        out += sql[i++];
+      }
+    }
+    return out.replace(
+      /\bCOMMENT\s+ON\s+[\s\S]*?\s+IS\s+(?:'(?:[^']|'')*'|NULL)\s*;/gi,
+      "",
+    );
+  };
+  const stripTs = (code) =>
+    code
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
+  // The text between the "(" at `open` and its matching ")".
+  const parenSpan = (text, open) => {
+    let depth = 0;
+    let quote = false;
+    for (let i = open; i < text.length; i++) {
+      const c = text[i];
+      if (c === "'") quote = !quote;
+      else if (!quote && c === "(") depth++;
+      else if (!quote && c === ")" && --depth === 0)
+        return text.slice(open + 1, i);
+    }
+    return undefined;
+  };
+  const splitTop = (text, sep) => {
+    const parts = [];
+    let depth = 0;
+    let quote = false;
+    let start = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === "'") quote = !quote;
+      else if (!quote && c === "(") depth++;
+      else if (!quote && c === ")") depth--;
+      else if (!quote && depth === 0 && c === sep) {
+        parts.push(text.slice(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(text.slice(start));
+    return parts;
+  };
+  // Statements, split at `;` outside quotes and dollar-quoted bodies, whitespace collapsed.
+  const statementsCache = new Map();
+  const statementsOf = (file) => {
+    if (statementsCache.has(file)) return statementsCache.get(file);
+    const sql = stripSql(read(join(migDir, file)));
+    const out = [];
+    let start = 0;
+    let i = 0;
+    while (i < sql.length) {
+      const c = sql[i];
+      if (c === "'") {
+        i++;
+        while (i < sql.length && !(sql[i] === "'" && sql[i + 1] !== "'"))
+          i += sql[i] === "'" ? 2 : 1;
+        i++;
+      } else if (c === "$") {
+        const tag = /^\$[A-Za-z_]*\$/.exec(sql.slice(i, i + 64));
+        if (tag) {
+          const end = sql.indexOf(tag[0], i + tag[0].length);
+          i = end === -1 ? sql.length : end + tag[0].length;
+        } else {
+          i++;
+        }
+      } else if (c === ";") {
+        out.push(sql.slice(start, i));
+        start = ++i;
+      } else {
+        i++;
+      }
+    }
+    if (sql.slice(start).trim()) out.push(sql.slice(start));
+    const statements = out
+      .map((st) => st.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    statementsCache.set(file, statements);
+    return statements;
+  };
+
+  // Anchored on the DEFINITION: a later migration that only GRANTs, ALTERs or COMMENTs on a function, or
+  // wires a trigger to it, names it too and must not be taken for its body. The body may be quoted `$$` or
+  // `$function$` (pg_get_functiondef); the header is every clause outside it. The name may be qualified.
+  const CREATE =
+    'CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+(?:"?public"?\\.)?"?';
+  const fnParts = (sql, name) => {
+    const m = sql.match(
+      new RegExp(
+        `${CREATE}${name}"?\\s*\\(\\s*\\)([\\s\\S]*?)\\bAS\\s+\\$(\\w*)\\$([\\s\\S]*?)\\$\\2\\$([^;]*);`,
+        "i",
+      ),
+    );
+    return m ? { header: m[1] + m[4], body: m[3] } : { header: "", body: "" };
+  };
+  const newestWith = (re) =>
+    migrations.filter((f) => re.test(stripSql(read(join(migDir, f))))).at(-1);
+  const quoted = (list) =>
+    new Set([...list.matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]));
+
+  // What every statement, in migration order, leaves of one function: whether it exists, who may EXECUTE it,
+  // and what later statements did to its definition. CREATE OR REPLACE keeps the ACL it finds, so only the net
+  // result counts, not what one file restates.
+  const replayFunction = (name) => {
+    // The function itself: this whole name (not a longer one that starts or ends with it, nor another schema's)
+    // with no arguments. `name`, `name()` and `public."name"()` are it; an overload `name(uuid)` is another function.
+    const ref = new RegExp(
+      `(?<![\\w$."])(?:"?public"?\\.)?"?${name}"?(?:\\s*\\(\\s*\\)|(?![\\w$"]|\\s*\\())`,
+      "i",
+    );
+    const created = new RegExp(`^${CREATE}${name}"?\\s*\\(\\s*\\)`, "i");
+    // A new function: PUBLIC (and so anon) may execute it until a REVOKE says otherwise, and nobody else can
+    // until a GRANT does (this project's default privileges, C34).
+    const fresh = () => ({ public: true, anon: true, authenticated: false });
+    const state = {
+      exists: false,
+      droppedBy: undefined,
+      acl: fresh(),
+      problems: [],
+    };
+    const reset = () => {
+      state.acl = fresh();
+      state.problems = [];
+    };
+    for (const file of migrations) {
+      for (const st of statementsOf(file)) {
+        if (created.test(st)) {
+          if (!/^CREATE\s+OR\s+REPLACE\b/i.test(st) || !state.exists)
+            state.acl = fresh();
+          state.problems = [];
+          state.exists = true;
+          state.droppedBy = undefined;
+          continue;
+        }
+        const drop = /^DROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?(.+)$/i.exec(st);
+        if (drop) {
+          if (ref.test(drop[1])) {
+            reset();
+            state.exists = false;
+            state.droppedBy = file;
+          }
+          continue;
+        }
+        const alter = /^ALTER\s+FUNCTION\s+(.+)$/i.exec(st);
+        if (alter) {
+          if (
+            state.exists &&
+            ref.test(
+              alter[1].split(
+                /\s+(?:OWNER|SECURITY|RENAME|SET|RESET|STABLE|VOLATILE|IMMUTABLE|DEPENDS)\b/i,
+              )[0],
+            ) &&
+            /\b(?:SECURITY\s+INVOKER|RENAME|SET\s+SCHEMA|RESET)\b/i.test(
+              alter[1],
+            )
+          ) {
+            state.problems.push(
+              `${file} renames it, moves it, resets its search_path or makes it SECURITY INVOKER`,
+            );
+          }
+          continue;
+        }
+        const acl =
+          /^(GRANT|REVOKE)\s+(?:GRANT\s+OPTION\s+FOR\s+)?(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+(FUNCTION\s+.+?|ALL\s+FUNCTIONS\s+IN\s+SCHEMA\s+\S+)\s+(?:TO|FROM)\s+(.+?)(?:\s+WITH\s+GRANT\s+OPTION|\s+CASCADE|\s+RESTRICT)?$/i.exec(
+            st,
+          );
+        if (
+          acl &&
+          state.exists &&
+          (/^ALL\s+FUNCTIONS\s+IN\s+SCHEMA\s+"?public"?$/i.test(acl[2]) ||
+            (/^FUNCTION\s/i.test(acl[2]) && ref.test(acl[2])))
+        ) {
+          const value = acl[1].toUpperCase() === "GRANT";
+          for (const role of acl[3]
+            .split(",")
+            .map((r) => r.trim().replace(/^"|"$/g, "").toLowerCase())) {
+            if (role in state.acl) state.acl[role] = value;
+          }
+        }
+      }
+    }
+    return state;
+  };
+
+  const checkFile = newestWith(
+    /ADD\s+CONSTRAINT\s+cleaning_tasks_status_check/i,
+  );
+  const rpcFile = newestWith(
+    new RegExp(`${CREATE}${NAME_RPC}"?\\s*\\(\\s*\\)`, "i"),
+  );
+  const trigFile = newestWith(
+    new RegExp(`${CREATE}${NAME_TRIG}"?\\s*\\(\\s*\\)`, "i"),
+  );
+  // `CHECK (status IN ('a', 'b'))` or `CHECK ((status = ANY (ARRAY['a'::text, 'b'::text])))` (pg_get_constraintdef's shape),
+  // read up to its own closing parenthesis, not up to the next `);` (a continued ALTER TABLE clause follows it).
+  const checkList = (() => {
+    if (!checkFile) return undefined;
+    const sql = stripSql(read(join(migDir, checkFile)));
+    const m =
+      /ADD\s+CONSTRAINT\s+cleaning_tasks_status_check\s+CHECK\s*\(/i.exec(sql);
+    return m ? parenSpan(sql, m.index + m[0].length - 1) : undefined;
+  })();
+
+  // (3, part) nothing LATER drops, renames or SECURITY INVOKER-s a definition (trigger function: no ACL to keep).
+  const rpcState = replayFunction(NAME_RPC);
+  const trigState = replayFunction(NAME_TRIG);
+  for (const [name, st] of [
+    [NAME_RPC, rpcState],
+    [NAME_TRIG, trigState],
+  ]) {
+    if (st.droppedBy)
+      fail(`C24: ${st.droppedBy} drops ${name}() and nothing creates it again`);
+    for (const problem of st.problems) fail(`C24: ${problem} (${name})`);
+  }
+
+  if (!checkList)
+    fail(
+      "C24: could not read the cleaning_tasks status CHECK from the migrations",
+    );
+  else if (!rpcFile) fail(`C24: no migration defines ${NAME_RPC}()`);
+  else {
+    const rpcSql = stripSql(read(join(migDir, rpcFile)));
+    const { header: rpcHeader, body: rpcRaw } = fnParts(rpcSql, NAME_RPC);
+    const rpcBody = rpcRaw.trim().replace(/;\s*$/, "");
+    const alias =
+      rpcBody.match(
+        /\bFROM\s+(?:public\.)?cleaning_tasks\s+(?:AS\s+)?([a-z_][a-z0-9_]*)/i,
+      )?.[1] ?? "task";
+    const live = quoted(
+      rpcBody.match(
+        new RegExp(`${alias}\\.status\\s+IN\\s*\\(([^)]*)\\)`, "i"),
+      )?.[1] ?? "",
+    );
+    const expected = new Set(
+      [...quoted(checkList)].filter((st) => !WITHHELD.has(st)),
+    );
+    const sqlColumns = new Set(
+      (() => {
+        const m = new RegExp(
+          `${NAME_RPC}"?\\s*\\(\\s*\\)\\s*RETURNS\\s+TABLE\\s*\\(`,
+          "i",
+        ).exec(rpcSql);
+        const span = m
+          ? parenSpan(rpcSql, m.index + m[0].length - 1)
+          : undefined;
+        return splitTop(span ?? "", ",")
+          .map((col) => col.trim().split(/\s+/)[0])
+          .filter(Boolean);
+      })(),
+    );
+    const tsKeys = new Set(
+      [
+        ...(
+          stripTs(read("src/lib/cleaner/tasks.ts")).match(
+            /export interface CleaningTaskOwnerDetails\s*\{([\s\S]*?)\n\}/,
+          )?.[1] ?? ""
+        ).matchAll(/^\s*([a-z_]+)\??:/gm),
+      ].map((m) => m[1]),
+    );
+    // The WHERE is the last clause (an ORDER BY may follow) and says nothing but the caller's own rows; no OR, no
+    // second branch of a set operation. Every column but the id is `CASE WHEN <gate>.live ...`.
+    const scoped =
+      new RegExp(
+        `\\bWHERE\\s+${alias}\\.cleaner_id\\s*=\\s*(?:\\(\\s*SELECT\\s+auth\\.uid\\(\\)\\s*\\)|auth\\.uid\\(\\))(?:\\s+ORDER\\s+BY\\s[^;]*)?$`,
+        "i",
+      ).test(rpcBody) && !/\b(?:UNION|INTERSECT|EXCEPT)\b/i.test(rpcBody);
+    const gate = rpcBody.match(
+      /\bAS\s+live\s*\)\s*AS\s+([a-z_][a-z0-9_]*)/i,
+    )?.[1];
+    const gated = gate
+      ? [
+          ...rpcBody.matchAll(
+            new RegExp(`\\bCASE\\s+WHEN\\s+${gate}\\.live\\b`, "gi"),
+          ),
+        ].length
+      : 0;
+    const net = rpcState.acl;
+    if (!live.size) {
+      fail(
+        `C24: ${rpcFile} must gate on an explicit allow-list (${alias}.status IN ('pending', ...)): a deny-list would disclose every status added to the CHECK later`,
+      );
+    } else if (!setEq(live, expected)) {
+      describeSetMismatch(
+        `C24 live statuses (${checkFile} CHECK minus ${[...WITHHELD].join("/")} vs ${rpcFile}; a status that ENDS a call-out belongs in WITHHELD in this check, any other must be in the RPC's list)`,
+        expected,
+        "CHECK",
+        live,
+        `${NAME_RPC}()`,
+      );
+    } else if (
+      !/SECURITY\s+DEFINER/i.test(rpcHeader) ||
+      !/SET\s+search_path\s*(?:=|\bTO\b)/i.test(rpcHeader)
+    ) {
+      fail(
+        `C24: ${rpcFile} must define the RPC SECURITY DEFINER with a pinned search_path`,
+      );
+    } else if (!scoped) {
+      fail(
+        `C24: ${rpcFile} must end its query with WHERE ${alias}.cleaner_id = auth.uid() (optionally (SELECT auth.uid()) and an ORDER BY): no OR, no UNION: the RPC is a definer and anything wider hands every owner's number to every signed-in user`,
+      );
+    } else if (
+      !gate ||
+      sqlColumns.size === 0 ||
+      gated !== sqlColumns.size - 1
+    ) {
+      fail(
+        `C24: ${rpcFile} must put every column except task_id behind the live gate (CASE WHEN <gate>.live ...): found ${gated} gated for ${Math.max(sqlColumns.size - 1, 0)} columns${gate ? "" : " and no (SELECT ... AS live) AS <gate>"}`,
+      );
+    } else if (
+      !rpcState.exists ||
+      net.public ||
+      net.anon ||
+      !net.authenticated
+    ) {
+      fail(
+        `C24: after every migration EXECUTE on ${NAME_RPC}() is PUBLIC=${net.public}, anon=${net.anon}, authenticated=${net.authenticated}: it must be authenticated only (REVOKE ALL ... FROM PUBLIC, anon; GRANT EXECUTE ... TO authenticated, C34)`,
+      );
+    } else if (!sqlColumns.size || !setEq(sqlColumns, tsKeys)) {
+      describeSetMismatch(
+        "C24 RPC columns",
+        sqlColumns,
+        `${rpcFile} RETURNS TABLE`,
+        tsKeys,
+        "tasks.ts CleaningTaskOwnerDetails",
+      );
+    } else {
+      ok(
+        `C24: ${NAME_RPC}() (${rpcFile}) discloses for [${[...live].join(", ")}] = the status CHECK minus ${[...WITHHELD].join("/")}, scoped to auth.uid() alone, ${gated} columns gated, authenticated only, ${sqlColumns.size} columns = CleaningTaskOwnerDetails`,
+      );
+    }
+  }
+
+  // (4) cleaner pages: no embeds of the tables a cleaner cannot read, and the RPC rows are handed to the merge.
+  const cleanerDir = "src/app/[locale]/dashboard/cleaner";
+  const code = (f) => stripTs(read(f));
+  const readers = (
+    existsSync(join(root, cleanerDir))
+      ? [...walk(cleanerDir, [".ts", ".tsx"])]
+      : []
+  ).filter((f) => /\.from\(\s*["'`]cleaning_tasks["'`]\s*\)/.test(code(f)));
+  const embedding = readers.filter((f) =>
+    /\b(?:properties|profiles)\s*(?:![A-Za-z0-9_]+)*\s*\(/.test(code(f)),
+  );
+  // mergeCleanerTasks(platform, manual, <the RPC rows>): a missing or empty third argument is the old bug without the embed.
+  const mergeArgs = (text) => {
+    const at = text.search(/\bmergeCleanerTasks\s*\(/);
+    if (at < 0) return undefined;
+    return splitTop(parenSpan(text, text.indexOf("(", at)) ?? "", ",").map(
+      (arg) => arg.trim(),
+    );
+  };
+  const unmerged = readers.filter((f) => {
+    const text = code(f);
+    const args = mergeArgs(text);
+    return (
+      !/loadCleaningTaskOwnerDetails\(/.test(text) ||
+      !args ||
+      args.length < 3 ||
+      /^(?:\[\s*\]|undefined|null)?$/.test(args[2])
+    );
+  });
+  if (!readers.length)
+    fail(
+      `C24: no file under ${cleanerDir} reads cleaning_tasks any more; update this check with the move`,
+    );
+  else if (embedding.length)
+    fail(
+      `C24: ${embedding.join(", ")} embeds properties/profiles in a cleaner query (RLS makes it null for a cleaner): use loadCleaningTaskOwnerDetails`,
+    );
+  else if (unmerged.length)
+    fail(
+      `C24: ${unmerged.join(", ")} reads cleaning_tasks without handing loadCleaningTaskOwnerDetails rows to mergeCleanerTasks as its third argument (the apartment and owner details never reach the card)`,
+    );
+  else
+    ok(
+      `C24: ${readers.length} cleaner reader(s) merge get_my_cleaning_task_owner_details and embed neither properties nor profiles`,
+    );
+
+  // (5) nobody writes cleaning_tasks from code that holds a user session; the grants are revoked to match.
+  const writers = [];
+  for (const [file, text] of srcText) {
+    // The REVOKE does not apply to service_role: a file that holds the service client is not a user session.
+    if (/supabase\/admin["']/.test(text)) continue;
+    for (const m of stripTs(text).matchAll(
+      /\.from\(\s*["'`]cleaning_tasks["'`]\s*\)\s*\.([a-z]+)\(/g,
+    )) {
+      if (m[1] !== "select") writers.push(`${file} (.${m[1]})`);
+    }
+  }
+  // The client roles' DML on the table after replaying every GRANT/REVOKE in order. Supabase's default
+  // privileges give a new table everything for anon and authenticated (PUBLIC gets nothing), so a clean end
+  // state means an explicit REVOKE had the last word.
+  const DML = ["insert", "update", "delete", "truncate"];
+  const clientRoles = ["anon", "authenticated", "public"];
+  const dml = Object.fromEntries(
+    clientRoles.map((role) => [role, new Set(role === "public" ? [] : DML)]),
+  );
+  // The table in a GRANT/REVOKE target list: `cleaning_tasks`, `public.cleaning_tasks`, `"public"."cleaning_tasks"`.
+  const CLEANING_TASKS_REF =
+    /(?:^|,\s*)(?:"?public"?\.)?"?cleaning_tasks"?\s*(?:,|$)/i;
+  let lastRevoke;
+  for (const file of migrations) {
+    for (const st of statementsOf(file)) {
+      const m =
+        /^(GRANT|REVOKE)\s+(?:GRANT\s+OPTION\s+FOR\s+)?(.+?)\s+ON\s+(?:TABLE\s+)?(.+?)\s+(?:TO|FROM)\s+(.+?)(?:\s+WITH\s+GRANT\s+OPTION|\s+CASCADE|\s+RESTRICT)?$/i.exec(
+          st,
+        );
+      if (
+        !m ||
+        !(
+          CLEANING_TASKS_REF.test(m[3]) ||
+          /^ALL\s+TABLES\s+IN\s+SCHEMA\s+"?public"?$/i.test(m[3])
+        )
+      )
+        continue;
+      const privileges = m[2]
+        .replace(/\([^)]*\)/g, "")
+        .split(",")
+        .map((p) => p.trim().toLowerCase())
+        .flatMap((p) => (p === "all" || p === "all privileges" ? DML : [p]))
+        .filter((p) => DML.includes(p));
+      const grant = m[1].toUpperCase() === "GRANT";
+      for (const role of m[4]
+        .split(",")
+        .map((r) => r.trim().replace(/^"|"$/g, "").toLowerCase())) {
+        if (!dml[role]) continue;
+        for (const p of privileges) {
+          if (grant) dml[role].add(p);
+          else dml[role].delete(p);
+        }
+      }
+      if (!grant && privileges.length) lastRevoke = file;
+    }
+  }
+  const stillGranted = clientRoles.flatMap((role) =>
+    [...dml[role]].map((p) => `${p} to ${role}`),
+  );
+  if (writers.length)
+    fail(
+      `C24: browser/server code writes cleaning_tasks directly: ${writers.join(", ")} (only create_cleaning_task / transition_cleaning_task may)`,
+    );
+  else if (stillGranted.length)
+    fail(
+      `C24: after every migration client DML is still granted on public.cleaning_tasks (${stillGranted.join(", ")}): only the definer RPCs write it, so the REVOKE (INSERT, UPDATE, DELETE, TRUNCATE FROM anon, authenticated) must have the last word`,
+    );
+  else
+    ok(
+      `C24: cleaning_tasks has no client writer in src/ and ${lastRevoke} revokes client DML (nothing re-grants it)`,
+    );
+
+  // (6)+(7) the cleaner's bell text.
+  if (!trigFile) fail(`C24: no migration defines ${NAME_TRIG}()`);
+  else {
+    const trigBody = fnParts(
+      stripSql(read(join(migDir, trigFile))),
+      NAME_TRIG,
+    ).body;
+    // The class an owner-typed value is flattened with: line breaks (a typed one cannot fake a second line) and
+    // bidi overrides / zero-width characters (an RLO reorders the time and the address). It is a U& string of
+    // code-point escapes, so it means the same under every collation (POSIX [:space:] does not).
+    const flatClass = (value) =>
+      new RegExp(
+        `regexp_replace\\(\\s*${value}\\s*,\\s*(?:U&)?'([^']*)'`,
+        "i",
+      ).exec(trigBody)?.[1] ?? "";
+    const flattened = (value) => {
+      const cls = flatClass(value);
+      return (
+        /\\0001-\\0020/.test(cls) &&
+        /\\2028-\\202F/i.test(cls) &&
+        /\\FEFF/i.test(cls)
+      );
+    };
+    if (!/AT\s+TIME\s+ZONE\s+'Asia\/Tbilisi'/i.test(trigBody))
+      fail(
+        `C24: ${trigFile} formats the call-out time without AT TIME ZONE 'Asia/Tbilisi' (the bell shows UTC)`,
+      );
+    else if (!flattened("v_title") || !flattened("NEW\\.address"))
+      fail(
+        `C24: ${trigFile} must flatten BOTH owner-typed values (apartment title and address) with the explicit class of line breaks, bidi overrides and zero-width characters (U&'[\\0001-\\0020 ... \\2028-\\202F ... \\FEFF]+'), before they go into the bell and the emailed copy`,
+      );
+    else
+      ok(
+        `C24: ${trigFile} formats the bell time in Asia/Tbilisi and flattens the owner-typed title and address`,
+      );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// C39 — ownership verification. (a) The origin-less purge route exists and the
+// middleware exempts exactly the shared list. (b) Admins view a document
+// through a signed URL WITHOUT `download` (never saved to Downloads). (c) Only
+// src/lib/ownership/purge.ts deletes from the ownership-documents bucket.
+// (d) Browser reads of ownership_verifications select OWNER_VERIFICATION_COLUMNS,
+// which must equal the column grant to authenticated in the migration (a `*`
+// or an extra column is "permission denied").
+// ---------------------------------------------------------------------------
+{
+  const pathsFile = "src/lib/ownership/server-paths.ts";
+  if (!existsSync(join(root, pathsFile))) fail(`C39: ${pathsFile} is missing`);
+  else {
+    const routes = [...read(pathsFile).matchAll(/export const OWNERSHIP_\w+_PATH = "(\/api\/[^"]+)"/g)].map((m) => m[1]);
+    const missing = routes.filter((p) => !existsSync(join(root, "src/app", p, "route.ts")));
+    const exemptsList = /OWNERSHIP_ORIGINLESS_POST_PATHS\.includes\(request\.nextUrl\.pathname\)/.test(read("src/middleware.ts"));
+    if (routes.length !== 1) fail(`C39: expected 1 origin-less ownership path in server-paths.ts, found ${routes.length}`);
+    else if (missing.length) fail(`C39: origin-less ownership path with no route file: ${missing.join(", ")}`);
+    else if (!exemptsList) fail("C39: src/middleware.ts must exempt OWNERSHIP_ORIGINLESS_POST_PATHS by exact pathname");
+    else ok("C39: the origin-less purge route exists and the middleware exempts exactly it");
+  }
+
+  const docRoute = "src/app/api/admin/ownership-verifications/documents/[id]/route.ts";
+  if (!existsSync(join(root, docRoute))) fail(`C39: ${docRoute} is missing`);
+  else {
+    const body = read(docRoute);
+    if (!/createSignedUrl\(/.test(body)) fail(`C39: ${docRoute} must answer with a short-lived signed URL`);
+    else if (/download\s*:/.test(body)) fail(`C39: ${docRoute} signs with \`download\` — ID cards would be saved to admin Downloads`);
+    else ok("C39: admins view documents through a signed URL without download");
+  }
+
+  const deleters = srcFiles.filter((f) => {
+    const t = read(f);
+    return /["']ownership-documents["']/.test(t) && /\.remove\(/.test(t);
+  });
+  const strayDeleters = deleters.filter((f) => f !== "src/lib/ownership/purge.ts");
+  if (strayDeleters.length) fail(`C39: only src/lib/ownership/purge.ts may delete ownership documents: ${strayDeleters.join(", ")}`);
+  else ok("C39: src/lib/ownership/purge.ts is the only code that deletes ownership documents");
+
+  const readers = srcFiles.filter(
+    (f) => !f.startsWith("src/app/api/") && f !== "src/lib/ownership/purge.ts" && /\.from\(\s*["']ownership_verifications["']\s*\)/.test(read(f)),
+  );
+  const loose = readers.filter((f) => !/OWNER_VERIFICATION_COLUMNS/.test(read(f)));
+  const typesFile = "src/lib/ownership/types.ts";
+  const tsColumns = existsSync(join(root, typesFile))
+    ? (read(typesFile).match(/OWNER_VERIFICATION_COLUMNS\s*=\s*"([^"]+)"/)?.[1] ?? "").split(",").map((c) => c.trim()).filter(Boolean)
+    : [];
+  const grantColumns = (
+    read("supabase/migrations/20261001200000_ownership_verification.sql").match(
+      /GRANT SELECT \(([\s\S]*?)\) ON public\.ownership_verifications TO authenticated/,
+    )?.[1] ?? ""
+  )
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  if (loose.length) fail(`C39: browser reads of ownership_verifications must select OWNER_VERIFICATION_COLUMNS: ${loose.join(", ")}`);
+  else if (!tsColumns.length || !grantColumns.length) fail("C39: could not read OWNER_VERIFICATION_COLUMNS or the migration's column grant");
+  else if (!setEq(new Set(tsColumns), new Set(grantColumns)))
+    describeSetMismatch("C39 owner-readable columns", new Set(tsColumns), "OWNER_VERIFICATION_COLUMNS", new Set(grantColumns), "the column grant");
+  else ok(`C39: ${readers.length} browser reader(s) select the ${tsColumns.length} granted ownership_verifications columns`);
 }
 
 if (failures) {

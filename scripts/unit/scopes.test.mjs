@@ -29,3 +29,14 @@ test("service categories map onto cabinets, defaulting to services", () => {
   assert.equal(serviceCategoryToDashboardScope("handyman"), "services");
   assert.equal(serviceCategoryToDashboardScope(undefined), "services");
 });
+
+test("a bare /dashboard link resolves to the cabinet that owns the notification", async () => {
+  const { resolveNotificationPath, DASHBOARD_SCOPE_LABEL_KA } = await import("../../src/lib/notifications/scopes.ts");
+  assert.equal(resolveNotificationPath("/dashboard", "food"), "/dashboard/food");
+  assert.equal(resolveNotificationPath("/dashboard/", "seller"), "/dashboard/seller");
+  assert.equal(resolveNotificationPath("/dashboard", null), "/dashboard");
+  assert.equal(resolveNotificationPath("/dashboard", "bogus"), "/dashboard");
+  assert.equal(resolveNotificationPath("/dashboard/renter/smart-match", "guest"), "/dashboard/renter/smart-match");
+  assert.equal(resolveNotificationPath(null, "food"), null);
+  assert.equal(Object.keys(DASHBOARD_SCOPE_LABEL_KA).length, 10);
+});

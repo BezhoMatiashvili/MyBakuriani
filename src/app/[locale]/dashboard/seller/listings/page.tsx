@@ -20,6 +20,7 @@ import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
+import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import { isSuperVipActive } from "@/lib/utils/pricing";
 
@@ -278,6 +279,16 @@ export default function SellerListingsPage() {
                       <p className="mt-1.5 line-clamp-2 text-[12px] italic text-[#475569]">
                         &ldquo;{lastNote}&rdquo;
                       </p>
+                    </div>
+                  )}
+
+                  {property.owner_id === user?.id && (
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <OwnershipStatusChip
+                        kind="property"
+                        id={property.id}
+                        blocked={property.status === "blocked"}
+                      />
                     </div>
                   )}
 

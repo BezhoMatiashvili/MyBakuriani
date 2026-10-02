@@ -30,8 +30,10 @@ import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { safeHttpsUrl } from "@/lib/security";
+import { readMenuPdf, type MenuPdfProblem } from "@/lib/menu-pdf";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
+import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -47,6 +49,15 @@ import {
 
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 10;
+
+// CreateFood message per menu-PDF problem; `notPdf` keeps the original copy.
+const MENU_PDF_ERROR_KEY = {
+  empty: "menuFileEmpty",
+  tooLarge: "menuFileTooLarge",
+  notPdf: "menuMustBePdf",
+  incomplete: "menuFileIncomplete",
+  unreadable: "menuFileUnreadable",
+} as const satisfies Record<MenuPdfProblem, string>;
 
 const ExactLocationPicker = dynamic(
   () => import("@/components/maps/ExactLocationPicker"),
@@ -118,6 +129,10 @@ function CreateFoodPageInner() {
       ),
   );
   const [menuFile, setMenuFile] = useState<File | null>(null);
+  // Why the last picked PDF was refused. Shown beside the menu field: the footer
+  // `error` sits below the fold on desktop, so a refusal there looked like a
+  // red box with no reason.
+  const [menuError, setMenuError] = useState<string | null>(null);
   const [menuUrlInput, setMenuUrlInput] = useState("");
   const [description, setDescription] = useState("");
   const [phone, setPhone] = useState("");
@@ -216,18 +231,33 @@ function CreateFoodPageInner() {
     };
   }, [editId, user, supabase]);
 
-  function onPickMenuFile(e: ChangeEvent<HTMLInputElement>) {
+  async function onPickMenuFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== "application/pdf") {
-      setError(t("menuMustBePdf"));
-      setInvalidFields((prev) => new Set(prev).add("menuUrl"));
+    // Show the pick at once. If publish is tapped before the read below ends,
+    // uploadMenuPdf still checks the file, so nothing unchecked is stored.
+    setMenuFile(file);
+    setMenuError(null);
+    setError(null);
+    // Judge the bytes, not `file.type` (Chrome derives it from the extension):
+    // an empty "menu.pdf" used to pass and was stored as a 0-byte object that
+    // Chrome's viewer can't open ("Failed to load PDF document"). This is the
+    // early warning; uploadMenuPdf checks again before anything is stored.
+    const result = await readMenuPdf(file);
+    // A newer pick, the remove button or a typed link replaced this file while
+    // it was read (each of them empties the input).
+    if (menuFileRef.current?.files?.[0] !== file) return;
+    if (!result.ok) {
+      setMenuFile(null);
+      // Clear the input so the same path can be picked again once it is fixed.
+      if (menuFileRef.current) menuFileRef.current.value = "";
+      setMenuError(t(MENU_PDF_ERROR_KEY[result.problem]));
       scrollToField("menuUrl");
       return;
     }
-    setMenuFile(file);
+    // Only a good pick replaces a link already in the field (edit mode
+    // pre-fills the listing's saved link).
     setMenuUrlInput("");
-    setError(null);
     setInvalidFields((prev) => {
       const next = new Set(prev);
       next.delete("menuUrl");
@@ -237,10 +267,33 @@ function CreateFoodPageInner() {
 
   async function uploadMenuPdf(): Promise<string | null> {
     if (!menuFile || !user) return null;
+    // The gate before storage: upload the bytes checked here, never the live
+    // file handle, so an empty or half-written file can't reach the bucket
+    // whatever the pick-time check saw (or missed while it was still reading).
+    // Read the input's own file first: when the owner re-saves the PDF and
+    // picks the same path again Chrome fires no `change`, so `menuFile` is
+    // still the snapshot from before the re-save and can no longer be read.
+    const picked = menuFileRef.current?.files?.[0] ?? menuFile;
+    const checked = await readMenuPdf(picked);
+    if (!checked.ok) {
+      // Empty the input so the same path can be chosen again (Chrome fires no
+      // `change` while the input still holds it), unless a newer pick has
+      // already replaced it. The tile stays: a plain second Publish is refused
+      // again until the owner picks the file again or removes it, so a refusal
+      // never turns into a menu quietly dropped (in edit mode: a saved menu).
+      if (menuFileRef.current?.files?.[0] === picked) {
+        menuFileRef.current.value = "";
+      }
+      throw new Error(t(MENU_PDF_ERROR_KEY[checked.problem]));
+    }
     const path = `${user.id}/${crypto.randomUUID()}.pdf`;
     const { error: upErr } = await supabase.storage
       .from("restaurant-menus")
-      .upload(path, menuFile, { contentType: "application/pdf" });
+      .upload(
+        path,
+        new File([checked.bytes], picked.name, { type: "application/pdf" }),
+        { contentType: "application/pdf" },
+      );
     if (upErr)
       throw new Error(t("menuUploadFailed", { message: upErr.message }));
     const { data } = supabase.storage
@@ -322,14 +375,24 @@ function CreateFoodPageInner() {
         await submitContentChange("service", editId, payload);
         router.push("/dashboard/food");
       } else {
-        const { error: insertError } = await supabase.from("services").insert({
-          ...payload,
-          owner_id: user.id,
-          status: "pending",
-        });
+        const { data: inserted, error: insertError } = await supabase
+          .from("services")
+          .insert({
+            ...payload,
+            owner_id: user.id,
+            status: "pending",
+          })
+          .select("id")
+          .single();
 
         if (insertError) throw insertError;
-        router.push("/dashboard/food");
+        if (!inserted) throw new Error(tShared("genericError"));
+        router.push(
+          ownershipVerificationUrl("service", inserted.id, {
+            created: true,
+            next: "/dashboard/food",
+          }),
+        );
       }
     } catch (err) {
       setError(
@@ -538,12 +601,13 @@ function CreateFoodPageInner() {
             <Field
               label={t("menuOptional")}
               fieldKey="menuUrl"
-              error={invalidFields.has("menuUrl")}
+              error={invalidFields.has("menuUrl") || !!menuError}
             >
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => menuFileRef.current?.click()}
+                  aria-describedby={menuError ? "menu-error" : undefined}
                   className="flex h-[68px] items-center gap-3 rounded-xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 text-left transition-colors hover:border-[#F97316] hover:bg-[#FFF7ED]"
                 >
                   <FileText className="size-6 shrink-0 text-[#F97316]" />
@@ -582,13 +646,28 @@ function CreateFoodPageInner() {
                     value={menuUrlInput}
                     onChange={(e) => {
                       setMenuUrlInput(e.target.value);
-                      if (e.target.value) setMenuFile(null);
+                      if (e.target.value) {
+                        setMenuFile(null);
+                        setMenuError(null);
+                        // A link replaces the picked file; emptying the input
+                        // also lets the same file be picked again later.
+                        if (menuFileRef.current) menuFileRef.current.value = "";
+                      }
                     }}
                     placeholder={t("menuUrlPlaceholder")}
                     className={`${inputClass} pl-10`}
                   />
                 </div>
               </div>
+              {menuError && (
+                <p
+                  id="menu-error"
+                  role="alert"
+                  className="text-xs font-medium text-[#DC2626]"
+                >
+                  {menuError}
+                </p>
+              )}
             </Field>
 
             <Field

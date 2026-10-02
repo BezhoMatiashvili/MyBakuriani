@@ -1,4 +1,4 @@
-import { BadgeCheck, Banknote, Heart, MapPin, Star, Users } from "lucide-react";
+import { Banknote, Heart, MapPin, Star, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
@@ -9,6 +9,7 @@ import {
   ListingAgeBadge,
   NewlyAddedBadge,
 } from "@/components/shared/ListingRecency";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 
 export interface EmploymentCardProps {
   id: string;
@@ -24,6 +25,8 @@ export interface EmploymentCardProps {
   createdAt: string | null;
   highlighted?: boolean;
   mobilePresentation?: "default" | "compact-grid";
+  /** `public_services.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 const NEGOTIABLE: SalaryDescriptor = { kind: "model", model: "negotiable" };
@@ -69,6 +72,7 @@ export default function EmploymentCard({
   createdAt,
   highlighted,
   mobilePresentation = "default",
+  isOwnershipVerified = false,
 }: EmploymentCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const t = useTranslations("EmploymentCard");
@@ -136,7 +140,12 @@ export default function EmploymentCard({
       {employer && (
         <p className="mt-1.5 inline-flex items-center gap-1 text-[13px] font-bold leading-[18px] text-[#2563EB]">
           <span className="line-clamp-1">{employer}</span>
-          <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-[#22C55E] text-white" />
+          {/* Only a verified owner gets a mark here: the 24px icon (its label
+              is the aria-label), since a text pill beside it would leave the
+              employer name a few letters wide; -my-[3px] keeps the line 18px. */}
+          {isOwnershipVerified && (
+            <OwnershipVerifiedBadge variant="icon" className="-my-[3px]" />
+          )}
         </p>
       )}
 

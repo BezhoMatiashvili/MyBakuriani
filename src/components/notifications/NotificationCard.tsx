@@ -7,6 +7,7 @@ import { ArrowRight, ChevronDown, type LucideIcon } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { safeInternalPath } from "@/lib/security";
+import { resolveNotificationPath } from "@/lib/notifications/scopes";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 
 export interface NotificationCardItem {
@@ -17,6 +18,7 @@ export interface NotificationCardItem {
   is_read: boolean | null;
   action_url: string | null;
   created_at: string | null;
+  dashboard_scope?: string | null;
 }
 
 interface NotificationCardProps {
@@ -25,6 +27,8 @@ interface NotificationCardProps {
   tone: { Icon: LucideIcon; bg: string; fg: string };
   /** Marks the notification read (optimistic + DB) when it is first expanded. */
   onRead: (id: string) => void;
+  /** Cabinet name pill, for the aggregate inbox where rows come from every role. */
+  scopeLabel?: string;
   className?: string;
 }
 
@@ -52,12 +56,17 @@ export function NotificationCard({
   notification: n,
   tone,
   onRead,
+  scopeLabel,
   className,
 }: NotificationCardProps) {
   const tShared = useTranslations("DashboardShared");
   const [expanded, setExpanded] = useState(false);
   const { Icon } = tone;
-  const actionPath = safeInternalPath(n.action_url);
+  // A bare /dashboard link would land on the viewer's primary cabinet; the
+  // notification's own scope names the right one.
+  const actionPath = safeInternalPath(
+    resolveNotificationPath(n.action_url, n.dashboard_scope),
+  );
 
   function toggle() {
     setExpanded((prev) => {
@@ -94,6 +103,14 @@ export function NotificationCard({
           />
         </span>
         <span className="min-w-0 flex-1">
+          {scopeLabel && (
+            <span
+              data-testid="notification-scope-label"
+              className="mb-1 inline-block max-w-full truncate rounded-full bg-[#EFF6FF] px-2 py-0.5 text-[10px] font-bold leading-4 text-[#2563EB]"
+            >
+              {scopeLabel}
+            </span>
+          )}
           <span className="flex items-start justify-between gap-3">
             <span className="text-[14px] font-black text-[#0F172A]">
               {n.title}

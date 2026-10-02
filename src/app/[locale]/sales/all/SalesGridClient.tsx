@@ -17,7 +17,7 @@ const ITEMS_PER_PAGE = 6;
 type ListingTab = "all" | "vip" | "discount";
 
 type SaleGridListing = Pick<
-  Tables<"properties">,
+  Tables<"public_properties">,
   | "id"
   | "created_at"
   | "title"
@@ -42,6 +42,7 @@ type SaleGridListing = Pick<
   | "is_super_vip"
   | "discount_percent"
   | "discount_expires_at"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -310,6 +311,7 @@ export default function SalesGridClient({
                   rooms={p.rooms}
                   isVip={p.is_vip ?? false}
                   isSuperVip={p.is_super_vip ?? false}
+                  isOwnershipVerified={p.ownership_verified ?? false}
                   discountPercent={p.discount_percent ?? 0}
                   discountExpiresAt={p.discount_expires_at}
                   isForSale

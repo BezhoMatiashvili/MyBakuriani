@@ -4,6 +4,11 @@ import { getEmailConfig } from "@/lib/email/config";
 import { renderNotificationEmail } from "@/lib/email/render";
 import { sendWithResend } from "@/lib/email/resend";
 import { syncResendContact } from "@/lib/email/resend-contacts";
+import {
+  DASHBOARD_SCOPE_LABEL_KA,
+  resolveNotificationPath,
+  type DashboardScope,
+} from "@/lib/notifications/scopes";
 import { safeInternalPath } from "@/lib/security";
 import { createServiceClient } from "@/lib/supabase/admin";
 
@@ -166,12 +171,23 @@ async function dispatchTransactional(
       continue;
     }
 
-    const path = safeInternalPath(row.action_url);
+    // The cabinet the notification belongs to (C19). A claim from a database
+    // without the column leaves it undefined: link and label fall back to before.
+    const scope = (row as { dashboard_scope?: string | null }).dashboard_scope;
+    const path = safeInternalPath(
+      resolveNotificationPath(row.action_url, scope),
+    );
+    const cabinet =
+      scope &&
+      Object.prototype.hasOwnProperty.call(DASHBOARD_SCOPE_LABEL_KA, scope)
+        ? DASHBOARD_SCOPE_LABEL_KA[scope as DashboardScope]
+        : null;
     const email = renderNotificationEmail({
       subject: row.subject,
       body: row.body,
       href: path ? `${config.siteUrl}${path}` : null,
       accountUrl,
+      cabinet,
     });
     const outcome = await sendWithResend(config.resendApiKey, {
       id: row.id,

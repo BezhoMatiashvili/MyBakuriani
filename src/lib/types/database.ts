@@ -38,6 +38,8 @@ type PublicViews = {
     Row: Row<"properties"> & {
       has_whatsapp: boolean;
       profile_is_verified: boolean | null;
+      /** Approved ownership verification of the current owner (C39). */
+      ownership_verified: boolean;
     };
     Relationships: [];
   };
@@ -47,6 +49,8 @@ type PublicViews = {
       has_active_discount: boolean;
       best_active_menu_item_discount_percent: number | null;
       profile_is_verified: boolean | null;
+      /** Approved ownership verification of the current owner (C39). */
+      ownership_verified: boolean;
     };
     Relationships: [];
   };

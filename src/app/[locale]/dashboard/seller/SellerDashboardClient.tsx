@@ -21,6 +21,7 @@ import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
+import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
 import { formatGelAmount, isSuperVipActive } from "@/lib/utils/pricing";
@@ -342,6 +343,13 @@ export default function SellerDashboardClient({
                         discountPercent={property.discount_percent}
                         discountExpiresAt={property.discount_expires_at}
                       />
+                      {property.owner_id === userId && (
+                        <OwnershipStatusChip
+                          kind="property"
+                          id={property.id}
+                          blocked={property.status === "blocked"}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>

@@ -49,6 +49,7 @@ type PublicService = Pick<
   | "is_super_vip"
   | "has_whatsapp"
   | "created_at"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -304,6 +305,7 @@ export default function EntertainmentPageClient({ services }: Props) {
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
                     isSuperVip={s.is_super_vip ?? false}
+                    isOwnershipVerified={s.ownership_verified ?? false}
                     phone={null}
                     hasWhatsapp={s.has_whatsapp ?? false}
                   />

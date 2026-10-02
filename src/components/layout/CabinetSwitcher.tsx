@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { Check, Settings } from "lucide-react";
+import { Check, Settings, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AddListingButton } from "@/components/shared/AddListingButton";
@@ -47,6 +47,7 @@ export function CabinetSwitcher({
   openClassName,
 }: CabinetSwitcherProps) {
   const t = useTranslations("DashboardSidebar");
+  const tAccount = useTranslations("DashboardAccount");
   const items = availableKeys
     ? CABINET_SWITCHER_ITEMS.filter((item) => availableKeys.includes(item.key))
     : CABINET_SWITCHER_ITEMS;
@@ -138,6 +139,17 @@ export function CabinetSwitcher({
               <Settings className="h-3.5 w-3.5 text-[#94A3B8]" />
               <span className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
                 {t("switcher.linkedAccounts")}
+              </span>
+            </Link>
+
+            <Link
+              href="/dashboard/account/ownership"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5 transition-colors hover:bg-[#F8FAFC]"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 text-[#94A3B8]" />
+              <span className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                {tAccount("ownership.title")}
               </span>
             </Link>
 

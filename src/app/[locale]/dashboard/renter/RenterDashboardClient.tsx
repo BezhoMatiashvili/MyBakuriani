@@ -32,6 +32,7 @@ import VipInfoModal, {
 } from "@/components/renter/VipInfoModal";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
+import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import { formatGelAmount, isSuperVipActive } from "@/lib/utils/pricing";
 import { windowsOverlap } from "@/lib/membership/plans";
@@ -640,6 +641,11 @@ function PropertyRow({
                 {t("dateLabel")} {formatDateShort(property.created_at, locale)}
               </span>
             )}
+            <OwnershipStatusChip
+              kind="property"
+              id={property.id}
+              blocked={property.status === "blocked"}
+            />
           </div>
         </div>
 

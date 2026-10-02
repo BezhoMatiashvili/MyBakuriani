@@ -34,9 +34,12 @@ export function renderNotificationEmail(input: {
   body: string | null;
   href: string | null;
   accountUrl: string;
+  /** Georgian cabinet name of the notification's role; null for a global notice. */
+  cabinet?: string | null;
 }): RenderedEmail {
   const subject = cleanSubject(input.subject);
   const body = (input.body ?? "").trim();
+  const cabinet = (input.cabinet ?? "").trim();
   const bodyHtml = escapeHtml(body).replace(/\r?\n/g, "<br>");
   const button = input.href
     ? `<p style="margin:24px 0 0"><a href="${escapeHtml(input.href)}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600">ნახვა</a></p>`
@@ -49,6 +52,7 @@ export function renderNotificationEmail(input: {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;padding:28px">
 <tr><td style="font-size:18px;font-weight:700;color:${BRAND};padding-bottom:18px">MyBakuriani</td></tr>
 <tr><td style="font-size:18px;font-weight:600;line-height:1.4">${escapeHtml(subject)}</td></tr>
+${cabinet ? `<tr><td style="font-size:13px;line-height:1.4;padding-top:6px;color:#6b7280">კაბინეტი: ${escapeHtml(cabinet)}</td></tr>` : ""}
 ${bodyHtml ? `<tr><td style="font-size:15px;line-height:1.6;padding-top:10px;color:#374151">${bodyHtml}</td></tr>` : ""}
 <tr><td>${button}</td></tr>
 </table>
@@ -57,6 +61,7 @@ ${bodyHtml ? `<tr><td style="font-size:15px;line-height:1.6;padding-top:10px;col
 </body></html>`;
 
   const lines = [subject];
+  if (cabinet) lines.push(`კაბინეტი: ${cabinet}`);
   if (body) lines.push("", body);
   if (input.href) lines.push("", `ნახვა: ${input.href}`);
   lines.push(

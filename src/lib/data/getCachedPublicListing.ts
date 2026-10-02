@@ -10,11 +10,15 @@ import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 /** Public-view contract: the number stays private; only availability is safe. */
 export type PublicPropertyWithProfile = PropertyWithProfile & {
   has_whatsapp: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 /** Public-view contract: the number stays private; only availability is safe. */
 export type PublicServiceWithFoodExtras = ServiceWithFoodExtras & {
   has_whatsapp: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 /**

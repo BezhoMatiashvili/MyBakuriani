@@ -20,6 +20,7 @@ import {
   ListingAgeBadge,
   NewlyAddedBadge,
 } from "@/components/shared/ListingRecency";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 
 // Seeded zone names get translated display labels (Zones.<slug>.name);
 // free-text / non-seeded locations pass through raw. Display only — the
@@ -57,6 +58,8 @@ interface InvestmentCardProps {
   isSuperVip?: boolean;
   mobilePresentation?: "default" | "compact-grid";
   createdAt: string | null;
+  /** `public_properties.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 export default function InvestmentCard({
@@ -77,6 +80,7 @@ export default function InvestmentCard({
   isSuperVip = false,
   mobilePresentation = "default",
   createdAt,
+  isOwnershipVerified = false,
 }: InvestmentCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const t = useTranslations("InvestmentCard");
@@ -234,6 +238,24 @@ export default function InvestmentCard({
                 : "bottom-4 left-4",
             )}
           />
+
+          {/* A full chip stack (for sale, VIP, discount and the long
+              "completed" chip) reaches y 160 px, so the bottom-right pill, lifted
+              a row by a "new" chip rendered before it, needs a photo of at
+              least 228 px: only xl cards are that tall. Below xl the badge is an
+              icon under the favourite button, where no chip reaches. */}
+          {isOwnershipVerified && (
+            <>
+              <OwnershipVerifiedBadge
+                variant="icon"
+                className="absolute right-[26px] top-[68px] xl:hidden"
+              />
+              <OwnershipVerifiedBadge
+                variant="card"
+                className="absolute bottom-4 right-4 hidden xl:inline-flex [[data-newly-added]~&]:bottom-12"
+              />
+            </>
+          )}
         </div>
 
         <div

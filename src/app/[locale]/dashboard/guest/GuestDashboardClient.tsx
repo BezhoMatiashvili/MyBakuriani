@@ -22,6 +22,7 @@ import type { Tables } from "@/lib/types/database";
 import { isStale } from "@/lib/smart-match/match";
 import { safeInternalPath } from "@/lib/security";
 import MyRequestCard from "@/components/guest/MyRequestCard";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
   loadGuestData,
   type GuestData,
@@ -505,6 +506,12 @@ function RecentListingCard({ entry }: { entry: RecentListing }) {
           <span className="absolute left-3 top-3 rounded-md bg-[#F97316] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
             {l.is_super_vip ? "SUPER VIP" : "VIP"}
           </span>
+        )}
+        {l.ownership_verified && (
+          <OwnershipVerifiedBadge
+            variant="card"
+            className="absolute bottom-3 right-3"
+          />
         )}
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-4">

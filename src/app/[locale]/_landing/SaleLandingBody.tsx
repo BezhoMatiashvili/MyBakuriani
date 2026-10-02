@@ -113,6 +113,7 @@ function toSaleCard(p: LandingSaleProperty) {
     isSuperVip: p.is_super_vip ?? false,
     createdAt: p.created_at,
     paymentOptions: readPaymentOptions(p.house_rules),
+    isOwnershipVerified: p.ownership_verified ?? false,
   };
 }
 

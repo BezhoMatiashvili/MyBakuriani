@@ -57,6 +57,7 @@ type TransportService = Pick<
   | "route"
   | "routes"
   | "created_at"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -251,6 +252,7 @@ export default function TransportPageClient({ services }: Props) {
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
                     isSuperVip={s.is_super_vip ?? false}
+                    isOwnershipVerified={s.ownership_verified ?? false}
                     isVerified={s.profile_is_verified ?? false}
                     phone={null}
                     hasWhatsapp={s.has_whatsapp ?? false}

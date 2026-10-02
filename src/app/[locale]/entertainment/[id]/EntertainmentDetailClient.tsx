@@ -22,6 +22,7 @@ import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
   optionKeyFor,
@@ -38,6 +39,8 @@ import {
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
   has_whatsapp?: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface Props {
@@ -161,6 +164,9 @@ export default function EntertainmentDetailClient({
             {tShared("views", { count: views })}
           </span>
         </div>
+        {service.ownership_verified === true && (
+          <OwnershipVerifiedBadge variant="detail" className="mt-3" />
+        )}
       </div>
 
       {/* What to expect / description */}

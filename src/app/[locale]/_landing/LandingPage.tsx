@@ -115,6 +115,7 @@ function toCarouselCard(p: LandingProperty) {
     createdAt: p.created_at,
     isForSale: p.is_for_sale ?? false,
     distanceToSlopeM: p.distance_to_slope_m,
+    isOwnershipVerified: p.ownership_verified ?? false,
   };
 }
 
@@ -147,6 +148,7 @@ function toLandingServiceCard(s: PublicService) {
     providerName: null,
     experienceYears: null,
     availabilityStatus: null,
+    isOwnershipVerified: s.ownership_verified ?? false,
     ...(isTransport
       ? {
           vehicleCapacity: s.vehicle_capacity,
@@ -418,6 +420,7 @@ export default function LandingPage({
         createdAt: p.created_at,
         isForSale: p.is_for_sale ?? false,
         distanceToSlopeM: p.distance_to_slope_m,
+        isOwnershipVerified: p.ownership_verified ?? false,
       }))
     : [];
 
@@ -478,6 +481,7 @@ export default function LandingPage({
           isB2BPartner: p.is_b2b_partner ?? false,
           roomType: p.room_type ?? undefined,
           amenities: p.location,
+          isOwnershipVerified: p.ownership_verified ?? false,
         }))
       : [];
 
@@ -942,6 +946,7 @@ function ServiceSection({
     vehicleMake?: string | null;
     route?: string | null;
     routes?: string[] | null;
+    isOwnershipVerified?: boolean;
   }>;
   href: string;
   muted?: boolean;
@@ -1063,6 +1068,7 @@ function EmploymentSection({
     location: string | null;
     salary?: SalaryDescriptor;
     createdAt: string | null;
+    isOwnershipVerified?: boolean;
   }>;
   href: string;
 }) {
@@ -1125,6 +1131,7 @@ function EmploymentSection({
                 badge={i === 0 ? "vip" : null}
                 createdAt={card.createdAt}
                 highlighted={i === 0}
+                isOwnershipVerified={card.isOwnershipVerified ?? false}
               />
             </ScrollReveal>
           ))}
@@ -1168,6 +1175,7 @@ function PropertySection({
     roomType?: string;
     amenities?: string;
     distanceToSlopeM?: number | null;
+    isOwnershipVerified?: boolean;
   }>;
   href: string;
   muted?: boolean;

@@ -53,7 +53,7 @@ const ITEMS_PER_PAGE = 9;
 // The server query selects exactly these; widening usage here will surface as
 // a type error until the select in page.tsx is updated to match.
 export type ApartmentListing = Pick<
-  Tables<"properties">,
+  Tables<"public_properties">,
   | "id"
   | "title"
   | "location"
@@ -72,6 +72,7 @@ export type ApartmentListing = Pick<
   | "rooms"
   | "amenities"
   | "distance_to_slope_m"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -433,6 +434,7 @@ export default function ApartmentsPageClient({
                   rooms={p.rooms}
                   isVip={p.is_vip ?? false}
                   isSuperVip={p.is_super_vip ?? false}
+                  isOwnershipVerified={p.ownership_verified ?? false}
                   discountPercent={p.discount_percent ?? 0}
                   discountExpiresAt={p.discount_expires_at}
                   isForSale={p.is_for_sale ?? false}

@@ -42,7 +42,7 @@ export default async function SalesGridPage({ searchParams }: Props) {
   const { data: properties, error } = await supabase
     .from("public_properties")
     .select(
-      "id, created_at, title, location, photos, type, sale_price, price_per_night, area_sqm, cadastral_code, rooms, capacity, amenities, house_rules, organization_id, developer, roi_percent, construction_status, construction_progress_percent, renovation_status, is_vip, is_super_vip, discount_percent, discount_expires_at",
+      "id, created_at, title, location, photos, type, sale_price, price_per_night, area_sqm, cadastral_code, rooms, capacity, amenities, house_rules, organization_id, developer, roi_percent, construction_status, construction_progress_percent, renovation_status, is_vip, is_super_vip, discount_percent, discount_expires_at, ownership_verified",
     )
     .eq("is_for_sale", true)
     .order("is_super_vip", { ascending: false })

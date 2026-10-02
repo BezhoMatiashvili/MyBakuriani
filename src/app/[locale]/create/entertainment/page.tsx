@@ -25,6 +25,7 @@ import { isValidGePhone } from "@/lib/utils/number";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
+import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -384,16 +385,24 @@ function CreateEntertainmentPageInner() {
 
       if (editId) {
         await submitContentChange("service", editId, payload);
+        router.push("/dashboard/entertainment");
       } else {
-        const { error: insertError } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from("services")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .insert({ ...payload, owner_id: user.id, status: "pending" } as any);
+          .insert({ ...payload, owner_id: user.id, status: "pending" } as any)
+          .select("id")
+          .single();
 
         if (insertError) throw insertError;
+        if (!inserted) throw new Error(tShared("genericError"));
+        router.push(
+          ownershipVerificationUrl("service", inserted.id, {
+            created: true,
+            next: "/dashboard/entertainment",
+          }),
+        );
       }
-
-      router.push("/dashboard/entertainment");
     } catch (err) {
       setError(
         isContentChangeError(err)

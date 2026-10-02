@@ -168,7 +168,7 @@ serve(async (req) => {
         if (area_min) propertyQuery = propertyQuery.gte("area_sqm", area_min);
         if (area_max) propertyQuery = propertyQuery.lte("area_sqm", area_max);
         if (verified_only) {
-          propertyQuery = propertyQuery.eq("profile_is_verified", true);
+          propertyQuery = propertyQuery.eq("ownership_verified", true);
         }
         if (Array.isArray(amenities)) {
           for (const amenity of amenities) {
@@ -282,7 +282,7 @@ serve(async (req) => {
     if (cadastral_code) dbQuery = dbQuery.eq("cadastral_code", cadastral_code);
     if (area_min) dbQuery = dbQuery.gte("area_sqm", area_min);
     if (area_max) dbQuery = dbQuery.lte("area_sqm", area_max);
-    if (verified_only) dbQuery = dbQuery.eq("profile_is_verified", true);
+    if (verified_only) dbQuery = dbQuery.eq("ownership_verified", true);
 
     // Investment-mode filters. ROI excludes nulls so "min 5%" means
     // "listings whose ROI is known to be ≥ 5%" — not unknown-ROI listings.

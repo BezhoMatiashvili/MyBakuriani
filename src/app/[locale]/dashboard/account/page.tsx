@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { Loader2, Mail, Phone, Plus, Unlink } from "lucide-react";
+import { Loader2, Mail, Phone, Plus, ShieldCheck, Unlink } from "lucide-react";
 import type { Provider, UserIdentity } from "@supabase/supabase-js";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -227,6 +227,33 @@ export default function LinkedAccountsPage() {
           </div>
         </motion.div>
       )}
+
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="flex flex-col items-start gap-4 rounded-[24px] border bg-white p-6 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)] sm:flex-row sm:items-center sm:justify-between sm:p-8"
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF]">
+            <ShieldCheck className="size-4 text-[#1E3A8A]" />
+          </span>
+          <div>
+            <h2 className="text-sm font-bold text-[#0F172A]">
+              {t("ownership.title")}
+            </h2>
+            <p className="mt-1 text-[13px] font-medium text-[#64748B]">
+              {t("ownership.accountCardText")}
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/dashboard/account/ownership"
+          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white px-4 text-sm font-bold text-[#0F172A] transition-colors hover:bg-[#F8FAFC] sm:w-auto"
+        >
+          {t("ownership.accountCardCta")}
+        </Link>
+      </motion.div>
 
       {prefs ? <NotificationPreferences initial={prefs} /> : null}
     </div>

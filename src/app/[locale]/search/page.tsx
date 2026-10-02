@@ -85,7 +85,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   let query = supabase
     .from("public_properties")
     .select(
-      "id, created_at, title, description, location, cadastral_code, photos, price_per_night, sale_price, capacity, rooms, bathrooms, area_sqm, type, amenities, is_vip, is_super_vip, discount_percent, discount_expires_at, is_for_sale, house_rules, profile_is_verified",
+      "id, created_at, title, description, location, cadastral_code, photos, price_per_night, sale_price, capacity, rooms, bathrooms, area_sqm, type, amenities, is_vip, is_super_vip, discount_percent, discount_expires_at, is_for_sale, house_rules, ownership_verified",
     );
 
   // Apply mode filter server-side so initial data matches
@@ -127,7 +127,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     query = query.contains("amenities", [amenity]);
   }
   if (parseBoolean(params.verified_only)) {
-    query = query.eq("profile_is_verified", true);
+    query = query.eq("ownership_verified", true);
   }
 
   const [statusCards, { data: properties }] = await Promise.all([

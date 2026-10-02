@@ -1,15 +1,16 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { Bell, Home, MessageSquare, Plus, Search } from "lucide-react";
+import { Home, MessageSquare, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { DashboardNotificationBell } from "@/components/layout/DashboardNotificationBell";
 
 interface FoodTopbarProps {
   balance: number;
   smsRemaining: number;
-  /** Unread notifications in this cabinet, shown on the mobile bell. */
+  /** Unread notifications across all cabinets, shown on the header bell until it loads. */
   notificationCount?: number;
   searchPlaceholder?: string;
 }
@@ -22,7 +23,6 @@ export function FoodTopbar({
 }: FoodTopbarProps) {
   const t = useTranslations("DashboardLayout");
   const tSidebar = useTranslations("DashboardSidebar");
-  const tNavbar = useTranslations("Navbar");
   const placeholder = searchPlaceholder ?? t("topbar.searchDefault");
 
   return (
@@ -71,26 +71,11 @@ export function FoodTopbar({
           </div>
 
           <LanguageSelector className="px-2.5 sm:px-3.5" />
-          {/* Mobile only: the desktop sidebar lists notifications itself. */}
-          <Link
-            href="/dashboard/food/notifications"
-            data-testid="mobile-header-bell"
-            aria-label={tNavbar("notificationsAria", {
-              count: notificationCount,
-            })}
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] lg:hidden"
-          >
-            <Bell className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
-            {notificationCount > 0 && (
-              <span
-                data-testid="mobile-header-bell-badge"
-                aria-hidden
-                className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-1 text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_white]"
-              >
-                {notificationCount > 99 ? "99+" : notificationCount}
-              </span>
-            )}
-          </Link>
+          {/* One bell for every cabinet the user holds, at every breakpoint. */}
+          <DashboardNotificationBell
+            initialUnreadCount={notificationCount}
+            triggerClassName="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] lg:h-[44px] lg:w-[44px]"
+          />
         </div>
       </div>
     </header>

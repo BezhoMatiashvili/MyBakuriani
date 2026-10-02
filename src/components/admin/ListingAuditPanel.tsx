@@ -404,7 +404,7 @@ function resolveLegacySelect(
 
 // ---------- Owner & NAPR ----------
 
-function OwnerCard({ owner }: { owner: AuditPayload["owner"] }) {
+export function OwnerCard({ owner }: { owner: AuditPayload["owner"] }) {
   const t = useTranslations("AdminShared.listingAudit");
   const tDash = useTranslations("DashboardShared");
   const tGuest = useTranslations("GuestProfile");

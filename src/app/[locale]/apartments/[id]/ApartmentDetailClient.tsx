@@ -23,6 +23,7 @@ import ReviewCard from "@/components/cards/ReviewCard";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { formatPricePerNight } from "@/lib/utils/format";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
@@ -57,6 +58,8 @@ import {
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
   has_whatsapp?: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface ReviewWithGuest {
@@ -238,6 +241,9 @@ export default function ApartmentDetailClient({
             </span>
           )}
         </div>
+        {property.ownership_verified === true && (
+          <OwnershipVerifiedBadge variant="detail" className="mt-3" />
+        )}
       </div>
 
       <div style={enterUp(0.15)}>

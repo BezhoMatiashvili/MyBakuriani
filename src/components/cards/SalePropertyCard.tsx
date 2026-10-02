@@ -14,6 +14,7 @@ import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
   ListingAgeBadge,
   NewlyAddedBadge,
@@ -39,6 +40,8 @@ interface SalePropertyCardProps {
   /** house_rules.payment_options codes; read via readPaymentOptions(). */
   paymentOptions?: string[];
   createdAt: string | null;
+  /** `public_properties.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 function formatUsd(n: number): string {
@@ -63,6 +66,7 @@ export default function SalePropertyCard({
   discountExpiresAt,
   paymentOptions,
   createdAt,
+  isOwnershipVerified = false,
 }: SalePropertyCardProps) {
   const t = useTranslations("SalePropertyCard");
   const tOpts = useTranslations("ListingOptions");
@@ -155,6 +159,15 @@ export default function SalePropertyCard({
             createdAt={createdAt}
             className="absolute bottom-3 left-3"
           />
+
+          {/* A phone-width card cannot fit the "new" chip and this badge on
+              one line, so a "new" chip rendered before it lifts it a row. */}
+          {isOwnershipVerified && (
+            <OwnershipVerifiedBadge
+              variant="card"
+              className="absolute bottom-3 right-3 [[data-newly-added]~&]:bottom-10"
+            />
+          )}
         </div>
 
         <div className="flex flex-1 flex-col p-4 lg:p-5">

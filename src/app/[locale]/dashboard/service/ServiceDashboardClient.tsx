@@ -24,6 +24,7 @@ import ListingActions from "@/components/dashboard/ListingActions";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
+import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 import { CATEGORY_TO_CREATE_HREF } from "@/lib/dashboard/serviceSegments";
@@ -266,6 +267,11 @@ export default function ServiceDashboardClient({
                             ? tShared("pending")
                             : tShared("cancelled")}
                       </span>
+                      <OwnershipStatusChip
+                        kind="service"
+                        id={s.id}
+                        blocked={s.status === "blocked"}
+                      />
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-[#94A3B8]">
                       <span>

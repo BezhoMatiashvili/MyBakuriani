@@ -19,6 +19,7 @@ import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { TransportContactFooter } from "@/components/shared/TransportContactFooter";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
   optionKeyFor,
@@ -36,6 +37,8 @@ import {
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
   has_whatsapp?: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface Props {
@@ -203,6 +206,14 @@ export default function TransportDetailClient({
           </div>
         </div>
       </div>
+
+      {/* Ownership badge: its own block (there is no title row), so opening
+          it never moves the avatar header. */}
+      {service.ownership_verified === true && (
+        <div style={enterUp(0.15)} className="mt-3">
+          <OwnershipVerifiedBadge variant="detail" />
+        </div>
+      )}
 
       {/* Compact mobile spec tiles; flat four-column row on wider screens. */}
       <div

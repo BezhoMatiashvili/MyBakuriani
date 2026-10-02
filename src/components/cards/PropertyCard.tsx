@@ -13,6 +13,7 @@ import { optionKeyFor } from "@/lib/constants/listing-options";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
   ListingAgeBadge,
   NewlyAddedBadge,
@@ -55,6 +56,8 @@ interface PropertyCardProps {
   priority?: boolean;
   mobilePresentation?: "default" | "compact-grid";
   createdAt: string | null;
+  /** `public_properties.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 function extractZone(location: string): string {
@@ -94,6 +97,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     priority,
     mobilePresentation = "default",
     createdAt,
+    isOwnershipVerified = false,
   } = props;
   const compactGrid = mobilePresentation === "compact-grid";
   const {
@@ -277,6 +281,19 @@ export default function PropertyCard(props: PropertyCardProps) {
                 : "bottom-4 left-4",
             )}
           />
+
+          {/* Bottom-right, moved up a row above a hotel's B2B chip, and above
+              a "new" chip rendered before it: a phone-width card cannot fit
+              that chip and this badge on one line. */}
+          {isOwnershipVerified && (
+            <OwnershipVerifiedBadge
+              variant="card"
+              className={cn(
+                "absolute right-4 [[data-newly-added]~&]:bottom-12",
+                isHotel && isB2BPartner ? "bottom-12" : "bottom-4",
+              )}
+            />
+          )}
         </div>
 
         <div

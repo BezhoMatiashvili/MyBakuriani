@@ -380,7 +380,8 @@ export function MobileBottomNav({
     icon: KeyRound,
   };
   // Notifications are not listed here for renter/seller/food/services: those
-  // cabinets reach them from the bell in their mobile top header.
+  // cabinets reach them from the header bell (all cabinets' notices; its
+  // "view all" opens /notifications) or their own inbox via the sidebar.
   const more = [
     ...navigation.more.filter(
       (item) =>

@@ -45,6 +45,7 @@ const ITEMS_PER_PAGE = 12;
 type ServiceRow = Tables<"services"> & {
   has_whatsapp?: boolean;
   best_active_menu_item_discount_percent?: number | null;
+  ownership_verified?: boolean;
 };
 type BlogRow = Tables<"blog_posts">;
 // The columns search/page.tsx selects: everything this client renders plus what
@@ -73,7 +74,7 @@ type SearchListing = Pick<
   | "discount_expires_at"
   | "is_for_sale"
   | "house_rules"
-  | "profile_is_verified"
+  | "ownership_verified"
 >;
 type ActiveTab = "all" | "properties" | "services" | "blog";
 
@@ -190,7 +191,7 @@ function filterPropertiesLocally(
     ) {
       return false;
     }
-    if (currentFilters.verifiedOnly && property.profile_is_verified !== true) {
+    if (currentFilters.verifiedOnly && property.ownership_verified !== true) {
       return false;
     }
     return true;
@@ -786,6 +787,7 @@ export default function SearchPageClient({
                       discountExpiresAt={p.discount_expires_at}
                       isForSale={p.is_for_sale ?? false}
                       paymentOptions={readPaymentOptions(p.house_rules)}
+                      isOwnershipVerified={p.ownership_verified ?? false}
                     />
                   </ScrollReveal>
                 ))}
@@ -1020,6 +1022,7 @@ function PropertiesGrid({ items }: { items: SearchListing[] }) {
             discountExpiresAt={p.discount_expires_at}
             isForSale={p.is_for_sale ?? false}
             paymentOptions={readPaymentOptions(p.house_rules)}
+            isOwnershipVerified={p.ownership_verified ?? false}
           />
         </ScrollReveal>
       ))}
@@ -1064,6 +1067,7 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
             route={s.route}
             routes={s.routes}
             description={s.description}
+            isOwnershipVerified={s.ownership_verified ?? false}
           />
         </ScrollReveal>
       ))}

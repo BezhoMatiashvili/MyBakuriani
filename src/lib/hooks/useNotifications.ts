@@ -9,20 +9,26 @@ import { useDashboardNotificationsFeed } from "@/lib/dashboard/notificationsFeed
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
 /**
- * Global bell when scope is omitted; an exact cabinet feed/bell otherwise.
- * Global notifications are intentionally not included in a scoped result.
+ * The unified bell when scope is omitted: every notification the signed-in
+ * user owns, from every cabinet plus global (NULL-scope) notices. Inside
+ * DashboardShell it shares the shell's single subscription and all-scope
+ * total; elsewhere (the public Navbar) it fetches and subscribes on its own.
+ * An exact cabinet feed otherwise (always on its own channel and count);
+ * global notifications are intentionally not included in a scoped result.
  */
 export function useNotifications(scope?: DashboardScope) {
   const supabase = useMemo(() => createClient(), []);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  // Null outside DashboardShell's guest/cleaner/admin branches (e.g. the public
-  // Navbar's bell), in which case this hook fetches/subscribes on its own,
-  // exactly as before. Read via a ref inside init() below so the object
-  // changing on every notification (its unreadCount/events are live) never
-  // re-triggers that effect — only its one-time presence matters there.
-  const externalFeed = useDashboardNotificationsFeed();
+  // Null outside DashboardShell (e.g. the public Navbar's bell), in which case
+  // this hook fetches/subscribes on its own. The shell's feed is all-scope, so
+  // a scoped hook ignores it and does the same. Read via a ref inside init()
+  // below so the object changing on every notification (its unreadCount/events
+  // are live) never re-triggers that effect — only its one-time presence
+  // matters there.
+  const dashboardFeed = useDashboardNotificationsFeed();
+  const externalFeed = scope ? null : dashboardFeed;
   const externalFeedRef = useRef(externalFeed);
   externalFeedRef.current = externalFeed;
   // The read-writes below run outside the effect that resolves the session, so
@@ -226,7 +232,8 @@ export function useNotifications(scope?: DashboardScope) {
   }, [externalFeed?.events, scope]);
 
   async function markAsRead(id: string) {
-    const wasUnread = notifications.find((n) => n.id === id)?.is_read === false;
+    const row = notifications.find((n) => n.id === id);
+    const wasUnread = row?.is_read === false;
 
     const { error } = await supabase
       .from("notifications")
@@ -243,7 +250,14 @@ export function useNotifications(scope?: DashboardScope) {
       // DashboardShell's own subscription will also recount this write, but
       // only after a round-trip through its debounce — decrement now (only if
       // this row was actually unread) so the badge doesn't visibly lag.
-      if (wasUnread) externalFeed.adjustUnreadCount(-1);
+      // The row's own scope picks the cabinet badge to lower (none for a
+      // global notice); the total always drops.
+      if (wasUnread) {
+        externalFeed.adjustUnreadCount(
+          -1,
+          row?.dashboard_scope as DashboardScope | null | undefined,
+        );
+      }
     } else {
       // Same call this row's own realtime UPDATE would trigger — recounting
       // here too means the badge doesn't wait on the round-trip.
@@ -253,7 +267,8 @@ export function useNotifications(scope?: DashboardScope) {
 
   /**
    * Bulk read for exactly this hook's feed — the signed-in user, plus the scope
-   * when one is set. It lives here rather than in the bell because this is the
+   * when one is set (so without a scope it clears every cabinet and the global
+   * notices, critical-severity ones included). It lives here rather than in the bell because this is the
    * only place that already knows who the user is; without that predicate an
    * admin clicking "mark all read" on the unscoped navbar bell marks the ENTIRE
    * notifications table read.

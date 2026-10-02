@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, Check, MapPin } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -10,10 +10,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDateShort } from "@/lib/utils/format";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import {
+  keepLoadedDetails,
   transitionPlatformCleanerTask,
   type CleanerTaskItem,
   type CleanerTaskTransitionStatus,
 } from "@/lib/cleaner/tasks";
+import {
+  TaskAreaOnlyHint,
+  TaskContact,
+  TaskDirections,
+  TaskFacts,
+  TaskNotes,
+  TaskPriceUnit,
+  TaskTitle,
+} from "@/components/cleaner/CleanerTaskDetails";
 import { loadCleanerTasks } from "./loadData";
 
 function dayLabel(
@@ -22,6 +32,7 @@ function dayLabel(
   locale: string,
 ): string {
   const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
   const now = new Date();
   const startOfToday = new Date(
     now.getFullYear(),
@@ -41,8 +52,22 @@ function dayLabel(
   return formatDateShort(date, locale);
 }
 
+/** "Today, 1 Oct" / "Tomorrow, 2 Oct" / "3 Oct": the relative word plus the real date. */
+function fullDayLabel(
+  iso: string,
+  t: ReturnType<typeof useTranslations<"CleanerDashboard">>,
+  locale: string,
+): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  const relative = dayLabel(iso, t, locale);
+  const absolute = formatDateShort(date, locale);
+  return relative === absolute ? relative : `${relative}, ${absolute}`;
+}
+
 function timeLabel(iso: string): string {
   const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
   const hh = String(date.getHours()).padStart(2, "0");
   const mm = String(date.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
@@ -50,6 +75,29 @@ function timeLabel(iso: string): string {
 
 function priceLabel(price: number | null): string {
   return price != null ? `${Number(price)} ₾` : "—";
+}
+
+/**
+ * Classes for the box a price sits in beside other content: a number stays on one
+ * line at full size, the "by agreement" words may wrap and are set smaller so they
+ * still fit a 320 px card.
+ */
+function priceSlotClass(task: CleanerTaskItem): string {
+  return task.price == null
+    ? "min-w-0 text-right text-[14px] leading-5"
+    : "shrink-0 whitespace-nowrap text-[20px]";
+}
+
+/** "50 ₾ / საათი", or "By agreement" when the service has no price. */
+function TaskPrice({ task }: { task: CleanerTaskItem }) {
+  const t = useTranslations("CleanerDashboard");
+  if (task.price == null) return <>{t("priceOnAgreement")}</>;
+  return (
+    <>
+      {priceLabel(task.price)}
+      <TaskPriceUnit unit={task.priceUnit} />
+    </>
+  );
 }
 
 function deriveInitials(name: string): string {
@@ -78,7 +126,9 @@ export default function CleanerDashboardClient({
 
   const fetchTasks = useCallback(async () => {
     try {
-      setTasks(await loadCleanerTasks(supabase, userId));
+      const next = await loadCleanerTasks(supabase, userId);
+      // A details lookup that failed on this refetch must not blank what is on screen.
+      setTasks((prev) => keepLoadedDetails(prev, next));
     } catch {
       toast.error(tShared("genericRetry"));
     }
@@ -285,6 +335,7 @@ function PendingTaskCard({
   const locale = useLocale();
   const ownerName = task.contactName ?? "—";
   const typeKey = optionKeyFor("cleaningTypes", task.cleaningType);
+  const confirmNoteId = useId();
 
   return (
     <motion.article
@@ -297,34 +348,50 @@ function PendingTaskCard({
         {t("newCallBadge")}
       </span>
 
-      <div className="mt-4 flex items-center gap-3 rounded-2xl bg-[#F8FAFC] p-3">
-        <Avatar className="h-11 w-11 shrink-0">
-          {task.contactAvatar && (
-            <AvatarImage src={task.contactAvatar} alt={ownerName} />
-          )}
-          <AvatarFallback className="bg-[#E2E8F0] text-[12px] font-extrabold text-[#475569]">
-            {deriveInitials(ownerName)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
-            {ownerName}
-          </p>
-          <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
-            {t("owner")}
-          </p>
+      <div className="mt-4 rounded-2xl bg-[#F8FAFC] p-3">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-11 w-11 shrink-0">
+            {task.contactAvatar && (
+              <AvatarImage src={task.contactAvatar} alt={ownerName} />
+            )}
+            <AvatarFallback className="bg-[#E2E8F0] text-[12px] font-extrabold text-[#475569]">
+              {deriveInitials(ownerName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-extrabold text-[#0F172A]">
+              {ownerName}
+            </p>
+            <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
+              {t("owner")}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3">
+          <TaskContact task={task} />
         </div>
       </div>
 
-      <h3 className="mt-4 text-[18px] font-black leading-[24px] text-[#0F172A]">
-        {task.title ?? "—"}
+      <h3
+        data-testid="cleaner-task-title"
+        className="mt-4 break-words text-[18px] font-black leading-[24px] text-[#0F172A]"
+      >
+        <TaskTitle task={task} fallback="—" />
       </h3>
-      <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
-        <MapPin className="h-4 w-4 shrink-0" strokeWidth={2.2} />
-        {task.address ?? "—"}
+      <TaskFacts task={task} />
+      <p className="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-[#64748B]">
+        <MapPin className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.2} />
+        <span
+          data-testid="cleaner-task-address"
+          className="min-w-0 break-words"
+        >
+          {task.address ?? "—"}
+        </span>
       </p>
+      <TaskAreaOnlyHint task={task} />
+      <TaskDirections task={task} />
 
-      <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-[#F8FAFC] p-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 rounded-2xl bg-[#F8FAFC] p-4 sm:grid-cols-2">
         <div>
           <p className="text-[10px] font-bold tracking-[0.08em] text-[#94A3B8]">
             {t("dateTime")}
@@ -334,7 +401,7 @@ function PendingTaskCard({
               className="h-4 w-4 shrink-0 text-[#64748B]"
               strokeWidth={2.2}
             />
-            {dayLabel(task.scheduledAt, t, locale)} •{" "}
+            {fullDayLabel(task.scheduledAt, t, locale)} •{" "}
             {t("timeWithHour", { time: timeLabel(task.scheduledAt) })}
           </p>
         </div>
@@ -345,21 +412,43 @@ function PendingTaskCard({
           <p className="mt-1.5 text-[13px] font-extrabold text-[#0F172A]">
             {typeKey ? tOpts(`cleaningTypes.${typeKey}`) : task.cleaningType}
           </p>
+          {task.serviceTitle && (
+            <p className="mt-0.5 break-words text-[11px] font-medium text-[#64748B]">
+              {task.serviceTitle}
+            </p>
+          )}
         </div>
       </div>
+
+      <TaskNotes notes={task.notes} />
 
       <div className="mt-4 flex items-center justify-between border-t border-[#EEF1F4] pt-4">
         <p className="text-[13px] font-bold text-[#0F172A]">
           {t("offeredPrice")}
         </p>
-        <p className="text-[20px] font-black text-[#16A34A]">
-          {priceLabel(task.price)}
+        <p className={`${priceSlotClass(task)} font-black text-[#16A34A]`}>
+          <TaskPrice task={task} />
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      {/* Without the details Confirm is disabled: say why right above it (the
+          message at the top of the card is a screen away on a phone) and tie the
+          reason to the button for screen readers. */}
+      <p
+        id={confirmNoteId}
+        role="status"
+        data-testid="cleaner-task-confirm-note"
+        className={`mt-4 text-[12px] font-medium leading-[18px] ${
+          task.detailsLoaded ? "text-[#64748B]" : "text-[#92400E]"
+        }`}
+      >
+        {task.detailsLoaded ? t("confirmHint") : t("detailsUnavailable")}
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
         <button
           type="button"
+          data-testid="cleaner-task-decline"
           onClick={onDecline}
           disabled={disabled}
           className="rounded-xl bg-[#FEF2F2] px-4 py-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:opacity-50"
@@ -368,8 +457,10 @@ function PendingTaskCard({
         </button>
         <button
           type="button"
+          data-testid="cleaner-task-confirm"
           onClick={onAccept}
-          disabled={disabled}
+          disabled={disabled || !task.detailsLoaded}
+          aria-describedby={task.detailsLoaded ? undefined : confirmNoteId}
           className="flex items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Check className="h-4 w-4 shrink-0" strokeWidth={3} />
@@ -429,19 +520,47 @@ function ScheduledTaskCard({
             </span>
           )}
         </div>
-        <p className="text-[20px] font-black text-[#0F172A]">
-          {priceLabel(task.price)}
+        <p
+          className={`${priceSlotClass(task)} text-right font-black text-[#0F172A]`}
+        >
+          <TaskPrice task={task} />
         </p>
       </div>
 
-      <h3 className="mt-4 text-[17px] font-black leading-[22px] text-[#0F172A]">
-        {task.title ?? "—"}
+      <h3
+        data-testid="cleaner-task-title"
+        className="mt-4 break-words text-[17px] font-black leading-[22px] text-[#0F172A]"
+      >
+        <TaskTitle task={task} fallback="—" />
       </h3>
-      <p className="mt-1 text-[13px] font-medium text-[#64748B]">
-        {dayLabel(task.scheduledAt, t, locale)} •{" "}
+      <TaskFacts task={task} />
+      <p
+        data-testid="cleaner-task-when-where"
+        className="mt-1 break-words text-[13px] font-medium text-[#64748B]"
+      >
+        {fullDayLabel(task.scheduledAt, t, locale)} •{" "}
         {t("timeWithHour", { time: timeLabel(task.scheduledAt) })} •{" "}
-        {task.address ?? "—"}
+        {/* owner-typed: isolated so a bidi override in it cannot reorder the time before it */}
+        <bdi>{task.address ?? "—"}</bdi>
       </p>
+      <TaskAreaOnlyHint task={task} />
+
+      {task.source === "platform" && (
+        <>
+          <TaskDirections task={task} />
+          <div className="mt-4 rounded-2xl bg-[#F8FAFC] p-3">
+            <p className="mb-2 break-words text-[12px] font-bold text-[#0F172A]">
+              {task.contactName ?? "—"}
+              <span className="font-medium text-[#64748B]">
+                {" "}
+                · {t("owner")}
+              </span>
+            </p>
+            <TaskContact task={task} />
+          </div>
+          <TaskNotes notes={task.notes} />
+        </>
+      )}
 
       {cancellationRequested ? (
         <div className="mt-5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-4">

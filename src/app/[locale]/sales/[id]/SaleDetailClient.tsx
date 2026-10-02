@@ -36,6 +36,7 @@ import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables, Database } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
@@ -64,6 +65,8 @@ const BakurianiMap = dynamic(
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
   has_whatsapp?: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
   organizations?: Pick<
     Tables<"organizations">,
     | "id"
@@ -493,6 +496,9 @@ export default function SaleDetailClient({
             {tDetail("views", { count: views })}
           </span>
         </div>
+        {property.ownership_verified === true && (
+          <OwnershipVerifiedBadge variant="detail" className="mt-3" />
+        )}
       </div>
 
       {/* Photo gallery */}

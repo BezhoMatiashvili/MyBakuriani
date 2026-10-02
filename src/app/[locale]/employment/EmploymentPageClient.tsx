@@ -28,7 +28,7 @@ const ITEMS_PER_PAGE = 9;
 // filters). The server query selects exactly these; widening usage here will
 // surface as a type error until the select in page.tsx is updated to match.
 type EmploymentListing = Pick<
-  Tables<"services">,
+  Tables<"public_services">,
   | "id"
   | "title"
   | "position"
@@ -48,6 +48,7 @@ type EmploymentListing = Pick<
   | "is_vip"
   | "is_super_vip"
   | "created_at"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -258,6 +259,7 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                     badge={deriveBadge(s)}
                     applicationsCount={cvCounts[s.id] ?? 0}
                     highlighted={Boolean(s.is_super_vip || s.is_vip)}
+                    isOwnershipVerified={s.ownership_verified ?? false}
                   />
                 </ScrollReveal>
               ))}

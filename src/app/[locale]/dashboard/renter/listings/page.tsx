@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
+import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 import { isSuperVipActive } from "@/lib/utils/pricing";
@@ -264,13 +265,18 @@ export default function RenterListingsPage() {
                     </span>
                   </div>
 
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <ListingPromotionBadges
                       isVip={property.is_vip}
                       isSuperVip={property.is_super_vip}
                       vipExpiresAt={property.vip_expires_at}
                       discountPercent={property.discount_percent}
                       discountExpiresAt={property.discount_expires_at}
+                    />
+                    <OwnershipStatusChip
+                      kind="property"
+                      id={property.id}
+                      blocked={property.status === "blocked"}
                     />
                   </div>
                 </div>

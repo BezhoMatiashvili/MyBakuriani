@@ -21,6 +21,7 @@ import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
+import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -157,6 +158,11 @@ function CreateTransportPageInner() {
 
   const [loading, setLoading] = useState(false);
   const submittingRef = useRef(false);
+  // Edit mode: the stored title and the driver name the form loaded. An older
+  // listing's title can differ from its driver name (C39: see handleSubmit).
+  const loadedNamesRef = useRef<{ title: string; driverName: string } | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [hydrating, setHydrating] = useState(isEditMode);
@@ -203,7 +209,12 @@ function CreateTransportPageInner() {
       const stripPrefix = (v: string | null) =>
         v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
 
-      setDriverName(data.driver_name ?? data.title ?? "");
+      const loadedDriverName = data.driver_name ?? data.title ?? "";
+      loadedNamesRef.current = {
+        title: data.title,
+        driverName: loadedDriverName,
+      };
+      setDriverName(loadedDriverName);
       setVehicleMake(data.vehicle_make ?? "Mercedes-Benz");
       setTransportType(
         (data.transport_type ??
@@ -329,8 +340,18 @@ function CreateTransportPageInner() {
         r.price < min.price ? r : min,
       );
 
+      // The title is the driver name, but an older listing's stored title can
+      // differ. Rewriting it on an unrelated edit (a price) would revoke the
+      // ownership badge (C39: title is part of a service's basis), so it only
+      // follows the driver name when the name itself changes.
+      const loadedNames = editId ? loadedNamesRef.current : null;
+      const title =
+        loadedNames && driverName.trim() === loadedNames.driverName.trim()
+          ? loadedNames.title
+          : driverName.trim();
+
       const payload = {
-        title: driverName.trim(),
+        title,
         description: description.trim() || null,
         driver_name: driverName.trim(),
         vehicle_make: vehicleMake,
@@ -353,15 +374,25 @@ function CreateTransportPageInner() {
         await submitContentChange("service", editId, payload);
         router.push("/dashboard/transport");
       } else {
-        const { error: insertError } = await supabase.from("services").insert({
-          ...payload,
-          owner_id: user.id,
-          category: "transport",
-          status: "pending",
-        });
+        const { data: inserted, error: insertError } = await supabase
+          .from("services")
+          .insert({
+            ...payload,
+            owner_id: user.id,
+            category: "transport",
+            status: "pending",
+          })
+          .select("id")
+          .single();
 
         if (insertError) throw insertError;
-        router.push("/dashboard/transport");
+        if (!inserted) throw new Error(tShared("genericError"));
+        router.push(
+          ownershipVerificationUrl("service", inserted.id, {
+            created: true,
+            next: "/dashboard/transport",
+          }),
+        );
       }
     } catch (err) {
       setError(

@@ -29,6 +29,7 @@ type PublicService = Pick<
   | "is_super_vip"
   | "has_whatsapp"
   | "created_at"
+  | "ownership_verified"
 >;
 
 const CATEGORIES = [
@@ -226,6 +227,7 @@ export default function ServicesPageClient({ services }: Props) {
                     discountExpiresAt={s.discount_expires_at}
                     isVip={s.is_vip ?? false}
                     isSuperVip={s.is_super_vip ?? false}
+                    isOwnershipVerified={s.ownership_verified ?? false}
                     variant="avatar"
                     schedule={s.schedule}
                     operatingHours={s.operating_hours}

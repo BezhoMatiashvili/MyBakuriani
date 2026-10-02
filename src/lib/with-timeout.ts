@@ -143,6 +143,28 @@ export async function withRetry<T extends { error: unknown }>(
 }
 
 /**
+ * For `withRetry` around a lookup whose failure only costs a detail. Retries a
+ * failure that comes back FAST and may clear within a moment: no response at all
+ * (a network failure or a gateway page; postgrest-js gives those no `code`), the
+ * connection (08), serialization/deadlock (40), resource (53) and
+ * shutdown/startup (57P01-57P03) SQLSTATEs, and PostgREST's own connection
+ * errors (PGRST000-002).
+ *
+ * Never a SLOW failure: a `timeoutFetch` abort (it carries no `code` either), a
+ * statement timeout (57014) or a pool wait (PGRST003) has already spent the
+ * request budget (9.5 s on the server, kept under a 10 s cap), so a second try
+ * would double it. Never a definitive answer (a missing function, a denied or
+ * malformed request) either: it fails the same way again.
+ */
+export function isRetryableDbError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return true;
+  if (isTimeoutError(error)) return false;
+  const code = String((error as { code?: unknown }).code ?? "");
+  if (code === "57014" || code === "PGRST003") return false;
+  return code === "" || /^(?:08|40|53|57|PGRST00[0-2])/.test(code);
+}
+
+/**
  * `isAuthRetryableFetchError` only recognizes a fetch-level failure (network
  * death, our own `timeoutFetch` abort) or a 502/503/504 response — it misses
  * a plain 500, which is exactly what GoTrue returns when its own DB query is

@@ -21,6 +21,7 @@ import { formatPrice, formatNumber } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
+import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
@@ -277,6 +278,15 @@ export default function FoodDashboardClient({
             discountPercent={restaurant.discount_percent}
             discountExpiresAt={restaurant.discount_expires_at}
           />
+        )}
+        {restaurant && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <OwnershipStatusChip
+              kind="service"
+              id={restaurant.id}
+              blocked={restaurant.status === "blocked"}
+            />
+          </div>
         )}
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2 text-[13px] font-medium text-[#64748B]">

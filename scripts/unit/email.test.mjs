@@ -10,6 +10,10 @@ import { classifyResendResponse } from "../../src/lib/email/resend.ts";
 import { classifyContactResponse } from "../../src/lib/email/resend-contacts.ts";
 import { verifySvixSignature } from "../../src/lib/email/svix.ts";
 import { EMAIL_NOTIFICATION_TYPES } from "../../src/lib/email/types.ts";
+import {
+  DASHBOARD_SCOPE_LABEL_KA,
+  resolveNotificationPath,
+} from "../../src/lib/notifications/scopes.ts";
 
 test("user-written text is escaped in the HTML body and subject", () => {
   const out = renderNotificationEmail({
@@ -144,4 +148,51 @@ test("the email allow-list has no duplicates and leaves marketing out", () => {
     EMAIL_NOTIFICATION_TYPES.length,
   );
   assert.ok(!EMAIL_NOTIFICATION_TYPES.includes("broadcast"));
+});
+
+test("the cabinet line is above the body, escaped, only for a scoped notice", () => {
+  const base = {
+    subject: "ახალი შეტყობინება",
+    body: "ტექსტი",
+    href: null,
+    accountUrl: "https://x.ge/dashboard/account",
+  };
+  const scoped = renderNotificationEmail({
+    ...base,
+    cabinet: DASHBOARD_SCOPE_LABEL_KA.renter,
+  });
+  const line = `კაბინეტი: ${DASHBOARD_SCOPE_LABEL_KA.renter}`;
+  assert.ok(scoped.text.includes(line));
+  assert.ok(scoped.text.indexOf(line) < scoped.text.indexOf("ტექსტი"));
+  assert.ok(scoped.html.indexOf(line) < scoped.html.indexOf("ტექსტი"));
+  for (const none of [undefined, null, ""]) {
+    const out = renderNotificationEmail({ ...base, cabinet: none });
+    assert.ok(!out.text.includes("კაბინეტი"));
+    assert.ok(!out.html.includes("კაბინეტი"));
+  }
+  const evil = renderNotificationEmail({ ...base, cabinet: "<b>x</b>" });
+  assert.ok(!evil.html.includes("<b>x</b>"));
+});
+
+test("a bare /dashboard link goes to the notification's cabinet", () => {
+  assert.equal(
+    resolveNotificationPath("/dashboard", "seller"),
+    "/dashboard/seller",
+  );
+  assert.equal(
+    resolveNotificationPath("/dashboard/", "cleaner"),
+    "/dashboard/cleaner",
+  );
+  // no scope (global notice, or a claim from the old function): unchanged
+  assert.equal(resolveNotificationPath("/dashboard", null), "/dashboard");
+  assert.equal(resolveNotificationPath("/dashboard", undefined), "/dashboard");
+  // a specific link is never rewritten
+  assert.equal(
+    resolveNotificationPath("/dashboard/renter/calendar", "seller"),
+    "/dashboard/renter/calendar",
+  );
+});
+
+test("verification notices are emailed", () => {
+  assert.ok(EMAIL_NOTIFICATION_TYPES.includes("verification"));
 });

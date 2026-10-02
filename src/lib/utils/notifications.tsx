@@ -52,6 +52,7 @@ export function iconForType(type: string): NotificationIconKey {
     // Admin work queues: something is waiting on a moderator.
     case "admin_listing_pending":
     case "admin_content_change_pending":
+    case "admin_ownership_pending":
       return "warning";
     case "admin_sms_pending":
     case "admin_company_pending":

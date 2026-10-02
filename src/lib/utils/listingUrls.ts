@@ -79,6 +79,22 @@ export function serviceEditUrl(s: ServiceLike): string {
   return `${base}?edit=${s.id}`;
 }
 
+/**
+ * Owner page for ownership verification (C39) with one listing preselected.
+ * `created` marks the redirect right after a create form saved the listing;
+ * `next` is the cabinet the page's "later" button returns to (the page
+ * validates it before navigating).
+ */
+export function ownershipVerificationUrl(
+  kind: "property" | "service",
+  id: string,
+  opts?: { created?: boolean; next?: string },
+): string {
+  const created = opts?.created ? "&created=1" : "";
+  const next = opts?.next ? `&next=${encodeURIComponent(opts.next)}` : "";
+  return `/dashboard/account/ownership?listing=${kind}:${id}${created}${next}`;
+}
+
 // ---------------------------------------------------------------------------
 // Shared with the SEO/share layer. Both helpers below are deliberately pure and
 // free of `@/` imports so `scripts/unit/*.test.mjs` can import this module

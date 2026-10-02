@@ -156,6 +156,15 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
+    // The header bell lists every cabinet's notifications, so it spans several
+    // dashboards and gets its own project (serial: it shares one user's rows).
+    {
+      name: "multi-role-bell",
+      testMatch: /dashboards\/multi-role-bell\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+
     // Admin role tests
     {
       name: "admin",

@@ -969,6 +969,7 @@ export type Database = {
           claim_token: string | null;
           claimed_at: string | null;
           created_at: string;
+          dashboard_scope: string | null;
           id: string;
           last_error: string | null;
           next_attempt_at: string;
@@ -988,6 +989,7 @@ export type Database = {
           claim_token?: string | null;
           claimed_at?: string | null;
           created_at?: string;
+          dashboard_scope?: string | null;
           id?: string;
           last_error?: string | null;
           next_attempt_at?: string;
@@ -1007,6 +1009,7 @@ export type Database = {
           claim_token?: string | null;
           claimed_at?: string | null;
           created_at?: string;
+          dashboard_scope?: string | null;
           id?: string;
           last_error?: string | null;
           next_attempt_at?: string;
@@ -1977,6 +1980,182 @@ export type Database = {
             columns: ["owner_id"];
             isOneToOne: false;
             referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ownership_verification_documents: {
+        Row: {
+          byte_size: number;
+          content_type: string;
+          created_at: string;
+          discarded_at: string | null;
+          id: string;
+          kind: string;
+          owner_id: string | null;
+          purge_claimed_at: string | null;
+          purged_at: string | null;
+          storage_path: string;
+          upload_failed_at: string | null;
+        };
+        Insert: {
+          byte_size: number;
+          content_type: string;
+          created_at?: string;
+          discarded_at?: string | null;
+          id?: string;
+          kind: string;
+          owner_id?: string | null;
+          purge_claimed_at?: string | null;
+          purged_at?: string | null;
+          storage_path: string;
+          upload_failed_at?: string | null;
+        };
+        Update: {
+          byte_size?: number;
+          content_type?: string;
+          created_at?: string;
+          discarded_at?: string | null;
+          id?: string;
+          kind?: string;
+          owner_id?: string | null;
+          purge_claimed_at?: string | null;
+          purged_at?: string | null;
+          storage_path?: string;
+          upload_failed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ownership_verification_documents_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verification_documents_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ownership_verifications: {
+        Row: {
+          created_at: string;
+          decision_note: string | null;
+          id: string;
+          identity_document_id: string;
+          owner_id: string;
+          property_id: string | null;
+          registry_extract_document_id: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          service_id: string | null;
+          status: string;
+          submission_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          decision_note?: string | null;
+          id?: string;
+          identity_document_id: string;
+          owner_id: string;
+          property_id?: string | null;
+          registry_extract_document_id: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          service_id?: string | null;
+          status?: string;
+          submission_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          decision_note?: string | null;
+          id?: string;
+          identity_document_id?: string;
+          owner_id?: string;
+          property_id?: string | null;
+          registry_extract_document_id?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          service_id?: string | null;
+          status?: string;
+          submission_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ownership_verifications_identity_document_id_fkey";
+            columns: ["identity_document_id"];
+            isOneToOne: false;
+            referencedRelation: "ownership_verification_documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "public_properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_registry_extract_document_id_fkey";
+            columns: ["registry_extract_document_id"];
+            isOneToOne: false;
+            referencedRelation: "ownership_verification_documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "public_services";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ownership_verifications_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
             referencedColumns: ["id"];
           },
         ];
@@ -4084,6 +4263,7 @@ export type Database = {
           sent_at: string | null;
           source_booking_id: string | null;
           source_manual_booking_id: string | null;
+          source_notification_id: string | null;
           status: Database["public"]["Enums"]["sms_outbound_status"];
           submitted_at: string | null;
         };
@@ -4114,6 +4294,7 @@ export type Database = {
           sent_at?: string | null;
           source_booking_id?: string | null;
           source_manual_booking_id?: string | null;
+          source_notification_id?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
           submitted_at?: string | null;
         };
@@ -4144,6 +4325,7 @@ export type Database = {
           sent_at?: string | null;
           source_booking_id?: string | null;
           source_manual_booking_id?: string | null;
+          source_notification_id?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
           submitted_at?: string | null;
         };
@@ -4223,6 +4405,13 @@ export type Database = {
             columns: ["source_manual_booking_id"];
             isOneToOne: false;
             referencedRelation: "manual_bookings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_outbound_source_notification_id_fkey";
+            columns: ["source_notification_id"];
+            isOneToOne: false;
+            referencedRelation: "notifications";
             referencedColumns: ["id"];
           },
         ];
@@ -4638,6 +4827,7 @@ export type Database = {
           organization_id: string | null;
           organization_logo_url: string | null;
           organization_verified_at: string | null;
+          ownership_verified: boolean | null;
           photos: string[] | null;
           price_per_night: number | null;
           profile_avatar_url: string | null;
@@ -4776,6 +4966,7 @@ export type Database = {
           menu_url: string | null;
           menu_views_count: number | null;
           operating_hours: string | null;
+          ownership_verified: boolean | null;
           photos: string[] | null;
           position: string | null;
           price: number | null;
@@ -4841,6 +5032,16 @@ export type Database = {
           p_type: string;
         };
         Returns: number;
+      };
+      _notify_ownership_owner: {
+        Args: {
+          p_message: string;
+          p_owner_id: string;
+          p_property_id: string;
+          p_service_id: string;
+          p_title: string;
+        };
+        Returns: undefined;
       };
       add_renter_guest_to_blacklist: {
         Args: { p_name: string; p_note?: string; p_phone?: string };
@@ -4925,6 +5126,13 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      claim_ownership_documents_for_purge: {
+        Args: { p_limit?: number; p_owner_id?: string };
+        Returns: {
+          id: string;
+          storage_path: string;
+        }[];
       };
       consume_rate_limit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
@@ -5128,6 +5336,10 @@ export type Database = {
         Returns: string;
       };
       dashboard_scope_for_path: { Args: { p_path: string }; Returns: string };
+      discard_ownership_document: {
+        Args: { p_document_id: string; p_owner_id: string };
+        Returns: boolean;
+      };
       email_claim_batch: {
         Args: {
           p_claim_token: string;
@@ -5138,6 +5350,7 @@ export type Database = {
           action_url: string;
           attempts: number;
           body: string;
+          dashboard_scope: string;
           id: string;
           notification_type: string;
           subject: string;
@@ -5193,6 +5406,27 @@ export type Database = {
           cleaner_avatar_url: string;
           cleaner_name: string;
           phone: string;
+          task_id: string;
+          whatsapp: string;
+        }[];
+      };
+      get_my_cleaning_task_owner_details: {
+        Args: never;
+        Returns: {
+          owner_avatar_url: string;
+          owner_name: string;
+          phone: string;
+          property_area_sqm: number;
+          property_bathrooms: number;
+          property_id: string;
+          property_is_active: boolean;
+          property_is_for_sale: boolean;
+          property_lat: number;
+          property_lng: number;
+          property_location: string;
+          property_rooms: number;
+          property_title: string;
+          property_type: string;
           task_id: string;
           whatsapp: string;
         }[];
@@ -5336,6 +5570,7 @@ export type Database = {
           views_total: number;
         }[];
       };
+      ownership_contract_snapshot: { Args: never; Returns: Json };
       photos_are_storage_urls: { Args: { p: string[] }; Returns: boolean };
       platform_revenue: {
         Args: { p_since?: string; p_until?: string };
@@ -5481,6 +5716,15 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      review_ownership_verification: {
+        Args: {
+          p_action: string;
+          p_admin_id: string;
+          p_note?: string;
+          p_verification_id: string;
+        };
+        Returns: Json;
       };
       review_renter_membership: {
         Args: {
@@ -5701,6 +5945,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      sms_notification_types: { Args: never; Returns: string[] };
       sms_patch_automation_rules: {
         Args: { p_patch: Json; p_sender_id: string };
         Returns: {
@@ -5801,6 +6046,14 @@ export type Database = {
           p_package_id: string;
           p_quantity?: number;
           p_requester_id: string;
+        };
+        Returns: Json;
+      };
+      submit_ownership_verifications: {
+        Args: {
+          p_identity_document_id: string;
+          p_items: Json;
+          p_owner_id: string;
         };
         Returns: Json;
       };

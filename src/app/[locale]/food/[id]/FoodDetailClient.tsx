@@ -17,6 +17,7 @@ import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import type { PublicMenuItem } from "@/lib/data/getCachedPublicListing";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
   FOOD_AMENITIES,
   optionKeyFor,
@@ -26,7 +27,10 @@ import BannerSlot from "@/components/banners/BannerSlot";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 
 interface Props {
-  service: ServiceWithFoodExtras;
+  service: ServiceWithFoodExtras & {
+    /** Ownership badge (C39); absent on base-table preview reads. */
+    ownership_verified?: boolean;
+  };
   menuItems: PublicMenuItem[];
   isMock?: boolean;
   isPending?: boolean;
@@ -181,6 +185,9 @@ export default function FoodDetailClient({
                 {tShared("views", { count: views })}
               </span>
             </div>
+            {service.ownership_verified === true && (
+              <OwnershipVerifiedBadge variant="detail" className="mt-3" />
+            )}
           </div>
 
           {service.description && (

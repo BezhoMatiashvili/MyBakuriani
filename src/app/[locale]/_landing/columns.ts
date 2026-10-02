@@ -13,17 +13,17 @@ import type { Tables } from "@/lib/types/database";
 // lacks (the override layer types views as their base table), so every name
 // here must exist in public_properties / public_services / blog_posts.
 export const LANDING_RENTAL_COLUMNS =
-  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng";
+  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, ownership_verified";
 export const LANDING_HOTEL_COLUMNS =
-  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, hotel_stars, numeric_rating, is_b2b_partner, room_type";
+  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, hotel_stars, numeric_rating, is_b2b_partner, room_type, ownership_verified";
 export const LANDING_SALE_COLUMNS =
-  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, type, area_sqm, construction_status, construction_progress_percent, house_rules";
+  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, type, area_sqm, construction_status, construction_progress_percent, house_rules, ownership_verified";
 export const LANDING_SERVICE_COLUMNS =
-  "id, title, category, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range";
+  "id, title, category, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range, ownership_verified";
 export const LANDING_BLOG_COLUMNS =
   "id, title, excerpt, image_url, published_at, created_at";
 
-type PropertyRow = Tables<"properties">;
+type PropertyRow = Tables<"public_properties">;
 
 export type LandingProperty = Pick<
   PropertyRow,
@@ -44,6 +44,7 @@ export type LandingProperty = Pick<
   | "distance_to_slope_m"
   | "location_lat"
   | "location_lng"
+  | "ownership_verified"
 >;
 
 export type LandingHotel = LandingProperty &
@@ -87,6 +88,7 @@ export type LandingService = Pick<
   | "salary_max"
   | "salary_daily"
   | "salary_range"
+  | "ownership_verified"
 >;
 
 export type LandingBlogPost = Pick<

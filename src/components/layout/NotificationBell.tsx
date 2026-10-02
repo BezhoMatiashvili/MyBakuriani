@@ -15,6 +15,11 @@ import Modal from "@/components/shared/Modal";
 import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
 import { formatRelativeTime } from "@/lib/i18n/relativeTime";
 import { safeInternalPath } from "@/lib/security";
+import {
+  notificationScopeLabelKey,
+  resolveNotificationPath,
+  unreadFirst,
+} from "@/lib/notifications/scopes";
 import type { Database } from "@/lib/types/database";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
@@ -26,11 +31,13 @@ interface NotificationBellProps {
   markAsRead: (id: string) => Promise<void>;
   /** Bulk read. Supplied by useNotifications, which owns the user_id predicate. */
   markAllRead: () => Promise<void>;
-  /** Omit for roles without a dedicated notifications page (hides the footer link). */
+  /** The aggregate inbox; omit to hide the footer link. */
   viewAllPath?: string;
   variant?: "desktop" | "mobile";
   /** Overrides the variant trigger styling (e.g. dashboard topbar buttons). */
   triggerClassName?: string;
+  /** Test hook: put on the trigger; the badge and popover get `<testId>-badge` / `<testId>-popover`. */
+  testId?: string;
 }
 
 export function NotificationBell({
@@ -42,13 +49,16 @@ export function NotificationBell({
   viewAllPath,
   variant = "desktop",
   triggerClassName,
+  testId,
 }: NotificationBellProps) {
   const t = useTranslations("Navbar");
   const tShared = useTranslations("DashboardShared");
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Notification | null>(null);
   const [mounted, setMounted] = useState(false);
-  const items = notifications.slice(0, 8);
+  // Unread first: the badge counts every unread row, so an old one must not sit
+  // below eight newer read ones. "View all" reaches the rest.
+  const items = unreadFirst(notifications).slice(0, 8);
   const badge = unreadCount > 9 ? "9+" : String(unreadCount);
   const isMobile = variant === "mobile";
 
@@ -66,6 +76,7 @@ export function NotificationBell({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
+          data-testid={testId}
           aria-label={t("notificationsAria", { count: unreadCount })}
           className={
             triggerClassName ??
@@ -77,6 +88,7 @@ export function NotificationBell({
           <Bell className="size-5" aria-hidden />
           {unreadCount > 0 && (
             <span
+              data-testid={testId ? `${testId}-badge` : undefined}
               aria-hidden
               className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_white]"
             >
@@ -85,6 +97,7 @@ export function NotificationBell({
           )}
         </PopoverTrigger>
         <PopoverContent
+          data-testid={testId ? `${testId}-popover` : undefined}
           align="end"
           sideOffset={isMobile ? 10 : 8}
           className={
@@ -158,6 +171,14 @@ export function NotificationBell({
                       />
                     </div>
                     <div className="min-w-0 flex-1">
+                      <span
+                        data-testid="notification-scope-label"
+                        className="mb-1 inline-block max-w-full truncate rounded-full bg-[#EFF6FF] px-2 py-0.5 align-top text-[10px] font-bold leading-4 text-[#2563EB]"
+                      >
+                        {t(
+                          `scopeLabels.${notificationScopeLabelKey(item.dashboard_scope)}`,
+                        )}
+                      </span>
                       <p
                         className={`${isMobile ? "line-clamp-2 pr-1 text-[13px] leading-[19px]" : "truncate text-[13px]"} font-bold text-[#0F172A]`}
                       >
@@ -222,6 +243,14 @@ export function NotificationBell({
               {(() => {
                 const style = ICON_STYLES[iconForType(selected.type)];
                 const IconCmp = style.Icon;
+                // A bare /dashboard link would land on the viewer's primary
+                // cabinet; the notification's own scope names the right one.
+                const actionPath = safeInternalPath(
+                  resolveNotificationPath(
+                    selected.action_url,
+                    selected.dashboard_scope,
+                  ),
+                );
                 return (
                   <div className="flex flex-col gap-4">
                     <div className="flex items-start gap-3">
@@ -235,6 +264,14 @@ export function NotificationBell({
                         />
                       </div>
                       <div className="min-w-0 flex-1">
+                        <span
+                          data-testid="notification-scope-label"
+                          className="mb-1 inline-block max-w-full truncate rounded-full bg-[#EFF6FF] px-2 py-0.5 align-top text-[10px] font-bold leading-4 text-[#2563EB]"
+                        >
+                          {t(
+                            `scopeLabels.${notificationScopeLabelKey(selected.dashboard_scope)}`,
+                          )}
+                        </span>
                         <p className="text-[15px] font-bold text-[#0F172A]">
                           {selected.title}
                         </p>
@@ -248,9 +285,9 @@ export function NotificationBell({
                         {selected.message}
                       </p>
                     )}
-                    {safeInternalPath(selected.action_url) && (
+                    {actionPath && (
                       <Link
-                        href={safeInternalPath(selected.action_url)! as never}
+                        href={actionPath as never}
                         onClick={() => setSelected(null)}
                         className="inline-flex items-center justify-center rounded-xl bg-[#2563EB] px-5 py-2.5 text-[13px] font-bold text-white hover:bg-[#1D4ED8]"
                       >

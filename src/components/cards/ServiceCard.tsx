@@ -27,6 +27,7 @@ import {
   ListingAgeBadge,
   NewlyAddedBadge,
 } from "@/components/shared/ListingRecency";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 
 interface ServiceCardProps {
   id: string;
@@ -61,6 +62,8 @@ interface ServiceCardProps {
   description?: string | null;
   mobilePresentation?: "default" | "compact-grid";
   createdAt: string | null;
+  /** `public_services.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 const categoryRouteMap: Record<string, string> = {
@@ -102,6 +105,7 @@ export default function ServiceCard({
   description,
   mobilePresentation = "default",
   createdAt,
+  isOwnershipVerified = false,
 }: ServiceCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const isFood = category === "food";
@@ -275,6 +279,15 @@ export default function ServiceCard({
               )
             ) : (
               <span />
+            )}
+            {/* h-5 like the age chip, so the row keeps its height. The hours
+                text gives way first; the pill's label truncates only once
+                the hours are gone (a 2- or 3-column grid at sm or lg). */}
+            {isOwnershipVerified && (
+              <OwnershipVerifiedBadge
+                variant="card"
+                className="ml-auto min-w-0 shrink-[0.01]"
+              />
             )}
             <ListingAgeBadge
               createdAt={createdAt}
@@ -560,6 +573,9 @@ export default function ServiceCard({
             className={cn(
               "absolute flex flex-col items-start gap-1",
               compactGrid ? "bottom-2 left-2" : "bottom-3 left-3",
+              compactGrid &&
+                isOwnershipVerified &&
+                "max-w-[calc(100%-2.75rem)]",
             )}
           >
             <NewlyAddedBadge
@@ -581,6 +597,29 @@ export default function ServiceCard({
               </Badge>
             )}
           </div>
+          {/* Bottom-right; the 2-column food grid shows only the icon on
+              phones. A narrow card cannot fit the full badge beside the
+              bottom-left stack, so it sits above the stack's chips: always
+              above the category chip, and above a "new" chip when one shows. */}
+          {isOwnershipVerified && compactGrid && (
+            <OwnershipVerifiedBadge
+              variant="icon"
+              className="absolute bottom-2 right-2 sm:hidden"
+            />
+          )}
+          {isOwnershipVerified && (
+            <OwnershipVerifiedBadge
+              variant="card"
+              className={cn(
+                "absolute",
+                compactGrid
+                  ? "bottom-2 right-2 hidden sm:inline-flex [:has([data-newly-added])~&]:bottom-9"
+                  : !isFood && !isTransport
+                    ? "bottom-11 right-3 [:has([data-newly-added])~&]:bottom-16"
+                    : "bottom-3 right-3 [:has([data-newly-added])~&]:bottom-10",
+              )}
+            />
+          )}
         </div>
         <div
           className={cn(

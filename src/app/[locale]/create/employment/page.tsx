@@ -15,6 +15,7 @@ import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { cn } from "@/lib/utils";
+import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -344,15 +345,25 @@ function CreateEmploymentPageInner() {
         await submitContentChange("service", editId, payload);
         router.push("/dashboard/employment");
       } else {
-        const { error: insertError } = await supabase.from("services").insert({
-          ...payload,
-          owner_id: user.id,
-          category: "employment",
-          status: "pending",
-        });
+        const { data: inserted, error: insertError } = await supabase
+          .from("services")
+          .insert({
+            ...payload,
+            owner_id: user.id,
+            category: "employment",
+            status: "pending",
+          })
+          .select("id")
+          .single();
 
         if (insertError) throw insertError;
-        router.push("/dashboard/employment");
+        if (!inserted) throw new Error(tShared("genericError"));
+        router.push(
+          ownershipVerificationUrl("service", inserted.id, {
+            created: true,
+            next: "/dashboard/employment",
+          }),
+        );
       }
     } catch (err) {
       setError(
