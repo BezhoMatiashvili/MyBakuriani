@@ -1134,7 +1134,7 @@ test.describe("Ownership verification", () => {
   });
 
   test("the purge route deletes abandoned uploads and answers only the cron", async () => {
-    test.skip(!PURGE_SECRET, "E2E_OWNERSHIP_PURGE_SECRET is not set");
+    test.skip(!PURGE_SECRET, "set E2E_OWNERSHIP_PURGE_SECRET to run this test");
     const abandoned = await uploadedId(
       ownerContext.request,
       "registry_extract",
