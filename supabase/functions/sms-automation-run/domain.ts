@@ -2,8 +2,10 @@ export type AutomationKind = "check_in" | "review_request" | "win_back";
 
 // Spec-mandated texts. This module is the single template source of truth.
 export const TEMPLATES = {
+  // One line per optional value: buildCheckIn drops a line whose value is
+  // missing. Every URL ends its own line, so nothing is glued to it.
   check_in:
-    "გამარჯობა [Guest_Name]. გელოდებით ხვალ [Check_In_Time]-დან. ლოკაცია: [Map_Link]. დეტალებისთვის: [Host_Phone]. კარგ დასვენებას გისურვებთ!",
+    "გამარჯობა, [Guest_Name]! გელოდებით ხვალ, [Check_In_Time] საათიდან — [Property_Name].\n🔗 [Listing_Link]\n📍 [Map_Link]\n☎️ [Host_Phone]\nკარგ დასვენებას გისურვებთ!",
   review_request:
     "[Guest_Name], მადლობა სტუმრობისთვის! მოხარული ვიქნებით თუ შეაფასებთ ჩვენს ბინას აქ: [Property_Review_Link]. თქვენი აზრი ჩვენთვის მნიშვნელოვანია! - MyBakuriani.ge",
   win_back:
@@ -18,6 +20,9 @@ export const TEMPLATES = {
 
 const GUEST_NAME_FALLBACK = "ძვირფასო სტუმარო";
 const GUEST_NAME_MAX = 40;
+// sms_enqueue_automation cuts a message at 320 characters, which would drop the
+// phone and the sign-off, so the owner-typed title is kept short.
+const PROPERTY_TITLE_MAX = 40;
 
 export interface Rule {
   user_id: string;
@@ -38,6 +43,8 @@ export interface PropertyRef {
   location_lng: number | null;
   phone: string | null;
   check_in_time: string | null;
+  title: string | null;
+  status: string | null;
 }
 
 export interface Candidate {
@@ -85,24 +92,53 @@ function clampName(name: string | null): string {
     : trimmed;
 }
 
-export function buildCheckIn(c: Candidate, rule: Rule): string {
+/** The property's name as one line: owner-typed, so no line breaks, and short. */
+function clampPropertyTitle(title: string | null): string {
+  const oneLine = (title ?? "").replace(/[\p{Cc}\s]+/gu, " ").trim();
+  return Array.from(oneLine).slice(0, PROPERTY_TITLE_MAX).join("").trim();
+}
+
+export function buildCheckIn(
+  c: Candidate,
+  rule: Rule,
+  siteUrl: string,
+): string {
   const p = c.property;
   const time = (p?.check_in_time ?? "14:00").slice(0, 5);
+  const title = clampPropertyTitle(p?.title ?? null);
+  // Detail pages serve active listings only, so any other status gets no link.
+  const listingLink = p && p.status === "active"
+    ? `${siteUrl}${propertyViewPath(p)}`
+    : null;
   const mapLink = p && p.location_lat != null && p.location_lng != null
     ? `https://maps.google.com/?q=${p.location_lat},${p.location_lng}`
     : null;
   const hostPhone = p?.phone ?? rule.owner_phone ?? null;
 
-  let message = TEMPLATES.check_in
-    .replace("[Guest_Name]", clampName(c.guest_name))
-    .replace("[Check_In_Time]", time);
-  message = mapLink
-    ? message.replace("[Map_Link]", mapLink)
-    : message.replace(" ლოკაცია: [Map_Link].", "");
-  message = hostPhone
-    ? message.replace("[Host_Phone]", hostPhone)
-    : message.replace(" დეტალებისთვის: [Host_Phone].", "");
-  return message;
+  const values: Record<string, string | null> = {
+    Guest_Name: clampName(c.guest_name),
+    Check_In_Time: time,
+    Property_Name: title,
+    Listing_Link: listingLink,
+    Map_Link: mapLink,
+    Host_Phone: hostPhone,
+  };
+  const template = title
+    ? TEMPLATES.check_in
+    : TEMPLATES.check_in.replace(" — [Property_Name]", "");
+  // Single pass, so a value is never re-read as a placeholder or as a `$` pattern.
+  return template
+    .split("\n")
+    .flatMap((line) => {
+      let missing = false;
+      const filled = line.replace(/\[(\w+)\]/g, (_, key: string) => {
+        const value = values[key];
+        if (!value) missing = true;
+        return value ?? "";
+      });
+      return missing ? [] : [filled];
+    })
+    .join("\n");
 }
 
 export function buildReviewRequest(

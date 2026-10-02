@@ -101,7 +101,7 @@ type SbClient = ReturnType<typeof createServiceClient>;
 // string would filter the TOP-LEVEL table and silently do nothing useful here.
 const RENTAL_ONLY = "is_for_sale.eq.false,is_for_sale.is.null";
 const PROPERTY_EMBED =
-  "property:property_id!inner(id, type, is_for_sale, location_lat, location_lng, phone, check_in_time)";
+  "property:property_id!inner(id, type, is_for_sale, location_lat, location_lng, phone, check_in_time, title, status)";
 
 function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
@@ -323,7 +323,7 @@ serve(async (req: Request) => {
           })
         ) {
           if (!reachable(c, false)) continue;
-          await enqueue("check_in", c, buildCheckIn(c, rule));
+          await enqueue("check_in", c, buildCheckIn(c, rule, siteUrl));
         }
         for (
           const c of await scanManual(db, {
@@ -333,7 +333,7 @@ serve(async (req: Request) => {
           })
         ) {
           if (!reachable(c, false)) continue;
-          await enqueue("check_in", c, buildCheckIn(c, rule));
+          await enqueue("check_in", c, buildCheckIn(c, rule, siteUrl));
         }
       }
 

@@ -40,8 +40,12 @@ const candidate: Candidate = {
     location_lng: 43.53,
     phone: null,
     check_in_time: "15:30:00",
+    title: "ნინოს ბინა",
+    status: "active",
   },
 };
+
+const SITE = "https://mybakuriani.ge";
 
 Deno.test("canonical Georgian phone rejects extra legacy digits", () => {
   assertEquals(toCanonicalGePhone("555 111 111"), "+995555111111");
@@ -68,10 +72,123 @@ Deno.test("check-in text uses fallback name and drops unavailable clauses", () =
       },
     },
     { ...rule, owner_phone: null },
+    SITE,
   );
   assertStringIncludes(message, "ძვირფასო სტუმარო");
-  assertFalse(message.includes("[Map_Link]"));
-  assertFalse(message.includes("[Host_Phone]"));
+  assertFalse(/\[[A-Za-z_]+\]/.test(message));
+  assertFalse(message.includes("📍"));
+  assertFalse(message.includes("☎️"));
+});
+
+Deno.test("check-in text names the property and links its listing", () => {
+  const message = buildCheckIn(
+    {
+      ...candidate,
+      guest_name: "ილო",
+      property: candidate.property && {
+        ...candidate.property,
+        type: "studio",
+        location_lat: 41.666867,
+        location_lng: 44.751657,
+        phone: "+995577350909",
+        check_in_time: "14:00:00",
+        title: "საუკეთესო ბინა ჯიგრულ ფასად",
+      },
+    },
+    rule,
+    "https://staging.mybakuriani.ge",
+  );
+  assertEquals(
+    message,
+    "გამარჯობა, ილო! გელოდებით ხვალ, 14:00 საათიდან — საუკეთესო ბინა ჯიგრულ ფასად.\n" +
+      "🔗 https://staging.mybakuriani.ge/apartments/property-id\n" +
+      "📍 https://maps.google.com/?q=41.666867,44.751657\n" +
+      "☎️ +995577350909\n" +
+      "კარგ დასვენებას გისურვებთ!",
+  );
+});
+
+Deno.test("check-in text links a hotel under /hotels", () => {
+  const message = buildCheckIn(
+    {
+      ...candidate,
+      property: candidate.property && { ...candidate.property, type: "hotel" },
+    },
+    rule,
+    SITE,
+  );
+  assertStringIncludes(message, `🔗 ${SITE}/hotels/property-id\n`);
+});
+
+Deno.test("check-in text has no link for a listing that is not active", () => {
+  for (const status of ["draft", "blocked", null]) {
+    const message = buildCheckIn(
+      {
+        ...candidate,
+        property: candidate.property && { ...candidate.property, status },
+      },
+      rule,
+      SITE,
+    );
+    assertFalse(message.includes("🔗"));
+    assertFalse(message.includes("/apartments/"));
+    assertStringIncludes(message, "ნინოს ბინა");
+  }
+});
+
+Deno.test("check-in text drops the name clause when the title is blank", () => {
+  const message = buildCheckIn(
+    {
+      ...candidate,
+      property: candidate.property && { ...candidate.property, title: " \n " },
+    },
+    rule,
+    SITE,
+  );
+  assertStringIncludes(message, "15:30 საათიდან.\n");
+  assertFalse(message.includes("—"));
+});
+
+Deno.test("check-in text keeps an owner-typed title on one line, verbatim", () => {
+  const message = buildCheckIn(
+    {
+      ...candidate,
+      property: candidate.property && {
+        ...candidate.property,
+        title: "ბინა\n📍 evil.ge $& [Map_Link]\u2028x",
+      },
+    },
+    rule,
+    SITE,
+  );
+  const lines = message.split("\n");
+  assertEquals(lines.length, 5);
+  assertStringIncludes(
+    lines[0],
+    "— ბინა 📍 evil.ge $& [Map_Link] x.",
+  );
+  assertEquals(lines[2], "📍 https://maps.google.com/?q=41.75,43.53");
+});
+
+Deno.test("check-in text stays within the 320-character column", () => {
+  const message = buildCheckIn(
+    {
+      ...candidate,
+      guest_name: "ა".repeat(100),
+      property: candidate.property && {
+        ...candidate.property,
+        type: "hotel",
+        location_lat: 41.123456789012345,
+        location_lng: 44.123456789012345,
+        phone: "+995 577 350 909 / +995 599 000 000",
+        title: "ბ".repeat(100),
+      },
+    },
+    rule,
+    "https://staging.mybakuriani.ge",
+  );
+  assertEquals(message.length <= 320, true);
+  assertStringIncludes(message, "კარგ დასვენებას გისურვებთ!");
 });
 
 Deno.test("review and win-back links use the canonical routes", () => {
