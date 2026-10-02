@@ -1,0 +1,4 @@
+# gitleaks false positives, one fingerprint each (commit:file:rule:line).
+# generic-api-key matched the e2e skip message that NAMES the env var
+# E2E_OWNERSHIP_PURGE_SECRET; the line holds no secret value.
+5b83d844a827e9cfaf3a72978ca4a0a20c1b87c4:e2e/cross-role/ownership-verification.spec.ts:generic-api-key:1137

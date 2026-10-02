@@ -262,11 +262,14 @@ for (const [table, values, name] of [
 // dispatcher are scheduled separately, once their Vault entries exist (20260925150200,
 // 20260925160100), and without them lost Keepz callbacks are never credited (C32) and queued
 // email is cancelled (C33) while every other check still passes. The two retention jobs
-// (20260927091000, C37) prune cron run history and strip personal data after 90 days.
+// (20260927091000, C37) prune cron run history and strip personal data after 90 days. The
+// ownership-document purge (20261001200200, C39) deletes ID scans and registry extracts no
+// pending request needs and bounds abandoned uploads.
 {
   const expected = [
     "rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly",
     "keepz-reconcile-10min", "email-dispatch-5min", "cron-history-gc", "pii-retention-daily",
+    "ownership-document-purge-hourly",
   ];
   const present = snapshot.cron_jobs.filter((j) => j.active).map((j) => j.name);
   const missing = onlyIn(expected, present);
